@@ -1,0 +1,3 @@
+# lifeweb
+
+CA simulation library.
