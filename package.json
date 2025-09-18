@@ -1,0 +1,13 @@
+{
+    "name": "lifeweb",
+    "version": "0.1.0",
+    "description": "Cellular automata simulation library",
+    "license": "MIT",
+    "author": "speedydelete",
+    "main": "lib/index.js",
+    "type": "module",
+    "files": ["src", "lib"],
+    "devDependencies": {
+        "typescript": "^5.9.2"
+    }
+}
