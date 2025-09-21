@@ -153,6 +153,7 @@ export function runLife(p: Pattern): void {
     }
     p.height = height;
     p.width = width;
+    p.size = size;
     p.data = out;
     p.xOffset -= expandLeft;
     p.yOffset -= expandUp;

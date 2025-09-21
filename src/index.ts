@@ -1,9 +1,10 @@
 
+import {Pattern, Runner, RuleError, RLE_CHARS} from './pattern.js';
 import {runLife} from './life.js';
 import {parseMAPRule} from './mapparse.js';
+import {parseHROTRule} from './hrotparse.js';
 
-import {Pattern, Runner, RLE_CHARS} from './pattern.js';
-export {Pattern} from './pattern.js';
+export {Pattern, RuleError} from './pattern.js';
 
 
 declare global {
@@ -43,30 +44,54 @@ function parseRule(rule: string): {func: Runner, extra?: Uint8Array, states: num
     if (rule === 'B3/S23' || rule === 'b3s23') {
         return {func: runLife, states: 2, isotropic: true};
     }
-    let func: Runner;
-    let extra: Uint8Array | undefined = undefined;
-    let states: number;
-    let isotropic: boolean;
+    let errors: RuleError[] = [];
     let data: ReturnType<typeof parseMAPRule>;
-    if (typeof (data = parseMAPRule(rule)) === 'object') {
-        return data;
-    } else if (typeof data === 'string') {
-        rule = data;
+    try {
+        data = parseMAPRule(rule);
+        if (typeof data === 'object') {
+            return data;
+        } else {
+            rule = data;
+        }
+    } catch (error) {
+        if (error instanceof RuleError) {
+            errors.push(error);
+        } else {
+            throw error;
+        }
     }
     if (rule.startsWith('R')) {
-        throw new Error('HROT is not supported');
-    } else if (rule.includes('|')) {
+        try {
+            data = parseHROTRule(rule);
+            if (typeof data === 'object') {
+                return data;
+            } else {
+                rule = data;
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.includes('|')) {
         let data = rule.split('|').map(parseRule);
-        states = Math.max(...data.map(x => x.states));
-        isotropic = data.every(x => x.isotropic);
-        func = function(p: Pattern) {
+        let states = Math.max(...data.map(x => x.states));
+        let isotropic = data.every(x => x.isotropic);
+        function func(p: Pattern) {
             let {func, extra} = data[p.generation % data.length];
             func(p, extra);
         };
+        return {func, states, isotropic};
     } else {
-        throw new Error(`Invalid rule: '${rule}'`);
+        let msg = `Invalid rule: '${rule}'`;
+        for (let error of errors) {
+            msg += '\n' + error;
+        }
+        throw new RuleError(msg);
     }
-    return {func, extra, states, isotropic};
 }
 
 

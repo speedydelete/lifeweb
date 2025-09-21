@@ -1,5 +1,5 @@
 
-import {Pattern} from '../pattern.js';
+import {Pattern} from './pattern.js';
 
 
 const B1C_NW = 256;
@@ -172,6 +172,7 @@ export function runMAP(p: Pattern, trs?: Uint8Array): void {
     }
     p.height = height;
     p.width = width;
+    p.size = size;
     p.data = out;
     p.xOffset -= expandLeft;
     p.yOffset -= expandUp;

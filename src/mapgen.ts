@@ -1,5 +1,5 @@
 
-import {Pattern} from '../pattern.js';
+import {Pattern} from './pattern.js';
 
 
 const B1C_NW = 256;
@@ -16,6 +16,7 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
     let width = p.width;
     let size = p.size;
     let data = p.data.map(x => x === 1 ? 1 : 0);
+    let noCheck = p.data.map(x => x > 1 ? 1 : 0);
     let lastRow = size - width;
     let expandUp = 0;
     let expandDown = 0;
@@ -61,10 +62,10 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
     if (b1cne || b1cse) {
         expandRight = 1;
     }
-    height += expandUp + expandDown;
-    width += expandLeft + expandRight;
-    size = height * width;
-    lastRow = size - width;
+    // height += expandUp + expandDown;
+    // width += expandLeft + expandRight;
+    // size = height * width;
+    // lastRow = size - width;
     let oX = expandLeft + expandRight;
     let oY = expandUp ? width : 0;
     let oStart = oY + expandLeft;
@@ -92,30 +93,30 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
         }
     }
     // top-left cell
-    if (trs[(data[0] << 4) | (data[1] << 3) | (data[width] << 1) | data[width + 1]]) {
-        out[oStart] = 1;
-    } else if (p.data[0]) {
+    if (noCheck[0]) {
         out[oStart] = (p.data[0] + 1) % p.states;
+    } else if (trs[(data[0] << 4) | (data[1] << 3) | (data[width] << 1) | data[width + 1]]) {
+        out[oStart] = 1;
     }
     // top-right cell
     let width2 = width << 1;
-    if (trs[(data[width - 2] << 5) | (data[width - 1] << 4) | (data[width2 - 2] << 2) | (data[width2 - 1] << 1)]) {
-        out[oStart + oX + width - 1] = 1;
-    } else if (p.data[width - 1]) {
+    if (noCheck[width - 1]) {
         out[oStart + oX + width - 1] = (p.data[width - 1] + 1) % p.states;
+    } else if (trs[(data[width - 2] << 5) | (data[width - 1] << 4) | (data[width2 - 2] << 2) | (data[width2 - 1] << 1)]) {
+        out[oStart + oX + width - 1] = 1;
     }
     // bottom-left cell
     let secondLastRow = size - width2;
-    if (trs[(data[secondLastRow] << 7) | (data[secondLastRow + 1] << 6) | (data[lastRow] << 4) | (data[lastRow + 1] << 3)]) {
-        out[oLast + lastRow] = 1;
-    } else if (p.data[lastRow]) {
+    if (noCheck[lastRow]) {
         out[oLast + lastRow] = (p.data[lastRow] + 1) % p.states;
-    }
+    } else if (trs[(data[secondLastRow] << 7) | (data[secondLastRow + 1] << 6) | (data[lastRow] << 4) | (data[lastRow + 1] << 3)]) {
+        out[oLast + lastRow] = 1;
+    } 
     // bottom-right cell
-    if (trs[(data[lastRow - 2] << 8) | (data[lastRow - 1] << 7) + (data[size - 2] << 5) + (data[size - 1] << 4)]) {
-        out[oSize - 1] = 1;
-    } else if (p.data[0]) {
+    if (noCheck[size - 1]) {
         out[oSize - 1] = (p.data[size - 1] + 1) % p.states;
+    } else if (trs[(data[lastRow - 2] << 8) | (data[lastRow - 1] << 7) + (data[size - 2] << 5) + (data[size - 1] << 4)]) {
+        out[oSize - 1] = 1;
     }
     // top and bottom rows
     let loc1 = oStart;
@@ -129,15 +130,15 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
         jmw++;
         loc1++;
         loc2++;
-        if (trs[(data[i - 1] << 5) | (data[i] << 4) | (data[i + 1] << 3) | (data[ipw - 1] << 2) | (data[ipw] << 1) | data[ipw + 1]]) {
-            out[loc1] = 1;
-        } else if (p.data[i]) {
+        if (noCheck[i]) {
             out[loc1] = (p.data[i] + 1) % p.states;
+        } else if (trs[(data[i - 1] << 5) | (data[i] << 4) | (data[i + 1] << 3) | (data[ipw - 1] << 2) | (data[ipw] << 1) | data[ipw + 1]]) {
+            out[loc1] = 1;
         }
-        if (trs[(data[jmw - 1] << 8) | (data[jmw] << 7) | (data[jmw + 1] << 6) | (data[j - 1] << 5) | (data[j] << 4) | (data[j + 1] << 3)]) {
-            out[loc2] = 1;
-        } else if (p.data[j]) {
+        if (noCheck[j]) {
             out[loc2] = (p.data[j] + 1) % p.states;
+        } else if (trs[(data[jmw - 1] << 8) | (data[jmw] << 7) | (data[jmw + 1] << 6) | (data[j - 1] << 5) | (data[j] << 4) | (data[j + 1] << 3)]) {
+            out[loc2] = 1;
         }
     }
     // left and right columns
@@ -152,15 +153,15 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
         imw++;
         ipw++;
         ipw2++;
-        if (trs[(data[imw] << 7) | (data[imw + 1] << 6) | (data[i] << 4) | (data[i + 1] << 3) | (data[ipw] << 1) | data[ipw + 1]]) {
-            out[loc1] = 1;
-        } else if (p.data[i]) {
+        if (noCheck[i]) {
             out[loc1] = (p.data[i] + 1) % p.states;
+        } else if (trs[(data[imw] << 7) | (data[imw + 1] << 6) | (data[i] << 4) | (data[i + 1] << 3) | (data[ipw] << 1) | data[ipw + 1]]) {
+            out[loc1] = 1;
         }
-        if (trs[(data[i - 2] << 8) | (data[i - 1] << 7) | (data[ipw - 2] << 5) | (data[ipw - 1] << 4) | (data[ipw2 - 2] << 1) | data[ipw2 - 1]]) {
-            out[loc2] = 1;
-        } else if (p.data[j]) {
+        if (noCheck[j]) {
             out[loc2] = (p.data[j] + 1) % p.states;
+        } else if (trs[(data[i - 2] << 8) | (data[i - 1] << 7) | (data[ipw - 2] << 5) | (data[ipw - 1] << 4) | (data[ipw2 - 2] << 1) | data[ipw2 - 1]]) {
+            out[loc2] = 1;
         }
     }
     // middle
@@ -171,10 +172,10 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
     for (let y = 1; y < height - 1; y++) {
         loc += oX;
         for (let x = 1; x < width - 1; x++) {
-            if (trs[(data[imw - 1] << 8) + (data[imw] << 7) + (data[imw + 1] << 6) + (data[i - 1] << 5) + (data[i] << 4) + (data[i + 1] << 3) + (data[ipw - 1] << 2) + (data[ipw] << 1) + data[ipw + 1]]) {
-                out[loc] = 1;
-            } else if (p.data[i]) {
+            if (noCheck[i]) {
                 out[loc] = (p.data[i] + 1) % p.states;
+            } else if (trs[(data[imw - 1] << 8) + (data[imw] << 7) + (data[imw + 1] << 6) + (data[i - 1] << 5) + (data[i] << 4) + (data[i + 1] << 3) + (data[ipw - 1] << 2) + (data[ipw] << 1) + data[ipw + 1]]) {
+                out[loc] = 1;
             }
             i++;
             loc++;
@@ -183,8 +184,9 @@ export function runMAPGen(p: Pattern, trs?: Uint8Array): void {
         }
         i += 2;
     }
-    p.height = height;
-    p.width = width;
+    p.height += expandUp + expandDown;
+    p.width += expandLeft + expandRight;
+    p.size = p.height * p.width;
     p.data = out;
     p.xOffset -= expandLeft;
     p.yOffset -= expandUp;

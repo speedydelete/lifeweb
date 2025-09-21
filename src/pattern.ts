@@ -1,4 +1,9 @@
 
+export class RuleError extends Error {
+    [Symbol.toStringTag] = 'RuleError';    
+}
+
+
 const RLE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 const RLE_PREFIXES = ['', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x'];
 export const RLE_CHARS = ['.'];
