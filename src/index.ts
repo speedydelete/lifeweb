@@ -1,107 +1,251 @@
 
-import {Pattern, Runner, RuleError, RLE_CHARS} from './pattern.js';
-import {runLife} from './life.js';
-import {parseMAPRule} from './mapparse.js';
-import {parseHROTRule} from './hrotparse.js';
+import {Pattern, RuleError, RuleSymmetry, RLE_CHARS} from './pattern.js';
+import {HEX_TRANSITIONS, MAPPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS} from './map.js';
 
-export {Pattern, RuleError} from './pattern.js';
+export {Pattern, RuleError, RuleSymmetry} from './pattern.js';
+export * as pattern from './pattern.js';
+export * as map from './map.js';
 
 
-declare global {
-    interface Uint8Array {
-        setFromBase64(data: string): void;
-    }
+export interface PatternData {
+    height: number;
+    width: number;
+    data: Uint8Array;
 }
 
-if (typeof Uint8Array.prototype.setFromBase64 !== 'function') {
-    const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    Uint8Array.prototype.setFromBase64 = function(data: string): void {
-        let j = 0;
-        for (let i = 0; i < data.length; i += 4) {
-            let a = BASE64.indexOf(data[i]);
-            let b = BASE64.indexOf(data[i + 1]);
-            let c = BASE64.indexOf(data[i + 2]);
-            let d = BASE64.indexOf(data[i + 3]);
-            if (c === -1) {
-                this[j++] = (a << 2) | (b >> 4);
-                return;
+const VON_NEUMANN: string[][] = [
+    ['0c', '1c', '2c', '2n', '3c', '4c'],
+    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
+    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
+    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
+    ['4e', '5c', '6c', '6n', '7c', '8c'],
+];
+
+function parseMAPRule(rule: string, data: PatternData): string | MAPPattern {
+    let raw = rule;
+    let ruleStr: string;
+    let trs = new Uint8Array(512);
+    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
+    let states = 2;
+    let isotropic = false;
+    let match: RegExpMatchArray | null;
+    let isGenFormat = false;
+    if (match = rule.match(/^[gG]([0-9]+)/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(match[0].length);
+    }
+    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(0, match[0].length);
+    }
+    let end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+    } else if (end === 'v') {
+        neighborhood = 'V';
+    } else if (end === 'h') {
+        neighborhood = 'H';
+    }
+    if (rule.startsWith('MAP')) {
+        trs = parseMAP(rule.slice(3));
+        ruleStr = raw;
+    } else if (rule.startsWith('W')) {
+        return `R1,C${states},${rule}`;
+    } else {
+        let b = '';
+        let s = '';
+        let sections = rule.split('/');
+        for (let i = 0; i < sections.length; i++) {
+            let section = sections[i];
+            if (section[0] === 'B' || section[0] === 'b') {
+                b = section.slice(1);
+            } else if (section[0] === 'S' || section[0] === 's') {
+                s = section.slice(1);
+            } else {
+                if (i === 0) {
+                    s = section;
+                } else if (i === 1) {
+                    b = section;
+                } else {
+                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                }
             }
-            if (d === -1) {
-                this[j++] = (a << 2) | (b >> 4);
-                this[j++] = ((b & 15) << 4) | (c >> 2);
-                return;
+        }
+        if (neighborhood === 'V') {
+            let newB = '';
+            for (let char of b) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newB += VON_NEUMANN[value].join('');
             }
-            this[j++] = (a << 2) | (b >> 4);
-            this[j++] = ((b & 15) << 4) | (c >> 2);
-            this[j++] = ((c & 3) << 6) | d;
+            b = newB;
+            let newS = '';
+            for (let char of s) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newS += VON_NEUMANN[value].join('');
+            }
+            s = newS;
+            neighborhood = 'M';
+        }
+        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
+        if (neighborhood === 'M') {
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, 'INT', false);
+        } else if (neighborhood === 'H') {
+            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, 'hex', true);
+        } else {
+            return `R1,C${states},B${b},S${s},NL`;
+        }
+        b = out.b;
+        s = out.s;
+        trs = out.data;
+        if (states > 2) {
+            ruleStr = `${s}/${b}/${states}`;
+        } else {
+            ruleStr = `B${b}/S${s}`;
         }
     }
+    if (trs[0]) {
+        if (trs[511]) {
+            let out = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                out[i] = trs[511 - i] ? 0 : 1;
+            }
+            trs = out;
+        } else {
+            let even = new Uint8Array(512);
+            let odd = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                even[i] = trs[i] ? 0 : 1;
+                odd[i] = trs[511 - i];
+            }
+        }
+    }
+    let symmetry: RuleSymmetry;
+    if (isotropic) {
+        symmetry = 'D8';
+    } else {
+        let C2 = true;
+        let C4 = true;
+        let D2v = true;
+        let D2h = true;
+        let D2x = true;
+        for (let i = 0; i < 512; i++) {
+            let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+            j = ((j & 73) << 1) | (j & 146) | ((j & 292) >> 1);
+            if (trs[i] !== trs[j]) {
+                C2 = false;
+                break;
+            }
+        }
+        if (C2) {
+            for (let i = 0; i < 512; i++) {
+                if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 36) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                    C4 = false;
+                    break;
+                }
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
+                D2v = false;
+                break;
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
+                D2h = false;
+                break;
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[(i & 273) | ((i & 32) << 2) | ((i & 6) << 4) | ((i & 136) >> 2) | ((i & 64) >> 4)]) {
+                D2x = false;
+                break;
+            }
+        }
+        if (C4) {
+            if (D2h || D2v || D2h) {
+                symmetry = 'D8';
+            } else {
+                symmetry = 'C4';
+            }
+        } else if (C2) {
+            if (D2h || D2v) {
+                if (D2x) {
+                    symmetry = 'D8';
+                } else {
+                    symmetry = 'D4+';
+                }
+            } else if (D2x) {
+                symmetry = 'D4x';
+            } else {
+                symmetry = 'C2';
+            }
+        } else if (D2h || D2v || D2x) {
+            if (D2x) {
+                if (D2h || D2v) {
+                    symmetry = 'D8';
+                } else {
+                    symmetry = 'D2x';
+                }
+            } else if (D2h && D2v) {
+                symmetry = 'D4+';
+            } else if (D2h) {
+                symmetry = 'D2h';
+            } else {
+                symmetry = 'D2v';
+            }
+        } else {
+            symmetry = 'C1';
+        }
+    }
+    return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, symmetry);
 }
 
 
-function parseRule(rule: string): {func: Runner, extra?: Uint8Array, states: number, isotropic: boolean} {
+function _createPattern(data: PatternData, rule: string): Pattern {
     rule = rule.trim();
-    if (rule === 'B3/S23' || rule === 'b3s23') {
-        return {func: runLife, states: 2, isotropic: true};
-    }
-    let errors: RuleError[] = [];
-    let data: ReturnType<typeof parseMAPRule>;
+    let errors: string[] = [];
     try {
-        data = parseMAPRule(rule);
-        if (typeof data === 'object') {
-            return data;
+        let out = parseMAPRule(rule, data);
+        if (typeof out === 'object') {
+            return out;
         } else {
-            rule = data;
+            rule = out;
         }
     } catch (error) {
         if (error instanceof RuleError) {
-            errors.push(error);
+            errors.push(error.message);
         } else {
             throw error;
         }
     }
-    if (rule.startsWith('R')) {
-        try {
-            data = parseHROTRule(rule);
-            if (typeof data === 'object') {
-                return data;
-            } else {
-                rule = data;
-            }
-        } catch (error) {
-            if (error instanceof RuleError) {
-                errors.push(error);
-            } else {
-                throw error;
-            }
-        }
-    }
-    if (rule.includes('|')) {
-        let data = rule.split('|').map(parseRule);
-        let states = Math.max(...data.map(x => x.states));
-        let isotropic = data.every(x => x.isotropic);
-        function func(p: Pattern) {
-            let {func, extra} = data[p.generation % data.length];
-            func(p, extra);
-        };
-        return {func, states, isotropic};
-    } else {
-        let msg = `Invalid rule: '${rule}'`;
-        for (let error of errors) {
-            msg += '\n' + error;
-        }
-        throw new RuleError(msg);
-    }
+    // if (rule.startsWith('R')) {
+    //     try {
+    //         let out = parseHROTRule(rule);
+    //         if (typeof out === 'object') {
+    //             return out;
+    //         } else {
+    //             rule = out;
+    //         }
+    //     } catch (error) {
+    //         if (error instanceof RuleError) {
+    //             errors.push(error);
+    //         } else {
+    //             throw error;
+    //         }
+    //     }
+    // }
+    throw new RuleError(errors.join(', '));
 }
 
 
-export function createPattern(height: number, width: number, data: Uint8Array, rule: string): Pattern {
-    let {func, extra, states, isotropic} = parseRule(rule);
-    return new Pattern(height, width, data, func, rule, states, isotropic, extra);
-}
-
-
-export function parseRLE(rle: string): Pattern {
+export function parse(rle: string): Pattern {
     let lines = rle.split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
@@ -225,6 +369,7 @@ export function parseRLE(rle: string): Pattern {
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
+                    num = '';
                 }
             } else if ('0123456789'.includes(char)) {
                 num += char;
@@ -236,6 +381,7 @@ export function parseRLE(rle: string): Pattern {
                     for (let i = 0; i < count; i++) {
                         currentLine.push(i);
                     }
+                    num = '';
                 }
             } else if (char === '.') {
                 if (num === '') {
@@ -245,6 +391,7 @@ export function parseRLE(rle: string): Pattern {
                     for (let i = 0; i < count; i++) {
                         currentLine.push(0);
                     }
+                    num = '';
                 }
             } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
                 if (prefix) {
@@ -258,6 +405,7 @@ export function parseRLE(rle: string): Pattern {
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
+                    num = '';
                 }
             } else if ('pqrstuvwxy'.includes(char)) {
                 prefix = char;
@@ -276,19 +424,42 @@ export function parseRLE(rle: string): Pattern {
     if (width < actualWidth) {
         width = actualWidth;
     }
-    let out = new Uint8Array(height * width);
+    let data = new Uint8Array(height * width);
     for (let y = 0; y < raw.length; y++) {
         let i = y * width;
         let line = raw[y];
         for (let x = 0; x < line.length; x++) {
-            out[i] = line[x];
+            data[i] = line[x];
             i++;
         }
     }
-    let {func, extra, states, isotropic} = parseRule(rule);
-    let p = new Pattern(height, width, out, func, rule, states, isotropic, extra);
-    p.xOffset = xOffset;
-    p.yOffset = yOffset;
-    p.generation = generation;
-    return p;
+    let out = _createPattern({height, width, data}, rule);
+    out.xOffset = xOffset;
+    out.yOffset = yOffset;
+    out.generation = generation;
+    return out;
 }
+
+
+let test = parse(`
+x = 0, y = 0, rule = B3/S23
+o$o!
+`);
+console.log(test.data);
+console.log(test.toRLE());
+for (let i = 0; i < 10; i++) {
+    test.runGeneration();
+    console.log(test.data);
+    console.log(test.toRLE());
+}
+// @ts-ignore
+let trs = test.trs as Uint8Array;
+console.log(trs);
+let out = new Uint8Array(64);
+for (let i = 0; i < 512; i++) {
+    let j = (i & 273) | ((i & 32) << 2) | ((i & 6) << 4) | ((i & 136) >> 2) | ((i & 64) >> 4);
+    if (trs[j]) {
+        out[Math.floor(j / 8)] |= 1 << (8 - j % 8);
+    }
+}
+console.log(Buffer.from(out).toString('base64'));

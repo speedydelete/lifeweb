@@ -1,12 +1,14 @@
 
 export class RuleError extends Error {
-    [Symbol.toStringTag] = 'RuleError';    
+    name: 'RuleError' = 'RuleError';
 }
 
+export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2v' | 'D2h' | 'D2x' | 'D4+' | 'D4x' | 'D8';
 
-const RLE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-const RLE_PREFIXES = ['', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x'];
+const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const RLE_PREFIXES = 'pqrstuvwxyz';
 export const RLE_CHARS = ['.'];
+RLE_CHARS.push(...RLE_LETTERS);
 for (let prefix of RLE_PREFIXES) {
     for (let letter of RLE_LETTERS) {
         RLE_CHARS.push(prefix + letter);
@@ -16,12 +18,10 @@ for (let prefix of RLE_PREFIXES) {
     }
 }
 
-export const APGCODE_CHARS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
 
 
-export type Runner = (p: Pattern, extra?: Uint8Array) => void;
-
-export class Pattern {
+export abstract class Pattern {
 
     data: Uint8Array;
     height: number;
@@ -30,31 +30,29 @@ export class Pattern {
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
-    runGeneration: Runner;
-    ruleStr: string;
-    states: number;
-    isotropic: boolean;
-    extra?: Uint8Array;
+    abstract ruleStr: string;
+    abstract states: number;
+    abstract ruleSymmetry: RuleSymmetry;
 
-    constructor(height: number, width: number, data: Uint8Array, runGeneration: Runner, ruleStr: string, states: number, isotropic: boolean, extra?: Uint8Array) {
+    constructor(height: number, width: number, data: Uint8Array) {
         this.height = height;
         this.width = width;
-        this.data = data;
         this.size = this.height * this.width;
-        this.runGeneration = runGeneration;
-        this.ruleStr = ruleStr;
-        this.states = states;
-        this.isotropic = isotropic;
-        this.extra = extra;
+        this.data = data;
     }
 
-    run(generations: number = 1) {
-        for (let i = 0; i < generations; i++) {
-            this.runGeneration(this, this.extra);
+    abstract copy(): Pattern;
+
+    abstract runGeneration(): this;
+
+    run(n: number): this {
+        for (let i = 0; i < n; i++) {
+            this.runGeneration();
         }
+        return this;
     }
 
-    getPopulation(): number {
+    get population(): number {
         return this.data.reduce((x, y) => x + y);
     }
 
@@ -66,167 +64,228 @@ export class Pattern {
         return [this.xOffset, this.yOffset, this.width, this.height];
     }
 
-    copy(): Pattern {
-        let out = new Pattern(this.height, this.width, this.data.slice(), this.runGeneration, this.ruleStr, this.states, this.isotropic, this.extra);
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
-        out.generation = this.generation;
+    hash(): BigUint64Array {
+        let out = new BigUint64Array(1);
+        out[0] = 0xcbf29ce484222325n;
+        if (this.states === 2) {
+            for (let i = 0; i < this.data.length; i += 8) {
+                out[0] ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
+                out[0] *= 0x00000100000001b3n;
+            }
+        } else {
+            for (let i = 0; i < this.data.length; i++) {
+                out[0] ^= BigInt(this.data[i]);
+                out[0] *= 0x00000100000001b3n;
+            }
+        }
         return out;
     }
 
-    resizeToFit(): void {
-        let height = this.height;
-        let width = this.width;
-        let size = this.size;
-        let removedTop = 0;
-        let i = 0;
-        for (let y = 0; y < height; y++) {
-            let found = false;
-            for (let x = 0; x < width; x++) {
-                if (this.data[i]) {
-                    found = true;
-                    break;
-                }
-                i++;
+    resizeToFit(): this {
+        let topShrink = 0;
+        let bottomShrink = 0;
+        for (let i = 0; i < this.size; i += this.width) {
+            if (topShrink === i && this.data.slice(i, i + this.width).every(x => x === 0)) {
+                topShrink++;
             }
-            if (found) {
+            if (bottomShrink === i && this.data.slice(this.size - i, this.size - i - this.width).every(x => x === 0)) {
+                bottomShrink++;
+            }
+            if (topShrink !== i && bottomShrink !== i) {
                 break;
-            } else {
-                removedTop++;
             }
         }
-        let removedBottom = 0;
-        i = size - 1;
-        for (let y = 0; y < height; y++) {
-            let found = false;
-            for (let x = 0; x < width; x++) {
-                if (this.data[i]) {
-                    found = true;
-                    break;
-                }
-                i--;
+        let leftShrink = 0;
+        let rightShrink = 0;
+        for (let i = 0; i < this.width; i++) {
+            if (topShrink === i && this.data.slice(i, i + this.width).every(x => x === 0)) {
+                topShrink++;
             }
-            if (found) {
+            if (bottomShrink === i && this.data.slice(this.size - i, this.size - i - this.width).every(x => x === 0)) {
+                bottomShrink++;
+            }
+            if (topShrink !== i && bottomShrink !== i) {
                 break;
-            } else {
-                removedBottom++;
             }
         }
-        let removedLeft = 0;
-        for (let x = 0; x < width; x++) {
-            let i = x;
-            let found = false;
-            for (let y = 0; y < height; y++) {
-                if (this.data[i]) {
-                    found = true;
-                    break;
-                }
-                i += width;
-            }
-            if (found) {
-                break;
-            } else {
-                removedLeft++;
-            }
+        if (topShrink === 0 && bottomShrink === 0 && leftShrink === 0 && rightShrink === 0) {
+            return this;
         }
-        let removedRight = 0;
-        for (let x = 0; x < width; x++) {
-            let i = width - x;
-            let found = false;
-            for (let y = 0; y < height; y++) {
-                if (this.data[i]) {
-                    found = true;
-                    break;
-                }
-                i += width;
+        let height = this.height - topShrink - bottomShrink;
+        let width = this.width - leftShrink - rightShrink;
+        let size = height * width;
+        let out = new Uint8Array(size);
+        let i = topShrink * width;
+        let loc = 0;
+        for (let row = 0; row < height; row++) {
+            for (let col = 0; col < width; col++) {
+                out[loc++] = this.data[i++];
             }
-            if (found) {
-                break;
-            } else {
-                removedRight++;
-            }
-        }
-        if (removedTop === 0 && removedBottom === 0 && removedLeft === 0 && removedRight === 0) {
-            return;
-        }
-        height -= removedTop + removedBottom;
-        width -= removedLeft + removedRight;
-        this.size = this.height * this.width;
-        let data = new Uint8Array(this.size);
-        i = 0;
-        let j = removedTop * this.width + removedLeft;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                data[i] = this.data[j];
-                i++;
-                j++;
-            }
-            j += removedRight + removedLeft;
+            i += leftShrink + rightShrink;
         }
         this.height = height;
         this.width = width;
-        this.xOffset += removedTop;
-        this.yOffset += removedLeft;
+        this.size = height * width;
+        this.xOffset += topShrink;
+        this.yOffset += leftShrink;
+        this.data = out;
+        return this;
     }
 
-    toRLE(): string {
-        let out = `x = ${this.height}, y = ${this.width}, rule = ${this.ruleStr}\n`;
-        let prevChar = '';
-        let num = 0;
+    get(x: number, y: number): number {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
+            return 0;
+        }
+        return this.data[y * this.width + x];
+    }
+
+    set(x: number, y: number, value: number): this {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        if (x < 0 || y < 0 || x > this.width || y > this.height) {
+            let height = this.height;
+            let width = this.width;
+            let expandUp = -y;
+            let expandDown = y - this.height;
+            if (expandDown < 0) {
+                expandDown = 0;
+            }
+            let expandLeft = -x;
+            let expandRight = y - this.width;
+            if (expandRight < 0) {
+                expandRight = 0;
+            }
+            let oX = expandLeft + expandRight;
+            let newWidth = width + oX;
+            let newHeight = height + expandUp + expandDown;
+            let newSize = newWidth * newHeight;
+            let out = new Uint8Array(newSize);
+            let loc = newWidth * expandUp + expandLeft + width + 1;
+            let i = width + 1;
+            for (let y = 0; y < newHeight; y++) {
+                loc += oX;
+                for (let x = 0; x < newWidth - 1; x++) {
+                    out[loc++] = this.data[i++];
+                }
+            }
+            this.width = newWidth;
+            this.height = newHeight;
+            this.size = newSize;
+            this.xOffset -= expandUp;
+            this.yOffset -= expandLeft;
+            x += expandUp;
+            y += expandLeft;
+            this.data = out;
+        }
+        this.data[y * this.width + x] = value;
+        return this;
+    }
+
+    flipHorizontal(): this {
+        let height = this.height;
+        let width = this.width;
+        let out = new Uint8Array(height * width);
         let i = 0;
-        let line = '';
-        let $count = 0;
-        for (let y = 0; y < this.height; y++) {
-            if (this.data.slice(i, i + this.width).every(x => x === 0)) {
-                $count++;
-                continue;
+        let loc = width - 1;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                out[loc--] = this.data[i++];
             }
-            for (let x = 0; x < this.width; x++) {
-                let char: string;
-                if (this.states > 1) {
-                    char = RLE_CHARS[this.data[i]];
-                } else if (this.data[i]) {
-                    char = 'o';
-                } else {
-                    char = 'b';
-                }
-                if (char === prevChar) {
-                    num++;
-                } else {
-                    let prevLineLength = line.length;
-                    line += num + prevChar;
-                    if (line.length > 70) {
-                        out += line.slice(0, prevLineLength) + '\n';
-                        line = line.slice(prevLineLength + 1);
-                    }
-                    prevChar = char;
-                    num = 1;
-                }
-                i++;
+            loc += width * 2;
+        }
+        this.data = out;
+        return this;
+    }
+
+    flipVertical(): this {
+        let height = this.height;
+        let width = this.width;
+        let out = new Uint8Array(height * width);
+        let i = 0;
+        let loc = this.size - width;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                out[loc++] = this.data[i++];
             }
-            if (y !== this.height - 1) {
-                let prevLineLength = line.length;
-                if ($count !== 0) {
-                    line += $count;
-                    $count = 0;
-                }
-                line += '$';
-                if (line.length > 70) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength + 1);
-                }
+            loc -= width * 2;
+        }
+        this.data = out;
+        return this;
+    }
+
+    rotateRight(): this {
+        let height = this.height;
+        let width = this.width;
+        let out = new Uint8Array(this.height * this.width);
+        let i = 0;
+        for (let y = 0; y < height; y++) {
+            let loc = height - y - 1;
+            for (let x = 0; x < width; x++) {
+                out[loc] = this.data[i++];
+                loc += width;
             }
         }
-        out += line + '\n';
-        return out;
+        this.data = out;
+        this.height = width;
+        this.width = height;
+        return this;
     }
 
-    _toApgcode(data: Uint8Array): string {
+    rotateLeft(): this {
+        let height = this.height;
+        let width = this.width;
+        let out = new Uint8Array(this.height * this.width);
+        let i = 0;
+        for (let y = 0; y < height; y++) {
+            let loc = this.size - width + y;
+            for (let x = 0; x < width; x++) {
+                out[loc] = this.data[i++];
+                loc -= width;
+            }
+        }
+        this.data = out;
+        this.height = width;
+        this.width = height;
+        return this;
+    }
+
+    rotate180() {
+        let height = this.height;
+        let width = this.width;
+        let out = new Uint8Array(height * width);
+        let i = 0;
+        let loc = this.size - 1;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                out[loc--] = this.data[i++];
+            }
+        }
+        this.data = out;
+        return this;
+    }
+
+    flipDiagonal() {
+        this.rotateRight().flipHorizontal();
+    }
+
+    flipAntiDiagonal() {
+        this.rotateRight().flipVertical();
+    }
+
+
+
+    _toApgcode(data: Uint8Array) {
+        let height = this.height - 2;
+        let width = this.width;
+        data = data.slice(width);
         let out = '';
-        for (let stripNum = 0; stripNum < Math.ceil(this.height / 5); stripNum++) {
+        for (let stripNum = 0; stripNum < Math.ceil(height / 5); stripNum++) {
             let zeros = 0;
-            for (let x = 0; x < this.width; x++) {
-                let char = APGCODE_CHARS[(data[stripNum * this.width + x] << 4) | (this.data[(stripNum + 1) * this.width + x] << 3) | (this.data[(stripNum + 2) * this.width + x] << 2) | (this.data[(stripNum + 3) * this.width + x] << 1) | (this.data[(stripNum + 4) * this.width + x] << 3)];
+            let start = stripNum * width * 5;
+            for (let x = 1; x < width - 1; x++) {
+                let char = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4)];
                 if (char === '0') {
                     zeros++;
                 } else {
@@ -254,26 +313,224 @@ export class Pattern {
                                 }
                             }
                         }
+                        zeros = 0;
                     }
+                    out += char;
                 }
             }
+            out += 'z';
         }
-        return out;
+        return out.slice(0, -1);
     }
 
-    toApgcode(prefix: string): string {
-        if (this.states < 3) {
-            return prefix + '_' + this._toApgcode(this.data);
+    toApgcode(prefix?: string): string {
+        if (prefix === undefined) {
+            prefix = '';
         } else {
-            // i don't understand the wiki, there is probably a bug
-            let out = prefix + '_' + this._toApgcode(this.data.map(x => x === 1 ? 1 : 0));
+            prefix += '_';
+        }
+        if (this.states < 3) {
+            return prefix + this._toApgcode(this.data);
+        } else {
+            let out = prefix + this._toApgcode(this.data.map(x => x === 1 ? 1 : 0));
+            out += '_' + this._toApgcode(this.data.map(x => x > 1 ? 1 : 0));
             let layers = Math.ceil(Math.log2(this.states - 2));
-            let data = this.data.map(x => x < 2 ? 0 : (this.states - x) * 4 - 2);
-            for (let i = 0; i < layers; i++) {
-                out += '_' + this._toApgcode(data.map(x => x & (1 << i)));
+            if (layers > 0) {
+                let data = this.data.map(x => x < 2 ? 0 : (this.states - x) * 4 - 2);
+                for (let i = 0; i < layers; i++) {
+                    out += '_' + this._toApgcode(data.map(x => x & (1 << i)));
+                }
             }
             return out;
         }
+    }
+
+    toRLE(): string {
+        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
+        let prevChar = '';
+        let num = 0;
+        let i = 0;
+        let line = '';
+        let $count = 0;
+        for (let y = 0; y < this.height; y++) {
+            if (this.data.slice(i, i + this.width).every(x => x === 0)) {
+                $count++;
+                i += this.width;
+                continue;
+            } else if ($count > 0) {
+                let prevLineLength = line.length;
+                if ($count > 1) {
+                    line += $count;
+                }
+                line += '$';
+                $count = 0;
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength + 1);
+                }
+            }
+            for (let x = 0; x < this.width; x++) {
+                let char: string;
+                if (this.states > 2) {
+                    char = RLE_CHARS[this.data[i]];
+                } else if (this.data[i]) {
+                    char = 'o';
+                } else {
+                    char = 'b';
+                }
+                if (char === prevChar) {
+                    num++;
+                } else {
+                    let prevLineLength = line.length;
+                    if (num > 1) {
+                        line += num;
+                    }
+                    line += prevChar;
+                    if (line.length > 69) {
+                        out += line.slice(0, prevLineLength) + '\n';
+                        line = line.slice(prevLineLength);
+                    }
+                    prevChar = char;
+                    num = 1;
+                }
+                i++;
+            }
+            if (prevChar !== 'b' && prevChar !== '.') {
+                let prevLineLength = line.length;
+                if (num > 1) {
+                    line += num;
+                }
+                line += prevChar;
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
+            }
+            prevChar = '';
+            num = 1;
+            if (y !== this.height - 1) {
+                let prevLineLength = line.length;
+                line += '$';
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
+            }
+        }
+        out += line + '!\n';
+        return out;
+    }
+
+    static _fromApgcode(code: string): [number, number, Uint8Array] {
+        let data: number[][][] = [];
+        let width = 0;
+        let height = 0;
+        for (let layer of code.split('_')) {
+            let layerData: number[][] = [];
+            for (let strip of layer.split('z')) {
+                let stripData: number[] = [];
+                for (let i = 0; i < strip.length; i++) {
+                    let char = strip[i];
+                    let index = APGCODE_CHARS.indexOf(char);
+                    if (index >= 32) {
+                        if (char === 'w') {
+                            stripData.push(0, 0);
+                        } else if (char === 'x') {
+                            stripData.push(0, 0, 0);
+                        } else {
+                            let letter = strip[i + 1];
+                            let count = APGCODE_CHARS.indexOf(letter) + 4;
+                            for (let i = 0; i < count; i++) {
+                                stripData.push(0);
+                            }
+                        }
+                    } else {
+                        stripData.push(index);
+                    }
+                }
+                if (stripData.length > width) {
+                    width = stripData.length;
+                }
+                layerData.push(stripData);
+            }
+            let planeHeight = layerData.length * 5;
+            if (planeHeight > height) {
+                height = planeHeight;
+            }
+            data.push(layerData);
+        }
+        let out = new Uint8Array(height * width);
+        for (let y = 0; y < data[0].length; y++) {
+            let loc = width * y * 5;
+            for (let part of data[0][y]) {
+                out[loc] = part & 1;
+                out[loc + width] = (part >> 1) & 1;
+                out[loc + 2 * width] = (part >> 2) & 1;
+                out[loc + 3 * width] = (part >> 3) & 1;
+                out[loc + 4 * width] = (part >> 4) & 1;
+                loc++;
+            }
+        }
+        if (data.length === 2) {
+            for (let y = 0; y < data[1].length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[1][y]) {
+                    if (part & 1) {
+                        out[loc] = 2;
+                    }
+                    if ((part >> 1) & 1) {
+                        out[loc + width] = 2;
+                    }
+                    if ((part >> 2) & 1) {
+                        out[loc + 2 * width] = 2;
+                    }
+                    if ((part >> 3) & 1) {
+                        out[loc + 3 * width] = 2;
+                    }
+                    if ((part >> 4) & 1) {
+                        out[loc + 4 * width] = 2;
+                    }
+                    loc++;
+                }
+            }
+        } else {
+            for (let i = 2; i < data.length; i++) {
+                for (let y = 0; y < data[i].length; y++) {
+                    let loc = width * y * 5;
+                    for (let part of data[i][y]) {
+                        out[loc] |= (part & 1) << (i - 2);
+                        out[loc + width] |= ((part >> 1) & 1) << (i - 2);
+                        out[loc + 2 * width] |= ((part >> 2) & 1) << (i - 2);
+                        out[loc + 3 * width] |= ((part >> 3) & 1) << (i - 2);
+                        out[loc + 4 * width] |= ((part >> 4) & 1) << (i - 2);
+                        loc++;
+                    }
+                }
+            }
+            let states = Math.max(...out);
+            for (let y = 0; y < data[1].length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[1][y]) {
+                    if (part & 1) {
+                        out[loc] = states - out[loc] + 2;
+                    }
+                    if ((part >> 1) & 1) {
+                        out[loc + width] = states - out[loc + width] + 2;
+                    }
+                    if ((part >> 2) & 1) {
+                        out[loc + 2 * width] = states - out[loc + 2 * width] + 2;
+                    }
+                    if ((part >> 3) & 1) {
+                        out[loc + 3 * width] = states - out[loc + 3 * width] + 2;
+                    }
+                    if ((part >> 4) & 1) {
+                        out[loc + 4 * width] = states - out[loc + 4 * width] + 2;
+                    }
+                    loc++;
+                }
+            }
+        }
+        return [height, width, out];
     }
 
 }

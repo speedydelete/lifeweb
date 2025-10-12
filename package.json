@@ -6,8 +6,12 @@
     "author": "speedydelete",
     "main": "lib/index.js",
     "type": "module",
-    "files": ["src", "lib"],
+    "files": [
+        "src",
+        "lib"
+    ],
     "devDependencies": {
-        "typescript": "^5.9.2"
+        "@types/node": "^24.7.2",
+        "typescript": "^5.9.3"
     }
 }
