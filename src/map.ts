@@ -164,22 +164,6 @@ export class MAPPattern extends Pattern {
                 out[loc] = rightExpands[i];
             }
         }
-        // // top-left cell
-        // if (trs[(data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1]]) {
-        //     out[oStart] = 1;
-        // }
-        // // top-right cell
-        // if (trs[(data[width - 2] << 7) | (data[width2 - 2] << 6) | (data[width - 1] << 4) | (data[width2 - 1] << 3)]) {
-        //     out[oStart + width - 1] = 1;
-        // }
-        // // bottom-left cell
-        // if (trs[(data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1)]) {
-        //     out[oLast + lastRow] = 1;
-        // }
-        // // bottom-right cell
-        // if (trs[(data[lastRow - 2] << 8) |  (data[size - 2] << 7) | (data[lastRow - 1] << 5) | (data[size - 1] << 4)]) {
-        //     out[oLast + size - 1] = 1;
-        // }
         // top and bottom rows
         let loc1 = oStart;
         let loc2 = lastRow + oLast;
@@ -187,9 +171,11 @@ export class MAPPattern extends Pattern {
         tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
         tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 3);
         if (trs[tr1]) {
+            console.log('top left');
             out[loc1] = 1;
         }
         if (trs[tr2]) {
+            console.log('bottom left');
             out[loc2] = 1;
         }
         for (i = 1; i < width - 1; i++) {
@@ -206,9 +192,11 @@ export class MAPPattern extends Pattern {
             }
         }
         if (trs[(tr1 << 3) & 511]) {
+            console.log('top right');
             out[loc1 + 1] = 1;
         }
         if (trs[(tr2 << 3) & 511]) {
+            console.log('bottom right');
             out[loc2 + 1] = 1;
         }
         // middle

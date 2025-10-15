@@ -442,24 +442,11 @@ export function parse(rle: string): Pattern {
 
 
 let test = parse(`
-x = 0, y = 0, rule = B3/S23
-o$o!
+x = 3, y = 3, rule = B3/S23
+o$o$o$!
 `);
-console.log(test.data);
 console.log(test.toRLE());
 for (let i = 0; i < 10; i++) {
     test.runGeneration();
-    console.log(test.data);
     console.log(test.toRLE());
 }
-// @ts-ignore
-let trs = test.trs as Uint8Array;
-console.log(trs);
-let out = new Uint8Array(64);
-for (let i = 0; i < 512; i++) {
-    let j = (i & 273) | ((i & 32) << 2) | ((i & 6) << 4) | ((i & 136) >> 2) | ((i & 64) >> 4);
-    if (trs[j]) {
-        out[Math.floor(j / 8)] |= 1 << (8 - j % 8);
-    }
-}
-console.log(Buffer.from(out).toString('base64'));
