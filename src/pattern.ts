@@ -366,7 +366,7 @@ export abstract class Pattern {
                 $count = 0;
                 if (line.length > 69) {
                     out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength + 1);
+                    line = line.slice(prevLineLength);
                 }
             }
             for (let x = 0; x < this.width; x++) {
@@ -409,12 +409,7 @@ export abstract class Pattern {
             prevChar = '';
             num = 1;
             if (y !== this.height - 1) {
-                let prevLineLength = line.length;
-                line += '$';
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
+                $count++;
             }
         }
         out += line + '!\n';

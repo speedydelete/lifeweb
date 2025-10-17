@@ -10,6 +10,18 @@ c f i
 */
 
 
+function debug(data: Uint8Array, width: number) {
+    let out = '';
+    for (let i = 0; i < data.length; i++) {
+        if (i % width === 0 && i > 0) {
+            out += '\n';
+        }
+        out += data[i] + ' ';
+    }
+    console.log(out);
+}
+
+
 export class MAPPattern extends Pattern {
 
     trs: Uint8Array;
@@ -164,65 +176,91 @@ export class MAPPattern extends Pattern {
                 out[loc] = rightExpands[i];
             }
         }
-        // top and bottom rows
-        let loc1 = oStart;
-        let loc2 = lastRow + oLast;
-        j = lastRow;
-        tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
-        tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 3);
-        if (trs[tr1]) {
-            console.log('top left');
-            out[loc1] = 1;
-        }
-        if (trs[tr2]) {
-            console.log('bottom left');
-            out[loc2] = 1;
-        }
-        for (i = 1; i < width - 1; i++) {
-            j++;
-            loc1++;
-            loc2++;
-            tr1 = ((tr1 << 3) & 511) | (data[i + 1] << 1) | (data[i + width + 1] << 1);
+        if (width <= 1) {
+            if (width === 1) {
+                let tr = (data[0] << 4) | (data[1] << 3);
+                let loc = oStart;
+                if (trs[tr]) {
+                    out[loc] = 1;
+                }
+                loc += oX + 1;
+                for (i = 1; i < height - 1; i++) {
+                    tr = ((tr << 1) & 63) | (data[i + 1] << 3);
+                    if (trs[tr]) {
+                        out[loc] = 1;
+                    }
+                    loc += oX + 1;
+                }
+                if (trs[(tr << 1) & 63]) {
+                    out[loc + oX + 1] = 1;
+                }
+            }
+        } else {
+            // debug(data, width);
+            // console.log('');
+            // console.log('\n=== generation ===\n\nstart:');
+            // debug(data, width);
+            // top and bottom rows
+            let loc1 = oStart;
+            let loc2 = lastRow + oLast;
+            j = lastRow;
+            tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
+            tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
             if (trs[tr1]) {
                 out[loc1] = 1;
             }
-            tr2 = ((tr2 << 3) & 511) | (data[j - width + 1] << 2) | (data[j + 1] << 1);
             if (trs[tr2]) {
                 out[loc2] = 1;
             }
-        }
-        if (trs[(tr1 << 3) & 511]) {
-            console.log('top right');
-            out[loc1 + 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            console.log('bottom right');
-            out[loc2 + 1] = 1;
-        }
-        // middle
-        i = width + 1;
-        loc = oStart + width;
-        for (let y = 1; y < height - 1; y++) {
-            loc += oX;
-            let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
-            if (trs[tr]) {
-                out[loc] = 1;
+            for (i = 1; i < width - 1; i++) {
+                j++;
+                loc1++;
+                loc2++;
+                tr1 = ((tr1 << 3) & 511) | (data[i + 1] << 1) | data[i + width + 1];
+                if (trs[tr1]) {
+                    out[loc1] = 1;
+                }
+                tr2 = ((tr2 << 3) & 511) | (data[j - width + 1] << 2) | (data[j + 1] << 1);
+                if (trs[tr2]) {
+                    out[loc2] = 1;
+                }
             }
-            i++;
-            loc++;
-            for (let x = 1; x < width - 1; x++) {
-                tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+            if (trs[(tr1 << 3) & 511]) {
+                out[loc1 + 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 511]) {
+                out[loc2 + 1] = 1;
+            }
+            // console.log('\nbefore middle:');
+            // debug(out, newWidth);
+            // console.log('');
+            // middle
+            i = width;
+            loc = oStart + width - 1;
+            for (let y = 1; y < height - 1; y++) {
+                i++;
+                loc += oX + 1;
+                // console.log(`row ${y}: i = ${i}, loc = ${loc}`);
+                let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
                 i++;
                 loc++;
+                for (let x = 1; x < width - 1; x++) {
+                    tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                    if (trs[tr]) {
+                        out[loc] = 1;
+                    }
+                    i++;
+                    loc++;
+                }
+                if (trs[(tr << 3) & 511]) {
+                    out[loc] = 1;
+                }
             }
-            i++;
-            loc++;
-            if (trs[(tr << 3) & 511]) {
-                out[loc] = 1;
-            }
+            // console.log('\nend:');
+            // debug(out, newWidth);
         }
         this.height = newHeight;
         this.width = newWidth;

@@ -379,7 +379,7 @@ export function parse(rle: string): Pattern {
                 if (num !== '') {
                     let count = parseInt(num);
                     for (let i = 0; i < count; i++) {
-                        currentLine.push(i);
+                        raw.push([]);
                     }
                     num = '';
                 }
@@ -438,15 +438,4 @@ export function parse(rle: string): Pattern {
     out.yOffset = yOffset;
     out.generation = generation;
     return out;
-}
-
-
-let test = parse(`
-x = 3, y = 3, rule = B3/S23
-o$o$o$!
-`);
-console.log(test.toRLE());
-for (let i = 0; i < 10; i++) {
-    test.runGeneration();
-    console.log(test.toRLE());
 }
