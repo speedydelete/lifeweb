@@ -10,18 +10,6 @@ c f i
 */
 
 
-function debug(data: Uint8Array, width: number) {
-    let out = '';
-    for (let i = 0; i < data.length; i++) {
-        if (i % width === 0 && i > 0) {
-            out += '\n';
-        }
-        out += data[i] + ' ';
-    }
-    console.log(out);
-}
-
-
 export class MAPPattern extends Pattern {
 
     trs: Uint8Array;
@@ -196,11 +184,6 @@ export class MAPPattern extends Pattern {
                 }
             }
         } else {
-            // debug(data, width);
-            // console.log('');
-            // console.log('\n=== generation ===\n\nstart:');
-            // debug(data, width);
-            // top and bottom rows
             let loc1 = oStart;
             let loc2 = lastRow + oLast;
             j = lastRow;
@@ -231,16 +214,11 @@ export class MAPPattern extends Pattern {
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
             }
-            // console.log('\nbefore middle:');
-            // debug(out, newWidth);
-            // console.log('');
-            // middle
             i = width;
             loc = oStart + width - 1;
             for (let y = 1; y < height - 1; y++) {
                 i++;
                 loc += oX + 1;
-                // console.log(`row ${y}: i = ${i}, loc = ${loc}`);
                 let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 if (trs[tr]) {
                     out[loc] = 1;
@@ -259,8 +237,6 @@ export class MAPPattern extends Pattern {
                     out[loc] = 1;
                 }
             }
-            // console.log('\nend:');
-            // debug(out, newWidth);
         }
         this.height = newHeight;
         this.width = newWidth;
@@ -335,85 +311,6 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '7e': [493, 367, 487, 463],
     '8c': [495],
 };
-
-// const TRANSITIONS_BAD: {[key: number]: {[key: string]: number[]}} = {
-//     0: {
-//         c: [0]
-//     },
-//     1: {
-//         c: [64, 256, 1, 4],
-//         e: [8, 32, 2, 128],
-//     },
-//     2: {
-//         c: [65, 260, 5, 320],
-//         e: [136, 160, 10, 34],
-//         k: [12, 33, 264, 258, 66, 132, 96, 129],
-//         a: [72, 288, 9, 3, 6, 192, 36, 384],
-//         i: [40, 130],
-//         n: [68, 257],
-//     },
-//     3: {
-//         c: [69, 261, 321, 324],
-//         e: [138, 162, 42, 168],
-//         k: [140, 161, 266, 98],
-//         a: [200, 416, 11, 38],
-//         i: [448, 7, 73, 292],
-//         n: [193, 388, 67, 13, 37, 328, 262, 352],
-//         y: [97, 268, 133, 322],
-//         q: [196, 385, 259, 265, 100, 76, 70, 289],
-//         j: [35, 14, 224, 164, 137, 290, 392, 74],
-//         r: [41, 44, 104, 134, 131, 386, 296, 194],
-//     },
-//     4: {
-//         c: [325],
-//         e: [170],
-//         k: [141, 165, 330, 270, 99, 396, 354, 225],
-//         a: [480, 456, 39, 201, 420, 75, 15, 294],
-//         i: [195, 390, 45,360],
-//         n: [452, 449, 263, 329, 356, 77, 71, 293],
-//         y: [353, 332, 101, 197, 389, 323, 269, 326],
-//         q: [204, 417, 267, 102],
-//         j: [163, 142, 226, 172, 169, 298, 394, 106],
-//         r: [43, 46, 232, 166, 139, 418, 424, 202],
-//         t: [105, 300, 135, 450],
-//         w: [228, 393, 291, 78],
-//         z: [108, 297, 387, 198],
-//     },
-//     5: {
-//         c: [426, 234, 174, 171],
-//         e: [357, 333, 453, 327],
-//         k: [355, 334, 229, 397],
-//         a: [295, 79, 484, 457],
-//         i: [47, 488, 422, 203],
-//         n: [302, 107, 428, 482, 458, 167, 233, 143],
-//         y: [398, 227, 362, 173],
-//         q: [299, 110, 236, 230, 395, 419, 425, 206],
-//         j: [460, 481, 271, 331, 358, 205, 103, 421],
-//         r: [454, 451, 391, 361, 364, 109, 199, 301],
-//     },
-//     6: {
-//         c: [430, 235, 490, 175],
-//         e: [359, 335, 485, 461],
-//         k: [483, 462, 231, 237, 429, 363, 399, 366],
-//         a: [423, 207, 486, 492, 489, 303, 459, 111],
-//         i: [455, 365],
-//         n: [427, 238],
-//     },
-//     7: {
-//         c: [431, 239, 494, 491],
-//         e: [487, 463, 493, 367],
-//     },
-//     8: {
-//         c: [495],
-//     }
-// };
-
-// for (let i = 0; i <= 8; i++) {
-//     let trs = TRANSITIONS_BAD[i];
-//     for (let letter in trs) {
-//         TRANSITIONS[i + letter] = trs[letter].map(i => (i & 273) | ((i & 32) << 2) | ((i & 4) << 4) | ((i & 128) >> 2) | ((i & 2) << 2) | ((i & 64) >> 4) | ((i & 8) >> 2));
-//     }
-// }
 
 export const VALID_TRANSITIONS: string[] = [
     'c',
