@@ -1,6 +1,6 @@
 
 import {Pattern} from './pattern.js';
-import {MAPPattern} from './map.js';
+import {arrayToTransitions, MAPPattern, TRANSITIONS, transitionsToArray, unparseTransitions, VALID_TRANSITIONS} from './map.js';
 
 
 export interface Identified {
@@ -79,9 +79,53 @@ function verifyType(p: Pattern, type: PartialIdentified): boolean {
     return true;
 }
 
-function mapMinMax(p: MAPPattern, type: PartialIdentified): {min: string, max: string} {
+function mapMinmax(p: MAPPattern, type: PartialIdentified): {min: string, max: string} {
     if (p.ruleSymmetry === 'D8') {
-        
+        let [b, s] = arrayToTransitions(p.trs, TRANSITIONS);
+        let minB = b.slice();
+        let minS = s.slice();
+        let maxB = b.slice();
+        let maxS = s.slice();
+        for (let tr in TRANSITIONS) {
+            let q = p.copy();
+            q.trs = q.trs.slice();
+            if (b.includes(tr)) {
+                for (let x of TRANSITIONS[tr]) {
+                    q.trs[x] = 0;
+                }
+                if (verifyType(q, type)) {
+                    minB = minB.filter(x => x !== tr);
+                }
+            } else {
+                for (let x of TRANSITIONS[tr]) {
+                    q.trs[x] = 1;
+                }
+                if (verifyType(q, type)) {
+                    maxB.push(tr);
+                }
+            }
+            q = p.copy();
+            q.trs = q.trs.slice();
+            if (s.includes(tr)) {
+                for (let x of TRANSITIONS[tr]) {
+                    q.trs[x] = 0;
+                }
+                if (verifyType(q, type)) {
+                    minS = minS.filter(x => x !== tr);
+                }
+            } else {
+                for (let x of TRANSITIONS[tr]) {
+                    q.trs[x] = 1;
+                }
+                if (verifyType(q, type)) {
+                    maxS.push(tr);
+                }
+            }
+        }
+        return {
+            min: 'B' + unparseTransitions(minB, VALID_TRANSITIONS, false) + '/S' + unparseTransitions(minS, VALID_TRANSITIONS, false),
+            max: 'B' + unparseTransitions(minB, VALID_TRANSITIONS, false) + '/S' + unparseTransitions(maxS, VALID_TRANSITIONS, false),
+        }
     } else {
 
     }
@@ -111,7 +155,7 @@ function md5(data: Uint8Array): Uint32Array {
         let c = out[2];
         let d = out[3];
         for (let i = 0; i < 64; i++) {
-            
+
         }
         out[0] += a;
         out[1] += b;
@@ -125,7 +169,7 @@ export function identify(p: Pattern, limit: number): Identified {
     let type = findType(p, limit);
     let minmax: {min: string, max: string};
     if (p instanceof MAPPattern) {
-        minmax = mapMinMax(p, type);
+        minmax = mapMinmax(p, type);
     } else {
         throw new Error('Unknown Pattern subclass');
     }

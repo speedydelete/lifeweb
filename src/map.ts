@@ -452,7 +452,7 @@ export function unparseTransitions(trs: string[], validTrs: string[], preferMinu
     return out;
 }
 
-export function transitionsToParsed(b: string[], s: string[], trs: {[key: string]: number[]}): Uint8Array<ArrayBuffer> {
+export function transitionsToArray(b: string[], s: string[], trs: {[key: string]: number[]}): Uint8Array<ArrayBuffer> {
     let out = new Uint8Array(512);
     for (let tr of b) {
         for (let i of trs[tr]) {
@@ -467,15 +467,30 @@ export function transitionsToParsed(b: string[], s: string[], trs: {[key: string
     return out;
 }
 
+export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: number[]}): [string[], string[]] {
+    let b: string[] = [];
+    let s: string[] = [];
+    for (let tr in trs) {
+        if (array[trs[tr][0]]) {
+            b.push(tr);
+        }
+        if (array[trs[tr][0] | (1 << 4)]) {
+            s.push(tr);
+        }
+    }
+    return [b, s];
+}
+
 export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], type: string, preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
     let bTrs = parseTransitions(b, validTrs, type);
     let sTrs = parseTransitions(s, validTrs, type);
     return {
         b: unparseTransitions(bTrs, validTrs, preferMinus),
         s: unparseTransitions(sTrs, validTrs, preferMinus),
-        data: transitionsToParsed(bTrs, sTrs, trs),
+        data: transitionsToArray(bTrs, sTrs, trs),
     };
 }
+
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
