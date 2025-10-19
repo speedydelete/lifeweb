@@ -1,3 +1,4 @@
+import {threadId} from 'worker_threads';
 
 export class RuleError extends Error {
     name: 'RuleError' = 'RuleError';
@@ -19,6 +20,12 @@ for (let prefix of RLE_PREFIXES) {
 }
 
 export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
+
+export interface PatternData {
+    height: number;
+    width: number;
+    data: Uint8Array;
+}
 
 
 export abstract class Pattern {
@@ -57,14 +64,30 @@ export abstract class Pattern {
     }
 
     isEmpty(): boolean {
-        return this.height === 0 || this.width === 0;
+        return this.height === 0 || this.width === 0 || this.data.every(x => x === 0);
     }
 
     getRect(): [number, number, number, number] {
         return [this.xOffset, this.yOffset, this.width, this.height];
     }
 
-    hash(): BigUint64Array {
+    hash32(): number {
+        let out = 0x811c9dc5;
+        if (this.states === 2) {
+            for (let i = 0; i < this.data.length; i += 8) {
+                out ^= this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5);
+                out *= 0x01000193;
+            }
+        } else {
+            for (let i = 0; i < this.data.length; i++) {
+                out ^= this.data[i];
+                out *= 0x01000193;
+            }
+        }
+        return out;
+    }
+
+    hash64(): BigUint64Array {
         let out = new BigUint64Array(1);
         out[0] = 0xcbf29ce484222325n;
         if (this.states === 2) {
@@ -79,6 +102,10 @@ export abstract class Pattern {
             }
         }
         return out;
+    }
+
+    isEqual(other: Pattern): boolean {
+        return this.height === other.height && this.width === other.width && this.xOffset === other.xOffset && this.yOffset === other.yOffset && this.data.every((x, i) => x === other.data[i]);
     }
 
     resizeToFit(): this {
@@ -266,15 +293,13 @@ export abstract class Pattern {
         return this;
     }
 
-    flipDiagonal() {
-        this.rotateRight().flipHorizontal();
+    flipDiagonal(): this {
+        return this.rotateRight().flipHorizontal();
     }
 
-    flipAntiDiagonal() {
-        this.rotateRight().flipVertical();
+    flipAntiDiagonal(): this {
+        return this.rotateRight().flipVertical();
     }
-
-
 
     _toApgcode(data: Uint8Array) {
         let height = this.height - 2;
@@ -526,6 +551,56 @@ export abstract class Pattern {
             }
         }
         return [height, width, out];
+    }
+
+    toCanonicalApgcode(period: number = 1, prefix?: string): string {
+        let p = this.copy();
+        let codes: string[] = [];
+        let length = Infinity;
+        for (let j = 0; j < period; j++) {
+            if (j > 0) {
+                p.runGeneration();
+            }
+            codes.push(p.toApgcode(prefix));
+            if (this.ruleSymmetry !== 'C1') {
+                let q = p.copy();
+                if (this.ruleSymmetry === 'D8') {
+                    for (let i = 0; i < 2; i++) {
+                        for (let i = 0; i < 4; i++) {
+                            codes.push(q.rotateLeft().toApgcode(prefix));
+                        }
+                        q.flipHorizontal();
+                    }
+                } else if (this.ruleSymmetry === 'C2') {
+                    codes.push(q.rotate180().toApgcode());
+                } else if (this.ruleSymmetry === 'C4') {
+                    for (let i = 0; i < 4; i++) {
+                        codes.push(q.rotateLeft().toApgcode());
+                    }
+                } else if (this.ruleSymmetry === 'D2h') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else if (this.ruleSymmetry === 'D2v') {
+                    codes.push(q.flipVertical().toApgcode());
+                } else if (this.ruleSymmetry === 'D2x') {
+                    codes.push(q.flipDiagonal().toApgcode());
+                } else if (this.ruleSymmetry === 'D4+') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                    codes.push(q.flipVertical().toApgcode());
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else {
+                    codes.push(q.flipDiagonal().toApgcode());
+                    codes.push(q.flipAntiDiagonal().toApgcode());
+                    codes.push(q.flipDiagonal().toApgcode());
+                }
+            }
+        }
+        let out = codes[0];
+        for (let code of codes.slice(1)) {
+            if (code.length < out.length || code < out) {
+                out = code;
+            }
+        }
+        return out;
     }
 
 }

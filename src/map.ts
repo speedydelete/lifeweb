@@ -1,5 +1,5 @@
 
-import {Pattern, RuleError, RuleSymmetry} from './pattern.js';
+import {Pattern, RuleError, RuleSymmetry, PatternData} from './pattern.js';
 
 
 /*
@@ -353,7 +353,7 @@ export const VALID_HEX_TRANSITIONS: string[] = [
 const DIGITS = '0123456789';
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
-function parseTransitions(data: string, validTrs: string[], type: string): string[] {
+export function parseTransitions(data: string, validTrs: string[], type: string): string[] {
     if (data.length === 0) {
         return [];
     }
@@ -419,7 +419,7 @@ function parseTransitions(data: string, validTrs: string[], type: string): strin
     return Array.from(out);
 }
 
-function unparseTransitions(trs: string[], validTrs: string[], preferMinus: boolean): string {
+export function unparseTransitions(trs: string[], validTrs: string[], preferMinus: boolean): string {
     let sorted: string[] = [];
     for (let i = 0; i < validTrs.length; i++) {
         sorted.push('');
@@ -452,24 +452,28 @@ function unparseTransitions(trs: string[], validTrs: string[], preferMinus: bool
     return out;
 }
 
+export function transitionsToParsed(b: string[], s: string[], trs: {[key: string]: number[]}): Uint8Array<ArrayBuffer> {
+    let out = new Uint8Array(512);
+    for (let tr of b) {
+        for (let i of trs[tr]) {
+            out[i] = 1;
+        }
+    }
+    for (let tr of s) {
+        for (let i of trs[tr]) {
+            out[i | (1 << 4)] = 1;
+        }
+    }
+    return out;
+}
+
 export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], type: string, preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
     let bTrs = parseTransitions(b, validTrs, type);
     let sTrs = parseTransitions(s, validTrs, type);
-    let data = new Uint8Array(512);
-    for (let tr of bTrs) {
-        for (let i of trs[tr]) {
-            data[i] = 1;
-        }
-    }
-    for (let tr of sTrs) {
-        for (let i of trs[tr]) {
-            data[i | (1 << 4)] = 1;
-        }
-    }
     return {
         b: unparseTransitions(bTrs, validTrs, preferMinus),
         s: unparseTransitions(sTrs, validTrs, preferMinus),
-        data,
+        data: transitionsToParsed(bTrs, sTrs, trs),
     };
 }
 
@@ -509,4 +513,198 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
         }
     }
     return out;
+}
+
+
+const VON_NEUMANN: string[][] = [
+    ['0c', '1c', '2c', '2n', '3c', '4c'],
+    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
+    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
+    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
+    ['4e', '5c', '6c', '6n', '7c', '8c'],
+];
+
+export function parseMAPRule(rule: string, data: PatternData): string | MAPPattern {
+    let raw = rule;
+    let ruleStr: string;
+    let trs = new Uint8Array(512);
+    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
+    let states = 2;
+    let isotropic = false;
+    let match: RegExpMatchArray | null;
+    if (match = rule.match(/^[gG]([0-9]+)/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(match[0].length);
+    }
+    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(0, match[0].length);
+    }
+    let end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+    } else if (end === 'v') {
+        neighborhood = 'V';
+    } else if (end === 'h') {
+        neighborhood = 'H';
+    }
+    if (rule.startsWith('MAP')) {
+        trs = parseMAP(rule.slice(3));
+        ruleStr = raw;
+    } else if (rule.startsWith('W')) {
+        return `R1,C${states},${rule}`;
+    } else {
+        let b = '';
+        let s = '';
+        let sections = rule.split('/');
+        for (let i = 0; i < sections.length; i++) {
+            let section = sections[i];
+            if (section[0] === 'B' || section[0] === 'b') {
+                b = section.slice(1);
+            } else if (section[0] === 'S' || section[0] === 's') {
+                s = section.slice(1);
+            } else {
+                if (i === 0) {
+                    s = section;
+                } else if (i === 1) {
+                    b = section;
+                } else {
+                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                }
+            }
+        }
+        if (neighborhood === 'V') {
+            let newB = '';
+            for (let char of b) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newB += VON_NEUMANN[value].join('');
+            }
+            b = newB;
+            let newS = '';
+            for (let char of s) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newS += VON_NEUMANN[value].join('');
+            }
+            s = newS;
+            neighborhood = 'M';
+        }
+        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
+        if (neighborhood === 'M') {
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, 'INT', false);
+        } else if (neighborhood === 'H') {
+            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, 'hex', true);
+        } else {
+            return `R1,C${states},B${b},S${s},NL`;
+        }
+        b = out.b;
+        s = out.s;
+        trs = out.data;
+        if (states > 2) {
+            ruleStr = `${s}/${b}/${states}`;
+        } else {
+            ruleStr = `B${b}/S${s}`;
+        }
+    }
+    if (trs[0]) {
+        if (trs[511]) {
+            let out = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                out[i] = trs[511 - i] ? 0 : 1;
+            }
+            trs = out;
+        } else {
+            let even = new Uint8Array(512);
+            let odd = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                even[i] = trs[i] ? 0 : 1;
+                odd[i] = trs[511 - i];
+            }
+        }
+    }
+    let symmetry: RuleSymmetry;
+    if (isotropic) {
+        symmetry = 'D8';
+    } else {
+        let C2 = true;
+        let C4 = true;
+        let D2v = true;
+        let D2h = true;
+        let D2x = true;
+        for (let i = 0; i < 512; i++) {
+            let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+            j = ((j & 73) << 1) | (j & 146) | ((j & 292) >> 1);
+            if (trs[i] !== trs[j]) {
+                C2 = false;
+                break;
+            }
+        }
+        if (C2) {
+            for (let i = 0; i < 512; i++) {
+                if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 36) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                    C4 = false;
+                    break;
+                }
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
+                D2v = false;
+                break;
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
+                D2h = false;
+                break;
+            }
+        }
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[(i & 273) | ((i & 32) << 2) | ((i & 6) << 4) | ((i & 136) >> 2) | ((i & 64) >> 4)]) {
+                D2x = false;
+                break;
+            }
+        }
+        if (C4) {
+            if (D2h || D2v || D2h) {
+                symmetry = 'D8';
+            } else {
+                symmetry = 'C4';
+            }
+        } else if (C2) {
+            if (D2h || D2v) {
+                if (D2x) {
+                    symmetry = 'D8';
+                } else {
+                    symmetry = 'D4+';
+                }
+            } else if (D2x) {
+                symmetry = 'D4x';
+            } else {
+                symmetry = 'C2';
+            }
+        } else if (D2h || D2v || D2x) {
+            if (D2x) {
+                if (D2h || D2v) {
+                    symmetry = 'D8';
+                } else {
+                    symmetry = 'D2x';
+                }
+            } else if (D2h && D2v) {
+                symmetry = 'D4+';
+            } else if (D2h) {
+                symmetry = 'D2h';
+            } else {
+                symmetry = 'D2v';
+            }
+        } else {
+            symmetry = 'C1';
+        }
+    }
+    return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, symmetry);
 }
