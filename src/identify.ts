@@ -165,7 +165,7 @@ function md5(data: Uint8Array): Uint32Array {
     let padded = new Uint8Array(blockCount * 64);
     padded.set(data);
     padded[data.length] = 128;
-    console.log(padded);
+    // console.log(padded);
     let blocks = new DataView(padded.buffer);
     blocks.setBigUint64(padded.length - 8, BigInt(data.length), true);
     for (let block = 0; block < blockCount; block++) {
@@ -198,7 +198,7 @@ function md5(data: Uint8Array): Uint32Array {
     return out;
 }
 
-console.log(Array.from(md5(new Uint8Array(0))).map(x => x.toString(16).padStart(8, '0')).join(''));
+// console.log(Array.from(md5(new Uint8Array(0))).map(x => x.toString(16).padStart(8, '0')).join(''));
 
 export function identify(p: Pattern, limit: number): Identified {
     let type = findType(p, limit);

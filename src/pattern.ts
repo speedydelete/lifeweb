@@ -302,14 +302,13 @@ export abstract class Pattern {
     }
 
     _toApgcode(data: Uint8Array) {
-        let height = this.height - 2;
+        let height = this.height;
         let width = this.width;
-        data = data.slice(width);
         let out = '';
         for (let stripNum = 0; stripNum < Math.ceil(height / 5); stripNum++) {
             let zeros = 0;
             let start = stripNum * width * 5;
-            for (let x = 1; x < width - 1; x++) {
+            for (let x = 0; x < width; x++) {
                 let char = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4)];
                 if (char === '0') {
                     zeros++;
