@@ -436,27 +436,29 @@ export abstract class Pattern {
         let data = this.data;
         let topShrink = 0;
         let bottomShrink = 0;
+        let j = 0;
         for (let i = 0; i < size; i += width) {
-            if (topShrink === i && data.slice(i, i + width).every(x => x === 0)) {
+            if (topShrink === j && data.slice(i, i + width).every(x => x === 0)) {
                 topShrink++;
             }
-            if (bottomShrink === i && data.slice(size - i - width, size - i).every(x => x === 0)) {
+            if (bottomShrink === j && data.slice(size - i - width, size - i).every(x => x === 0)) {
                 bottomShrink++;
             }
-            if (topShrink !== i && bottomShrink !== i) {
+            if (topShrink !== j && bottomShrink !== j) {
                 break;
             }
+            j++;
         }
         let leftShrink = 0;
         let rightShrink = 0;
         for (let i = 0; i < width; i++) {
-            if (topShrink === i && data.every((x, i) => x === 0 || i % width !== i)) {
-                topShrink++;
+            if (leftShrink === i && data.every((x, j) => x === 0 || j % width !== i)) {
+                leftShrink++;
             }
-            if (bottomShrink === i && data.every((x, i) => x === 0 || i % width !== width - i)) {
-                bottomShrink++;
+            if (rightShrink === i && data.every((x, j) => x === 0 || j % width !== width - i - 1)) {
+                rightShrink++;
             }
-            if (topShrink !== i && bottomShrink !== i) {
+            if (leftShrink !== i && rightShrink !== i) {
                 break;
             }
         }
@@ -645,15 +647,18 @@ export abstract class Pattern {
 
     toCanonicalApgcode(period: number = 1, prefix?: string): string {
         let p = this.copy();
+        p.shrinkToFit();
         let codes: string[] = [];
         for (let j = 0; j < period; j++) {
             if (j > 0) {
                 p.runGeneration();
+                p.shrinkToFit();
             }
             codes.push(p.toApgcode());
             if (this.ruleSymmetry !== 'C1') {
                 let q = p.copy();
                 if (this.ruleSymmetry === 'D8') {
+                    codes.push(q.rotateLeft().toApgcode());
                     for (let i = 0; i < 2; i++) {
                         for (let i = 0; i < 4; i++) {
                             codes.push(q.rotateLeft().toApgcode());

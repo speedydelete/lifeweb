@@ -117,9 +117,8 @@ B1c, B2c || B3i: merge all
 */
 
 import {Pattern} from './pattern.js';
+import {findSymmetry} from './map.js';
 
-
-let knotCache: {[key: string]: Uint8Array} = {};
 
 // to detect whether there are more than 2 islands quickly, this function never returns 1 when given a knot with more than 2 islands
 // the complicated cases are currently unimplemented!
@@ -449,36 +448,46 @@ export function getKnots(transitions: Uint8Array): Uint8Array {
         let j = (i & 273) | ((i & 32) << 2) | ((i & 4) << 4) | ((i & 128) >> 2) | ((i & 2) << 2) | ((i & 64) >> 4) | ((i & 8) >> 2);
         actualOut[j] = out[i];
     }
+    let trsSym = findSymmetry(transitions);
+    let outSym = findSymmetry(out);
+    if (trsSym !== outSym) {
+        throw new Error(`Something is seriously wrong! (Mismatched symmetries for knot rule: ${trsSym} and ${outSym})`);
+    }
     return out;
 }
 
+import {createPattern} from './index.js';
 
-export class MAPSeperator {
+// @ts-ignore
+console.log(getKnots(createPattern('B3/S23').trs));
 
-    data: Uint16Array;
-    aliases: Uint16Array;
-    height: number;
-    width: number;
-    size: number;
-    trs: Uint8Array;
-    knots: Uint8Array;
 
-    constructor(p: Pattern) {
-        this.setFrom(p);
-    }
+// export class MAPSeperator {
 
-    setFrom(p: Pattern) {
-        let {height, width, size} = p;
-        this.height = height;
-        this.width = width;
-        this.size = size;
-        if (!p.extra.every((x, i) => x === this.trs[i])) {
-            this.knots = getKnots(p.extra);
-        }
-        this.trs = p.extra;
-        this.data = new Uint16Array(this.size);
-        this.aliases.fill(0);
+//     data: Uint16Array;
+//     aliases: Uint16Array;
+//     height: number;
+//     width: number;
+//     size: number;
+//     trs: Uint8Array;
+//     knots: Uint8Array;
+
+//     constructor(p: Pattern) {
+//         this.setFrom(p);
+//     }
+
+//     setFrom(p: Pattern) {
+//         let {height, width, size} = p;
+//         this.height = height;
+//         this.width = width;
+//         this.size = size;
+//         if (!p.extra.every((x, i) => x === this.trs[i])) {
+//             this.knots = getKnots(p.extra);
+//         }
+//         this.trs = p.extra;
+//         this.data = new Uint16Array(this.size);
+//         this.aliases.fill(0);
         
-    }
+//     }
 
-}
+// }

@@ -32,13 +32,13 @@ function findType(p: Pattern, limit: number): PartialIdentified {
         for (let j = 0; j <= i; j++) {
             if (hash === hashes[j] && pop === pops[j]) {
                 let q = phases[j];
-                if (!p.isEqual(q)) {
+                if (p.height === q.height && p.width === q.width && p.data.every((x, i) => q.data[i])) {
                     continue;
                 }
                 return {
                     period: i - j + 1,
                     stabilizedAt: j,
-                    disp: [q.xOffset - p.xOffset, q.yOffset - p.xOffset],
+                    disp: [p.xOffset - q.xOffset, p.yOffset - q.xOffset],
                     pops,
                     hashes,
                     phases,
