@@ -135,6 +135,8 @@ export function parseTransitions(data: string, validTrs: string[], type: string)
                     }
                 }
             }
+            minus = false;
+            chars = '';
             num = parseInt(char);
             if (num >= validTrs.length) {
                 throw new RuleError(`No ${type} transitions with ${num} neighbors`);

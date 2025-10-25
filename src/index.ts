@@ -380,3 +380,154 @@ export function parse(rle: string): Pattern {
     out.generation = generation;
     return out;
 }
+
+
+/*
+will output one of these formats:
+    b3s23 - OT/INT
+    g3b2s - OT/INT generations
+    xmapwhatever - MAP
+    xg3mapwhatever - MAP generations
+    r2b000008s000008 - HROT (corresponds to R2,C2,S4,B4)
+    g3r2b000008s000008 - HROT generations
+    r2b000008zs000008z - HROT B0/S0
+    g3r2b000008zs000008z - HROT generations B0/S0
+    xalternating__b3s23__b3s2-i34q - alternating
+    xw110 - range-1 1D
+    xr2w110 - higher range 1D
+    xg3r2w110 - higher range 1D generations
+*/
+
+const HEX_CHARS = '0123456789abcdef';
+
+export function toCatagolueRule(rule: string, customRules?: {[key: string]: string}): string {
+    if (rule.includes('|')) {
+        return 'xalternating__' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('__');
+    }
+    let ruleStr = createPattern(rule, undefined, customRules).ruleStr;
+    if (ruleStr.includes('/')) {
+        if (ruleStr.endsWith('V')) {
+            // @ts-ignore
+            if (typeof alert === 'function') {
+                // @ts-ignore
+                alert('bruh');
+            }
+            throw new RuleError('bruh');
+        }
+        let parts = ruleStr.split('/');
+        parts[0] = parts[0];
+        parts[1] = parts[1];
+        if (parts.length === 2) {
+            return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
+        } else {
+            let isHex = false;
+            if (parts[2].endsWith('H')) {
+                isHex = true;
+                parts[2] = parts[2].slice(-1);
+            }
+            let out = `g${parts[2]}b${parts[1]}s${parts[0]}`;
+            if (isHex) {
+                return out + 'h';
+            } else {
+                return out;
+            }
+        }
+    } else if (ruleStr.startsWith('R')) {
+        let parts = ruleStr.split(',');
+        let r = parseInt(parts[0].slice(1));
+        let c = parseInt(parts[1].slice(1));
+        if (parts[2].startsWith('W')) {
+            let w = parts[2].slice(1);
+            if (c > 2) {
+                return `xg${c}r${r}w${w}`;
+            } else {
+                return `xr${r}w${w}`;
+            }
+        }
+        let s: number[] = [];
+        let b: number[] = [];
+        let parsingB = false;
+        parts[2] = parts[2].slice(1);
+        let n: string | null = null;
+        for (let part of parts.slice(2)) {
+            if (part.length === 0) {
+                continue;
+            } else if (part.startsWith('B')) {
+                parsingB = true;
+                part = part.slice(1);
+            } else if (part.startsWith('N')) {
+                n = part.slice(1);
+                continue;
+            }
+            if (parsingB) {
+                b.push(parseInt(part));
+            } else {
+                s.push(parseInt(part));
+            }
+        }
+        let out = 'r' + r + 'b';
+        if (c > 2) {
+            out = 'g' + c + out;
+        }
+        for (let x of [b, s]) {
+            for (let i = (2*r + 1)**2 - 1; i > 0; i -= 4) {
+                let value = 0;
+                if (b.includes(i)) {
+                    value |= 8;
+                }
+                if (b.includes(i - 1)) {
+                    value |= 4;
+                }
+                if (b.includes(i - 2)) {
+                    value |= 2;
+                }
+                if (b.includes(i - 3)) {
+                    value |= 1;
+                }
+                out += HEX_CHARS[value];
+            }
+            if (x === b) {
+                out += 's';
+            }
+        }
+        if (n !== null) {
+            out = 'x' + out + 'n';
+            if (n === '*') {
+                out += 'star';
+            } else if (n === '+') {
+                out += 'plus';
+            } else if (n === '#') {
+                out += 'hash';
+            } else if (n.startsWith('@')) {
+                out += 'at' + n.slice(1);
+            } else {
+                out += n.toLowerCase();
+            }
+        }
+        if (out.endsWith('h')) {
+            out += 'x';
+        }
+        return out;
+    } else if (ruleStr.startsWith('MAP')) {
+        if (ruleStr.length < 89) {
+            // @ts-ignore
+            if (typeof alert === 'function') {
+                // @ts-ignore
+                alert('bruh');
+            }
+            throw new RuleError('bruh');
+        }
+        let out = 'map' + ruleStr.slice(3, 88);
+        if (ruleStr.length > 89 && ruleStr[89] === '/') {
+            out = 'g' + parseInt(ruleStr.slice(90)) + out;
+        }
+        if (out.endsWith('h')) {
+            out += 'x';
+        }
+        return 'x' + out;
+    } else if (ruleStr.startsWith('W')) {
+        return 'xw' + ruleStr.slice(1);
+    } else {
+        throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
+    }
+}
