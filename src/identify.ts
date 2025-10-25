@@ -81,14 +81,6 @@ const MD5_BLOCKS = [
     0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9,
 ];
 
-function debug(msg: string, data: Uint8Array | Uint32Array): void {
-    console.log(msg, Array.from(new Uint8Array(data.buffer)).map(x => (x >>> 0).toString(16).padStart(2, '0')).join(' '));
-}
-
-function debug2(msg: string, ...nums: number[]): void {
-    console.log(msg, nums.map(x => (x >>> 0).toString(16).padStart(8, '0')).join(' '));
-}
-
 function md5(data: Uint8Array): Uint8Array {
     let out = new Uint32Array(4);
     out[0] = 0x67452301;
@@ -107,15 +99,11 @@ function md5(data: Uint8Array): Uint8Array {
     padded[data.length] = 128;
     let blocks = new DataView(padded.buffer);
     blocks.setBigUint64(padded.length - 8, BigInt(data.length * 8), true);
-    debug('padded:', padded);
-    console.log('');
     for (let block = 0; block < blockCount; block++) {
         let a = out[0];
         let b = out[1];
         let c = out[2];
         let d = out[3];
-        debug2('initial abcd:', a, b, c, d);
-        console.log('');
         for (let i = 0; i < 64; i++) {
             let f: number;
             if (i < 16) {
@@ -132,16 +120,6 @@ function md5(data: Uint8Array): Uint8Array {
             d = c;
             c = b;
             b = (b + ((f << MD5_SHIFTS[i]) | (f >>> (32 - MD5_SHIFTS[i])))) | 0;
-            if (i % 4 === 0) {
-                debug2('round ' + i + ':', b, c, d, a);
-            } else if (i % 4 === 1) {
-                debug2('round ' + i + ':', c, d, a, b);
-            } else if (i % 4 === 2) {
-                debug2('round ' + i + ':', d, a, b, c);
-            } else {
-                debug2('round ' + i + ':', a, b, c, d);
-                console.log('');
-            }
         }
         out[0] += a;
         out[1] += b;
@@ -156,7 +134,6 @@ function md5(data: Uint8Array): Uint8Array {
     return actualOut;
 }
 
-console.log(Array.from(md5(new Uint8Array(0))).map(x => x.toString(16).padStart(2, '0')).join(' '));
 
 export function identify(p: Pattern, limit: number): Identified {
     let type = findType(p, limit);
