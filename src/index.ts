@@ -1,15 +1,144 @@
 
-import {Pattern, RuleError, PatternData, RLE_CHARS} from './pattern.js';
-import {parseMAPRule} from './map.js';
+import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
+import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
+import {AlternatingPattern} from './alternating.js';
 
-export {Pattern, RuleError, RuleSymmetry} from './pattern.js';
-export * as pattern from './pattern.js';
-export * as map from './map.js';
-export * as _identify from './identify.js';
-export {identify} from './identify.js';
+export * from './pattern.js';
+export * from './map.js';
+export * from './alternating.js';
+export * from './identify.js';
 
 
-function _createPattern(data: PatternData, rule: string): Pattern {
+export interface PatternData {
+    height: number;
+    width: number;
+    data: Uint8Array;
+}
+
+const VON_NEUMANN: string[][] = [
+    ['0c', '1c', '2c', '2n', '3c', '4c'],
+    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
+    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
+    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
+    ['4e', '5c', '6c', '6n', '7c', '8c'],
+];
+
+function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPB0GenPattern {
+    let raw = rule;
+    let ruleStr: string;
+    let trs = new Uint8Array(512);
+    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
+    let states = 2;
+    let match: RegExpMatchArray | null;
+    if (match = rule.match(/^[gG]([0-9]+)/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(match[0].length);
+    }
+    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(0, match[0].length);
+    }
+    let end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+    } else if (end === 'v') {
+        neighborhood = 'V';
+    } else if (end === 'h') {
+        neighborhood = 'H';
+    }
+    if (rule.startsWith('MAP')) {
+        trs = parseMAP(rule.slice(3));
+        ruleStr = raw;
+    } else if (rule.startsWith('W')) {
+        return `R1,C${states},${rule}`;
+    } else {
+        let b = '';
+        let s = '';
+        let sections = rule.split('/');
+        for (let i = 0; i < sections.length; i++) {
+            let section = sections[i];
+            if (section[0] === 'B' || section[0] === 'b') {
+                b = section.slice(1);
+            } else if (section[0] === 'S' || section[0] === 's') {
+                s = section.slice(1);
+            } else {
+                if (i === 0) {
+                    s = section;
+                } else if (i === 1) {
+                    b = section;
+                } else {
+                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                }
+            }
+        }
+        if (neighborhood === 'V') {
+            let newB = '';
+            for (let char of b) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newB += VON_NEUMANN[value].join('');
+            }
+            b = newB;
+            let newS = '';
+            for (let char of s) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newS += VON_NEUMANN[value].join('');
+            }
+            s = newS;
+            neighborhood = 'M';
+        }
+        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
+        if (neighborhood === 'M') {
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, 'INT', false);
+        } else if (neighborhood === 'H') {
+            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, 'hex', true);
+        } else {
+            return `R1,C${states},B${b},S${s},NL`;
+        }
+        b = out.b;
+        s = out.s;
+        trs = out.data;
+        if (states > 2) {
+            ruleStr = `${s}/${b}/${states}`;
+        } else {
+            ruleStr = `B${b}/S${s}`;
+        }
+    }
+    if (trs[0]) {
+        if (trs[511]) {
+            let out = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                out[i] = trs[511 - i] ? 0 : 1;
+            }
+            trs = out;
+        } else {
+            let evenTrs = new Uint8Array(512);
+            let oddTrs = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                evenTrs[i] = trs[i] ? 0 : 1;
+                oddTrs[i] = trs[511 - i];
+            }
+            if (states > 2) {
+                return new MAPB0GenPattern(data.height, data.width, data.data, evenTrs, oddTrs, states, ruleStr, SYMMETRY_LEAST[findSymmetry(evenTrs)][findSymmetry(oddTrs)]);
+            } else {
+                return new MAPB0Pattern(data.height, data.width, data.data, evenTrs, oddTrs, ruleStr, SYMMETRY_LEAST[findSymmetry(evenTrs)][findSymmetry(oddTrs)]);
+            }
+        }
+    }
+    if (states > 2) {
+        return new MAPGenPattern(data.height, data.width, data.data, trs, states, ruleStr, findSymmetry(trs));
+    } else {
+        return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, findSymmetry(trs));
+    }
+}
+
+
+export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}): Pattern {
     rule = rule.trim();
     let errors: string[] = [];
     try {
@@ -42,6 +171,13 @@ function _createPattern(data: PatternData, rule: string): Pattern {
     //         }
     //     }
     // }
+    if (rule.includes('|')) {
+        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules));
+        return new AlternatingPattern(data.height, data.width, data.data, patterns);
+    }
+    if (namedRules && rule in namedRules) {
+        return createPattern(namedRules[rule]);
+    }
     throw new RuleError(errors.join(', '));
 }
 
@@ -111,6 +247,8 @@ export function parse(rle: string): Pattern {
             line = line.trim();
             if (line.length === 0) {
                 continue;
+            } else if (headerFound) {
+                data += line;
             } else if (line.startsWith('#')) {
                 let char = line[1];
                 if (char === 'C' || char === 'c') {
@@ -135,25 +273,27 @@ export function parse(rle: string): Pattern {
                 } else if (char === 'r') {
                     rule = line.slice(2);
                 }
-            } else if (line && !headerFound) {
+            } else {
                 headerFound = true;
                 line = line.trim();
-                for (let pair of line.split(',')) {
-                    if (!pair.includes('=')) {
-                        continue;
-                    }
-                    let [key, value] = pair.split('=');
-                    key = key.trim();
-                    if (key === 'x') {
-                        width = parseInt(value);
-                    } else if (key === 'y') {
-                        height = parseInt(value);
-                    } else if (key === 'rule') {
-                        rule = value;
+                if (line[0] !== 'x') {
+                    data += line;
+                } else {
+                    for (let pair of line.split(',')) {
+                        if (!pair.includes('=')) {
+                            continue;
+                        }
+                        let [key, value] = pair.split('=');
+                        key = key.trim();
+                        if (key === 'x') {
+                            width = parseInt(value);
+                        } else if (key === 'y') {
+                            height = parseInt(value);
+                        } else if (key === 'rule') {
+                            rule = value;
+                        }
                     }
                 }
-            } else {
-                data += line;
             }
         }
         let num = '';
@@ -180,7 +320,7 @@ export function parse(rle: string): Pattern {
                 if (num !== '') {
                     let count = parseInt(num);
                     for (let i = 0; i < count; i++) {
-                        raw.push([]);
+                        currentLine.push(i);
                     }
                     num = '';
                 }
@@ -234,9 +374,16 @@ export function parse(rle: string): Pattern {
             i++;
         }
     }
-    let out = _createPattern({height, width, data}, rule);
+    let out = createPattern(rule, {height, width, data});
     out.xOffset = xOffset;
     out.yOffset = yOffset;
     out.generation = generation;
     return out;
 }
+
+import {identify} from './identify.js';
+
+console.log(identify(parse(`
+x = 3, y = 3, rule = B3/S23
+bo$2bo$3o!
+`), 4));

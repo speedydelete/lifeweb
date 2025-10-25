@@ -1,6 +1,6 @@
 
 import {Pattern} from './pattern.js';
-import {arrayToTransitions, MAPPattern, TRANSITIONS, transitionsToArray, unparseTransitions, VALID_TRANSITIONS} from './map.js';
+import {arrayToTransitions, MAPPattern, TRANSITIONS, unparseTransitions, VALID_TRANSITIONS} from './map.js';
 
 
 export interface Identified {
@@ -22,14 +22,13 @@ type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | '
 
 
 function findType(p: Pattern, limit: number): PartialIdentified {
-    p.resizeToFit();
+    p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
     let hashes: number[] = [p.hash32()];
-    let offset: [number, number] | false;
     for (let i = 0; i < limit; i++) {
         p.runGeneration();
-        p.resizeToFit();
+        p.shrinkToFit();
         let pop = p.population;
         let hash = p.hash32();
         for (let j = 0; j <= i; j++) {
@@ -39,7 +38,7 @@ function findType(p: Pattern, limit: number): PartialIdentified {
                     continue;
                 }
                 return {
-                    period: i - j,
+                    period: i - j + 1,
                     stabilizedAt: j,
                     disp: [q.xOffset - p.xOffset, q.yOffset - p.xOffset],
                     pops,
@@ -69,9 +68,9 @@ function findType(p: Pattern, limit: number): PartialIdentified {
 
 
 function verifyType(p: Pattern, type: PartialIdentified): boolean {
-    for (let i = 0; i < (type.disp ? type.period + 1 : 8 * type.period); i++) {
+    for (let i = 0; i < (type.disp ? type.period : 8 * type.period); i++) {
         p.runGeneration();
-        p.resizeToFit();
+        p.shrinkToFit();
         if (p.hash32() !== type.hashes[i] && p.population !== type.pops[i] && !p.isEqual(type.phases[i])) {
             return false;
         }
@@ -216,10 +215,10 @@ export function identify(p: Pattern, limit: number): Identified {
             if (type.period === 1) {
                 let cells = type.pops[type.pops.length - 1];
                 prefix = 'xs' + cells;
-                desc = cells + (cells === 1 ? '-cell' : '-cells') + ' still life';
+                desc = cells + '-cell still life';
             } else {
                 prefix = 'xp' + type.period;
-                desc = 'p' + type.period + 'oscillator';
+                desc = 'p' + type.period + ' oscillator';
             }
         } else {
             prefix = 'xq' + type.period;

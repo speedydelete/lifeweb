@@ -1,4 +1,3 @@
-import {threadId} from 'worker_threads';
 
 export class RuleError extends Error {
     name: 'RuleError' = 'RuleError';
@@ -21,10 +20,247 @@ for (let prefix of RLE_PREFIXES) {
 
 export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
 
-export interface PatternData {
-    height: number;
-    width: number;
-    data: Uint8Array;
+
+export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
+    'C1': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C4',
+        'D2h': 'D2h',
+        'D2v': 'D2v',
+        'D2x': 'D2x',
+        'D4+': 'D4+',
+        'D4x': 'D4x',
+        'D8': 'D8',
+    },
+    'C2': {
+        'C1': 'C2',
+        'C2': 'C2',
+        'C4': 'C4',
+        'D2h': 'D4+',
+        'D2v': 'D4+',
+        'D2x': 'D4x',
+        'D4+': 'D4+',
+        'D4x': 'D4x',
+        'D8': 'D8',
+    },
+    'C4': {
+        'C1': 'C4',
+        'C2': 'C4',
+        'C4': 'C4',
+        'D2h': 'D8',
+        'D2v': 'D8',
+        'D2x': 'D8',
+        'D4+': 'D8',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+    'D2h': {
+        'C1': 'D2h',
+        'C2': 'D4+',
+        'C4': 'D8',
+        'D2h': 'D2h',
+        'D2v': 'D4+',
+        'D2x': 'D8',
+        'D4+': 'D4+',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+    'D2v': {
+        'C1': 'D2v',
+        'C2': 'D4+',
+        'C4': 'D8',
+        'D2h': 'D4+',
+        'D2v': 'D2v',
+        'D2x': 'D8',
+        'D4+': 'D4+',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+    'D2x': {
+        'C1': 'D2x',
+        'C2': 'D4x',
+        'C4': 'D8',
+        'D2h': 'D8',
+        'D2v': 'D8',
+        'D2x': 'D2x',
+        'D4+': 'D8',
+        'D4x': 'D4x',
+        'D8': 'D8',
+    },
+    'D4+': {
+        'C1': 'D4+',
+        'C2': 'D4+',
+        'C4': 'D8',
+        'D2h': 'D4+',
+        'D2v': 'D4+',
+        'D2x': 'D8',
+        'D4+': 'D4+',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+    'D4x': {
+        'C1': 'D4x',
+        'C2': 'D4x',
+        'C4': 'D8',
+        'D2h': 'D8',
+        'D2v': 'D8',
+        'D2x': 'D4x',
+        'D4+': 'D8',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+    'D8': {
+        'C1': 'D8',
+        'C2': 'D8',
+        'C4': 'D8',
+        'D2h': 'D8',
+        'D2v': 'D8',
+        'D2x': 'D8',
+        'D4+': 'D8',
+        'D4x': 'D8',
+        'D8': 'D8',
+    },
+};
+
+export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
+    'C1': {
+        'C1': 'C1',
+        'C2': 'C1',
+        'C4': 'C4',
+        'D2h': 'C1',
+        'D2v': 'C1',
+        'D2x': 'C1',
+        'D4+': 'C1',
+        'D4x': 'C1',
+        'D8': 'C1',
+    },
+    'C2': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C4',
+        'D2h': 'C1',
+        'D2v': 'C1',
+        'D2x': 'C1',
+        'D4+': 'C2',
+        'D4x': 'C2',
+        'D8': 'C2',
+    },
+    'C4': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C4',
+        'D2h': 'C1',
+        'D2v': 'C1',
+        'D2x': 'C1',
+        'D4+': 'C1',
+        'D4x': 'C1',
+        'D8': 'C4',
+    },
+    'D2h': {
+        'C1': 'C1',
+        'C2': 'C1',
+        'C4': 'C1',
+        'D2h': 'D2h',
+        'D2v': 'C1',
+        'D2x': 'C1',
+        'D4+': 'D2h',
+        'D4x': 'C1',
+        'D8': 'D2h',
+    },
+    'D2v': {
+        'C1': 'C1',
+        'C2': 'C1',
+        'C4': 'C1',
+        'D2h': 'C1',
+        'D2v': 'D2v',
+        'D2x': 'C1',
+        'D4+': 'D2v',
+        'D4x': 'C1',
+        'D8': 'D2v',
+    },
+    'D2x': {
+        'C1': 'C1',
+        'C2': 'C1',
+        'C4': 'C1',
+        'D2h': 'C1',
+        'D2v': 'C1',
+        'D2x': 'D2x',
+        'D4+': 'C1',
+        'D4x': 'D2x',
+        'D8': 'D2x',
+    },
+    'D4+': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C2',
+        'D2h': 'D2h',
+        'D2v': 'D2v',
+        'D2x': 'C1',
+        'D4+': 'D4+',
+        'D4x': 'C2',
+        'D8': 'D4+',
+    },
+    'D4x': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C2',
+        'D2h': 'C1',
+        'D2v': 'C1',
+        'D2x': 'D2x',
+        'D4+': 'C2',
+        'D4x': 'D4x',
+        'D8': 'D4x',
+    },
+    'D8': {
+        'C1': 'C1',
+        'C2': 'C2',
+        'C4': 'C4',
+        'D2h': 'D2h',
+        'D2v': 'D2v',
+        'D2x': 'D2x',
+        'D4+': 'D4+',
+        'D4x': 'D4x',
+        'D8': 'D8',
+    },
+};
+
+export function symmetryFromBases(C2: boolean, C4: boolean, D2h: boolean, D2v: boolean, D2x: boolean): RuleSymmetry {
+    if (C4) {
+        if (D2h || D2v || D2x) {
+            return 'D8';
+        } else {
+            return 'C4';
+        }
+    } else if (C2) {
+        if (D2h || D2v) {
+            if (D2x) {
+                return 'D8';
+            } else {
+                return 'D4+';
+            }
+        } else if (D2x) {
+            return 'D4x';
+        } else {
+            return 'C2';
+        }
+    } else if (D2h || D2v || D2x) {
+        if (D2x) {
+            if (D2h || D2v) {
+                return 'D8';
+            } else {
+                return 'D2x';
+            }
+        } else if (D2h && D2v) {
+            return 'D4+';
+        } else if (D2h) {
+            return 'D2h';
+        } else {
+            return 'D2v';
+        }
+    } else {
+        return 'C1';
+    }
 }
 
 
@@ -48,8 +284,6 @@ export abstract class Pattern {
         this.data = data;
     }
 
-    abstract copy(): Pattern;
-
     abstract runGeneration(): this;
 
     run(n: number): this {
@@ -60,15 +294,106 @@ export abstract class Pattern {
     }
 
     get population(): number {
-        return this.data.reduce((x, y) => x + y);
+        return this.data.reduce((x, y) => x + y, 0);
     }
 
     isEmpty(): boolean {
-        return this.height === 0 || this.width === 0 || this.data.every(x => x === 0);
+        return this.height === 0 || this.width === 0;
     }
 
-    getRect(): [number, number, number, number] {
-        return [this.xOffset, this.yOffset, this.width, this.height];
+    abstract copy(): Pattern;
+    abstract clearedCopy(): Pattern;
+
+    ensure(x: number, y: number): this {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        if (x < 0 || y < 0 || x > this.width || y > this.height) {
+            let height = this.height;
+            let width = this.width;
+            let expandUp = -y;
+            if (expandUp < 0) {
+                expandUp = 0;
+            }
+            let expandDown = y - this.height;
+            if (expandDown < 0) {
+                expandDown = 0;
+            }
+            let expandLeft = -x;
+            if (expandLeft < 0) {
+                expandLeft = 0;
+            }
+            let expandRight = x - this.width;
+            if (expandRight < 0) {
+                expandRight = 0;
+            }
+            let oX = expandLeft + expandRight;
+            let newWidth = width + oX;
+            let newHeight = height + expandUp + expandDown;
+            let newSize = newWidth * newHeight;
+            let out = new Uint8Array(newSize);
+            let loc = newWidth * expandUp + expandLeft;
+            let i = 0;
+            for (let y = 0; y < newHeight; y++) {
+                out.set(this.data.slice(i, i + width), loc);
+                loc += newWidth;
+                i += width;
+            }
+            this.width = newWidth;
+            this.height = newHeight;
+            this.size = newSize;
+            this.xOffset -= expandLeft;
+            this.yOffset -= expandUp;
+            x += expandUp;
+            y += expandLeft;
+            this.data = out;
+        }
+        return this;
+    }
+
+    get(x: number, y: number): number {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
+            return 0;
+        }
+        return this.data[y * this.width + x];
+    }
+
+    set(x: number, y: number, value: number = 1): this {
+        this.data[(y - this.yOffset) * this.width + (x - this.xOffset)] = value;
+        return this;
+    }
+
+    clear(): this;
+    clear(x: number, y: number): this;
+    clear(x?: number, y?: number): this {
+        if (!x) {
+            this.height = 0;
+            this.width = 0;
+            this.size = 0;
+            this.data = new Uint8Array(0);
+        } else {
+            // @ts-ignore
+            this.data[(y - this.yOffset) * this.width + (x - this.xOffset)] = 0;
+        }
+        return this;
+    }
+
+    insert(p: Pattern, x: number = 0, y: number = 0): this {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        let index = 0;
+        for (let i = 0; i < p.height; i++) {
+            this.data.set(p.data.slice(index, index + p.width), (y + i) * this.width + x);
+            index += p.width;
+        }
+        return this;
+    }
+
+    abstract copyPart(x: number, y: number, width: number, height: number): Pattern;
+
+    isEqual(other: Pattern): boolean {
+        return this.height === other.height && this.width === other.width && this.xOffset === other.xOffset && this.yOffset === other.yOffset && this.data.every((x, i) => x === other.data[i]);
     }
 
     hash32(): number {
@@ -104,18 +429,18 @@ export abstract class Pattern {
         return out;
     }
 
-    isEqual(other: Pattern): boolean {
-        return this.height === other.height && this.width === other.width && this.xOffset === other.xOffset && this.yOffset === other.yOffset && this.data.every((x, i) => x === other.data[i]);
-    }
-
-    resizeToFit(): this {
+    shrinkToFit(): this {
+        let height = this.height;
+        let width = this.width;
+        let size = this.size;
+        let data = this.data;
         let topShrink = 0;
         let bottomShrink = 0;
-        for (let i = 0; i < this.size; i += this.width) {
-            if (topShrink === i && this.data.slice(i, i + this.width).every(x => x === 0)) {
+        for (let i = 0; i < size; i += width) {
+            if (topShrink === i && data.slice(i, i + width).every(x => x === 0)) {
                 topShrink++;
             }
-            if (bottomShrink === i && this.data.slice(this.size - i, this.size - i - this.width).every(x => x === 0)) {
+            if (bottomShrink === i && data.slice(size - i - width, size - i).every(x => x === 0)) {
                 bottomShrink++;
             }
             if (topShrink !== i && bottomShrink !== i) {
@@ -124,11 +449,11 @@ export abstract class Pattern {
         }
         let leftShrink = 0;
         let rightShrink = 0;
-        for (let i = 0; i < this.width; i++) {
-            if (topShrink === i && this.data.slice(i, i + this.width).every(x => x === 0)) {
+        for (let i = 0; i < width; i++) {
+            if (topShrink === i && data.every((x, i) => x === 0 || i % width !== i)) {
                 topShrink++;
             }
-            if (bottomShrink === i && this.data.slice(this.size - i, this.size - i - this.width).every(x => x === 0)) {
+            if (bottomShrink === i && data.every((x, i) => x === 0 || i % width !== width - i)) {
                 bottomShrink++;
             }
             if (topShrink !== i && bottomShrink !== i) {
@@ -138,11 +463,11 @@ export abstract class Pattern {
         if (topShrink === 0 && bottomShrink === 0 && leftShrink === 0 && rightShrink === 0) {
             return this;
         }
-        let height = this.height - topShrink - bottomShrink;
-        let width = this.width - leftShrink - rightShrink;
-        let size = height * width;
+        height -= topShrink + bottomShrink;
+        width -= leftShrink + rightShrink;
+        size = height * width;
         let out = new Uint8Array(size);
-        let i = topShrink * width;
+        let i = topShrink * width + leftShrink;
         let loc = 0;
         for (let row = 0; row < height; row++) {
             for (let col = 0; col < width; col++) {
@@ -156,57 +481,6 @@ export abstract class Pattern {
         this.xOffset += topShrink;
         this.yOffset += leftShrink;
         this.data = out;
-        return this;
-    }
-
-    get(x: number, y: number): number {
-        x -= this.xOffset;
-        y -= this.yOffset;
-        if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
-            return 0;
-        }
-        return this.data[y * this.width + x];
-    }
-
-    set(x: number, y: number, value: number): this {
-        x -= this.xOffset;
-        y -= this.yOffset;
-        if (x < 0 || y < 0 || x > this.width || y > this.height) {
-            let height = this.height;
-            let width = this.width;
-            let expandUp = -y;
-            let expandDown = y - this.height;
-            if (expandDown < 0) {
-                expandDown = 0;
-            }
-            let expandLeft = -x;
-            let expandRight = y - this.width;
-            if (expandRight < 0) {
-                expandRight = 0;
-            }
-            let oX = expandLeft + expandRight;
-            let newWidth = width + oX;
-            let newHeight = height + expandUp + expandDown;
-            let newSize = newWidth * newHeight;
-            let out = new Uint8Array(newSize);
-            let loc = newWidth * expandUp + expandLeft + width + 1;
-            let i = width + 1;
-            for (let y = 0; y < newHeight; y++) {
-                loc += oX;
-                for (let x = 0; x < newWidth - 1; x++) {
-                    out[loc++] = this.data[i++];
-                }
-            }
-            this.width = newWidth;
-            this.height = newHeight;
-            this.size = newSize;
-            this.xOffset -= expandUp;
-            this.yOffset -= expandLeft;
-            x += expandUp;
-            y += expandLeft;
-            this.data = out;
-        }
-        this.data[y * this.width + x] = value;
         return this;
     }
 
@@ -301,7 +575,7 @@ export abstract class Pattern {
         return this.rotateRight().flipVertical();
     }
 
-    _toApgcode(data: Uint8Array) {
+    _toApgcode(data: Uint8Array): string {
         let height = this.height;
         let width = this.width;
         let out = '';
@@ -369,8 +643,63 @@ export abstract class Pattern {
         }
     }
 
+    toCanonicalApgcode(period: number = 1, prefix?: string): string {
+        let p = this.copy();
+        let codes: string[] = [];
+        for (let j = 0; j < period; j++) {
+            if (j > 0) {
+                p.runGeneration();
+            }
+            codes.push(p.toApgcode());
+            if (this.ruleSymmetry !== 'C1') {
+                let q = p.copy();
+                if (this.ruleSymmetry === 'D8') {
+                    for (let i = 0; i < 2; i++) {
+                        for (let i = 0; i < 4; i++) {
+                            codes.push(q.rotateLeft().toApgcode());
+                        }
+                        q.flipHorizontal();
+                    }
+                } else if (this.ruleSymmetry === 'C2') {
+                    codes.push(q.rotate180().toApgcode());
+                } else if (this.ruleSymmetry === 'C4') {
+                    for (let i = 0; i < 4; i++) {
+                        codes.push(q.rotateLeft().toApgcode());
+                    }
+                } else if (this.ruleSymmetry === 'D2h') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else if (this.ruleSymmetry === 'D2v') {
+                    codes.push(q.flipVertical().toApgcode());
+                } else if (this.ruleSymmetry === 'D2x') {
+                    codes.push(q.flipDiagonal().toApgcode());
+                } else if (this.ruleSymmetry === 'D4+') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                    codes.push(q.flipVertical().toApgcode());
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else {
+                    codes.push(q.flipDiagonal().toApgcode());
+                    codes.push(q.flipAntiDiagonal().toApgcode());
+                    codes.push(q.flipDiagonal().toApgcode());
+                }
+            }
+        }
+        let out = codes[0];
+        for (let code of codes.slice(1)) {
+            if (code.length < out.length || code < out) {
+                out = code;
+            }
+        }
+        if (prefix === undefined) {
+            prefix = '';
+        } else {
+            prefix += '_';
+        }
+        return prefix + out;
+    }
+
     toRLE(): string {
-        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
+        // let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
+        let out = 'x = ' + this.width + ', y = ' + this.height + ', rule = ' + this.ruleStr + '\n';
         let prevChar = '';
         let num = 0;
         let i = 0;
@@ -381,13 +710,13 @@ export abstract class Pattern {
                 $count++;
                 i += this.width;
                 continue;
-            } else if ($count > 0) {
+            } else if (y !== 0) {
                 let prevLineLength = line.length;
-                if ($count > 1) {
-                    line += $count;
+                if ($count > 0) {
+                    line += $count + 1;
+                    $count = 0;
                 }
                 line += '$';
-                $count = 0;
                 if (line.length > 69) {
                     out += line.slice(0, prevLineLength) + '\n';
                     line = line.slice(prevLineLength);
@@ -432,15 +761,12 @@ export abstract class Pattern {
             }
             prevChar = '';
             num = 1;
-            if (y !== this.height - 1) {
-                $count++;
-            }
         }
         out += line + '!\n';
         return out;
     }
 
-    static _fromApgcode(code: string): [number, number, Uint8Array] {
+    _loadApgcode(code: string): [number, number, Uint8Array] {
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
@@ -512,7 +838,7 @@ export abstract class Pattern {
                     loc++;
                 }
             }
-        } else {
+        } else if (data.length > 2) {
             for (let i = 2; i < data.length; i++) {
                 for (let y = 0; y < data[i].length; y++) {
                     let loc = width * y * 5;
@@ -552,54 +878,6 @@ export abstract class Pattern {
         return [height, width, out];
     }
 
-    toCanonicalApgcode(period: number = 1, prefix?: string): string {
-        let p = this.copy();
-        let codes: string[] = [];
-        let length = Infinity;
-        for (let j = 0; j < period; j++) {
-            if (j > 0) {
-                p.runGeneration();
-            }
-            codes.push(p.toApgcode(prefix));
-            if (this.ruleSymmetry !== 'C1') {
-                let q = p.copy();
-                if (this.ruleSymmetry === 'D8') {
-                    for (let i = 0; i < 2; i++) {
-                        for (let i = 0; i < 4; i++) {
-                            codes.push(q.rotateLeft().toApgcode(prefix));
-                        }
-                        q.flipHorizontal();
-                    }
-                } else if (this.ruleSymmetry === 'C2') {
-                    codes.push(q.rotate180().toApgcode());
-                } else if (this.ruleSymmetry === 'C4') {
-                    for (let i = 0; i < 4; i++) {
-                        codes.push(q.rotateLeft().toApgcode());
-                    }
-                } else if (this.ruleSymmetry === 'D2h') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2v') {
-                    codes.push(q.flipVertical().toApgcode());
-                } else if (this.ruleSymmetry === 'D2x') {
-                    codes.push(q.flipDiagonal().toApgcode());
-                } else if (this.ruleSymmetry === 'D4+') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                    codes.push(q.flipVertical().toApgcode());
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else {
-                    codes.push(q.flipDiagonal().toApgcode());
-                    codes.push(q.flipAntiDiagonal().toApgcode());
-                    codes.push(q.flipDiagonal().toApgcode());
-                }
-            }
-        }
-        let out = codes[0];
-        for (let code of codes.slice(1)) {
-            if (code.length < out.length || code < out) {
-                out = code;
-            }
-        }
-        return out;
-    }
+    abstract loadApgcode(code: string): Pattern;
 
 }

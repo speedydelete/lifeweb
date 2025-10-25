@@ -1,5 +1,5 @@
 
-import {Pattern, RuleError, RuleSymmetry, PatternData} from './pattern.js';
+import {Pattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
 
 
 /*
@@ -9,254 +9,6 @@ b e h
 c f i
 */
 
-
-export class MAPPattern extends Pattern {
-
-    trs: Uint8Array;
-    ruleStr: string;
-    states: 2 = 2;
-    ruleSymmetry: RuleSymmetry;
-
-    constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
-        this.trs = trs;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
-    }
-
-    copy(): MAPPattern {
-        let out = new MAPPattern(this.height, this.width, this.data, this.trs, this.ruleStr, this.ruleSymmetry);
-        out.generation = this.generation;
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
-        return out;
-    }
-
-    runGeneration(): this {
-        let width = this.width;
-        let height = this.height;
-        let size = this.size;
-        let data = this.data;
-        let trs = this.trs;
-        let width2 = width << 1;
-        let lastRow = size - width;
-        let secondLastRow = size - width2;
-        let expandUp = 0;
-        let expandDown = 0;
-        let upExpands = new Uint8Array(width);
-        let downExpands = new Uint8Array(width);
-        let i = 1;
-        let j = lastRow + 1;
-        let tr1 = (data[0] << 3) | data[1];
-        let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
-        if (trs[tr1]) {
-            expandUp = 1;
-            upExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandDown = 1;
-            downExpands[0] = 1;
-        }
-        for (let loc = 1; loc < width - 1; loc++) {
-            i++;
-            j++;
-            tr1 = ((tr1 << 3) & 511) | data[i];
-            tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
-            if (trs[tr1]) {
-                expandUp = 1;
-                upExpands[loc] = 1;
-            }
-            if (trs[tr2]) {
-                expandDown = 1;
-                downExpands[loc] = 1;
-            }
-        }
-        if (trs[(tr1 << 3) & 511]) {
-            expandUp = 1;
-            upExpands[width - 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            expandDown = 1;
-            downExpands[width - 1] = 1;
-        }
-        let expandLeft = 0;
-        let expandRight = 0;
-        let leftExpands = new Uint8Array(height);
-        let rightExpands = new Uint8Array(height);
-        tr1 = (data[0] << 1) | data[width];
-        tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        if (trs[tr1]) {
-            expandLeft = 1;
-            leftExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandRight = 1;
-            rightExpands[0] = 1;
-        }
-        let loc = 0;
-        for (i = width2; i < size; i += width) {
-            loc++;
-            tr1 = ((tr1 << 1) & 7) | data[i];
-            tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
-            if (trs[tr1]) {
-                expandLeft = 1;
-                leftExpands[loc] = 1;
-            }
-            if (trs[tr2]) {
-                expandRight = 1;
-                rightExpands[loc] = 1;
-            }
-        }
-        i -= width;
-        if (trs[(tr1 << 1) & 7]) {
-            expandLeft = 1;
-            leftExpands[height - 1] = 1;
-        }
-        if (trs[(tr2 << 1) & 511]) {
-            expandRight = 1;
-            rightExpands[height - 1] = 1;
-        }
-        let b1cnw = (trs[1] && data[0]) ? 1 : 0;
-        let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
-        let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
-        let b1cse = (trs[256] && data[size - 1]) ? 1 : 0;
-        if (b1cnw || b1cne) {
-            expandUp = 1;
-        }
-        if (b1csw || b1cse) {
-            expandDown = 1;
-        }
-        if (b1cnw || b1csw) {
-            expandLeft = 1;
-        }
-        if (b1cne || b1cse) {
-            expandRight = 1;
-        }
-        let oX = expandLeft + expandRight;
-        let oStart = (expandUp ? width + oX : 0) + expandLeft;
-        let oSize = oStart + oX * height;
-        let oLast = oSize - oX;
-        let newWidth = width + oX;
-        let newHeight = height + expandUp + expandDown;
-        let newSize = newWidth * newHeight;
-        let out = new Uint8Array(newSize);
-        out[0] = b1cnw;
-        out[newWidth - 1] = b1cne;
-        out[newSize - newWidth] = b1csw;
-        out[newSize - 1] = b1cse;
-        if (expandUp) {
-            out.set(upExpands, expandLeft);
-        }
-        if (expandDown) {
-            out.set(downExpands, size + oSize);
-        }
-        if (expandLeft) {
-            let loc = oStart - width - oX - 1;
-            for (i = 0; i < height; i++) {
-                loc += width + oX;
-                out[loc] = leftExpands[i];
-            }
-        }
-        if (expandRight) {
-            let loc = oStart - oX;
-            for (i = 0; i < height; i++) {
-                loc += width + oX;
-                out[loc] = rightExpands[i];
-            }
-        }
-        if (width <= 1) {
-            if (width === 1) {
-                let tr = (data[0] << 4) | (data[1] << 3);
-                let loc = oStart;
-                if (trs[tr]) {
-                    out[loc] = 1;
-                }
-                loc += oX + 1;
-                for (i = 1; i < height - 1; i++) {
-                    tr = ((tr << 1) & 63) | (data[i + 1] << 3);
-                    if (trs[tr]) {
-                        out[loc] = 1;
-                    }
-                    loc += oX + 1;
-                }
-                if (trs[(tr << 1) & 63]) {
-                    out[loc + oX + 1] = 1;
-                }
-            }
-        } else {
-            let loc1 = oStart;
-            let loc2 = lastRow + oLast;
-            j = lastRow;
-            tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
-            tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
-            if (trs[tr1]) {
-                out[loc1] = 1;
-            }
-            if (trs[tr2]) {
-                out[loc2] = 1;
-            }
-            for (i = 1; i < width - 1; i++) {
-                j++;
-                loc1++;
-                loc2++;
-                tr1 = ((tr1 << 3) & 511) | (data[i + 1] << 1) | data[i + width + 1];
-                if (trs[tr1]) {
-                    out[loc1] = 1;
-                }
-                tr2 = ((tr2 << 3) & 511) | (data[j - width + 1] << 2) | (data[j + 1] << 1);
-                if (trs[tr2]) {
-                    out[loc2] = 1;
-                }
-            }
-            if (trs[(tr1 << 3) & 511]) {
-                out[loc1 + 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 511]) {
-                out[loc2 + 1] = 1;
-            }
-            i = width;
-            loc = oStart + width - 1;
-            for (let y = 1; y < height - 1; y++) {
-                i++;
-                loc += oX + 1;
-                let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
-                if (trs[tr]) {
-                    out[loc] = 1;
-                }
-                i++;
-                loc++;
-                for (let x = 1; x < width - 1; x++) {
-                    tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
-                    if (trs[tr]) {
-                        out[loc] = 1;
-                    }
-                    i++;
-                    loc++;
-                }
-                if (trs[(tr << 3) & 511]) {
-                    out[loc] = 1;
-                }
-            }
-        }
-        this.height = newHeight;
-        this.width = newWidth;
-        this.size = newSize;
-        this.data = out;
-        this.xOffset -= expandLeft;
-        this.yOffset -= expandUp;
-        this.generation++;
-        return this;
-    }
-
-}
-
-
-
-/*
-let f = i => (i & 273) | ((i & 32) << 2) | ((i & 4) << 4) | ((i & 128) >> 2) | ((i & 2) << 2) | ((i & 64) >> 4) | ((i & 8) >> 2);
-x = Object.entries(x).map(y => [y[0], Object.entries(y[1])]);
-'{\n' + x.map(y => '    ' + y[0] + ': {\n' + y[1].map(z => '        ' + z[0] + ': [' + z[1].map(a => f(a)).join(', ') + '],\n').join('') + '    },\n').join('') + '}'
-*/
 
 export const TRANSITIONS: {[key: string]: number[]} = {
     '0c': [0],
@@ -311,6 +63,7 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '7e': [493, 367, 487, 463],
     '8c': [495],
 };
+
 
 export const VALID_TRANSITIONS: string[] = [
     'c',
@@ -491,7 +244,6 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
     };
 }
 
-
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
@@ -531,195 +283,1143 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
 }
 
 
-const VON_NEUMANN: string[][] = [
-    ['0c', '1c', '2c', '2n', '3c', '4c'],
-    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
-    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
-    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
-    ['4e', '5c', '6c', '6n', '7c', '8c'],
-];
+export function findSymmetry(trs: Uint8Array): RuleSymmetry {
+    let C2 = true;
+    let C4 = true;
+    let D2v = true;
+    let D2h = true;
+    let D2x = true;
+    for (let i = 0; i < 512; i++) {
+        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
+        if (trs[i] !== trs[j]) {
+            C2 = false;
+            C4 = false;
+            break;
+        }
+    }
+    if (C2) {
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                C4 = false;
+                break;
+            }
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+            D2v = false;
+            break;
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+            D2h = false;
+            break;
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            D2x = false;
+            break;
+        }
+    }
+    return symmetryFromBases(C2, C4, D2h, D2v, D2x);
+}
 
-export function parseMAPRule(rule: string, data: PatternData): string | MAPPattern {
-    let raw = rule;
-    let ruleStr: string;
-    let trs = new Uint8Array(512);
-    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
-    let states = 2;
-    let isotropic = false;
-    let match: RegExpMatchArray | null;
-    if (match = rule.match(/^[gG]([0-9]+)/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(match[0].length);
+
+export class MAPPattern extends Pattern {
+
+    trs: Uint8Array;
+    ruleStr: string;
+    states: 2 = 2;
+    ruleSymmetry: RuleSymmetry;
+
+    constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+        super(height, width, data);
+        this.trs = trs;
+        this.ruleStr = ruleStr;
+        this.ruleSymmetry = ruleSymmetry;
     }
-    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(0, match[0].length);
+
+    runGeneration(): this {
+        let width = this.width;
+        let height = this.height;
+        let size = this.size;
+        let data = this.data;
+        let trs = this.trs;
+        let width2 = width << 1;
+        let lastRow = size - width;
+        let secondLastRow = size - width2;
+        let expandUp = 0;
+        let expandDown = 0;
+        let upExpands = new Uint8Array(width);
+        let downExpands = new Uint8Array(width);
+        let i = 1;
+        let j = lastRow + 1;
+        let tr1 = (data[0] << 3) | data[1];
+        let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
+        if (trs[tr1]) {
+            expandUp = 1;
+            upExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandDown = 1;
+            downExpands[0] = 1;
+        }
+        for (let loc = 1; loc < width - 1; loc++) {
+            i++;
+            j++;
+            tr1 = ((tr1 << 3) & 511) | data[i];
+            tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[loc] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            expandUp = 1;
+            upExpands[width - 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            expandDown = 1;
+            downExpands[width - 1] = 1;
+        }
+        let expandLeft = 0;
+        let expandRight = 0;
+        let leftExpands = new Uint8Array(height);
+        let rightExpands = new Uint8Array(height);
+        tr1 = (data[0] << 1) | data[width];
+        tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
+        if (trs[tr1]) {
+            expandLeft = 1;
+            leftExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandRight = 1;
+            rightExpands[0] = 1;
+        }
+        let loc = 0;
+        for (i = width2; i < size; i += width) {
+            loc++;
+            tr1 = ((tr1 << 1) & 7) | data[i];
+            tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[loc] = 1;
+            }
+        }
+        i -= width;
+        if (trs[(tr1 << 1) & 7]) {
+            expandLeft = 1;
+            leftExpands[height - 1] = 1;
+        }
+        if (trs[(tr2 << 1) & 511]) {
+            expandRight = 1;
+            rightExpands[height - 1] = 1;
+        }
+        let b1cnw = (trs[1] && data[0]) ? 1 : 0;
+        let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
+        let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
+        let b1cse = (trs[256] && data[size - 1]) ? 1 : 0;
+        if (b1cnw || b1cne) {
+            expandUp = 1;
+        }
+        if (b1csw || b1cse) {
+            expandDown = 1;
+        }
+        if (b1cnw || b1csw) {
+            expandLeft = 1;
+        }
+        if (b1cne || b1cse) {
+            expandRight = 1;
+        }
+        let oX = expandLeft + expandRight;
+        let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        let oSize = oStart + oX * height;
+        let oLast = oSize - oX;
+        let newWidth = width + oX;
+        let newHeight = height + expandUp + expandDown;
+        let newSize = newWidth * newHeight;
+        let out = new Uint8Array(newSize);
+        out[0] = b1cnw;
+        out[newWidth - 1] = b1cne;
+        out[newSize - newWidth] = b1csw;
+        out[newSize - 1] = b1cse;
+        if (expandUp) {
+            out.set(upExpands, expandLeft);
+        }
+        if (expandDown) {
+            out.set(downExpands, size + oSize);
+        }
+        if (expandLeft) {
+            let loc = oStart - width - oX - 1;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = leftExpands[i];
+            }
+        }
+        if (expandRight) {
+            let loc = oStart - oX;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = rightExpands[i];
+            }
+        }
+        let loc1 = oStart;
+        let loc2 = lastRow + oLast;
+        j = lastRow + 1;
+        tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
+        tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
+        if (trs[tr1]) {
+            out[loc1] = 1;
+        }
+        if (trs[tr2]) {
+            out[loc2] = 1;
+        }
+        for (i = 2; i < width; i++) {
+            j++;
+            loc1++;
+            loc2++;
+            tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
+            if (trs[tr1]) {
+                out[loc1] = 1;
+            }
+            tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
+            if (trs[tr2]) {
+                out[loc2] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            out[loc1 + 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            out[loc2 + 1] = 1;
+        }
+        i = width + 1;
+        loc = oStart + width;
+        for (let y = 1; y < height - 1; y++) {
+            loc += oX;
+            let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+            if (trs[tr]) {
+                out[loc] = 1;
+            }
+            i++;
+            loc++;
+            for (let x = 1; x < width - 1; x++) {
+                tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                if (trs[tr]) {
+                    out[loc] = 1;
+                }
+                i++;
+                loc++;
+            }
+            if (trs[(tr << 3) & 511]) {
+                out[loc] = 1;
+            }
+            i++;
+            loc++;
+        }
+        this.height = newHeight;
+        this.width = newWidth;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset -= expandLeft;
+        this.yOffset -= expandUp;
+        this.generation++;
+        return this;
     }
-    let end = rule[rule.length - 1];
-    if (end === 'V' || end === 'H') {
-        neighborhood = end;
-    } else if (end === 'v') {
-        neighborhood = 'V';
-    } else if (end === 'h') {
-        neighborhood = 'H';
+
+    copy(): MAPPattern {
+        let out = new MAPPattern(this.height, this.width, this.data, this.trs, this.ruleStr, this.ruleSymmetry);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
     }
-    if (rule.startsWith('MAP')) {
-        trs = parseMAP(rule.slice(3));
-        ruleStr = raw;
-    } else if (rule.startsWith('W')) {
-        return `R1,C${states},${rule}`;
-    } else {
-        let b = '';
-        let s = '';
-        let sections = rule.split('/');
-        for (let i = 0; i < sections.length; i++) {
-            let section = sections[i];
-            if (section[0] === 'B' || section[0] === 'b') {
-                b = section.slice(1);
-            } else if (section[0] === 'S' || section[0] === 's') {
-                s = section.slice(1);
+
+    clearedCopy(): MAPPattern {
+        return new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    copyPart(x: number, y: number, width: number, height: number): MAPPattern {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row, row + width), loc);
+            loc += width;
+        }
+        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadApgcode(code: string): MAPPattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+}
+
+
+export class MAPB0Pattern extends Pattern {
+
+    evenTrs: Uint8Array;
+    oddTrs: Uint8Array;
+    ruleStr: string;
+    states: 2 = 2;
+    ruleSymmetry: RuleSymmetry;
+
+    constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+        super(height, width, data);
+        this.evenTrs = evenTrs;
+        this.oddTrs = oddTrs;
+        this.ruleStr = ruleStr;
+        this.ruleSymmetry = ruleSymmetry;
+    }
+
+    runGeneration(): this {
+        let width = this.width;
+        let height = this.height;
+        let size = this.size;
+        let data = this.data;
+        let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
+        let width2 = width << 1;
+        let lastRow = size - width;
+        let secondLastRow = size - width2;
+        let expandUp = 0;
+        let expandDown = 0;
+        let upExpands = new Uint8Array(width);
+        let downExpands = new Uint8Array(width);
+        let i = 1;
+        let j = lastRow + 1;
+        let tr1 = (data[0] << 3) | data[1];
+        let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
+        if (trs[tr1]) {
+            expandUp = 1;
+            upExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandDown = 1;
+            downExpands[0] = 1;
+        }
+        for (let loc = 1; loc < width - 1; loc++) {
+            i++;
+            j++;
+            tr1 = ((tr1 << 3) & 511) | data[i];
+            tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[loc] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            expandUp = 1;
+            upExpands[width - 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            expandDown = 1;
+            downExpands[width - 1] = 1;
+        }
+        let expandLeft = 0;
+        let expandRight = 0;
+        let leftExpands = new Uint8Array(height);
+        let rightExpands = new Uint8Array(height);
+        tr1 = (data[0] << 1) | data[width];
+        tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
+        if (trs[tr1]) {
+            expandLeft = 1;
+            leftExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandRight = 1;
+            rightExpands[0] = 1;
+        }
+        let loc = 0;
+        for (i = width2; i < size; i += width) {
+            loc++;
+            tr1 = ((tr1 << 1) & 7) | data[i];
+            tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[loc] = 1;
+            }
+        }
+        i -= width;
+        if (trs[(tr1 << 1) & 7]) {
+            expandLeft = 1;
+            leftExpands[height - 1] = 1;
+        }
+        if (trs[(tr2 << 1) & 511]) {
+            expandRight = 1;
+            rightExpands[height - 1] = 1;
+        }
+        let b1cnw = (trs[1] && data[0]) ? 1 : 0;
+        let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
+        let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
+        let b1cse = (trs[256] && data[size - 1]) ? 1 : 0;
+        if (b1cnw || b1cne) {
+            expandUp = 1;
+        }
+        if (b1csw || b1cse) {
+            expandDown = 1;
+        }
+        if (b1cnw || b1csw) {
+            expandLeft = 1;
+        }
+        if (b1cne || b1cse) {
+            expandRight = 1;
+        }
+        let oX = expandLeft + expandRight;
+        let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        let oSize = oStart + oX * height;
+        let oLast = oSize - oX;
+        let newWidth = width + oX;
+        let newHeight = height + expandUp + expandDown;
+        let newSize = newWidth * newHeight;
+        let out = new Uint8Array(newSize);
+        out[0] = b1cnw;
+        out[newWidth - 1] = b1cne;
+        out[newSize - newWidth] = b1csw;
+        out[newSize - 1] = b1cse;
+        if (expandUp) {
+            out.set(upExpands, expandLeft);
+        }
+        if (expandDown) {
+            out.set(downExpands, size + oSize);
+        }
+        if (expandLeft) {
+            let loc = oStart - width - oX - 1;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = leftExpands[i];
+            }
+        }
+        if (expandRight) {
+            let loc = oStart - oX;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = rightExpands[i];
+            }
+        }
+        let loc1 = oStart;
+        let loc2 = lastRow + oLast;
+        j = lastRow + 1;
+        tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
+        tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
+        if (trs[tr1]) {
+            out[loc1] = 1;
+        }
+        if (trs[tr2]) {
+            out[loc2] = 1;
+        }
+        for (i = 2; i < width; i++) {
+            j++;
+            loc1++;
+            loc2++;
+            tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
+            if (trs[tr1]) {
+                out[loc1] = 1;
+            }
+            tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
+            if (trs[tr2]) {
+                out[loc2] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            out[loc1 + 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            out[loc2 + 1] = 1;
+        }
+        i = width + 1;
+        loc = oStart + width;
+        for (let y = 1; y < height - 1; y++) {
+            loc += oX;
+            let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+            if (trs[tr]) {
+                out[loc] = 1;
+            }
+            i++;
+            loc++;
+            for (let x = 1; x < width - 1; x++) {
+                tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                if (trs[tr]) {
+                    out[loc] = 1;
+                }
+                i++;
+                loc++;
+            }
+            if (trs[(tr << 3) & 511]) {
+                out[loc] = 1;
+            }
+            i++;
+            loc++;
+        }
+        this.height = newHeight;
+        this.width = newWidth;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset -= expandLeft;
+        this.yOffset -= expandUp;
+        this.generation++;
+        return this;
+    }
+
+    copy(): MAPB0Pattern {
+        let out = new MAPB0Pattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
+    }
+
+    clearedCopy(): MAPB0Pattern {
+        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    copyPart(x: number, y: number, width: number, height: number): MAPB0Pattern {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row, row + width), loc);
+            loc += width;
+        }
+        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadApgcode(code: string): MAPB0Pattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+}
+
+
+export class MAPGenPattern extends Pattern {
+
+    trs: Uint8Array;
+    states: number;
+    ruleStr: string;
+    ruleSymmetry: RuleSymmetry;
+
+    constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+        super(height, width, data);
+        this.trs = trs;
+        this.states = states;
+        this.ruleStr = ruleStr;
+        this.ruleSymmetry = ruleSymmetry;
+    }
+
+    runGeneration(): this {
+        let width = this.width;
+        let height = this.height;
+        let size = this.size;
+        let states = this.states;
+        let data = this.data;
+        let alive = this.data.map(x => x === 1 ? 1 : 0);
+        let trs = this.trs;
+        let width2 = width << 1;
+        let lastRow = size - width;
+        let secondLastRow = size - width2;
+        let expandUp = 0;
+        let expandDown = 0;
+        let upExpands = new Uint8Array(width);
+        let downExpands = new Uint8Array(width);
+        let i = 1;
+        let j = lastRow + 1;
+        let tr1 = (alive[0] << 3) | alive[1];
+        let tr2 = (alive[lastRow] << 5) | (alive[lastRow + 1] << 2);
+        if (trs[tr1]) {
+            expandUp = 1;
+            upExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandDown = 1;
+            downExpands[0] = 1;
+        }
+        for (let loc = 1; loc < width - 1; loc++) {
+            i++;
+            j++;
+            tr1 = ((tr1 << 3) & 511) | alive[i];
+            tr2 = ((tr2 << 3) & 511) | (alive[j] << 2);
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[loc] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            expandUp = 1;
+            upExpands[width - 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            expandDown = 1;
+            downExpands[width - 1] = 1;
+        }
+        let expandLeft = 0;
+        let expandRight = 0;
+        let leftExpands = new Uint8Array(height);
+        let rightExpands = new Uint8Array(height);
+        tr1 = (alive[0] << 1) | alive[width];
+        tr2 = (alive[width - 1] << 7) | (alive[width2 - 1] << 6);
+        if (trs[tr1]) {
+            expandLeft = 1;
+            leftExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandRight = 1;
+            rightExpands[0] = 1;
+        }
+        let loc = 0;
+        for (i = width2; i < size; i += width) {
+            loc++;
+            tr1 = ((tr1 << 1) & 7) | alive[i];
+            tr2 = ((tr2 << 1) & 511) | (alive[i + width - 1] << 6);
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[loc] = 1;
+            }
+        }
+        i -= width;
+        if (trs[(tr1 << 1) & 7]) {
+            expandLeft = 1;
+            leftExpands[height - 1] = 1;
+        }
+        if (trs[(tr2 << 1) & 511]) {
+            expandRight = 1;
+            rightExpands[height - 1] = 1;
+        }
+        let b1cnw = (trs[1] && alive[0]) ? 1 : 0;
+        let b1cne = (trs[64] && alive[width - 1]) ? 1 : 0;
+        let b1csw = (trs[4] && alive[lastRow]) ? 1 : 0;
+        let b1cse = (trs[256] && alive[size - 1]) ? 1 : 0;
+        if (b1cnw || b1cne) {
+            expandUp = 1;
+        }
+        if (b1csw || b1cse) {
+            expandDown = 1;
+        }
+        if (b1cnw || b1csw) {
+            expandLeft = 1;
+        }
+        if (b1cne || b1cse) {
+            expandRight = 1;
+        }
+        let oX = expandLeft + expandRight;
+        let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        let oSize = oStart + oX * height;
+        let oLast = oSize - oX;
+        let newWidth = width + oX;
+        let newHeight = height + expandUp + expandDown;
+        let newSize = newWidth * newHeight;
+        let out = new Uint8Array(newSize);
+        out[0] = b1cnw;
+        out[newWidth - 1] = b1cne;
+        out[newSize - newWidth] = b1csw;
+        out[newSize - 1] = b1cse;
+        if (expandUp) {
+            out.set(upExpands, expandLeft);
+        }
+        if (expandDown) {
+            out.set(downExpands, size + oSize);
+        }
+        if (expandLeft) {
+            let loc = oStart - width - oX - 1;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = leftExpands[i];
+            }
+        }
+        if (expandRight) {
+            let loc = oStart - oX;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = rightExpands[i];
+            }
+        }
+        let loc1 = oStart;
+        let loc2 = lastRow + oLast;
+        j = lastRow + 1;
+        tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
+        tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
+        if (data[0] < 2) {
+            if (trs[tr1]) {
+                out[loc1] = 1;
+            } else if (data[0]) {
+                out[loc1] = 2;
+            }
+        } else {
+            out[loc1] = (data[0] + 1) % states;
+        }
+        if (data[lastRow] < 2) {
+            if (trs[tr2]) {
+                out[loc2] = 1;
+            } else if (data[lastRow]) {
+                out[loc2] = 2;
+            }
+        } else {
+            out[loc2] = (data[lastRow] + 1) % states;
+        }
+        for (i = 2; i < width; i++) {
+            j++;
+            loc1++;
+            loc2++;
+            tr1 = ((tr1 << 3) & 511) | (alive[i] << 1) | alive[i + width];
+            if (data[i - 1] < 2) {
+                if (trs[tr1]) {
+                    out[loc1] = 1;
+                } else if (data[i - 1]) {
+                    out[loc1] = 2;
+                }
             } else {
-                if (i === 0) {
-                    s = section;
-                } else if (i === 1) {
-                    b = section;
+                out[loc1] = (data[i - 1] + 1) % states;
+            }
+            tr2 = ((tr2 << 3) & 511) | (alive[j - width] << 2) | (alive[j] << 1);
+            if (data[j - 1] < 2) {
+                if (trs[tr2]) {
+                    out[loc2] = 1;
+                } else if (data[j - 1]) {
+                    out[loc2] = 2;
+                }
+            } else {
+                out[loc2] = (data[j - 1] + 1) % states;
+            }
+        }
+        i--;
+        loc1++;
+        loc2++;
+        if (data[i] < 2) {
+            if (trs[(tr1 << 3) & 511]) {
+                out[loc1] = 1;
+            } else if (data[i]) {
+                out[loc1] = 2;
+            }
+        } else {
+            out[loc1] = (data[i] + 1) % states;
+        }
+        if (data[j] < 2) {
+            if (trs[(tr2 << 3) & 511]) {
+                out[loc2] = 1;
+            } else if (data[j]) {
+                out[loc2] = 2;
+            }
+        } else {
+            out[loc2] = (data[j] + 1) % states;
+        }
+        i = width + 1;
+        loc = oStart + width;
+        for (let y = 1; y < height - 1; y++) {
+            loc += oX;
+            let tr = (alive[i - width - 1] << 5) | (alive[i - 1] << 4) | (alive[i + width - 1] << 3) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+            if (data[i - 1] < 2) {
+                if (trs[tr]) {
+                    out[loc] = 1;
+                } else if (data[i - 1]) {
+                    out[loc] = 2;
+                }
+            } else {
+                out[loc] = (data[i - 1] + 1) % states;
+            }
+            i++;
+            loc++;
+            for (let x = 1; x < width - 1; x++) {
+                tr = ((tr << 3) & 511) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+                if (data[i - 1] < 2) {
+                    if (trs[tr]) {
+                        out[loc] = 1;
+                    } else if (data[i - 1]) {
+                        out[loc] = 2;
+                    }
                 } else {
-                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                    out[loc] = (data[i - 1] + 1) % states;
                 }
+                i++;
+                loc++;
             }
-        }
-        if (neighborhood === 'V') {
-            let newB = '';
-            for (let char of b) {
-                let value = parseInt(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+            if (data[i - 1] < 2) {
+                if (trs[(tr << 3) & 511]) {
+                    out[loc] = 1;
+                } else if (data[i - 1]) {
+                    out[loc] = 2;
                 }
-                newB += VON_NEUMANN[value].join('');
-            }
-            b = newB;
-            let newS = '';
-            for (let char of s) {
-                let value = parseInt(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
-                }
-                newS += VON_NEUMANN[value].join('');
-            }
-            s = newS;
-            neighborhood = 'M';
-        }
-        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
-        if (neighborhood === 'M') {
-            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, 'INT', false);
-        } else if (neighborhood === 'H') {
-            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, 'hex', true);
-        } else {
-            return `R1,C${states},B${b},S${s},NL`;
-        }
-        b = out.b;
-        s = out.s;
-        trs = out.data;
-        if (states > 2) {
-            ruleStr = `${s}/${b}/${states}`;
-        } else {
-            ruleStr = `B${b}/S${s}`;
-        }
-    }
-    if (trs[0]) {
-        if (trs[511]) {
-            let out = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                out[i] = trs[511 - i] ? 0 : 1;
-            }
-            trs = out;
-        } else {
-            let even = new Uint8Array(512);
-            let odd = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                even[i] = trs[i] ? 0 : 1;
-                odd[i] = trs[511 - i];
-            }
-        }
-    }
-    let symmetry: RuleSymmetry;
-    if (isotropic) {
-        symmetry = 'D8';
-    } else {
-        let C2 = true;
-        let C4 = true;
-        let D2v = true;
-        let D2h = true;
-        let D2x = true;
-        for (let i = 0; i < 512; i++) {
-            let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
-            j = ((j & 73) << 1) | (j & 146) | ((j & 292) >> 1);
-            if (trs[i] !== trs[j]) {
-                C2 = false;
-                break;
-            }
-        }
-        if (C2) {
-            for (let i = 0; i < 512; i++) {
-                if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 36) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
-                    C4 = false;
-                    break;
-                }
-            }
-        }
-        for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
-                D2v = false;
-                break;
-            }
-        }
-        for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[((i & 73) << 1) | (i & 146) | ((i & 292) >> 1)]) {
-                D2h = false;
-                break;
-            }
-        }
-        for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[(i & 273) | ((i & 32) << 2) | ((i & 6) << 4) | ((i & 136) >> 2) | ((i & 64) >> 4)]) {
-                D2x = false;
-                break;
-            }
-        }
-        if (C4) {
-            if (D2h || D2v || D2h) {
-                symmetry = 'D8';
             } else {
-                symmetry = 'C4';
+                out[loc] = (data[i - 1] + 1) % states;
             }
-        } else if (C2) {
-            if (D2h || D2v) {
-                if (D2x) {
-                    symmetry = 'D8';
+            i++;
+            loc++;
+        }
+        this.height = newHeight;
+        this.width = newWidth;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset -= expandLeft;
+        this.yOffset -= expandUp;
+        this.generation++;
+        return this;
+    }
+
+    copy(): MAPPattern {
+        let out = new MAPPattern(this.height, this.width, this.data, this.trs, this.ruleStr, this.ruleSymmetry);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
+    }
+
+    clearedCopy(): MAPPattern {
+        return new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    copyPart(x: number, y: number, width: number, height: number): MAPPattern {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row, row + width), loc);
+            loc += width;
+        }
+        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadApgcode(code: string): MAPPattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
+}
+
+
+export class MAPB0GenPattern extends Pattern {
+
+    evenTrs: Uint8Array;
+    oddTrs: Uint8Array;
+    ruleStr: string;
+    states: number;
+    ruleSymmetry: RuleSymmetry;
+
+    constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+        super(height, width, data);
+        this.evenTrs = evenTrs;
+        this.oddTrs = oddTrs;
+        this.states = states;
+        this.ruleStr = ruleStr;
+        this.ruleSymmetry = ruleSymmetry;
+    }
+
+    runGeneration(): this {
+        let width = this.width;
+        let height = this.height;
+        let size = this.size;
+        let states = this.states;
+        let data = this.data;
+        let alive = new Uint8Array(size);
+        for (let i = 0; i < this.data.length; i++) {
+            if (this.data[i] === 1) {
+                alive[i] = 1;
+            }
+        }
+        let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
+        let width2 = width << 1;
+        let lastRow = size - width;
+        let secondLastRow = size - width2;
+        let expandUp = 0;
+        let expandDown = 0;
+        let upExpands = new Uint8Array(width);
+        let downExpands = new Uint8Array(width);
+        let i = 1;
+        let j = lastRow + 1;
+        let tr1 = (alive[0] << 3) | alive[1];
+        let tr2 = (alive[lastRow] << 5) | (alive[lastRow + 1] << 2);
+        if (trs[tr1]) {
+            expandUp = 1;
+            upExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandDown = 1;
+            downExpands[0] = 1;
+        }
+        for (let loc = 1; loc < width - 1; loc++) {
+            i++;
+            j++;
+            tr1 = ((tr1 << 3) & 511) | alive[i];
+            tr2 = ((tr2 << 3) & 511) | (alive[j] << 2);
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[loc] = 1;
+            }
+        }
+        if (trs[(tr1 << 3) & 511]) {
+            expandUp = 1;
+            upExpands[width - 1] = 1;
+        }
+        if (trs[(tr2 << 3) & 511]) {
+            expandDown = 1;
+            downExpands[width - 1] = 1;
+        }
+        let expandLeft = 0;
+        let expandRight = 0;
+        let leftExpands = new Uint8Array(height);
+        let rightExpands = new Uint8Array(height);
+        tr1 = (alive[0] << 1) | alive[width];
+        tr2 = (alive[width - 1] << 7) | (alive[width2 - 1] << 6);
+        if (trs[tr1]) {
+            expandLeft = 1;
+            leftExpands[0] = 1;
+        }
+        if (trs[tr2]) {
+            expandRight = 1;
+            rightExpands[0] = 1;
+        }
+        let loc = 0;
+        for (i = width2; i < size; i += width) {
+            loc++;
+            tr1 = ((tr1 << 1) & 7) | alive[i];
+            tr2 = ((tr2 << 1) & 511) | (alive[i + width - 1] << 6);
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[loc] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[loc] = 1;
+            }
+        }
+        i -= width;
+        if (trs[(tr1 << 1) & 7]) {
+            expandLeft = 1;
+            leftExpands[height - 1] = 1;
+        }
+        if (trs[(tr2 << 1) & 511]) {
+            expandRight = 1;
+            rightExpands[height - 1] = 1;
+        }
+        let b1cnw = (trs[1] && alive[0]) ? 1 : 0;
+        let b1cne = (trs[64] && alive[width - 1]) ? 1 : 0;
+        let b1csw = (trs[4] && alive[lastRow]) ? 1 : 0;
+        let b1cse = (trs[256] && alive[size - 1]) ? 1 : 0;
+        if (b1cnw || b1cne) {
+            expandUp = 1;
+        }
+        if (b1csw || b1cse) {
+            expandDown = 1;
+        }
+        if (b1cnw || b1csw) {
+            expandLeft = 1;
+        }
+        if (b1cne || b1cse) {
+            expandRight = 1;
+        }
+        let oX = expandLeft + expandRight;
+        let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        let oSize = oStart + oX * height;
+        let oLast = oSize - oX;
+        let newWidth = width + oX;
+        let newHeight = height + expandUp + expandDown;
+        let newSize = newWidth * newHeight;
+        let out = new Uint8Array(newSize);
+        out[0] = b1cnw;
+        out[newWidth - 1] = b1cne;
+        out[newSize - newWidth] = b1csw;
+        out[newSize - 1] = b1cse;
+        if (expandUp) {
+            out.set(upExpands, expandLeft);
+        }
+        if (expandDown) {
+            out.set(downExpands, size + oSize);
+        }
+        if (expandLeft) {
+            let loc = oStart - width - oX - 1;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = leftExpands[i];
+            }
+        }
+        if (expandRight) {
+            let loc = oStart - oX;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = rightExpands[i];
+            }
+        }
+        let loc1 = oStart;
+        let loc2 = lastRow + oLast;
+        j = lastRow + 1;
+        tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
+        tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
+        if (data[0] < 2) {
+            if (trs[tr1]) {
+                out[loc1] = 1;
+            } else if (data[0]) {
+                out[loc1] = 2;
+            }
+        } else {
+            out[loc1] = (data[0] + 1) % states;
+        }
+        if (data[lastRow] < 2) {
+            if (trs[tr2]) {
+                out[loc2] = 1;
+            } else if (data[lastRow]) {
+                out[loc2] = 2;
+            }
+        } else {
+            out[loc2] = (data[lastRow] + 1) % states;
+        }
+        for (i = 2; i < width; i++) {
+            j++;
+            loc1++;
+            loc2++;
+            tr1 = ((tr1 << 3) & 511) | (alive[i] << 1) | alive[i + width];
+            if (data[i - 1] < 2) {
+                if (trs[tr1]) {
+                    out[loc1] = 1;
+                } else if (data[i - 1]) {
+                    out[loc1] = 2;
+                }
+            } else {
+                out[loc1] = (data[i - 1] + 1) % states;
+            }
+            tr2 = ((tr2 << 3) & 511) | (alive[j - width] << 2) | (alive[j] << 1);
+            if (data[j - 1] < 2) {
+                if (trs[tr2]) {
+                    out[loc2] = 1;
+                } else if (data[j - 1]) {
+                    out[loc2] = 2;
+                }
+            } else {
+                out[loc2] = (data[j - 1] + 1) % states;
+            }
+        }
+        i--;
+        loc1++;
+        loc2++;
+        if (data[i] < 2) {
+            if (trs[(tr1 << 3) & 511]) {
+                out[loc1] = 1;
+            } else if (data[i]) {
+                out[loc1] = 2;
+            }
+        } else {
+            out[loc1] = (data[i] + 1) % states;
+        }
+        if (data[j] < 2) {
+            if (trs[(tr2 << 3) & 511]) {
+                out[loc2] = 1;
+            } else if (data[j]) {
+                out[loc2] = 2;
+            }
+        } else {
+            out[loc2] = (data[j] + 1) % states;
+        }
+        i = width + 1;
+        loc = oStart + width;
+        for (let y = 1; y < height - 1; y++) {
+            loc += oX;
+            let tr = (alive[i - width - 1] << 5) | (alive[i - 1] << 4) | (alive[i + width - 1] << 3) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+            if (data[i - 1] < 2) {
+                if (trs[tr]) {
+                    out[loc] = 1;
+                } else if (data[i - 1]) {
+                    out[loc] = 2;
+                }
+            } else {
+                out[loc] = (data[i - 1] + 1) % states;
+            }
+            i++;
+            loc++;
+            for (let x = 1; x < width - 1; x++) {
+                tr = ((tr << 3) & 511) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+                if (data[i - 1] < 2) {
+                    if (trs[tr]) {
+                        out[loc] = 1;
+                    } else if (data[i - 1]) {
+                        out[loc] = 2;
+                    }
                 } else {
-                    symmetry = 'D4+';
+                    out[loc] = (data[i - 1] + 1) % states;
                 }
-            } else if (D2x) {
-                symmetry = 'D4x';
-            } else {
-                symmetry = 'C2';
+                i++;
+                loc++;
             }
-        } else if (D2h || D2v || D2x) {
-            if (D2x) {
-                if (D2h || D2v) {
-                    symmetry = 'D8';
-                } else {
-                    symmetry = 'D2x';
+            if (data[i - 1] < 2) {
+                if (trs[(tr << 3) & 511]) {
+                    out[loc] = 1;
+                } else if (data[i - 1]) {
+                    out[loc] = 2;
                 }
-            } else if (D2h && D2v) {
-                symmetry = 'D4+';
-            } else if (D2h) {
-                symmetry = 'D2h';
             } else {
-                symmetry = 'D2v';
+                out[loc] = (data[i - 1] + 1) % states;
             }
-        } else {
-            symmetry = 'C1';
+            i++;
+            loc++;
         }
+        this.height = newHeight;
+        this.width = newWidth;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset -= expandLeft;
+        this.yOffset -= expandUp;
+        this.generation++;
+        return this;
     }
-    return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, symmetry);
+
+    copy(): MAPB0Pattern {
+        let out = new MAPB0Pattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
+    }
+
+    clearedCopy(): MAPB0Pattern {
+        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    copyPart(x: number, y: number, width: number, height: number): MAPB0Pattern {
+        x -= this.xOffset;
+        y -= this.yOffset;
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row, row + width), loc);
+            loc += width;
+        }
+        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadApgcode(code: string): MAPB0Pattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
 }
