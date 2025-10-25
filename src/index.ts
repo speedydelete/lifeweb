@@ -380,10 +380,3 @@ export function parse(rle: string): Pattern {
     out.generation = generation;
     return out;
 }
-
-import {identify} from './identify.js';
-
-console.log(identify(parse(`
-x = 3, y = 3, rule = B3/S23
-bo$2bo$3o!
-`), 4));
