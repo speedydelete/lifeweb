@@ -1,5 +1,4 @@
 
-import {buffer} from 'stream/consumers';
 import {Pattern} from './pattern.js';
 
 
@@ -32,7 +31,7 @@ function findType(p: Pattern, limit: number): PartialIdentified {
         for (let j = 0; j <= i; j++) {
             if (hash === hashes[j] && pop === pops[j]) {
                 let q = phases[j];
-                if (p.height === q.height && p.width === q.width && p.data.every((x, i) => q.data[i])) {
+                if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
                     continue;
                 }
                 return {
