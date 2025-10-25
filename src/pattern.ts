@@ -521,7 +521,7 @@ export abstract class Pattern {
     rotateRight(): this {
         let height = this.height;
         let width = this.width;
-        let out = new Uint8Array(this.height * this.width);
+        let out = new Uint8Array(height * width);
         let i = 0;
         for (let y = 0; y < height; y++) {
             let loc = height - y - 1;
@@ -539,16 +539,26 @@ export abstract class Pattern {
     rotateLeft(): this {
         let height = this.height;
         let width = this.width;
-        let out = new Uint8Array(this.height * this.width);
-        let i = 0;
-        for (let y = 0; y < height; y++) {
-            let loc = this.size - width + y;
-            for (let x = 0; x < width; x++) {
-                out[loc] = this.data[i++];
-                loc -= width;
+        let size = this.size;
+        let out = new Uint8Array(height * width);
+        if (height > 1) {
+            if (width > 1) {
+                let i = 0;
+                for (let y = 0; y < height; y++) {
+                    let loc = size - width + y;
+                    for (let x = 0; x < width; x++) {
+                        out[loc] = this.data[i++];
+                        loc -= width;
+                    }
+                }
+            } else {
+                let loc = size - 1;
+                for (let i = 0; i < size; i++) {
+                    out[loc--] = this.data[i];
+                }
             }
+            this.data = out;
         }
-        this.data = out;
         this.height = width;
         this.width = height;
         return this;
@@ -690,7 +700,7 @@ export abstract class Pattern {
         }
         let out = codes[0];
         for (let code of codes.slice(1)) {
-            if (code.length < out.length || code < out) {
+            if (code.length < out.length || (code.length === out.length && code < out)) {
                 out = code;
             }
         }
