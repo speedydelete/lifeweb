@@ -36,7 +36,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
     }
     if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
         states = parseInt(match[1]);
-        rule = rule.slice(0, match[0].length);
+        rule = rule.slice(0, -match[0].length);
     }
     let end = rule[rule.length - 1];
     if (end === 'V' || end === 'H') {
