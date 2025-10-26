@@ -319,8 +319,8 @@ export function parse(rle: string): Pattern {
                 currentLine = [];
                 if (num !== '') {
                     let count = parseInt(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(i);
+                    for (let i = 1; i < count; i++) {
+                        raw.push([]);
                     }
                     num = '';
                 }
@@ -531,3 +531,6 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
     }
 }
+
+
+console.log(parse('x = 5, y = 3, rule = B3/S23\n2bo2$b2o$o!').toRLE());
