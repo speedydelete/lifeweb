@@ -480,8 +480,8 @@ export abstract class Pattern {
         this.height = height;
         this.width = width;
         this.size = height * width;
-        this.xOffset += topShrink;
-        this.yOffset += leftShrink;
+        this.xOffset += leftShrink;
+        this.yOffset += topShrink;
         this.data = out;
         return this;
     }
@@ -489,7 +489,7 @@ export abstract class Pattern {
     flipHorizontal(): this {
         let height = this.height;
         let width = this.width;
-        let out = new Uint8Array(height * width);
+        let out = new Uint8Array(this.size);
         let i = 0;
         let loc = width - 1;
         for (let y = 0; y < height; y++) {
@@ -505,7 +505,7 @@ export abstract class Pattern {
     flipVertical(): this {
         let height = this.height;
         let width = this.width;
-        let out = new Uint8Array(height * width);
+        let out = new Uint8Array(this.size);
         let i = 0;
         let loc = this.size - width;
         for (let y = 0; y < height; y++) {
@@ -518,16 +518,16 @@ export abstract class Pattern {
         return this;
     }
 
-    rotateRight(): this {
+    transpose(): this {
         let height = this.height;
         let width = this.width;
-        let out = new Uint8Array(height * width);
+        let out = new Uint8Array(this.size);
         let i = 0;
         for (let y = 0; y < height; y++) {
-            let loc = height - y - 1;
+            let loc = y;
             for (let x = 0; x < width; x++) {
                 out[loc] = this.data[i++];
-                loc += width;
+                loc += height;
             }
         }
         this.data = out;
@@ -536,32 +536,12 @@ export abstract class Pattern {
         return this;
     }
 
+    rotateRight(): this {
+        return this.transpose().flipHorizontal();
+    }
+
     rotateLeft(): this {
-        let height = this.height;
-        let width = this.width;
-        let size = this.size;
-        let out = new Uint8Array(height * width);
-        if (height > 1) {
-            if (width > 1) {
-                let i = 0;
-                for (let y = 0; y < height; y++) {
-                    let loc = size - width + y;
-                    for (let x = 0; x < width; x++) {
-                        out[loc] = this.data[i++];
-                        loc -= width;
-                    }
-                }
-            } else {
-                let loc = size - 1;
-                for (let i = 0; i < size; i++) {
-                    out[loc--] = this.data[i];
-                }
-            }
-            this.data = out;
-        }
-        this.height = width;
-        this.width = height;
-        return this;
+        return this.transpose().flipVertical();
     }
 
     rotate180() {
@@ -581,10 +561,6 @@ export abstract class Pattern {
 
     flipDiagonal(): this {
         return this.rotateRight().flipHorizontal();
-    }
-
-    flipAntiDiagonal(): this {
-        return this.rotateRight().flipVertical();
     }
 
     _toApgcode(data: Uint8Array): string {
@@ -664,6 +640,7 @@ export abstract class Pattern {
                 p.runGeneration();
                 p.shrinkToFit();
             }
+            let prev = codes.length;
             codes.push(p.toApgcode());
             if (this.ruleSymmetry !== 'C1') {
                 let q = p.copy();
@@ -693,7 +670,7 @@ export abstract class Pattern {
                     codes.push(q.flipHorizontal().toApgcode());
                 } else {
                     codes.push(q.flipDiagonal().toApgcode());
-                    codes.push(q.flipAntiDiagonal().toApgcode());
+                    codes.push(q.transpose().toApgcode());
                     codes.push(q.flipDiagonal().toApgcode());
                 }
             }
@@ -713,8 +690,7 @@ export abstract class Pattern {
     }
 
     toRLE(): string {
-        // let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
-        let out = 'x = ' + this.width + ', y = ' + this.height + ', rule = ' + this.ruleStr + '\n';
+        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
         let prevChar = '';
         let num = 0;
         let i = 0;

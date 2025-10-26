@@ -531,3 +531,8 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
     }
 }
+
+
+import {identify} from './identify.js';
+let p = parse('x = 4, y = 5, rule = B3/S23\nb3o$o2bo$3bo$3bo$obo!');
+console.log(identify(p, 256))
