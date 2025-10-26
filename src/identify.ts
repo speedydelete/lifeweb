@@ -37,7 +37,7 @@ function findType(p: Pattern, limit: number): PartialIdentified {
                 return {
                     period: i - j + 1,
                     stabilizedAt: j,
-                    disp: [p.xOffset - q.xOffset, p.yOffset - q.xOffset],
+                    disp: [p.xOffset - q.xOffset, p.yOffset - q.yOffset],
                     pops,
                     hashes,
                     phases,
