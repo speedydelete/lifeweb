@@ -1161,19 +1161,19 @@ export class MAPGenPattern extends Pattern {
         return this;
     }
 
-    copy(): MAPPattern {
-        let out = new MAPPattern(this.height, this.width, this.data, this.trs, this.ruleStr, this.ruleSymmetry);
+    copy(): MAPGenPattern {
+        let out = new MAPGenPattern(this.height, this.width, this.data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): MAPPattern {
-        return new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, this.ruleSymmetry);
+    clearedCopy(): MAPGenPattern {
+        return new MAPGenPattern(0, 0, new Uint8Array(0), this.trs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPPattern {
+    copyPart(x: number, y: number, width: number, height: number): MAPGenPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -1182,12 +1182,12 @@ export class MAPGenPattern extends Pattern {
             data.set(this.data.slice(row, row + width), loc);
             loc += width;
         }
-        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    loadApgcode(code: string): MAPPattern {
+    loadApgcode(code: string): MAPGenPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
 }
@@ -1470,19 +1470,19 @@ export class MAPB0GenPattern extends Pattern {
         return this;
     }
 
-    copy(): MAPB0Pattern {
-        let out = new MAPB0Pattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    copy(): MAPB0GenPattern {
+        let out = new MAPB0GenPattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): MAPB0Pattern {
-        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    clearedCopy(): MAPB0GenPattern {
+        return new MAPB0GenPattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPB0Pattern {
+    copyPart(x: number, y: number, width: number, height: number): MAPB0GenPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -1491,12 +1491,12 @@ export class MAPB0GenPattern extends Pattern {
             data.set(this.data.slice(row, row + width), loc);
             loc += width;
         }
-        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0GenPattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    loadApgcode(code: string): MAPB0Pattern {
+    loadApgcode(code: string): MAPB0GenPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0GenPattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
 }
