@@ -531,6 +531,3 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
     }
 }
-
-
-console.log(parse('x = 5, y = 3, rule = B3/S23\n2bo2$b2o$o!').toRLE());
