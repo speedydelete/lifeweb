@@ -434,6 +434,13 @@ export abstract class Pattern {
         let width = this.width;
         let size = this.size;
         let data = this.data;
+        if (data.every(x => x === 0)) {
+            this.height = 0;
+            this.width = 0;
+            this.size = 0;
+            this.data = new Uint8Array(0);
+            return this;
+        }
         let topShrink = 0;
         let bottomShrink = 0;
         let j = 0;
@@ -452,25 +459,43 @@ export abstract class Pattern {
         let leftShrink = 0;
         let rightShrink = 0;
         for (let i = 0; i < width; i++) {
-            if (leftShrink === i && data.every((x, j) => x === 0 || j % width !== i)) {
-                leftShrink++;
+            if (leftShrink === i) {
+                let found = true;
+                for (let j = i; j < size; j += width) {
+                    if (data[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    leftShrink++;
+                }
             }
-            if (rightShrink === i && data.every((x, j) => x === 0 || j % width !== width - i - 1)) {
-                rightShrink++;
+            if (rightShrink === i) {
+                let found = true;
+                for (let j = width - i - 1; j < size; j += width) {
+                    if (data[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    rightShrink++;
+                }
             }
-            if (leftShrink !== i && rightShrink !== i) {
+            if (leftShrink !== i + 1 && rightShrink !== i + 1) {
                 break;
             }
         }
         if (topShrink === 0 && bottomShrink === 0 && leftShrink === 0 && rightShrink === 0) {
             return this;
         }
-        height -= topShrink + bottomShrink;
-        width -= leftShrink + rightShrink;
         size = height * width;
         let out = new Uint8Array(size);
         let i = topShrink * width + leftShrink;
         let loc = 0;
+        height -= topShrink + bottomShrink;
+        width -= leftShrink + rightShrink;
         for (let row = 0; row < height; row++) {
             for (let col = 0; col < width; col++) {
                 out[loc++] = this.data[i++];
@@ -696,12 +721,14 @@ export abstract class Pattern {
         let i = 0;
         let line = '';
         let $count = 0;
+        let isStart = true;
         for (let y = 0; y < this.height; y++) {
             if (this.data.slice(i, i + this.width).every(x => x === 0)) {
                 $count++;
                 i += this.width;
                 continue;
-            } else if (y !== 0) {
+            }
+            if (!isStart) {
                 let prevLineLength = line.length;
                 if ($count > 0) {
                     line += $count + 1;
@@ -712,7 +739,16 @@ export abstract class Pattern {
                     out += line.slice(0, prevLineLength) + '\n';
                     line = line.slice(prevLineLength);
                 }
+            } else if ($count > 0) {
+                let prevLineLength = line.length;
+                line += $count + '$';
+                $count = 0;
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
             }
+            isStart = false;
             for (let x = 0; x < this.width; x++) {
                 let char: string;
                 if (this.states > 2) {
@@ -753,7 +789,7 @@ export abstract class Pattern {
             prevChar = '';
             num = 1;
         }
-        out += line + '!\n';
+        out += line + '!';
         return out;
     }
 

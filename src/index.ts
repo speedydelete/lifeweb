@@ -3,10 +3,11 @@ import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {AlternatingPattern} from './alternating.js';
 
-export * from './pattern.js';
-export * from './map.js';
-export * from './alternating.js';
-export * from './identify.js';
+// export * from './pattern.js';
+// export * from './map.js';
+// export * from './hrot.js';
+// export * from './alternating.js';
+// export * from './identify.js';
 
 
 export interface PatternData {
@@ -50,7 +51,16 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         trs = parseMAP(rule.slice(3));
         ruleStr = raw;
     } else if (rule.startsWith('W')) {
-        return `R1,C${states},${rule}`;
+        let num = parseInt(rule.slice(1));
+        for (let i = 0; i < 512; i++) {
+            trs[i | (1 << 4)] = 1;
+        }
+        for (let i = 0; i < 8; i++) {
+            if (num & (1 << i)) {
+                trs[((i & 4) << 6) | ((i & 2) << 4) | ((i % 1) << 2)] = 1;
+            }
+        }
+        ruleStr = 'W' + num;
     } else {
         let b = '';
         let s = '';
@@ -159,13 +169,17 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     //     try {
     //         let out = parseHROTRule(rule);
     //         if (typeof out === 'object') {
-    //             return out;
+    //             if (out.states > 2) {
+                    
+    //             } else {
+    //                 return new HROTPattern(data.height, data.width, data.data, out.range, out.states, out.b, out.s, out.nh, out.ruleStr);
+    //             }
     //         } else {
     //             rule = out;
     //         }
     //     } catch (error) {
     //         if (error instanceof RuleError) {
-    //             errors.push(error);
+    //             errors.push(error.message);
     //         } else {
     //             throw error;
     //         }
@@ -175,8 +189,9 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules));
         return new AlternatingPattern(data.height, data.width, data.data, patterns);
     }
-    if (namedRules && rule in namedRules) {
-        return createPattern(namedRules[rule]);
+    let lower = rule.toLowerCase();
+    if (namedRules && lower in namedRules) {
+        return createPattern(namedRules[lower]);
     }
     throw new RuleError(errors.join(', '));
 }
@@ -186,8 +201,6 @@ export function parse(rle: string): Pattern {
     let lines = rle.split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
-    let height = -1;
-    let width = -1;
     let xOffset = 0;
     let yOffset = 0;
     let generation = 0;
@@ -279,19 +292,12 @@ export function parse(rle: string): Pattern {
                 if (line[0] !== 'x') {
                     data += line;
                 } else {
-                    for (let pair of line.split(',')) {
-                        if (!pair.includes('=')) {
-                            continue;
-                        }
-                        let [key, value] = pair.split('=');
-                        key = key.trim();
-                        if (key === 'x') {
-                            width = parseInt(value);
-                        } else if (key === 'y') {
-                            height = parseInt(value);
-                        } else if (key === 'rule') {
-                            rule = value;
-                        }
+                    let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))/);
+                    if (!match) {
+                        throw new Error(`Invaid header line: '${line}'`);
+                    }
+                    if (match[1]) {
+                        rule = match[1];
                     }
                 }
             }
@@ -314,7 +320,7 @@ export function parse(rle: string): Pattern {
                 }
             } else if ('0123456789'.includes(char)) {
                 num += char;
-            } else if (char === '$') {
+            } else if (char === '\u0024') {
                 raw.push(currentLine);
                 currentLine = [];
                 if (num !== '') {
@@ -357,14 +363,8 @@ export function parse(rle: string): Pattern {
     while (raw.length > 0 && raw[raw.length - 1].length === 0) {
         raw.pop();
     }
-    let actualHeight = raw.length;
-    let actualWidth = Math.max(...raw.map(x => x.length));
-    if (height < actualHeight) {
-        height = actualHeight;
-    }
-    if (width < actualWidth) {
-        width = actualWidth;
-    }
+    let height = raw.length;
+    let width = Math.max(...raw.map(x => x.length));
     let data = new Uint8Array(height * width);
     for (let y = 0; y < raw.length; y++) {
         let i = y * width;
@@ -382,38 +382,14 @@ export function parse(rle: string): Pattern {
 }
 
 
-/*
-will output one of these formats:
-    b3s23 - OT/INT
-    g3b2s - OT/INT generations
-    xmapwhatever - MAP
-    xg3mapwhatever - MAP generations
-    r2b000008s000008 - HROT (corresponds to R2,C2,S4,B4)
-    g3r2b000008s000008 - HROT generations
-    r2b000008zs000008z - HROT B0/S0
-    g3r2b000008zs000008z - HROT generations B0/S0
-    xalternating__b3s23__b3s2-i34q - alternating
-    xw110 - range-1 1D
-    xr2w110 - higher range 1D
-    xg3r2w110 - higher range 1D generations
-*/
-
 const HEX_CHARS = '0123456789abcdef';
 
 export function toCatagolueRule(rule: string, customRules?: {[key: string]: string}): string {
     if (rule.includes('|')) {
-        return 'xalternating__' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('__');
+        return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
     }
     let ruleStr = createPattern(rule, undefined, customRules).ruleStr;
     if (ruleStr.includes('/')) {
-        if (ruleStr.endsWith('V')) {
-            // @ts-ignore
-            if (typeof alert === 'function') {
-                // @ts-ignore
-                alert('bruh');
-            }
-            throw new RuleError('bruh');
-        }
         let parts = ruleStr.split('/');
         parts[0] = parts[0];
         parts[1] = parts[1];

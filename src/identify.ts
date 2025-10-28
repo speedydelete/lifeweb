@@ -3,7 +3,6 @@ import {Pattern} from './pattern.js';
 
 
 export interface Identified {
-    rle: string;
     apgcode: string;
     stabilizedAt: number;
     desc: string;
@@ -143,6 +142,9 @@ export function identify(p: Pattern, limit: number): Identified {
         if (type.disp[0] === 0 && type.disp[1] === 0) {
             if (type.period === 1) {
                 let cells = type.pops[type.pops.length - 1];
+                if (cells === 0) {
+                    return {apgcode: 'xs0_0', desc: 'empty pattern', ...type};
+                }
                 prefix = 'xs' + cells;
                 desc = cells + '-cell still life';
             } else {
@@ -156,34 +158,40 @@ export function identify(p: Pattern, limit: number): Identified {
         apgcode = p.toCanonicalApgcode(type.period, prefix);
     } else if (type.period > 0) {
         desc = 'p' + type.period + ' linear growth';
-        let diffs = type.pops.slice(0, -1).map((x, i) => type.pops[i + 1] - x);
-        let qeriod = -1;
-        for (let q = 1; q < type.period; q++) {
-            let correct = true;
-            for (let i = 0; i < type.pops.length; i++) {
-                if (diffs[i] !== diffs[i + q]) {
-                    correct = false;
+        let diffs = type.pops.slice(0, -1).map((x, i) => type.pops[i + type.period] - x);
+        let subperiod = -1;
+        for (let i = 1; i < limit; i++) {
+            let found = true;
+            for (let j = 0; j < diffs.length - j; j++) {
+                if (diffs[j] !== diffs[j + i]) {
+                    found = false;
                     break;
                 }
             }
-            if (correct) {
-                qeriod = q;
+            if (found) {
+                subperiod = i;
                 break;
             }
         }
-        if (qeriod === -1) {
+        if (subperiod === -1) {
             apgcode = 'PATHOLOGICAL';
         } else {
             let moment0 = 0;
             let moment1 = 0;
             let moment2 = 0;
+            for (let i = 0; i < type.period; i++) {
+                let diff = type.pops[i + subperiod] - type.pops[i];
+                moment0 += diff;
+                moment1 += diff**2;
+                moment2 += diff**3;
+            }
             let str = moment1 + '#' + moment2;
             let array = new Uint8Array(str.length);
             for (let i = 0; i < str.length; i++) {
                 array[i] = str.charCodeAt(i);
             }
-            let hash = Array.from(md5(array)).map(x => x.toString(16).padStart(8, '0')).join('');
-            apgcode = `yl${type.period}_${qeriod}_${moment0}_${hash}`;
+            let hash = Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
+            apgcode = `yl${type.period}_${subperiod}_${moment0}_${hash}`;
         }
     } else {
         desc = 'cannot identify';
@@ -213,5 +221,5 @@ export function identify(p: Pattern, limit: number): Identified {
             apgcode = 'zz_QAUDRATIC';
         }
     }
-    return {rle: p.toRLE(), apgcode, desc, ...type};
+    return {apgcode, desc, ...type};
 }
