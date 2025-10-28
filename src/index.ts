@@ -3,11 +3,10 @@ import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {AlternatingPattern} from './alternating.js';
 
-// export * from './pattern.js';
-// export * from './map.js';
-// export * from './hrot.js';
-// export * from './alternating.js';
-// export * from './identify.js';
+export * from './pattern.js';
+export * from './map.js';
+export * from './alternating.js';
+export * from './identify.js';
 
 
 export interface PatternData {
