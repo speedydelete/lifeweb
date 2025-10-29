@@ -136,6 +136,7 @@ function md5(data: Uint8Array): Uint8Array {
 
 
 export function identify(p: Pattern, limit: number): Identified {
+    p = p.copy();
     let type = findType(p, limit);
     let apgcode: string;
     let desc: string;
@@ -293,6 +294,7 @@ function isotropicMinmax(p: MAPPattern, type: PartialIdentified, allTrs: {[key: 
 }
 
 export function mapMinmax(p: MAPPattern, type: PartialIdentified, limit: number): [string, string] {
+    p.shrinkToFit();
     let min: string;
     let max: string;
     if (p.ruleStr.endsWith('H')) {
