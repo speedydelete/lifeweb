@@ -227,7 +227,7 @@ export function identify(p: Pattern, limit: number): Identified {
 
 
 function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean {
-    for (let i = 0; i < (type.period > 0 ? type.period : limit); i++) {
+    for (let i = 0; i < (type.period > 0 ? type.period : limit) + 1; i++) {
         if (p.hash32() !== type.hashes[i] || p.population !== type.pops[i]) {
             return false;
         }
