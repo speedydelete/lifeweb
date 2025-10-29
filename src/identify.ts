@@ -25,8 +25,7 @@ export function findType(p: Pattern, limit: number): PartialIdentified {
     let pops: number[] = [p.population];
     let hashes: number[] = [p.hash32()];
     for (let i = 0; i < limit; i++) {
-        p.runGeneration();
-        p.shrinkToFit();
+        p.runGeneration().shrinkToFit();
         let pop = p.population;
         let hash = p.hash32();
         for (let j = 0; j <= i; j++) {
@@ -235,8 +234,7 @@ function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean
         if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
             return false;
         }
-        p.runGeneration();
-        p.shrinkToFit();
+        p.runGeneration().shrinkToFit();
     }
     return true;
 }
@@ -352,6 +350,11 @@ function mapMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit
 }
 
 export function findMinmax(p: Pattern, type: PartialIdentified, limit: number): [string, string] {
+    let q = type.phases[type.phases.length - 1].copy();
+    q.runGeneration().shrinkToFit();
+    type.pops.push(q.population);
+    type.hashes.push(q.hash32());
+    type.phases.push(q);
     if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
         return mapMinmax(p, type, limit);
     } else if (p instanceof MAPB0Pattern || p instanceof MAPB0GenPattern) {
