@@ -562,7 +562,7 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
         if (data) {
             type.period = data.period;
             type.disp = data.disp;
-            // output = fullIdentify(data.ash, limit, maxPeriodMul);
+            output = fullIdentify(data.ash, limit, maxPeriodMul);
         }
     }
     let desc: string;
