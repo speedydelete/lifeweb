@@ -1,5 +1,6 @@
 
 import {Pattern} from './pattern.js';
+import {MAPPattern, TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, transitionsToArray, arrayToTransitions, unparseTransitions} from './map.js';
 
 
 export interface Identified {
@@ -12,12 +13,13 @@ export interface Identified {
     pops: number[];
     hashes: number[];
     phases: Pattern[];
+    linear?: boolean;
 }
 
-type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
+export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
 
 
-function findType(p: Pattern, limit: number): PartialIdentified {
+export function findType(p: Pattern, limit: number): PartialIdentified {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -55,7 +57,7 @@ function findType(p: Pattern, limit: number): PartialIdentified {
         }
         for (let j = 0; j < diffs.length - 7; j++) {
             if (diffs[j] > 0 && diffs.slice(j + 1).every(x => x === diffs[j])) {
-                return {period, stabilizedAt: j, pops, hashes, phases};
+                return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
             }
         }
     }
@@ -156,7 +158,7 @@ export function identify(p: Pattern, limit: number): Identified {
             desc = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
         }
         apgcode = p.toCanonicalApgcode(type.period, prefix);
-    } else if (type.period > 0) {
+    } else if (type.linear) {
         desc = 'p' + type.period + ' linear growth';
         let diffs = type.pops.slice(0, -1).map((x, i) => type.pops[i + type.period] - x);
         let subperiod = -1;
@@ -222,4 +224,86 @@ export function identify(p: Pattern, limit: number): Identified {
         }
     }
     return {apgcode, desc, ...type};
+}
+
+
+function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean {
+    for (let i = 0; i < (type.period > 0 ? type.period : limit); i++) {
+        console.log(p.hash32(), type.hashes[i], p.population, type.pops[i], p.toRLE());
+        if (p.hash32() !== type.hashes[i] || p.population !== type.pops[i]) {
+            return false;
+        }
+        let q = type.phases[i];
+        if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
+            return false;
+        }
+        p.runGeneration();
+        p.shrinkToFit();
+    }
+    return true;
+}
+
+function isotropicMinmax(p: MAPPattern, type: PartialIdentified, allTrs: {[key: string]: number[]}, limit: number): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+    let [b, s] = arrayToTransitions(p.trs, allTrs);
+    let minB = new Set(b);
+    let minS = new Set(s);
+    let maxB = new Set(b);
+    let maxS = new Set(s);
+    for (let tr in allTrs) {
+        let q = p.copy();
+        q.trs = new Uint8Array(q.trs);
+        if (minB.has(tr)) {
+            for (let i of allTrs[tr]) {
+                q.trs[i] = 0;
+            }
+            if (verifyType(q, type, limit)) {
+                minB.delete(tr);
+            }
+        } else {
+            for (let i of allTrs[tr]) {
+                q.trs[i] = 1;
+            }
+            if (verifyType(q, type, limit)) {
+                maxB.add(tr);
+            }
+        }
+        q = p.copy();
+        q.trs = new Uint8Array(q.trs);
+        if (minS.has(tr)) {
+            for (let i of allTrs[tr]) {
+                q.trs[i | (1 << 4)] = 0;
+            }
+            if (verifyType(q, type, limit)) {
+                minS.delete(tr);
+            }
+        } else {
+            for (let i of allTrs[tr]) {
+                q.trs[i | (1 << 4)] = 1;
+            }
+            if (verifyType(q, type, limit)) {
+                maxS.add(tr);
+            }
+        }
+    }
+    return {
+        minB: Array.from(minB),
+        minS: Array.from(minS),
+        maxB: Array.from(maxB),
+        maxS: Array.from(maxS),
+    };
+}
+
+export function mapMinmax(p: MAPPattern, type: PartialIdentified, limit: number): [string, string] {
+    let min: string;
+    let max: string;
+    if (p.ruleStr.endsWith('H')) {
+        let out = isotropicMinmax(p, type, HEX_TRANSITIONS, limit);
+        min = `B${unparseTransitions(out.minB, VALID_HEX_TRANSITIONS, true)}/S${unparseTransitions(out.minS, VALID_HEX_TRANSITIONS, true)}`;
+        max = `B${unparseTransitions(out.maxB, VALID_HEX_TRANSITIONS, true)}/S${unparseTransitions(out.maxS, VALID_HEX_TRANSITIONS, true)}`;
+    } else {
+        let out = isotropicMinmax(p, type, TRANSITIONS, limit);
+        min = `B${unparseTransitions(out.minB, VALID_TRANSITIONS, false)}/S${unparseTransitions(out.minS, VALID_TRANSITIONS, false)}`;
+        max = `B${unparseTransitions(out.maxB, VALID_TRANSITIONS, false)}/S${unparseTransitions(out.maxS, VALID_TRANSITIONS, false)}`;
+    }
+    return [min, max];
 }
