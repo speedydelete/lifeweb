@@ -249,7 +249,7 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
-    let out = new Uint8Array(512);
+    let out = new Uint8Array(64);
     let j = 0;
     for (let i = 0; i < data.length; i += 4) {
         let a = BASE64.indexOf(data[i]);
@@ -258,30 +258,46 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
         let d = BASE64.indexOf(data[i + 3]);
         if (c === -1) {
             out[j++] = (a << 2) | (b >> 4);
-            return out;
+            break;
         }
         if (d === -1) {
             out[j++] = (a << 2) | (b >> 4);
             if (j === out.length) {
-                return out;
+                break;
             }
             out[j++] = ((b & 15) << 4) | (c >> 2);
-            return out;
+            break;
         }
         out[j++] = (a << 2) | (b >> 4);
         if (j === out.length) {
-            return out;
+            break;
         }
         out[j++] = ((b & 15) << 4) | (c >> 2);
         if (j === out.length) {
-            return out;
+            break;
         }
         out[j++] = ((c & 3) << 6) | d;
         if (j === out.length) {
-            return out;
+            break;
         }
     }
-    return out;
+    let actualOut = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) {
+        if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
+            actualOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        }
+    }
+    return actualOut;
+}
+
+export function unparseMAP(trs: Uint8Array): string {
+    let out = new Uint8Array(64);
+    for (let i = 0; i < 512; i++) {
+        if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            out[Math.floor(i / 8)] |= (1 << (8 - i % 8));
+        }
+    }
+    return 'MAP' + btoa(String.fromCharCode(...out));
 }
 
 
@@ -562,7 +578,7 @@ export class MAPPattern extends Pattern {
     }
 
     copy(): MAPPattern {
-        let out = new MAPPattern(this.height, this.width, this.data, this.trs, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPPattern(this.height, this.width, this.data.slice(), this.trs, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -827,7 +843,7 @@ export class MAPB0Pattern extends Pattern {
     }
 
     copy(): MAPB0Pattern {
-        let out = new MAPB0Pattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPB0Pattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -1162,7 +1178,7 @@ export class MAPGenPattern extends Pattern {
     }
 
     copy(): MAPGenPattern {
-        let out = new MAPGenPattern(this.height, this.width, this.data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPGenPattern(this.height, this.width, this.data.slice(), this.trs, this.states, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -1471,7 +1487,7 @@ export class MAPB0GenPattern extends Pattern {
     }
 
     copy(): MAPB0GenPattern {
-        let out = new MAPB0GenPattern(this.height, this.width, this.data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPB0GenPattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;

@@ -305,8 +305,6 @@ export abstract class Pattern {
     abstract clearedCopy(): Pattern;
 
     ensure(x: number, y: number): this {
-        x -= this.xOffset;
-        y -= this.yOffset;
         if (x < 0 || y < 0 || x > this.width || y > this.height) {
             let height = this.height;
             let width = this.width;
@@ -333,7 +331,7 @@ export abstract class Pattern {
             let out = new Uint8Array(newSize);
             let loc = newWidth * expandUp + expandLeft;
             let i = 0;
-            for (let y = 0; y < newHeight; y++) {
+            for (let y = 0; y < height; y++) {
                 out.set(this.data.slice(i, i + width), loc);
                 loc += newWidth;
                 i += width;
@@ -351,8 +349,6 @@ export abstract class Pattern {
     }
 
     get(x: number, y: number): number {
-        x -= this.xOffset;
-        y -= this.yOffset;
         if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
             return 0;
         }
@@ -379,9 +375,16 @@ export abstract class Pattern {
         return this;
     }
 
+    clearPart(x: number, y: number, height: number, width: number): this {
+        let i = y * this.height + x;
+        for (let row = y; row < y + height; row++) {
+            this.data.fill(0, i, i + width);
+            i += this.width;
+        }
+        return this;
+    }
+
     insert(p: Pattern, x: number = 0, y: number = 0): this {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let index = 0;
         for (let i = 0; i < p.height; i++) {
             this.data.set(p.data.slice(index, index + p.width), (y + i) * this.width + x);
@@ -445,14 +448,14 @@ export abstract class Pattern {
         let bottomShrink = 0;
         let j = 0;
         for (let i = 0; i < size; i += width) {
+            if (topShrink !== j && bottomShrink !== j) {
+                break;
+            }
             if (topShrink === j && data.slice(i, i + width).every(x => x === 0)) {
                 topShrink++;
             }
             if (bottomShrink === j && data.slice(size - i - width, size - i).every(x => x === 0)) {
                 bottomShrink++;
-            }
-            if (topShrink !== j && bottomShrink !== j) {
-                break;
             }
             j++;
         }
@@ -490,12 +493,12 @@ export abstract class Pattern {
         if (topShrink === 0 && bottomShrink === 0 && leftShrink === 0 && rightShrink === 0) {
             return this;
         }
-        size = height * width;
-        let out = new Uint8Array(size);
         let i = topShrink * width + leftShrink;
         let loc = 0;
         height -= topShrink + bottomShrink;
         width -= leftShrink + rightShrink;
+        size = height * width;
+        let out = new Uint8Array(size);
         for (let row = 0; row < height; row++) {
             for (let col = 0; col < width; col++) {
                 out[loc++] = this.data[i++];
@@ -507,6 +510,30 @@ export abstract class Pattern {
         this.size = height * width;
         this.xOffset += leftShrink;
         this.yOffset += topShrink;
+        this.data = out;
+        return this;
+    }
+
+    expand(up: number, down: number, left: number, right: number): this {
+        let width = this.width;
+        let height = this.height;
+        let oX = left + right;
+        let newWidth = width + oX;
+        let newHeight = height + up + down;
+        let newSize = newWidth * newHeight;
+        let out = new Uint8Array(newSize);
+        let loc = newWidth * up + left;
+        let i = 0;
+        for (let y = 0; y < height; y++) {
+            out.set(this.data.slice(i, i + width), loc);
+            loc += newWidth;
+            i += width;
+        }
+        this.width = newWidth;
+        this.height = newHeight;
+        this.size = newSize;
+        this.xOffset -= left;
+        this.yOffset -= up;
         this.data = out;
         return this;
     }
