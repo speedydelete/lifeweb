@@ -194,6 +194,7 @@ export function identify(p: Pattern, limit: number): Identified {
             let hash = Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
             apgcode = `yl${type.period}_${subperiod}_${moment0}_${hash}`;
         }
+        // test
     } else {
         let tx = 0;
         let ty = 0;
