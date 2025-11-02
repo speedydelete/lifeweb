@@ -463,7 +463,6 @@ export class MAPPattern extends Pattern {
         let oX = expandLeft + expandRight;
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
         let oSize = oStart + oX * height;
-        let oLast = oSize - oX;
         let newWidth = width + oX;
         let newHeight = height + expandUp + expandDown;
         let newSize = newWidth * newHeight;
@@ -513,7 +512,7 @@ export class MAPPattern extends Pattern {
             }
         } else {
             let loc1 = oStart;
-            let loc2 = lastRow + oLast;
+            let loc2 = lastRow + oSize - oX;
             j = lastRow + 1;
             tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
@@ -728,7 +727,6 @@ export class MAPB0Pattern extends Pattern {
         let oX = expandLeft + expandRight;
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
         let oSize = oStart + oX * height;
-        let oLast = oSize - oX;
         let newWidth = width + oX;
         let newHeight = height + expandUp + expandDown;
         let newSize = newWidth * newHeight;
@@ -778,7 +776,7 @@ export class MAPB0Pattern extends Pattern {
             }
         } else {
             let loc1 = oStart;
-            let loc2 = lastRow + oLast;
+            let loc2 = lastRow + oSize - oX;
             j = lastRow + 1;
             tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
@@ -994,7 +992,6 @@ export class MAPGenPattern extends Pattern {
         let oX = expandLeft + expandRight;
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
         let oSize = oStart + oX * height;
-        let oLast = oSize - oX;
         let newWidth = width + oX;
         let newHeight = height + expandUp + expandDown;
         let newSize = newWidth * newHeight;
@@ -1056,7 +1053,7 @@ export class MAPGenPattern extends Pattern {
             }
         } else {
             let loc1 = oStart;
-            let loc2 = lastRow + oLast;
+            let loc2 = lastRow + oSize - oX;
             j = lastRow + 1;
             tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
             tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
@@ -1336,7 +1333,6 @@ export class MAPB0GenPattern extends Pattern {
         let oX = expandLeft + expandRight;
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
         let oSize = oStart + oX * height;
-        let oLast = oSize - oX;
         let newWidth = width + oX;
         let newHeight = height + expandUp + expandDown;
         let newSize = newWidth * newHeight;
@@ -1366,7 +1362,7 @@ export class MAPB0GenPattern extends Pattern {
             }
         }
         let loc1 = oStart;
-        let loc2 = lastRow + oLast;
+        let loc2 = lastRow + oSize - oX;
         j = lastRow + 1;
         tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
         tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
