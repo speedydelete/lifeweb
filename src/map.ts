@@ -246,6 +246,7 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
     };
 }
 
+
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
