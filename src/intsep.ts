@@ -122,8 +122,21 @@ For optimization, we don't implement B1c.
 */
 
 
-import {MAPPattern} from './map.js';
+import {MAPPattern, TRANSITIONS} from './map.js';
 
+
+const MULTI_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => TRANSITIONS[x]);
+const THREE_OR_MORE_ISLANDS = ['3c', '3y', '4c', '4y', '5e'].flatMap(x => TRANSITIONS[x]);
+let isMultiIsland = new Uint8Array(512);
+let isThreeOrMoreIslands = new Uint8Array(512);
+for (let i = 0; i < 512; i++) {
+    if (MULTI_ISLAND.includes(i)) {
+        isMultiIsland[i] = 1;
+    }
+    if (THREE_OR_MORE_ISLANDS.includes(i)) {
+        isThreeOrMoreIslands[i] = 1;
+    }
+}
 
 const KNOT_TYPE = 0xF0;
 
@@ -146,11 +159,11 @@ const A4Y_B2A = 1;
 const A4Y_B3Q = 2;
 const A4Y_B3N = 4;
 const A4Y_B2C = 8;
-const A4Y_MERGE_ALL = 0x50;
+const A4Y_MERGE_ALL = 0x47;
 
-const A5E = 0x60;
+const A5E = 0x50;
 const A5E_B2C = 1;
-const A5E_B2N = 2;
+const A5E_B4N = 2;
 const A5E_MERGE_ALL = 8;
 
 
@@ -176,6 +189,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
     let B4c = trs[0b101000101];
     let B4i = trs[0b110000110];
     let B4k = trs[0b010100101];
+    let B4n = trs[0b111000001];
     let B4q = trs[0b110100001];
     let B4t = trs[0b111000010];
     let B4w = trs[0b110001001];
@@ -368,8 +382,8 @@ export function getKnots(trs: Uint8Array): Uint8Array {
             if (B2c) {
                 value |= A5E_B2C;
             }
-            if (B2n) {
-                value |= A5E_B2N;
+            if (B4n) {
+                value |= A5E_B4N;
             }
         }
         out[0b101000111] = value;
@@ -421,6 +435,7 @@ export class INTSeperator extends MAPPattern {
 
     knots: Uint8Array;
     groups: Uint32Array;
+    reassignedGroups: Set<number> = new Set();
 
     constructor(p: MAPPattern | INTSeperator, knots: Uint8Array) {
         let height = p.height;
@@ -509,6 +524,10 @@ export class INTSeperator extends MAPPattern {
     }
 
     reassign(a: number, b: number): void {
+        if (a === b || this.reassignedGroups.has(a)) {
+            return;
+        }
+        this.reassignedGroups.add(a);
         for (let i = 0; i < this.groups.length; i++) {
             if (this.groups[i] === a) {
                 this.groups[i] = b;
@@ -521,12 +540,14 @@ export class INTSeperator extends MAPPattern {
         let height = this.height;
         let size = this.size;
         let data = this.data;
+        let groups = this.groups;
         let trs = this.trs;
         let width2 = width << 1;
         let lastRow = size - width;
         let secondLastRow = size - width2;
         let oStart = width + 3;
-        let out = new Uint8Array((width * 2) + (height * 2));
+        let out = new Uint8Array((width + 2) * (height + 2));
+        let newGroups = new Uint32Array((width + 2) * (height + 2));
         let i = 1;
         let j = lastRow + 1;
         let loc1 = 1;
@@ -535,9 +556,11 @@ export class INTSeperator extends MAPPattern {
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
         if (trs[tr1]) {
             out[loc1] = 1;
+            newGroups[loc1] = groups[0];
         }
         if (trs[tr2]) {
             out[loc2] = 1;
+            newGroups[loc2] = groups[lastRow];
         }
         for (loc1 = 2; loc1 < width - 1; loc1++) {
             i++;
@@ -547,16 +570,30 @@ export class INTSeperator extends MAPPattern {
             tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
             if (trs[tr1]) {
                 out[loc1] = 1;
+                if (tr1 === 0b001000001) {
+                    this.reassign(groups[i - 2], groups[i]);
+                    newGroups[loc1] = groups[i];
+                } else {
+                    newGroups[loc1] = groups[i - 2] || groups[i - 1] || groups[i];
+                }
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
+                if (tr2 === 0b100000100) {
+                    this.reassign(groups[j - 2], groups[j]);
+                    newGroups[loc2] = groups[j];
+                } else {
+                    newGroups[loc2] = groups[j - 2] || groups[j - 1] || groups[j];
+                }
             }
         }
         if (trs[(tr1 << 3) & 511]) {
             out[loc1 + 1] = 1;
+            newGroups[loc1 + 1] = groups[i];
         }
         if (trs[(tr2 << 3) & 511]) {
             out[loc2 + 1] = 1;
+            newGroups[loc2 + 1] = groups[j];
         }
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
@@ -564,28 +601,52 @@ export class INTSeperator extends MAPPattern {
         loc2 = oStart - 2;
         if (trs[tr1]) {
             out[loc1] = 1;
+            newGroups[loc1] = groups[0];
         }
         if (trs[tr2]) {
             out[loc2] = 1;
+            newGroups[loc2] = groups[width - 1];
         }
-        for (let i = width2; i < size; i += width) {
+        for (i = width2; i < size; i += width) {
             loc1 += width + 2;
             loc2 += width + 2;
             tr1 = ((tr1 << 1) & 7) | data[i];
             tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
             if (trs[tr1]) {
                 out[loc1] = 1;
+                if (tr1 & 1) {
+                    if (tr1 === 0b000000101) {
+                        this.reassign(groups[i - width2], groups[i]);
+                    }
+                    newGroups[loc1] = groups[i];
+                } else if (tr1 & 2) {
+                    newGroups[loc1] = groups[i - width];
+                } else {
+                    newGroups[loc1] = groups[i - width2];
+                }
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
+                if (tr2 & 1) {
+                    if (tr2 === 0b101000000) {
+                        this.reassign(groups[i - width - 1], groups[i + width - 1]);
+                    }
+                    newGroups[loc2] = groups[i + width - 1];
+                } else if (tr2 & 2) {
+                    newGroups[loc2] = groups[i - 1];
+                } else {
+                    newGroups[loc2] = groups[i - width - 1];
+                }
             }
         }
         i -= width;
         if (trs[(tr1 << 1) & 7]) {
             out[loc1 + width + 2] = 1;
+            newGroups[loc1 + width + 2] = groups[i - width];
         }
         if (trs[(tr2 << 1) & 511]) {
             out[loc2 + width + 2] = 1;
+            newGroups[loc2 + width + 2] = groups[i - 1];
         }
         if (width <= 1) {
             if (width === 1) {
@@ -593,17 +654,37 @@ export class INTSeperator extends MAPPattern {
                 let loc = oStart;
                 if (trs[tr]) {
                     out[loc] = 1;
+                    if (tr & 16) {
+                        newGroups[loc] = groups[0];
+                    } else {
+                        newGroups[loc] = groups[1];
+                    }
                 }
                 loc += 3;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
                     if (trs[tr]) {
                         out[loc] = 1;
+                        if (tr & 16) {
+                            newGroups[loc] = groups[i - 1];   
+                        } else if (tr & 8) {
+                            if (tr === 0b000101000) {
+                                this.reassign(groups[i - 2], groups[i]);
+                            }
+                            newGroups[loc] = groups[i];
+                        } else {
+                            newGroups[loc] = groups[i - 2];
+                        }
                     }
                     loc += 3;
                 }
                 if (trs[(tr << 1) & 63]) {
                     out[loc + 4] = 1;
+                    if (tr & 16) {
+                        newGroups[loc + 4] = groups[i - 1];
+                    } else {
+                        newGroups[loc + 4] = groups[i - 2];
+                    }
                 }
             }
         } else {
@@ -614,9 +695,27 @@ export class INTSeperator extends MAPPattern {
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
             if (trs[tr1]) {
                 out[loc1] = 1;
+                if (tr1 & 16) {
+                    newGroups[loc1] = groups[0];
+                } else if (tr1 & 8) {
+                    newGroups[loc1] = groups[width];
+                } else if (tr1 & 2) {
+                    newGroups[loc1] = groups[1];
+                } else {
+                    newGroups[loc1] = groups[width + 1];
+                }
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
+                if (tr2 & 16) {
+                    newGroups[loc2] = groups[lastRow];
+                } else if (tr2 & 32) {
+                    newGroups[loc2] = groups[secondLastRow];
+                } else if (tr1 & 4) {
+                    newGroups[loc2] = groups[secondLastRow + 1];
+                } else {
+                    newGroups[loc2] = groups[lastRow + 1];
+                }
             }
             for (i = 2; i < width; i++) {
                 j++;
@@ -625,17 +724,89 @@ export class INTSeperator extends MAPPattern {
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
                 if (trs[tr1]) {
                     out[loc1] = 1;
+                    if (tr1 & 16) {
+                        newGroups[loc1] = groups[i - 1];
+                    } else if (tr1 & 128) {
+                        newGroups[loc1] = groups[i - 2];
+                    } else if (tr1 & 64) {
+                        newGroups[loc1] = groups[i + width - 2];
+                    } else if (tr1 & 8) {
+                        newGroups[loc1] = groups[i + width - 1];
+                    } else if (tr1 & 2) {
+                        newGroups[loc1] = groups[i];
+                    } else {
+                        newGroups[loc1] = groups[i + width];
+                    }
+                    if (isMultiIsland[tr1]) {
+                        let a = 0;
+                        for (let x of [i - 2, i, i + width - 2, i + width - 1, i + width]) {
+                            let y = groups[x];
+                            if (y) {
+                                if (!a) {
+                                    a = y;
+                                } else if (a !== y) {
+                                    this.reassign(y, a);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
+                    if (tr2 & 16) {
+                        newGroups[loc2] = groups[j - 1];
+                    } else if (tr2 & 256) {
+                        newGroups[loc2] = groups[j - width - 2];
+                    } else if (tr2 & 128) {
+                        newGroups[loc2] = groups[j - 2];
+                    } else if (tr2 & 32) {
+                        newGroups[loc2] = groups[j - width - 1];
+                    } else if (tr2 & 4) {
+                        newGroups[loc2] = groups[j - width];
+                    } else {
+                        newGroups[loc2] = groups[j];
+                    }
+                    if (isMultiIsland[tr2]) {
+                        let a = 0;
+                        for (let x of [j - 2, j, j - width - 2, j - width - 1, j - width]) {
+                            let y = groups[x];
+                            if (y) {
+                                if (!a) {
+                                    a = y;
+                                } else if (a !== y) {
+                                    this.reassign(y, a);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
+                if (tr1 & 2) {
+                    newGroups[loc1] = groups[i - 1];
+                } else if (tr1 & 16) {
+                    newGroups[loc1] = groups[i - 2];
+                } else if (tr1 & 8) {
+                    newGroups[loc1] = groups[i + width - 2];
+                } else {
+                    newGroups[loc1] = groups[i + width - 1];
+                }
             }
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
+                if (tr2 & 2) {
+                    newGroups[loc2] = groups[j];
+                } else if (tr2 & 16) {
+                    newGroups[loc2] = groups[j - width - 1];
+                } else if (tr2 & 8) {
+                    newGroups[loc2] = groups[j - 1];
+                } else {
+                    newGroups[loc2] = groups[j - width];
+                }
             }
             i = width + 1;
             let loc = oStart + width;
@@ -644,6 +815,33 @@ export class INTSeperator extends MAPPattern {
                 let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 if (trs[tr]) {
                     out[loc] = 1;
+                    if (tr & 16) {
+                        newGroups[loc] = groups[i - 1];
+                    } else if (tr & 32) {
+                        newGroups[loc] = groups[i - width - 1];
+                    } else if (tr & 8) {
+                        newGroups[loc] = groups[i + width - 1];
+                    } else if (tr & 4) {
+                        newGroups[loc] = groups[i - width];
+                    } else if (tr & 2) {
+                        newGroups[loc] = groups[i];
+                    } else {
+                        newGroups[loc] = groups[i + width];
+                    }
+                    if (isMultiIsland[tr]) {
+                        let a = 0;
+                        for (let x of [i - width, i, i + width, i - width - 1, i + width - 1]) {
+                            let y = groups[x];
+                            if (y) {
+                                if (!a) {
+                                    a = y;
+                                } else if (a !== y) {
+                                    this.reassign(y, a);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 i++;
                 loc++;
@@ -651,12 +849,74 @@ export class INTSeperator extends MAPPattern {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                     if (trs[tr]) {
                         out[loc] = 1;
+                        if (tr & 16) {
+                            newGroups[loc] = groups[i - 1];
+                        } else if (tr & 256) {
+                            newGroups[loc] = groups[i - width - 2];
+                        } else if (tr & 128) {
+                            newGroups[loc] = groups[i - 2];
+                        } else if (tr & 64) {
+                            newGroups[loc] = groups[i + width - 2];
+                        } else if (tr & 32) {
+                            newGroups[loc] = groups[i - width - 1];
+                        } else if (tr & 8) {
+                            newGroups[loc] = groups[i + width - 1];
+                        } else if (tr & 4) {
+                            newGroups[loc] = groups[i - width];
+                        } else if (tr & 2) {
+                            newGroups[loc] = groups[i];
+                        } else {
+                            newGroups[loc] = groups[i + width];
+                        }
+                        if (isMultiIsland[tr]) {
+                            let a = 0;
+                            for (let x of [i - width, i, i + width, i - width - 1, i + width - 1]) {
+                                let y = groups[x];
+                                if (y) {
+                                    if (!a) {
+                                        a = y;
+                                    } else if (a !== y) {
+                                        this.reassign(y, a);
+                                        if (!isThreeOrMoreIslands[tr]) {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     i++;
                     loc++;
                 }
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
+                    if (tr & 2) {
+                        newGroups[loc] = groups[i - 1];
+                    } else if (tr & 32) {
+                        newGroups[loc] = groups[i - width - 2];
+                    } else if (tr & 16) {
+                        newGroups[loc] = groups[i - 2];
+                    } else if (tr & 8) {
+                        newGroups[loc] = groups[i + width - 2];
+                    } else if (tr & 4) {
+                        newGroups[loc] = groups[i - width - 1];
+                    } else {
+                        newGroups[loc] = groups[i + width - 1];
+                    }
+                    if (isMultiIsland[tr]) {
+                        let a = 0;
+                        for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
+                            let y = groups[x];
+                            if (y) {
+                                if (!a) {
+                                    a = y;
+                                } else if (a !== y) {
+                                    this.reassign(y, a);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 i++;
                 loc++;
@@ -666,6 +926,7 @@ export class INTSeperator extends MAPPattern {
         this.width += 2;
         this.size = this.height * this.width;
         this.data = out;
+        this.groups = newGroups;
         this.xOffset--;
         this.yOffset--;
         this.generation++;
@@ -677,7 +938,6 @@ export class INTSeperator extends MAPPattern {
         let width = this.width;
         let data = this.data;
         let groups = this.groups;
-        let out = new Uint32Array(this.size);
         let i = width + 1;
         for (let y = 1; y < height - 1; y++) {
             let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
@@ -878,19 +1138,83 @@ export class INTSeperator extends MAPPattern {
                                 }
                             }
                         }
-                    } else if (type === A4Y || type === A4Y_MERGE_ALL) {
-                        if (type === A4Y_MERGE_ALL) {
+                    } else if (type === A4Y) {
+                        let a: number;
+                        let b: number;
+                        let c: number;
+                        let swap: number;
+                        if (!groups[i - width - 2]) {
+                            a = groups[i + width - 2];
+                            b = groups[i + width];
+                            c = groups[i - width];
+                            swap = groups[i - width - 1];
+                        } else if (!groups[i - width]) {
+                            a = groups[i + width - 2];
+                            b = groups[i + width];
+                            c = groups[i - width];
+                            swap = groups[i - width - 1];
+                        } else if (!groups[i + width - 2]) {
+                            a = groups[i + width];
+                            b = groups[i - width];
+                            c = groups[i - width - 2];
+                            swap = groups[i - 2];
                         } else {
-
-                        }                     
+                            a = groups[i + width - 2];
+                            b = groups[i - width - 2];
+                            c = groups[i - width];
+                            swap = groups[i];
+                        }
+                        if (swap) {
+                            let temp = c;
+                            c = a;
+                            a = temp;
+                        }
+                        if (value & A4Y_B2A) {
+                            if (value & A4Y_B3N) {
+                                this.reassign(b, a);
+                            }
+                            if (value & A4Y_B3Q) {
+                                this.reassign(c, a);
+                            }
+                        } else {
+                            if ((value & A4Y_B3N) && (a === b)) {
+                                this.reassign(c, a);
+                            } else if ((value & A4Y_B3Q) && (a === c)) {
+                                this.reassign(b, a);
+                            } else if ((value & A4Y_B2C) && (b === c)) {
+                                this.reassign(a, b);
+                            }
+                        }
                     } else {
+                        let a = groups[i - width - 2];
+                        let b = groups[i - width];
+                        let c = groups[i + width - 2];
+                        let d = groups[i + width];
+                        if (a === c) {
+                            c = d;
+                        } else if (c === d) {
+                            c = a;
+                            a = d;
+                        } else if (b === d) {
+                            b = a;
+                            a = d;
+                        }
+                        if (value === A5E_MERGE_ALL) {
+                            this.reassign(b, a);
+                            this.reassign(c, a);
+                        } else {
+                            if ((value & A5E_B2C) && (a === b)) {
+                                this.reassign(c, a);
+                            } else if ((value & A5E_B4N) && (b === c)) {
+                                this.reassign(b, a);
+                            }
+                        }
                     }
                 }
                 i++;
             }
-            i += 3;
+            i++;
         }
-        this.groups = out;
         return this;
     }
 
