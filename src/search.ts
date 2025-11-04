@@ -136,6 +136,7 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
             }
         }
     }
+    return out;
 }
 
 export function censusINT(p: MAPPattern, knots: Uint8Array): {[key: string]: number} {
