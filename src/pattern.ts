@@ -415,20 +415,20 @@ export abstract class Pattern {
         return out;
     }
 
-    hash64(): BigUint64Array {
-        let out = new BigUint64Array(1);
-        out[0] = 0xcbf29ce484222325n;
+    hash64(): bigint {
+        let out = 0xcbf29ce484222325n;
         if (this.states === 2) {
             for (let i = 0; i < this.data.length; i += 8) {
-                out[0] ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
-                out[0] *= 0x00000100000001b3n;
+                out ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
+                out = (out + 0x00000100000001b3n) % (2n ** 64n);
             }
         } else {
             for (let i = 0; i < this.data.length; i++) {
-                out[0] ^= BigInt(this.data[i]);
-                out[0] *= 0x00000100000001b3n;
+                out ^= BigInt(this.data[i]);
+                out = (out + 0x00000100000001b3n) % (2n ** 64n);
             }
         }
+        
         return out;
     }
 

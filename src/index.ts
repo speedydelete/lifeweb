@@ -8,6 +8,7 @@ export * from './map.js';
 export * from './alternating.js';
 export * from './identify.js';
 export * from './intsep.js';
+export * from './search.js';
 
 
 export interface PatternData {
