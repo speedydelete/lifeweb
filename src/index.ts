@@ -1,7 +1,10 @@
 
+import {stringMD5} from './md5.js';
 import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {AlternatingPattern} from './alternating.js';
+import {getKnots} from './intsep.js';
+import {censusINT, getHashsoup, randomHashsoup, incHashsoup} from './search.js';
 
 export * from './pattern.js';
 export * from './map.js';
@@ -508,3 +511,100 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
     }
 }
+
+
+export interface SoupSearchOptions {
+    rule: string;
+    symmetry: string;
+    soups: number;
+    seed?: string;
+    print?: (data: string) => void;
+}
+
+export interface Haul {
+    version: string;
+    md5: string;
+    seed: string;
+    rule: string;
+    symmetry: string;
+    soups: number;
+    objects: number;
+    census: {[key: string]: number};
+    samples: {[key: string]: number[]};
+}
+
+export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
+    let print = options.print;
+    let seed = options.seed ?? randomHashsoup();
+    if (print) {
+        print('Using seed ' + seed);
+    }
+    let rule = toCatagolueRule(options.rule);
+    let census: {[key: string]: number} = {};
+    let samples: {[key: string]: number[]} = {};
+    let pattern = createPattern(options.rule);
+    if (!(pattern instanceof MAPPattern) || pattern.ruleSymmetry !== 'D8') {
+        throw new Error('Cannot search non-INT rules');
+    }
+    let knots = getKnots(pattern.trs);
+    let start = performance.now();
+    let prev = start;
+    let prevI = 0;
+    for (let i = 0; i < options.soups; i++) {
+        let {height, width, data} = await getHashsoup(seed, options.symmetry);
+        let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
+        let out = censusINT(soup, knots);
+        for (let key in out) {
+            if (key in census) {
+                census[key] += out[key];
+            } else {
+                census[key] = out[key];
+            }
+            if (!samples[key]) {
+                samples[key] = [i];
+            } else if (samples[key].length < 10) {
+                samples[key].push(i);
+            }
+        }
+        seed = incHashsoup(seed);
+        if (print) {
+            let now = performance.now();
+            if (now - prev > 10000) {
+                print(`${rule}/${options.symmetry}: ${i} soups completed (${((i - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(i / ((now - start) / 1000)).toFixed(3)} overall).`);
+                prev = now;
+                prevI = i;
+            }
+        }
+    }
+    if (print) {
+        let now = performance.now();
+        print(`${rule}/${options.symmetry}: ${options.soups} soups completed (${((options.soups - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(options.soups / ((now - start) / 1000)).toFixed(3)} overall).`);
+    }
+    return {
+        version: 'apgweb-beta-v0.1',
+        md5: stringMD5(seed),
+        seed,
+        rule,
+        symmetry: options.symmetry,
+        soups: options.soups,
+        objects: Object.values(census).reduce((x, y) => x + y),
+        census,
+        samples,
+    };
+}
+
+// let data = await soupSearch({rule: 'B3/S23', symmetry: 'C1', soups: 10, print: console.log});
+// console.log(`
+// @VERSION ${data.version}
+// @MD5 ${data.md5}
+// @ROOT ${data.seed}
+// @RULE ${data.rule}
+// @SYMMETRY ${data.symmetry}_web_test
+// @NUM_SOUPS ${data.soups}
+// @NUM_OBJECTS ${data.objects}
+
+// @CENSUS TABLE
+// ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
+
+// @SAMPLE_SOUPIDS
+// ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`);

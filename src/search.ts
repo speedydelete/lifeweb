@@ -1,15 +1,10 @@
 
+import {stringMD5} from './md5.js';
 import {Pattern, RLE_CHARS} from './pattern.js';
 import {MAPPattern} from './map.js';
 import {identify} from './identify.js';
-import {INTSeperator} from './intsep.js';
+import {INTSeperator, getKnots} from './intsep.js';
 
-
-let printElt: null | HTMLElement = null;
-
-export function setPrintElement(elt: HTMLElement): void {
-    printElt = elt;
-}
 
 function naivestab(p: Pattern): number {
     let prevPop = 0;
@@ -47,7 +42,7 @@ function naivestab(p: Pattern): number {
     return 0;
 }
 
-export function stabilize(p: Pattern): number {
+export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined): number {
     let period = naivestab(p);
     if (period > 0) {
         return period;
@@ -82,11 +77,7 @@ export function stabilize(p: Pattern): number {
         }
         gen += 30;
     }
-    if (printElt) {
-        printElt.innerHTML += '<br>Failed to detect periodic behavior!';
-    } else {
-        console.log('Failed to detect periodic behavior!');
-    }
+    print?.('Failed to detect periodic behavior!');
     p.run(1280);
     return 1280;
 }
@@ -95,7 +86,7 @@ export function stabilize(p: Pattern): number {
 // let i = 0;
 // let x = '';
 
-function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean): null | {[key: string]: number} {
+function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean, print: ((data: string) => void) | undefined): null | {[key: string]: number} {
     let data = sep.getObjects().map(x => identify(x, limit, false));
     // data.forEach(x => delete x.hashes);
     // data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
@@ -118,48 +109,34 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
         } else {
             out[apgcode] = 1;
         }
-        if (apgcode[0] === 'x') {
-            if (sep.ruleStr === 'B3/S23') {
-                if (apgcode[1] === 'p') {
-                    if ((apgcode[2] !== '2' || apgcode[3] !== '_') && apgcode !== 'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401' && apgcode !== 'xp15_4r4z4r4') {
-                        if (printElt) {
-                            printElt.innerHTML += '<br>Rare oscillator detected: <span style="color: #ff7f7f">' + apgcode + '</span>';
-                        } else {
-                            console.log('Rare oscillator detected: %c' + apgcode, 'color: #ff7f7f');
+        if (print) {
+            if (apgcode[0] === 'x') {
+                if (sep.ruleStr === 'B3/S23') {
+                    if (apgcode[1] === 'p') {
+                        if ((apgcode[2] !== '2' || apgcode[3] !== '_') && apgcode !== 'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401' && apgcode !== 'xp15_4r4z4r4') {
+                            print('Rare oscillator detected: \x1b[1;31m' + apgcode + '\x1b[0m');
                         }
-                    }
-                } else if (apgcode[1] === 'q' && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
-                    if (printElt) {
-                        printElt.innerHTML += '<br>Rare spaceship detected: <span style="color: #5997ff">' + apgcode + '</span>';
-                    } else {
-                        console.log('Rare spaceship detected: %c' + apgcode, 'color: #5997ff');
+                    } else if (apgcode[1] === 'q' && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
+                        print('Rare spaceship detected: \x1b[1;34m' + apgcode + '\x1b[0m');
                     }
                 }
-            }
-        } else if (apgcode[0] === 'y') {
-            if (printElt) {
-                printElt.innerHTML += '<br>Linear-growth pattern detected: <span style="color: #7fff7f">' + apgcode + '</span>';
-            } else {
-                console.log('Linear-growth pattern detected: %c' + apgcode, 'color: #7fff7f');
-            }
-        } else if (apgcode[0] === 'z') {
-            if (printElt) {
-                printElt.innerHTML += '<br>Chaotic-growth pattern detected: <span style="color: #7fff7f">' + apgcode + '</span>';
-            } else {
-                console.log('Chaotic-growth pattern detected: %c' + apgcode, 'color: #7fff7f');
+            } else if (apgcode[0] === 'y') {
+                print('Linear-growth pattern detected: \x1b[1;32m' + apgcode + '\x1b[0m');
+            } else if (apgcode[0] === 'z') {
+                print('Chaotic-growth pattern detected: \x1b[1;32m' + apgcode + '\x1b[0m');
             }
         }
     }
     return out;
 }
 
-export function censusINT(p: MAPPattern, knots: Uint8Array): {[key: string]: number} {
+export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void): {[key: string]: number} {
     let out: {[key: string]: number} = {};
-    stabilize(p);
+    stabilize(p, print);
     let step = 120;
     for (let i = 0; i < 5; i++) {
         let sep = new INTSeperator(p, knots);
-        let data = attemptCensus(sep, step, false);
+        let data = attemptCensus(sep, step, false, print);
         if (data) {
             for (let key in data) {
                 if (out[key]) {
@@ -173,7 +150,7 @@ export function censusINT(p: MAPPattern, knots: Uint8Array): {[key: string]: num
         for (let i = 0; i < step; i++) {
             sep.runGeneration();
             sep.resolveKnots();
-            data = attemptCensus(sep, step, false);
+            data = attemptCensus(sep, step, false, print);
             if (data) {
                 for (let key in data) {
                     if (out[key]) {
@@ -186,7 +163,7 @@ export function censusINT(p: MAPPattern, knots: Uint8Array): {[key: string]: num
             }
         }
         if (i === 4) {
-            data = attemptCensus(sep, step, true);
+            data = attemptCensus(sep, step, true, print);
         }
         p.run(step);
         step *= 4;
