@@ -592,18 +592,18 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     };
 }
 
-// let data = await soupSearch({rule: 'B3/S23', symmetry: 'C1', soups: 10, print: console.log});
-// console.log(`
-// @VERSION ${data.version}
-// @MD5 ${data.md5}
-// @ROOT ${data.seed}
-// @RULE ${data.rule}
-// @SYMMETRY ${data.symmetry}_web_test
-// @NUM_SOUPS ${data.soups}
-// @NUM_OBJECTS ${data.objects}
+let data = await soupSearch({rule: 'B3/S23', symmetry: 'C1', seed: 'k_ecckAVM50sE7', soups: 25, print: console.log});
+console.log(`
+@VERSION ${data.version}
+@MD5 ${data.md5}
+@ROOT ${data.seed}
+@RULE ${data.rule}
+@SYMMETRY ${data.symmetry}_web_test
+@NUM_SOUPS ${data.soups}
+@NUM_OBJECTS ${data.objects}
 
-// @CENSUS TABLE
-// ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
+@CENSUS TABLE
+${Object.entries(data.census).sort((a, b) => b[1] === a[1] ? (b[0] < a[0] ? 1 : -1) : b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
 
-// @SAMPLE_SOUPIDS
-// ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`);
+@SAMPLE_SOUPIDS
+${Object.entries(data.samples).sort((a, b) => data.census[b[0]] === data.census[a[0]] ? (b[0] < a[0] ? 1 : -1) : data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`);
