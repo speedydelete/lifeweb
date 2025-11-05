@@ -548,6 +548,7 @@ export class INTSeperator extends MAPPattern {
         let oStart = width + 3;
         let out = new Uint8Array((width + 2) * (height + 2));
         let newGroups = new Uint32Array((width + 2) * (height + 2));
+        let reassignments: [number, number][] = []
         let i = 1;
         let j = lastRow + 1;
         let loc1 = 1;
@@ -571,7 +572,7 @@ export class INTSeperator extends MAPPattern {
             if (trs[tr1]) {
                 out[loc1] = 1;
                 if (tr1 === 0b001000001) {
-                    this.reassign(groups[i - 2], groups[i]);
+                    reassignments.push([groups[i - 2], groups[i]]);
                     newGroups[loc1] = groups[i];
                 } else {
                     newGroups[loc1] = groups[i - 2] || groups[i - 1] || groups[i];
@@ -580,7 +581,7 @@ export class INTSeperator extends MAPPattern {
             if (trs[tr2]) {
                 out[loc2] = 1;
                 if (tr2 === 0b100000100) {
-                    this.reassign(groups[j - 2], groups[j]);
+                    reassignments.push([groups[j - 2], groups[j]]);
                     newGroups[loc2] = groups[j];
                 } else {
                     newGroups[loc2] = groups[j - 2] || groups[j - 1] || groups[j];
@@ -598,7 +599,7 @@ export class INTSeperator extends MAPPattern {
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
         loc1 = width2;
-        loc2 = oStart - 2;
+        loc2 = oStart + width;
         if (trs[tr1]) {
             out[loc1] = 1;
             newGroups[loc1] = groups[0];
@@ -616,7 +617,7 @@ export class INTSeperator extends MAPPattern {
                 out[loc1] = 1;
                 if (tr1 & 1) {
                     if (tr1 === 0b000000101) {
-                        this.reassign(groups[i - width2], groups[i]);
+                        reassignments.push([groups[i - width2], groups[i]]);
                     }
                     newGroups[loc1] = groups[i];
                 } else if (tr1 & 2) {
@@ -626,10 +627,11 @@ export class INTSeperator extends MAPPattern {
                 }
             }
             if (trs[tr2]) {
+                // alert(tr2.toString(2) + ' ' + loc2 + ' ' + oStart);
                 out[loc2] = 1;
                 if (tr2 & 1) {
                     if (tr2 === 0b101000000) {
-                        this.reassign(groups[i - width - 1], groups[i + width - 1]);
+                        reassignments.push([groups[i - width - 1], groups[i + width - 1]]);
                     }
                     newGroups[loc2] = groups[i + width - 1];
                 } else if (tr2 & 2) {
@@ -669,7 +671,7 @@ export class INTSeperator extends MAPPattern {
                             newGroups[loc] = groups[i - 1];   
                         } else if (tr & 8) {
                             if (tr === 0b000101000) {
-                                this.reassign(groups[i - 2], groups[i]);
+                                reassignments.push([groups[i - 2], groups[i]]);
                             }
                             newGroups[loc] = groups[i];
                         } else {
@@ -745,7 +747,7 @@ export class INTSeperator extends MAPPattern {
                                 if (!a) {
                                     a = y;
                                 } else if (a !== y) {
-                                    this.reassign(y, a);
+                                    reassignments.push([y, a]);
                                     break;
                                 }
                             }
@@ -776,7 +778,7 @@ export class INTSeperator extends MAPPattern {
                                 if (!a) {
                                     a = y;
                                 } else if (a !== y) {
-                                    this.reassign(y, a);
+                                    reassignments.push([y, a]);
                                     break;
                                 }
                             }
@@ -836,7 +838,7 @@ export class INTSeperator extends MAPPattern {
                                 if (!a) {
                                     a = y;
                                 } else if (a !== y) {
-                                    this.reassign(y, a);
+                                    reassignments.push([y, a]);
                                     break;
                                 }
                             }
@@ -870,13 +872,13 @@ export class INTSeperator extends MAPPattern {
                         }
                         if (isMultiIsland[tr]) {
                             let a = 0;
-                            for (let x of [i - width, i, i + width, i - width - 1, i + width - 1]) {
+                            for (let x of [i - width, i, i + width, i - width - 1, i + width - 1, i - width - 2, i, i + width - 2]) {
                                 let y = groups[x];
                                 if (y) {
                                     if (!a) {
                                         a = y;
                                     } else if (a !== y) {
-                                        this.reassign(y, a);
+                                        reassignments.push([y, a]);
                                         if (!isThreeOrMoreIslands[tr]) {
                                             break;
                                         }
@@ -903,7 +905,7 @@ export class INTSeperator extends MAPPattern {
                     } else {
                         newGroups[loc] = groups[i + width - 1];
                     }
-                    if (isMultiIsland[tr]) {
+                    if (isMultiIsland[(tr << 3) & 511]) {
                         let a = 0;
                         for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
                             let y = groups[x];
@@ -911,7 +913,7 @@ export class INTSeperator extends MAPPattern {
                                 if (!a) {
                                     a = y;
                                 } else if (a !== y) {
-                                    this.reassign(y, a);
+                                    reassignments.push([y, a]);
                                     break;
                                 }
                             }
@@ -927,6 +929,9 @@ export class INTSeperator extends MAPPattern {
         this.size = this.height * this.width;
         this.data = out;
         this.groups = newGroups;
+        for (let [a, b] of reassignments) {
+            this.reassign(a, b);
+        }
         this.xOffset--;
         this.yOffset--;
         this.generation++;

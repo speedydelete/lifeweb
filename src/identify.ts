@@ -19,7 +19,7 @@ export interface Identified {
 export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
 
 
-export function findType(p: Pattern, limit: number): PartialIdentified {
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -28,7 +28,10 @@ export function findType(p: Pattern, limit: number): PartialIdentified {
         p.runGeneration().shrinkToFit();
         let pop = p.population;
         let hash = p.hash32();
-        for (let j = 0; j <= i; j++) {
+        if (pop === 0) {
+            return {period: 1, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases: [p.copy()]};
+        }
+        for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
             if (hash === hashes[j] && pop === pops[j]) {
                 let q = phases[j];
                 if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
@@ -138,9 +141,9 @@ function md5(data: Uint8Array): Uint8Array {
 }
 
 
-export function identify(p: Pattern, limit: number): Identified {
+export function identify(p: Pattern, limit: number, acceptStabilized: boolean = true): Identified {
     p = p.copy();
-    let type = findType(p, limit);
+    let type = findType(p, limit, acceptStabilized);
     let apgcode: string;
     if (type.disp) {
         let prefix: string;

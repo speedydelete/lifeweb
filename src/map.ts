@@ -246,7 +246,6 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
     };
 }
 
-
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
@@ -507,8 +506,9 @@ export class MAPPattern extends Pattern {
                     }
                     loc += oX + 1;
                 }
+                // alert(((tr << 1) & 63) + ' ' + loc);
                 if (trs[(tr << 1) & 63]) {
-                    out[loc + oX + 1] = 1;
+                    out[loc] = 1;
                 }
             }
         } else {
@@ -772,7 +772,7 @@ export class MAPB0Pattern extends Pattern {
                     loc += oX + 1;
                 }
                 if (trs[(tr << 1) & 63]) {
-                    out[loc + oX + 1] = 1;
+                    out[loc] = 1;
                 }
             }
         } else {
@@ -1049,7 +1049,7 @@ export class MAPGenPattern extends Pattern {
                     loc += oX + 1;
                 }
                 if (trs[(tr << 1) & 63]) {
-                    out[loc + oX + 1] = 1;
+                    out[loc] = 1;
                 }
             }
         } else {
