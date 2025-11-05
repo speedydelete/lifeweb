@@ -4,7 +4,7 @@ import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {AlternatingPattern} from './alternating.js';
 import {getKnots} from './intsep.js';
-import {censusINT, getHashsoup, randomHashsoup, incHashsoup} from './search.js';
+import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
 export * from './pattern.js';
 export * from './map.js';
@@ -551,7 +551,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     let prev = start;
     let prevI = 0;
     for (let i = 0; i < options.soups; i++) {
-        let {height, width, data} = await getHashsoup(seed, options.symmetry);
+        let {height, width, data} = await getHashsoup(seed + i, options.symmetry);
         let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
         let out = censusINT(soup, knots);
         for (let key in out) {
@@ -566,7 +566,6 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
                 samples[key].push(i);
             }
         }
-        seed = incHashsoup(seed);
         if (print) {
             let now = performance.now();
             if (now - prev > 10000) {

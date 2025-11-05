@@ -443,23 +443,6 @@ export async function getHashsoup(soup: string, symmetry: string, stdin?: string
 
 const LETTERS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
 
-export function incHashsoup(soup: string): string {
-    if (soup.endsWith('9')) {
-        let data = Array.from(soup.slice(2)).map(x => LETTERS.indexOf(x));
-        for (let i = data.length - 1; i >= 0; i--) {
-            if (data[i] === LETTERS.length - 1) {
-                data[i] = 0;
-            } else {
-                data[i]++;
-                break;
-            }
-        }
-        return 'k_' + data.map(x => LETTERS[x]).join('');
-    } else {
-        return soup.slice(0, -1) + LETTERS[LETTERS.indexOf(soup[soup.length - 1]) + 1];
-    }
-}
-
 export function randomHashsoup(): string {
     let data = crypto.getRandomValues(new Uint8Array(16));
     let out = 'k_';
