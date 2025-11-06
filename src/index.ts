@@ -6,12 +6,12 @@ import {AlternatingPattern} from './alternating.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
-export * from './pattern.js';
-export * from './map.js';
-export * from './alternating.js';
-export * from './identify.js';
-export * from './intsep.js';
-export * from './search.js';
+// export * from './pattern.js';
+// export * from './map.js';
+// export * from './alternating.js';
+// export * from './identify.js';
+// export * from './intsep.js';
+// export * from './search.js';
 
 
 export interface PatternData {
@@ -68,7 +68,16 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
     } else {
         let b = '';
         let s = '';
-        let sections = rule.split('/');
+        let sections: string[];
+        if (rule.includes('S') || rule.includes('s')) {
+            let index = rule.indexOf('s');
+            if (index === -1) {
+                index = rule.indexOf('S');
+            }
+            sections = [rule.slice(0, index), rule.slice(index)];
+        } else {
+            sections = rule.split('/');
+        }
         for (let i = 0; i < sections.length; i++) {
             let section = sections[i];
             if (section[0] === 'B' || section[0] === 'b') {
@@ -533,11 +542,20 @@ export interface Haul {
     samples: {[key: string]: number[]};
 }
 
+function redraw() {
+    return new Promise(resolve => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+        });
+    });
+}
+
 export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     let print = options.print;
     let seed = options.seed ?? randomHashsoup();
     if (print) {
         print('Using seed ' + seed);
+        await redraw();
     }
     let rule = toCatagolueRule(options.rule);
     let census: {[key: string]: number} = {};
@@ -573,6 +591,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
                 prev = now;
                 prevI = i;
             }
+            await redraw();
         }
     }
     if (print) {
@@ -592,8 +611,30 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     };
 }
 
-// let data = await soupSearch({rule: 'B3/S23', symmetry: 'C1', seed: 'k_ecckAVM50sE7', soups: 25, print: console.log});
-// console.log(`
+
+// function query<T extends HTMLElement = HTMLElement>(query: string): T {
+//     return document.querySelector(query) as T;
+// }
+
+// query('#run').addEventListener('click', async () => {
+//     query('#config').style.display = 'none';
+//     let elt = query('#out');
+//     let rule = query<HTMLInputElement>('#rule').value;
+//     let symmetry = query<HTMLInputElement>('#symmetry').value;
+//     let soups = parseInt(query<HTMLInputElement>('#soups').value);
+//     if (Number.isNaN(soups)) {
+//         throw new Error('Invalid soups value');
+//     }
+//     let data = await soupSearch({rule, symmetry, soups, print(msg) {
+//         if (msg.includes('\x1b')) {
+//             msg = msg.replaceAll('\x1b[1;31m', '<span style="color: #ff7f7f">');
+//             msg = msg.replaceAll('\x1b[1;34m', '<span style="color: #7f7fff">');
+//             msg = msg.replaceAll('\x1b[1;32m', '<span style="color: #7fff7f">');
+//             msg = msg.replaceAll('\x1b[0m', '</span>');
+//         }
+//         elt.textContent += '\n' + msg;
+//     }});
+//     elt.textContent += `\n
 // @VERSION ${data.version}
 // @MD5 ${data.md5}
 // @ROOT ${data.seed}
@@ -606,4 +647,5 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
 // ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
 
 // @SAMPLE_SOUPIDS
-// ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`);
+// ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`;
+// });

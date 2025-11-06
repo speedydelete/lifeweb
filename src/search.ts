@@ -1,104 +1,78 @@
 
-import {stringMD5} from './md5.js';
 import {Pattern, RLE_CHARS} from './pattern.js';
 import {MAPPattern} from './map.js';
 import {identify} from './identify.js';
-import {INTSeperator, getKnots} from './intsep.js';
+import {INTSeperator} from './intsep.js';
 
 
-function naivestab(p: Pattern): number {
-    let prevPop = 0;
-    let period = 12;
-    let count = 0;
-    let limit = 15;
-    for (let i = 0; i < 1000; i++) {
-        if (i === 40) {
-            limit = 20;
-        } else if (i === 60) {
-            limit = 25;
-        } else if (i === 80) {
-            limit = 30;
-        }
-        if (i === 400) {
-            period = 18;
-        } else if (i === 500) {
-            period = 24;
-        } else if (i === 600) {
-            period = 30;
-        }
-        p.run(period);
+export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined): number {
+    p.run(60);
+    let maxPeriod = 6;
+    let pops: number[] = [];
+    for (let i = 0; i < 6000; i++) {
+        p.runGeneration();
         let pop = p.population;
-        if (pop === prevPop) {
-            count++;
-        } else {
-            count = 0;
-            period ^= 4;
+        if (pop === 0) {
+            return 1;
         }
-        if (count === limit) {
-            return period;
+        for (let period = 1; period < Math.min(maxPeriod, Math.floor(pops.length / 15)); period++) {
+            let found = true;
+            for (let j = 1; j < 16; j++) {
+                if (pop !== pops[pops.length - period * j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return period;
+            }
         }
-        prevPop = pop;
+        if (i > 500 && i % 50 === 0) {
+            for (let period = 1; period < Math.floor(i / 20); period++) {
+                let diff = pop - pops[pops.length - period];
+                let found = true;
+                for (let j = 1; j < 16; j++) {
+                    if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    return period;
+                }
+            }
+        }
+        pops.push(pop);
+        if (i === 60) {
+            maxPeriod = 12;
+        } else if (i === 120) {
+            maxPeriod = 24;
+        } else if (i === 240) {
+            maxPeriod = 60;
+        }
+    }
+    if (print) {
+        print('Failed to detect periodic behavior!');
     }
     return 0;
 }
 
-export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined): number {
-    let period = naivestab(p);
-    if (period > 0) {
-        return period;
-    }
-    let hashes: bigint[] = [];
-    let gens: number[] = [];
-    let gen = 0;
-    for (let i = 0; i < 4000; i++) {
-        p.run(30);
-        let hash = p.hash64();
-        for (let i = 0; i < hashes.length; i++) {
-            if (hash < hashes[i]) {
-                hashes = hashes.slice(0, i);
-                gens = gens.slice(0, i);
-                break;
-            } else if (hash === hashes[i]) {
-                let period = gen - gens[i];
-                let prevPop = p.population;
-                for (let j = 0; j < 20; j++) {
-                    p.run(period);
-                    let pop = p.population;
-                    if (pop !== prevPop) {
-                        if (period < 1280) {
-                            period = 1280;
-                        }
-                        break;
-                    }
-                    prevPop = pop;
-                }
-                return period;
-            }
-        }
-        gen += 30;
-    }
-    print?.('Failed to detect periodic behavior!');
-    p.run(1280);
-    return 1280;
-}
-
 
 // let i = 0;
-// let x = '';
 
 function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean, print: ((data: string) => void) | undefined): null | {[key: string]: number} {
     let data = sep.getObjects().map(x => identify(x, limit, false));
     // data.forEach(x => delete x.hashes);
     // data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
     // let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
-    // q.states = Math.max(...q.data);
-    // let debug = sep.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4) + '\n\n' + q.toRLE();
-    // if (i === 1) {
-    //     throw new Error('\n\n' + x + '\n\n' + debug);
+    // q.states = 256;
+    // sep.ruleStr = 'B3/S23';
+    // q.ruleStr = 'B3/S23Super';
+    // if (i === 42) {
+    //     throw new Error('\n\n' + sep.groups.join(' ') + '\n\n' + sep.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n' + q.toRLE());
     // } else {
     //     i++;
     // }
-    // x = sep.toRLE();
     let out: {[key: string]: number} = {};
     for (let {apgcode} of data) {
         if ((apgcode[0] === 'P' || apgcode === 'xs0_0') && !ignorePathologicals) {
@@ -131,44 +105,32 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
 }
 
 export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void): {[key: string]: number} {
-    let out: {[key: string]: number} = {};
-    stabilize(p, print);
-    let step = 120;
+    let period = stabilize(p, print);
+    let step = period * 2;
     for (let i = 0; i < 5; i++) {
         let sep = new INTSeperator(p, knots);
         let data = attemptCensus(sep, step, false, print);
         if (data) {
-            for (let key in data) {
-                if (out[key]) {
-                    out[key] += data[key];
-                } else {
-                    out[key] = data[key];
-                }
-            }
-            return out;
+            return data;
         }
-        for (let i = 0; i < step; i++) {
+        for (let i = 0; i < period * 8; i++) {
             sep.runGeneration();
             sep.resolveKnots();
             data = attemptCensus(sep, step, false, print);
             if (data) {
-                for (let key in data) {
-                    if (out[key]) {
-                        out[key] += data[key];
-                    } else {
-                        out[key] = data[key];
-                    }
-                }
-                return out;
+                return data;
             }
         }
         if (i === 4) {
-            data = attemptCensus(sep, step, true, print);
+            return attemptCensus(sep, step, true, print) as {[key: string]: number};
         }
         p.run(step);
         step *= 4;
     }
-    return out;
+    if (print) {
+        print('Unable to seperate objects!');
+    }
+    return {'PATHOLOGICAL': 1};
 }
 
 

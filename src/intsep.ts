@@ -563,7 +563,7 @@ export class INTSeperator extends MAPPattern {
             out[loc2] = 1;
             newGroups[loc2] = groups[lastRow];
         }
-        for (loc1 = 2; loc1 < width - 1; loc1++) {
+        for (loc1 = 2; loc1 < width; loc1++) {
             i++;
             j++;
             loc2++;
@@ -598,7 +598,7 @@ export class INTSeperator extends MAPPattern {
         }
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        loc1 = width2;
+        loc1 = width + 2;
         loc2 = oStart + width;
         if (trs[tr1]) {
             out[loc1] = 1;
@@ -627,7 +627,6 @@ export class INTSeperator extends MAPPattern {
                 }
             }
             if (trs[tr2]) {
-                // alert(tr2.toString(2) + ' ' + loc2 + ' ' + oStart);
                 out[loc2] = 1;
                 if (tr2 & 1) {
                     if (tr2 === 0b101000000) {
@@ -787,7 +786,8 @@ export class INTSeperator extends MAPPattern {
                 }
             }
             if (trs[(tr1 << 3) & 511]) {
-                out[loc1 + 1] = 1;
+                loc1++;
+                out[loc1] = 1;
                 if (tr1 & 2) {
                     newGroups[loc1] = groups[i - 1];
                 } else if (tr1 & 16) {
@@ -799,14 +799,15 @@ export class INTSeperator extends MAPPattern {
                 }
             }
             if (trs[(tr2 << 3) & 511]) {
-                out[loc2 + 1] = 1;
+                loc2++;
+                out[loc2] = 1;
                 if (tr2 & 2) {
                     newGroups[loc2] = groups[j];
-                } else if (tr2 & 16) {
+                } else if (tr2 & 32) {
                     newGroups[loc2] = groups[j - width - 1];
-                } else if (tr2 & 8) {
+                } else if (tr2 & 16) {
                     newGroups[loc2] = groups[j - 1];
-                } else {
+                } else if (tr2 & 4) {
                     newGroups[loc2] = groups[j - width];
                 }
             }
@@ -890,22 +891,30 @@ export class INTSeperator extends MAPPattern {
                     i++;
                     loc++;
                 }
-                if (trs[(tr << 3) & 511]) {
+                tr = (tr << 3) & 511;
+                if (trs[tr]) {
                     out[loc] = 1;
-                    if (tr & 2) {
+                    if (tr & 16) {
                         newGroups[loc] = groups[i - 1];
-                    } else if (tr & 32) {
+                    } else if (tr & 256) {
                         newGroups[loc] = groups[i - width - 2];
-                    } else if (tr & 16) {
+                    } else if (tr & 128) {
                         newGroups[loc] = groups[i - 2];
-                    } else if (tr & 8) {
+                    } else if (tr & 64) {
                         newGroups[loc] = groups[i + width - 2];
-                    } else if (tr & 4) {
+                    } else if (tr & 32) {
                         newGroups[loc] = groups[i - width - 1];
                     } else {
                         newGroups[loc] = groups[i + width - 1];
-                    }
-                    if (isMultiIsland[(tr << 3) & 511]) {
+                    }/* else if (tr & 4) {
+                        newGroups[loc] = groups[i - width];
+                    } else if (tr & 2) {
+                        newGroups[loc] = groups[i];
+                    } else {
+                        newGroups[loc] = groups[i + width];
+                    }*/
+                    // alert(tr.toString(2).padStart(2, '0') + ' ' + loc + ' ' + out[loc] + ' ' + newGroups[loc]);
+                    if (isMultiIsland[tr]) {
                         let a = 0;
                         for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
                             let y = groups[x];
@@ -944,6 +953,7 @@ export class INTSeperator extends MAPPattern {
         let data = this.data;
         let groups = this.groups;
         let i = width + 1;
+        let reassignments: [number, number][] = [];
         for (let y = 1; y < height - 1; y++) {
             let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
             i++;
@@ -967,7 +977,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                             i++;
                             continue;
                         }
@@ -977,7 +987,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                             i++;
                             continue;
                         }
@@ -987,7 +997,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                             i++;
                             continue;
                         }
@@ -997,7 +1007,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                             i++;
                             continue;
                         }
@@ -1007,7 +1017,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                             i++;
                             continue;
                         }
@@ -1017,7 +1027,7 @@ export class INTSeperator extends MAPPattern {
                         if (!a) {
                             a = x;
                         } else if (a !== x) {
-                            this.reassign(x, a);
+                            reassignments.push([x, a]);
                         }
                     }
                 } else if (value > 0) {
@@ -1052,14 +1062,14 @@ export class INTSeperator extends MAPPattern {
                         }
                         if (value & A3C_B2C) {
                             if (a === b) {
-                                this.reassign(c, b);
+                                reassignments.push([c, b]);
                             } else if (b === c) {
-                                this.reassign(a, b);
+                                reassignments.push([a, b]);
                             } else if ((value & A3C_B2N) && a === c) {
-                                this.reassign(b, a);
+                                reassignments.push([b, a]);
                             }
                         } else if ((value & A3C_B2N) && a === c) {
-                            this.reassign(b, a);
+                            reassignments.push([b, a]);
                         }
                     } else if (type === A3Y) {
                         let a: number;
@@ -1086,19 +1096,19 @@ export class INTSeperator extends MAPPattern {
                             }
                         }
                         if (value & A3Y_MERGE_ALL) {
-                            this.reassign(b, a);
-                            this.reassign(c, a);
+                            reassignments.push([b, a]);
+                            reassignments.push([c, a]);
                         } else {
                             if (value & A3Y_B2K) {
                                 if (a === c) {
-                                    this.reassign(b, a);
+                                    reassignments.push([b, a]);
                                 } else if (b === c) {
-                                    this.reassign(a, b);
+                                    reassignments.push([a, b]);
                                 } else if ((value & A3Y_B2C) && a === b) {
-                                    this.reassign(c, a);
+                                    reassignments.push([c, a]);
                                 }
                             } else if ((value & A3Y_B2C) && a === b) {
-                                this.reassign(c, a);
+                                reassignments.push([c, a]);
                             }
                         }
                     } else if (type === A4C) {
@@ -1107,39 +1117,39 @@ export class INTSeperator extends MAPPattern {
                         let c = groups[i + width - 2];
                         let d = groups[i + width];
                         if (value & A4C_MERGE_ALL) {
-                            this.reassign(b, a);
-                            this.reassign(c, a);
-                            this.reassign(d, a);
+                            reassignments.push([b, a]);
+                            reassignments.push([c, a]);
+                            reassignments.push([d, a]);
                         } else {
                             if (value & A4C_B2C) {
                                 if (a === b) {
-                                    this.reassign(c, a);
-                                    this.reassign(d, a);
+                                    reassignments.push([c, a]);
+                                    reassignments.push([d, a]);
                                 } else if (a === c) {
-                                    this.reassign(b, a);
-                                    this.reassign(d, a);
+                                    reassignments.push([b, a]);
+                                    reassignments.push([d, a]);
                                 } else if (b === d) {
-                                    this.reassign(a, b);
-                                    this.reassign(c, b);
+                                    reassignments.push([a, b]);
+                                    reassignments.push([c, b]);
                                 } else if (c === d) {
-                                    this.reassign(a, c);
-                                    this.reassign(b, c);
+                                    reassignments.push([a, c]);
+                                    reassignments.push([b, c]);
                                 } else if (value & A4C_B2N) {
                                     if (a === d) {
-                                        this.reassign(b, a);
-                                        this.reassign(c, a);
+                                        reassignments.push([b, a]);
+                                        reassignments.push([c, a]);
                                     } else if (b === c) {
-                                        this.reassign(a, b);
-                                        this.reassign(d, b);
+                                        reassignments.push([a, b]);
+                                        reassignments.push([d, b]);
                                     }
                                 }
                             } else if (value & A4C_B2N) {
                                 if (a === d) {
-                                    this.reassign(b, a);
-                                    this.reassign(c, a);
+                                    reassignments.push([b, a]);
+                                    reassignments.push([c, a]);
                                 } else if (b === c) {
-                                    this.reassign(a, b);
-                                    this.reassign(d, b);
+                                    reassignments.push([a, b]);
+                                    reassignments.push([d, b]);
                                 }
                             }
                         }
@@ -1176,18 +1186,18 @@ export class INTSeperator extends MAPPattern {
                         }
                         if (value & A4Y_B2A) {
                             if (value & A4Y_B3N) {
-                                this.reassign(b, a);
+                                reassignments.push([b, a]);
                             }
                             if (value & A4Y_B3Q) {
-                                this.reassign(c, a);
+                                reassignments.push([c, a]);
                             }
                         } else {
                             if ((value & A4Y_B3N) && (a === b)) {
-                                this.reassign(c, a);
+                                reassignments.push([c, a]);
                             } else if ((value & A4Y_B3Q) && (a === c)) {
-                                this.reassign(b, a);
+                                reassignments.push([b, a]);
                             } else if ((value & A4Y_B2C) && (b === c)) {
-                                this.reassign(a, b);
+                                reassignments.push([a, b]);
                             }
                         }
                     } else {
@@ -1205,13 +1215,13 @@ export class INTSeperator extends MAPPattern {
                             a = d;
                         }
                         if (value === A5E_MERGE_ALL) {
-                            this.reassign(b, a);
-                            this.reassign(c, a);
+                            reassignments.push([b, a]);
+                            reassignments.push([c, a]);
                         } else {
                             if ((value & A5E_B2C) && (a === b)) {
-                                this.reassign(c, a);
+                                reassignments.push([c, a]);
                             } else if ((value & A5E_B4N) && (b === c)) {
-                                this.reassign(b, a);
+                                reassignments.push([b, a]);
                             }
                         }
                     }
@@ -1219,6 +1229,9 @@ export class INTSeperator extends MAPPattern {
                 i++;
             }
             i++;
+        }
+        for (let [a, b] of reassignments) {
+            this.reassign(a, b);
         }
         return this;
     }
