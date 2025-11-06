@@ -69,15 +69,18 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         let b = '';
         let s = '';
         let sections: string[];
-        if (rule.includes('S') || rule.includes('s')) {
+        if (rule.includes('/')) {
+            sections = rule.split('/');
+        } else if (rule.includes('S') || rule.includes('s')) {
             let index = rule.indexOf('s');
             if (index === -1) {
                 index = rule.indexOf('S');
             }
             sections = [rule.slice(0, index), rule.slice(index)];
         } else {
-            sections = rule.split('/');
+            sections = [rule];
         }
+        console.log(sections);
         for (let i = 0; i < sections.length; i++) {
             let section = sections[i];
             if (section[0] === 'B' || section[0] === 'b') {
@@ -610,42 +613,3 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
         samples,
     };
 }
-
-
-// function query<T extends HTMLElement = HTMLElement>(query: string): T {
-//     return document.querySelector(query) as T;
-// }
-
-// query('#run').addEventListener('click', async () => {
-//     query('#config').style.display = 'none';
-//     let elt = query('#out');
-//     let rule = query<HTMLInputElement>('#rule').value;
-//     let symmetry = query<HTMLInputElement>('#symmetry').value;
-//     let soups = parseInt(query<HTMLInputElement>('#soups').value);
-//     if (Number.isNaN(soups)) {
-//         throw new Error('Invalid soups value');
-//     }
-//     let data = await soupSearch({rule, symmetry, soups, print(msg) {
-//         if (msg.includes('\x1b')) {
-//             msg = msg.replaceAll('\x1b[1;31m', '<span style="color: #ff7f7f">');
-//             msg = msg.replaceAll('\x1b[1;34m', '<span style="color: #7f7fff">');
-//             msg = msg.replaceAll('\x1b[1;32m', '<span style="color: #7fff7f">');
-//             msg = msg.replaceAll('\x1b[0m', '</span>');
-//         }
-//         elt.textContent += '\n' + msg;
-//     }});
-//     elt.textContent += `\n
-// @VERSION ${data.version}
-// @MD5 ${data.md5}
-// @ROOT ${data.seed}
-// @RULE ${data.rule}
-// @SYMMETRY ${data.symmetry}_web_test
-// @NUM_SOUPS ${data.soups}
-// @NUM_OBJECTS ${data.objects}
-
-// @CENSUS TABLE
-// ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
-
-// @SAMPLE_SOUPIDS
-// ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`;
-// });
