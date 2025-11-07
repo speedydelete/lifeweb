@@ -18,7 +18,7 @@ html, body {
 }
 
 body {
-    padding-top: 20px;
+    padding: 20px;
     margin: 0;
     display: flex;
     flex-direction: column;
@@ -133,7 +133,7 @@ input[type=checkbox] {
         </div>
         <div id="out"></div>
         <div id="source"><a href="https://github.com/speedydelete/lifeweb">Source code</a></div>
-        <script>'use strict';function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'').replaceAll('about:srcdoc','index.ts');for (let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))}if(document.readyState!=='complete'){alert(x);return;}let t=document.createElement('div');t.textContent='\n\n'+x;t.style.color='red';document.getElementById('out').appendChild(t);document.getElementById('config').style.display='none';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
+        <script>'use strict';function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'').replaceAll('about:srcdoc','index.js');if(e instanceof Error&&!x.includes('Error'))x=String(e)+'\n'+x;for (let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))}if(document.readyState!=='complete'){alert(x);return;}let t=document.createElement('div');t.textContent='\n\n'+x;t.style.color='red';document.getElementById('out').appendChild(t);document.getElementById('config').style.display='none';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
         <script type="module">
 
 import {soupSearch} from './lib/index.js';
@@ -174,6 +174,16 @@ ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + 
 
 @SAMPLE_SOUPIDS
 ${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`;
+});
+
+document.querySelectorAll('input').forEach(elt => {
+    let value = localStorage['apgweb-input-' + elt.id];
+    if (value) {
+        elt.value = value;
+    }
+    elt.addEventListener('change', () => {
+        localStorage['apgweb-input-' + elt.id] = elt.value;
+    });
 });
 
         </script>

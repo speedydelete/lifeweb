@@ -68,6 +68,8 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
             }
         }
     }
+    // phases[0].ruleStr = 'B2-ak3i5ij/S12-k3a';
+    // console.log(phases[0].toRLE());
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
 }
 

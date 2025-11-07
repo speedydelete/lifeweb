@@ -62,20 +62,25 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
 
 function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean): null | {[key: string]: number} {
     let data = sep.getObjects().map(x => identify(x, limit, false));
+    // // @ts-ignore
     // data.forEach(x => delete x.hashes);
     // data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
     // let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
+    // // @ts-ignore
     // q.states = 256;
-    // sep.ruleStr = 'B3/S23';
-    // q.ruleStr = 'B3/S23Super';
-    // if (i === 42) {
+    // sep.ruleStr = 'B2-ak3i5ij/S12-k3a';
+    // q.ruleStr = 'B2-ak3i5ij/S12-k3aSuper';
+    // if (i === 0) {
     //     throw new Error('\n\n' + sep.groups.join(' ') + '\n\n' + sep.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n' + q.toRLE());
     // } else {
     //     i++;
     // }
     let out: {[key: string]: number} = {};
     for (let {apgcode} of data) {
-        if ((apgcode[0] === 'P' || apgcode === 'xs0_0') && !ignorePathologicals) {
+        if (apgcode === 'xs0_0') {
+            apgcode = 'PATHOLOGICAL';
+        }
+        if (apgcode === 'PATHOLOGICAL' && !ignorePathologicals) {
             return null;
         } else if (apgcode === 'xs0_0') {
             apgcode = 'PATHOLOGICAL';
@@ -91,31 +96,41 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
 
 export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void): {[key: string]: number} {
     let period = stabilize(p, print);
-    let step = period * 2;
-    for (let i = 0; i < 5; i++) {
+    let limit = period * 4;
+    for (let i = 0; i < 3; i++) {
         let sep = new INTSeperator(p, knots);
-        let data = attemptCensus(sep, step, false);
+        let data = attemptCensus(sep, limit, false);
         if (data) {
             return data;
         }
         for (let i = 0; i < period * 8; i++) {
             sep.runGeneration();
             sep.resolveKnots();
-            data = attemptCensus(sep, step, false);
+            data = attemptCensus(sep, limit, false);
             if (data) {
                 return data;
             }
         }
-        if (i === 4) {
-            return attemptCensus(sep, step, true) as {[key: string]: number};
+        p.run(limit);
+        limit *= 4;
+    }
+    let sep = new INTSeperator(p, knots);
+    for (let i = 0; i < period * 8; i++) {
+        sep.runGeneration();
+        sep.resolveKnots();
+        let data = attemptCensus(sep, limit, false);
+        if (data) {
+            return data;
         }
-        p.run(step);
-        step *= 4;
     }
-    if (print) {
-        print('Unable to seperate objects!');
+    let out = attemptCensus(sep, limit, true);
+    if (!out) {
+        out = {PATHOLOGICAL: 1};
+        if (print) {
+            print('Unable to seperate objects!');
+        }
     }
-    return {'PATHOLOGICAL': 1};
+    return out;
 }
 
 

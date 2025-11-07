@@ -592,16 +592,18 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
                     if (rule === 'b3s23') {
                         if (key[1] === 'p') {
                             if ((key[2] !== '2' || key[3] !== '_') && key !== 'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401' && key !== 'xp15_4r4z4r4') {
-                                print('Rare oscillator detected: \x1b[1;31m' + key + '\x1b[0m');
+                                print('Rare oscillator detected: \x1b[1;31m' + key + '\x1b[0m in soup ' + seed + i);
                             }
                         } else if (key[1] === 'q' && key !== 'xq4_153' && key !== 'xq4_6frc' && key !== 'xq4_27dee6' && key !== 'xq4_27deee6') {
-                            print('Rare spaceship detected: \x1b[1;34m' + key + '\x1b[0m');
+                            print('Rare spaceship detected: \x1b[1;34m' + key + '\x1b[0m in soup ' + seed + i);
                         }
                     }
                 } else if (key.startsWith('y')) {
-                    print('Linear-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m');
+                    print('Linear-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m in soup ' + seed + i);
                 } else if (key.startsWith('z')) {
-                    print('Chaotic-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m');
+                    print('Chaotic-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m in soup ' + seed + i);
+                } else if (key.startsWith('P')) {
+                    print('Pathological object detected in soup ' + seed + i);
                 }
             }
         }
