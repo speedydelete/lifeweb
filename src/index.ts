@@ -80,7 +80,6 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         } else {
             sections = [rule];
         }
-        console.log(sections);
         for (let i = 0; i < sections.length; i++) {
             let section = sections[i];
             if (section[0] === 'B' || section[0] === 'b') {
