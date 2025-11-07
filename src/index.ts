@@ -545,12 +545,14 @@ export interface Haul {
     samples: {[key: string]: number[]};
 }
 
-function redraw() {
-    return new Promise(resolve => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(resolve);
+function redraw(): Promise<number> | undefined {
+    if (typeof requestAnimationFrame === 'function') {
+        return new Promise(resolve => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(resolve);
+            });
         });
-    });
+    }
 }
 
 export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
