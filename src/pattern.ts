@@ -294,7 +294,13 @@ export abstract class Pattern {
     }
 
     get population(): number {
-        return this.data.reduce((x, y) => x + y, 0);
+        let out = 0;
+        for (let i = 0; i < this.size; i++) {
+            if (this.data[i]) {
+                out++;
+            }
+        }
+        return out;
     }
 
     isEmpty(): boolean {

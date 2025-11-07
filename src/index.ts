@@ -6,12 +6,12 @@ import {AlternatingPattern} from './alternating.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
-// export * from './pattern.js';
-// export * from './map.js';
-// export * from './alternating.js';
-// export * from './identify.js';
-// export * from './intsep.js';
-// export * from './search.js';
+export * from './pattern.js';
+export * from './map.js';
+export * from './alternating.js';
+export * from './identify.js';
+export * from './intsep.js';
+export * from './search.js';
 
 
 export interface PatternData {
