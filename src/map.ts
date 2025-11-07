@@ -506,7 +506,6 @@ export class MAPPattern extends Pattern {
                     }
                     loc += oX + 1;
                 }
-                // alert(((tr << 1) & 63) + ' ' + loc);
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
                 }
@@ -1230,12 +1229,7 @@ export class MAPB0GenPattern extends Pattern {
         let size = this.size;
         let states = this.states;
         let data = this.data;
-        let alive = new Uint8Array(size);
-        for (let i = 0; i < this.data.length; i++) {
-            if (this.data[i] === 1) {
-                alive[i] = 1;
-            }
-        }
+        let alive = this.data.map(x => x === 1 ? 1 : 0);
         let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
         let width2 = width << 1;
         let lastRow = size - width;
@@ -1362,93 +1356,112 @@ export class MAPB0GenPattern extends Pattern {
                 out[loc] = rightExpands[i];
             }
         }
-        let loc1 = oStart;
-        let loc2 = lastRow + oSize - oX;
-        j = lastRow + 1;
-        tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
-        tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
-        if (data[0] < 2) {
-            if (trs[tr1]) {
-                out[loc1] = 1;
-            } else if (data[0]) {
-                out[loc1] = 2;
+        if (width <= 1) {
+            if (width === 1) {
+                let tr = (data[0] << 4) | (data[1] << 3);
+                let loc = oStart;
+                if (data[0] < 2) {
+                    if (trs[tr]) {
+                        out[loc] = 1;
+                    } else if (data[0]) {
+                        out[loc] = 2;
+                    }
+                } else {
+                    out[loc] = (data[0] + 1) % states;
+                }
+                loc += oX + 1;
+                for (i = 2; i < height; i++) {
+                    tr = ((tr << 1) & 63) | (data[i] << 3);
+                    if (data[i - 1] < 2) {
+                        if (trs[tr]) {
+                            out[loc] = 1;
+                        } else if (data[i - 1]) {
+                            out[loc] = 2;
+                        }
+                    } else {
+                        out[loc] = (data[i - 1] + 1) % states;
+                    }
+                    loc += oX + 1;
+                }
+                if (trs[(tr << 1) & 63]) {
+                    out[loc] = 1;
+                }
             }
         } else {
-            out[loc1] = (data[0] + 1) % states;
-        }
-        if (data[lastRow] < 2) {
-            if (trs[tr2]) {
-                out[loc2] = 1;
-            } else if (data[lastRow]) {
-                out[loc2] = 2;
-            }
-        } else {
-            out[loc2] = (data[lastRow] + 1) % states;
-        }
-        for (i = 2; i < width; i++) {
-            j++;
-            loc1++;
-            loc2++;
-            tr1 = ((tr1 << 3) & 511) | (alive[i] << 1) | alive[i + width];
-            if (data[i - 1] < 2) {
+            let loc1 = oStart;
+            let loc2 = lastRow + oSize - oX;
+            j = lastRow + 1;
+            tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
+            tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
+            if (data[0] < 2) {
                 if (trs[tr1]) {
                     out[loc1] = 1;
-                } else if (data[i - 1]) {
+                } else if (data[0]) {
                     out[loc1] = 2;
                 }
             } else {
-                out[loc1] = (data[i - 1] + 1) % states;
+                out[loc1] = (data[0] + 1) % states;
             }
-            tr2 = ((tr2 << 3) & 511) | (alive[j - width] << 2) | (alive[j] << 1);
-            if (data[j - 1] < 2) {
+            if (data[lastRow] < 2) {
                 if (trs[tr2]) {
                     out[loc2] = 1;
-                } else if (data[j - 1]) {
+                } else if (data[lastRow]) {
                     out[loc2] = 2;
                 }
             } else {
-                out[loc2] = (data[j - 1] + 1) % states;
+                out[loc2] = (data[lastRow] + 1) % states;
             }
-        }
-        i--;
-        loc1++;
-        loc2++;
-        if (data[i] < 2) {
-            if (trs[(tr1 << 3) & 511]) {
-                out[loc1] = 1;
-            } else if (data[i]) {
-                out[loc1] = 2;
+            for (i = 2; i < width; i++) {
+                j++;
+                loc1++;
+                loc2++;
+                tr1 = ((tr1 << 3) & 511) | (alive[i] << 1) | alive[i + width];
+                if (data[i - 1] < 2) {
+                    if (trs[tr1]) {
+                        out[loc1] = 1;
+                    } else if (data[i - 1]) {
+                        out[loc1] = 2;
+                    }
+                } else {
+                    out[loc1] = (data[i - 1] + 1) % states;
+                }
+                tr2 = ((tr2 << 3) & 511) | (alive[j - width] << 2) | (alive[j] << 1);
+                if (data[j - 1] < 2) {
+                    if (trs[tr2]) {
+                        out[loc2] = 1;
+                    } else if (data[j - 1]) {
+                        out[loc2] = 2;
+                    }
+                } else {
+                    out[loc2] = (data[j - 1] + 1) % states;
+                }
             }
-        } else {
-            out[loc1] = (data[i] + 1) % states;
-        }
-        if (data[j] < 2) {
-            if (trs[(tr2 << 3) & 511]) {
-                out[loc2] = 1;
-            } else if (data[j]) {
-                out[loc2] = 2;
-            }
-        } else {
-            out[loc2] = (data[j] + 1) % states;
-        }
-        i = width + 1;
-        loc = oStart + width;
-        for (let y = 1; y < height - 1; y++) {
-            loc += oX;
-            let tr = (alive[i - width - 1] << 5) | (alive[i - 1] << 4) | (alive[i + width - 1] << 3) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
-            if (data[i - 1] < 2) {
-                if (trs[tr]) {
-                    out[loc] = 1;
-                } else if (data[i - 1]) {
-                    out[loc] = 2;
+            i--;
+            loc1++;
+            loc2++;
+            if (data[i] < 2) {
+                if (trs[(tr1 << 3) & 511]) {
+                    out[loc1] = 1;
+                } else if (data[i]) {
+                    out[loc1] = 2;
                 }
             } else {
-                out[loc] = (data[i - 1] + 1) % states;
+                out[loc1] = (data[i] + 1) % states;
             }
-            i++;
-            loc++;
-            for (let x = 1; x < width - 1; x++) {
-                tr = ((tr << 3) & 511) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+            if (data[j] < 2) {
+                if (trs[(tr2 << 3) & 511]) {
+                    out[loc2] = 1;
+                } else if (data[j]) {
+                    out[loc2] = 2;
+                }
+            } else {
+                out[loc2] = (data[j] + 1) % states;
+            }
+            i = width + 1;
+            loc = oStart + width;
+            for (let y = 1; y < height - 1; y++) {
+                loc += oX;
+                let tr = (alive[i - width - 1] << 5) | (alive[i - 1] << 4) | (alive[i + width - 1] << 3) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
                 if (data[i - 1] < 2) {
                     if (trs[tr]) {
                         out[loc] = 1;
@@ -1460,18 +1473,32 @@ export class MAPB0GenPattern extends Pattern {
                 }
                 i++;
                 loc++;
-            }
-            if (data[i - 1] < 2) {
-                if (trs[(tr << 3) & 511]) {
-                    out[loc] = 1;
-                } else if (data[i - 1]) {
-                    out[loc] = 2;
+                for (let x = 1; x < width - 1; x++) {
+                    tr = ((tr << 3) & 511) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
+                    if (data[i - 1] < 2) {
+                        if (trs[tr]) {
+                            out[loc] = 1;
+                        } else if (data[i - 1]) {
+                            out[loc] = 2;
+                        }
+                    } else {
+                        out[loc] = (data[i - 1] + 1) % states;
+                    }
+                    i++;
+                    loc++;
                 }
-            } else {
-                out[loc] = (data[i - 1] + 1) % states;
+                if (data[i - 1] < 2) {
+                    if (trs[(tr << 3) & 511]) {
+                        out[loc] = 1;
+                    } else if (data[i - 1]) {
+                        out[loc] = 2;
+                    }
+                } else {
+                    out[loc] = (data[i - 1] + 1) % states;
+                }
+                i++;
+                loc++;
             }
-            i++;
-            loc++;
         }
         this.height = newHeight;
         this.width = newWidth;
