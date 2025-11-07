@@ -273,6 +273,7 @@ export abstract class Pattern {
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
+    population: number = 0;
     abstract ruleStr: string;
     abstract states: number;
     abstract ruleSymmetry: RuleSymmetry;
@@ -282,6 +283,12 @@ export abstract class Pattern {
         this.width = width;
         this.size = this.height * this.width;
         this.data = data;
+        this.population = 0;
+        for (let i = 0; i < this.size; i++) {
+            if (data[i]) {
+                this.population++;
+            }
+        }
     }
 
     abstract runGeneration(): this;
@@ -291,16 +298,6 @@ export abstract class Pattern {
             this.runGeneration();
         }
         return this;
-    }
-
-    get population(): number {
-        let out = 0;
-        for (let i = 0; i < this.size; i++) {
-            if (this.data[i]) {
-                out++;
-            }
-        }
-        return out;
     }
 
     isEmpty(): boolean {
