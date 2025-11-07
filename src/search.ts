@@ -77,6 +77,8 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
     for (let {apgcode} of data) {
         if ((apgcode[0] === 'P' || apgcode === 'xs0_0') && !ignorePathologicals) {
             return null;
+        } else if (apgcode === 'xs0_0') {
+            apgcode = 'PATHOLOGICAL';
         }
         if (apgcode in out) {
             out[apgcode]++;
