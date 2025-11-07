@@ -599,6 +599,7 @@ export class MAPPattern extends Pattern {
         this.xOffset -= expandLeft;
         this.yOffset -= expandUp;
         this.generation++;
+        this.population = pop;
         return this;
     }
 
