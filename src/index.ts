@@ -622,7 +622,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
         print(`${rule}/${options.symmetry}: ${options.soups} soups completed (${((options.soups - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(options.soups / ((now - start) / 1000)).toFixed(3)} overall).`);
     }
     return {
-        version: 'apgweb-beta-v0.1',
+        version: 'apgweb-beta-v0.2',
         md5: stringMD5(seed),
         seed,
         rule,
