@@ -151,7 +151,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         } else if (power < 2.9) {
             apgcode = 'zz_EXPLOSIVE';
         } else {
-            apgcode = 'zz_QAUDRATIC';
+            apgcode = 'zz_QUADRATIC';
         }
     }
     return {apgcode, ...type};
