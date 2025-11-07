@@ -369,7 +369,6 @@ export class MAPPattern extends Pattern {
         let width2 = width << 1;
         let lastRow = size - width;
         let secondLastRow = size - width2;
-        let pop = 0;
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -381,12 +380,10 @@ export class MAPPattern extends Pattern {
         if (trs[tr1]) {
             expandUp = 1;
             upExpands[0] = 1;
-            pop++;
         }
         if (trs[tr2]) {
             expandDown = 1;
             downExpands[0] = 1;
-            pop++;
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -396,24 +393,19 @@ export class MAPPattern extends Pattern {
             if (trs[tr1]) {
                 expandUp = 1;
                 upExpands[loc] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 expandDown = 1;
                 downExpands[loc] = 1;
-                pop++;
-
             }
         }
         if (trs[(tr1 << 3) & 511]) {
             expandUp = 1;
             upExpands[width - 1] = 1;
-            pop++;
         }
         if (trs[(tr2 << 3) & 511]) {
             expandDown = 1;
             downExpands[width - 1] = 1;
-            pop++;
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -424,12 +416,10 @@ export class MAPPattern extends Pattern {
         if (trs[tr1]) {
             expandLeft = 1;
             leftExpands[0] = 1;
-            pop++;
         }
         if (trs[tr2]) {
             expandRight = 1;
             rightExpands[0] = 1;
-            pop++;
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -439,24 +429,20 @@ export class MAPPattern extends Pattern {
             if (trs[tr1]) {
                 expandLeft = 1;
                 leftExpands[loc] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 expandRight = 1;
                 rightExpands[loc] = 1;
-                pop++;
             }
         }
         i -= width;
         if (trs[(tr1 << 1) & 7]) {
             expandLeft = 1;
             leftExpands[height - 1] = 1;
-            pop++;
         }
         if (trs[(tr2 << 1) & 511]) {
             expandRight = 1;
             rightExpands[height - 1] = 1;
-            pop++;
         }
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
@@ -511,21 +497,18 @@ export class MAPPattern extends Pattern {
                 let loc = oStart;
                 if (trs[tr]) {
                     out[loc] = 1;
-                    pop++;
                 }
                 loc += oX + 1;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
                     if (trs[tr]) {
                         out[loc] = 1;
-                        pop++;
                     }
                     loc += oX + 1;
                 }
                 // alert(((tr << 1) & 63) + ' ' + loc);
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
-                    pop++;
                 }
             }
         } else {
@@ -536,11 +519,9 @@ export class MAPPattern extends Pattern {
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
             if (trs[tr1]) {
                 out[loc1] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
-                pop++;
             }
             for (i = 2; i < width; i++) {
                 j++;
@@ -549,21 +530,17 @@ export class MAPPattern extends Pattern {
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
                 if (trs[tr1]) {
                     out[loc1] = 1;
-                    pop++;
                 }
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
-                    pop++;
                 }
             }
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
-                pop++;
             }
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
-                pop++;
             }
             i = width + 1;
             loc = oStart + width;
@@ -579,14 +556,12 @@ export class MAPPattern extends Pattern {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                     if (trs[tr]) {
                         out[loc] = 1;
-                        pop++;
                     }
                     i++;
                     loc++;
                 }
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
-                    pop++;
                 }
                 i++;
                 loc++;
@@ -659,7 +634,6 @@ export class MAPB0Pattern extends Pattern {
         let width2 = width << 1;
         let lastRow = size - width;
         let secondLastRow = size - width2;
-        let pop = 0;
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -671,12 +645,10 @@ export class MAPB0Pattern extends Pattern {
         if (trs[tr1]) {
             expandUp = 1;
             upExpands[0] = 1;
-            pop++;
         }
         if (trs[tr2]) {
             expandDown = 1;
             downExpands[0] = 1;
-            pop++;
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -686,24 +658,19 @@ export class MAPB0Pattern extends Pattern {
             if (trs[tr1]) {
                 expandUp = 1;
                 upExpands[loc] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 expandDown = 1;
                 downExpands[loc] = 1;
-                pop++;
-
             }
         }
         if (trs[(tr1 << 3) & 511]) {
             expandUp = 1;
             upExpands[width - 1] = 1;
-            pop++;
         }
         if (trs[(tr2 << 3) & 511]) {
             expandDown = 1;
             downExpands[width - 1] = 1;
-            pop++;
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -714,12 +681,10 @@ export class MAPB0Pattern extends Pattern {
         if (trs[tr1]) {
             expandLeft = 1;
             leftExpands[0] = 1;
-            pop++;
         }
         if (trs[tr2]) {
             expandRight = 1;
             rightExpands[0] = 1;
-            pop++;
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -729,24 +694,20 @@ export class MAPB0Pattern extends Pattern {
             if (trs[tr1]) {
                 expandLeft = 1;
                 leftExpands[loc] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 expandRight = 1;
                 rightExpands[loc] = 1;
-                pop++;
             }
         }
         i -= width;
         if (trs[(tr1 << 1) & 7]) {
             expandLeft = 1;
             leftExpands[height - 1] = 1;
-            pop++;
         }
         if (trs[(tr2 << 1) & 511]) {
             expandRight = 1;
             rightExpands[height - 1] = 1;
-            pop++;
         }
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
@@ -801,21 +762,17 @@ export class MAPB0Pattern extends Pattern {
                 let loc = oStart;
                 if (trs[tr]) {
                     out[loc] = 1;
-                    pop++;
                 }
                 loc += oX + 1;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
                     if (trs[tr]) {
                         out[loc] = 1;
-                        pop++;
                     }
                     loc += oX + 1;
                 }
-                // alert(((tr << 1) & 63) + ' ' + loc);
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
-                    pop++;
                 }
             }
         } else {
@@ -826,11 +783,9 @@ export class MAPB0Pattern extends Pattern {
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
             if (trs[tr1]) {
                 out[loc1] = 1;
-                pop++;
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
-                pop++;
             }
             for (i = 2; i < width; i++) {
                 j++;
@@ -839,21 +794,17 @@ export class MAPB0Pattern extends Pattern {
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
                 if (trs[tr1]) {
                     out[loc1] = 1;
-                    pop++;
                 }
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
-                    pop++;
                 }
             }
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
-                pop++;
             }
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
-                pop++;
             }
             i = width + 1;
             loc = oStart + width;
@@ -869,14 +820,12 @@ export class MAPB0Pattern extends Pattern {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                     if (trs[tr]) {
                         out[loc] = 1;
-                        pop++;
                     }
                     i++;
                     loc++;
                 }
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
-                    pop++;
                 }
                 i++;
                 loc++;
