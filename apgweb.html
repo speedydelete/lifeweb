@@ -158,9 +158,9 @@ document.getElementById('run').addEventListener('click', async () => {
             msg = msg.replaceAll('\x1b[1;32m', '<span style="color: #7fff7f">');
             msg = msg.replaceAll('\x1b[0m', '</span>');
         }
-        elt.textContent += '\n' + msg;
+        elt.innerHTML += '\n' + msg;
     }});
-    elt.textContent += `\n
+    elt.innerHTML += `\n
 @VERSION ${data.version}
 @MD5 ${data.md5}
 @ROOT ${data.seed}
