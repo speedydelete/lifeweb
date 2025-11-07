@@ -575,7 +575,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     for (let i = 0; i < options.soups; i++) {
         let {height, width, data} = await getHashsoup(seed + i, options.symmetry);
         let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
-        let out = censusINT(soup, knots);
+        let out = censusINT(soup, knots, print);
         for (let key in out) {
             if (key in census) {
                 census[key] += out[key];
