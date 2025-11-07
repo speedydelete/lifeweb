@@ -60,7 +60,7 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
 
 // let i = 0;
 
-function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean, print: ((data: string) => void) | undefined): null | {[key: string]: number} {
+function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean): null | {[key: string]: number} {
     let data = sep.getObjects().map(x => identify(x, limit, false));
     // data.forEach(x => delete x.hashes);
     // data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
@@ -83,23 +83,6 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
         } else {
             out[apgcode] = 1;
         }
-        if (print) {
-            if (apgcode[0] === 'x') {
-                if (sep.ruleStr === 'B3/S23') {
-                    if (apgcode[1] === 'p') {
-                        if ((apgcode[2] !== '2' || apgcode[3] !== '_') && apgcode !== 'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401' && apgcode !== 'xp15_4r4z4r4') {
-                            print('Rare oscillator detected: \x1b[1;31m' + apgcode + '\x1b[0m');
-                        }
-                    } else if (apgcode[1] === 'q' && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
-                        print('Rare spaceship detected: \x1b[1;34m' + apgcode + '\x1b[0m');
-                    }
-                }
-            } else if (apgcode[0] === 'y') {
-                print('Linear-growth pattern detected: \x1b[1;32m' + apgcode + '\x1b[0m');
-            } else if (apgcode[0] === 'z') {
-                print('Chaotic-growth pattern detected: \x1b[1;32m' + apgcode + '\x1b[0m');
-            }
-        }
     }
     return out;
 }
@@ -109,20 +92,20 @@ export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: strin
     let step = period * 2;
     for (let i = 0; i < 5; i++) {
         let sep = new INTSeperator(p, knots);
-        let data = attemptCensus(sep, step, false, print);
+        let data = attemptCensus(sep, step, false);
         if (data) {
             return data;
         }
         for (let i = 0; i < period * 8; i++) {
             sep.runGeneration();
             sep.resolveKnots();
-            data = attemptCensus(sep, step, false, print);
+            data = attemptCensus(sep, step, false);
             if (data) {
                 return data;
             }
         }
         if (i === 4) {
-            return attemptCensus(sep, step, true, print) as {[key: string]: number};
+            return attemptCensus(sep, step, true) as {[key: string]: number};
         }
         p.run(step);
         step *= 4;
