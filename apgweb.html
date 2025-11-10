@@ -170,6 +170,20 @@ document.getElementById('run').addEventListener('click', async () => {
         }
         elt.innerHTML += '\n' + msg;
     }});
+    let haul = `@VERSION ${data.version}
+@MD5 ${data.md5}
+@ROOT ${data.seed}
+@RULE ${data.rule}
+@SYMMETRY ${data.symmetry}_web_test
+@NUM_SOUPS ${data.soups}
+@NUM_OBJECTS ${data.objects}
+
+@CENSUS TABLE
+${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
+
+@SAMPLE_SOUPIDS
+${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1]).join('\n')}`;
+    let url = URL.createObjectURL(new Blob([haul]));
     elt.innerHTML += `\n
 @VERSION ${data.version}
 @MD5 ${data.md5}
@@ -183,7 +197,7 @@ document.getElementById('run').addEventListener('click', async () => {
 ${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1]}`).join('\n')}
 
 @SAMPLE_SOUPIDS
-${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1].map(y => `<a href="https://catagolue.hatsya.com/hashsoup/${symmetry}/${data.seed}${y}/${rule}">${y}</a>`).join(' ')}`).join('\n')}`;
+${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1].map(y => `<a href="https://catagolue.hatsya.com/hashsoup/${symmetry}/${data.seed}${y}/${rule}">${y}</a>`).join(' ')}`).join('\n')}\n\n\n<a href="${url}" download="haul.apg">Download</a>`;
 });
 
 document.querySelectorAll('input').forEach(elt => {
