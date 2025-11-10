@@ -224,10 +224,10 @@ export function getKnots(trs: Uint8Array): Uint8Array {
         if (B2c) {
             value |= A3C_B2C;
         }
-        out[0b101000100] = 1;
-        out[0b101000001] = 1;
-        out[0b100000101] = 1;
-        out[0b001000101] = 1;
+        out[0b101000100] = value;
+        out[0b101000001] = value;
+        out[0b100000101] = value;
+        out[0b001000101] = value;
     }
     if (!B3k && B2e) {
         out[0b010100001] = 1;
@@ -258,12 +258,12 @@ export function getKnots(trs: Uint8Array): Uint8Array {
     if (!B3r && B2a) {
         out[0b100101000] = 1;
         out[0b001101000] = 1;
-        out[0b011000001] = 1;
-        out[0b001000011] = 1;
-        out[0b000001101] = 1;
-        out[0b000100101] = 1;
-        out[0b110000100] = 1;
-        out[0b100000110] = 1;
+        out[0b011000010] = 1;
+        out[0b010000011] = 1;
+        out[0b000101100] = 1;
+        out[0b000101100] = 1;
+        out[0b110000010] = 1;
+        out[0b010000110] = 1;
     }
     if (!B3y) {
         let value: number;
@@ -435,7 +435,7 @@ export class INTSeperator extends MAPPattern {
 
     knots: Uint8Array;
     groups: Uint32Array;
-    reassignedGroups: Set<number> = new Set();
+    reassignedGroups: {[key: number]: number} = {};
 
     constructor(p: MAPPattern | INTSeperator, knots: Uint8Array) {
         let height = p.height;
@@ -524,10 +524,16 @@ export class INTSeperator extends MAPPattern {
     }
 
     reassign(a: number, b: number): void {
-        if (a === b || this.reassignedGroups.has(a)) {
+        if (a === b) {
             return;
         }
-        this.reassignedGroups.add(a);
+        if (a in this.reassignedGroups) {
+            a = this.reassignedGroups[a];
+        }
+        if (b in this.reassignedGroups) {
+            b = this.reassignedGroups[b];
+        }
+        this.reassignedGroups[a] = b;
         for (let i = 0; i < this.groups.length; i++) {
             if (this.groups[i] === a) {
                 this.groups[i] = b;
@@ -938,6 +944,7 @@ export class INTSeperator extends MAPPattern {
         this.size = this.height * this.width;
         this.data = out;
         this.groups = newGroups;
+        // alert(reassignments.map(x => x[0] + ' ' + x[1]).join('\n'));
         for (let [a, b] of reassignments) {
             this.reassign(a, b);
         }
@@ -961,6 +968,7 @@ export class INTSeperator extends MAPPattern {
                 tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 let value = this.knots[tr];
                 if (value === 1) {
+                    // alert(tr.toString(2).padStart(9, '0'));
                     let a = 0;
                     let x = groups[i - width - 2];
                     if (x) {
@@ -970,16 +978,6 @@ export class INTSeperator extends MAPPattern {
                     if (x) {
                         if (!a) {
                             a = x;
-                        }
-                    }
-                    x = groups[i - width + 1];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                            i++;
-                            continue;
                         }
                     }
                     x = groups[i - width];
@@ -1012,7 +1010,7 @@ export class INTSeperator extends MAPPattern {
                             continue;
                         }
                     }
-                    x = groups[i + width - 1];
+                    x = groups[i + width - 2];
                     if (x) {
                         if (!a) {
                             a = x;
@@ -1022,7 +1020,15 @@ export class INTSeperator extends MAPPattern {
                             continue;
                         }
                     }
-                    x = groups[i + width + 1];
+                    x = groups[i + width - 1];
+                    if (x) {
+                        if (!a) {
+                            a = x;
+                        } else if (a !== x) {
+                            reassignments.push([x, a]);
+                        }
+                    }
+                    x = groups[i + width];
                     if (x) {
                         if (!a) {
                             a = x;
@@ -1230,6 +1236,7 @@ export class INTSeperator extends MAPPattern {
             }
             i++;
         }
+        // alert(reassignments.map(x => x[0] + ' ' + x[1]).join('\n'));
         for (let [a, b] of reassignments) {
             this.reassign(a, b);
         }

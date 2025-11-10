@@ -68,10 +68,10 @@ function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: bo
     // let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
     // // @ts-ignore
     // q.states = 256;
-    // sep.ruleStr = 'B2-ak3i5ij/S12-k3a';
-    // q.ruleStr = 'B2-ak3i5ij/S12-k3aSuper';
-    // if (i === 0) {
-    //     throw new Error('\n\n' + sep.groups.join(' ') + '\n\n' + sep.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n' + q.toRLE());
+    // sep.ruleStr = 'B2-ak5j/S12-k';
+    // q.ruleStr = 'B2-ak5j/S12-kSuper';
+    // if (i === -1) {
+    //     throw new Error('\n\n' + sep.toRLE() + '\n\n' + q.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n');
     // } else {
     //     i++;
     // }
@@ -134,7 +134,7 @@ export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: strin
 }
 
 
-export async function getHashsoup(soup: string, symmetry: string, stdin?: string): Promise<{height: number, width: number, data: Uint8Array}> {
+export async function getHashsoup(soup: string, symmetry: string): Promise<{height: number, width: number, data: Uint8Array}> {
     let hash = new Uint8Array(await crypto.subtle.digest('SHA-256', (new TextEncoder()).encode(soup)));
     let height = 16;
     let width = 16;
@@ -316,16 +316,63 @@ export async function getHashsoup(soup: string, symmetry: string, stdin?: string
             loc3 += width;
             loc4 -= width;
         }
-    } else if (symmetry.endsWith('stdin')) {
-        if (!stdin) {
-            return await getHashsoup(soup, symmetry.slice(0, -5));
+    } else if (symmetry === '1x256') {
+        height = 1;
+        width = 256;
+        out = base;
+        for (let i = 0; i < 128; i += 16) {
+            for (let j = 0; j < 16; j++) {
+                let temp = out[i + j];
+                out[i + j] = out[240 - i + j];
+                out[240 - i + j] = temp;
+            }
         }
+    } else if (symmetry === '2x128') {
+        height = 2;
+        width = 128;
+        out = base;
+        for (let i = 0; i < 256; i += 128) {
+            for (let j = 0; j < 64; j += 16) {
+                for (let k = 0; k < 16; k++) {
+                    let temp = out[i + j + k];
+                    out[i + j + k] = out[i + 112 - j + k];
+                    out[i + 112 - j + k] = temp;
+                }
+            }
+        }
+    } else if (symmetry === '4x64') {
+        height = 4;
+        width = 64;
+        out = base;
+        for (let i = 0; i < 256; i += 64) {
+            for (let j = 0; j < 16; j++) {
+                let temp = out[i + j];
+                out[i + j] = out[i + 48 + j];
+                out[i + 48 + j] = temp;
+                temp = out[i + 16 + j];
+                out[i + 16 + j] = out[i + 32 + j];
+                out[i + 32 + j] = temp;
+            }
+        }
+    } else if (symmetry === '8x32') {
+        height = 8;
+        width = 32;
+        out = base;
+        for (let i = 0; i < 256; i += 32) {
+            for (let j = 0; j < 16; j++) {
+                let temp = out[i + j];
+                out[i + j] = out[i + 16 + j];
+                out[i + 16 + j] = temp;
+            }
+        }
+    } else if (symmetry.endsWith('stdin')) {
+        let data = symmetry.slice(1);
         let raw: number[][] = [];
         let num = '';
         let prefix = '';
         let currentLine: number[] = [];
-        for (let i = 0; i < stdin.length; i++) {
-            let char = stdin[i];
+        for (let i = 0; i < data.length; i++) {
+            let char = data[i];
             if (char === 'b' || char === 'o') {
                 let value = char === 'o' ? 1 : 0;
                 if (num === '') {
@@ -387,15 +434,30 @@ export async function getHashsoup(soup: string, symmetry: string, stdin?: string
         }
         out = new Uint8Array(raw.flat());
     } else if (symmetry.endsWith('_')) {
-        return await getHashsoup(soup, symmetry.slice(0, -1), stdin);
+        return await getHashsoup(soup, symmetry.slice(0, -1));
     } else if (symmetry.endsWith('test') || symmetry.endsWith('Test')) {
-        return await getHashsoup(soup, symmetry.slice(0, -4), stdin);
+        return await getHashsoup(soup, symmetry.slice(0, -4));
     } else if (symmetry.endsWith('spaceinvaders')) {
-        return await getHashsoup(soup, symmetry.slice(0, -13), stdin);
+        return await getHashsoup(soup, symmetry.slice(0, -13));
     } else if (symmetry.startsWith('G')) {
-        return await getHashsoup(soup, 'C' + symmetry.slice(1), stdin);
+        return await getHashsoup(soup, 'C' + symmetry.slice(1));
     } else if (symmetry.startsWith('H')) {
-        return await getHashsoup(soup, 'D' + symmetry.slice(1), stdin);
+        return await getHashsoup(soup, 'D' + symmetry.slice(1));
+    } else if (symmetry.startsWith('i')) {
+        let data = await getHashsoup(soup, symmetry.slice(1));
+        height = data.height * 2;
+        width = data.width * 2;
+        out = new Uint8Array(height * width);
+        let i = 0;
+        for (let y = 0; y < height; y += 2) {
+            for (let x = 0; x < width; x += 2) {
+                let value = data.data[i++];
+                out[y * width + x] = value;
+                out[y * width + x + 1] = value;
+                out[(y + 1) * width + x] = value;
+                out[(y + 1) * width + x + 1] = value;
+            }
+        }
     } else {
         throw new Error(`Invalid symmetry: ${symmetry}`);
     }
