@@ -73,5 +73,5 @@ export function stringMD5(data: string): string {
     for (let i = 0; i < data.length; i++) {
         array[i] = data.charCodeAt(i);
     }
-    return Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('')
+    return Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
 }
