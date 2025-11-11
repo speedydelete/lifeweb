@@ -110,6 +110,12 @@ input[type=checkbox] {
     overflow-wrap: anywhere;
 }
 
+a, a:visited {
+    color: blue;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 #source {
     position: fixed;
     bottom: 30px;
@@ -136,7 +142,7 @@ input[type=checkbox] {
         <script>'use strict';function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'').replaceAll('about:srcdoc','index.js');if(e instanceof Error&&!x.includes('Error'))x=String(e)+'\n'+x;for (let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))}if(document.readyState!=='complete'){alert(x);return;}let t=document.createElement('div');t.textContent='\n\n'+x;t.style.color='red';document.getElementById('out').appendChild(t);document.getElementById('config').style.display='none';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
         <script type="module">
 
-import {soupSearch, toCatagolueRule} from './lib/index.js';
+import {soupSearch, toCatagolueRule, MAPPattern, getHashsoup, createPattern} from './lib/index.js';
 
 const APGCODE_REGEX = /(x[spq]|yl)\d+_[a-z0-9]+/g;
 const SOUP_REGEX = /k_[a-zA-Z0-9]+/g;
@@ -170,34 +176,39 @@ document.getElementById('run').addEventListener('click', async () => {
         }
         elt.innerHTML += '\n' + msg;
     }});
-    let haul = `@VERSION ${data.version}
-@MD5 ${data.md5}
-@ROOT ${data.seed}
-@RULE ${data.rule}
-@SYMMETRY ${data.symmetry}_web_test
-@NUM_SOUPS ${data.soups}
-@NUM_OBJECTS ${data.objects}
-
-@CENSUS TABLE
-${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}
-
-@SAMPLE_SOUPIDS
-${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1]).join('\n')}`;
-    let url = URL.createObjectURL(new Blob([haul]));
-    elt.innerHTML += `\n
-@VERSION ${data.version}
-@MD5 ${data.md5}
-@ROOT ${data.seed}
-@RULE ${data.rule}
-@SYMMETRY ${data.symmetry}_web_test
-@NUM_SOUPS ${data.soups}
-@NUM_OBJECTS ${data.objects}
-
-@CENSUS TABLE
-${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1]}`).join('\n')}
-
-@SAMPLE_SOUPIDS
-${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1].map(y => `<a href="https://catagolue.hatsya.com/hashsoup/${symmetry}/${data.seed}${y}/${rule}">${y}</a>`).join(' ')}`).join('\n')}\n\n\n<a href="${url}" download="haul.apg">Download</a>`;
+    elt.innerHTML += `\n\n@VERSION ${data.version}\n@MD5 ${data.md5}\n@ROOT ${data.seed}\n@RULE ${data.rule}\n@SYMMETRY ${data.symmetry}_web_test\n@NUM_SOUPS ${data.soups}\n@NUM_OBJECTS ${data.objects}\n\n@CENSUS TABLE\n${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1]}`).join('\n')}\n\n@SAMPLE_SOUPIDS\n${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => `<a href="https://catagolue.hatsya.com/object/${x[0]}/${rule}">${x[0]}</a> ${x[1].map(y => `<a href="https://catagolue.hatsya.com/hashsoup/${symmetry}/${data.seed}${y}/${rule}">${y}</a>`).join(' ')}`).join('\n')}\n\n\n<a id="download">Download</a>\n<a id="download-with-rles">Download with soup RLE's</a>`;
+    let baseHaul = `@VERSION ${data.version}\n@MD5 ${data.md5}\n@ROOT ${data.seed}\n@RULE ${data.rule}\n@SYMMETRY ${data.symmetry}_web_test\n@NUM_SOUPS ${data.soups}\n@NUM_OBJECTS ${data.objects}\n\n@CENSUS TABLE\n${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}\n\n@SAMPLE_SOUPIDS\n`;
+    let link = document.createElement('a');
+    document.getElementById('download').addEventListener('click', event => {
+        event.preventDefault();
+        let haul = baseHaul + Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n');
+        let url = URL.createObjectURL(new Blob([haul]));
+        link.href = url;
+        link.download = 'haul.apg';
+        link.click();
+    });
+    document.getElementById('download-with-rles').addEventListener('click', async event => {
+        event.preventDefault();
+        let samples = Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]);
+        let haul = baseHaul;
+        let seed = data.seed;
+        for (let [apgcode, ids] of samples) {
+            haul += '\n' + apgcode + '\n';
+            let p = createPattern(rule);
+            for (let id of ids) {
+                let {height, width, data} = await getHashsoup(seed + id, symmetry);
+                p.height = height;
+                p.width = width;
+                p.size = height * width;
+                p.data = data;
+                haul += p.toRLE() + '\n';
+            }
+        }
+        let url = URL.createObjectURL(new Blob([haul]));
+        link.href = url;
+        link.download = 'haul.apg';
+        link.click();
+    });
 });
 
 document.querySelectorAll('input').forEach(elt => {

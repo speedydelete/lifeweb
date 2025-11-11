@@ -62,15 +62,16 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
 
 function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean): null | {[key: string]: number} {
     let data = sep.getObjects().map(x => identify(x, limit, false));
-    // // @ts-ignore
-    // data.forEach(x => delete x.hashes);
-    // data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
-    // let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
-    // // @ts-ignore
-    // q.states = 256;
-    // sep.ruleStr = 'B2-ak5j/S12-k';
-    // q.ruleStr = 'B2-ak5j/S12-kSuper';
-    // if (i === -1) {
+    // if (i === 1) {
+    //     sep = sep.copy();
+    //     // @ts-ignore
+    //     data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
+    //     let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
+    //     // @ts-ignore
+    //     q.states = 256;
+    //     sep.ruleStr = 'B2-a/S12';
+    //     q.ruleStr = 'B2-a/S12Super';
+    //     // @ts-ignore
     //     throw new Error('\n\n' + sep.toRLE() + '\n\n' + q.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n');
     // } else {
     //     i++;

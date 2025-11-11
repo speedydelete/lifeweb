@@ -912,14 +912,7 @@ export class INTSeperator extends MAPPattern {
                         newGroups[loc] = groups[i - width - 1];
                     } else {
                         newGroups[loc] = groups[i + width - 1];
-                    }/* else if (tr & 4) {
-                        newGroups[loc] = groups[i - width];
-                    } else if (tr & 2) {
-                        newGroups[loc] = groups[i];
-                    } else {
-                        newGroups[loc] = groups[i + width];
-                    }*/
-                    // alert(tr.toString(2).padStart(2, '0') + ' ' + loc + ' ' + out[loc] + ' ' + newGroups[loc]);
+                    }
                     if (isMultiIsland[tr]) {
                         let a = 0;
                         for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
@@ -967,8 +960,10 @@ export class INTSeperator extends MAPPattern {
             for (let x = 1; x < width - 1; x++) {
                 tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 let value = this.knots[tr];
+                // if (value > 0) {
+                //     alert(tr.toString(2).padStart(9, '0'));
+                // }
                 if (value === 1) {
-                    // alert(tr.toString(2).padStart(9, '0'));
                     let a = 0;
                     let x = groups[i - width - 2];
                     if (x) {
@@ -1170,9 +1165,9 @@ export class INTSeperator extends MAPPattern {
                             c = groups[i - width];
                             swap = groups[i - width - 1];
                         } else if (!groups[i - width]) {
-                            a = groups[i + width - 2];
-                            b = groups[i + width];
-                            c = groups[i - width];
+                            a = groups[i + width];
+                            b = groups[i + width - 2];
+                            c = groups[i - width - 2];
                             swap = groups[i - width - 1];
                         } else if (!groups[i + width - 2]) {
                             a = groups[i + width];
@@ -1190,6 +1185,7 @@ export class INTSeperator extends MAPPattern {
                             c = a;
                             a = temp;
                         }
+                        // alert(a + ' ' + b + ' ' + c);
                         if (value & A4Y_B2A) {
                             if (value & A4Y_B3N) {
                                 reassignments.push([b, a]);
@@ -1224,9 +1220,9 @@ export class INTSeperator extends MAPPattern {
                             reassignments.push([b, a]);
                             reassignments.push([c, a]);
                         } else {
-                            if ((value & A5E_B2C) && (a === b)) {
+                            if ((value & A5E_B2C) && (b === c)) {
                                 reassignments.push([c, a]);
-                            } else if ((value & A5E_B4N) && (b === c)) {
+                            } else if ((value & A5E_B4N) && (a === b)) {
                                 reassignments.push([b, a]);
                             }
                         }
@@ -1236,7 +1232,6 @@ export class INTSeperator extends MAPPattern {
             }
             i++;
         }
-        // alert(reassignments.map(x => x[0] + ' ' + x[1]).join('\n'));
         for (let [a, b] of reassignments) {
             this.reassign(a, b);
         }
