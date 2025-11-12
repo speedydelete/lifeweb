@@ -1,15 +1,14 @@
 
 import {Pattern, RLE_CHARS} from './pattern.js';
 import {MAPPattern} from './map.js';
-import {identify} from './identify.js';
-import {INTSeperator} from './intsep.js';
+import {INTSeparator} from './intsep.js';
 
 
-export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined): number {
+export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined, soup?: string): number {
     p.run(60);
     let maxPeriod = 6;
     let pops: number[] = [];
-    for (let i = 0; i < 6000; i++) {
+    for (let i = 0; i < 120000; i++) {
         p.runGeneration();
         let pop = p.population;
         if (pop === 0) {
@@ -52,83 +51,42 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
         }
     }
     if (print) {
-        print('Failed to detect periodic behavior!');
+        if (soup) {
+            print(`Failed to detect periodic behavior in soup ${soup}!`);
+        } else {
+            print('Failed to detect periodic behavior!');
+        }
     }
     return 0;
 }
 
-
-// let i = 0;
-
-function attemptCensus(sep: INTSeperator, limit: number, ignorePathologicals: boolean): null | {[key: string]: number} {
-    let data = sep.getObjects().map(x => identify(x, limit, false));
-    // if (i === 1) {
-    //     sep = sep.copy();
-    //     // @ts-ignore
-    //     data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
-    //     let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, sep.ruleStr, sep.ruleSymmetry);
-    //     // @ts-ignore
-    //     q.states = 256;
-    //     sep.ruleStr = 'B2-a/S12';
-    //     q.ruleStr = 'B2-a/S12Super';
-    //     // @ts-ignore
-    //     throw new Error('\n\n' + sep.toRLE() + '\n\n' + q.toRLE() + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n');
-    // } else {
-    //     i++;
-    // }
+export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void, soup?: string): {[key: string]: number} {
+    let period = stabilize(p, print, soup);
+    let sep = new INTSeparator(p, knots);
+    let data = sep.separate(period * 8, Math.max(period * 8, 256));
+    if (!data) {
+        if (print) {
+            if (soup) {
+                print(`Unable to separate objects in soup ${soup}!`);
+            } else {
+                print('Unable to separate objects!');
+            }
+        }
+        return {PATHOLOGICAL: 1};
+    }
+    if (data[1] && print) {
+        if (soup) {
+            print(`Unable to separate multi-island object or confirm that it is strict in soup ${soup}!`);
+        } else {
+            print(`Unable to separate multi-island object or confirm that it is strict!`);
+        }
+    }
     let out: {[key: string]: number} = {};
-    for (let {apgcode} of data) {
-        if (apgcode === 'xs0_0') {
-            apgcode = 'PATHOLOGICAL';
-        }
-        if (apgcode === 'PATHOLOGICAL' && !ignorePathologicals) {
-            return null;
-        } else if (apgcode === 'xs0_0') {
-            apgcode = 'PATHOLOGICAL';
-        }
+    for (let {apgcode} of data[0]) {
         if (apgcode in out) {
             out[apgcode]++;
         } else {
             out[apgcode] = 1;
-        }
-    }
-    return out;
-}
-
-export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void): {[key: string]: number} {
-    let period = stabilize(p, print);
-    let limit = period * 4;
-    for (let i = 0; i < 3; i++) {
-        let sep = new INTSeperator(p, knots);
-        let data = attemptCensus(sep, limit, false);
-        if (data) {
-            return data;
-        }
-        for (let i = 0; i < period * 8; i++) {
-            sep.runGeneration();
-            sep.resolveKnots();
-            data = attemptCensus(sep, limit, false);
-            if (data) {
-                return data;
-            }
-        }
-        p.run(limit);
-        limit *= 4;
-    }
-    let sep = new INTSeperator(p, knots);
-    for (let i = 0; i < period * 8; i++) {
-        sep.runGeneration();
-        sep.resolveKnots();
-        let data = attemptCensus(sep, limit, false);
-        if (data) {
-            return data;
-        }
-    }
-    let out = attemptCensus(sep, limit, true);
-    if (!out) {
-        out = {PATHOLOGICAL: 1};
-        if (print) {
-            print('Unable to seperate objects!');
         }
     }
     return out;

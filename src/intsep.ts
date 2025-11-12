@@ -123,6 +123,7 @@ For optimization, we don't implement B1c.
 
 
 import {MAPPattern, TRANSITIONS} from './map.js';
+import {identify, Identified} from './identify.js';
 
 
 const MULTI_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => TRANSITIONS[x]);
@@ -165,6 +166,16 @@ const A5E = 0x50;
 const A5E_B2C = 1;
 const A5E_B4N = 2;
 const A5E_MERGE_ALL = 8;
+
+
+function gcd(a: number, b: number): number {
+    while (b > 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
 
 
 export function getKnots(trs: Uint8Array): Uint8Array {
@@ -258,12 +269,12 @@ export function getKnots(trs: Uint8Array): Uint8Array {
     if (!B3r && B2a) {
         out[0b100101000] = 1;
         out[0b001101000] = 1;
-        out[0b011000010] = 1;
-        out[0b010000011] = 1;
         out[0b000101100] = 1;
-        out[0b000101100] = 1;
+        out[0b000101001] = 1;
         out[0b110000010] = 1;
+        out[0b011000010] = 1;
         out[0b010000110] = 1;
+        out[0b010000011] = 1;
     }
     if (!B3y) {
         let value: number;
@@ -431,13 +442,13 @@ export function getKnots(trs: Uint8Array): Uint8Array {
 }
 
 
-export class INTSeperator extends MAPPattern {
+export class INTSeparator extends MAPPattern {
 
     knots: Uint8Array;
     groups: Uint32Array;
     reassignedGroups: {[key: number]: number} = {};
 
-    constructor(p: MAPPattern | INTSeperator, knots: Uint8Array) {
+    constructor(p: MAPPattern | INTSeparator, knots: Uint8Array) {
         let height = p.height;
         let width = p.width;
         let data = p.data.slice();
@@ -448,7 +459,7 @@ export class INTSeperator extends MAPPattern {
         this.ruleStr = p.ruleStr;
         this.trs = p.trs;
         this.knots = knots;
-        if (p instanceof INTSeperator) {
+        if (p instanceof INTSeparator) {
             this.groups = p.groups;
             return;
         }
@@ -523,15 +534,18 @@ export class INTSeperator extends MAPPattern {
         }
     }
 
-    reassign(a: number, b: number): void {
+    reassign(a: number, b: number): boolean {
         if (a === b) {
-            return;
+            return false;
         }
-        if (a in this.reassignedGroups) {
+        while (a in this.reassignedGroups) {
             a = this.reassignedGroups[a];
         }
-        if (b in this.reassignedGroups) {
+        while (b in this.reassignedGroups) {
             b = this.reassignedGroups[b];
+        }
+        if (a === b) {
+            return false;
         }
         this.reassignedGroups[a] = b;
         for (let i = 0; i < this.groups.length; i++) {
@@ -539,9 +553,10 @@ export class INTSeperator extends MAPPattern {
                 this.groups[i] = b;
             }
         }
+        return true;
     }
 
-    runGeneration(): this {
+    _runGeneration(): boolean {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -937,17 +952,24 @@ export class INTSeperator extends MAPPattern {
         this.size = this.height * this.width;
         this.data = out;
         this.groups = newGroups;
-        // alert(reassignments.map(x => x[0] + ' ' + x[1]).join('\n'));
-        for (let [a, b] of reassignments) {
-            this.reassign(a, b);
-        }
         this.xOffset--;
         this.yOffset--;
         this.generation++;
+        let out2 = false;
+        for (let [a, b] of reassignments) {
+            if (this.reassign(a, b)) {
+                out2 = true;
+            }
+        }
+        return out2;
+    }
+
+    runGeneration(): this {
+        this._runGeneration();
         return this;
     }
 
-    resolveKnots(): this {
+    resolveKnots(): boolean {
         let height = this.height;
         let width = this.width;
         let data = this.data;
@@ -960,9 +982,6 @@ export class INTSeperator extends MAPPattern {
             for (let x = 1; x < width - 1; x++) {
                 tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 let value = this.knots[tr];
-                // if (value > 0) {
-                //     alert(tr.toString(2).padStart(9, '0'));
-                // }
                 if (value === 1) {
                     let a = 0;
                     let x = groups[i - width - 2];
@@ -1185,7 +1204,6 @@ export class INTSeperator extends MAPPattern {
                             c = a;
                             a = temp;
                         }
-                        // alert(a + ' ' + b + ' ' + c);
                         if (value & A4Y_B2A) {
                             if (value & A4Y_B3N) {
                                 reassignments.push([b, a]);
@@ -1232,10 +1250,13 @@ export class INTSeperator extends MAPPattern {
             }
             i++;
         }
+        let out = false;
         for (let [a, b] of reassignments) {
-            this.reassign(a, b);
+            if (this.reassign(a, b)) {
+                out = true;
+            }
         }
-        return this;
+        return out;
     }
 
     getObjects(): MAPPattern[] {
@@ -1288,15 +1309,219 @@ export class INTSeperator extends MAPPattern {
         return out;
     }
 
-    copy(): INTSeperator {
-        return new INTSeperator(this, this.knots);
+    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [Identified[], boolean] | null {
+        if (this.population === 0) {
+            return [[], false];
+        }
+        let i = 0;
+        let totalI = 0;
+        let maxPeriod = max;
+        let objs: Identified[] = [];
+        let failed = false;
+        while (totalI < max) {
+            let reassigned = this._runGeneration();
+            let reassigned2 = this.resolveKnots();
+            // if (totalI === 0) {
+            //     let data = this.getObjects().map(x => identify(x, limit));
+            //     // @ts-ignore
+            //     data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
+            //     let q = new MAPPattern(this.height, this.width, new Uint8Array(this.groups), this.trs, this.ruleStr, this.ruleSymmetry);
+            //     // @ts-ignore
+            //     q.states = 256;
+            //     this.ruleStr = 'B2-ak5j/S12-k';
+            //     q.ruleStr = 'B2-ak5j/S12-kSuper';
+            //     console.log(i, maxPeriod, totalI, max);
+            //     console.log('\n\n' + this.toRLE() + '\n\n' + q.toRLE() + '\n\n'/* + Object.entries(this.reassignedGroups).map(x => x[0] + ' ' + x[1]).join('\n') + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n'*/);
+            //     process.exit();
+            // }
+            if (!reassigned && !reassigned2) {
+                let found = true;
+                if (recurseEveryTime && depth > 0) {
+                    objs = [];
+                    for (let p of this.getObjects()) {
+                        let single = true;
+                        let i = 1;
+                        for (; i < p.width; i++) {
+                            if (p.data[i] && !p.data[i - 1]) {
+                                single = false;
+                                break;
+                            }
+                        }
+                        if (single) {
+                            for (let y = 0; y < p.height; y++) {
+                                if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                                for (let x = 1; x < p.width - 1; x++) {
+                                    if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                        single = false;
+                                        break;
+                                    }
+                                    i++;
+                                }
+                                if (!single) {
+                                    break;
+                                }
+                                if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                            }
+                        }
+                        if (single) {
+                            let x = identify(p, limit);
+                            if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                found = false;
+                                break;
+                            }
+                            objs.push(x);
+                        } else {
+                            let sep = new INTSeparator(p, this.knots);
+                            let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
+                            if (data === null) {
+                                failed = true;
+                                let x = identify(p, limit);
+                                if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                    found = false;
+                                    break;
+                                }
+                                objs.push(x);
+                            } else {
+                                if (data[1] === true) {
+                                    failed = true;
+                                }
+                                for (let x of data[0]) {
+                                    if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                        found = false;
+                                        break;
+                                    }
+                                    objs.push(x);
+                                }
+                                if (!found) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    objs = this.getObjects().map(x => identify(x, limit));
+                }
+                if (!objs.every(x => x.stabilizedAt === 0 && x.apgcode !== 'xs0_0')) {
+                    i = 0;
+                } else if (i === 0) {
+                    i = 1;
+                    let periods = objs.map(x => x.linear ? x.period * 8 : x.period);
+                    maxPeriod = periods[0];
+                    for (let period of periods.slice(1)) {
+                        maxPeriod = maxPeriod * period / gcd(maxPeriod, period);
+                    }
+                } else {
+                    i++;
+                }
+                if (i === maxPeriod) {
+                    if (recurseEveryTime) {
+                        return [objs, failed];
+                    }
+                    if (depth > 0) {
+                        objs = [];
+                        for (let p of this.getObjects()) {
+                            let single = true;
+                            let i = 1;
+                            for (; i < p.width; i++) {
+                                if (p.data[i] && !p.data[i - 1]) {
+                                    single = false;
+                                    break;
+                                }
+                            }
+                            if (single) {
+                                for (let y = 0; y < p.height; y++) {
+                                    if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                        single = false;
+                                        break;
+                                    }
+                                    i++;
+                                    for (let x = 1; x < p.width - 1; x++) {
+                                        if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                            single = false;
+                                            break;
+                                        }
+                                        i++;
+                                    }
+                                    if (!single) {
+                                        break;
+                                    }
+                                    if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
+                                        single = false;
+                                        break;
+                                    }
+                                    i++;
+                                }
+                            }
+                            if (single) {
+                                let x = identify(p, limit);
+                                if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                    found = false;
+                                    break;
+                                }
+                                objs.push(x);
+                            } else {
+                                let sep = new INTSeparator(p, this.knots);
+                                let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
+                                if (data === null) {
+                                    failed = true;
+                                    let x = identify(p, limit);
+                                    if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                        found = false;
+                                        break;
+                                    }
+                                    objs.push(x);
+                                } else {
+                                    if (data[1] === true) {
+                                        failed = true;
+                                    }
+                                    for (let x of data[0]) {
+                                        if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                            found = false;
+                                            break;
+                                        }
+                                        objs.push(x);
+                                    }
+                                    if (!found) {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        objs = this.getObjects().map(x => identify(x, limit));
+                        failed = !objs.every(x => x.stabilizedAt === 0 && x.apgcode !== 'xs0_0');
+                    }
+                    return [objs, failed];
+                }
+            } else {
+                i = 0;
+            }
+            totalI++;
+        }
+        if (!recurseEveryTime) {
+            return this.separate(limit, max, true, depth);
+        } else {
+            return null;
+        }
     }
 
-    clearedCopy(): INTSeperator {
-        return new INTSeperator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8'), this.knots);
+    copy(): INTSeparator {
+        return new INTSeparator(this, this.knots);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): INTSeperator {
+    clearedCopy(): INTSeparator {
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8'), this.knots);
+    }
+
+    copyPart(x: number, y: number, width: number, height: number): INTSeparator {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -1311,14 +1536,14 @@ export class INTSeperator extends MAPPattern {
         let oldGroups = this.groups;
         this.data = data;
         this.groups = groups;
-        let out = new INTSeperator(this, this.knots);
+        let out = new INTSeparator(this, this.knots);
         this.data = oldData;
         this.groups = oldGroups;
         return out;
     }
 
-    loadApgcode(code: string): INTSeperator {
-        return new INTSeperator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8').loadApgcode(code), this.knots);
+    loadApgcode(code: string): INTSeparator {
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8').loadApgcode(code), this.knots);
     }
 
 }

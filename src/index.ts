@@ -533,7 +533,6 @@ export interface SoupSearchOptions {
 }
 
 export interface Haul {
-    version: string;
     md5: string;
     seed: string;
     rule: string;
@@ -575,7 +574,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     for (let i = 0; i < options.soups; i++) {
         let {height, width, data} = await getHashsoup(seed + i, options.symmetry);
         let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
-        let out = censusINT(soup, knots, print);
+        let out = censusINT(soup, knots, print, seed + i);
         for (let key in out) {
             if (key in census) {
                 census[key] += out[key];
@@ -622,7 +621,6 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
         print(`${rule}/${options.symmetry}: ${options.soups} soups completed (${((options.soups - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(options.soups / ((now - start) / 1000)).toFixed(3)} overall).`);
     }
     return {
-        version: 'apgweb-v1.1',
         md5: stringMD5(seed),
         seed,
         rule,

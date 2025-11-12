@@ -35,7 +35,7 @@ for (let i = 5; i < process.argv.length; i++) {
 }
 
 let data = await soupSearch({rule, symmetry, seed, soups, print: console.log});
-let haul = `@VERSION ${data.version}\n@MD5 ${data.md5}\n@ROOT ${data.seed}\n@RULE ${data.rule}\n@SYMMETRY ${data.symmetry}_web_test\n@NUM_SOUPS ${data.soups}\n@NUM_OBJECTS ${data.objects}\n\n@CENSUS TABLE\n${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}\n\n@SAMPLE_SOUPIDS\n${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`;
+let haul = `@VERSION apgweb-v1.2\n@MD5 ${data.md5}\n@ROOT ${data.seed}\n@RULE ${data.rule}\n@SYMMETRY ${data.symmetry}_web_test\n@NUM_SOUPS ${data.soups}\n@NUM_OBJECTS ${data.objects}\n\n@CENSUS TABLE\n${Object.entries(data.census).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' ' + x[1]).join('\n')}\n\n@SAMPLE_SOUPIDS\n${Object.entries(data.samples).sort((a, b) => data.census[b[0]] - data.census[a[0]]).map(x => x[0] + ' ' + x[1].join(' ')).join('\n')}`;
 console.log('\n' + haul);
 
 if (key) {
