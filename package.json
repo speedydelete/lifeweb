@@ -13,5 +13,11 @@
     "devDependencies": {
         "@types/node": "^24.7.2",
         "typescript": "^5.9.3"
+    },
+    "wrecked": {
+        "html": "apgweb.html",
+        "imports": {
+            "./lib/index.js": "src/index.ts"
+        }
     }
 }
