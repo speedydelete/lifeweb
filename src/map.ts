@@ -2,14 +2,6 @@
 import {Pattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
 
 
-/*
-trs index must be abcdefghi where:
-a d g
-b e h
-c f i
-*/
-
-
 export const TRANSITIONS: {[key: string]: number[]} = {
     '0c': [0],
     '1c': [4, 256, 1, 64],
@@ -63,7 +55,6 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '7e': [493, 367, 487, 463],
     '8c': [495],
 };
-
 
 export const VALID_TRANSITIONS: string[] = [
     'c',
