@@ -337,6 +337,147 @@ export function findSymmetry(trs: Uint8Array): RuleSymmetry {
 }
 
 
+export function create16Trs(trs: Uint8Array): Uint8Array {
+    let out = new Uint8Array(65536);
+    for (let i = 0; i < 65536; i++) {
+        out[i] |= trs[((i >> 5) & 7) | ((i >> 6) & 56) | ((i >> 7) & 448)] << 7;
+        out[i] |= trs[((i >> 4) & 7) | ((i >> 5) & 56) | ((i >> 6) & 448)] << 6;
+        out[i] |= trs[((i >> 1) & 7) | ((i >> 2) & 56) | ((i >> 3) & 448)] << 2;
+        out[i] |= trs[(i & 7) | ((i >> 1) & 56) | ((i >> 2) & 448)] << 1;
+    }
+    return out;
+}
+
+interface Chunk {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    pop: number;
+}
+
+interface Tile {
+    super: false;
+    nw: Chunk | null;
+    ne: Chunk | null;
+    sw: Chunk | null;
+    se: Chunk | null;
+}
+
+interface SuperTile {
+    super: true;
+    nw: Tile | SuperTile;
+    ne: Tile | SuperTile;
+    sw: Tile | SuperTile;
+    se: Tile | SuperTile;
+}
+
+const POPCOUNT_TABLE = new Uint8Array(256);
+for (let i = 0; i < 256; i++) {
+    POPCOUNT_TABLE[i] = (i & 1) + ((i >> 1) & 1) + ((i >> 2) & 1) + ((i >> 3) & 1) + ((i >> 4) & 1) + ((i >> 5) & 1) + ((i >> 6) & 1) + ((i >> 7) & 1);
+}
+
+function runChunk(c: Chunk, trs: Uint8Array): void {
+    let a = trs[c.a & 0xffff] | (trs[(c.a >>> 8) & 0xffff] << 8) | (trs[c.a >>> 16] << 16);
+    let b = trs[c.b & 0xffff] | (trs[(c.b >>> 8) & 0xffff] << 8) | (trs[c.b >>> 16] << 16);
+    let m = trs[((c.a & 0x3333) << 2) | ((c.b & 0xcccc) >>> 2)];
+    m |= trs[(((c.a >>> 8) & 0x3333) << 2) | (((c.b >>> 8) & 0xcccc) >>> 2)] << 8;
+    m |= trs[(((c.a >>> 8) & 0x3333) << 2) | (((c.b >>> 8) & 0xcccc) >>> 2)] << 16;
+    c.c = a | ((m & 0x4444) >>> 2);
+    c.d = b | ((m & 0x2222) << 2);
+}
+
+function runTile(t: Tile, trs: Uint8Array): void {
+    if (t.nw) {
+        runChunk(t.nw, trs);
+    }
+    if (t.ne) {
+        runChunk(t.ne, trs);
+    }
+    if (t.sw) {
+        runChunk(t.sw, trs);
+    }
+    if (t.se) {
+        runChunk(t.se, trs);
+    }
+    if (t.nw) {
+        if (t.ne) {
+            let v1 = trs[((t.nw.a & 255) << 8) | ((t.ne.a >>> 24) & 255)];
+            let v2 = trs[((t.nw.b & 255) << 8) | ((t.ne.b >>> 24) & 255)];
+            t.nw.c |= v1 >>> 4;
+            t.nw.d |= v2 >>> 4;
+            t.ne.c |= v1 << 28;
+            t.ne.d |= v2 << 28;
+        } else {
+            let v1 = trs[(t.nw.a & 255) << 8];
+            let v2 = trs[(t.nw.b & 255) << 8];
+            t.nw.c |= v1 >>> 4;
+            t.nw.d |= v2 >>> 4;
+            if ((v1 & 15) || (v2 & 15)) {
+                t.ne = {
+                    a: 0,
+                    b: 0,
+                    c: (v1 & 15) << 28,
+                    d: (v2 & 15) << 28,
+                    pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+                };
+            }
+        }
+    } else if (t.ne) {
+        let v1 = trs[t.ne.a >>> 24];
+        let v2 = trs[t.ne.b >>> 24];
+        t.ne.c |= v1 << 24;
+        t.ne.d |= v2 << 24;
+        if ((v1 & 15) || (v2 & 15)) {
+            t.nw = {
+                a: 0,
+                b: 0,
+                c: v1 >> 4,
+                d: v2 >> 4,
+                pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+            };
+        }
+    }
+    if (t.sw) {
+        if (t.se) {
+            let v1 = trs[((t.sw.a & 255) << 8) | ((t.se.a >>> 24) & 255)];
+            let v2 = trs[((t.sw.b & 255) << 8) | ((t.se.b >>> 24) & 255)];
+            t.sw.c |= v1 >>> 4;
+            t.sw.d |= v2 >>> 4;
+            t.se.c |= v1 << 28;
+            t.se.d |= v2 << 28;
+        } else {
+            let v1 = trs[(t.sw.a & 255) << 8];
+            let v2 = trs[(t.sw.b & 255) << 8];
+            t.sw.c |= v1 >>> 4;
+            t.sw.d |= v2 >>> 4;
+            if ((v1 & 15) || (v2 & 15)) {
+                t.se = {
+                    a: 0,
+                    b: 0,
+                    c: (v1 & 15) << 28,
+                    d: (v2 & 15) << 28,
+                    pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+                };
+            }
+        }
+    } else if (t.se) {
+        let v1 = trs[t.se.a >>> 24];
+        let v2 = trs[t.se.b >>> 24];
+        t.se.c |= v1 << 24;
+        t.se.d |= v2 << 24;
+        if ((v1 & 15) || (v2 & 15)) {
+            t.sw = {
+                a: 0,
+                b: 0,
+                c: v1 >> 4,
+                d: v2 >> 4,
+                pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+            };
+        }
+    }
+}
+
 export class MAPPattern extends Pattern {
 
     trs: Uint8Array;
