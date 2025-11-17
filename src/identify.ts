@@ -244,6 +244,7 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified,
 
 function mapMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit: number): [string, string] {
     p.shrinkToFit();
+    p.run(type.stabilizedAt);
     let minB: string;
     let minS: string;
     let maxB: string;
