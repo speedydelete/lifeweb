@@ -107,7 +107,7 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     }
     p.run(60);
     p.shrinkToFit();
-    p.xOffset -= s.lanes.length * 20 + base.loadApgcode(s.target).height + OFFSET;
+    p.xOffset -= s.lanes.length * 20 + base.loadApgcode(s.target).height + 1;
     p.yOffset -= s.lanes.length * 20;
     let sep = new INTSeparator(p, knots);
     sep.runGeneration();
@@ -329,7 +329,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
         } else {
             lane = ship.y - ship.x;
         }
-        out += (ship.isW ? 'w' : 'g') + ' ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 5) + ', ';
+        out += (ship.isW ? 'w' : 'g') + ' ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 3) + ', ';
         ship.y = 0;
     }
     if (data.length > 0) {
@@ -381,6 +381,13 @@ function getSalvos(target: string, limit: number): Set<string> {
 }
 
 
+// type SalvoResult = 'no collision' | 'nothing' | 'unknown' | ({isShip: false, code: string, x: number, y: number} | {isShip: true, isW: boolean, dir: 'nw' | 'ne' | 'sw' | 'se', lane: number, timing: number})[];
+
+// function parseSalvoList(data: string): SalvoResult[] {
+
+// }
+
+
 if (process.argv[2] === 'search') {
     let newObjs = getSalvos(process.argv[3], 32);
     console.log('outputs: ' + Array.from(newObjs).join(', '));
@@ -401,7 +408,7 @@ if (process.argv[2] === 'search') {
         queue = newQueue;
     }
 } else {
-    let lanes = process.argv.slice(3).join(' ').split(', ').map<[number, boolean]>(x => [parseInt(x), x.endsWith('w')]);
+    let lanes = process.argv.slice(3).map<[number, boolean]>(x => [parseInt(x), x.endsWith('w')]).reverse();
     console.log(createConfiguration({lanes, target: process.argv[2].slice(process.argv[2].indexOf('_') + 1)}).toRLE());
 }
 
