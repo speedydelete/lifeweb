@@ -75,6 +75,7 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     } else {
         let prevPop = p.population;
         for (let i = 0; i < s.lanes.length * 192; i++) {
+            p.runGeneration();
             let pop = p.population;
             if (pop !== prevPop) {
                 found = true;
