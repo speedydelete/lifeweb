@@ -89,11 +89,12 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     }
     let pops: number[] = [];
     found = false;
-    for (let i = 0; i < 256; i++) {
+    for (let i = 0; i < 1024; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pops.slice(-16).every(x => x === pop)) {
+        if (pops.slice(-64).every(x => x === pop)) {
             found = true;
+            break;
         }
         pops.push(pop);
     }
@@ -286,6 +287,13 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
         p.insert(obj.p, obj.x - minX, obj.y - minY);
         for (let obj of data) {
             p.insert(obj.p, obj.x - minX, obj.y - minY);
+        }
+        p.shrinkToFit();
+        let start = p.copy();
+        p.runGeneration();
+        p.shrinkToFit();
+        if (!start.isEqual(p)) {
+            return false;
         }
         out.push({
             isShip: false,
