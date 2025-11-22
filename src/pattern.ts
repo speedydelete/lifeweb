@@ -18,7 +18,7 @@ for (let prefix of RLE_PREFIXES) {
     }
 }
 
-export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
+export const APGCODE_CHARS = '0123456789abcdefghijklmnopqrstuvwxyz';
 
 
 export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
@@ -843,7 +843,7 @@ export abstract class Pattern {
                         } else if (char === 'x') {
                             stripData.push(0, 0, 0);
                         } else {
-                            let letter = strip[i + 1];
+                            let letter = strip[++i];
                             let count = APGCODE_CHARS.indexOf(letter) + 4;
                             for (let i = 0; i < count; i++) {
                                 stripData.push(0);
