@@ -390,7 +390,7 @@ if (process.argv[2] === 'search') {
             }
             newQueue.push(...getSalvos(code, 256));
         }
-        queue = newQueue;    
+        queue = newQueue;
     }
 } else {
     let lanes = process.argv.slice(3).join(' ').split(', ').map<[number, boolean]>(x => [parseInt(x), x.endsWith('w')]);
