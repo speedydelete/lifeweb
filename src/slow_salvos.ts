@@ -15,15 +15,18 @@ interface Salvo {
     target: string;
 }
 
-function createConfiguration(s: Salvo): MAPPattern {
+function createConfiguration(s: Salvo): [MAPPattern, number, number] {
+    let minLane = 0;
+    for (let lane of s.lanes) {
+        if (lane[0] < minLane) {
+            minLane = lane[0];
+        }
+    }
     let p = base.copy();
     for (let i = 0; i < s.lanes.length; i++) {
         let [lane, isW] = s.lanes[i];
         let y = i * 20;
-        let x = y + lane;
-        if (x < 0 || y < 0) {
-            p.ensure(x, y);
-        }
+        let x = y + lane - minLane;
         if (isW) {
             p.ensure(x + 4, y + 4);
             p.set(x, y, 1);
@@ -41,11 +44,13 @@ function createConfiguration(s: Salvo): MAPPattern {
         }
     }
     let target = base.loadApgcode(s.target).shrinkToFit();
-    let yPos = s.lanes.length * 20;
-    let xPos = yPos + target.height + OFFSET;
+    let yPos = (s.lanes.length - 1) * 20 + 6;
+    console.log(minLane);
+    let xPos = yPos + target.height + OFFSET - minLane * 2;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
-    return p;
+    p.shrinkToFit();
+    return [p, xPos, yPos];
 }
 
 
@@ -56,7 +61,7 @@ function distance(a: CAObject, b: CAObject): number {
 }
 
 function findOutcome(s: Salvo): false | null | CAObject[] {
-    let p = createConfiguration(s);
+    let [p, xPos, yPos] = createConfiguration(s);
     let found = false;
     if (s.lanes.some(x => x[1])) {
         let prevPop2 = p.population;
@@ -107,8 +112,8 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     }
     p.run(60);
     p.shrinkToFit();
-    p.xOffset -= s.lanes.length * 20 + base.loadApgcode(s.target).height + 1;
-    p.yOffset -= s.lanes.length * 20;
+    p.xOffset -= xPos;
+    p.yOffset -= yPos;
     let sep = new INTSeparator(p, knots);
     sep.runGeneration();
     sep.resolveKnots();
@@ -409,7 +414,5 @@ if (process.argv[2] === 'search') {
     }
 } else {
     let lanes = process.argv.slice(3).map<[number, boolean]>(x => [parseInt(x), x.endsWith('w')]).reverse();
-    console.log(createConfiguration({lanes, target: process.argv[2].slice(process.argv[2].indexOf('_') + 1)}).toRLE());
+    console.log(createConfiguration({lanes, target: process.argv[2].slice(process.argv[2].indexOf('_') + 1)})[0].toRLE());
 }
-
-
