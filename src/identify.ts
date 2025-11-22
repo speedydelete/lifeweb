@@ -266,10 +266,10 @@ function mapMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit
         return [min, max];
     } else {
         let data = isotropicMinmax(p, type, TRANSITIONS, limit);
-        minB = unparseTransitions(data.minB, VALID_TRANSITIONS, true);
-        minS = unparseTransitions(data.minS, VALID_TRANSITIONS, true);
-        maxB = unparseTransitions(data.maxB, VALID_TRANSITIONS, true);
-        maxS = unparseTransitions(data.maxS, VALID_TRANSITIONS, true);
+        minB = unparseTransitions(data.minB, VALID_TRANSITIONS, false);
+        minS = unparseTransitions(data.minS, VALID_TRANSITIONS, false);
+        maxB = unparseTransitions(data.maxB, VALID_TRANSITIONS, false);
+        maxS = unparseTransitions(data.maxS, VALID_TRANSITIONS, false);
     }
     let min: string;
     let max: string;
