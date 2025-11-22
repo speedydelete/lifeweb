@@ -556,7 +556,7 @@ export class INTSeparator extends MAPPattern {
         return true;
     }
 
-    _runGeneration(): boolean {
+    runGeneration(): boolean {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -964,11 +964,6 @@ export class INTSeparator extends MAPPattern {
         return out2;
     }
 
-    runGeneration(): this {
-        this._runGeneration();
-        return this;
-    }
-
     resolveKnots(): boolean {
         let height = this.height;
         let width = this.width;
@@ -1302,8 +1297,8 @@ export class INTSeparator extends MAPPattern {
                 data[(y - minY) * width + x - minX] = 1;
             }
             let p = new MAPPattern(height, width, data, this.trs, this.ruleStr, 'D8');
-            p.xOffset = minX + this.xOffset + 1;
-            p.yOffset = minY + this.yOffset + 1;
+            p.xOffset = minX;
+            p.yOffset = minY;
             out.push(p);
         }
         return out;
@@ -1319,7 +1314,7 @@ export class INTSeparator extends MAPPattern {
         let objs: Identified[] = [];
         let failed = false;
         while (totalI < max) {
-            let reassigned = this._runGeneration();
+            let reassigned = this.runGeneration();
             let reassigned2 = this.resolveKnots();
             // if (totalI === 0) {
             //     let data = this.getObjects().map(x => identify(x, limit));
@@ -1521,7 +1516,7 @@ export class INTSeparator extends MAPPattern {
         return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8'), this.knots);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): INTSeparator {
+    copyPart(x: number, y: number, height: number, width: number): INTSeparator {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);

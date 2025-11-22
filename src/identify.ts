@@ -35,7 +35,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
         for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
             if (hash === hashes[j] && pop === pops[j]) {
                 let q = phases[j];
-                if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
+                if (!p.isEqualWithTranslate(q)) {
                     continue;
                 }
                 return {
@@ -166,7 +166,7 @@ function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean
             return false;
         }
         let q = type.phases[i];
-        if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
+        if (!p.isEqualWithTranslate(q)) {
             return false;
         }
         p.runGeneration().shrinkToFit();
@@ -312,18 +312,20 @@ export interface LinearInfo {
 export function classifyLinear(p: Pattern, type: PartialIdentified, maxPeriodMul: number): null | LinearInfo {
     p = p.copy().run(type.stabilizedAt);
     let engine = p.copy();
+    let engineData = engine.getData();
     let width = engine.width;
     let height = engine.height;
     for (let i = 0; i < maxPeriodMul; i++) {
         p.run(type.period).shrinkToFit();
+        let pData = p.getData();
         for (let y = 0; y < p.height; y++) {
             for (let x = 0; x < p.width; x++) {
                 let j = 0;
                 let k = y * p.width + x;
                 let found = true;
                 for (let row = 0; row < height; row++) {
-                    let engineRow = engine.data.slice(j, j + width);
-                    let dataRow = p.data.slice(k, k + width);
+                    let engineRow = engineData.slice(j, j + width);
+                    let dataRow = pData.slice(k, k + width);
                     if (!engineRow.every((x, i) => !x || x === dataRow[i])) {
                         found = false;
                         break;
@@ -335,13 +337,15 @@ export function classifyLinear(p: Pattern, type: PartialIdentified, maxPeriodMul
                     let xDisp = x + p.xOffset;
                     let yDisp = y + p.yOffset;
                     let ash = p.copy();
+                    let ashData = ash.getData();
                     for (let y2 = 0; y2 < height; y2++) {
                         for (let x2 = 0; x2 < width; x2++) {
-                            if (engine.data[y2 * width + x2]) {
-                                ash.data[(y2 + y) * ash.width + (x2 + x)] = 0;
+                            if (engineData[y2 * width + x2]) {
+                                ashData[(y2 + y) * ash.width + (x2 + x)] = 0;
                             }
                         }
                     }
+                    ash.setData(ashData, ash.height, ash.width);
                     ash.shrinkToFit();
                     return {period: (i + 1) * type.period, disp: [xDisp, yDisp], ash};
                 }
@@ -383,7 +387,7 @@ export function findOscillatorInfo(type: PartialIdentified): number | Oscillator
             right = 0;
         }
         p.expand(up, down, left, right);
-        phases.push(p.data);
+        phases.push(p.getData());
     }
     let totalHeat = 0;
     for (let i = 0; i < period; i++) {

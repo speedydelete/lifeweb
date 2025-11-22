@@ -1,5 +1,5 @@
 
-import {Pattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
+import {Pattern, DataPattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
 
 
 export const TRANSITIONS: {[key: string]: number[]} = {
@@ -478,11 +478,11 @@ function runTile(t: Tile, trs: Uint8Array): void {
     }
 }
 
-export class MAPPattern extends Pattern {
+export class MAPPattern extends DataPattern {
 
     trs: Uint8Array;
-    ruleStr: string;
     states: 2 = 2;
+    ruleStr: string;
     ruleSymmetry: RuleSymmetry;
 
     constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
@@ -492,7 +492,7 @@ export class MAPPattern extends Pattern {
         this.ruleSymmetry = ruleSymmetry;
     }
 
-    runGeneration(): this {
+    runGeneration(): void {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -509,13 +509,15 @@ export class MAPPattern extends Pattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
-        if (trs[tr1]) {
-            expandUp = 1;
-            upExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandDown = 1;
-            downExpands[0] = 1;
+        if (width > 1) {
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -531,13 +533,15 @@ export class MAPPattern extends Pattern {
                 downExpands[loc] = 1;
             }
         }
-        if (trs[(tr1 << 3) & 511]) {
-            expandUp = 1;
-            upExpands[width - 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            expandDown = 1;
-            downExpands[width - 1] = 1;
+        if (width > 1) {
+            if (trs[(tr1 << 3) & 511]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 511]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -545,13 +549,15 @@ export class MAPPattern extends Pattern {
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        if (trs[tr1]) {
-            expandLeft = 1;
-            leftExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandRight = 1;
-            rightExpands[0] = 1;
+        if (height > 1) {
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -568,13 +574,15 @@ export class MAPPattern extends Pattern {
             }
         }
         i -= width;
-        if (trs[(tr1 << 1) & 7]) {
-            expandLeft = 1;
-            leftExpands[height - 1] = 1;
-        }
-        if (trs[(tr2 << 1) & 511]) {
-            expandRight = 1;
-            rightExpands[height - 1] = 1;
+        if (height > 1) {
+            if (trs[(tr1 << 1) & 7]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
         }
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
@@ -705,7 +713,6 @@ export class MAPPattern extends Pattern {
         this.xOffset -= expandLeft;
         this.yOffset -= expandUp;
         this.generation++;
-        return this;
     }
 
     copy(): MAPPattern {
@@ -720,7 +727,7 @@ export class MAPPattern extends Pattern {
         return new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPPattern {
+    copyPart(x: number, y: number, height: number, width: number): MAPPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -740,12 +747,12 @@ export class MAPPattern extends Pattern {
 }
 
 
-export class MAPB0Pattern extends Pattern {
+export class MAPB0Pattern extends DataPattern {
 
     evenTrs: Uint8Array;
     oddTrs: Uint8Array;
-    ruleStr: string;
     states: 2 = 2;
+    ruleStr: string;
     ruleSymmetry: RuleSymmetry;
 
     constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
@@ -756,7 +763,7 @@ export class MAPB0Pattern extends Pattern {
         this.ruleSymmetry = ruleSymmetry;
     }
 
-    runGeneration(): this {
+    runGeneration(): void {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -773,13 +780,15 @@ export class MAPB0Pattern extends Pattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
-        if (trs[tr1]) {
-            expandUp = 1;
-            upExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandDown = 1;
-            downExpands[0] = 1;
+        if (width > 1) {
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -795,13 +804,15 @@ export class MAPB0Pattern extends Pattern {
                 downExpands[loc] = 1;
             }
         }
-        if (trs[(tr1 << 3) & 511]) {
-            expandUp = 1;
-            upExpands[width - 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            expandDown = 1;
-            downExpands[width - 1] = 1;
+        if (width > 1) {
+            if (trs[(tr1 << 3) & 511]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 511]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -809,13 +820,15 @@ export class MAPB0Pattern extends Pattern {
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        if (trs[tr1]) {
-            expandLeft = 1;
-            leftExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandRight = 1;
-            rightExpands[0] = 1;
+        if (height > 1) {
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -832,13 +845,15 @@ export class MAPB0Pattern extends Pattern {
             }
         }
         i -= width;
-        if (trs[(tr1 << 1) & 7]) {
-            expandLeft = 1;
-            leftExpands[height - 1] = 1;
-        }
-        if (trs[(tr2 << 1) & 511]) {
-            expandRight = 1;
-            rightExpands[height - 1] = 1;
+        if (height > 1) {
+            if (trs[(tr1 << 1) & 7]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
         }
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
@@ -969,7 +984,6 @@ export class MAPB0Pattern extends Pattern {
         this.xOffset -= expandLeft;
         this.yOffset -= expandUp;
         this.generation++;
-        return this;
     }
 
     copy(): MAPB0Pattern {
@@ -984,7 +998,7 @@ export class MAPB0Pattern extends Pattern {
         return new MAPB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPB0Pattern {
+    copyPart(x: number, y: number, height: number, width: number): MAPB0Pattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -1004,7 +1018,7 @@ export class MAPB0Pattern extends Pattern {
 }
 
 
-export class MAPGenPattern extends Pattern {
+export class MAPGenPattern extends DataPattern {
 
     trs: Uint8Array;
     states: number;
@@ -1019,7 +1033,7 @@ export class MAPGenPattern extends Pattern {
         this.ruleSymmetry = ruleSymmetry;
     }
 
-    runGeneration(): this {
+    runGeneration(): void {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1038,13 +1052,15 @@ export class MAPGenPattern extends Pattern {
         let j = lastRow + 1;
         let tr1 = (alive[0] << 3) | alive[1];
         let tr2 = (alive[lastRow] << 5) | (alive[lastRow + 1] << 2);
-        if (trs[tr1]) {
-            expandUp = 1;
-            upExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandDown = 1;
-            downExpands[0] = 1;
+        if (width > 1) {
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -1060,13 +1076,15 @@ export class MAPGenPattern extends Pattern {
                 downExpands[loc] = 1;
             }
         }
-        if (trs[(tr1 << 3) & 511]) {
-            expandUp = 1;
-            upExpands[width - 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            expandDown = 1;
-            downExpands[width - 1] = 1;
+        if (width > 1) {
+            if (trs[(tr1 << 3) & 511]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 511]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1074,13 +1092,15 @@ export class MAPGenPattern extends Pattern {
         let rightExpands = new Uint8Array(height);
         tr1 = (alive[0] << 1) | alive[width];
         tr2 = (alive[width - 1] << 7) | (alive[width2 - 1] << 6);
-        if (trs[tr1]) {
-            expandLeft = 1;
-            leftExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandRight = 1;
-            rightExpands[0] = 1;
+        if (height > 1) {
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -1097,13 +1117,15 @@ export class MAPGenPattern extends Pattern {
             }
         }
         i -= width;
-        if (trs[(tr1 << 1) & 7]) {
-            expandLeft = 1;
-            leftExpands[height - 1] = 1;
-        }
-        if (trs[(tr2 << 1) & 511]) {
-            expandRight = 1;
-            rightExpands[height - 1] = 1;
+        if (height > 1) {
+            if (trs[(tr1 << 1) & 7]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
         }
         let b1cnw = (trs[1] && alive[0]) ? 1 : 0;
         let b1cne = (trs[64] && alive[width - 1]) ? 1 : 0;
@@ -1303,7 +1325,6 @@ export class MAPGenPattern extends Pattern {
         this.xOffset -= expandLeft;
         this.yOffset -= expandUp;
         this.generation++;
-        return this;
     }
 
     copy(): MAPGenPattern {
@@ -1318,7 +1339,7 @@ export class MAPGenPattern extends Pattern {
         return new MAPGenPattern(0, 0, new Uint8Array(0), this.trs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPGenPattern {
+    copyPart(x: number, y: number, height: number, width: number): MAPGenPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
@@ -1338,12 +1359,12 @@ export class MAPGenPattern extends Pattern {
 }
 
 
-export class MAPB0GenPattern extends Pattern {
+export class MAPB0GenPattern extends DataPattern {
 
     evenTrs: Uint8Array;
     oddTrs: Uint8Array;
-    ruleStr: string;
     states: number;
+    ruleStr: string;
     ruleSymmetry: RuleSymmetry;
 
     constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
@@ -1355,7 +1376,7 @@ export class MAPB0GenPattern extends Pattern {
         this.ruleSymmetry = ruleSymmetry;
     }
 
-    runGeneration(): this {
+    runGeneration(): void {
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1374,13 +1395,15 @@ export class MAPB0GenPattern extends Pattern {
         let j = lastRow + 1;
         let tr1 = (alive[0] << 3) | alive[1];
         let tr2 = (alive[lastRow] << 5) | (alive[lastRow + 1] << 2);
-        if (trs[tr1]) {
-            expandUp = 1;
-            upExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandDown = 1;
-            downExpands[0] = 1;
+        if (width > 1) {
+            if (trs[tr1]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -1396,13 +1419,15 @@ export class MAPB0GenPattern extends Pattern {
                 downExpands[loc] = 1;
             }
         }
-        if (trs[(tr1 << 3) & 511]) {
-            expandUp = 1;
-            upExpands[width - 1] = 1;
-        }
-        if (trs[(tr2 << 3) & 511]) {
-            expandDown = 1;
-            downExpands[width - 1] = 1;
+        if (width > 1) {
+            if (trs[(tr1 << 3) & 511]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 511]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1410,13 +1435,15 @@ export class MAPB0GenPattern extends Pattern {
         let rightExpands = new Uint8Array(height);
         tr1 = (alive[0] << 1) | alive[width];
         tr2 = (alive[width - 1] << 7) | (alive[width2 - 1] << 6);
-        if (trs[tr1]) {
-            expandLeft = 1;
-            leftExpands[0] = 1;
-        }
-        if (trs[tr2]) {
-            expandRight = 1;
-            rightExpands[0] = 1;
+        if (height > 1) {
+            if (trs[tr1]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
         }
         let loc = 0;
         for (i = width2; i < size; i += width) {
@@ -1433,13 +1460,15 @@ export class MAPB0GenPattern extends Pattern {
             }
         }
         i -= width;
-        if (trs[(tr1 << 1) & 7]) {
-            expandLeft = 1;
-            leftExpands[height - 1] = 1;
-        }
-        if (trs[(tr2 << 1) & 511]) {
-            expandRight = 1;
-            rightExpands[height - 1] = 1;
+        if (height > 1) {
+            if (trs[(tr1 << 1) & 7]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
         }
         let b1cnw = (trs[1] && alive[0]) ? 1 : 0;
         let b1cne = (trs[64] && alive[width - 1]) ? 1 : 0;
@@ -1639,7 +1668,6 @@ export class MAPB0GenPattern extends Pattern {
         this.xOffset -= expandLeft;
         this.yOffset -= expandUp;
         this.generation++;
-        return this;
     }
 
     copy(): MAPB0GenPattern {
@@ -1654,7 +1682,7 @@ export class MAPB0GenPattern extends Pattern {
         return new MAPB0GenPattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): MAPB0GenPattern {
+    copyPart(x: number, y: number, height: number, width: number): MAPB0GenPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);

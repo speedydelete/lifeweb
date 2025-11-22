@@ -1,8 +1,8 @@
 
-import {Pattern, RuleSymmetry, SYMMETRY_LEAST} from './pattern.js';
+import {Pattern, DataPattern, RuleSymmetry, SYMMETRY_LEAST} from './pattern.js';
 
 
-export class AlternatingPattern extends Pattern {
+export class AlternatingPattern extends DataPattern {
 
     states: number;
     ruleStr: string;
@@ -24,18 +24,11 @@ export class AlternatingPattern extends Pattern {
         this.patterns = patterns;
     }
 
-    runGeneration(): this {
+    runGeneration(): void {
         let p = this.patterns[this.generation % this.patterns.length];
-        p.height = this.height;
-        p.width = this.width;
-        p.size = this.size;
-        p.data = this.data;
+        p.setData(this.data, this.height, this.width);
         p.runGeneration();
-        this.height = p.height;
-        this.width = p.width;
-        this.size = p.size;
-        this.data = p.data;
-        return this;
+        this.setData(p.getData(), p.height, p.width);
     }
 
     copy(): AlternatingPattern {
@@ -46,7 +39,7 @@ export class AlternatingPattern extends Pattern {
         return new AlternatingPattern(0, 0, new Uint8Array(0), this.patterns);
     }
 
-    copyPart(x: number, y: number, width: number, height: number): AlternatingPattern {
+    copyPart(x: number, y: number, height: number, width: number): AlternatingPattern {
         x -= this.xOffset;
         y -= this.yOffset;
         let data = new Uint8Array(width * height);
