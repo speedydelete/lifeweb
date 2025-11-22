@@ -311,6 +311,6 @@ export interface AtRule {
     icons?: string;
 }
 
-// export function parseAtRule(data: string): AtRule {
+export function parseAtRule(data: string): AtRule {
 
-// }
+}
