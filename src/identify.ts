@@ -503,7 +503,7 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
     let type = identify(p, limit);
     let minmax: [string, string] | undefined = undefined;
     try {
-        minmax = findMinmax(p, type.period ? (type.period + type.stabilizedAt) : limit, type);
+        minmax = findMinmax(p, type.period > 0 ? type.period + type.stabilizedAt : limit, type);
     } catch (error) {
         if (!(error instanceof RuleError)) {
             throw error;
