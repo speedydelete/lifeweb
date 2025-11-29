@@ -385,7 +385,7 @@ export interface OscillatorInfo {
 
 export function findOscillatorInfo(type: PartialIdentified): number | OscillatorInfo {
     let period = type.period;
-    let oldPhases = type.phases.slice(0, period);
+    let oldPhases = type.phases.slice(type.stabilizedAt, type.stabilizedAt + period);
     let phases: Uint8Array[] = [];
     let minX = Math.min(...oldPhases.map(p => p.xOffset));
     let minY = Math.min(...oldPhases.map(p => p.yOffset));
