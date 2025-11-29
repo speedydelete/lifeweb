@@ -5,16 +5,19 @@ import {MAPPattern, MAPGenPattern, MAPB0Pattern, MAPB0GenPattern, TRANSITIONS, V
 import {AlternatingPattern} from './alternating.js';
 
 
-export interface Identified {
+export interface PhaseData {
+    pops: number[];
+    hashes: number[];
+    phases: Pattern[];
+}
+
+export interface Identified extends PhaseData {
     apgcode: string;
     stabilizedAt: number;
     period: number;
     disp?: [number, number];
     linear?: boolean;
     power?: number;
-    pops: number[];
-    hashes: number[];
-    phases: Pattern[];
 }
 
 export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
@@ -161,12 +164,12 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
 }
 
 
-function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean {
-    for (let i = 0; i < (type.period > 0 ? type.period : limit) + 1; i++) {
-        if (p.hash32() !== type.hashes[i] || p.population !== type.pops[i]) {
+function verifyType(p: Pattern, data: PhaseData, gens: number): boolean {
+    for (let i = 0; i < gens + 1; i++) {
+        if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
         }
-        let q = type.phases[i];
+        let q = data.phases[i];
         if (!p.isEqualWithTranslate(q)) {
             return false;
         }
@@ -176,7 +179,7 @@ function verifyType(p: Pattern, type: PartialIdentified, limit: number): boolean
     return true;
 }
 
-function isotropicMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, allTrs: {[key: string]: number[]}, limit: number): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, allTrs: {[key: string]: number[]}): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
     let [b, s] = arrayToTransitions(p.trs, allTrs);
     let minB = new Set(b);
     let minS = new Set(s);
@@ -189,14 +192,14 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified,
             for (let i of allTrs[tr]) {
                 q.trs[i] = 0;
             }
-            if (verifyType(q, type, limit)) {
+            if (verifyType(q, data, gens)) {
                 minB.delete(tr);
             }
         } else {
             for (let i of allTrs[tr]) {
                 q.trs[i] = 1;
             }
-            if (verifyType(q, type, limit)) {
+            if (verifyType(q, data, gens)) {
                 maxB.add(tr);
             }
         }
@@ -206,14 +209,14 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified,
             for (let i of allTrs[tr]) {
                 q.trs[i | (1 << 4)] = 0;
             }
-            if (verifyType(q, type, limit)) {
+            if (verifyType(q, data, gens)) {
                 minS.delete(tr);
             }
         } else {
             for (let i of allTrs[tr]) {
                 q.trs[i | (1 << 4)] = 1;
             }
-            if (verifyType(q, type, limit)) {
+            if (verifyType(q, data, gens)) {
                 maxS.add(tr);
             }
         }
@@ -226,13 +229,13 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified,
     };
 }
 
-function mapStringMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit: number): [string, string] {
+function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number): [string, string] {
     let min = p.trs.slice();
     let max = p.trs.slice();
     for (let i = 0; i < 512; i++) {
         let q = p.copy();
         q.trs[i] = q.trs[i] ? 0 : 1;
-        if (verifyType(q, type, limit)) {
+        if (verifyType(q, data, gens)) {
             if (q.trs[i]) {
                 min[i] = 0;
             } else {
@@ -244,32 +247,31 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified,
     return [unparseMAP(min), unparseMAP(max)];
 }
 
-function mapMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit: number): [string, string] {
+function mapMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number): [string, string] {
     p.shrinkToFit();
-    p.run(type.stabilizedAt);
     let minB: string;
     let minS: string;
     let maxB: string;
     let maxS: string;
     if (p.ruleStr.endsWith('H')) {
-        let data = isotropicMinmax(p, type, HEX_TRANSITIONS, limit);
-        minB = unparseTransitions(data.minB, VALID_HEX_TRANSITIONS, true);
-        minS = unparseTransitions(data.minS, VALID_HEX_TRANSITIONS, true);
-        maxB = unparseTransitions(data.maxB, VALID_HEX_TRANSITIONS, true);
-        maxS = unparseTransitions(data.maxS, VALID_HEX_TRANSITIONS, true);
+        let out = isotropicMinmax(p, data, gens, HEX_TRANSITIONS);
+        minB = unparseTransitions(out.minB, VALID_HEX_TRANSITIONS, true);
+        minS = unparseTransitions(out.minS, VALID_HEX_TRANSITIONS, true);
+        maxB = unparseTransitions(out.maxB, VALID_HEX_TRANSITIONS, true);
+        maxS = unparseTransitions(out.maxS, VALID_HEX_TRANSITIONS, true);
     } else if (p.ruleStr.startsWith('MAP')) {
-        let [min, max] = mapStringMinmax(p, type, limit);
+        let [min, max] = mapStringMinmax(p, data, gens);
         if (p instanceof MAPGenPattern) {
             min += '/' + p.states;
             max += '/' + p.states;
         }
         return [min, max];
     } else {
-        let data = isotropicMinmax(p, type, TRANSITIONS, limit);
-        minB = unparseTransitions(data.minB, VALID_TRANSITIONS, false);
-        minS = unparseTransitions(data.minS, VALID_TRANSITIONS, false);
-        maxB = unparseTransitions(data.maxB, VALID_TRANSITIONS, false);
-        maxS = unparseTransitions(data.maxS, VALID_TRANSITIONS, false);
+        let out = isotropicMinmax(p, data, gens, TRANSITIONS);
+        minB = unparseTransitions(out.minB, VALID_TRANSITIONS, false);
+        minS = unparseTransitions(out.minS, VALID_TRANSITIONS, false);
+        maxB = unparseTransitions(out.maxB, VALID_TRANSITIONS, false);
+        maxS = unparseTransitions(out.maxS, VALID_TRANSITIONS, false);
     }
     let min: string;
     let max: string;
@@ -287,15 +289,30 @@ function mapMinmax(p: MAPPattern | MAPGenPattern, type: PartialIdentified, limit
     return [min, max];
 }
 
-export function findMinmax(p: Pattern, type: PartialIdentified, limit: number): [string, string] {
-    let q = type.phases[type.phases.length - 1].copy();
-    q.runGeneration();
-    q.shrinkToFit();
-    type.pops.push(q.population);
-    type.hashes.push(q.hash32());
-    type.phases.push(q);
+export function findMinmax(p: Pattern, gens: number, data?: PhaseData): [string, string] {
+    p = p.copy();
+    if (data === undefined) {
+        let pops: number[] = [p.population];
+        let hashes: number[] = [p.hash32()];
+        let phases: Pattern[] = [p.copy()];
+        let q = p.copy();
+        for (let i = 0; i < gens + 1; i++) {
+            q.runGeneration();
+            pops.push(q.population);
+            hashes.push(q.hash32());
+            phases.push(q.copy());
+        }
+        data = {pops, hashes, phases};
+    } else {
+        let q = data.phases[data.phases.length - 1].copy();
+        q.runGeneration();
+        q.shrinkToFit();
+        data.pops.push(q.population);
+        data.hashes.push(q.hash32());
+        data.phases.push(q);
+    }
     if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-        return mapMinmax(p, type, limit);
+        return mapMinmax(p, data, gens);
     } else if (p instanceof MAPB0Pattern || p instanceof MAPB0GenPattern) {
         throw new RuleError('Min/max is not supported for B0 rules');
     } else if (p instanceof AlternatingPattern) {
@@ -486,7 +503,9 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
     let type = identify(p, limit);
     let minmax: [string, string] | undefined = undefined;
     try {
-        minmax = findMinmax(p, type, limit);
+        let q = p.copy();
+        q.run(type.stabilizedAt);
+        minmax = findMinmax(q, type.period ? type.period : limit, type);
     } catch (error) {
         if (!(error instanceof RuleError)) {
             throw error;
