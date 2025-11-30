@@ -298,6 +298,7 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData): [string,
         let q = p.copy();
         for (let i = 0; i < gens + 1; i++) {
             q.runGeneration();
+            q.shrinkToFit();
             pops.push(q.population);
             hashes.push(q.hash32());
             phases.push(q.copy());
