@@ -325,6 +325,7 @@ export class HROTPattern extends CoordPattern {
                 }
             }
         }
+        this.coords = out;
     }
 
     copy(): HROTPattern {
