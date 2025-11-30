@@ -479,18 +479,35 @@ export function findOscillatorInfo(type: PartialIdentified): number | Oscillator
 }
 
 
-export interface FullIdentified {
-    apgcode: string;
-    stabilizedAt: number;
+export function getDescription(type: Identified): string {
+    if (type.linear) {
+        if (type.disp) {
+            if (type.disp[0] === 0 && type.disp[1] === 0) {
+                return `p${type.period} gun`;
+            } else {
+                return `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
+            }
+        } else {
+            return `p${type.period} linear growth`;
+        }
+    } else if (type.disp) {
+        if (type.disp[0] === 0 && type.disp[1] === 0) {
+            if (type.period === 1) {
+                return `${type.pops[type.pops.length - 1]}-cell still life`;
+            } else {
+                return `p${type.period} oscillator`;
+            }
+        } else {
+            return `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
+        }
+    } else {
+        return 'cannot identify';
+    }
+}
+
+export interface FullIdentified extends Identified {
     desc: string;
-    linear?: boolean;
-    period: number;
-    disp?: [number, number];
     output?: FullIdentified;
-    power?: number;
-    pops: number[];
-    hashes: number[];
-    phases: Pattern[];
     heat?: number;
     temperature?: number;
     volatility?: number;
@@ -528,29 +545,5 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
             output = fullIdentify(data.ash, limit, maxPeriodMul);
         }
     }
-    let desc: string;
-    if (type.linear) {
-        if (type.disp) {
-            if (type.disp[0] === 0 && type.disp[1] === 0) {
-                desc = `p${type.period} gun`;
-            } else {
-                desc = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
-            }
-        } else {
-            desc = `p${type.period} linear growth`;
-        }
-    } else if (type.disp) {
-        if (type.disp[0] === 0 && type.disp[1] === 0) {
-            if (type.period === 1) {
-                desc = `${type.pops[type.pops.length - 1]}-cell still life`;
-            } else {
-                desc = `p${type.period} oscillator`;
-            }
-        } else {
-            desc = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
-        }
-    } else {
-        desc = 'cannot identify';
-    }
-    return {...type, minmax, output, desc, ...oscInfo};
+    return {...type, minmax, output, desc: getDescription(type), ...oscInfo};
 }
