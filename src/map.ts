@@ -1,5 +1,5 @@
 
-import {Pattern, DataPattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
+import {DataPattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
 
 
 export const TRANSITIONS: {[key: string]: number[]} = {

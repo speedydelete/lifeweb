@@ -138,6 +138,9 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         } else {
             ruleStr = `B${b}/S${s}`;
         }
+        if (neighborhood === 'H') {
+            ruleStr += 'H';
+        }
     }
     if (trs[0]) {
         if (trs[511]) {
