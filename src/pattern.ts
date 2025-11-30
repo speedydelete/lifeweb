@@ -1120,11 +1120,11 @@ export abstract class CoordPattern implements Pattern {
             if (point[0] > maxX) {
                 maxX = point[0];
             }
-            if (point[0] < minY) {
-                minY = point[0];
+            if (point[1] < minY) {
+                minY = point[1];
             }
-            if (point[0] > maxY) {
-                maxY = point[0];
+            if (point[1] > maxY) {
+                maxY = point[1];
             }
         }
         return {minX, minY, maxX, maxY};
