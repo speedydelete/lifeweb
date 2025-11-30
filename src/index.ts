@@ -46,10 +46,13 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
     let end = rule[rule.length - 1];
     if (end === 'V' || end === 'H') {
         neighborhood = end;
+        rule = rule.slice(0, -1);
     } else if (end === 'v') {
         neighborhood = 'V';
+        rule = rule.slice(0, -1);
     } else if (end === 'h') {
         neighborhood = 'H';
+        rule = rule.slice(0, -1);
     }
     if (rule.startsWith('MAP')) {
         trs = parseMAP(rule.slice(3));

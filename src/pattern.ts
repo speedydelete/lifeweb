@@ -1089,8 +1089,8 @@ export abstract class CoordPattern implements Pattern {
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
-    abstract ruleStr: string;
     abstract states: number;
+    abstract ruleStr: string;
     abstract ruleSymmetry: RuleSymmetry;
 
     constructor(coords: [number, number, number][]) {
@@ -1105,9 +1105,9 @@ export abstract class CoordPattern implements Pattern {
         return this.getRect().width;
     }
 
-    getRect(): Rect {
+    getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {
         if (this.coords.length === 0) {
-            return {height: 0, width: 0, xOffset: 0, yOffset: 0};
+            return {minX: 0, maxX: 0, minY: 0, maxY: 0};
         }
         let minX = this.coords[0][0];
         let maxX = this.coords[0][0];
@@ -1127,6 +1127,14 @@ export abstract class CoordPattern implements Pattern {
                 maxY = point[0];
             }
         }
+        return {minX, minY, maxX, maxY};
+    }
+
+    getRect(): Rect {
+        if (this.coords.length === 0) {
+            return {height: 0, width: 0, xOffset: 0, yOffset: 0};
+        }
+        let {minX, minY, maxX, maxY} = this.getMinMaxCoords();
         return {height: maxY - minY + 1, width: maxX - minX + 1, xOffset: 0, yOffset: 0};
     }
 
@@ -1553,7 +1561,7 @@ export abstract class CoordPattern implements Pattern {
         return out;
     }
 
-    _loadApgcode(code: string): [number, number, Uint8Array] {
+    _loadApgcode(code: string): [number, number, number][] {
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
@@ -1662,7 +1670,17 @@ export abstract class CoordPattern implements Pattern {
                 }
             }
         }
-        return [height, width, out];
+        let coords: [number, number, number][] = [];
+        let i = 0;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let value = out[i++];
+                if (value) {
+                    coords.push([x, y, value]);
+                }
+            }
+        }
+        return coords;
     }
 
     abstract loadApgcode(code: string): CoordPattern;
