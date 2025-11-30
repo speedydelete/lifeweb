@@ -18,7 +18,7 @@ function parseRange(data: string): number[] {
         throw new RuleError(`Invalid HROT range: ${start}`);
     }
     let out: number[] = [];
-    for (let i = start; i < end; i++) {
+    for (let i = start; i <= end; i++) {
         out.push(i);
     }
     return out;
@@ -190,7 +190,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     }
     let outS = new Uint8Array(s.length === 0 ? 0 : Math.max(...s) + 1);
     for (let value of s) {
-        outB[value] = 1;
+        outS[value] = 1;
     }
     return {range: r, b: outB, s: outS, nh: n2, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
 }
@@ -291,8 +291,11 @@ export class HROTPattern extends CoordPattern {
                         }
                     }
                 } else {
-                    for (let y2 = -range; y2 < range + 1; y2++) {
-                        for (let x2 = -range; x2 < range + 1; x2++) {
+                    for (let y2 = -range; y2 <= range; y2++) {
+                        for (let x2 = -range; x2 <= range; x2++) {
+                            if (x2 === 0 && y2 === 0) {
+                                continue;
+                            }
                             let value = this.get(x + x2, y + y2);
                             if (value === 1) {
                                 count++;
