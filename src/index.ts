@@ -224,7 +224,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
 }
 
 
-export function parse(rle: string): Pattern {
+export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
     let lines = rle.split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
@@ -401,7 +401,7 @@ export function parse(rle: string): Pattern {
             i++;
         }
     }
-    let out = createPattern(rule, {height, width, data});
+    let out = createPattern(rule, {height, width, data}, namedRules);
     out.xOffset = xOffset;
     out.yOffset = yOffset;
     out.generation = generation;
