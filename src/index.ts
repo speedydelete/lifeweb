@@ -2,12 +2,14 @@
 import {stringMD5} from './md5.js';
 import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
+import {parseHROTRule, HROTPattern, parseCatagolueHROTRule} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
 export * from './pattern.js';
 export * from './map.js';
+export * from './hrot.js';
 export * from './alternating.js';
 export * from './identify.js';
 export * from './intsep.js';
@@ -183,26 +185,33 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             throw error;
         }
     }
-    // if (rule.startsWith('R')) {
-    //     try {
-    //         let out = parseHROTRule(rule);
-    //         if (typeof out === 'object') {
-    //             if (out.states > 2) {
-                    
-    //             } else {
-    //                 return new HROTPattern(data.height, data.width, data.data, out.range, out.states, out.b, out.s, out.nh, out.ruleStr);
-    //             }
-    //         } else {
-    //             rule = out;
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
+    if (rule.startsWith('R') || rule.startsWith('r')) {
+        try {
+            let out = rule.startsWith('R') ? parseHROTRule(rule) : parseCatagolueHROTRule(rule);
+            if (typeof out === 'object') {
+                let {range, b, s, nh, states, ruleStr, ruleSymmetry} = out;
+                let coords: [number, number, number][] = [];
+                let i = 0;
+                for (let y = 0; y < data.height; y++) {
+                    for (let x = 0; x < data.width; x++) {
+                        let value = data.data[i++];
+                        if (value) {
+                            coords.push([x, y, value]);
+                        }
+                    }
+                }
+                return new HROTPattern(coords, range, b, s, nh, states, ruleStr, ruleSymmetry);
+            } else {
+                rule = out;
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules));
         return new AlternatingPattern(data.height, data.width, data.data, patterns);

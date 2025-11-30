@@ -107,7 +107,7 @@ const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number
     }
 };
 
-export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string} {
+export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let {r, c, m, s, b, n, w} = parseSections(rule);
     if (c < 2) {
         c = 2;
@@ -185,12 +185,12 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     for (let value of s) {
         outB[value] = 1;
     }
-    return {range: r, b: outB, s: outS, nh: n2, states: c, ruleStr};
+    return {range: r, b: outB, s: outS, nh: n2, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
 }
 
 export const HEX_CHARS = '0123456789abcdef';
 
-export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string} {
+export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let states = 2;
     if (rule.startsWith('x')) {
         rule = rule.slice(1);
