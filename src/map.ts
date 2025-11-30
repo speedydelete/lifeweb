@@ -478,6 +478,7 @@ function runTile(t: Tile, trs: Uint8Array): void {
     }
 }
 
+
 export class MAPPattern extends DataPattern {
 
     trs: Uint8Array;
