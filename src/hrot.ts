@@ -15,7 +15,7 @@ function parseRange(data: string): number[] {
         }
     }
     if (Number.isNaN(start) || Number.isNaN(end)) {
-        throw new RuleError(`Invalid HROT range: ${start}`);
+        throw new RuleError(`Invalid HROT range: ${data}`);
     }
     let out: number[] = [];
     for (let i = start; i <= end; i++) {
@@ -38,6 +38,7 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
         if (sFound) {
             if (section[0] === 'B') {
                 bFound = true;
+                sFound = false;
                 b.push(...parseRange(section.slice(1)));
             } else {
                 s.push(...parseRange(section));
@@ -139,15 +140,15 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
         n2 = [];
     } else if (n.startsWith('W')) {
         let digits = n.slice(1);
-        if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(n.length === size**2 || n.length === size**2 * 2)) {
+        if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
             throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${r}`);
         }
         n2 = [];
         let isBig = n.length === size**2 * 2;
         let i = 0;
-        for (let y = 0; y <= size; y++) {
+        for (let y = 0; y < size; y++) {
             let row: number[] = [];
-            for (let x = 0; x <= size; x++) {
+            for (let x = 0; x < size; x++) {
                 let value = parseInt(digits[i]);
                 if (isBig) {
                     if (value > 127) {
@@ -317,7 +318,6 @@ export class HROTPattern extends CoordPattern {
                 let value = this.get(x, y);
                 if (value === 0) {
                     if (this.b[count]) {
-                        console.log(x, y);
                         out.push([x, y, 1]);
                     }
                 } else if (value === 1) {
