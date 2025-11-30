@@ -1229,10 +1229,12 @@ export abstract class CoordPattern implements Pattern {
     abstract copyPart(x: number, y: number, height: number, width: number): CoordPattern;
 
     getData(): Uint8Array {
-        let {height, width} = this.getRect();
+        let {minX, minY, maxX, maxY} = this.getMinMaxCoords();
+        let height = maxY - minY + 1;
+        let width = maxX - minX + 1;
         let out = new Uint8Array(height * width);
         for (let [x, y, value] of this.coords) {
-            out[y * width + x] = value;
+            out[(y - minY) * width + (x - minX)] = value;
         }
         return out;
     }

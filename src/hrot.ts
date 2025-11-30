@@ -171,7 +171,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             n2[r + 1][r + 1] = 1;
         }
     }
-    let ruleStr = `R${r},C${c},B${b.join(',')},S${s.join(',')}`;
+    let ruleStr = `R${r},C${c},S${s.join(',')},B${b.join(',')}`;
     if (n !== 'M') {
         ruleStr += ',N';
         if (n === 'plus') {
@@ -306,6 +306,7 @@ export class HROTPattern extends CoordPattern {
                 let value = this.get(x, y);
                 if (value === 0) {
                     if (this.b[count]) {
+                        console.log(x, y);
                         out.push([x, y, 1]);
                     }
                 } else if (value === 1) {
@@ -325,6 +326,7 @@ export class HROTPattern extends CoordPattern {
                 }
             }
         }
+        this.generation++;
         this.coords = out;
     }
 
