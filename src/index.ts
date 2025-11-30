@@ -218,7 +218,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
-        return createPattern(namedRules[lower]);
+        return createPattern(namedRules[lower], data, namedRules);
     }
     throw new RuleError(errors.join(', '));
 }
