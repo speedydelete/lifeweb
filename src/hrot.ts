@@ -39,19 +39,15 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             if (section[0] === 'B') {
                 bFound = true;
                 b.push(...parseRange(section.slice(1)));
-            } else if (section[0] === 'S') {
-                s.push(...parseRange(section.slice(1)));
             } else {
-                throw new RuleError(`Invalid HROT section: '${section}'`);
+                s.push(...parseRange(section));
             }
         } else if (bFound) {
             if (section[0] === 'N') {
                 n = section.slice(1);
                 break;
-            } else if (section[0] === 'B') {
-                b.push(...parseRange(section.slice(1)));
             } else {
-                throw new RuleError(`Invalid HROT section: '${section}'`);
+                b.push(...parseRange(section.slice(1)));
             }
         } else if (section[0] === 'R') {
             r = parseInt(section.slice(1));
