@@ -110,7 +110,7 @@ const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number
     }
 };
 
-export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
+export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let {r, c, m, s, b, n, w} = parseSections(rule);
     if (c < 2) {
         c = 2;
@@ -148,10 +148,19 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
         for (let y = 0; y <= size; y++) {
             let row: number[] = [];
             for (let x = 0; x <= size; x++) {
+                let value = parseInt(digits[i]);
                 if (isBig) {
-                    row.push(parseInt(digits[i]), 4);
+                    if (value > 127) {
+                        row.push(value - 256);
+                    } else {
+                        row.push(value);
+                    }
                 } else {
-                    row.push(parseInt(digits[i]), 16);
+                    if (value > 7) {
+                        row.push(value - 16);
+                    } else {
+                        row.push(value);
+                    }
                 }
                 i += isBig ? 2 : 1;
             }
@@ -188,12 +197,12 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     for (let value of s) {
         outS[value] = 1;
     }
-    return {range: r, b: outB, s: outS, nh: n2, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
+    return {range: r, b: outB, s: outS, nh: n2 ? n2.flat() : n2, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
 }
 
 export const HEX_CHARS = '0123456789abcdef';
 
-export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
+export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: number[] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let states = 2;
     if (rule.startsWith('x')) {
         rule = rule.slice(1);
@@ -252,12 +261,12 @@ export class HROTPattern extends CoordPattern {
     range: number;
     b: Uint8Array;
     s: Uint8Array;
-    nh: number[][] | null;
+    nh: number[] | null;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
 
-    constructor(coords: [number, number, number][], range: number, b: Uint8Array, s: Uint8Array, nh: number[][] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+    constructor(coords: [number, number, number][], range: number, b: Uint8Array, s: Uint8Array, nh: number[] | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(coords);
         this.range = range;
         this.b = b;
@@ -280,10 +289,16 @@ export class HROTPattern extends CoordPattern {
             for (let x = minX; x < maxX + 1; x++) {
                 let count = 0;
                 if (this.nh) {
-                    for (let [x2, y2] of this.nh) {
-                        let value = this.get(x + x2, y + y2);
-                        if (value === 1) {
-                            count++;
+                    let i = 0;
+                    for (let y2 = -range; y2 <= range; y2++) {
+                        for (let x2 = -range; x2 <= range; x2++) {
+                            let weight = this.nh[i++];
+                            if (weight > 0) {
+                                let value = this.get(x + x2, y + y2);
+                                if (value === 1) {
+                                    count += weight;
+                                }
+                            }
                         }
                     }
                 } else {
