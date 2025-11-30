@@ -97,7 +97,7 @@ export const VALID_HEX_TRANSITIONS: string[] = [
 const DIGITS = '0123456789';
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
-export function parseTransitions(data: string, validTrs: string[], type: string): string[] {
+export function parseTransitions(data: string, validTrs: string[]): string[] {
     if (data.length === 0) {
         return [];
     }
@@ -107,7 +107,7 @@ export function parseTransitions(data: string, validTrs: string[], type: string)
     }
     let num = parseInt(data[0]);
     if (num >= validTrs.length) {
-        throw new RuleError(`No ${type} transitions with ${num} neighbors`);
+        throw new RuleError(`No transitions with ${num} neighbors`);
     }
     let chars = '';
     let minus = false;
@@ -130,7 +130,7 @@ export function parseTransitions(data: string, validTrs: string[], type: string)
             chars = '';
             num = parseInt(char);
             if (num >= validTrs.length) {
-                throw new RuleError(`No ${type} transitions with ${num} neighbors`);
+                throw new RuleError(`No transitions with ${num} neighbors`);
             }
         } else if (char === '-') {
             if (chars.length > 0) {
@@ -142,7 +142,7 @@ export function parseTransitions(data: string, validTrs: string[], type: string)
             }
         } else if (LETTERS.includes(char)) {
             if (!validTrs[num].includes(char)) {
-                throw new RuleError(`Invalid ${type} transition: '${num}${char}'`);
+                throw new RuleError(`Invalid transition: '${num}${char}'`);
             }
             chars += char;
         } else {
@@ -227,9 +227,9 @@ export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: numbe
     return [b, s];
 }
 
-export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], type: string, preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
-    let bTrs = parseTransitions(b, validTrs, type);
-    let sTrs = parseTransitions(s, validTrs, type);
+export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
+    let bTrs = parseTransitions(b, validTrs);
+    let sTrs = parseTransitions(s, validTrs);
     return {
         b: unparseTransitions(bTrs, validTrs, preferMinus),
         s: unparseTransitions(sTrs, validTrs, preferMinus),

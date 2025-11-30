@@ -124,9 +124,9 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         }
         let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
         if (neighborhood === 'M') {
-            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, 'INT', false);
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, false);
         } else if (neighborhood === 'H') {
-            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, 'hex', true);
+            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
         } else {
             return `R1,C${states},B${b},S${s},NL`;
         }
