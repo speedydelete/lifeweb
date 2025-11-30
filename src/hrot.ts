@@ -184,11 +184,11 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             ruleStr += n;
         }
     }
-    let outB = new Uint8Array(Math.max(...b) + 1);
+    let outB = new Uint8Array(b.length === 0 ? 0 : Math.max(...b) + 1);
     for (let value of b) {
         outB[value] = 1;
     }
-    let outS = new Uint8Array(Math.max(...s) + 1);
+    let outS = new Uint8Array(s.length === 0 ? 0 : Math.max(...s) + 1);
     for (let value of s) {
         outB[value] = 1;
     }
