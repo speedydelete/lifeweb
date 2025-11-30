@@ -1083,7 +1083,6 @@ export abstract class DataPattern implements Pattern {
 }
 
 
-/*
 export abstract class CoordPattern implements Pattern {
 
     coords: [number, number, number][];
@@ -1128,7 +1127,7 @@ export abstract class CoordPattern implements Pattern {
                 maxY = point[0];
             }
         }
-        return {height: maxY - minY, width: maxX - minX, xOffset: 0, yOffset: 0};
+        return {height: maxY - minY + 1, width: maxX - minX + 1, xOffset: 0, yOffset: 0};
     }
 
     abstract runGeneration(): any;
@@ -1305,26 +1304,25 @@ export abstract class CoordPattern implements Pattern {
     }
 
     flipHorizontal(): this {
-        let minY = this.coords[0][1];
         let maxY = this.coords[0][1];
         for (let point of this.coords.slice(1)) {
-            if (point[1] < minY) {
-                minY = point[1];
-            }
             if (point[1] > maxY) {
                 maxY = point[1];
             }
         }
-        let center = (maxY - minY) / 2;
-        if (center !== Math.floor(center)) {
-            center = Math.floor(center);
-        } else {
-
-        }
+        this.coords = this.coords.map(x => [x[0], maxY - x[1], x[2]]);
+        return this;
     }
 
     flipVertical(): this {
-        
+        let maxX = this.coords[0][0];
+        for (let point of this.coords.slice(1)) {
+            if (point[1] > maxX) {
+                maxX = point[1];
+            }
+        }
+        this.coords = this.coords.map(x => [x[0], maxX - x[1], x[2]]);
+        return this;
     }
 
     transpose(): this {
@@ -1341,18 +1339,7 @@ export abstract class CoordPattern implements Pattern {
     }
 
     rotate180() {
-        let height = this.height;
-        let width = this.width;
-        let out = new Uint8Array(height * width);
-        let i = 0;
-        let loc = this.size - 1;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                out[loc--] = this.data[i++];
-            }
-        }
-        this.data = out;
-        return this;
+        return this.flipHorizontal().flipVertical();
     }
 
     flipDiagonal(): this {
@@ -1487,17 +1474,18 @@ export abstract class CoordPattern implements Pattern {
 
     toRLE(): string {
         let data = this.getData();
-        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
+        let {height, width} = this.getRect();
+        let out = `x = ${width}, y = ${height}, rule = ${this.ruleStr}\n`;
         let prevChar = '';
         let num = 0;
         let i = 0;
         let line = '';
         let $count = 0;
         let isStart = true;
-        for (let y = 0; y < this.height; y++) {
-            if (data.slice(i, i + this.width).every(x => x === 0)) {
+        for (let y = 0; y < height; y++) {
+            if (data.slice(i, i + width).every(x => x === 0)) {
                 $count++;
-                i += this.width;
+                i += width;
                 continue;
             }
             if (!isStart) {
@@ -1677,7 +1665,6 @@ export abstract class CoordPattern implements Pattern {
         return [height, width, out];
     }
 
-    abstract loadApgcode(code: string): DataPattern;
+    abstract loadApgcode(code: string): CoordPattern;
 
 }
-*/
