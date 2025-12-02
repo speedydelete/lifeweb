@@ -224,6 +224,9 @@ export function parseCatagolueHROTRule(rule: string): string | {range: number, b
         }
         rule = rule.slice(0, index);
     }
+    if (!rule.includes('s')) {
+        throw new RuleError(`Expected 's' in Catagolue HROT rule`);
+    }
     let [b, s] = rule.split('s');
     let isS = false;
     for (let x of [b, s]) {
