@@ -298,11 +298,44 @@ function parsePythonTuples(data: string): number[][][] {
 }
 
 function parseTree(data: string): RuleTree {
+    let nh: [number, number][] = [];
+    let nodes: Tree[] = [];
+    let states = 0;
     for (let line of data.split('\n')) {
         if (line.includes(':')) {
-
+            let [cmd, arg] = line.split(':');
+            cmd = cmd.trim();
+            arg = arg.trim();
+            if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
+                nh = parsePythonTuples(arg)[0] as [number, number][];
+                if (!nh.every(x => x.length === 2)) {
+                    throw new Error(`Invalid neighborhood: '${arg}'`);
+                }
+            } else if (cmd === 'num_neighbors') {
+                if (parseInt(arg) === 4) {
+                    nh = [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]];
+                } else {
+                    nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
+                }
+            }
+        } else {
+            let [depth, ...data] = line.split(' ').map(x => parseInt(x));
+            if (depth === 1) {
+                nodes.push(data);
+                let newStates = Math.max(...data);
+                if (newStates > states) {
+                    states = newStates;
+                }
+            } else {
+                nodes.push(data.map(x => nodes[x]));
+            }
         }
     }
+    return {
+        states: states + 1,
+        neighborhood: nh,
+        data: nodes[nodes.length - 1],
+    };
 }
 
 type TableValue = (number | {bind: true, index: number})[][];
