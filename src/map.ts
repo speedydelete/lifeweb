@@ -316,14 +316,14 @@ export function findSymmetry(trs: Uint8Array): RuleSymmetry {
         }
     }
     for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
-            D2v = false;
+        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+            D2h = false;
             break;
         }
     }
     for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
-            D2h = false;
+        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+            D2v = false;
             break;
         }
     }
