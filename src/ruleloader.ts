@@ -415,6 +415,36 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
             value += char;
         }
     }
+    if (value !== '') {
+        if (value.match(/^\d+$/)) {
+            if (inBind) {
+                section.push({bind: true, index: parseInt(value)});
+            } else {
+                section.push(parseInt(value));
+            }
+        } else {
+            if (inBind) {
+                throw new RuleError(`Cannot lookup variable binds`);
+            }
+            if (!(value in vars)) {
+                throw new RuleError(`Undeclared variable: '${value}'`);
+            }
+            if (value in boundVars) {
+                section.push({bind: true, index: boundVars[value]});
+            } else {
+                let data = vars[value];
+                if (braceLevel === 0) {
+                    if (data.bind) {
+                        boundVars[value] = out.length;
+                    }
+                    out.push(...data.value);
+                } else {
+                    section.push(...data.value.flat());
+                }
+            }
+        }
+        value = '';
+    }
     if (section.length > 0) {
         out.push(Array.from(new Set(section)));
     }
@@ -528,6 +558,8 @@ function parseTable(data: string): RuleTree {
                 } else {
                     sym = index;
                 }
+                continue;
+            } else if (cmd === 'n_states' || cmd === 'states' || cmd === 'num_states') {
                 continue;
             }
         }
