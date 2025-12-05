@@ -659,7 +659,7 @@ export function parseAtRule(rule: string): AtRule {
     let out: Omit<AtRule, 'tree'> = {};
     let tree: RuleTree | null = null;
     let data = '';
-    for (let line of rule.split('\n')) {
+    for (let line of (rule + '\n@END').split('\n')) {
         line = line.trim();
         if (line === '' || line.startsWith('#') || line.startsWith('//')) {
             continue;
