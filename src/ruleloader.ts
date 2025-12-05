@@ -249,7 +249,7 @@ function symToPerms(sym: number[][][], length: number): number[][] {
     return out;
 }
 
-const MOORE_PERMUTE = symToPerms(symPermute(NEIGHBORHOODS['Moore']), 9);
+const MOORE_PERMUTE = symToPerms(symPermute(NEIGHBORHOODS['moore']), 9);
 
 
 function parsePythonTuples(data: string): number[][][] {
@@ -463,7 +463,7 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
 }
 
 function parseTable(data: string): RuleTree {
-    let nh: [number, number][] = NEIGHBORHOODS['Moore'];
+    let nh: [number, number][] = NEIGHBORHOODS['moore'];
     let sym = 0;
     let symString = 'permute';
     let syms: number[][][] = [MOORE_PERMUTE];
