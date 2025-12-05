@@ -1,9 +1,10 @@
 
 import {stringMD5} from './md5.js';
-import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST} from './pattern.js';
+import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
-import {parseHROTRule, HROTPattern, parseCatagolueHROTRule} from './hrot.js';
+import {parseHROTRule, parseCatagolueHROTRule, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
+import {parseAtRule, TreePattern} from './ruleloader.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
@@ -11,6 +12,7 @@ export * from './pattern.js';
 export * from './map.js';
 export * from './hrot.js';
 export * from './alternating.js';
+export * from './ruleloader.js';
 export * from './identify.js';
 export * from './intsep.js';
 export * from './search.js';
@@ -76,6 +78,8 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         let sections: string[];
         if (rule.includes('/')) {
             sections = rule.split('/');
+        } else if (rule.includes('_')) {
+            sections = rule.split('_');
         } else if (rule.includes('S') || rule.includes('s')) {
             let index = rule.indexOf('s');
             if (index === -1) {
@@ -146,14 +150,14 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         if (trs[511]) {
             let out = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                out[i] = trs[511 - i] ? 0 : 1;
+                out[i] = 1 - trs[511 - i];
             }
             trs = out;
         } else {
             let evenTrs = new Uint8Array(512);
             let oddTrs = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                evenTrs[i] = trs[i] ? 0 : 1;
+                evenTrs[i] = 1 - trs[i];
                 oddTrs[i] = trs[511 - i];
             }
             if (states > 2) {
@@ -171,7 +175,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
 }
 
 
-export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}): Pattern {
+export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string): Pattern {
     rule = rule.trim();
     let errors: string[] = [];
     try {
@@ -193,14 +197,27 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             let out = rule.startsWith('R') ? parseHROTRule(rule) : parseCatagolueHROTRule(rule);
             if (typeof out === 'object') {
                 let {range, b, s, nh, states, ruleStr, ruleSymmetry} = out;
-                let coords: [number, number, number][] = [];
+                let coords = new Map<number, number>();
                 let i = 0;
                 for (let y = 0; y < data.height; y++) {
                     for (let x = 0; x < data.width; x++) {
                         let value = data.data[i++];
                         if (value) {
-                            coords.push([x, y, value]);
+                            coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
                         }
+                    }
+                }
+                if (b[0]) {
+                    if (s[range**2]) {
+                        let temp = s;
+                        s = b.reverse().map(x => 1 - x);
+                        b = temp.reverse().map(x => 1 - x);
+                    } else {
+                        let evenB = b.map(x => 1 - x);
+                        let evenS = s.map(x => 1 - x);
+                        let oddB = s.reverse();
+                        let oddS = b.reverse();
+                        return new HROTB0Pattern(coords, range, evenB, evenS, oddB, oddS, nh, states, ruleStr, ruleSymmetry);
                     }
                 }
                 return new HROTPattern(coords, range, b, s, nh, states, ruleStr, ruleSymmetry);
@@ -215,20 +232,180 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             }
         }
     }
+    if (rule.startsWith('@')) {
+        try {
+            let out = parseAtRule(rule);
+            let coords = new Map<number, number>();
+            let i = 0;
+            for (let y = 0; y < data.height; y++) {
+                for (let x = 0; x < data.width; x++) {
+                    let value = data.data[i++];
+                    if (value) {
+                        coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                    }
+                }
+            }
+            return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules));
-        return new AlternatingPattern(data.height, data.width, data.data, patterns);
+        let states = Math.max(...patterns.map(x => x.states));
+        let ruleStr = patterns.map(x => x.ruleStr).join('|');
+        let symmetry = patterns[0].ruleSymmetry;
+        for (let q of patterns.slice(1)) {
+            symmetry = SYMMETRY_LEAST[symmetry][q.ruleSymmetry];
+            if (symmetry === 'C1') {
+                break;
+            }
+        }
+        return new AlternatingPattern(data.height, data.width, data.data, patterns, states, ruleStr, symmetry);
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
-        return createPattern(namedRules[lower], data, namedRules);
+        return createPattern(namedRules[lower], data, namedRules, rule);
     }
     throw new RuleError(errors.join(', '));
 }
 
 
 export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
-    let lines = rle.split('\n');
+    let raw: number[][] = [];
+    let rule = 'B3/S23';
+    let xOffset = 0;
+    let yOffset = 0;
+    let generation = 0;
+    let data = '';
+    let headerFound = false;
+    for (let line of rle.trim().split('\n')) {
+        line = line.trim();
+        if (line.length === 0) {
+            continue;
+        } else if (headerFound) {
+            data += line;
+        } else if (line.startsWith('#')) {
+            let char = line[1];
+            if (char === 'C' || char === 'c') {
+                if (line.startsWith('#CXRLE')) {
+                    line = line.slice(3);
+                    let index = line.indexOf('Pos=');
+                    if (index !== -1) {
+                        let data = line.slice(index + 4);
+                        let [x, y] = data.split(',');
+                        xOffset = parseInt(x);
+                        yOffset = parseInt(y);
+                    }
+                    index = line.indexOf('Gen=');
+                    if (index !== -1) {
+                        generation = parseInt(line.slice(index + 4));
+                    }
+                }
+            } else if (char === 'P' || char === 'p') {
+                let [x, y] = line.slice(2).split(' ').filter(x => x !== '');
+                xOffset = parseInt(x);
+                yOffset = parseInt(y);
+            } else if (char === 'r') {
+                rule = line.slice(2);
+            }
+        } else {
+            headerFound = true;
+            line = line.trim();
+            if (line[0] !== 'x') {
+                data += line;
+            } else {
+                let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))/);
+                if (!match) {
+                    throw new Error(`Invaid header line: '${line}'`);
+                }
+                if (match[1]) {
+                    rule = match[1];
+                }
+            }
+        }
+    }
+    let num = '';
+    let prefix = '';
+    let currentLine: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+        let char = data[i];
+        if (char === 'b' || char === 'o') {
+            let value = char === 'o' ? 1 : 0;
+            if (num === '') {
+                currentLine.push(value);
+            } else {
+                let count = parseInt(num);
+                for (let i = 0; i < count; i++) {
+                    currentLine.push(value);
+                }
+                num = '';
+            }
+        } else if ('0123456789'.includes(char)) {
+            num += char;
+        } else if (char === '\u0024') {
+            raw.push(currentLine);
+            currentLine = [];
+            if (num !== '') {
+                let count = parseInt(num);
+                for (let i = 1; i < count; i++) {
+                    raw.push([]);
+                }
+                num = '';
+            }
+        } else if (char === '.') {
+            if (num === '') {
+                currentLine.push(0);
+            } else {
+                let count = parseInt(num);
+                for (let i = 0; i < count; i++) {
+                    currentLine.push(0);
+                }
+                num = '';
+            }
+        } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
+            if (prefix) {
+                char = prefix + char;
+            }
+            let value = RLE_CHARS.indexOf(char);
+            if (num === '') {
+                currentLine.push(value);
+            } else {
+                let count = parseInt(num);
+                for (let i = 0; i < count; i++) {
+                    currentLine.push(value);
+                }
+                num = '';
+            }
+        } else if ('pqrstuvwxy'.includes(char)) {
+            prefix = char;
+        }
+    }
+    raw.push(currentLine);
+    let height = raw.length;
+    let width = Math.max(...raw.map(x => x.length));
+    let pData = new Uint8Array(height * width);
+    for (let y = 0; y < raw.length; y++) {
+        let i = y * width;
+        let line = raw[y];
+        for (let x = 0; x < line.length; x++) {
+            pData[i] = line[x];
+            i++;
+        }
+    }
+    let out = createPattern(rule, {height, width, data: pData}, namedRules);
+    out.xOffset = xOffset;
+    out.yOffset = yOffset;
+    out.generation = generation;
+    return out;
+}
+
+export function parseCompatibility(rle: string, namedRules?: {[key: string]: string}): Pattern {
+    let lines = rle.trim().split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
     let xOffset = 0;
@@ -284,111 +461,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
             }
         }
     } else {
-        let data = '';
-        let headerFound = false;
-        for (let line of lines) {
-            line = line.trim();
-            if (line.length === 0) {
-                continue;
-            } else if (headerFound) {
-                data += line;
-            } else if (line.startsWith('#')) {
-                let char = line[1];
-                if (char === 'C' || char === 'c') {
-                    if (line.startsWith('#CXRLE')) {
-                        line = line.slice(3);
-                        let index = line.indexOf('Pos=');
-                        if (index !== -1) {
-                            let data = line.slice(index + 4);
-                            let [x, y] = data.split(',');
-                            xOffset = parseInt(x);
-                            yOffset = parseInt(y);
-                        }
-                        index = line.indexOf('Gen=');
-                        if (index !== -1) {
-                            generation = parseInt(line.slice(index + 4));
-                        }
-                    }
-                } else if (char === 'P' || char === 'p') {
-                    let [x, y] = line.slice(2).split(' ').filter(x => x !== '');
-                    xOffset = parseInt(x);
-                    yOffset = parseInt(y);
-                } else if (char === 'r') {
-                    rule = line.slice(2);
-                }
-            } else {
-                headerFound = true;
-                line = line.trim();
-                if (line[0] !== 'x') {
-                    data += line;
-                } else {
-                    let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))/);
-                    if (!match) {
-                        throw new Error(`Invaid header line: '${line}'`);
-                    }
-                    if (match[1]) {
-                        rule = match[1];
-                    }
-                }
-            }
-        }
-        let num = '';
-        let prefix = '';
-        let currentLine: number[] = [];
-        for (let i = 0; i < data.length; i++) {
-            let char = data[i];
-            if (char === 'b' || char === 'o') {
-                let value = char === 'o' ? 1 : 0;
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = parseInt(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('0123456789'.includes(char)) {
-                num += char;
-            } else if (char === '\u0024') {
-                raw.push(currentLine);
-                currentLine = [];
-                if (num !== '') {
-                    let count = parseInt(num);
-                    for (let i = 1; i < count; i++) {
-                        raw.push([]);
-                    }
-                    num = '';
-                }
-            } else if (char === '.') {
-                if (num === '') {
-                    currentLine.push(0);
-                } else {
-                    let count = parseInt(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(0);
-                    }
-                    num = '';
-                }
-            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
-                if (prefix) {
-                    char = prefix + char;
-                }
-                let value = RLE_CHARS.indexOf(char);
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = parseInt(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('pqrstuvwxy'.includes(char)) {
-                prefix = char;
-            }
-        }
-        raw.push(currentLine);
+        return parse(rle, namedRules);
     }
     while (raw.length > 0 && raw[raw.length - 1].length === 0) {
         raw.pop();

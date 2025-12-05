@@ -1,12 +1,12 @@
 
-import {RuleError, RuleSymmetry, DataPattern} from './pattern.js';
+import {RuleError, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
 
 
 export type Tree = (number | Tree)[];
 
 export interface RuleTree {
     states: number;
-    neighborhood: string | [number, number][];
+    neighborhood: Int8Array;
     data: Tree;
 }
 
@@ -297,7 +297,7 @@ function parsePythonTuples(data: string): number[][][] {
     return out;
 }
 
-function parseTree(data: string): RuleTree {
+function parseTree(data: string, isXTree: boolean): RuleTree {
     let nh: [number, number][] = [];
     let nodes: Tree[] = [];
     let states = 0;
@@ -318,14 +318,26 @@ function parseTree(data: string): RuleTree {
                     nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
                 }
             }
+        } else if (isXTree) {
+            nodes.push(line.split(' ').slice(1).map(x => {
+                if (x.startsWith('*')) {
+                    let value = parseInt(x.slice(1));
+                    if (value > states) {
+                        states = value;
+                    }
+                    return value;
+                } else {
+                    return nodes[parseInt(x)];
+                }
+            }));
         } else {
             let [depth, ...data] = line.split(' ').map(x => parseInt(x));
             if (depth === 1) {
-                nodes.push(data);
                 let newStates = Math.max(...data);
                 if (newStates > states) {
                     states = newStates;
                 }
+                nodes.push(data);
             } else {
                 nodes.push(data.map(x => nodes[x]));
             }
@@ -333,7 +345,7 @@ function parseTree(data: string): RuleTree {
     }
     return {
         states: states + 1,
-        neighborhood: nh,
+        neighborhood: new Int8Array(nh.flat()),
         data: nodes[nodes.length - 1],
     };
 }
@@ -602,7 +614,7 @@ function parseTable(data: string): RuleTree {
                 remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
             }
             data = data.map(tr => {
-                let out = [];
+                let out: number[] = [];
                 for (let i of remap) {
                     if (i === -1) {
                         out.push(-1);
@@ -637,7 +649,7 @@ function parseTable(data: string): RuleTree {
     }
     return {
         states,
-        neighborhood: totalNh,
+        neighborhood: new Int8Array(totalNh.flat()),
         data: trsToTree(trs, states),
     };
 }
@@ -665,11 +677,11 @@ export function parseAtRule(rule: string): AtRule {
                 continue;
             }
             tree = parseTable(data);
-        } else if (section === '@TREE') {
+        } else if (section === '@TREE' || section === '@XTREE') {
             if (tree) {
                 continue;
             }
-            tree = parseTree(data);
+            tree = parseTree(data, section === '@XTREE');
         } else if (section ==='@NAMES') {
             out.names = {};
             for (let line of data.split('\n')) {
@@ -701,4 +713,126 @@ export function parseAtRule(rule: string): AtRule {
         throw new Error('At least one @TABLE or @TREE expected');
     }
     return {...out, tree};
+}
+
+function treeToString(tree: Tree, depth: number): string {
+    let out = String(depth);
+    for (let elt of tree) {
+        if (typeof elt === 'number') {
+            if (depth === 1) {
+                out += ' *' + elt;
+            } else {
+
+            }
+        }
+    }
+    return out;
+}
+
+export function atRuleToString(rule: AtRule): string {
+    let out = '';
+    if (rule.name || rule.desc) {
+        out += '@RULE';
+        if (rule.name) {
+            out += ' ' + rule.name;
+        }
+        out += '\n';
+        if (rule.desc) {
+            out += rule.desc + '\n';
+        }
+    }
+    let nh = rule.tree.neighborhood;
+    out += `@XTREE\nstates: ${rule.tree.states}\nneighborhood: `;
+    for (let i = 0; i < nh.length; i += 2) {
+        out += `(${nh[i]}, ${nh[i + 1]}) `;
+    }
+    out = out.slice(0, -1) + '\n';
+    out += `\n${treeToString(rule.tree.data, nh.length)}`;
+    if (rule.names) {
+        out += `@NAMES\n${Object.entries(rule.names).map(x => x[0] + x[1]).join('\n')}\n`;
+    }
+    if (rule.icons) {
+        out += `@ICONS\n${rule.icons}\n`;
+    }
+    if (rule.colors) {
+        out += `@COLORS\n${Object.entries(rule.colors).map(x => x.join(' ')).join('\n')}\n`;
+    }
+    return out;
+}
+
+
+export class TreePattern extends CoordPattern {
+    
+    nh: Int8Array;
+    range: number;
+    tree: Tree;
+    states: number;
+    ruleStr: string;
+    ruleSymmetry: 'C1' = 'C1';
+    rule: AtRule;
+
+    constructor(coords: Map<number, number>, nh: Int8Array, tree: Tree, states: number, ruleStr: string, rule: AtRule) {
+        super(coords);
+        this.nh = nh;
+        this.range = Math.max(...nh.map(Math.abs));
+        this.tree = tree;
+        this.states = states;
+        this.ruleStr = ruleStr;
+        this.rule = rule;
+    }
+
+    runGeneration(): void {
+        let range = this.range;
+        let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
+        minX = minX - range + BIAS;
+        maxX = maxX + range + BIAS;
+        minY = minY - range + BIAS;
+        maxY = maxY + range + BIAS;
+        let out = new Map<number, number>();
+        for (let y = minY; y <= maxY; y++) {
+            for (let x = minX; x <= maxX; x++) {
+                let value: Tree | number = this.tree;
+                for (let i = 0; i < this.nh.length - 1; i++) {
+                    value = value[this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i])) ?? 0];
+                    if (typeof value === 'number') {
+                        break;
+                    }
+                }
+                if (value) {
+                    out.set(x * WIDTH + y, value as number);
+                }
+            }
+        }
+        this.generation++;
+        this.coords = out;
+    }
+
+    copy(): TreePattern {
+        let out = new TreePattern(new Map(this.coords), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        out.generation = this.generation;
+        return out;
+    }
+
+    copyPart(x: number, y: number, height: number, width: number): TreePattern {
+        let out = new Map<number, number>();
+        for (let [key, value] of this.coords) {
+            let px = Math.floor(key / WIDTH) - BIAS;
+            let py = (key & (WIDTH - 1)) - BIAS;
+            if (px >= x && px < x + width && py >= y && py < y + height) {
+                out.set(key, value);
+            }
+        }
+        let p = new TreePattern(out, this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        p.generation = this.generation;
+        return p;
+    }
+
+    clearedCopy(): TreePattern {
+        return new TreePattern(new Map(), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+    }
+
+    loadApgcode(code: string): TreePattern {
+        return new TreePattern(this._loadApgcode(code), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+    }
+
 }

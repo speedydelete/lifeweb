@@ -21,6 +21,12 @@ for (let prefix of RLE_PREFIXES) {
 export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
 
 
+export const COORD_BIAS = 1 << 25;
+export const COORD_WIDTH = 1 << 26;
+
+const BIAS = COORD_BIAS;
+const WIDTH = COORD_WIDTH
+
 export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
     'C1': {
         'C1': 'C1',
@@ -298,8 +304,8 @@ export interface Pattern {
     copyPart(x: number, y: number, height: number, width: number): Pattern;
     getData(): Uint8Array;
     setData(data: Uint8Array, height: number, width: number): this;
-    getCoords(): [number, number, number][];
-    setCoords(coords: [number, number, number][]): this;
+    getCoords(): Map<number, number>;
+    setCoords(coords: Map<number, number>): this;
     isEqual(other: Pattern): boolean;
     isEqualWithTranslate(other: Pattern): boolean;
     hash32(): number;
@@ -484,50 +490,54 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    getCoords(): [number, number, number][] {
-        let out: [number, number, number][] = [];
+    getCoords(): Map<number, number> {
+        let out = new Map<number, number>();
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 let value = this.data[y * this.width + x];
                 if (value) {
-                    out.push([x, y, value]);
+                    out.set((x + BIAS) * WIDTH + (y + BIAS), value);
                 }
             }
         }
         return out;
     }
 
-    setCoords(coords: [number, number, number][]): this {
-        if (coords.length === 0) {
+    setCoords(coords: Map<number, number>): this {
+        if (coords.size === 0) {
             this.height = 0;
             this.width = 0;
             this.size = 0;
             this.data = new Uint8Array();
             return this;
         }
-        let minX = coords[0][0];
-        let maxX = coords[0][0];
-        let minY = coords[0][1];
-        let maxY = coords[0][1];
-        for (let point of coords.slice(1)) {
-            if (point[0] < minX) {
-                minX = point[0];
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (let key of coords.keys()) {
+            let x = Math.floor(key / WIDTH) - BIAS;
+            let y = (key & (WIDTH - 1)) - BIAS;
+            if (x < minX) {
+                minX = x;
             }
-            if (point[0] > maxX) {
-                maxX = point[0];
+            if (x > maxX) {
+                maxX = x;
             }
-            if (point[0] < minY) {
-                minY = point[0];
+            if (y < minY) {
+                minY = y;
             }
-            if (point[0] > maxY) {
-                maxY = point[0];
+            if (y > maxY) {
+                maxY = y;
             }
         }
         this.height = maxX - minX;
         this.width = maxY - minY;
         this.size = this.height * this.width;
         this.data = new Uint8Array(this.size);
-        for (let [x, y, value] of coords) {
+        for (let [key, value] of coords) {
+            let x = Math.floor(key / WIDTH) - BIAS;
+            let y = (key & (WIDTH - 1)) - BIAS;
             this.data[y * this.width + x] = value;
         }
         return this;
@@ -1082,10 +1092,9 @@ export abstract class DataPattern implements Pattern {
 
 }
 
-
 export abstract class CoordPattern implements Pattern {
 
-    coords: [number, number, number][];
+    coords: Map<number, number>;
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
@@ -1093,8 +1102,43 @@ export abstract class CoordPattern implements Pattern {
     abstract ruleStr: string;
     abstract ruleSymmetry: RuleSymmetry;
 
-    constructor(coords: [number, number, number][]) {
+    constructor(coords: Map<number, number>) {
         this.coords = coords;
+    }
+
+    getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {
+        if (this.coords.size === 0) {
+            return {minX: 0, maxX: 0, minY: 0, maxY: 0};
+        }
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (let key of this.coords.keys()) {
+            let x = Math.floor(key / WIDTH) - BIAS;
+            let y = (key & (WIDTH - 1)) - BIAS;
+            if (x < minX) {
+                minX = x;
+            }
+            if (x > maxX) {
+                maxX = x;
+            }
+            if (y < minY) {
+                minY = y;
+            }
+            if (y > maxY) {
+                maxY = y;
+            }
+        }
+        return {minX, minY, maxX, maxY};
+    }
+
+    getRect(): Rect {
+        if (this.coords.size === 0) {
+            return {height: 0, width: 0, xOffset: 0, yOffset: 0};
+        }
+        let {minX, minY, maxX, maxY} = this.getMinMaxCoords();
+        return {height: maxY - minY + 1, width: maxX - minX + 1, xOffset: 0, yOffset: 0};
     }
 
     get height(): number {
@@ -1103,39 +1147,6 @@ export abstract class CoordPattern implements Pattern {
 
     get width(): number {
         return this.getRect().width;
-    }
-
-    getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {
-        if (this.coords.length === 0) {
-            return {minX: 0, maxX: 0, minY: 0, maxY: 0};
-        }
-        let minX = this.coords[0][0];
-        let maxX = this.coords[0][0];
-        let minY = this.coords[0][1];
-        let maxY = this.coords[0][1];
-        for (let point of this.coords.slice(1)) {
-            if (point[0] < minX) {
-                minX = point[0];
-            }
-            if (point[0] > maxX) {
-                maxX = point[0];
-            }
-            if (point[1] < minY) {
-                minY = point[1];
-            }
-            if (point[1] > maxY) {
-                maxY = point[1];
-            }
-        }
-        return {minX, minY, maxX, maxY};
-    }
-
-    getRect(): Rect {
-        if (this.coords.length === 0) {
-            return {height: 0, width: 0, xOffset: 0, yOffset: 0};
-        }
-        let {minX, minY, maxX, maxY} = this.getMinMaxCoords();
-        return {height: maxY - minY + 1, width: maxX - minX + 1, xOffset: 0, yOffset: 0};
     }
 
     abstract runGeneration(): any;
@@ -1148,11 +1159,11 @@ export abstract class CoordPattern implements Pattern {
     }
 
     get population(): number {
-        return this.coords.length;
+        return this.coords.size;
     }
 
     isEmpty(): boolean {
-        return this.coords.length === 0;
+        return this.coords.size === 0;
     }
 
     abstract copy(): CoordPattern;
@@ -1163,41 +1174,32 @@ export abstract class CoordPattern implements Pattern {
     }
 
     get(x: number, y: number): number {
-        for (let point of this.coords) {
-            if (point[0] === x && point[1] === y) {
-                return point[2];
-            }
-        }
-        return 0;
+        return this.coords.get((x + BIAS) * WIDTH + (y + BIAS)) ?? 0;
     }
 
     set(x: number, y: number, value: number): this {
+        let key = (x + BIAS) * WIDTH + (y + BIAS);
         if (value === 0) {
-            for (let i = 0; i < this.coords.length; i++) {
-                if (this.coords[i][0] === x && this.coords[i][1] === y) {
-                    this.coords.splice(i, 1);
-                    return this;
-                }
-            }
+            this.coords.delete(key);
         } else {
-            for (let point of this.coords) {
-                if (point[0] === x && point[1] === y) {
-                    point[2] = value;
-                    return this;
-                }
-            }
-            this.coords.push([x, y, value]);
+            this.coords.set(key, value);
         }
         return this;
     }
 
     clear(): this {
-        this.coords = [];
+        this.coords.clear();
         return this;
     }
 
     clearPart(x: number, y: number, height: number, width: number): this {
-        this.coords = this.coords.filter(point => point[0] < x || point[0] >= x + width || point[1] < y || point[1] >= y + height);
+        for (let key of this.coords.keys()) {
+            let px = Math.floor(key / WIDTH) - BIAS;
+            let py = (key & (WIDTH - 1)) - BIAS;
+            if (px >= x && px < x + width && py >= y && py < y + height) {
+                this.coords.delete(key);
+            }
+        }
         return this;
     }
 
@@ -1208,20 +1210,9 @@ export abstract class CoordPattern implements Pattern {
     }
 
     insertOr(p: Pattern, x: number = 0, y: number = 0): this {
-        for (let [x2, y2, value] of p.getCoords()) {
-            x2 += x;
-            y2 += y;
-            let found = false;
-            for (let point of this.coords) {
-                if (point[0] === x2 && point[1] === y2) {
-                    point[2] = value;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                this.coords.push([x2, y2, value]);
-            }
+        let offset = (x + BIAS) * WIDTH + (y + BIAS);
+        for (let [key, value] of p.getCoords()) {
+            this.coords.set(key + offset, value);
         }
         return this;
     }
@@ -1233,30 +1224,32 @@ export abstract class CoordPattern implements Pattern {
         let height = maxY - minY + 1;
         let width = maxX - minX + 1;
         let out = new Uint8Array(height * width);
-        for (let [x, y, value] of this.coords) {
+        for (let [key, value] of this.coords) {
+            let x = Math.floor(key / WIDTH) - BIAS;
+            let y = (key & (WIDTH - 1)) - BIAS;
             out[(y - minY) * width + (x - minX)] = value;
         }
         return out;
     }
 
     setData(data: Uint8Array, height: number, width: number): this {
-        this.coords = [];
+        this.coords.clear();
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let value = data[y * width + x];
                 if (value) {
-                    this.coords.push([x, y, value]);
+                    this.coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
                 }
             }
         }
         return this;
     }
 
-    getCoords(): [number, number, number][] {
+    getCoords(): Map<number, number> {
         return this.coords;
     }
 
-    setCoords(coords: [number, number, number][]): this {
+    setCoords(coords: Map<number, number>): this {
         this.coords = coords;
         return this;
     }
@@ -1314,29 +1307,54 @@ export abstract class CoordPattern implements Pattern {
     }
 
     flipHorizontal(): this {
-        let maxY = this.coords[0][1];
-        for (let point of this.coords.slice(1)) {
-            if (point[1] > maxY) {
-                maxY = point[1];
+        if (this.coords.size === 0) {
+            return this;
+        }
+        let maxY = -Infinity;
+        for (let key of this.coords.keys()) {
+            let y = key & (WIDTH - 1);
+            if (y > maxY) {
+                maxY = y;
             }
         }
-        this.coords = this.coords.map(x => [x[0], maxY - x[1], x[2]]);
+        let out = new Map<number, number>();
+        for (let [key, value] of this.coords) {
+            let y = key & (WIDTH - 1);
+            key = (key - y) + (maxY - y);
+            out.set(key, value);
+        }
+        this.coords = out;
         return this;
     }
 
     flipVertical(): this {
-        let maxX = this.coords[0][0];
-        for (let point of this.coords.slice(1)) {
-            if (point[1] > maxX) {
-                maxX = point[1];
+        let maxX = -Infinity;
+        for (let key of this.coords.keys()) {
+            let x = Math.floor(key / WIDTH);
+            if (x > maxX) {
+                maxX = x;
             }
         }
-        this.coords = this.coords.map(x => [x[0], maxX - x[1], x[2]]);
+        maxX *= WIDTH;
+        let out = new Map<number, number>();
+        for (let [key, value] of this.coords) {
+            let x = Math.floor(key / WIDTH) * WIDTH;
+            key = (key - x) + (maxX - x);
+            out.set(key, value);
+        }
+        this.coords = out;
         return this;
     }
 
     transpose(): this {
-        this.coords = this.coords.map(x => [x[1], x[0], x[2]]);
+        let out = new Map<number, number>();
+        for (let [key, value] of this.coords) {
+            let x = Math.floor(key / WIDTH);
+            let y = (key & (WIDTH - 1));
+            key = y * WIDTH + x;
+            out.set(key, value);
+        }
+        this.coords = out;
         return this;
     }
 
@@ -1563,7 +1581,7 @@ export abstract class CoordPattern implements Pattern {
         return out;
     }
 
-    _loadApgcode(code: string): [number, number, number][] {
+    _loadApgcode(code: string): Map<number, number> {
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
@@ -1672,13 +1690,13 @@ export abstract class CoordPattern implements Pattern {
                 }
             }
         }
-        let coords: [number, number, number][] = [];
+        let coords = new Map<number, number>();
         let i = 0;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let value = out[i++];
                 if (value) {
-                    coords.push([x, y, value]);
+                    coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
                 }
             }
         }

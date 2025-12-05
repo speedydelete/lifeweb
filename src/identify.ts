@@ -2,7 +2,9 @@
 import {stringMD5} from './md5.js';
 import {Pattern, RuleError} from './pattern.js';
 import {MAPPattern, MAPGenPattern, MAPB0Pattern, MAPB0GenPattern, TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, arrayToTransitions, unparseTransitions, unparseMAP} from './map.js';
+import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
+import {TreePattern} from './ruleloader.js';
 
 
 export interface PhaseData {
@@ -164,7 +166,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
 }
 
 
-function verifyType(p: Pattern, data: PhaseData, gens: number): boolean {
+function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
     for (let i = 0; i < gens + 1; i++) {
         if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
@@ -173,13 +175,13 @@ function verifyType(p: Pattern, data: PhaseData, gens: number): boolean {
         if (!p.isEqualWithTranslate(q)) {
             return false;
         }
-        p.runGeneration();
+        p.run(step);
         p.shrinkToFit();
     }
     return true;
 }
 
-function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, allTrs: {[key: string]: number[]}): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, allTrs: {[key: string]: number[]}, step: number): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
     let [b, s] = arrayToTransitions(p.trs, allTrs);
     let minB = new Set(b);
     let minS = new Set(s);
@@ -187,36 +189,38 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
     let maxS = new Set(s);
     for (let tr in allTrs) {
         let q = p.copy();
-        q.trs = new Uint8Array(q.trs);
-        if (minB.has(tr)) {
-            for (let i of allTrs[tr]) {
-                q.trs[i] = 0;
+        q.trs = q.trs.slice();
+        if (tr !== '0c') {
+            if (minB.has(tr)) {
+                for (let i of allTrs[tr]) {
+                    q.trs[i] = 0;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    minB.delete(tr);
+                }
+            } else {
+                for (let i of allTrs[tr]) {
+                    q.trs[i] = 1;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    maxB.add(tr);
+                }
             }
-            if (verifyType(q, data, gens)) {
-                minB.delete(tr);
-            }
-        } else {
-            for (let i of allTrs[tr]) {
-                q.trs[i] = 1;
-            }
-            if (verifyType(q, data, gens)) {
-                maxB.add(tr);
-            }
+            q = p.copy();
+            q.trs = q.trs.slice();
         }
-        q = p.copy();
-        q.trs = new Uint8Array(q.trs);
         if (minS.has(tr)) {
             for (let i of allTrs[tr]) {
                 q.trs[i | (1 << 4)] = 0;
             }
-            if (verifyType(q, data, gens)) {
+            if (verifyType(q, data, gens, step)) {
                 minS.delete(tr);
             }
         } else {
             for (let i of allTrs[tr]) {
                 q.trs[i | (1 << 4)] = 1;
             }
-            if (verifyType(q, data, gens)) {
+            if (verifyType(q, data, gens, step)) {
                 maxS.add(tr);
             }
         }
@@ -229,45 +233,135 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
     };
 }
 
-function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number): [string, string] {
+function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, allTrs: {[key: string]: number[]}, step: number): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+    let [b, s] = arrayToTransitions(p.evenTrs.map(x => 1 - x), allTrs);
+    let minB = new Set(b);
+    let minS = new Set(s);
+    let maxB = new Set(b);
+    let maxS = new Set(s);
+    for (let tr in allTrs) {
+        let q = p.copy();
+        q.evenTrs = q.evenTrs.slice();
+        q.oddTrs = q.oddTrs.slice();
+        if (minB.has(tr)) {
+            for (let i of allTrs[tr]) {
+                q.evenTrs[i] = 1;
+                q.oddTrs[511 - i] = 0;
+            }
+            if (verifyType(q, data, gens, step)) {
+                minB.delete(tr);
+            }
+        } else {
+            for (let i of allTrs[tr]) {
+                q.evenTrs[i] = 0;
+                q.oddTrs[511 - i] = 1;
+            }
+            if (verifyType(q, data, gens, step)) {
+                maxB.add(tr);
+            }
+        }
+        q = p.copy();
+        q.evenTrs = q.evenTrs.slice();
+        q.oddTrs = q.oddTrs.slice();
+        if (minS.has(tr)) {
+            for (let i of allTrs[tr]) {
+                q.evenTrs[i | (1 << 4)] = 1;
+                q.oddTrs[511 - (i | (1 << 4))] = 0;
+            }
+            if (verifyType(q, data, gens, step)) {
+                minS.delete(tr);
+            }
+        } else {
+            for (let i of allTrs[tr]) {
+                q.evenTrs[i | (1 << 4)] = 1;
+                q.oddTrs[511 - (i | (1 << 4))] = 0;
+            }
+            if (verifyType(q, data, gens, step)) {
+                maxS.add(tr);
+            }
+        }
+    }
+    return {
+        minB: Array.from(minB),
+        minS: Array.from(minS),
+        maxB: Array.from(maxB),
+        maxS: Array.from(maxS),
+    };
+}
+
+function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number): [string, string] {
     let min = p.trs.slice();
     let max = p.trs.slice();
     for (let i = 0; i < 512; i++) {
         let q = p.copy();
-        q.trs[i] = q.trs[i] ? 0 : 1;
-        if (verifyType(q, data, gens)) {
+        q.trs[i] = 1 - q.trs[i];
+        if (verifyType(q, data, gens, step)) {
             if (q.trs[i]) {
                 min[i] = 0;
             } else {
                 max[i] = 1;
             }
         }
-        q.trs[i] = q.trs[i] ? 0 : 1;
+        q.trs[i] = 1 - q.trs[i];
     }
     return [unparseMAP(min), unparseMAP(max)];
 }
 
-function mapMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number): [string, string] {
+function mapB0StringMinmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number): [string, string] {
+    let min = p.evenTrs.map(x => 1 - x);
+    let max = p.evenTrs.map(x => 1 - x);
+    for (let i = 0; i < 512; i++) {
+        let q = p.copy();
+        q.evenTrs[i] = 1 - q.evenTrs[i];
+        q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
+        if (verifyType(q, data, gens, step)) {
+            if (q.evenTrs[i]) {
+                min[i] = 1;
+            } else {
+                max[i] = 0;
+            }
+        }
+        q.evenTrs[i] = 1 - q.evenTrs[i];
+        q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
+    }
+    return [unparseMAP(min), unparseMAP(max)];
+}
+
+function mapMinmax(p: MAPPattern | MAPGenPattern | MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number): [string, string] {
     p.shrinkToFit();
     let minB: string;
     let minS: string;
     let maxB: string;
     let maxS: string;
+    let out: ReturnType<typeof isotropicMinmax>;
     if (p.ruleStr.endsWith('H')) {
-        let out = isotropicMinmax(p, data, gens, HEX_TRANSITIONS);
+        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
+            out = isotropicMinmax(p, data, gens, HEX_TRANSITIONS, step);
+        } else {
+            out = isotropicB0Minmax(p, data, gens, HEX_TRANSITIONS, step);
+        }
         minB = unparseTransitions(out.minB, VALID_HEX_TRANSITIONS, true);
         minS = unparseTransitions(out.minS, VALID_HEX_TRANSITIONS, true);
         maxB = unparseTransitions(out.maxB, VALID_HEX_TRANSITIONS, true);
         maxS = unparseTransitions(out.maxS, VALID_HEX_TRANSITIONS, true);
     } else if (p.ruleStr.startsWith('MAP')) {
-        let [min, max] = mapStringMinmax(p, data, gens);
+        let min: string, max: string;
+        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
+            [min, max] = mapStringMinmax(p, data, gens, step);
+        } else {
+            [min, max] = mapB0StringMinmax(p, data, gens, step);
+        }
         if (p instanceof MAPGenPattern) {
             min += '/' + p.states;
             max += '/' + p.states;
         }
         return [min, max];
     } else {
-        let out = isotropicMinmax(p, data, gens, TRANSITIONS);
+        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
+            out = isotropicMinmax(p, data, gens, TRANSITIONS, step);
+        } else {
+            out = isotropicB0Minmax(p, data, gens, TRANSITIONS, step);
+        }
         minB = unparseTransitions(out.minB, VALID_TRANSITIONS, false);
         minS = unparseTransitions(out.minS, VALID_TRANSITIONS, false);
         maxB = unparseTransitions(out.maxB, VALID_TRANSITIONS, false);
@@ -289,7 +383,126 @@ function mapMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number)
     return [min, max];
 }
 
-export function findMinmax(p: Pattern, gens: number, data?: PhaseData): [string, string] {
+function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number): [string, string] {
+    let parts = p.ruleStr.split(',');
+    let min = `${parts[0]},${parts[1]},S`;
+    let max = `${parts[0]},${parts[1]},S`;
+    let minS = p.s.slice();
+    let maxS = p.s.slice();
+    for (let i = 0; i < minS.length; i++) {
+        if (minS[i]) {
+            p.s[i] = 0;
+            if (verifyType(p, data, gens, step)) {
+                minS[i] = 0;
+            }
+            p.s[i] = 1;
+        } else {
+            p.s[i] = 1;
+            if (verifyType(p, data, gens, step)) {
+                maxS[i] = 1;
+            }
+            p.s[i] = 0;
+        }
+    }
+    min += unparseHROTRanges(minS) + ',B';
+    max += unparseHROTRanges(maxS) + ',B';
+    let minB = p.b.slice();
+    let maxB = p.b.slice();
+    for (let i = 1; i < minB.length; i++) {
+        if (minB[i]) {
+            p.b[i] = 0;
+            if (verifyType(p, data, gens, step)) {
+                minB[i] = 0;
+            }
+            p.b[i] = 1;
+        } else {
+            p.b[i] = 1;
+            if (verifyType(p, data, gens, step)) {
+                maxB[i] = 1;
+            }
+            p.b[i] = 0;
+        }
+    }
+    min += unparseHROTRanges(minB);
+    max += unparseHROTRanges(maxB);
+    if (parts.length === 5) {
+        min += ',' + parts[4];
+        max += ',' + parts[4];
+    }
+    return [min, max];
+}
+
+function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
+    let parts = p.ruleStr.split(',');
+    let min = `${parts[0]},${parts[1]},S`;
+    let max = `${parts[0]},${parts[1]},S`;
+    let minS = p.evenS.map(x => 1 - x);
+    let maxS = p.evenS.map(x => 1 - x);
+    for (let i = 0; i < minS.length; i++) {
+        if (minS[i]) {
+            p.evenS[i] = 1;
+            p.oddS[minS.length - 1 - i] = 0;
+            if (verifyType(p, data, gens, step)) {
+                minS[i] = 0;
+            }
+            p.evenS[i] = 0;
+            p.oddS[minS.length - 1 - i] = 1;
+        } else {
+            p.evenS[i] = 0;
+            p.oddS[minS.length - 1 - i] = 1;
+            if (verifyType(p, data, gens, step)) {
+                maxS[i] = 1;
+            }
+            p.evenS[i] = 1;
+            p.oddS[minS.length - 1 - i] = 0;
+        }
+    }
+    min += unparseHROTRanges(minS) + ',B';
+    max += unparseHROTRanges(maxS) + ',B';
+    let minB = p.evenB.map(x => 1 - x);
+    let maxB = p.evenB.map(x => 1 - x);
+    for (let i = 0; i < minB.length; i++) {
+        if (minB[i]) {
+            p.evenB[i] = 1;
+            p.oddB[minB.length - 1 - i] = 0;
+            if (verifyType(p, data, gens, step)) {
+                minB[i] = 0;
+            }
+            p.evenB[i] = 0;
+            p.oddB[minB.length - 1 - i] = 1;
+        } else {
+            p.evenB[i] = 0;
+            p.oddB[minB.length - 1 - i] = 1;
+            if (verifyType(p, data, gens, step)) {
+                maxB[i] = 1;
+            }
+            p.evenB[i] = 1;
+            p.oddB[minB.length - 1 - i] = 0;
+        }
+    }
+    min += unparseHROTRanges(minB);
+    max += unparseHROTRanges(maxB);
+    if (parts.length === 5) {
+        min += ',' + parts[4];
+        max += ',' + parts[4];
+    }
+    return [min, max];
+}
+
+function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number, step: number): [string, string] {
+    let min: string[] = [];
+    let max: string[] = [];
+    let count = p.patterns.length * step;
+    for (let i = 0; i < count; i += step) {
+        let q = p.patterns[i].copy().run(i);
+        let data = findMinmax(q, Math.floor((gens - i) / count), undefined, count);
+        min.push(data[0]);
+        max.push(data[1]);
+    }
+    return [min.join('|'), max.join('|')];
+}
+
+export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: number = 1): [string, string] {
     p = p.copy();
     if (data === undefined) {
         let pops: number[] = [p.population];
@@ -297,7 +510,7 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData): [string,
         let phases: Pattern[] = [p.copy()];
         let q = p.copy();
         for (let i = 0; i < gens + 1; i++) {
-            q.runGeneration();
+            q.run(step);
             q.shrinkToFit();
             pops.push(q.population);
             hashes.push(q.hash32());
@@ -312,12 +525,16 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData): [string,
         data.hashes.push(q.hash32());
         data.phases.push(q);
     }
-    if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-        return mapMinmax(p, data, gens);
-    } else if (p instanceof MAPB0Pattern || p instanceof MAPB0GenPattern) {
-        throw new RuleError('Min/max is not supported for B0 rules');
+    if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern || p instanceof MAPB0GenPattern) {
+        return mapMinmax(p, data, gens, step);
+    } else if (p instanceof HROTPattern) {
+        return hrotMinmax(p, data, gens, step);
+    } else if (p instanceof HROTB0Pattern) {
+        return hrotB0Minmax(p, data, gens, step);
     } else if (p instanceof AlternatingPattern) {
-        throw new RuleError('Min/max is not supported for alternating rules');
+        return alternatingMinmax(p, data, gens, step);
+    } else if (p instanceof TreePattern) {
+        return [p.ruleStr, p.ruleStr];
     } else {
         throw new RuleError(`Unknown Pattern subclass: ${p}`);
     }
@@ -481,29 +698,34 @@ export function findOscillatorInfo(type: PartialIdentified): number | Oscillator
 
 
 export function getDescription(type: Identified): string {
+    let out: string;
     if (type.linear) {
         if (type.disp) {
             if (type.disp[0] === 0 && type.disp[1] === 0) {
-                return `p${type.period} gun`;
+                out = `p${type.period} gun`;
             } else {
-                return `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
+                out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
             }
         } else {
-            return `p${type.period} linear growth`;
+            out = `p${type.period} linear growth`;
         }
     } else if (type.disp) {
         if (type.disp[0] === 0 && type.disp[1] === 0) {
             if (type.period === 1) {
-                return `${type.pops[type.pops.length - 1]}-cell still life`;
+                out = `${type.pops[type.pops.length - 1]}-cell still life`;
             } else {
-                return `p${type.period} oscillator`;
+                out = `p${type.period} oscillator`;
             }
         } else {
-            return `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
+            out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
         }
     } else {
-        return 'cannot identify';
+        out = 'cannot identify';
     }
+    if (type.stabilizedAt) {
+        out = 'Stabilizes into ' + out;
+    }
+    return out;
 }
 
 export interface FullIdentified extends Identified {
