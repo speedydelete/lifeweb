@@ -403,6 +403,7 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
                         }
                     }
                 }
+                value = '';
             }
             if (braceLevel === 0 && section.length > 0) {
                 out.push(Array.from(new Set(section)));
@@ -532,6 +533,7 @@ function parseTable(data: string): RuleTree {
         }
         if (line.includes('=')) {
             let [name, value] = line.split('=');
+            name = name.trim();
             let bind = false;
             if (name.startsWith('var ')) {
                 bind = true;
