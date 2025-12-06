@@ -74,8 +74,6 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
             }
         }
     }
-    // phases[0].ruleStr = 'B2-ak3i5ij/S12-k3a';
-    // console.log(phases[0].toRLE());
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
 }
 
@@ -722,7 +720,7 @@ export function getDescription(type: Identified): string {
     } else {
         out = 'cannot identify';
     }
-    if (type.stabilizedAt) {
+    if (type.stabilizedAt > 0) {
         out = 'Stabilizes into ' + out;
     }
     return out;

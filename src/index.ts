@@ -719,3 +719,15 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
         samples,
     };
 }
+
+// let p = createPattern(`@TABLE
+// a = {0, 1}
+// 0, 1, 1, 1, 0, 0, 0, 0, 0, 1
+// 1, 1, 1, a, 0, 0, 0, 0, 0, 1
+// 1, a, a, a, a, a, a, a, a, 0`);
+// p.ruleStr = 'B3/S23';
+// p.setData(new Uint8Array([0, 1, 0, 0, 0, 1, 1, 1, 1]), 3, 3);
+// console.log(p);
+// console.log(p.toRLE());
+// p.runGeneration();
+// console.log(p.toRLE());

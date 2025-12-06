@@ -70,7 +70,7 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
                 n = section.slice(1);
                 break;
             } else {
-                b.push(...parseRange(section.slice(1)));
+                b.push(...parseRange(section));
             }
         } else if (section[0] === 'R') {
             r = parseInt(section.slice(1));

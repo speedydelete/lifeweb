@@ -286,7 +286,7 @@ export interface Pattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
-    runGeneration(): any;
+    runGeneration(): unknown;
     run(generations?: number): this;
     population: number;
     getRect(): Rect;

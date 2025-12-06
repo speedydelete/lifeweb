@@ -21,10 +21,10 @@ export interface AtRule {
 
 
 const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
-    'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, 0]],
-    'vonneumann': [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0], [0, 0]],
-    'hexagonal': [[0, 0], [0, -1], [1, 0], [1, 1], [0, 1], [-1, 0], [-1, -1], [0, 0]],
-    'onedimensional': [[0, 0], [-1, 0], [1, 0], [0, 0]],
+    'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]],
+    'vonneumann': [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]],
+    'hexagonal': [[0, 0], [0, -1], [1, 0], [1, 1], [0, 1], [-1, 0], [-1, -1]],
+    'onedimensional': [[0, 0], [-1, 0], [1, 0]],
 };
 
 
@@ -200,12 +200,12 @@ function symD16alt(n: [number, number][]): number[][][] {
     return [symC8(n)[0], symD2h(n)[0]];
 }
 
-function symPermute(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length - 1; i++) {
-        out.push([i, i + 1]);
+function symPermute(nh: [number, number][]): [[number[]]] {
+    let out: number[] = [];
+    for (let i = 0; i < nh.length; i++) {
+        out.push(i);
     }
-    return [out];
+    return [[out]];
 }
 
 const SYMMETRIES: {[key: string]: (n: [number, number][]) => number[][][]} = {
@@ -238,9 +238,10 @@ const SYMMETRIES: {[key: string]: (n: [number, number][]) => number[][][]} = {
 function symToPerms(sym: number[][][], length: number): number[][] {
     let out: number[][] = [];
     for (let cycles of sym) {
-        let perm: number[] = new Array<number>(length);
+        let perm: number[] = Array.from({length}, (_, i) => i);
         for (let cycle of cycles) {
-            for (let i = 0; i < cycle.length; i++) {
+            perm[cycle[cycle.length - 1]] = cycle[0];
+            for (let i = 1; i < cycle.length; i++) {
                 perm[cycle[i - 1]] = cycle[i];
             }
         }
@@ -302,8 +303,8 @@ function parseTree(data: string, isXTree: boolean): RuleTree {
     let nodes: Tree[] = [];
     let states = 0;
     for (let line of data.split('\n')) {
-        if (line.includes(':')) {
-            let [cmd, arg] = line.split(':');
+        if (line.includes('=')) {
+            let [cmd, arg] = line.split('=');
             cmd = cmd.trim();
             arg = arg.trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
@@ -647,7 +648,10 @@ function parseTable(data: string): RuleTree {
             for (let [x, y] of totalNh) {
                 remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
             }
-            data = data.map(tr => {
+            data = data.map((tr, i) => {
+                if (i === data.length - 1) {
+                    return tr;
+                }
                 let out: number[] = [];
                 for (let i of remap) {
                     if (i === -1) {
@@ -661,10 +665,11 @@ function parseTable(data: string): RuleTree {
         }
         let sym = syms[symNum];
         let done = new Set(data.map(x => x.join(' ')));
+        // console.log(data);
         for (let tr of data) {
             trs.push(tr);
             let prevNew: number[][] = [];
-            while (prevNew.length > 0) {
+            do {
                 let newNew: number[][] = [];
                 for (let tr of prevNew) {
                     for (let gen of sym) {
@@ -677,10 +682,12 @@ function parseTable(data: string): RuleTree {
                         }
                     }
                 }
+                console.log(newNew);
                 prevNew = newNew;
-            }
+            } while (prevNew.length > 0);
         }
     }
+    console.log(trs);
     return {
         states,
         neighborhood: new Int8Array(totalNh.flat()),
@@ -776,7 +783,7 @@ export function atRuleToString(rule: AtRule): string {
         }
     }
     let nh = rule.tree.neighborhood;
-    out += `@XTREE\nstates: ${rule.tree.states}\nneighborhood: `;
+    out += `@XTREE\nstates = ${rule.tree.states}\nneighborhood = `;
     for (let i = 0; i < nh.length; i += 2) {
         out += `(${nh[i]}, ${nh[i + 1]}) `;
     }
