@@ -664,8 +664,8 @@ export abstract class DataPattern implements Pattern {
         this.height = height;
         this.width = width;
         this.size = height * width;
-        this.xOffset -= leftShrink;
-        this.yOffset -= topShrink;
+        this.xOffset += leftShrink;
+        this.yOffset += topShrink;
         this.data = out;
         return this;
     }
