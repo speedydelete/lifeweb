@@ -28,57 +28,47 @@ const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
 };
 
 
-function symC1(n: [number, number][]): [] {
+function symC1(nh: [number, number][]): number[][] {
     return [];
 }
 
-function symC2(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
-        if (y >= -x) {
-            continue;
-        }
-        let j = n.findIndex(p => p[0] === -x && p[1] === -y);
+function symC2(nh: [number, number][]): number[][] {
+    let out: number[] = [];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === -x && p[1] === -y);
         if (j === -1) {
             throw new RuleError('Invalid neighborhood for C2 symmetry');
         }
-        if (i !== j) {
-            out.push([i, j]);
-        }
+        out.push(j);
     }
     return [out];
 }
 
-function symC4(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
-        if (x > 0 || y >= 0) {
-            continue;
-        }
-        let j = n.findIndex(p => p[0] === y && p[1] == -x);
-        let k = n.findIndex(p => p[0] === -x && p[1] === -y);
-        let l = n.findIndex(p => p[0] === -y && p[1] === x);
+function symC4(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === y && p[1] === -x);
+        let k = nh.findIndex(p => p[0] === -x && p[1] === -y);
+        let l = nh.findIndex(p => p[0] === -y && p[1] === x);
         if (j === -1 || k === -1 || l === -1) {
             throw new RuleError('Invalid neighborhood for C4 symmetry');
         }
-        out.push([i, j, k, l]);
+        out[0].push(j);
+        out[1].push(k);
+        out[2].push(l);
     }
-    return [out];
+    return out;
 }
 
-function symC8(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
+function symC8(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], [], [], [], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
         if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
             throw new RuleError('Invalid neighborhood for C8 symmetry');
         }
-        if (x > 0 || y >= 0) {
-            continue;
-        }
-        let cycle: number[] = [i];
         for (let j = 0; j < 7; j++) {
             if (x === 0) {
                 y = x;
@@ -91,27 +81,23 @@ function symC8(n: [number, number][]): [number[][]] {
                 x *= 2;
                 y = 0;
             }
-            let k = n.findIndex(p => p[0] === x && p[1] === y);
+            let k = nh.findIndex(p => p[0] === x && p[1] === y);
             if (k === -1) {
                 throw new RuleError('Invalid neighborhood for C8 symmetry');
             }
+            out[j].push(k);
         }
-        out.push(cycle);
     }
-    return [out];
+    return out;
 }
 
-function symC8alt(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
+function symC8alt(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], [], [], [], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
         if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
             throw new RuleError('Invalid neighborhood for C8alt symmetry');
         }
-        if (x > 0 || y >= 0) {
-            continue;
-        }
-        let cycle: number[] = [i];
         for (let j = 0; j < 7; j++) {
             if (x === 0) {
                 y = x;
@@ -122,82 +108,178 @@ function symC8alt(n: [number, number][]): [number[][]] {
             } else {
                 y = 0;
             }
-            let k = n.findIndex(p => p[0] === x && p[1] === y);
+            let k = nh.findIndex(p => p[0] === x && p[1] === y);
             if (k === -1) {
                 throw new RuleError('Invalid neighborhood for C8alt symmetry');
             }
+            out[j].push(k);
         }
-        out.push(cycle);
     }
-    return [out];
+    return out;
 }
 
-function symD2h(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
-        if (y >= 0) {
-            continue;
-        }
-        let j = n.findIndex(p => p[0] === x && p[1] === -y);
+function symD2h(nh: [number, number][]): number[][] {
+    let out: number[] = [];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
         if (j === -1) {
-            throw new RuleError('Invalid neighborhood for D2h symmetry');
+            throw new RuleError('Invalid neighborhood for D2- symmetry');
         }
-        out.push([i, j]);
+        out.push(j);
     }
     return [out];
 }
 
-function symD2v(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
-        if (x >= 0) {
-            continue;
-        }
-        let j = n.findIndex(p => p[0] === -x && p[1] === y);
+function symD2v(nh: [number, number][]): number[][] {
+    let out: number[] = [];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === -x && p[1] === y);
         if (j === -1) {
-            throw new RuleError('Invalid neighborhood for D2v symmetry');
+            throw new RuleError('Invalid neighborhood for D2| symmetry');
         }
-        out.push([i, j]);
+        out.push(j);
     }
     return [out];
 }
 
-function symD2x(n: [number, number][]): [number[][]] {
-    let out: number[][] = [];
-    for (let i = 0; i < n.length; i++) {
-        let [x, y] = n[i];
-        if (y >= x) {
-            continue;
-        }
-        let j = n.findIndex(p => p[0] === y && p[1] === x);
+function symD2x(nh: [number, number][]): number[][] {
+    let out: number[] = [];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === y && p[1] === x);
         if (j === -1) {
             throw new RuleError('Invalid neighborhood for D2x symmetry');
         }
-        out.push([i, j]);
+        out.push(j);
     }
     return [out];
 }
 
-function symD4p(n: [number, number][]): number[][][] {
-    return [symD2h(n)[0], symD2v(n)[0]];
+function symD4p(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
+        let k = nh.findIndex(p => p[0] === -x && p[1] === y);
+        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
+        if (j === -1 || k === -1 || l === -1) {
+            throw new RuleError('Invalid neighborhood for D4+ symmetry');
+        }
+        out[0].push(j);
+        out[1].push(k);
+        out[2].push(l);
+    }
+    return out;
 }
 
-function symD4x(n: [number, number][]): number[][][] {
-    return [symC2(n)[0], symD2x(n)[0]];
+function symD4x(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === y && p[1] === x);
+        let k = nh.findIndex(p => p[0] === -y && p[1] === -x);
+        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
+        if (j === -1 || k === -1 || l === -1) {
+            throw new RuleError('Invalid neighborhood for D4x  symmetry');
+        }
+        out[0].push(j);
+        out[1].push(k);
+        out[2].push(l);
+    }
+    return out;
 }
 
-function symD8(n: [number, number][]): number[][][] {
-    return [symC4(n)[0], symD2h(n)[0]];
+function symD8(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], [], [], [], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
+        let k = nh.findIndex(p => p[0] === -x && p[1] === y);
+        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
+        let m = nh.findIndex(p => p[0] === y && p[1] === x);
+        let n = nh.findIndex(p => p[0] === y && p[1] === -x);
+        let o = nh.findIndex(p => p[0] === -y && p[1] === x);
+        let p = nh.findIndex(p => p[0] === -y && p[1] === -x);
+        if (j === -1 || k === -1 || l === -1) {
+            throw new RuleError('Invalid neighborhood for D4x  symmetry');
+        }
+        out[0].push(j);
+        out[1].push(k);
+        out[2].push(l);
+        out[3].push(m);
+        out[4].push(n);
+        out[5].push(o);
+        out[6].push(p);
+    }
+    return out;
 }
 
-function symD16(n: [number, number][]): number[][][] {
-    return [symC8(n)[0], symD2h(n)[0]];
+function symD16(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
+            throw new RuleError('Invalid neighborhood for D16 symmetry');
+        }
+        for (let f = 0; f < 2; f++) {
+            for (let j = 0; j < 7; j++) {
+                if (x === 0) {
+                    y = x;
+                } else if (y === 0) {
+                    x = -y;
+                } else if (x > 0) {
+                    x = 0;
+                    y *= 2;
+                } else {
+                    x *= 2;
+                    y = 0;
+                }
+                let k = nh.findIndex(p => p[0] === x && p[1] === y);
+                if (k === -1) {
+                    throw new RuleError('Invalid neighborhood for D16 symmetry');
+                }
+                out[j].push(k);
+            }
+            let temp = x;
+            x = y;
+            y = temp;
+        }
+    }
+    return out;
 }
 
-function symD16alt(n: [number, number][]): number[][][] {
-    return [symC8(n)[0], symD2h(n)[0]];
+function symD16alt(nh: [number, number][]): number[][] {
+    let out: number[][] = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
+    for (let i = 0; i < nh.length; i++) {
+        let [x, y] = nh[i];
+        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
+            throw new RuleError('Invalid neighborhood for D16 symmetry');
+        }
+        for (let f = 0; f < 2; f++) {
+            for (let j = 0; j < 7; j++) {
+                if (x === 0) {
+                    y = x;
+                } else if (y === 0) {
+                    x = -y;
+                } else if (x > 0) {
+                    x = 0;
+                } else {
+                    y = 0;
+                }
+                let k = nh.findIndex(p => p[0] === x && p[1] === y);
+                if (k === -1) {
+                    throw new RuleError('Invalid neighborhood for D16 symmetry');
+                }
+                out[j].push(k);
+            }
+            let temp = x;
+            x = y;
+            y = temp;
+        }
+    }
+    return out;
 }
 
 function permutations<T>(data: T[]): T[][] {
@@ -215,11 +297,11 @@ function permutations<T>(data: T[]): T[][] {
     return out;
 }
 
-function symPermute(nh: [number, number][]): number[][][] {
-    return permutations(nh.map((_, i) => i)).map(x => [x]);
+function symPermute(nh: [number, number][]): number[][] {
+    return permutations(nh.slice(1).map((_, i) => i + 1)).map(x => [0].concat(x));
 }
 
-const SYMMETRIES: {[key: string]: (n: [number, number][]) => number[][][]} = {
+const SYMMETRIES: {[key: string]: (nh: [number, number][]) => number[][]} = {
     C1: symC1,
     C2: symC2,
     C4: symC4,
@@ -246,50 +328,25 @@ const SYMMETRIES: {[key: string]: (n: [number, number][]) => number[][][]} = {
     permute: symPermute,
 };
 
-function symToPerms(sym: number[][][], length: number): number[][] {
+const MOORE_PERMUTE = symPermute(NEIGHBORHOODS['moore']);
+
+
+function parseJSONLoose(data: string): number[][] {
+    let level = 0;
     let out: number[][] = [];
-    for (let cycles of sym) {
-        let perm: number[] = Array.from({length}, (_, i) => i);
-        for (let cycle of cycles) {
-            perm[cycle[cycle.length - 1]] = cycle[0];
-            for (let i = 1; i < cycle.length; i++) {
-                perm[cycle[i - 1]] = cycle[i];
-            }
-        }
-        out.push(perm);
-    }
-    return out;
-}
-
-const MOORE_PERMUTE = symToPerms(symPermute(NEIGHBORHOODS['moore']), 9);
-
-
-function parsePythonTuples(data: string): number[][][] {
-    let inParen = false;
-    let inBracket = false;
-    let out: number[][][] = [];
-    let list: number[][] = [];
-    let tuple: number[] = [];
+    let section: number[] = [];
     let num = '';
     for (let char of data.slice(1)) {
-        if (char === '(') {
-            inParen = true;
-        } else if (char === ')') {
-            inParen = false;
-        } else if (char === '[') {
-            inBracket = true;
-        } else if (char === ']') {
-            inBracket = false;
+        if (char === '(' || char === '[') {
+            level++;
+        } else if (char === ')' || char === ']') {
+            level--;
         } else if (char === ',') {
-            if (inParen) {
-                tuple.push(parseInt(num));
-                num = '';
-            } else if (inBracket) {
-                list.push(tuple);
-                tuple = [];
+            if (level > 1) {
+                section.push(parseInt(num));
             } else {
-                out.push(list);
-                list = [];
+                out.push(section);
+                section = [];
             }
         } else if (char === ' ') {
             continue;
@@ -298,13 +355,10 @@ function parsePythonTuples(data: string): number[][][] {
         }
     }
     if (num.trim() !== '') {
-        tuple.push(parseInt(num));
+        section.push(parseInt(num));
     }
-    if (tuple.length > 0) {
-        list.push(tuple);
-    }
-    if (list.length > 0) {
-        out.push(list);
+    if (section.length > 0) {
+        out.push(section);
     }
     return out;
 }
@@ -319,7 +373,7 @@ function parseTree(data: string, isXTree: boolean): RuleTree {
             cmd = cmd.trim();
             arg = arg.trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
-                nh = parsePythonTuples(arg)[0] as [number, number][];
+                nh = parseJSONLoose(arg) as [number, number][];
                 if (!nh.every(x => x.length === 2)) {
                     throw new Error(`Invalid neighborhood: '${arg}'`);
                 }
@@ -467,9 +521,9 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
     if (trs[0].length === 2) {
         let out: Tree = [];
         for (let state = 0; state < states; state++) {
-            let value = trs.find(x => x[0] === state);
+            let value = trs.find(x => x[0] === state || x[0] === -1);
             if (value) {
-                out.push(value);
+                out.push(value[1]);
             } else {
                 out.push(center ?? state);
             }
@@ -518,14 +572,8 @@ function parseTable(data: string): RuleTree {
             let cmd = line.slice(0, index);
             let arg = line.slice(index + 1).trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
-                if (arg.startsWith('[')) {
-                    if (!arg.endsWith(']')) {
-                        throw new RuleError(`Invalid neighborhood: '${arg}'`);
-                    }
-                    arg = arg.slice(1, -1);
-                }
                 if (arg.startsWith('(')) {
-                    let list = parsePythonTuples(arg)[0];
+                    let list = parseJSONLoose(arg);
                     if (!list.every(x => x.length === 2)) {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
@@ -538,7 +586,7 @@ function parseTable(data: string): RuleTree {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
                 }
-                let newSym = symToPerms(SYMMETRIES[symString](nh), nh.length);
+                let newSym = SYMMETRIES[symString](nh);
                 let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
                 if (index === -1) {
                     sym = syms.length;
@@ -553,12 +601,12 @@ function parseTable(data: string): RuleTree {
                     if (arg.startsWith('[[')) {
                         arg = arg.slice(1);
                     }
-                    newSym = symToPerms(parsePythonTuples(arg), nh.length);
+                    newSym = parseJSONLoose(arg);
                 } else {
                     let lower = arg.toLowerCase();
                     if (lower in SYMMETRIES) {
                         symString = lower;
-                        newSym = symToPerms(SYMMETRIES[lower](nh), nh.length);
+                        newSym = SYMMETRIES[lower](nh);
                     } else {
                         throw new RuleError(`Invalid symmetry: '${arg}'`);
                     }
@@ -596,7 +644,7 @@ function parseTable(data: string): RuleTree {
     for (let {value, nh} of lines) {
         for (let section of value) {
             for (let x of section) {
-                if (typeof x == 'number' && x > states) {
+                if (typeof x === 'number' && x > states) {
                     states = x;
                 }
             }
@@ -609,6 +657,7 @@ function parseTable(data: string): RuleTree {
     }
     states++;
     let trs: number[][] = [];
+    let done = new Set<string>();
     for (let {value: line, nh, sym: symNum} of lines) {
         let data: number[][] = [];
         if (line.length === 0) {
@@ -654,49 +703,48 @@ function parseTable(data: string): RuleTree {
                 }
             }
         }
-        if (!(nh.length === totalNh.length && totalNh.every(([x, y], i) => x === nh[i][0] && y === nh[i][1]))) {
-            let remap = [];
-            for (let [x, y] of totalNh) {
-                remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
-            }
-            data = data.map((tr, i) => {
-                if (i === data.length - 1) {
-                    return tr;
-                }
-                let out: number[] = [];
-                for (let i of remap) {
-                    if (i === -1) {
-                        out.push(-1);
-                    } else {
-                        out.push(tr[i]);
-                    }
-                }
-                return out;
-            });
+        let remap: number[] = [];
+        for (let [x, y] of totalNh) {
+            remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
         }
         let sym = syms[symNum];
-        let done = new Set(data.map(x => x.join(' ')));
         for (let tr of data) {
-            trs.push(tr);
-            let prevNew: number[][] = [tr];
-            while (prevNew.length > 0) {
-                let newNew: number[][] = [];
-                for (let tr of prevNew) {
-                    for (let gen of sym) {
-                        let tr2 = gen.map(i => tr[i]);
-                        let str = tr2.join(' ');
-                        if (!done.has(str)) {
-                            done.add(str);
-                            trs.push(tr);
-                            newNew.push(tr);
-                        }
+            let tr2: number[] = [];
+            for (let i of remap) {
+                if (i === -1) {
+                    tr2.push(-1);
+                } else {
+                    tr2.push(tr[i]);
+                }
+            }
+            tr2.push(tr[tr.length - 1]);
+            let str = tr2.join(' ');
+            if (!done.has(str)) {
+                done.add(str);
+                trs.push(tr2);
+            }
+            for (let remap2 of sym) {
+                let tr3: number[] = [];
+                for (let i of remap2) {
+                    tr3.push(tr[i]);
+                }
+                let tr4: number[] = [];
+                for (let i of remap) {
+                    if (i === -1) {
+                        tr4.push(-1);
+                    } else {
+                        tr4.push(tr3[i]);
                     }
                 }
-                prevNew = newNew;
+                tr4.push(tr[tr.length - 1]);
+                let str2 = tr4.join(' ');
+                if (!done.has(str2)) {
+                    done.add(str2);
+                    trs.push(tr4);
+                }
             }
         }
     }
-    console.log(trs);
     return {
         states,
         neighborhood: new Int8Array(totalNh.flat()),
@@ -842,8 +890,8 @@ export class TreePattern extends CoordPattern {
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
                 let value: Tree | number = this.tree;
-                for (let i = 0; i < this.nh.length - 1; i++) {
-                    value = value[this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i])) ?? 0];
+                for (let i = 0; i < this.nh.length; i += 2) {
+                    value = value[this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i + 1])) ?? 0];
                     if (typeof value === 'number') {
                         break;
                     }
