@@ -3,7 +3,7 @@ export class RuleError extends Error {
     name: 'RuleError' = 'RuleError';
 }
 
-export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2v' | 'D2h' | 'D2x' | 'D4+' | 'D4x' | 'D8';
+export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2|' | 'D2-' | 'D2x' | 'D4+' | 'D4x' | 'D8';
 
 const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const RLE_PREFIXES = 'pqrstuvwxyz';
@@ -32,8 +32,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C4',
-        'D2h': 'D2h',
-        'D2v': 'D2v',
+        'D2-': 'D2-',
+        'D2|': 'D2|',
         'D2x': 'D2x',
         'D4+': 'D4+',
         'D4x': 'D4x',
@@ -43,8 +43,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'C2',
         'C2': 'C2',
         'C4': 'C4',
-        'D2h': 'D4+',
-        'D2v': 'D4+',
+        'D2-': 'D4+',
+        'D2|': 'D4+',
         'D2x': 'D4x',
         'D4+': 'D4+',
         'D4x': 'D4x',
@@ -54,30 +54,30 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'C4',
         'C2': 'C4',
         'C4': 'C4',
-        'D2h': 'D8',
-        'D2v': 'D8',
+        'D2-': 'D8',
+        'D2|': 'D8',
         'D2x': 'D8',
         'D4+': 'D8',
         'D4x': 'D8',
         'D8': 'D8',
     },
-    'D2h': {
-        'C1': 'D2h',
+    'D2-': {
+        'C1': 'D2-',
         'C2': 'D4+',
         'C4': 'D8',
-        'D2h': 'D2h',
-        'D2v': 'D4+',
+        'D2-': 'D2-',
+        'D2|': 'D4+',
         'D2x': 'D8',
         'D4+': 'D4+',
         'D4x': 'D8',
         'D8': 'D8',
     },
-    'D2v': {
-        'C1': 'D2v',
+    'D2|': {
+        'C1': 'D2|',
         'C2': 'D4+',
         'C4': 'D8',
-        'D2h': 'D4+',
-        'D2v': 'D2v',
+        'D2-': 'D4+',
+        'D2|': 'D2|',
         'D2x': 'D8',
         'D4+': 'D4+',
         'D4x': 'D8',
@@ -87,8 +87,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'D2x',
         'C2': 'D4x',
         'C4': 'D8',
-        'D2h': 'D8',
-        'D2v': 'D8',
+        'D2-': 'D8',
+        'D2|': 'D8',
         'D2x': 'D2x',
         'D4+': 'D8',
         'D4x': 'D4x',
@@ -98,8 +98,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'D4+',
         'C2': 'D4+',
         'C4': 'D8',
-        'D2h': 'D4+',
-        'D2v': 'D4+',
+        'D2-': 'D4+',
+        'D2|': 'D4+',
         'D2x': 'D8',
         'D4+': 'D4+',
         'D4x': 'D8',
@@ -109,8 +109,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'D4x',
         'C2': 'D4x',
         'C4': 'D8',
-        'D2h': 'D8',
-        'D2v': 'D8',
+        'D2-': 'D8',
+        'D2|': 'D8',
         'D2x': 'D4x',
         'D4+': 'D8',
         'D4x': 'D8',
@@ -120,8 +120,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
         'C1': 'D8',
         'C2': 'D8',
         'C4': 'D8',
-        'D2h': 'D8',
-        'D2v': 'D8',
+        'D2-': 'D8',
+        'D2|': 'D8',
         'D2x': 'D8',
         'D4+': 'D8',
         'D4x': 'D8',
@@ -134,8 +134,8 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C1',
         'C4': 'C4',
-        'D2h': 'C1',
-        'D2v': 'C1',
+        'D2-': 'C1',
+        'D2|': 'C1',
         'D2x': 'C1',
         'D4+': 'C1',
         'D4x': 'C1',
@@ -145,8 +145,8 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C4',
-        'D2h': 'C1',
-        'D2v': 'C1',
+        'D2-': 'C1',
+        'D2|': 'C1',
         'D2x': 'C1',
         'D4+': 'C2',
         'D4x': 'C2',
@@ -156,41 +156,41 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C4',
-        'D2h': 'C1',
-        'D2v': 'C1',
+        'D2-': 'C1',
+        'D2|': 'C1',
         'D2x': 'C1',
         'D4+': 'C1',
         'D4x': 'C1',
         'D8': 'C4',
     },
-    'D2h': {
+    'D2-': {
         'C1': 'C1',
         'C2': 'C1',
         'C4': 'C1',
-        'D2h': 'D2h',
-        'D2v': 'C1',
+        'D2-': 'D2-',
+        'D2|': 'C1',
         'D2x': 'C1',
-        'D4+': 'D2h',
+        'D4+': 'D2-',
         'D4x': 'C1',
-        'D8': 'D2h',
+        'D8': 'D2-',
     },
-    'D2v': {
+    'D2|': {
         'C1': 'C1',
         'C2': 'C1',
         'C4': 'C1',
-        'D2h': 'C1',
-        'D2v': 'D2v',
+        'D2-': 'C1',
+        'D2|': 'D2|',
         'D2x': 'C1',
-        'D4+': 'D2v',
+        'D4+': 'D2|',
         'D4x': 'C1',
-        'D8': 'D2v',
+        'D8': 'D2|',
     },
     'D2x': {
         'C1': 'C1',
         'C2': 'C1',
         'C4': 'C1',
-        'D2h': 'C1',
-        'D2v': 'C1',
+        'D2-': 'C1',
+        'D2|': 'C1',
         'D2x': 'D2x',
         'D4+': 'C1',
         'D4x': 'D2x',
@@ -200,8 +200,8 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C2',
-        'D2h': 'D2h',
-        'D2v': 'D2v',
+        'D2-': 'D2-',
+        'D2|': 'D2|',
         'D2x': 'C1',
         'D4+': 'D4+',
         'D4x': 'C2',
@@ -211,8 +211,8 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C2',
-        'D2h': 'C1',
-        'D2v': 'C1',
+        'D2-': 'C1',
+        'D2|': 'C1',
         'D2x': 'D2x',
         'D4+': 'C2',
         'D4x': 'D4x',
@@ -222,8 +222,8 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
         'C1': 'C1',
         'C2': 'C2',
         'C4': 'C4',
-        'D2h': 'D2h',
-        'D2v': 'D2v',
+        'D2-': 'D2-',
+        'D2|': 'D2|',
         'D2x': 'D2x',
         'D4+': 'D4+',
         'D4x': 'D4x',
@@ -260,9 +260,9 @@ export function symmetryFromBases(C2: boolean, C4: boolean, D2h: boolean, D2v: b
         } else if (D2h && D2v) {
             return 'D4+';
         } else if (D2h) {
-            return 'D2h';
+            return 'D2-';
         } else {
-            return 'D2v';
+            return 'D2|';
         }
     } else {
         return 'C1';
@@ -864,9 +864,9 @@ export abstract class DataPattern implements Pattern {
                     for (let i = 0; i < 4; i++) {
                         codes.push(q.rotateLeft().toApgcode());
                     }
-                } else if (this.ruleSymmetry === 'D2h') {
+                } else if (this.ruleSymmetry === 'D2-') {
                     codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2v') {
+                } else if (this.ruleSymmetry === 'D2|') {
                     codes.push(q.flipVertical().toApgcode());
                 } else if (this.ruleSymmetry === 'D2x') {
                     codes.push(q.flipDiagonal().toApgcode());
@@ -1467,9 +1467,9 @@ export abstract class CoordPattern implements Pattern {
                     for (let i = 0; i < 4; i++) {
                         codes.push(q.rotateLeft().toApgcode());
                     }
-                } else if (this.ruleSymmetry === 'D2h') {
+                } else if (this.ruleSymmetry === 'D2-') {
                     codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2v') {
+                } else if (this.ruleSymmetry === 'D2|') {
                     codes.push(q.flipVertical().toApgcode());
                 } else if (this.ruleSymmetry === 'D2x') {
                     codes.push(q.flipDiagonal().toApgcode());

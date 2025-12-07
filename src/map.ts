@@ -295,8 +295,8 @@ export function unparseMAP(trs: Uint8Array): string {
 export function findSymmetry(trs: Uint8Array): RuleSymmetry {
     let C2 = true;
     let C4 = true;
-    let D2v = true;
     let D2h = true;
+    let D2v = true;
     let D2x = true;
     for (let i = 0; i < 512; i++) {
         let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
@@ -316,13 +316,13 @@ export function findSymmetry(trs: Uint8Array): RuleSymmetry {
         }
     }
     for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
             D2h = false;
             break;
         }
     }
     for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
             D2v = false;
             break;
         }

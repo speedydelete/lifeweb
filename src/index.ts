@@ -719,9 +719,3 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
         samples,
     };
 }
-
-
-import {fullIdentify} from './identify.js';
-let p = parse(`x = 17, y = 1, rule = B3-r5-n/S23-k
-3o2b12o!`);
-console.log(Object.assign(fullIdentify(p, 1024), {phases: undefined, hashes: undefined, pops: undefined}));
