@@ -720,9 +720,6 @@ export function getDescription(type: Identified): string {
     } else {
         out = 'cannot identify';
     }
-    if (type.stabilizedAt > 0) {
-        out = 'Stabilizes into ' + out;
-    }
     return out;
 }
 

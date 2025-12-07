@@ -200,12 +200,23 @@ function symD16alt(n: [number, number][]): number[][][] {
     return [symC8(n)[0], symD2h(n)[0]];
 }
 
-function symPermute(nh: [number, number][]): [[number[]]] {
-    let out: number[] = [];
-    for (let i = 0; i < nh.length; i++) {
-        out.push(i);
+function permutations<T>(data: T[]): T[][] {
+    let out: T[][] = [];
+    for (let i = 0; i < data.length; i = i + 1) {
+        let rest = permutations(data.slice(0, i).concat(data.slice(i + 1)));
+        if (rest.length === 0) {
+            out.push([data[i]]);
+        } else {
+            for (let j = 0; j < rest.length; j = j + 1) {
+                out.push([data[i]].concat(rest[j]));
+            }
+        }
     }
-    return [[out]];
+    return out;
+}
+
+function symPermute(nh: [number, number][]): number[][][] {
+    return permutations(nh.map((_, i) => i)).map(x => [x]);
 }
 
 const SYMMETRIES: {[key: string]: (n: [number, number][]) => number[][][]} = {
@@ -665,11 +676,10 @@ function parseTable(data: string): RuleTree {
         }
         let sym = syms[symNum];
         let done = new Set(data.map(x => x.join(' ')));
-        // console.log(data);
         for (let tr of data) {
             trs.push(tr);
-            let prevNew: number[][] = [];
-            do {
+            let prevNew: number[][] = [tr];
+            while (prevNew.length > 0) {
                 let newNew: number[][] = [];
                 for (let tr of prevNew) {
                     for (let gen of sym) {
@@ -682,9 +692,8 @@ function parseTable(data: string): RuleTree {
                         }
                     }
                 }
-                console.log(newNew);
                 prevNew = newNew;
-            } while (prevNew.length > 0);
+            }
         }
     }
     console.log(trs);
