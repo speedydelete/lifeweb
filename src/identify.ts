@@ -99,11 +99,11 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         }
         apgcode = p.toCanonicalApgcode(type.period, prefix);
     } else if (type.linear) {
-        let diffs = type.pops.slice(0, -1).map((x, i) => type.pops[i + type.period] - x);
+        let diffs = type.pops.slice(type.stabilizedAt, -1).map((x, i) => type.pops[type.stabilizedAt + i + type.period] - x);
         let subperiod = -1;
         for (let i = 1; i < limit; i++) {
             let found = true;
-            for (let j = 0; j < diffs.length - j; j++) {
+            for (let j = 0; j < diffs.length; j++) {
                 if (diffs[j] !== diffs[j + i]) {
                     found = false;
                     break;
@@ -546,7 +546,9 @@ export interface LinearInfo {
 }
 
 export function classifyLinear(p: Pattern, type: PartialIdentified, maxPeriodMul: number): null | LinearInfo {
-    p = p.copy().run(type.stabilizedAt);
+    p = p.copy().run(type.stabilizedAt).shrinkToFit();
+    p.xOffset = 0;
+    p.yOffset = 0;
     let engine = p.copy();
     let engineData = engine.getData();
     let width = engine.width;

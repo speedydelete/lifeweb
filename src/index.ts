@@ -720,14 +720,8 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     };
 }
 
-// let p = createPattern(`@TABLE
-// a = {0, 1}
-// 0, 1, 1, 1, 0, 0, 0, 0, 0, 1
-// 1, 1, 1, a, 0, 0, 0, 0, 0, 1
-// 1, a, a, a, a, a, a, a, a, 0`);
-// p.ruleStr = 'B3/S23';
-// p.setData(new Uint8Array([0, 1, 0, 0, 0, 1, 1, 1, 1]), 3, 3);
-// console.log(p);
-// console.log(p.toRLE());
-// p.runGeneration();
-// console.log(p.toRLE());
+
+import {fullIdentify} from './identify.js';
+let p = parse(`x = 17, y = 1, rule = B3-r5-n/S23-k
+3o2b12o!`);
+console.log(Object.assign(fullIdentify(p, 1024), {phases: undefined, hashes: undefined, pops: undefined}));
