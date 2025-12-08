@@ -63,6 +63,9 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         ruleStr = raw;
     } else if (rule.startsWith('W')) {
         let num = parseInt(rule.slice(1));
+        if (Number.isNaN(num)) {
+            throw new RuleError('Invalid W rule');
+        }
         for (let i = 0; i < 512; i++) {
             trs[i | (1 << 4)] = 1;
         }
