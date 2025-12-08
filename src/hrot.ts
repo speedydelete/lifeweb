@@ -30,7 +30,7 @@ export function unparseHROTRanges(data: Uint8Array): string {
     for (let i = 0; i < data.length; i++) {
         if (data[i]) {
             if (start === null) {
-                start = data[i];
+                start = i;
             }
         } else {
             if (start !== null) {
@@ -41,6 +41,13 @@ export function unparseHROTRanges(data: Uint8Array): string {
                 }
                 start = null;
             }
+        }
+    }
+    if (start !== null) {
+        if (start === data.length - 1) {
+            out += start + ',';
+        } else {
+            out += start + '-' + (data.length - 1) + ',';
         }
     }
     return out.slice(0, -1);
@@ -199,7 +206,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             n2[r + 1][r + 1] = 1;
         }
     }
-    let length = (n2 ? n2.flat().reduce((x, y) => x + y) : r**2) + 1;
+    let length = (n2 ? n2.flat().reduce((x, y) => x + y) : (2*r + 1)**2 - 1) + 1;
     let outB = new Uint8Array(length);
     for (let value of b) {
         outB[value] = 1;
@@ -221,7 +228,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             ruleStr += n;
         }
     }
-    return {range: r, b: outB, s: outS, nh: n2 ? new Int8Array(n2.flat()) : n2, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
+    return {range: r, b: outB, s: outS, nh: n2 ? new Int8Array(n2.flat()) : null, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
 }
 
 export const HEX_CHARS = '0123456789abcdef';
@@ -285,7 +292,6 @@ export function parseCatagolueHROTRule(rule: string): string | {range: number, b
 
 export class HROTPattern extends CoordPattern {
 
-    range: number;
     b: Uint8Array;
     s: Uint8Array;
     nh: Int8Array | null;
@@ -294,8 +300,7 @@ export class HROTPattern extends CoordPattern {
     ruleSymmetry: RuleSymmetry;
 
     constructor(coords: Map<number, number>, range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(coords);
-        this.range = range;
+        super(coords, range);
         this.b = b;
         this.s = s;
         this.nh = nh;
@@ -403,7 +408,6 @@ export class HROTPattern extends CoordPattern {
 
 export class HROTB0Pattern extends CoordPattern {
 
-    range: number;
     evenB: Uint8Array;
     evenS: Uint8Array;
     oddB: Uint8Array;
@@ -414,8 +418,7 @@ export class HROTB0Pattern extends CoordPattern {
     ruleSymmetry: RuleSymmetry;
 
     constructor(coords: Map<number, number>, range: number, evenB: Uint8Array, evenS: Uint8Array, oddB: Uint8Array, oddS: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(coords);
-        this.range = range;
+        super(coords, range);
         this.evenB = evenB;
         this.evenS = evenS;
         this.oddB = oddB;
@@ -471,6 +474,13 @@ export class HROTB0Pattern extends CoordPattern {
                 let value = this.coords.get(key);
                 if (value === undefined) {
                     if (b[count]) {
+                        if (this.generation === 1) {
+                            if (x - BIAS === 0 && y - BIAS === 0) {
+                                alert(count);
+                            }
+                            // @ts-ignore
+                            document.getElementById('out').textContent += (x - BIAS) + ' ' + (y - BIAS) + '\n';
+                        }
                         out.set(key, 1);
                     }
                 } else if (value === 1) {

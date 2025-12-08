@@ -1,8 +1,10 @@
 
 import {stringMD5} from './md5.js';
-import {Pattern, RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
+import {RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {parseHROTRule, parseCatagolueHROTRule, HROTPattern, HROTB0Pattern} from './hrot.js';
+import {DataHistoryPattern, CoordHistoryPattern} from './history.js';
+import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
 import {getKnots} from './intsep.js';
@@ -11,8 +13,10 @@ import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 export * from './pattern.js';
 export * from './map.js';
 export * from './hrot.js';
-export * from './alternating.js';
+export * from './history.js';
 export * from './ruleloader.js';
+export * from './alternating.js';
+export * from './bounded.js';
 export * from './identify.js';
 export * from './intsep.js';
 export * from './search.js';
@@ -79,6 +83,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         let b = '';
         let s = '';
         let sections: string[];
+        let bs = false;
         if (rule.includes('/')) {
             sections = rule.split('/');
         } else if (rule.includes('_')) {
@@ -89,20 +94,27 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
                 index = rule.indexOf('S');
             }
             sections = [rule.slice(0, index), rule.slice(index)];
+            bs = true;
         } else {
             sections = [rule];
         }
         for (let i = 0; i < sections.length; i++) {
             let section = sections[i];
             if (section[0] === 'B' || section[0] === 'b') {
+                bs = true;
                 b = section.slice(1);
             } else if (section[0] === 'S' || section[0] === 's') {
+                bs = true;
                 s = section.slice(1);
             } else {
-                if (i === 0) {
-                    s = section;
-                } else if (i === 1) {
-                    b = section;
+                if (!bs) {
+                    if (i === 0) {
+                        s = section;
+                    } else if (i === 1) {
+                        b = section;
+                    } else {
+                        throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                    }
                 } else {
                     throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
                 }
@@ -249,6 +261,61 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
                 }
             }
             return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('History')) {
+        try {
+            let p = createPattern(rule.slice(0, -7), data, namedRules);
+            if (p.states !== 2) {
+                throw new RuleError('History is only supported for 2-state rules');
+            }
+            if (p instanceof CoordPattern) {
+                return new CoordHistoryPattern(p.coords, p.range, p);
+            } else {
+                return new DataHistoryPattern(data.height, data.width, data.data, p);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.includes(':')) {
+        try {
+            let parts = rule.split(':');
+            if (parts.length > 2) {
+                throw new RuleError('Only 1 bounded grid specifier allowed');
+            }
+            let p = createPattern(parts[0], data, namedRules, prevName);
+            let spec = parts[1];
+            let type = spec[0];
+            let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
+            if (Number.isNaN(x) || Number.isNaN(y)) {
+                throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
+            }
+            if (type === 'P') {
+                if (p instanceof CoordPattern) {
+                    return new FiniteCoordPattern(p.coords, p.range, p, x, y);
+                } else {
+                    return new FiniteDataPattern(data.height, data.width, data.data, p, x, y);
+                }
+            } else if (type === 'T') {
+                if (p instanceof CoordPattern) {
+                    return new TorusCoordPattern(p.coords, p.range, p, x, y);;
+                } else {
+                    return new TorusDataPattern(data.height, data.width, data.data, p, x, y);
+                }
+            } else {
+                throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
+            }
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);

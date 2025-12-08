@@ -467,7 +467,7 @@ export abstract class DataPattern implements Pattern {
     insertOr(p: Pattern, x: number = 0, y: number = 0): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             for (let x2 = 0; x2 < p.width; x2++) {
-                let value = p.get(x, y);
+                let value = p.get(x2, y2);
                 if (value) {
                     this.data[(y + y2) * this.width + x + x2] = value;
                 }
@@ -1092,6 +1092,8 @@ export abstract class DataPattern implements Pattern {
 
 export abstract class CoordPattern implements Pattern {
 
+    range: number;
+    nh?: Int8Array | null;
     coords: Map<number, number>;
     xOffset: number = 0;
     yOffset: number = 0;
@@ -1100,8 +1102,9 @@ export abstract class CoordPattern implements Pattern {
     abstract ruleStr: string;
     abstract ruleSymmetry: RuleSymmetry;
 
-    constructor(coords: Map<number, number>) {
+    constructor(coords: Map<number, number>, range: number) {
         this.coords = coords;
+        this.range = range;
     }
 
     getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {

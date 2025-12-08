@@ -363,7 +363,7 @@ function parseJSONLoose(data: string): number[][] {
     return out;
 }
 
-function parseTree(data: string, isXTree: boolean): RuleTree {
+function parseTree(data: string): RuleTree {
     let nh: [number, number][] = [];
     let nodes: Tree[] = [];
     let states = 0;
@@ -384,18 +384,6 @@ function parseTree(data: string, isXTree: boolean): RuleTree {
                     nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
                 }
             }
-        } else if (isXTree) {
-            nodes.push(line.split(' ').slice(1).map(x => {
-                if (x.startsWith('*')) {
-                    let value = parseInt(x.slice(1));
-                    if (value > states) {
-                        states = value;
-                    }
-                    return value;
-                } else {
-                    return nodes[parseInt(x)];
-                }
-            }));
         } else {
             let [depth, ...data] = line.split(' ').map(x => parseInt(x));
             if (depth === 1) {
@@ -628,7 +616,7 @@ function parseTable(data: string): RuleTree {
             name = name.trim();
             let bind = false;
             if (name.startsWith('var ')) {
-                bind = true;
+                // bind = true;
                 name = name.slice(4);
             }
             vars[name] = {bind, value: parseBraceList(value, vars)};
@@ -775,11 +763,13 @@ export function parseAtRule(rule: string): AtRule {
                 continue;
             }
             tree = parseTable(data);
-        } else if (section === '@TREE' || section === '@XTREE') {
+        } else if (section === '@TREE') {
             if (tree) {
                 continue;
             }
-            tree = parseTree(data, section === '@XTREE');
+            tree = parseTree(data);
+        } else if (section === '@XTREE') {
+            tree = JSON.parse(data);
         } else if (section ==='@NAMES') {
             out.names = {};
             for (let line of data.split('\n')) {
@@ -813,20 +803,6 @@ export function parseAtRule(rule: string): AtRule {
     return {...out, tree};
 }
 
-function treeToString(tree: Tree, depth: number): string {
-    let out = String(depth);
-    for (let elt of tree) {
-        if (typeof elt === 'number') {
-            if (depth === 1) {
-                out += ' *' + elt;
-            } else {
-
-            }
-        }
-    }
-    return out;
-}
-
 export function atRuleToString(rule: AtRule): string {
     let out = '';
     if (rule.name || rule.desc) {
@@ -839,13 +815,7 @@ export function atRuleToString(rule: AtRule): string {
             out += rule.desc + '\n';
         }
     }
-    let nh = rule.tree.neighborhood;
-    out += `@XTREE\nstates = ${rule.tree.states}\nneighborhood = `;
-    for (let i = 0; i < nh.length; i += 2) {
-        out += `(${nh[i]}, ${nh[i + 1]}) `;
-    }
-    out = out.slice(0, -1) + '\n';
-    out += `\n${treeToString(rule.tree.data, nh.length)}`;
+    out += `@XTREE\n${JSON.stringify(rule.tree)}\n`;
     if (rule.names) {
         out += `@NAMES\n${Object.entries(rule.names).map(x => x[0] + x[1]).join('\n')}\n`;
     }
@@ -862,7 +832,6 @@ export function atRuleToString(rule: AtRule): string {
 export class TreePattern extends CoordPattern {
     
     nh: Int8Array;
-    range: number;
     tree: Tree;
     states: number;
     ruleStr: string;
@@ -870,9 +839,8 @@ export class TreePattern extends CoordPattern {
     rule: AtRule;
 
     constructor(coords: Map<number, number>, nh: Int8Array, tree: Tree, states: number, ruleStr: string, rule: AtRule) {
-        super(coords);
+        super(coords, Math.max(...nh.map(Math.abs)));
         this.nh = nh;
-        this.range = Math.max(...nh.map(Math.abs));
         this.tree = tree;
         this.states = states;
         this.ruleStr = ruleStr;
