@@ -792,7 +792,7 @@ export function parseAtRule(rule: string): AtRule {
         } else if (section === '@COLORS') {
             out.colors = {};
             for (let line of data.split('\n')) {
-                let [state, r, g, b] = line.split(' ');
+                let [state, r, g, b] = line.split(' ').filter(x => x);
                 out.colors[parseInt(state)] = [parseInt(r), parseInt(g), parseInt(b)];
             }
         } else if (section === '@ICONS') {
