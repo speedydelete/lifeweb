@@ -109,7 +109,7 @@ async function check(change: string[]): Promise<void> {
         }
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
-    execSync(`./apgmera/apgluxe -n 1000 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
+    execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
     let files = await fs.readdir('.');
     let data: string | null = null;
     for (let file of files) {
