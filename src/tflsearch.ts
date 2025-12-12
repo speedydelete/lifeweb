@@ -148,6 +148,8 @@ async function check(change: string[]): Promise<void> {
             notable.push(apgcode);
         } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc') {
             notable.push(apgcode);
+        } else if (apgcode === 'PATHOLOGICAL') {
+            notable.push(apgcode);
         }
     }
     if (notable.length === 0) {
@@ -159,5 +161,9 @@ async function check(change: string[]): Promise<void> {
 
 
 for (let a of CHECK_TRS) {
-    await check([a]);
+    for (let b of CHECK_TRS) {
+        if (a !== b) {
+            await check([a, b]);
+        }
+    }
 }
