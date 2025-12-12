@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
 
+
 const BASE_B = ['3a', '3c', '3e', '3i', '3j', '3k', '3n', '3q', '3r', '3y'];
 const BASE_S = ['2a', '2c', '2e', '2k', '2i', '2n', '3a', '3c', '3e', '3i', '3j', '3k', '3n', '3q', '3r', '3y'];
 
@@ -24,6 +25,7 @@ const CHECK_TRS = [
     'S7c', 'S7e',
     'S8c',
 ];
+
 
 let soups = 0;
 
@@ -155,8 +157,7 @@ async function check(change: string[]): Promise<void> {
     }
 }
 
-await check(['B3n']);
 
-// for (let a of CHECK_TRS) {
-//     await check([a]);
-// }
+for (let a of CHECK_TRS) {
+    await check([a]);
+}
