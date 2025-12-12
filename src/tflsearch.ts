@@ -49,10 +49,10 @@ function createPattern(change: string[]): MAPPattern {
 function isExplosive(p: MAPPattern): boolean {
     p.run(256);
     let pops: number[] = [];
-    for (let i = 0; i < 5000; i++) {
+    for (let i = 0; i < 2500; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pop > 5000) {
+        if (pop > 2500) {
             return true;
         }
         if (pop === 0) {
