@@ -143,11 +143,11 @@ async function check(change: string[]): Promise<void> {
         if (prefix === 'zz') {
             notable.push(apgcode);
         } else if (prefix.startsWith('yl')) {
-            notable.push(prefix);
+            notable.push(apgcode);
         } else if (prefix.startsWith('xp') && parseInt(prefix.slice(2)) > 30) {
-            notable.push(prefix);
+            notable.push(apgcode);
         } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
-            notable.push(prefix);
+            notable.push(apgcode);
         }
     }
     if (notable.length === 0) {
