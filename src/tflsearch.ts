@@ -100,7 +100,7 @@ async function writeOut(data: string): Promise<void> {
 
 async function check(change: string[]): Promise<void> {
     let p = createPattern(change);
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 50; i++) {
         let {height, width, data} = await getHashsoup('k_tfltest_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
         soups++;
         let q = p.copy();
