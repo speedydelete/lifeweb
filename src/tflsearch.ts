@@ -49,10 +49,10 @@ function createPattern(change: string[]): MAPPattern {
 function isExplosive(p: MAPPattern): boolean {
     p.run(256);
     let pops: number[] = [];
-    for (let i = 0; i < 3500; i++) {
+    for (let i = 0; i < 4000; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pop > 3500) {
+        if (pop > 4000) {
             return true;
         }
         if (pop === 0) {
@@ -146,7 +146,7 @@ async function check(change: string[]): Promise<void> {
             notable.push(apgcode);
         } else if (prefix.startsWith('xp') && parseInt(prefix.slice(2)) > 30) {
             notable.push(apgcode);
-        } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
+        } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc') {
             notable.push(apgcode);
         }
     }
