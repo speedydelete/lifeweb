@@ -144,6 +144,7 @@ const KNOT_TYPE = 0xF0;
 const A3C = 0x10;
 const A3C_B2N = 1;
 const A3C_B2C = 2;
+const A3C_MERGE_ALL = 8;
 
 const A3Y = 0x20;
 const A3Y_B2C = 1;
@@ -1074,6 +1075,10 @@ export class INTSeparator extends MAPPattern {
                                     b = temp;
                                 }
                             }
+                        }
+                        if (value & A3C_MERGE_ALL) {
+                            reassignments.push([b, a]);
+                            reassignments.push([c, a]);
                         }
                         if (value & A3C_B2C) {
                             if (a === b) {

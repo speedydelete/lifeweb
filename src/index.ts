@@ -3,7 +3,7 @@ import {stringMD5} from './md5.js';
 import {RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
 import {parseHROTRule, parseCatagolueHROTRule, HROTPattern, HROTB0Pattern} from './hrot.js';
-import {DataHistoryPattern, CoordHistoryPattern} from './history.js';
+import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
@@ -13,7 +13,7 @@ import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 export * from './pattern.js';
 export * from './map.js';
 export * from './hrot.js';
-export * from './history.js';
+export * from './super.js';
 export * from './ruleloader.js';
 export * from './alternating.js';
 export * from './bounded.js';
@@ -86,8 +86,14 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         let bs = false;
         if (rule.includes('/')) {
             sections = rule.split('/');
+            if (sections.length > 2) {
+                throw new RuleError('More than 1 slash provided');
+            }
         } else if (rule.includes('_')) {
             sections = rule.split('_');
+            if (sections.length > 2) {
+                throw new RuleError('More than 1 underscore provided');
+            }
         } else if (rule.includes('S') || rule.includes('s')) {
             let index = rule.indexOf('s');
             if (index === -1) {
@@ -275,10 +281,54 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             if (p.states !== 2) {
                 throw new RuleError('History is only supported for 2-state rules');
             }
-            if (p instanceof CoordPattern) {
+            if (p instanceof DataPattern) {
+                return new DataHistoryPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
                 return new CoordHistoryPattern(p.coords, p.range, p);
             } else {
-                return new DataHistoryPattern(data.height, data.width, data.data, p);
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Super')) {
+        try {
+            let p = createPattern(rule.slice(0, -5), data, namedRules);
+            if (p.states !== 2) {
+                throw new RuleError('Super is only supported for 2-state rules');
+            }
+            if (p instanceof DataPattern) {
+                return new DataSuperPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
+                return new CoordSuperPattern(p.coords, p.range, p);
+            } else {
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Investigator')) {
+        try {
+            let p = createPattern(rule.slice(0, -12), data, namedRules);
+            if (p.states !== 2) {
+                throw new RuleError('Investigator is only supported for 2-state rules');
+            }
+            if (p instanceof DataPattern) {
+                return new InvestigatorPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
+                throw new RuleError(`Investigator is not supported for CoordPatterns`);
+            } else {
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
             }
         } catch (error) {
             if (error instanceof RuleError) {

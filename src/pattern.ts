@@ -294,6 +294,7 @@ export interface Pattern {
     copy(): Pattern;
     clearedCopy(): Pattern;
     ensure(x: number, y: number): this;
+    offsetBy(x: number, y: number): this;
     get(x: number, y: number): number;
     set(x: number, y: number, value: number): this;
     clear(): this;
@@ -415,6 +416,25 @@ export abstract class DataPattern implements Pattern {
             this.yOffset -= expandUp;
             this.data = out;
         }
+        return this;
+    }
+
+    offsetBy(x: number, y: number): this {
+        let newSize = (this.height + y) * (this.width + x);
+        let out = new Uint8Array(newSize);
+        let i = 0;
+        let loc = y * (this.width + x) + x;
+        for (let row = 0; row < this.height; row++) {
+            out.set(this.data.slice(i, i + this.width), loc);
+            loc += this.width + x;
+            i += this.width;
+        }
+        this.height += x;
+        this.width += y;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset += x;
+        this.yOffset += y;
         return this;
     }
 
@@ -846,7 +866,6 @@ export abstract class DataPattern implements Pattern {
                 p.runGeneration();
                 p.shrinkToFit();
             }
-            let prev = codes.length;
             codes.push(p.toApgcode());
             if (this.ruleSymmetry !== 'C1') {
                 let q = p.copy();
@@ -1174,6 +1193,10 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
+    offsetBy(x: number, y: number): this {
+        return this;
+    }
+
     get(x: number, y: number): number {
         return this.coords.get((x + BIAS) * WIDTH + (y + BIAS)) ?? 0;
     }
@@ -1308,6 +1331,26 @@ export abstract class CoordPattern implements Pattern {
     }
 
     flipHorizontal(): this {
+        let maxX = -Infinity;
+        for (let key of this.coords.keys()) {
+            let x = Math.floor(key / WIDTH);
+            if (x > maxX) {
+                maxX = x;
+            }
+        }
+        maxX *= WIDTH;
+        let out = new Map<number, number>();
+        for (let [key, value] of this.coords) {
+            let x = Math.floor(key / WIDTH) * WIDTH;
+            key = (key - x) + (maxX - x);
+            out.set(key, value);
+        }
+        this.coords = out;
+        return this;
+    }
+
+
+    flipVertical(): this {
         if (this.coords.size === 0) {
             return this;
         }
@@ -1322,25 +1365,6 @@ export abstract class CoordPattern implements Pattern {
         for (let [key, value] of this.coords) {
             let y = key & (WIDTH - 1);
             key = (key - y) + (maxY - y);
-            out.set(key, value);
-        }
-        this.coords = out;
-        return this;
-    }
-
-    flipVertical(): this {
-        let maxX = -Infinity;
-        for (let key of this.coords.keys()) {
-            let x = Math.floor(key / WIDTH);
-            if (x > maxX) {
-                maxX = x;
-            }
-        }
-        maxX *= WIDTH;
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let x = Math.floor(key / WIDTH) * WIDTH;
-            key = (key - x) + (maxX - x);
             out.set(key, value);
         }
         this.coords = out;
@@ -1452,7 +1476,6 @@ export abstract class CoordPattern implements Pattern {
                 p.runGeneration();
                 p.shrinkToFit();
             }
-            let prev = codes.length;
             codes.push(p.toApgcode());
             if (this.ruleSymmetry !== 'C1') {
                 let q = p.copy();
