@@ -47,10 +47,10 @@ function createPattern(change: string[]): MAPPattern {
 function isExplosive(p: MAPPattern): boolean {
     p.run(256);
     let pops: number[] = [];
-    for (let i = 0; i < 2500; i++) {
+    for (let i = 0; i < 5000; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pop > 2500) {
+        if (pop > 5000) {
             return true;
         }
         if (pop === 0) {
@@ -109,7 +109,7 @@ async function check(change: string[]): Promise<void> {
         }
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
-    execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
+    execSync(`./apgmera/apgluxe -n 300 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
     let files = await fs.readdir('.');
     let data: string | null = null;
     for (let file of files) {
@@ -140,11 +140,11 @@ async function check(change: string[]): Promise<void> {
         let prefix = apgcode.split('_')[0];
         if (prefix === 'zz') {
             notable.push(apgcode);
-        } else if (prefix === 'yl') {
+        } else if (prefix.startsWith('yl')) {
             notable.push(prefix);
-        } else if (prefix === 'xp' && parseInt(prefix.slice(2)) > 30) {
+        } else if (prefix.startsWith('xp') && parseInt(prefix.slice(2)) > 30) {
             notable.push(prefix);
-        } else if (prefix === 'xq' && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
+        } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc' && apgcode !== 'xq4_27dee6' && apgcode !== 'xq4_27deee6') {
             notable.push(prefix);
         }
     }
@@ -155,6 +155,8 @@ async function check(change: string[]): Promise<void> {
     }
 }
 
-for (let a of CHECK_TRS) {
-    await check([a]);
-}
+await check(['B3n']);
+
+// for (let a of CHECK_TRS) {
+//     await check([a]);
+// }
