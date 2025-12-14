@@ -183,6 +183,7 @@ async function check(base: string, change: string[]): Promise<void> {
     for (let line of lines) {
         if (line.startsWith('@CENSUS')) {
             found = true;
+            continue;
         } else if (!found) {
             continue;
         } else if (line === '@SAMPLE_SOUPIDS') {
