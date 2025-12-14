@@ -4,9 +4,6 @@ import {execSync} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
 
 
-const BASE_B = ['3a', '3c', '3e', '3i', '3j', '3k', '3n', '3q', '3r', '3y'];
-const BASE_S = ['2a', '2c', '2e', '2k', '2i', '2n', '3a', '3c', '3e', '3i', '3j', '3k', '3n', '3q', '3r', '3y'];
-
 const CHECK_TRS = [
     'B2c', 'B2e', 'B2i', 'B2k', 'B2n',
     'B3a', 'B3c', 'B3e', 'B3i', 'B3j', 'B3k', 'B3n', 'B3q', 'B3r', 'B3y',
@@ -78,7 +75,7 @@ function createPattern(base: string, change: string[]): MAPPattern {
     return new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
 }
 
-function isExplosive(p: MAPPattern): 'yes' | 'no' | 'died' {
+function isExplosive(p: MAPPattern): 'yes' | number | 'died' | 'linear' {
     p.run(30);
     let pops: number[] = [];
     for (let i = 0; i < 4000; i++) {
@@ -99,7 +96,7 @@ function isExplosive(p: MAPPattern): 'yes' | 'no' | 'died' {
                 }
             }
             if (found) {
-                return 'no';
+                return period;
             }
         }
         if (i > 500 && i % 50 === 0) {
@@ -113,7 +110,7 @@ function isExplosive(p: MAPPattern): 'yes' | 'no' | 'died' {
                     }
                 }
                 if (found) {
-                    return 'no';
+                    return 'linear';
                 }
             }
         }
@@ -122,33 +119,24 @@ function isExplosive(p: MAPPattern): 'yes' | 'no' | 'died' {
     return 'yes';
 }
 
-let out = ``;
+let out = (await fs.readFile('out3.txt')).toString();
 
 async function writeOut(data: string): Promise<void> {
     console.log(data);
     out += data + '\n';
-    await fs.writeFile('out2.txt', out);
+    await fs.writeFile('out3.txt', out);
 }
-
-let start = 'B3/S';
-let startFound = false;
 
 let done = new Set(out.split('\n').map(x => x.trim()).filter(x => x.length > 0).map(x => x.split(':')[0]));
 
 async function check(base: string, change: string[]): Promise<void> {
     let p = createPattern(base, change);
-    if (!startFound) {
-        if (p.ruleStr === start) {
-            startFound = true;
-        } else {
-            return;
-        }
-    }
     if (done.has(p.ruleStr)) {
         return;
     }
     done.add(p.ruleStr);
     let allDied = true;
+    let interesting = false;
     for (let i = 0; i < 50; i++) {
         let {height, width, data} = await getHashsoup('k_tfltest_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
         soups++;
@@ -158,16 +146,25 @@ async function check(base: string, change: string[]): Promise<void> {
         if (e === 'yes') {
             await writeOut(`${p.ruleStr}: explosive (${i + 1})`);
             return;
-        } else if (allDied && e === 'no') {
+        } else if (typeof e === 'number') {
+            if (e > 1) {
+                interesting = true;
+            }
+            allDied = false;
+        } else if (e === 'linear') {
+            interesting = true;
             allDied = false;
         }
     }
     if (allDied) {
         await writeOut(`${p.ruleStr}: no objects`);
         return;
+    } else if (!interesting) {
+        await writeOut(`${p.ruleStr}: not interesting`);
+        return;
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
-    execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
+    execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1 -v 0`, {stdio: 'inherit'});
     let files = await fs.readdir('.');
     let data: string | null = null;
     for (let file of files) {
@@ -184,7 +181,7 @@ async function check(base: string, change: string[]): Promise<void> {
     let found = false;
     let notable: string[] = [];
     for (let line of lines) {
-        if (line === '@CENSUS TABLE') {
+        if (line.startsWith('@CENSUS')) {
             found = true;
         } else if (!found) {
             continue;
@@ -196,15 +193,13 @@ async function check(base: string, change: string[]): Promise<void> {
             continue;
         }
         let prefix = apgcode.split('_')[0];
-        if (prefix === 'zz') {
-            notable.push(apgcode);
-        } else if (prefix.startsWith('yl')) {
-            notable.push(apgcode);
-        } else if (prefix.startsWith('xp') && parseInt(prefix.slice(2)) > 30) {
-            notable.push(apgcode);
-        } else if (prefix.startsWith('xq') && apgcode !== 'xq4_153' && apgcode !== 'xq4_6frc') {
-            notable.push(apgcode);
-        } else if (apgcode === 'PATHOLOGICAL') {
+        if (prefix.startsWith('xs')) {
+            continue;
+        } else if (prefix.startsWith('xp')) {
+            if (parseInt(prefix.slice(2)) > 4) {
+                notable.push(apgcode);
+            }
+        } else {
             notable.push(apgcode);
         }
     }
