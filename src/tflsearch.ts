@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
+import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
 
 
 const BASE_B = ['3a', '3c', '3e', '3i', '3j', '3k', '3n', '3q', '3r', '3y'];
@@ -26,12 +26,44 @@ const CHECK_TRS = [
     'S8c',
 ];
 
+const RULES: string[] = [];
+for (let b4 of ['', '4']) {
+    for (let b5 of ['', '5']) {
+        for (let b6 of ['', '6']) {
+            for (let b7 of ['', '7']) {
+                for (let b8 of ['', '8']) {
+                    for (let s0 of ['', '0']) {
+                        for (let s1 of ['', '1']) {
+                            for (let s2 of ['', '2']) {
+                                for (let s3 of ['', '3']) {
+                                    for (let s4 of ['', '4']) {
+                                        for (let s5 of ['', '5']) {
+                                            for (let s6 of ['', '6']) {
+                                                for (let s7 of ['', '7']) {
+                                                    for (let s8 of ['', '8']) {
+                                                        RULES.push('B3' + b4 + b5 + b6 + b7 + b8 + '/S' + s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 let soups = 0;
 
-function createPattern(change: string[]): MAPPattern {
-    let bTrs = BASE_B.slice();
-    let sTrs = BASE_S.slice();
+function createPattern(base: string, change: string[]): MAPPattern {
+    let [baseB, baseS] = base.split('/').map(x => x.slice(1));
+    let bTrs = parseTransitions(baseB, VALID_TRANSITIONS);
+    let sTrs = parseTransitions(baseS, VALID_TRANSITIONS);
     for (let tr of change) {
         let trs = tr.startsWith('B') ? bTrs : sTrs;
         tr = tr.slice(1);
@@ -46,17 +78,17 @@ function createPattern(change: string[]): MAPPattern {
     return new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
 }
 
-function isExplosive(p: MAPPattern): boolean {
-    p.run(256);
+function isExplosive(p: MAPPattern): 'yes' | 'no' | 'died' {
+    p.run(30);
     let pops: number[] = [];
     for (let i = 0; i < 4000; i++) {
         p.runGeneration();
         let pop = p.population;
         if (pop > 4000) {
-            return true;
+            return 'yes';
         }
         if (pop === 0) {
-            return false;
+            return 'died';
         }
         for (let period = 1; period < Math.floor(pops.length / 15); period++) {
             let found = true;
@@ -67,7 +99,7 @@ function isExplosive(p: MAPPattern): boolean {
                 }
             }
             if (found) {
-                return false;
+                return 'no';
             }
         }
         if (i > 500 && i % 50 === 0) {
@@ -81,34 +113,58 @@ function isExplosive(p: MAPPattern): boolean {
                     }
                 }
                 if (found) {
-                    return false;
+                    return 'no';
                 }
             }
         }
         pops.push(pop);
     }
-    return true;
+    return 'yes';
 }
 
-let out = '';
+let out = ``;
 
 async function writeOut(data: string): Promise<void> {
     console.log(data);
     out += data + '\n';
-    await fs.writeFile('out.txt', out);
+    await fs.writeFile('out2.txt', out);
 }
 
-async function check(change: string[]): Promise<void> {
-    let p = createPattern(change);
+let start = 'B3/S';
+let startFound = false;
+
+let done = new Set(out.split('\n').map(x => x.trim()).filter(x => x.length > 0).map(x => x.split(':')[0]));
+
+async function check(base: string, change: string[]): Promise<void> {
+    let p = createPattern(base, change);
+    if (!startFound) {
+        if (p.ruleStr === start) {
+            startFound = true;
+        } else {
+            return;
+        }
+    }
+    if (done.has(p.ruleStr)) {
+        return;
+    }
+    done.add(p.ruleStr);
+    let allDied = true;
     for (let i = 0; i < 50; i++) {
         let {height, width, data} = await getHashsoup('k_tfltest_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
         soups++;
         let q = p.copy();
         q.setData(data, height, width);
-        if (isExplosive(q)) {
+        let e = isExplosive(q);
+        if (e === 'yes') {
             await writeOut(`${p.ruleStr}: explosive (${i + 1})`);
             return;
+        } else if (allDied && e === 'no') {
+            allDied = false;
         }
+    }
+    if (allDied) {
+        await writeOut(`${p.ruleStr}: no objects`);
+        return;
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
     execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1`, {stdio: 'inherit'});
@@ -160,10 +216,17 @@ async function check(change: string[]): Promise<void> {
 }
 
 
-for (let a of CHECK_TRS) {
-    for (let b of CHECK_TRS) {
-        if (a !== b) {
-            await check([a, b]);
-        }
+// for (let a of CHECK_TRS) {
+//     for (let b of CHECK_TRS) {
+//         if (CHECK_TRS.indexOf(a) < CHECK_TRS.indexOf(b)) {
+//             await check('B3/S23', [a, b]);
+//         }
+//     }
+// }
+
+for (let rule of RULES) {
+    await check(rule, []);
+    for (let tr of CHECK_TRS) {
+        await check(rule, [tr]);
     }
 }
