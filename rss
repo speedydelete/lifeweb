@@ -1,5 +1,11 @@
 #!/bin/sh
 
-if ! [ -d "$DIR" ]; then
+if ! [ -d "node_modules" ]; then
+    ./install
+fi
+
+if ! [ -d "apgmera" ]; then
     git clone https://gitlab.com/apgoucher/apgmera
-else
+fi
+
+./lib/rss.js $@
