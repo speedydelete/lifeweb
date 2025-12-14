@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if ! [ -d "$DIR" ]; then
+    git clone https://gitlab.com/apgoucher/apgmera
+else

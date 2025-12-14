@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if ! [ command -v your_command >/dev/null 2>&1; ] then
+    echo "Cannot find Node"
+    read -p "Would you like to install Node (Warning: this will modify PATH and .bashrc)? (y/n): " -n 1 confirmation
+    echo ""
+    if [[ "$confirmation" =~ ^[Yy]$ ]]; then
+        wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+        ~/.nvm/nvm.sh install node
+        ~/.nvm/nvm.sh use node
+    else
+        exit 1
+    fi
+else
+
+npm install
+npx tsc

@@ -10,5 +10,5 @@
         "sourceMap": true,
         "declaration": true
     },
-    "files": ["./src/index.ts", "./src/tflsearch.ts", "./src/syntheses.ts"]
+    "files": ["./src/index.ts", "./src/tflsearch.ts", "./src/syntheses.ts", "src/rss.ts"]
 }
