@@ -121,10 +121,16 @@ function isExplosive(p: MAPPattern): 'yes' | number | 'died' | 'linear' {
 
 let out = (await fs.readFile('out3.txt')).toString();
 
+let lastUpdate = 0;
+
 async function writeOut(data: string): Promise<void> {
     console.log(data);
     out += data + '\n';
-    await fs.writeFile('out3.txt', out);
+    let now = performance.now();
+    if (lastUpdate === 0 || (now - lastUpdate) > 3000) {
+        await fs.writeFile('out3.txt', out);
+        lastUpdate = now;
+    }
 }
 
 let done = new Set(out.split('\n').map(x => x.trim()).filter(x => x.length > 0).map(x => x.split(':')[0]));
