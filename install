@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-if ! [ command -v your_command >/dev/null 2>&1; ] then
+if ! command -v node >/dev/null 2>&1; then
     echo "Cannot find Node"
     read -p "Would you like to install Node (Warning: this will modify PATH and .bashrc)? (y/n): " -n 1 confirmation
     echo ""
