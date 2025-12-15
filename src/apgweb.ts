@@ -13,8 +13,8 @@ if (Number.isNaN(soups)) {
     console.log('Invalid soups value');
     process.exit();
 }
-let seed = undefined;
-let key = undefined;
+let seed: string | undefined = undefined;
+let key: string | undefined = undefined;
 
 for (let i = 5; i < process.argv.length; i++) {
     let arg = process.argv[i];
