@@ -59,7 +59,7 @@ for (let line of configText.split('\n')) {
             config[key as Key] = Number(value);
         } else if (type === 'boolean') {
             // @ts-ignore
-            config[key as Key] = Boolean(value);
+            config[key as Key] = value === 'true' ? true : false;
         } else {
             // @ts-ignore
             config[key as Key] = value;
