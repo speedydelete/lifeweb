@@ -1,6 +1,5 @@
-#!/usr/bin/env node
 
-import {soupSearch} from './lib/index.js';
+import {soupSearch} from './index.js';
 
 if (process.argv.length < 3) {
     console.log(`Usage: apgweb.mjs <rule> <symmetry> <num_soups> [options]`);
