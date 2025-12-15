@@ -1,19 +1,91 @@
 
-const CHECK_TRS = [
-    'B2c', 'B2e', 'B2i', 'B2k', 'B2n',
-    'B3a', 'B3c', 'B3e', 'B3i', 'B3j', 'B3k', 'B3n', 'B3q', 'B3r', 'B3y',
-    'B4a', 'B4c', 'B4e', 'B4i', 'B4j', 'B4k', 'B4n', 'B4q', 'B4r', 'B4t', 'B4w', 'B4y', 'B4z',
-    'B5a', 'B5c', 'B5e', 'B5i', 'B5j', 'B5k', 'B5n', 'B5q', 'B5r', 'B5y',
-    'B6a', 'B6c', 'B6e', 'B6i', 'B6k', 'B6n',
-    'B7c', 'B7e',
-    'B8c',
-    'S0c',
-    'S1c', 'S1e',
-    'S2a', 'S2c', 'S2e', 'S2i', 'S2k', 'S2n',
-    'S3a', 'S3c', 'S3e', 'S3i', 'S3j', 'S3k', 'S3n', 'S3q', 'S3r', 'S3y',
-    'S4a', 'S4c', 'S4e', 'S4i', 'S4j', 'S4k', 'S4n', 'S4q', 'S4r', 'S4t', 'S4w', 'S4y', 'S4z',
-    'S5a', 'S5c', 'S5e', 'S5i', 'S5j', 'S5k', 'S5n', 'S5q', 'S5r', 'S5y',
-    'S6a', 'S6c', 'S6e', 'S6i', 'S6k', 'S6n',
-    'S7c', 'S7e',
-    'S8c',
-];
+import * as fs from 'node:fs/promises';
+
+
+const LINK_TEXT = `For more information, see <link>.`;
+const HELP_TEXT = `Usage: ./rss <input file path> <output file path>\n${LINK_TEXT}`;
+
+if (!process.argv[1] || process.argv[1] === '-h') {
+    console.log('Error: Missing input file\n' + HELP_TEXT);
+    process.exit(1);
+}
+if (!process.argv[2]) {
+    console.log('Error: Missing output file\n' + HELP_TEXT);
+    process.exit(1);
+}
+
+const KEY_TYPES = {
+    min: 'string',
+    max: 'string',
+    rule: 'string',
+    ot: 'boolean',
+    transitions_from: 'number',
+    soups: 'number',
+    timeout: 'number',
+    filter: 'string',
+    interesting: 'string',
+    check_explosive: 'number',
+    maxpop: 'number',
+    maxgen: 'number',
+    show_apgsearch_output: 'boolean',
+    show_estimated_time: 'boolean',
+} as const;
+
+type KeyTypes = typeof KEY_TYPES;
+type Key = keyof KeyTypes;
+
+let configText = (await fs.readFile(process.argv[1])).toString();
+
+let config: {[K in Key]?: KeyTypes[K] extends 'boolean' ? boolean : (KeyTypes[K] extends 'number' ? number : string)} = {};
+
+for (let line of configText.split('\n')) {
+    line = line.trim();
+    if (line === '' || line.startsWith('#')) {
+        continue;
+    }
+    let index = line.indexOf(':');
+    if (index === -1) {
+        console.log(`Invalid line: ${line}`);
+        process.exit(1);
+    }
+    let key = line.slice(0, index);
+    let value = line.slice(index + 1);
+    key = key.trim();
+    value = value.trim();
+    if (key in KEY_TYPES) {
+        let type = KEY_TYPES[key as Key];
+        if (type === 'number') {
+            // @ts-ignore
+            config[key as Key] = Number(value);
+        } else if (type === 'boolean') {
+            // @ts-ignore
+            config[key as Key] = Boolean(value);
+        } else {
+            // @ts-ignore
+            config[key as Key] = value;
+        }
+    }
+}
+
+let min: string;
+let max: string;
+if (config.rule) {
+    min = config.rule;
+    max = config.rule;
+} else if (config.min && config.max) {
+    min = config.min;
+    max = config.max;
+} else {
+    console.log(`Either 'rule' option or 'min' and 'max' options must be provided.\n${LINK_TEXT}`);
+    process.exit(1);
+}
+
+if (!config.soups) {
+    console.log(`'soups' option must be provided.\n${LINK_TEXT}`);
+    process.exit(1);
+}
+
+if (!config.interesting) {
+    console.log(`'interesting' option must be provided.\n${LINK_TEXT}`);
+    process.exit(1);
+}
