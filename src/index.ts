@@ -20,6 +20,7 @@ export * from './bounded.js';
 export * from './identify.js';
 export * from './intsep.js';
 export * from './search.js';
+export * from './rss.js';
 
 
 export interface PatternData {

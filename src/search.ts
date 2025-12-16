@@ -4,15 +4,19 @@ import {MAPPattern} from './map.js';
 import {INTSeparator} from './intsep.js';
 
 
-export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined, soup?: string): number {
+export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined, soup?: string, maxgen?: number, maxpop?: number): null | number | 'died' | {linear: true, period: number} {
     p.run(60);
     let maxPeriod = 6;
     let pops: number[] = [];
-    for (let i = 0; i < 120000; i++) {
+    maxgen ??= 120000;
+    for (let i = 0; i < maxgen; i++) {
         p.runGeneration();
         let pop = p.population;
         if (pop === 0) {
-            return 1;
+            return 'died';
+        }
+        if (maxpop && pop > maxpop) {
+            return null;
         }
         for (let period = 1; period < Math.min(maxPeriod, Math.floor(pops.length / 15)); period++) {
             let found = true;
@@ -37,7 +41,7 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
                     }
                 }
                 if (found) {
-                    return period;
+                    return {linear: true, period};
                 }
             }
         }
@@ -57,11 +61,18 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
             print('Failed to detect periodic behavior!');
         }
     }
-    return 0;
+    return null;
 }
 
 export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void, soup?: string): {[key: string]: number} {
     let period = stabilize(p, print, soup);
+    if (period === 'died') {
+        period = 1;
+    } else if (period === null) {
+        period = 0;
+    } else if (typeof period === 'object') {
+        period = period.period;
+    }
     let sep = new INTSeparator(p, knots);
     let data = sep.separate(period * 8, Math.max(period * 8, 256));
     if (!data) {
