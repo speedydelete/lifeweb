@@ -1,6 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './index.js';
+import {getKnots, INTSeparator} from './intsep.js';
 
 
 const LINK_TEXT = `For more information, see <link>.`;
@@ -39,7 +40,7 @@ const DEFAULT_FROM_CHANGE_S = ['0c', '1c', '1e', '2a', '2c', '2e', '2i', '2k', '
 
 type PeriodFilter = {required: boolean, op: '=' | '!=' | '>' | '<' | '>=' | '<=', value: number}[];
 
-const FILTER_OPS = ['=', '!=', '>', '<', '>=', '<='];
+const FILTER_OPS = ['!=', '>=', '<=', '=', '>', '<'] as const;
 
 
 function error(msg: string): never {
@@ -249,16 +250,18 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
 
 let soups = 0;
 
-async function search(rule: string, config: Config, periodFilter?: PeriodFilter): Promise<string> {
+async function search(rule: string, config: Config, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
     if (!config.check && !config.apgsearch) {
         return rule;   
     }
     let [bTrs, sTrs] = parseRule(rule);
     let trs = transitionsToArray(bTrs, sTrs, TRANSITIONS);
     let base = new MAPPattern(0, 0, new Uint8Array(0), trs, rule, 'D8');
-    let apgcodes: string[] = [];
+    let knots: Uint8Array | null = null;
+    let apgcodes: {[key: string]: number} = {};
     if (config.check) {
         let allDied = true;
+        let toCensus: [MAPPattern, number][] = [];
         for (let i = 0; i < config.check; i++) {
             let {height, width, data} = await getHashsoup('rss_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
             soups++;
@@ -277,15 +280,98 @@ async function search(rule: string, config: Config, periodFilter?: PeriodFilter)
                     continue;
                 }
             }
-            let linear = false;
-            if (typeof period === 'object') {
-                linear = true;
+            if (typeof period === 'object' && config.period_filter_linear_growth) {
                 period = period.period;
             }
-            if (config.period_filter) {
-                
+            if (typeof period === 'number' && periodFilter) {
+                let found = false;
+                for (let {required, op, value} of periodFilter) {
+                    let result: boolean;
+                    if (op === '=') {
+                        result = period === value;
+                    } else if (op === '!=') {
+                        result = period !== value;
+                    } else if (op === '<') {
+                        result = period < value;
+                    } else if (op === '<=') {
+                        result = period <= value;
+                    } else if (op === '>') {
+                        result = period > value;
+                    } else {
+                        result = period >= value;
+                    }
+                    if (result) {
+                        found = true;
+                    } else if (required) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    if (config.period_filter_stop_early) {
+                        break;
+                    }
+                } else {
+                    continue;
+                }
+            }
+            toCensus.push([p, typeof period === 'object' ? period.period : period]);
+        }
+        if (allDied && config.death_filter) {
+            return `${rule}: no objects`;
+        }
+        if (config.census) {
+            if (!knots) {
+                knots = getKnots(trs);
+            }
+            for (let [soup, period] of toCensus) {
+                let sep = new INTSeparator(soup, knots);
+                let data = sep.separate(period * 8, Math.max(period * 8, 256));
+                if (!data) {
+                    if ('PATHOLOGICAL' in apgcodes) {
+                        apgcodes['PATHOLOGICAL']++;
+                    } else {
+                        apgcodes['PATHOLOGICAL'] = 0;
+                    }
+                    console.log(`Unable to separate objects in ${rule}!`);
+                    continue;
+                }
+                if (data[1]) {
+                    console.log(`Unable to separate multi-island object or confirm that it is strict in ${rule}!`);
+                }
+                for (let {apgcode} of data[0]) {
+                    if (apgcode in apgcodes) {
+                        apgcodes[apgcode]++;
+                    } else {
+                        apgcodes[apgcode] = 0;
+                    }
+                }
             }
         }
+    }
+    let out: [string, number][] = [];
+    for (let [apgcode, count] of Object.entries(apgcodes)) {
+        if (apgcodeFilter) {
+            let found = false;
+            for (let [regex, invert] of apgcodeFilter) {
+                if (apgcode.match(regex)) {
+                    found = true;
+                    break;
+                } else if (invert) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                out.push([apgcode, count]);
+            }
+        }
+    }
+    out = out.sort((x, y) => y[1] - x[1]);
+    if (apgcodes.length === 0) {
+        return `${rule}: nothing`;
+    } else {
+        return `${rule}: ${out.map(x => x[0]).join(', ')}`;
     }
 }
 
@@ -296,7 +382,37 @@ export async function runRSS(configFile: string, print: ((data: string) => void)
     if (config.period_filter) {
         periodFilter = [];
         for (let filter of config.period_filter.split('\n')) {
-            
+            filter = filter.trim();
+            let required = false;
+            if (filter.startsWith('#')) {
+                required = true;
+                filter = filter.slice(1);
+            }
+            let found = false;
+            for (let op of FILTER_OPS) {
+                if (filter.startsWith(op)) {
+                    let value = parseInt(filter.slice(op.length));
+                    if (Number.isNaN(value)) {
+                        continue;
+                    }
+                    periodFilter.push({required, op, value})
+                }
+            }
+            if (!found) {
+                error(`Invalid period filter: '${required ? '#' : ''}${filter}'`);
+            }
+        }
+    }
+    let apgcodeFilter: [RegExp, boolean][] | undefined = undefined;
+    if (config.apgcode_filter) {
+        apgcodeFilter = [];
+        for (let regex of config.apgcode_filter.split('\n')) {
+            regex = regex.trim();
+            if (regex.startsWith('!')) {
+                apgcodeFilter.push([new RegExp(regex.slice(1)), true]);
+            } else {
+                apgcodeFilter.push([new RegExp(regex), false]);
+            }
         }
     }
     let done = new Set<string>();
