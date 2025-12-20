@@ -1,12 +1,12 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {execSync, ExecSyncOptions} from 'node:child_process';
+import {execSync, spawn} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './index.js';
 import {getKnots, INTSeparator} from './intsep.js';
 
 
-const LINK_TEXT = `For more information, see <link>.`;
+const LINK_TEXT = `For more information, see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961`;
 const HELP_TEXT = `Usage: ./rss <input file path> <output file path>\n${LINK_TEXT}`;
 
 const KEY_TYPES = {
@@ -369,6 +369,8 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
 
 let soups = 0;
 
+let apgsearchPID: number | null = null;
+
 async function search(rule: string, config: Config, print: ((data: string) => void) | null | undefined, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
     if (!config.check && !config.apgsearch) {
         return rule;   
@@ -492,21 +494,41 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
         if (print) {
             print(`Compiled!\n`);
         }
-        let options: ExecSyncOptions = {stdio: 'ignore'};
-        if (config.timeout) {
-            options.timeout = config.timeout * 1000;
-            options.killSignal = 'SIGKILL';
-        }
-        try {
-            execSync(`./apgmera/apgluxe -n ${config.apgsearch} -i 1 -t 1 -L 1 -v 0`, options);
-        } catch (error) {
-            if (error && typeof error === 'object' && 'killed' in error && error.killed) {
+        let value = await new Promise<string | undefined>((resolve, reject) => {
+            let child = spawn('./apgmera/apgluxe', ['-n', '2000', '-i', '1', '-t', '1', '-L', '1', '-v', '0'], {stdio: 'inherit', detached: true});
+            let timeout: any = null;
+            child.on('error', error => {
+                if (timeout) {
+                    clearTimeout(timeout);
+                }
+                apgsearchPID = null;
+                reject(error);
+            });
+            if (child.pid) {
+                apgsearchPID = child.pid;
+            }
+            timeout = setTimeout(async () => {
+                if (child.pid) {
+                    process.kill(-child.pid, 'SIGKILL');
+                }
+                apgsearchPID = null;
                 if (!(config.check && config.census)) {
-                    return `${rule}: timed out`;
+                    resolve(`${rule}: timed out`);
                 } else {
                     apgsearchTimedOut = true;
+                    resolve(undefined);
                 }
-            }
+            }, 10000);
+            child.on('exit', code => {
+                clearTimeout(timeout);
+                apgsearchPID = null;
+                if (code !== 137) {
+                    resolve(undefined);
+                }
+            });
+        });
+        if (typeof value === 'string') {
+            return value;
         }
         let files = await fs.readdir('.');
         let data: string | null = null;
@@ -674,6 +696,15 @@ export async function runRSS(configFile: string, print: ((data: string) => void)
 
 
 if (import.meta.main) {
+    function cleanup(): void {
+        if (apgsearchPID) {
+            process.kill(-apgsearchPID, 'SIGKILL');
+        }
+        process.exit(0);
+    }
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('SIGHUP', cleanup);
     let inputFile = process.argv[2];
     let outputFile = process.argv[3];
     if (inputFile === '-h') {

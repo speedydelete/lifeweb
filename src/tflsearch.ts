@@ -1,6 +1,6 @@
 
 import * as fs from 'node:fs/promises';
-import {execSync} from 'node:child_process';
+import {execSync, spawn} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
 
 
@@ -123,6 +123,8 @@ let out = (await fs.readFile('out3.txt')).toString();
 
 let lastUpdate = 0;
 
+let apgsearchPID: number | null = null;
+
 async function writeOut(data: string): Promise<void> {
     console.log(data);
     out += data + '\n';
@@ -170,15 +172,36 @@ async function check(base: string, change: string[]): Promise<void> {
         return;
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
-    try {
-        execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1 -v 0`, {stdio: 'inherit', timeout: 60000});
-    } catch (error) {
-        if (error && typeof error === 'object' && 'signal' in error) {
-            await writeOut(`${p.ruleStr}: timed out`);
-            return;
-        } else {
-            throw error;
+    let timedOut = await new Promise<boolean>((resolve, reject) => {
+        let child = spawn('./apgmera/apgluxe', ['-n', '2000', '-i', '1', '-t', '1', '-L', '1', '-v', '0'], {stdio: 'inherit', detached: true});
+        let timeout: any = null;
+        child.on('error', error => {
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+            apgsearchPID = null;
+            reject(error);
+        });
+        if (child.pid) {
+            apgsearchPID = child.pid;
         }
+        timeout = setTimeout(() => {
+            resolve(true);
+            if (child.pid) {
+                process.kill(-child.pid, 'SIGKILL');
+            }
+            apgsearchPID = null;
+        }, 1000);
+        child.on('exit', code => {
+            apgsearchPID = null;
+            if (code !== 137) {
+                resolve(false);
+            }
+        });
+    });
+    if (timedOut) {
+        await writeOut(`${p.ruleStr}: timed out`);
+        return;
     }
     let files = await fs.readdir('.');
     let data: string | null = null;
@@ -234,6 +257,16 @@ async function check(base: string, change: string[]): Promise<void> {
 //         }
 //     }
 // }
+
+function cleanup(): void {
+    if (apgsearchPID) {
+        process.kill(-apgsearchPID, 'SIGKILL');
+    }
+    process.exit(0);
+}
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+process.on('SIGHUP', cleanup);
 
 for (let rule of RULES) {
     await check(rule, []);
