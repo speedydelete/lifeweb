@@ -1,5 +1,7 @@
 
 import * as fs from 'node:fs/promises';
+import {existsSync as exists} from 'node:fs';
+import {execSync, ExecSyncOptions} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './index.js';
 import {getKnots, INTSeparator} from './intsep.js';
 
@@ -16,6 +18,7 @@ const KEY_TYPES = {
     include_transitions: 'string',
     exclude_transitions: 'string',
     outer_totalistic: 'boolean',
+    force_transitions: 'string',
     apgcode_filter: 'string',
     check: 'number',
     census: 'boolean',
@@ -26,6 +29,9 @@ const KEY_TYPES = {
     period_filter: 'string',
     period_filter_linear_growth: 'boolean',
     period_filter_stop_early: 'boolean',
+    check_timeout: 'number',
+    check_timeout_do_apgsearch_anyway: 'boolean',
+    time_filter: 'number',
     apgsearch: 'number',
     timeout: 'number',
 } as const;
@@ -44,10 +50,9 @@ const FILTER_OPS = ['!=', '>=', '<=', '=', '>', '<'] as const;
 
 
 function error(msg: string): never {
-    msg += '\n\n' + HELP_TEXT;
-    // @ts-ignore
+    msg += '\n' + HELP_TEXT;
     if (import.meta.main) {
-        console.log(msg);
+        console.log('Error: ' + msg);
         process.exit(1);
     } else {
         throw new Error(msg);
@@ -58,7 +63,7 @@ function parseConfig(config: string): {config: Config, min: string, max: string}
     let out: Config = {};
     for (let line of config.split('\n')) {
         line = line.trim();
-        if (line === '' || line.startsWith('#')) {
+        if (line === '' || line.startsWith('#') || line.startsWith('//')) {
             continue;
         }
         let index = line.indexOf(':');
@@ -72,15 +77,30 @@ function parseConfig(config: string): {config: Config, min: string, max: string}
         if (key in KEY_TYPES) {
             let type = KEY_TYPES[key as Key];
             if (type === 'number') {
+                let num = Number(value);
+                if (Number.isNaN(num)) {
+                    throw new Error(`Invalid value for ${key} option (must be number): '${value}'`);
+                }
                 // @ts-ignore
-                out[key as Key] = Number(value);
+                out[key as Key] = num;
             } else if (type === 'boolean') {
+                if (value === 'true') {
+                    // @ts-ignore
+                    out[key as Key] = value;
+                } else if (value === 'false') {
+                    // @ts-ignore
+                    out[key as Key] = value;
+                } else {
+                    throw new Error(`Invalid value for ${key} option (must be boolean): '${value}'`);
+                }
                 // @ts-ignore
                 out[key as Key] = value === 'true' ? true : false;
             } else {
                 // @ts-ignore
                 out[key as Key] = value;
             }
+        } else {
+            throw new Error(`Invalid option: '${key}'`);
         }
     }
     let min: string;
@@ -100,7 +120,7 @@ function parseConfig(config: string): {config: Config, min: string, max: string}
 
 function parseRule(rule: string): [string[], string[]] {
     let parts = rule.split('/');
-    if (parts.length !== 1) {
+    if (parts.length !== 2) {
         error(`Rules must have exactly 1 slash`);
     }
     if (!(parts[0].startsWith('B') && parts[1].startsWith('S'))) {
@@ -177,6 +197,28 @@ function getNTransitionsFrom(rules: Set<string>, bTrs: string[], sTrs: string[],
     }
 }
 
+function getOuterTotalistic(trs: string[], type: string): number[] {
+    let out: number[] = [];
+    for (let i = 0; i < VALID_TRANSITIONS.length; i++) {
+        let found = false;
+        for (let j = 0; j < VALID_TRANSITIONS[i].length; j++) {
+            let letter = VALID_TRANSITIONS[i][j];
+            if (trs.includes(i + letter)) {
+                if (!found && j > 0) {
+                    error(`${type} is not outer-totalistic`);
+                }
+                found = true;
+            } else if (found) {
+                error(`${type} is not outer-totalistic`);
+            }
+        }
+        if (found) {
+            out.push(i);
+        }
+    }
+    return out;
+}
+
 function generateRules(min: string, max: string, config: Config): Set<string> {
     let [minB, minS] = parseRule(min);
     let [maxB, maxS] = parseRule(max);
@@ -190,8 +232,6 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
             error(`Maxrule does not include ${tr} which is present in minrule`);
         }
     }
-    let changeB = maxB.filter(x => !minB.includes(x));
-    let changeS = maxS.filter(x => !minS.includes(x));
     let trsFrom = 0;
     let fromChangeB = DEFAULT_FROM_CHANGE_B;
     let fromChangeS = DEFAULT_FROM_CHANGE_S;
@@ -221,26 +261,105 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
             }
         }
     }
+    let forceTrs: [string[], string[]] | undefined = undefined;
+    if (config.force_transitions) {
+        forceTrs = parseTransitionsList(config.force_transitions);
+    }
     let rules = new Set<string>();
-    for (let i = 0; i < 2**(changeB.length); i++) {
-        let bStr = i.toString(2).padStart(changeB.length, '0');
-        let bTrs = minB.slice();
-        for (let j = 0; j < changeB.length; j++) {
-            if (bStr[j]) {
-                bTrs.push(changeB[j]);
-            }
-        }
-        for (let j = 0; j < 2**(changeS.length); j++) {
-            let sStr = i.toString(2).padStart(changeB.length, '0');
-            let sTrs = minS.slice();
-            for (let k = 0; k < changeS.length; k++) {
-                if (sStr[k]) {
-                    sTrs.push(changeS[k]);
+    if (config.outer_totalistic) {
+        let otMinB = getOuterTotalistic(minB, 'Minrule');
+        let otMinS = getOuterTotalistic(minS, 'Minrule');
+        let otMaxB = getOuterTotalistic(maxB, 'Maxrule');
+        let otMaxS = getOuterTotalistic(maxS, 'Maxrule');
+        let changeB = otMaxB.filter(x => !otMinB.includes(x));
+        let changeS = otMaxS.filter(x => !otMinS.includes(x));
+        for (let i = 0; i < 2**(changeB.length); i++) {
+            let bStr = i.toString(2).padStart(changeB.length, '0');
+            let bTrs: string[] = [];
+            for (let num = 0; num <= 8; num++) {
+                if (otMinB.includes(num)) {
+                    bTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                } else {
+                    let index = changeB.indexOf(num);
+                    if (index !== -1) {
+                        if (bStr[index] === '1') {
+                            bTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                        }
+                    }
                 }
             }
-            rules.add(unparseRule(bTrs, sTrs));
-            if (trsFrom > 1) {
-                getNTransitionsFrom(rules, bTrs, sTrs, trsFrom, fromChangeB, fromChangeS);
+            if (forceTrs) {
+                for (let tr of forceTrs[0]) {
+                    if (!bTrs.includes(tr)) {
+                        bTrs.push(tr);
+                    }
+                }
+            }
+            for (let j = 0; j < 2**(changeS.length); j++) {
+                let sStr = i.toString(2).padStart(changeS.length, '0');
+                let sTrs: string[] = [];
+                for (let num = 0; num <= 8; num++) {
+                    if (otMinS.includes(num)) {
+                        sTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                    } else {
+                        let index = changeS.indexOf(num);
+                        if (index !== -1) {
+                            if (sStr[index] === '1') {
+                                sTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                            }
+                        }
+                    }
+                }
+                if (forceTrs) {
+                    for (let tr of forceTrs[1]) {
+                        if (!sTrs.includes(tr)) {
+                            sTrs.push(tr);
+                        }
+                    }
+                }
+                rules.add(unparseRule(bTrs, sTrs));
+                if (trsFrom > 0) {
+                    getNTransitionsFrom(rules, bTrs, sTrs, trsFrom, fromChangeB, fromChangeS);
+                }
+            }
+        }
+    } else {
+        let changeB = maxB.filter(x => !minB.includes(x));
+        let changeS = maxS.filter(x => !minS.includes(x));
+        for (let i = 0; i < 2**(changeB.length); i++) {
+            let bStr = i.toString(2).padStart(changeB.length, '0');
+            let bTrs = minB.slice();
+            for (let j = 0; j < changeB.length; j++) {
+                if (bStr[j] === '1') {
+                    bTrs.push(changeB[j]);
+                }
+            }
+            if (forceTrs) {
+                for (let tr of forceTrs[0]) {
+                    if (!bTrs.includes(tr)) {
+                        bTrs.push(tr);
+                    }
+                }
+            }
+            for (let j = 0; j < 2**(changeS.length); j++) {
+                let sStr = i.toString(2).padStart(changeB.length, '0');
+                let sTrs = minS.slice();
+                for (let k = 0; k < changeS.length; k++) {
+                    if (sStr[k] === '1') {
+                        sTrs.push(changeS[k]);
+                    }
+                }
+                if (forceTrs) {
+                    for (let tr of forceTrs[1]) {
+                        if (!sTrs.includes(tr)) {
+                            sTrs.push(tr);
+                        }
+                    }
+                }
+                rules.add(unparseRule(bTrs, sTrs));
+                if (trsFrom > 0) {
+                    getNTransitionsFrom(rules, bTrs, sTrs, trsFrom, fromChangeB, fromChangeS);
+                }
             }
         }
     }
@@ -250,15 +369,18 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
 
 let soups = 0;
 
-async function search(rule: string, config: Config, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
+async function search(rule: string, config: Config, print: ((data: string) => void) | null | undefined, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
     if (!config.check && !config.apgsearch) {
         return rule;   
     }
     let [bTrs, sTrs] = parseRule(rule);
     let trs = transitionsToArray(bTrs, sTrs, TRANSITIONS);
+    rule = 'B' + unparseTransitions(bTrs, VALID_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_TRANSITIONS, false);
     let base = new MAPPattern(0, 0, new Uint8Array(0), trs, rule, 'D8');
     let knots: Uint8Array | null = null;
     let apgcodes: {[key: string]: number} = {};
+    let startTime = performance.now() / 1000;
+    let timedOut = false;
     if (config.check) {
         let allDied = true;
         let toCensus: [MAPPattern, number][] = [];
@@ -275,7 +397,7 @@ async function search(rule: string, config: Config, apgcodeFilter?: [RegExp, boo
             }
             if (period === null) {
                 if (config.explosive_filter) {
-                    return `${rule}: explosive (${i})`;
+                    return `${rule}: explosive (${i + 1})`;
                 } else {
                     continue;
                 }
@@ -316,11 +438,15 @@ async function search(rule: string, config: Config, apgcodeFilter?: [RegExp, boo
                 }
             }
             toCensus.push([p, typeof period === 'object' ? period.period : period]);
+            if (config.check_timeout && (performance.now() / 1000 - startTime) > config.check_timeout) {
+                timedOut = true;
+                break;
+            }
         }
         if (allDied && config.death_filter) {
             return `${rule}: no objects`;
         }
-        if (config.census) {
+        if (config.census && !timedOut) {
             if (!knots) {
                 knots = getKnots(trs);
             }
@@ -333,49 +459,128 @@ async function search(rule: string, config: Config, apgcodeFilter?: [RegExp, boo
                     } else {
                         apgcodes['PATHOLOGICAL'] = 0;
                     }
-                    console.log(`Unable to separate objects in ${rule}!`);
+                    if (print) {
+                        print(`Unable to separate objects in ${rule}!`);
+                    }
                     continue;
                 }
                 if (data[1]) {
-                    console.log(`Unable to separate multi-island object or confirm that it is strict in ${rule}!`);
+                    if (print) {
+                        print(`Unable to separate multi-island object or confirm that it is strict in ${rule}!`);
+                    }
                 }
                 for (let {apgcode} of data[0]) {
                     if (apgcode in apgcodes) {
                         apgcodes[apgcode]++;
                     } else {
-                        apgcodes[apgcode] = 0;
+                        apgcodes[apgcode] = 1;
                     }
+                }
+                if (config.check_timeout && (performance.now() / 1000 - startTime) > config.check_timeout) {
+                    timedOut = true;
+                    break;
                 }
             }
         }
     }
+    let apgsearchTimedOut = false;
+    if (config.apgsearch && (!timedOut || config.check_timeout_do_apgsearch_anyway)) {
+        if (print) {
+            print(`Running apgsearch on ${rule}... `);
+        }
+        execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(rule)} --symmetry C1)`, {stdio: 'ignore'});
+        if (print) {
+            print(`Compiled!\n`);
+        }
+        let options: ExecSyncOptions = {stdio: 'ignore'};
+        if (config.timeout) {
+            options.timeout = config.timeout * 1000;
+            options.killSignal = 'SIGKILL';
+        }
+        try {
+            execSync(`./apgmera/apgluxe -n ${config.apgsearch} -i 1 -t 1 -L 1 -v 0`, options);
+        } catch (error) {
+            if (error && typeof error === 'object' && 'killed' in error && error.killed) {
+                if (!(config.check && config.census)) {
+                    return `${rule}: timed out`;
+                } else {
+                    apgsearchTimedOut = true;
+                }
+            }
+        }
+        let files = await fs.readdir('.');
+        let data: string | null = null;
+        for (let file of files) {
+            if (file.startsWith('log')) {
+                data = (await fs.readFile('./' + file)).toString();
+                fs.unlink('./' + file);
+                break;
+            }
+        }
+        if (data === null) {
+            throw new Error('No log file found!');
+        }
+        let found = false;
+        for (let line of data.split('\n')) {
+            if (line.startsWith('@CENSUS')) {
+                found = true;
+                continue;
+            } else if (!found) {
+                continue;
+            } else if (line.startsWith('@SAMPLE_SOUPIDS')) {
+                break;
+            }
+            let parts = line.trim().split(' ');
+            let apgcode = parts[0];
+            let count = parseInt(parts[1]);
+            if (apgcode.length === 0) {
+                continue;
+            }
+            if (apgcode in apgcodes) {
+                apgcodes[apgcode] += count;
+            } else {
+                apgcodes[apgcode] = count;
+            }
+        }
+    }
     let out: [string, number][] = [];
-    for (let [apgcode, count] of Object.entries(apgcodes)) {
-        if (apgcodeFilter) {
+    if (apgcodeFilter) {
+        for (let [apgcode, count] of Object.entries(apgcodes)) {
             let found = false;
             for (let [regex, invert] of apgcodeFilter) {
                 if (apgcode.match(regex)) {
                     found = true;
                     break;
                 } else if (invert) {
-                    found = false;
                     break;
                 }
             }
-            if (found) {
+            if (!found) {
                 out.push([apgcode, count]);
             }
         }
+    } else {
+        out = Object.entries(apgcodes);
     }
     out = out.sort((x, y) => y[1] - x[1]);
-    if (apgcodes.length === 0) {
-        return `${rule}: nothing`;
-    } else {
-        return `${rule}: ${out.map(x => x[0]).join(', ')}`;
+    let text = rule + ': ';
+    if (timedOut) {
+        text += 'timed out, ';
     }
+    if (apgsearchTimedOut) {
+        text += 'apgsearch timed out, ';
+    }
+    if (out.length === 0) {
+        text += 'nothing';
+    } else {
+        text += out.map(x => x[0]).join(', ');
+    }
+    return text;
 }
 
-export async function runRSS(configFile: string, print: ((data: string) => void) | null | undefined = console.log, out: string = '', write?: (data: string) => void): Promise<string> {
+let defaultPrint = typeof process === 'object' ? process.stdout.write.bind(process.stdout) : console.log;
+
+export async function runRSS(configFile: string, print: ((data: string) => void) | null = defaultPrint, out: string = '', write?: (data: string) => void): Promise<string> {
     let {config, min, max} = parseConfig(configFile);
     let rules = generateRules(min, max, config);
     let periodFilter: PeriodFilter | undefined = undefined;
@@ -406,7 +611,7 @@ export async function runRSS(configFile: string, print: ((data: string) => void)
     let apgcodeFilter: [RegExp, boolean][] | undefined = undefined;
     if (config.apgcode_filter) {
         apgcodeFilter = [];
-        for (let regex of config.apgcode_filter.split('\n')) {
+        for (let regex of config.apgcode_filter.split(',')) {
             regex = regex.trim();
             if (regex.startsWith('!')) {
                 apgcodeFilter.push([new RegExp(regex.slice(1)), true]);
@@ -428,44 +633,68 @@ export async function runRSS(configFile: string, print: ((data: string) => void)
     }
     let total = rules.size - done.size;
     if (print) {
-        print(`Searching ${total} rules`);
+        print(`Searching ${total} rules\n`);
     }
     let searched = 0;
     let start = performance.now() / 1000; 
     let prevUpdate = start;
     let prevSearched = 0;
+    let now = start;
+    let sendLastUpdate = true;
     for (let rule of rules) {
+        sendLastUpdate = true;
         if (!done.has(rule)) {
-            let text = await search(rule, config);
+            let text = await search(rule, config, print, apgcodeFilter, periodFilter);
             if (write) {
                 write(text);
             }
             out += text;
             done.add(rule);
             searched++;
-            let now = performance.now() / 1000;
+            now = performance.now() / 1000;
             if (print && now - prevUpdate > 10) {
-                let rps = (prevSearched - searched) / (now - prevUpdate);
+                let rps = (searched - prevSearched) / (now - prevUpdate);
                 let totalRPS = searched / (now - start);
-                print(`${searched}/${total} completed (${(searched / total * 100).toFixed(3)}%) (${rps.toFixed(3)} rules/second current, ${totalRPS.toFixed(3)} overall)`);
+                print(`${searched}/${total} completed (${(searched / total * 100).toFixed(3)}%) (${rps.toFixed(3)} rules/second current, ${totalRPS.toFixed(3)} overall)\n`);
                 prevUpdate = now;
                 prevSearched = searched;
+                sendLastUpdate = false;
             }
         }
+    }
+    if (print && sendLastUpdate) {
+        let rps = (searched - prevSearched) / (now - prevUpdate);
+        let totalRPS = searched / (now - start);
+        print(`${searched}/${total} rules completed (${(searched / total * 100).toFixed(3)}%) (${rps.toFixed(3)} rules/second current, ${totalRPS.toFixed(3)} overall)\n`);
+        prevUpdate = now;
+        prevSearched = searched;
     }
     return out;
 }
 
-// @ts-ignore
+
 if (import.meta.main) {
-    if (!process.argv[1] || process.argv[1] === '-h') {
+    let inputFile = process.argv[2];
+    let outputFile = process.argv[3];
+    if (inputFile === '-h') {
+        console.log(HELP_TEXT);
+        process.exit(1);
+    } else if (!inputFile) {
         console.log('Error: Missing input file\n' + HELP_TEXT);
         process.exit(1);
     }
-    if (!process.argv[2]) {
+    if (!outputFile) {
         console.log('Error: Missing output file\n' + HELP_TEXT);
         process.exit(1);
     }
-    // @ts-ignore
-    await runRSS((await fs.readFile(process.argv[1])).toString());
+    let out = '';
+    if (exists(outputFile)) {
+        out = (await fs.readFile(outputFile)).toString();
+    } else {
+        await fs.writeFile(outputFile, '');
+    }
+    await runRSS((await fs.readFile(inputFile)).toString(), process.stdout.write.bind(process.stdout), out, data => {
+        console.log(data);
+        fs.appendFile(outputFile, data + '\n');
+    });
 }

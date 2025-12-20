@@ -170,7 +170,16 @@ async function check(base: string, change: string[]): Promise<void> {
         return;
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
-    execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1 -v 0`, {stdio: 'inherit'});
+    try {
+        execSync(`./apgmera/apgluxe -n 2000 -i 1 -t 1 -L 1 -v 0`, {stdio: 'inherit', timeout: 60000});
+    } catch (error) {
+        if (error && typeof error === 'object' && 'signal' in error) {
+            await writeOut(`${p.ruleStr}: timed out`);
+            return;
+        } else {
+            throw error;
+        }
+    }
     let files = await fs.readdir('.');
     let data: string | null = null;
     for (let file of files) {
