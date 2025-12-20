@@ -191,7 +191,7 @@ async function check(base: string, change: string[]): Promise<void> {
                 process.kill(-child.pid, 'SIGKILL');
             }
             apgsearchPID = null;
-        }, 1000);
+        }, 60000);
         child.on('exit', code => {
             apgsearchPID = null;
             if (code !== 137) {
