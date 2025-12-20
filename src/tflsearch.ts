@@ -188,7 +188,9 @@ async function check(base: string, change: string[]): Promise<void> {
         timeout = setTimeout(() => {
             resolve(true);
             if (child.pid) {
-                process.kill(-child.pid, 'SIGKILL');
+                try {
+                    process.kill(-child.pid, 'SIGKILL');
+                } catch {}
             }
             apgsearchPID = null;
         }, 60000);
