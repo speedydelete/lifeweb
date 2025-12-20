@@ -193,7 +193,7 @@ async function check(base: string, change: string[]): Promise<void> {
                 } catch {}
             }
             apgsearchPID = null;
-        }, 60000);
+        }, 300000);
         child.on('exit', code => {
             apgsearchPID = null;
             if (code !== 137) {
