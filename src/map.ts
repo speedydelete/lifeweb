@@ -519,6 +519,15 @@ export class MAPPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[0] = 1;
             }
+        } else {
+            if (trs[tr1 & 504]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2 & 504]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -543,6 +552,15 @@ export class MAPPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
+        } else {
+            if (trs[(tr1 << 3) & 63]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 63]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -556,6 +574,15 @@ export class MAPPattern extends DataPattern {
                 leftExpands[0] = 1;
             }
             if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
+        } else {
+            if (trs[tr1 & 438]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2 & 438]) {
                 expandRight = 1;
                 rightExpands[0] = 1;
             }
@@ -581,6 +608,15 @@ export class MAPPattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
+        } else {
+            if (trs[(tr1 << 1) & 219]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -790,6 +826,15 @@ export class MAPB0Pattern extends DataPattern {
                 expandDown = 1;
                 downExpands[0] = 1;
             }
+        } else {
+            if (trs[tr1 & 504]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2 & 504]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -814,6 +859,15 @@ export class MAPB0Pattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
+        } else {
+            if (trs[(tr1 << 3) & 63]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 63]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -827,6 +881,15 @@ export class MAPB0Pattern extends DataPattern {
                 leftExpands[0] = 1;
             }
             if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
+        } else {
+            if (trs[tr1 & 438]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2 & 438]) {
                 expandRight = 1;
                 rightExpands[0] = 1;
             }
@@ -852,6 +915,15 @@ export class MAPB0Pattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
+        } else {
+            if (trs[(tr1 << 1) & 219]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -1062,6 +1134,15 @@ export class MAPGenPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[0] = 1;
             }
+        } else {
+            if (trs[tr1 & 504]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2 & 504]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -1086,6 +1167,15 @@ export class MAPGenPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
+        } else {
+            if (trs[(tr1 << 3) & 63]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 63]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1099,6 +1189,15 @@ export class MAPGenPattern extends DataPattern {
                 leftExpands[0] = 1;
             }
             if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
+        } else {
+            if (trs[tr1 & 438]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2 & 438]) {
                 expandRight = 1;
                 rightExpands[0] = 1;
             }
@@ -1124,6 +1223,15 @@ export class MAPGenPattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
+        } else {
+            if (trs[(tr1 << 1) & 219]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -1405,6 +1513,15 @@ export class MAPB0GenPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[0] = 1;
             }
+        } else {
+            if (trs[tr1 & 504]) {
+                expandUp = 1;
+                upExpands[0] = 1;
+            }
+            if (trs[tr2 & 504]) {
+                expandDown = 1;
+                downExpands[0] = 1;
+            }
         }
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
@@ -1429,6 +1546,15 @@ export class MAPB0GenPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
+        } else {
+            if (trs[(tr1 << 3) & 63]) {
+                expandUp = 1;
+                upExpands[width - 1] = 1;
+            }
+            if (trs[(tr2 << 3) & 63]) {
+                expandDown = 1;
+                downExpands[width - 1] = 1;
+            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1442,6 +1568,15 @@ export class MAPB0GenPattern extends DataPattern {
                 leftExpands[0] = 1;
             }
             if (trs[tr2]) {
+                expandRight = 1;
+                rightExpands[0] = 1;
+            }
+        } else {
+            if (trs[tr1 & 438]) {
+                expandLeft = 1;
+                leftExpands[0] = 1;
+            }
+            if (trs[tr2 & 438]) {
                 expandRight = 1;
                 rightExpands[0] = 1;
             }
@@ -1467,6 +1602,15 @@ export class MAPB0GenPattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
+                expandRight = 1;
+                rightExpands[height - 1] = 1;
+            }
+        } else {
+            if (trs[(tr1 << 1) & 219]) {
+                expandLeft = 1;
+                leftExpands[height - 1] = 1;
+            }
+            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
