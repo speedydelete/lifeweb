@@ -99,11 +99,11 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         }
         apgcode = p.toCanonicalApgcode(type.period, prefix);
     } else if (type.linear) {
-        let diffs = type.pops.slice(type.stabilizedAt, -1).map((x, i) => type.pops[type.stabilizedAt + i + type.period] - x);
-        let subperiod = -1;
-        for (let i = 1; i < limit; i++) {
+        let diffs = type.pops.slice(type.stabilizedAt, -type.period).map((x, i) => type.pops[type.stabilizedAt + i + type.period] - x);
+        let subperiod: number | null = null;
+        for (let i = 1; i < type.period; i++) {
             let found = true;
-            for (let j = 0; j < diffs.length; j++) {
+            for (let j = 0; j < diffs.length - i - 1; j++) {
                 if (diffs[j] !== diffs[j + i]) {
                     found = false;
                     break;
@@ -114,7 +114,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
                 break;
             }
         }
-        if (subperiod === -1) {
+        if (subperiod === null) {
             apgcode = 'PATHOLOGICAL';
         } else {
             let moment0 = 0;
