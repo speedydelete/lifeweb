@@ -88,7 +88,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 continue;
             }
             if (type.phases[type.stabilizedAt].isEqualWithTranslate(type.phases[type.stabilizedAt + i])) {
-                type.period = i;
+                type.period /= i;
                 break;
             }
         }
