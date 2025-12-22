@@ -7,7 +7,8 @@ export class DataHistoryPattern extends DataPattern {
     pattern: DataPattern;
     states: 7 = 7;
     ruleStr: string;
-    ruleSymmetry: RuleSymmetry; 
+    ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
         super(height, width, data);
@@ -130,6 +131,7 @@ export class CoordHistoryPattern extends CoordPattern {
     states: 7 = 7;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(coords: Map<number, number>, range: number, pattern: CoordPattern) {
         super(coords, range);
@@ -250,7 +252,8 @@ export class DataSuperPattern extends DataPattern {
     pattern: DataPattern;
     states: 26 = 26;
     ruleStr: string;
-    ruleSymmetry: RuleSymmetry; 
+    ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
         super(height, width, data);
@@ -462,6 +465,7 @@ export class CoordSuperPattern extends CoordPattern {
     states: 7 = 7;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(coords: Map<number, number>, range: number, pattern: CoordPattern) {
         super(coords, range);
@@ -664,7 +668,8 @@ export class InvestigatorPattern extends DataPattern {
     pattern: DataPattern;
     states: 21 = 21;
     ruleStr: string;
-    ruleSymmetry: RuleSymmetry; 
+    ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
         super(height, width, data);
