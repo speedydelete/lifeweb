@@ -1349,7 +1349,6 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-
     flipVertical(): this {
         if (this.coords.size === 0) {
             return this;
