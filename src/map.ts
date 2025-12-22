@@ -485,6 +485,7 @@ export class MAPPattern extends DataPattern {
     states: 2 = 2;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);
@@ -791,6 +792,7 @@ export class MAPB0Pattern extends DataPattern {
     states: 2 = 2;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 2 = 2;
 
     constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);
@@ -1097,6 +1099,7 @@ export class MAPGenPattern extends DataPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);
@@ -1475,6 +1478,7 @@ export class MAPB0GenPattern extends DataPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 2 = 2;
 
     constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);

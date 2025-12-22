@@ -298,6 +298,7 @@ export class HROTPattern extends CoordPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
 
     constructor(coords: Map<number, number>, range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(coords, range);
@@ -416,6 +417,7 @@ export class HROTB0Pattern extends CoordPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: 2 = 2;
 
     constructor(coords: Map<number, number>, range: number, evenB: Uint8Array, evenS: Uint8Array, oddB: Uint8Array, oddS: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(coords, range);

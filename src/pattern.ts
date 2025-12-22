@@ -286,6 +286,7 @@ export interface Pattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: number;
     runGeneration(): unknown;
     run(generations?: number): this;
     population: number;
@@ -339,6 +340,7 @@ export abstract class DataPattern implements Pattern {
     abstract states: number;
     abstract ruleStr: string;
     abstract ruleSymmetry: RuleSymmetry;
+    abstract rulePeriod: number;
 
     constructor(height: number, width: number, data: Uint8Array) {
         this.height = height;
@@ -1120,6 +1122,7 @@ export abstract class CoordPattern implements Pattern {
     abstract states: number;
     abstract ruleStr: string;
     abstract ruleSymmetry: RuleSymmetry;
+    abstract rulePeriod: number;
 
     constructor(coords: Map<number, number>, range: number) {
         this.coords = coords;

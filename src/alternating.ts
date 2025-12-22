@@ -8,6 +8,7 @@ export class AlternatingPattern extends DataPattern {
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
     patterns: Pattern[];
+    rulePeriod: number;
 
     constructor(height: number, width: number, data: Uint8Array, patterns: Pattern[], states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);
@@ -15,6 +16,7 @@ export class AlternatingPattern extends DataPattern {
         this.ruleStr = ruleStr;
         this.ruleSymmetry = ruleSymmetry;
         this.patterns = patterns;
+        this.rulePeriod = this.patterns.length;
     }
 
     runGeneration(): void {

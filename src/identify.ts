@@ -25,13 +25,13 @@ export interface Identified extends PhaseData {
 export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
 
 
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
+export function _findType(p: Pattern, limit: number, step: number, acceptStabilized: boolean = true): PartialIdentified {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
     let hashes: number[] = [p.hash32()];
-    for (let i = 0; i < limit; i++) {
-        p.runGeneration();
+    for (let i = 0; i < Math.ceil(limit / step); i++) {
+        p.run(step);
         p.shrinkToFit();
         let pop = p.population;
         let hash = p.hash32();
@@ -75,6 +75,27 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
         }
     }
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
+}
+
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
+    if (p.rulePeriod === 1) {
+        return _findType(p, limit, 1, acceptStabilized);
+    }
+    let type = _findType(p, limit, p.rulePeriod, acceptStabilized);
+    if (type.disp) {
+        for (let i = 1; i < p.rulePeriod; i++) {
+            if (!Number.isInteger(type.period / i)) {
+                continue;
+            }
+            if (type.phases[type.stabilizedAt].isEqualWithTranslate(type.phases[type.stabilizedAt + i])) {
+                type.disp[0] = type.disp[0] / (type.period / i);
+                type.disp[1] = type.disp[1] / (type.period / i);
+                type.period = i;
+                break;
+            }
+        }
+    }
+    return type;
 }
 
 
