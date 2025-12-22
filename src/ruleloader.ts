@@ -837,6 +837,7 @@ export class TreePattern extends CoordPattern {
     ruleStr: string;
     ruleSymmetry: 'C1' = 'C1';
     rule: AtRule;
+    rulePeriod: 1 = 1;
 
     constructor(coords: Map<number, number>, nh: Int8Array, tree: Tree, states: number, ruleStr: string, rule: AtRule) {
         super(coords, Math.max(...nh.map(Math.abs)));
