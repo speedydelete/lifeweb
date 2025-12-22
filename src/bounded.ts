@@ -12,6 +12,7 @@ export class FiniteDataPattern extends DataPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: number;
 
     constructor(height: number, width: number, data: Uint8Array, pattern: Pattern, bbHeight: number, bbWidth: number) {
         super(height, width, data);
@@ -23,6 +24,7 @@ export class FiniteDataPattern extends DataPattern {
         this.states = pattern.states;
         this.ruleStr = pattern.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = pattern.ruleSymmetry;
+        this.rulePeriod = pattern.rulePeriod;
     }
 
     runGeneration(): void {
@@ -103,6 +105,7 @@ export class FiniteCoordPattern extends CoordPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: number;
 
     constructor(coords: Map<number, number>, range: number, pattern: Pattern, bbHeight: number, bbWidth: number) {
         super(coords, range);
@@ -114,6 +117,7 @@ export class FiniteCoordPattern extends CoordPattern {
         this.states = pattern.states;
         this.ruleStr = pattern.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = pattern.ruleSymmetry;
+        this.rulePeriod = pattern.rulePeriod;
     }
 
     runGeneration(): void {
@@ -174,6 +178,7 @@ export class TorusDataPattern extends DataPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: number;
 
     constructor(height: number, width: number, data: Uint8Array, pattern: Pattern, torusHeight: number, torusWidth: number) {
         super(height, width, data);
@@ -193,6 +198,7 @@ export class TorusDataPattern extends DataPattern {
         this.states = pattern.states;
         this.ruleStr = pattern.ruleStr + ':T' + torusWidth + ',' + torusHeight;
         this.ruleSymmetry = pattern.ruleSymmetry;
+        this.rulePeriod = pattern.rulePeriod;
     }
 
     runGeneration(): void {
@@ -299,6 +305,7 @@ export class TorusCoordPattern extends CoordPattern {
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    rulePeriod: number;
 
     constructor(coords: Map<number, number>, range: number, pattern: Pattern, torusHeight: number, torusWidth: number) {
         super(coords, range);
@@ -312,6 +319,7 @@ export class TorusCoordPattern extends CoordPattern {
         this.states = pattern.states;
         this.ruleStr = pattern.ruleStr + ':P' + torusWidth + ',' + torusHeight;
         this.ruleSymmetry = pattern.ruleSymmetry;
+        this.rulePeriod = pattern.rulePeriod;
     }
 
     runGeneration(): void {
