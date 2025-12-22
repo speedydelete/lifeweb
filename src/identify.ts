@@ -30,28 +30,30 @@ export function _findType(p: Pattern, limit: number, step: number, acceptStabili
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
     let hashes: number[] = [p.hash32()];
-    for (let i = 0; i < Math.ceil(limit / step); i++) {
-        p.run(step);
+    for (let i = 0; i < limit; i++) {
+        p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
         let hash = p.hash32();
         if (pop === 0) {
             return {period: 1, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases: [p.copy()]};
         }
-        for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
-            if (hash === hashes[j] && pop === pops[j]) {
-                let q = phases[j];
-                if (!p.isEqualWithTranslate(q)) {
-                    continue;
+        if (i % step === 0 && i > 0) {
+            for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
+                if (hash === hashes[j] && pop === pops[j]) {
+                    let q = phases[j];
+                    if (!p.isEqualWithTranslate(q)) {
+                        continue;
+                    }
+                    return {
+                        period: i - j + 1,
+                        stabilizedAt: j,
+                        disp: [p.xOffset - q.xOffset, p.yOffset - q.yOffset],
+                        pops,
+                        hashes,
+                        phases,
+                    };
                 }
-                return {
-                    period: i - j + 1,
-                    stabilizedAt: j,
-                    disp: [p.xOffset - q.xOffset, p.yOffset - q.yOffset],
-                    pops,
-                    hashes,
-                    phases,
-                };
             }
         }
         phases.push(p.copy());
