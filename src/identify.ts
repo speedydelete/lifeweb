@@ -388,7 +388,7 @@ function mapMinmax(p: MAPPattern | MAPGenPattern | MAPB0Pattern | MAPB0GenPatter
     }
     let min: string;
     let max: string;
-    if (p instanceof MAPPattern) {
+    if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
         min = `B${minB}/S${minS}`;
         max = `B${maxB}/S${maxS}`;
     } else {
