@@ -269,21 +269,23 @@ function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, g
         let q = p.copy();
         q.evenTrs = q.evenTrs.slice();
         q.oddTrs = q.oddTrs.slice();
-        if (minB.has(tr)) {
-            for (let i of allTrs[tr]) {
-                q.evenTrs[i] = 1;
-                q.oddTrs[511 - i] = 0;
-            }
-            if (verifyType(q, data, gens, step)) {
-                minB.delete(tr);
-            }
-        } else {
-            for (let i of allTrs[tr]) {
-                q.evenTrs[i] = 0;
-                q.oddTrs[511 - i] = 1;
-            }
-            if (verifyType(q, data, gens, step)) {
-                maxB.add(tr);
+        if (tr !== '0c') {
+            if (minB.has(tr)) {
+                for (let i of allTrs[tr]) {
+                    q.evenTrs[i] = 1;
+                    q.oddTrs[511 - i] = 0;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    minB.delete(tr);
+                }
+            } else {
+                for (let i of allTrs[tr]) {
+                    q.evenTrs[i] = 0;
+                    q.oddTrs[511 - i] = 1;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    maxB.add(tr);
+                }
             }
         }
         q = p.copy();
