@@ -85,7 +85,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
     }
     let type = _findType(p, limit, p.rulePeriod, acceptStabilized);
     if (type.disp) {
-        for (let i = 1; i < p.rulePeriod; i++) {
+        for (let i = 1; i < type.period; i++) {
             if (!Number.isInteger(type.period / i)) {
                 continue;
             }
