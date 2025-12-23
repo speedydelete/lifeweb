@@ -309,6 +309,8 @@ function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, g
             }
         }
     }
+    minS.delete('8c');
+    maxS.delete('8c');
     return {
         minB: Array.from(minB),
         minS: Array.from(minS),
