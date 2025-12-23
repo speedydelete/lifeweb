@@ -86,11 +86,18 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
     }
     let type = _findType(p, limit, acceptStabilized);
     if (type.disp) {
-        for (let i = 1; i < type.period; i++) {
+        for (let i = type.period - 1; i > 0; i--) {
             if (!Number.isInteger(type.period / i)) {
                 continue;
             }
-            if (type.phases[type.stabilizedAt].isEqualWithTranslate(type.phases[type.stabilizedAt + i])) {
+            let found = false;
+            for (let j = type.stabilizedAt; j < type.period - i; j++) {
+                if (!type.phases[j].isEqualWithTranslate(type.phases[j + i])) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
                 type.period /= i;
                 break;
             }
