@@ -80,6 +80,7 @@ export function _findType(p: Pattern, limit: number, acceptStabilized: boolean =
 }
 
 export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
+    p = p.copy();
     if (p.rulePeriod === 1) {
         return _findType(p, limit, acceptStabilized);
     }
