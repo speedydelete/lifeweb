@@ -38,7 +38,7 @@ export function _findType(p: Pattern, limit: number, acceptStabilized: boolean =
         if (pop === 0) {
             return {period: 1, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases: [p.copy()]};
         }
-        if (i % p.rulePeriod === 0) {
+        if ((i + 1) % p.rulePeriod === 0) {
             for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
                 if (hash === hashes[j] && pop === pops[j]) {
                     let q = phases[j];
