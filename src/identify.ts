@@ -291,26 +291,26 @@ function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, g
         q = p.copy();
         q.evenTrs = q.evenTrs.slice();
         q.oddTrs = q.oddTrs.slice();
-        if (minS.has(tr)) {
-            for (let i of allTrs[tr]) {
-                q.evenTrs[i | (1 << 4)] = 1;
-                q.oddTrs[511 - (i | (1 << 4))] = 0;
-            }
-            if (verifyType(q, data, gens, step)) {
-                minS.delete(tr);
-            }
-        } else {
-            for (let i of allTrs[tr]) {
-                q.evenTrs[i | (1 << 4)] = 1;
-                q.oddTrs[511 - (i | (1 << 4))] = 0;
-            }
-            if (verifyType(q, data, gens, step)) {
-                maxS.add(tr);
+        if (tr !== '8c') {
+            if (minS.has(tr)) {
+                for (let i of allTrs[tr]) {
+                    q.evenTrs[i | (1 << 4)] = 1;
+                    q.oddTrs[511 - (i | (1 << 4))] = 0;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    minS.delete(tr);
+                }
+            } else {
+                for (let i of allTrs[tr]) {
+                    q.evenTrs[i | (1 << 4)] = 1;
+                    q.oddTrs[511 - (i | (1 << 4))] = 0;
+                }
+                if (verifyType(q, data, gens, step)) {
+                    maxS.add(tr);
+                }
             }
         }
     }
-    minS.delete('8c');
-    maxS.delete('8c');
     return {
         minB: Array.from(minB),
         minS: Array.from(minS),
