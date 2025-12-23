@@ -156,19 +156,23 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
             apgcode = `yl${type.period}_${subperiod}_${moment0}_${stringMD5(moment1 + '#' + moment2)}`;
         }
     } else {
-        let tx = 0;
-        let ty = 0;
-        let txy = 0;
-        let tx2 = 0;
+        let xs = [];
+        let ys = [];
         for (let i = 0; i < type.pops.length; i++) {
-            let x = i + 1;
-            let y = Math.log(type.pops[i]);
-            tx += x;
-            ty += y;
-            txy += x * y;
-            tx2 += x**2;
+            xs.push(i + 1);
+            ys.push(Math.log(type.pops[i]));
         }
-        let power = (type.pops.length * txy - tx * ty) / (type.pops.length * tx2 - tx**2);
+        let n = xs.length;
+        let mx = xs.reduce((a, b) => a + b, 0) / n;
+        let my = ys.reduce((a, b) => a + b, 0) / n;
+        let num = 0;
+        let den = 0;
+        for (let i = 0; i < n; i++) {
+            let dx = xs[i] - mx;
+            num += dx * (ys[i] - my);
+            den += dx * dx;
+        }
+        let power = num / den;
         type.power = power;
         if (power < 1.15) {
             apgcode = 'PATHOLOGICAL';
