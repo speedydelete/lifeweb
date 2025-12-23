@@ -98,7 +98,15 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 }
             }
             if (!found) {
+                let scale = type.period / i;
+                let dx = type.disp[0] / scale;
+                let dy = type.disp[1] / scale;
+                if (!Number.isInteger(scale) || !Number.isInteger(dx) || !Number.isInteger(dy)) {
+                    continue;
+                }
                 type.period = i;
+                type.disp[0] = dx;
+                type.disp[1] = dy;
                 break;
             }
         }
