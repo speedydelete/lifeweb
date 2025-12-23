@@ -157,22 +157,21 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         }
     } else {
         let xy: [number, number][] = [];
-        let totalX = 0;
-        let totalY = 0;
+        let totalI = 0;
+        let pop = 0;
         for (let i = 0; i < type.pops.length; i++) {
             let x = Math.log(i + 1);
-            let y = Math.log(type.pops[i]);
-            totalX += x;
-            totalY += y;
-            xy.push([x, y]);
+            totalI += x;
+            pop += type.pops[i];
+            xy.push([x, pop]);
         }
-        let meanX = totalX / xy.length;
-        let meanY = totalY / type.pops.length;
+        let meanI = totalI / xy.length;
+        let meanPop = pop / type.pops.length;
         let a = 0;
         let b = 0;
         for (let [x, y] of xy) {
-            let dx = x - meanX;
-            a += dx * (y - meanY);
+            let dx = x - meanI;
+            a += dx * (y - meanPop);
             b += dx * dx;
         }
         let power = a / b;
