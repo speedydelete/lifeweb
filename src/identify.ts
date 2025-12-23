@@ -260,6 +260,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
 
 function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, allTrs: {[key: string]: number[]}, step: number): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
     let [b, s] = arrayToTransitions(p.evenTrs.map(x => 1 - x), allTrs);
+    b.push('0c');
     let minB = new Set(b);
     let minS = new Set(s);
     let maxB = new Set(b);
