@@ -27,6 +27,7 @@ export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'm
 
 export function _findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
     p.shrinkToFit();
+    p.ruleStr = 'B3/S23';
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
     let hashes: number[] = [p.hash32()];
@@ -39,7 +40,7 @@ export function _findType(p: Pattern, limit: number, acceptStabilized: boolean =
             return {period: 1, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases: [p.copy()]};
         }
         if ((i + 1) % p.rulePeriod === 0) {
-            for (let j = 0; j <= (acceptStabilized ? i : 0); j++) {
+            for (let j = 0; j <= (acceptStabilized ? i : 0); j += p.rulePeriod) {
                 if (hash === hashes[j] && pop === pops[j]) {
                     let q = phases[j];
                     if (!p.isEqualWithTranslate(q)) {
