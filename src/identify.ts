@@ -162,7 +162,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         for (let i = 0; i < type.pops.length; i++) {
             let x = Math.log(i + 1);
             totalI += x;
-            pop += type.pops[i];
+            pop += Math.log(type.pops[i]);
             data.push([x, pop]);
         }
         let meanI = totalI / data.length;
