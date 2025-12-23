@@ -17,7 +17,6 @@ export interface Identified extends PhaseData {
     apgcode: string;
     stabilizedAt: number;
     period: number;
-    unreducedPeriod?: number;
     disp?: [number, number];
     linear?: boolean;
     power?: number;
@@ -26,7 +25,7 @@ export interface Identified extends PhaseData {
 export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
 
 
-export function _findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -78,42 +77,6 @@ export function _findType(p: Pattern, limit: number, acceptStabilized: boolean =
         }
     }
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
-}
-
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
-    p = p.copy();
-    if (p.rulePeriod === 1) {
-        return _findType(p, limit, acceptStabilized);
-    }
-    let type = _findType(p, limit, acceptStabilized);
-    if (type.disp) {
-        for (let i = 1; i < type.period; i++) {
-            if (!Number.isInteger(type.period / i)) {
-                continue;
-            }
-            let found = false;
-            for (let j = type.stabilizedAt; j < type.period - i; j++) {
-                if (!type.phases[j].isEqualWithTranslate(type.phases[j + i])) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                let scale = type.period / i;
-                let dx = type.disp[0] / scale;
-                let dy = type.disp[1] / scale;
-                if (!Number.isInteger(scale) || !Number.isInteger(dx) || !Number.isInteger(dy)) {
-                    continue;
-                }
-                type.unreducedPeriod = type.period;
-                type.period = i;
-                type.disp[0] = dx;
-                type.disp[1] = dy;
-                break;
-            }
-        }
-    }
-    return type;
 }
 
 
@@ -787,10 +750,9 @@ export interface FullIdentified extends Identified {
 export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8): FullIdentified {
     p = p.copy().shrinkToFit();
     let type = identify(p, limit);
-    let period = type.unreducedPeriod ?? type.period;
     let minmax: [string, string] | undefined = undefined;
     try {
-        minmax = findMinmax(p, period > 0 ? period + type.stabilizedAt : limit, type);
+        minmax = findMinmax(p, type.period > 0 ? type.period + type.stabilizedAt : limit, type);
     } catch (error) {
         if (!(error instanceof RuleError)) {
             throw error;
