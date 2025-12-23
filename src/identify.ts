@@ -98,7 +98,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 }
             }
             if (!found) {
-                type.period /= i;
+                type.period = i;
                 break;
             }
         }
