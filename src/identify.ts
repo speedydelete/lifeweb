@@ -156,23 +156,22 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
             apgcode = `yl${type.period}_${subperiod}_${moment0}_${stringMD5(moment1 + '#' + moment2)}`;
         }
     } else {
-        let xy: [number, number][] = [];
+        let data: [number, number][] = [];
         let totalI = 0;
         let pop = 0;
         for (let i = 0; i < type.pops.length; i++) {
             let x = Math.log(i + 1);
             totalI += x;
             pop += type.pops[i];
-            xy.push([x, pop]);
+            data.push([x, pop]);
         }
-        let meanI = totalI / xy.length;
+        let meanI = totalI / data.length;
         let meanPop = pop / type.pops.length;
         let a = 0;
         let b = 0;
-        for (let [x, y] of xy) {
-            let dx = x - meanI;
-            a += dx * (y - meanPop);
-            b += dx * dx;
+        for (let [x, y] of data) {
+            a += (x - meanI) * (y - meanPop);
+            b += (x - meanI) ** 2;
         }
         let power = a / b;
         type.power = power;
