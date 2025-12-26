@@ -842,6 +842,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
 
 
 export function parseSpeed(speed: string): {dx: number, dy: number, period: number} {
+    speed = speed.toLowerCase();
     if (!speed.includes('c')) {
         throw new Error('Invalid speed!');
     }
