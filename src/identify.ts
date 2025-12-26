@@ -457,7 +457,7 @@ function otB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, minB: number[], minS: num
                 for (let letter of validTrs[i]) {
                     for (let tr of allTrs[i + letter]) {
                         q.evenTrs[tr] = 1;
-                        q.oddTrs[511 - i] = 0;
+                        q.oddTrs[511 - tr] = 0;
                     }
                 }
                 if (verifyType(q, data, gens, step)) {
@@ -467,7 +467,7 @@ function otB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, minB: number[], minS: num
                 for (let letter of validTrs[i]) {
                     for (let tr of allTrs[i + letter]) {
                         q.evenTrs[tr] = 0;
-                        q.oddTrs[511 - i] = 1;
+                        q.oddTrs[511 - tr] = 1;
                     }
                 }
                 if (verifyType(q, data, gens, step)) {
@@ -482,8 +482,8 @@ function otB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, minB: number[], minS: num
             if (minS.includes(i)) {
                 for (let letter of validTrs[i]) {
                     for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr] = 1;
-                        q.oddTrs[511 - i] = 0;
+                        q.evenTrs[tr | (1 << 4)] = 1;
+                        q.oddTrs[511 - (tr | (1 << 4))] = 0;
                     }
                 }
                 if (verifyType(q, data, gens, step)) {
@@ -492,8 +492,8 @@ function otB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, minB: number[], minS: num
             } else {
                 for (let letter of validTrs[i]) {
                     for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr] = 0;
-                        q.oddTrs[511 - i] = 1;
+                        q.evenTrs[tr | (1 << 4)] = 0;
+                        q.oddTrs[511 - (tr | (1 << 4))] = 1;
                     }
                 }
                 if (verifyType(q, data, gens, step)) {
