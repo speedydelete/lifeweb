@@ -435,7 +435,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
 }
 
 
-const LETTERS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+const HASHSOUP_LETTERS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
 
 export function randomHashsoup(): string {
     let data = crypto.getRandomValues(new Uint8Array(16));
@@ -450,7 +450,7 @@ export function randomHashsoup(): string {
                 i = 0;
             }
         } while (value >= 56);
-        out += LETTERS[value];
+        out += HASHSOUP_LETTERS[value];
     }
     return out;
 }

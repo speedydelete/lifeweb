@@ -20,7 +20,7 @@ export interface AtRule {
 }
 
 
-const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
+const RULELOADER_NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]],
     'vonneumann': [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]],
     'hexagonal': [[0, 0], [0, -1], [1, 0], [1, 1], [0, 1], [-1, 0], [-1, -1]],
@@ -328,7 +328,7 @@ const SYMMETRIES: {[key: string]: (nh: [number, number][]) => number[][]} = {
     permute: symPermute,
 };
 
-const MOORE_PERMUTE = symPermute(NEIGHBORHOODS['moore']);
+const MOORE_PERMUTE = symPermute(RULELOADER_NEIGHBORHOODS['moore']);
 
 
 function parseJSONLoose(data: string): number[][] {
@@ -548,7 +548,7 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
 }
 
 function parseTable(data: string): RuleTree {
-    let nh: [number, number][] = NEIGHBORHOODS['moore'];
+    let nh: [number, number][] = RULELOADER_NEIGHBORHOODS['moore'];
     let sym = 0;
     let symString = 'permute';
     let syms: number[][][] = [MOORE_PERMUTE];
@@ -568,8 +568,8 @@ function parseTable(data: string): RuleTree {
                     nh = list as [number, number][];
                 } else {
                     let lower = arg.toLowerCase();
-                    if (lower in NEIGHBORHOODS) {
-                        nh = NEIGHBORHOODS[lower];
+                    if (lower in RULELOADER_NEIGHBORHOODS) {
+                        nh = RULELOADER_NEIGHBORHOODS[lower];
                     } else {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
