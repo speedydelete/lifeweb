@@ -379,6 +379,9 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             }
         }
     }
+    if (rule.startsWith('__ruleloader_bgolly_')) {
+        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, rule.slice('__ruleloader_bgolly_'.length));
+    }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
         let states = Math.max(...patterns.map(x => x.states));

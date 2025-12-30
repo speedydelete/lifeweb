@@ -61,21 +61,38 @@ export class RuleLoaderBgollyPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: string) {
+    constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string) {
         super(height, width, data);
-        this.ruleStr = rule;
-        let value = rules.get(rule);
-        if (value) {
-            this.ruleName = value.name;
-            this.states = value.states;
-            this.ruleSymmetry = value.symmetry;
+        if (override) {
+                this.ruleName = override;
+            this.ruleStr = '__ruleloader_bgolly_' + override;
+            let value = rules.get(override);
+            if (value) {
+                this.states = value.states;
+                this.ruleSymmetry = value.symmetry;
+            } else {
+                let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
+                this.states = states;
+                this.ruleSymmetry = symmetry;
+                rules.set(override, {name: override, states, symmetry});      
+            }
         } else {
-            let name = (nextRuleName++) + '.rule';
-            let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
-            this.ruleName = name;
-            this.states = states;
-            this.ruleSymmetry = symmetry;
-            rules.set(rule, {name, states, symmetry});
+            let value = rules.get(rule);
+            if (value) {
+                this.ruleName = value.name;
+                this.ruleStr = '__ruleloader_bgolly_' + value.name;
+                this.states = value.states;
+                this.ruleSymmetry = value.symmetry;
+            } else {
+                let name = (nextRuleName++) + '.rule';
+                fs.writeFileSync(join(dir, name), rule);
+                let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
+                this.ruleName = name;
+                this.ruleStr = '__ruleloader_bgolly_' + name;
+                this.states = states;
+                this.ruleSymmetry = symmetry;
+                rules.set(rule, {name, states, symmetry});
+            }
         }
     }
 
