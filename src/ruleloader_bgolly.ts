@@ -22,7 +22,7 @@ let rules = new Map<string, {name: string, states: number, symmetry: RuleSymmetr
 let dir = join(import.meta.dirname, '..');
 
 
-export function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: RuleSymmetry} {
+function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: RuleSymmetry} {
     let states: number | null = null;
     let symmetry: RuleSymmetry | null = null;
     for (let line of rule.split('\n')) {

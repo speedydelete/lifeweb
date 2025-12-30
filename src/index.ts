@@ -7,7 +7,7 @@ import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPat
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
-import {getAtRuleStatesAndSymmetries, RuleLoaderBgollyPattern} from './ruleloader_bgolly.js';
+import {RuleLoaderBgollyPattern} from './ruleloader_bgolly.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
@@ -257,6 +257,9 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     if (rule.startsWith('@')) {
         try {
+            if (useBgolly) {
+                return new RuleLoaderBgollyPattern(data.height, data.width, data.data, rule);
+            }
             let out = parseAtRule(rule);
             let coords = new Map<number, number>();
             let i = 0;
