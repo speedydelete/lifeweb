@@ -45,12 +45,10 @@ export class AlternatingPattern extends DataPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): AlternatingPattern {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);

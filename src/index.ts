@@ -7,6 +7,7 @@ import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPat
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
+import {getAtRuleStatesAndSymmetries, RuleLoaderBgollyPattern} from './ruleloader_bgolly.js';
 import {getKnots} from './intsep.js';
 import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
@@ -15,6 +16,7 @@ export * from './map.js';
 export * from './hrot.js';
 export * from './super.js';
 export * from './ruleloader.js';
+export * from './ruleloader_bgolly.js';
 export * from './alternating.js';
 export * from './bounded.js';
 export * from './identify.js';
@@ -196,7 +198,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
 }
 
 
-export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string): Pattern {
+export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string, useBgolly?: boolean): Pattern {
     rule = rule.trim();
     let errors: string[] = [];
     try {
@@ -277,7 +279,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     if (rule.endsWith('History')) {
         try {
-            let p = createPattern(rule.slice(0, -7), data, namedRules);
+            let p = createPattern(rule.slice(0, -7), data, namedRules, undefined, useBgolly);
             if (p.states !== 2) {
                 throw new RuleError('History is only supported for 2-state rules');
             }
@@ -298,7 +300,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     if (rule.endsWith('Super')) {
         try {
-            let p = createPattern(rule.slice(0, -5), data, namedRules);
+            let p = createPattern(rule.slice(0, -5), data, namedRules, undefined, useBgolly);
             if (p.states !== 2) {
                 throw new RuleError('Super is only supported for 2-state rules');
             }
@@ -319,7 +321,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     if (rule.endsWith('Investigator')) {
         try {
-            let p = createPattern(rule.slice(0, -12), data, namedRules);
+            let p = createPattern(rule.slice(0, -12), data, namedRules, undefined, useBgolly);
             if (p.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
@@ -344,7 +346,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
             if (parts.length > 2) {
                 throw new RuleError('Only 1 bounded grid specifier allowed');
             }
-            let p = createPattern(parts[0], data, namedRules, prevName);
+            let p = createPattern(parts[0], data, namedRules, prevName, useBgolly);
             let spec = parts[1];
             let type = spec[0];
             let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
@@ -375,7 +377,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         }
     }
     if (rule.includes('|')) {
-        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules));
+        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
         let states = Math.max(...patterns.map(x => x.states));
         let ruleStr = patterns.map(x => x.ruleStr).join('|');
         let symmetry = patterns[0].ruleSymmetry;
@@ -389,14 +391,13 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
-        return createPattern(namedRules[lower], data, namedRules, rule);
+        return createPattern(namedRules[lower], data, namedRules, rule, useBgolly);
     }
     throw new RuleError(errors.join(', '));
 }
 
 
-export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
-    let raw: number[][] = [];
+export function parse(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
     let rule = 'B3/S23';
     let xOffset = 0;
     let yOffset = 0;
@@ -449,9 +450,10 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
             }
         }
     }
+    let raw: number[][] = [];
+    let currentLine: number[] = [];
     let num = '';
     let prefix = '';
-    let currentLine: number[] = [];
     for (let i = 0; i < data.length; i++) {
         let char = data[i];
         if (char === 'b' || char === 'o') {
@@ -517,14 +519,14 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
             i++;
         }
     }
-    let out = createPattern(rule, {height, width, data: pData}, namedRules);
+    let out = createPattern(rule, {height, width, data: pData}, namedRules, undefined, useBgolly);
     out.xOffset = xOffset;
     out.yOffset = yOffset;
     out.generation = generation;
     return out;
 }
 
-export function parseCompatibility(rle: string, namedRules?: {[key: string]: string}): Pattern {
+export function parseWithCompatibility(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
     let lines = rle.trim().split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
@@ -597,7 +599,7 @@ export function parseCompatibility(rle: string, namedRules?: {[key: string]: str
             i++;
         }
     }
-    let out = createPattern(rule, {height, width, data}, namedRules);
+    let out = createPattern(rule, {height, width, data}, namedRules, undefined, useBgolly);
     out.xOffset = xOffset;
     out.yOffset = yOffset;
     out.generation = generation;

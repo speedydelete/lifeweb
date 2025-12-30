@@ -766,12 +766,10 @@ export class MAPPattern extends DataPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPPattern {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
@@ -1074,12 +1072,10 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPB0Pattern {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
@@ -1452,12 +1448,10 @@ export class MAPGenPattern extends DataPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPGenPattern {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
@@ -1832,12 +1826,10 @@ export class MAPB0GenPattern extends DataPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPB0GenPattern {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         return new MAPB0GenPattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);

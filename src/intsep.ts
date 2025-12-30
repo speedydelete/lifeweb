@@ -1522,14 +1522,12 @@ export class INTSeparator extends MAPPattern {
     }
 
     copyPart(x: number, y: number, height: number, width: number): INTSeparator {
-        x -= this.xOffset;
-        y -= this.yOffset;
         let data = new Uint8Array(width * height);
         let groups = new Uint32Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row, row + width), loc);
-            groups.set(this.groups.slice(row, row + width), loc);
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
+            groups.set(this.groups.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
         let oldData = this.data;
