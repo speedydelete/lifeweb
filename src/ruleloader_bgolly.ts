@@ -40,7 +40,7 @@ function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: 
         if (states === null && (arg === 'n_states' || arg === 'num_states' || arg === 'states')) {
             states = parseInt(value);
         } else if (symmetry === null && arg === 'symmetries' && value in SYMMETRIES) {
-            symmetry = SYMMETRIES[arg];
+            symmetry = SYMMETRIES[value];
         }
     }
     if (states === null) {
