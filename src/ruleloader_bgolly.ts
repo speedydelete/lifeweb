@@ -64,7 +64,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
     constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string) {
         super(height, width, data);
         if (override) {
-                this.ruleName = override;
+            this.ruleName = override;
             this.ruleStr = '__ruleloader_bgolly_' + override;
             let value = rules.get(override);
             if (value) {
