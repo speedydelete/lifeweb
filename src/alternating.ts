@@ -2,6 +2,16 @@
 import {Pattern, DataPattern, RuleSymmetry} from './pattern.js';
 
 
+function gcd(a: number, b: number): number {
+    while (b > 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+
 export class AlternatingPattern extends DataPattern {
 
     states: number;
@@ -16,7 +26,13 @@ export class AlternatingPattern extends DataPattern {
         this.ruleStr = ruleStr;
         this.ruleSymmetry = ruleSymmetry;
         this.patterns = patterns;
-        this.rulePeriod = this.patterns.length;
+        let rulePeriod = patterns.length;
+        for (let p of patterns.slice(1)) {
+            if (p.rulePeriod > 1) {
+                rulePeriod = (rulePeriod * p.rulePeriod) / gcd(rulePeriod, p.rulePeriod);
+            }
+        }
+        this.rulePeriod = rulePeriod;
     }
 
     runGeneration(): void {
