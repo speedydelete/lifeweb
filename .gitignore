@@ -1,7 +1,10 @@
 /node_modules
 /lib
-/*.log
-/*.txt
-/temp.mjs
 /apgmera
 /golly
+/bgolly
+/temp.mjs
+/*.txt
+/*.log
+/*.rle
+/*.rule
