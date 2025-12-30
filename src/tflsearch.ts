@@ -119,7 +119,7 @@ function isExplosive(p: MAPPattern): 'yes' | number | 'died' | 'linear' {
     return 'yes';
 }
 
-let out = (await fs.readFile('out3.txt')).toString();
+let out = (await fs.readFile('out2.txt')).toString();
 
 let lastUpdate = 0;
 
@@ -130,7 +130,7 @@ async function writeOut(data: string): Promise<void> {
     out += data + '\n';
     let now = performance.now();
     if (lastUpdate === 0 || (now - lastUpdate) > 3000) {
-        await fs.writeFile('out3.txt', out);
+        await fs.writeFile('out2.txt', out);
         lastUpdate = now;
     }
 }
