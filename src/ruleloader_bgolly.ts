@@ -71,7 +71,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
                 this.states = value.states;
                 this.ruleSymmetry = value.symmetry;
             } else {
-                let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
+                let {states, symmetry} = getAtRuleStatesAndSymmetries(fs.readFileSync(join(dir, override)).toString());
                 this.states = states;
                 this.ruleSymmetry = symmetry;
                 rules.set(override, {name: override, states, symmetry});      
