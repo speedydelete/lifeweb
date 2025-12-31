@@ -6,6 +6,8 @@ export class DataHistoryPattern extends DataPattern {
 
     pattern: DataPattern;
     states: 7 = 7;
+    xOffset: number = 0;
+    yOffset: number = 0;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
     rulePeriod: 1 = 1;
@@ -250,6 +252,8 @@ export class CoordHistoryPattern extends CoordPattern {
 export class DataSuperPattern extends DataPattern {
 
     pattern: DataPattern;
+    xOffset: number = 0;
+    yOffset: number = 0;
     states: 26 = 26;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
@@ -666,6 +670,8 @@ export class CoordSuperPattern extends CoordPattern {
 export class InvestigatorPattern extends DataPattern {
 
     pattern: DataPattern;
+    xOffset: number = 0;
+    yOffset: number = 0;
     states: 21 = 21;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;

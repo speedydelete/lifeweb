@@ -334,8 +334,8 @@ export abstract class DataPattern implements Pattern {
     height: number;
     width: number;
     size: number;
-    xOffset: number = 0;
-    yOffset: number = 0;
+    abstract xOffset: number;
+    abstract yOffset: number;
     generation: number = 0;
     abstract states: number;
     abstract ruleStr: string;

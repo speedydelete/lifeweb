@@ -9,6 +9,8 @@ export class FiniteDataPattern extends DataPattern {
     bbWidth: number;
     minX: number;
     minY: number;
+    xOffset: number;
+    yOffset: number;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
@@ -23,7 +25,6 @@ export class FiniteDataPattern extends DataPattern {
         this.minY = -Math.floor(bbHeight / 2);
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
-        console.log('constructor:', this.xOffset, this.yOffset);
         this.states = p.states;
         this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = p.ruleSymmetry;
@@ -32,7 +33,6 @@ export class FiniteDataPattern extends DataPattern {
 
     runGeneration(): void {
         let p = this.pattern;
-        console.log('runGeneration:', this.xOffset, this.yOffset);
         p.setData(this.data, this.height, this.width);
         p.xOffset = this.xOffset;
         p.yOffset = this.yOffset;
@@ -179,6 +179,8 @@ export class TorusDataPattern extends DataPattern {
     pattern: Pattern;
     torusHeight: number;
     torusWidth: number;
+    xOffset: number = 0;
+    yOffset: number = 0;
     minX: number;
     maxX: number;
     minY: number;
