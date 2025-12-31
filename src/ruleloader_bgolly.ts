@@ -98,7 +98,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
 
     run(n: number): this {
         fs.writeFileSync(join(dir, 'in.rle'), this.toRLE());
-        execSync(`${join(dir, 'bgolly')} -a RuleLoader -s ./ -o out.rle -q -q -m ${n} in.rle`, {stdio: 'inherit'});
+        execSync(`${join(dir, 'bgolly')} -a RuleLoader -s ./ -o ${join(dir, 'out.rle')} -q -q -m ${n} ${join(dir, 'in.rle')}`, {stdio: 'inherit'});
         let rle = fs.readFileSync(join(dir, 'out.rle')).toString().split('\n').slice(1).join('\n').slice(0, -1);
         let raw: number[][] = [];
         let num = '';
