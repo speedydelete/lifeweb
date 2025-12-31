@@ -50,9 +50,6 @@ function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: 
     if (symmetry === null) {
         symmetry = 'C1';
     }
-    if (parentPort) {
-        throw new Error(rule + '\n\n\n' + JSON.stringify({states, symmetry}, undefined, 4));
-    }
     return {states, symmetry};
 }
 
