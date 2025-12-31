@@ -56,6 +56,8 @@ function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: 
 export class RuleLoaderBgollyPattern extends DataPattern {
 
     ruleStr: string;
+    xOffset: number = 0;
+    yOffset: number = 0;
     states: number;
     ruleSymmetry: RuleSymmetry;
     rulePeriod: 1 = 1;
