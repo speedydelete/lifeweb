@@ -1,5 +1,4 @@
 
-import {parentPort} from 'node:worker_threads';
 import {join} from 'node:path';
 import * as fs from 'node:fs';
 import {execSync} from 'node:child_process';
