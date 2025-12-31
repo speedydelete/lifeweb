@@ -63,7 +63,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
     constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string) {
         super(height, width, data);
         if (override) {
-            this.ruleStr = '__ruleloader_bgolly_' + override;
+            this.ruleStr = override;
             let value = rules.get(override);
             if (value) {
                 this.states = value.states;
@@ -77,14 +77,14 @@ export class RuleLoaderBgollyPattern extends DataPattern {
         } else {
             let value = rules.get(rule);
             if (value) {
-                this.ruleStr = '__ruleloader_bgolly_' + value.name;
+                this.ruleStr = value.name;
                 this.states = value.states;
                 this.ruleSymmetry = value.symmetry;
             } else {
-                let name = String(nextRuleName++);
+                let name = '__ruleloader_bgolly_' + String(nextRuleName++);
+                fs.writeFileSync(join(dir, name + '.rule'), rule);
                 let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
-                this.ruleStr = '__ruleloader_bgolly_' + name;
-                fs.writeFileSync(join(dir, this.ruleStr + '.rule'), rule);
+                this.ruleStr = name;
                 this.states = states;
                 this.ruleSymmetry = symmetry;
                 rules.set(rule, {name, states, symmetry});
