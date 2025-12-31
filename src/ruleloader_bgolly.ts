@@ -55,7 +55,6 @@ function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: 
 
 export class RuleLoaderBgollyPattern extends DataPattern {
 
-    ruleName: string;
     ruleStr: string;
     states: number;
     ruleSymmetry: RuleSymmetry;
@@ -64,7 +63,6 @@ export class RuleLoaderBgollyPattern extends DataPattern {
     constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string) {
         super(height, width, data);
         if (override) {
-            this.ruleName = override;
             this.ruleStr = '__ruleloader_bgolly_' + override;
             let value = rules.get(override);
             if (value) {
@@ -79,14 +77,12 @@ export class RuleLoaderBgollyPattern extends DataPattern {
         } else {
             let value = rules.get(rule);
             if (value) {
-                this.ruleName = value.name;
                 this.ruleStr = '__ruleloader_bgolly_' + value.name;
                 this.states = value.states;
                 this.ruleSymmetry = value.symmetry;
             } else {
-                let name = (nextRuleName++) + '.rule';
+                let name = String(nextRuleName++);
                 let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
-                this.ruleName = name;
                 this.ruleStr = '__ruleloader_bgolly_' + name;
                 fs.writeFileSync(join(dir, this.ruleStr), rule);
                 this.states = states;
