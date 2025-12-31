@@ -14,17 +14,17 @@ export class FiniteDataPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, pattern: Pattern, bbHeight: number, bbWidth: number) {
+    constructor(height: number, width: number, data: Uint8Array, p: Pattern, bbHeight: number, bbWidth: number) {
         super(height, width, data);
-        this.pattern = pattern;
+        this.pattern = p;
         this.bbHeight = bbHeight;
         this.bbWidth = bbWidth;
         this.minX = -Math.ceil(bbWidth / 2);
         this.minY = -Math.ceil(bbHeight / 2);
-        this.states = pattern.states;
-        this.ruleStr = pattern.ruleStr + ':P' + bbWidth + ',' + bbHeight;
-        this.ruleSymmetry = pattern.ruleSymmetry;
-        this.rulePeriod = pattern.rulePeriod;
+        this.states = p.states;
+        this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
+        this.ruleSymmetry = p.ruleSymmetry;
+        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
