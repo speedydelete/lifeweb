@@ -382,7 +382,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         }
     }
     if (rule.startsWith('__ruleloader_bgolly_')) {
-        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(join(import.meta.dirname, '..', rule.slice('__ruleloader_bgolly_'.length))).toString());
+        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(join(import.meta.dirname, '..', rule + '.rule')).toString());
     }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
