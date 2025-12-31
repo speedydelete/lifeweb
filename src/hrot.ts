@@ -5,6 +5,7 @@ import {CoordPattern, RuleError, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH a
 function parseRange(data: string): number[] {
     console.log(data);
     if (!data.match(/^\d+((-|..)\d+)?$/)) {
+        console.log('throwing');
         throw new RuleError(`Invalid HROT range: ${data}`);
     }
     let start = parseInt(data);
