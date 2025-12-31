@@ -85,10 +85,10 @@ export class RuleLoaderBgollyPattern extends DataPattern {
                 this.ruleSymmetry = value.symmetry;
             } else {
                 let name = (nextRuleName++) + '.rule';
-                fs.writeFileSync(join(dir, name), rule);
                 let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
                 this.ruleName = name;
                 this.ruleStr = '__ruleloader_bgolly_' + name;
+                fs.writeFileSync(join(dir, this.ruleStr), rule);
                 this.states = states;
                 this.ruleSymmetry = symmetry;
                 rules.set(rule, {name, states, symmetry});
