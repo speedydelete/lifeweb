@@ -3,6 +3,9 @@ import {CoordPattern, RuleError, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH a
 
 
 function parseRange(data: string): number[] {
+    if (!data.match(/^\d+((-|..)\d+)?$/)) {
+        throw new RuleError(`Invalid HROT range: ${data}`);
+    }
     let start = parseInt(data);
     let end = start;
     let index = data.indexOf('-');
