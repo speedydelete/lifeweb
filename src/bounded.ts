@@ -40,12 +40,10 @@ export class FiniteDataPattern extends DataPattern {
         this.yOffset = p.yOffset;
         let shrink = false;
         if (this.xOffset < this.minX) {
-            console.log('clearing X-');
             this.clearPart(0, 0, this.height, this.minX - this.xOffset);
             shrink = true;
         }
         if (this.yOffset < this.minY) {
-            console.log('clearing Y-');
             this.clearPart(0, 0, this.minY - this.yOffset, this.width);
             shrink = true;
         }
@@ -54,12 +52,10 @@ export class FiniteDataPattern extends DataPattern {
         }
         shrink = false;
         if (this.height > this.bbHeight) {
-            console.log('clearing Y+');
             this.clearPart(0, this.bbHeight, this.height - this.bbHeight, this.width);
             shrink = true;
         }
         if (this.width > this.bbWidth) {
-            console.log('clearing X+');
             this.clearPart(this.bbWidth, 0, this.height, this.width - this.bbWidth);
             shrink = true;
         }
