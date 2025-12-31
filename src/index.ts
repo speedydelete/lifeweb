@@ -24,6 +24,14 @@ export * from './intsep.js';
 export * from './search.js';
 
 
+let readFileSync: (path: string) => Buffer;
+if (typeof window === 'object' && window === globalThis) {
+    readFileSync = () => {throw new Error('bgolly mode is not supported in a web browser')};
+} else {
+    readFileSync = (await import('node:fs')).readFileSync;
+}
+
+
 export interface PatternData {
     height: number;
     width: number;
@@ -380,7 +388,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         }
     }
     if (rule.startsWith('__ruleloader_bgolly_')) {
-        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, rule.slice('__ruleloader_bgolly_'.length));
+        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(rule.slice('__ruleloader_bgolly_'.length)).toString());
     }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
