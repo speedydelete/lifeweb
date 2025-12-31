@@ -84,7 +84,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
                 let name = String(nextRuleName++);
                 let {states, symmetry} = getAtRuleStatesAndSymmetries(rule);
                 this.ruleStr = '__ruleloader_bgolly_' + name;
-                fs.writeFileSync(join(dir, this.ruleStr), rule);
+                fs.writeFileSync(join(dir, this.ruleStr + '.rule'), rule);
                 this.states = states;
                 this.ruleSymmetry = symmetry;
                 rules.set(rule, {name, states, symmetry});
@@ -94,7 +94,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
 
     run(n: number): this {
         fs.writeFileSync(join(dir, 'in.rle'), this.toRLE());
-        execSync(`${join(dir, 'bgolly')} -a RuleLoader -s ./ -o ${join(dir, 'out.rle')} -q -q -m ${n} ${join(dir, 'in.rle')}`, {stdio: 'inherit'});
+        execSync(`(cd ${dir}; ./bgolly -a RuleLoader -s ./ -o out.rle -q -q -m ${n} in.rle)`, {stdio: 'inherit'});
         let rle = fs.readFileSync(join(dir, 'out.rle')).toString().split('\n').slice(1).join('\n').slice(0, -1);
         let raw: number[][] = [];
         let num = '';
