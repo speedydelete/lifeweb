@@ -50,13 +50,15 @@ export class FiniteDataPattern extends DataPattern {
         if (shrink) {
             this.shrinkToFit();
         }
+        let height = this.yOffset + this.height;
         shrink = false;
-        if (this.height > this.bbHeight) {
-            this.clearPart(0, this.bbHeight, this.height - this.bbHeight, this.width);
+        if (height > this.bbHeight) {
+            this.clearPart(0, this.bbHeight, height - this.bbHeight, this.width);
             shrink = true;
         }
-        if (this.width > this.bbWidth) {
-            this.clearPart(this.bbWidth, 0, this.height, this.width - this.bbWidth);
+        let width = this.yOffset + this.width;
+        if (width > this.bbWidth) {
+            this.clearPart(this.bbWidth, 0, this.height, width - this.bbWidth);
             shrink = true;
         }
         if (shrink) {
