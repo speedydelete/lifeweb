@@ -1,4 +1,6 @@
 
+import {join} from 'node:path';
+import {readFileSync} from 'node:fs';
 import {stringMD5} from './md5.js';
 import {RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
@@ -22,14 +24,6 @@ export * from './bounded.js';
 export * from './identify.js';
 export * from './intsep.js';
 export * from './search.js';
-
-
-let readFileSync: (path: string) => Buffer;
-if (typeof window === 'object' && window === globalThis) {
-    readFileSync = () => {throw new Error('bgolly mode is not supported in a web browser')};
-} else {
-    readFileSync = (await import('node:fs')).readFileSync;
-}
 
 
 export interface PatternData {
@@ -388,7 +382,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         }
     }
     if (rule.startsWith('__ruleloader_bgolly_')) {
-        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(rule.slice('__ruleloader_bgolly_'.length)).toString());
+        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(join(import.meta.dirname, '..', rule.slice('__ruleloader_bgolly_'.length))).toString());
     }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
