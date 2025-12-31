@@ -19,8 +19,8 @@ export class FiniteDataPattern extends DataPattern {
         this.pattern = p;
         this.bbHeight = bbHeight;
         this.bbWidth = bbWidth;
-        this.minX = -Math.ceil(bbWidth / 2);
-        this.minY = -Math.ceil(bbHeight / 2);
+        this.minX = -Math.floor(bbWidth / 2);
+        this.minY = -Math.floor(bbHeight / 2);
         this.states = p.states;
         this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = p.ruleSymmetry;
