@@ -79,7 +79,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         }
         for (let i = 0; i < 8; i++) {
             if (num & (1 << i)) {
-                trs[((i & 4) << 8) | ((i & 2) << 5) | ((i & 1) << 2)] = 1;
+                trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = 1;
             }
         }
         ruleStr = 'W' + num;
