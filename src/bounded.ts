@@ -23,7 +23,7 @@ export class FiniteDataPattern extends DataPattern {
         this.minY = -Math.floor(bbHeight / 2);
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
-        console.log(this.xOffset, this.yOffset);
+        console.log('constructor:', this.xOffset, this.yOffset);
         this.states = p.states;
         this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = p.ruleSymmetry;
@@ -32,7 +32,10 @@ export class FiniteDataPattern extends DataPattern {
 
     runGeneration(): void {
         let p = this.pattern;
+        console.log('runGeneration:', this.xOffset, this.yOffset);
         p.setData(this.data, this.height, this.width);
+        p.xOffset = this.xOffset;
+        p.yOffset = this.yOffset;
         p.runGeneration();
         p.shrinkToFit();
         this.height = p.height;
