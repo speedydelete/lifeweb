@@ -1,4 +1,5 @@
 
+import {parentPort} from 'node:worker_threads';
 import {join} from 'node:path';
 import * as fs from 'node:fs';
 import {execSync} from 'node:child_process';
@@ -23,6 +24,9 @@ let dir = join(import.meta.dirname, '..');
 
 
 function getAtRuleStatesAndSymmetries(rule: string): {states: number, symmetry: RuleSymmetry} {
+    if (parentPort) {
+        throw new Error(rule);
+    }
     let states: number | null = null;
     let symmetry: RuleSymmetry | null = null;
     for (let line of rule.split('\n')) {
