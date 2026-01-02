@@ -468,6 +468,7 @@ export abstract class DataPattern implements Pattern {
     }
 
     clearPart(x: number, y: number, height: number, width: number): this {
+        console.log('clearing', x, y, height, width);
         let i = y * this.width + x;
         for (let row = 0; row < height; row++) {
             this.data.fill(0, i, i + width);

@@ -9,6 +9,8 @@ export class FiniteDataPattern extends DataPattern {
     bbWidth: number;
     minX: number;
     minY: number;
+    maxX: number;
+    maxY: number;
     xOffset: number;
     yOffset: number;
     states: number;
@@ -23,6 +25,8 @@ export class FiniteDataPattern extends DataPattern {
         this.bbWidth = bbWidth;
         this.minX = -Math.floor(bbWidth / 2);
         this.minY = -Math.floor(bbHeight / 2);
+        this.maxX = bbWidth + this.minX - 1;
+        this.maxY = bbHeight + this.minY - 1;
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
         this.states = p.states;
@@ -56,15 +60,16 @@ export class FiniteDataPattern extends DataPattern {
         if (shrink) {
             this.shrinkToFit();
         }
-        let height = this.yOffset + this.height;
         shrink = false;
-        if (height > this.bbHeight) {
-            this.clearPart(0, this.bbHeight, height - this.bbHeight, this.width);
+        let maxY = this.yOffset + this.height - 1;
+        if (maxY > this.maxY) {
+            this.clearPart(0, this.height - 1, maxY - this.maxY, this.width);
             shrink = true;
         }
-        let width = this.yOffset + this.width;
-        if (width > this.bbWidth) {
-            this.clearPart(this.bbWidth, 0, this.height, width - this.bbWidth);
+        let maxX = this.xOffset + this.width - 1;
+        console.log(maxY, this.maxY, maxX, this.maxX);
+        if (maxX > this.maxX) {
+            this.clearPart(this.width - 1, 0, this.height, maxX - this.maxX);
             shrink = true;
         }
         if (shrink) {
