@@ -139,7 +139,6 @@ export class FiniteCoordPattern extends CoordPattern {
             let y = (key & (WIDTH - 1)) - BIAS;
             if (x < 0 || y < 0 || x > this.bbWidth || y > this.bbHeight) {
                 this.coords.delete(key);
-            } else {
             }
         }
         this.generation++;
