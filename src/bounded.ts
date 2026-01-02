@@ -18,7 +18,7 @@ export class FiniteDataPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, p: Pattern, bbHeight: number, bbWidth: number) {
+    constructor(height: number, width: number, data: Uint8Array, p: Pattern, bbWidth: number, bbHeight: number) {
         super(height, width, data);
         this.pattern = p;
         this.bbHeight = bbHeight;
@@ -113,24 +113,20 @@ export class FiniteCoordPattern extends CoordPattern {
     pattern: Pattern;
     bbHeight: number;
     bbWidth: number;
-    minX: number;
-    minY: number;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(coords: Map<number, number>, range: number, pattern: Pattern, bbHeight: number, bbWidth: number) {
+    constructor(coords: Map<number, number>, range: number, p: Pattern, bbWidth: number, bbHeight: number) {
         super(coords, range);
-        this.pattern = pattern;
+        this.pattern = p;
         this.bbHeight = bbHeight;
         this.bbWidth = bbWidth;
-        this.minX = -Math.ceil(bbWidth / 2);
-        this.minY = -Math.ceil(bbHeight / 2);
-        this.states = pattern.states;
-        this.ruleStr = pattern.ruleStr + ':P' + bbWidth + ',' + bbHeight;
-        this.ruleSymmetry = pattern.ruleSymmetry;
-        this.rulePeriod = pattern.rulePeriod;
+        this.states = p.states;
+        this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
+        this.ruleSymmetry = p.ruleSymmetry;
+        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
@@ -141,8 +137,9 @@ export class FiniteCoordPattern extends CoordPattern {
         for (let key of this.coords.keys()) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
-            if (x < this.minX || y < this.minY || x > this.minX + this.bbWidth || y > this.minY + this.bbHeight) {
+            if (x < 0 || y < 0 || x > this.bbWidth || y > this.bbHeight) {
                 this.coords.delete(key);
+            } else {
             }
         }
         this.generation++;
@@ -193,9 +190,9 @@ export class TorusDataPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, pattern: Pattern, torusHeight: number, torusWidth: number) {
+    constructor(height: number, width: number, data: Uint8Array, p: Pattern, torusWidth: number, torusHeight: number) {
         super(height, width, data);
-        this.pattern = pattern;
+        this.pattern = p;
         if (torusHeight === 0) {
             torusHeight = Infinity;
         }
@@ -208,10 +205,10 @@ export class TorusDataPattern extends DataPattern {
         this.minY = -Math.ceil(torusHeight / 2);
         this.maxX = torusWidth + this.minX - 1;
         this.maxY = torusHeight + this.minY - 1;
-        this.states = pattern.states;
-        this.ruleStr = pattern.ruleStr + ':T' + torusWidth + ',' + torusHeight;
-        this.ruleSymmetry = pattern.ruleSymmetry;
-        this.rulePeriod = pattern.rulePeriod;
+        this.states = p.states;
+        this.ruleStr = p.ruleStr + ':T' + torusWidth + ',' + torusHeight;
+        this.ruleSymmetry = p.ruleSymmetry;
+        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
@@ -320,19 +317,25 @@ export class TorusCoordPattern extends CoordPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(coords: Map<number, number>, range: number, pattern: Pattern, torusHeight: number, torusWidth: number) {
+    constructor(coords: Map<number, number>, range: number, p: Pattern, torusWidth: number, torusHeight: number) {
         super(coords, range);
-        this.pattern = pattern;
+        this.pattern = p;
+        if (torusHeight === 0) {
+            torusHeight = Infinity;
+        }
+        if (torusWidth === 0) {
+            torusWidth = Infinity;
+        }
         this.torusHeight = torusHeight;
         this.torusWidth = torusWidth;
         this.minX = -Math.ceil(torusWidth / 2);
         this.maxX = Math.floor(torusWidth / 2);
         this.minY = -Math.ceil(torusHeight / 2);
         this.maxY = Math.floor(torusHeight / 2);
-        this.states = pattern.states;
-        this.ruleStr = pattern.ruleStr + ':P' + torusWidth + ',' + torusHeight;
-        this.ruleSymmetry = pattern.ruleSymmetry;
-        this.rulePeriod = pattern.rulePeriod;
+        this.states = p.states;
+        this.ruleStr = p.ruleStr + ':P' + torusWidth + ',' + torusHeight;
+        this.ruleSymmetry = p.ruleSymmetry;
+        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {

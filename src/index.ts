@@ -921,3 +921,11 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
         return `(${dx}, ${dy})c/${period}`;
     }
 }
+
+
+// let p = parse(`x = 4, y = 6, rule = R2,C2,S4,B4:P6,8
+// 2o$3bo$3bo$3bo$3bo$2o!`);
+
+// console.log(p);
+// p.runGeneration();
+// console.log(p.toRLE());
