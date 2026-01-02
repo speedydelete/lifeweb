@@ -14,8 +14,6 @@ function gcd(a: number, b: number): number {
 
 export class AlternatingPattern extends DataPattern {
 
-    xOffset: number = 0;
-    yOffset: number = 0;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;

@@ -482,8 +482,6 @@ function runTile(t: Tile, trs: Uint8Array): void {
 export class MAPPattern extends DataPattern {
 
     trs: Uint8Array;
-    xOffset: number = 0;
-    yOffset: number = 0;
     states: 2 = 2;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
@@ -789,8 +787,6 @@ export class MAPB0Pattern extends DataPattern {
 
     evenTrs: Uint8Array;
     oddTrs: Uint8Array;
-    xOffset: number = 0;
-    yOffset: number = 0;
     states: 2 = 2;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
@@ -1096,8 +1092,6 @@ export class MAPB0Pattern extends DataPattern {
 export class MAPGenPattern extends DataPattern {
 
     trs: Uint8Array;
-    xOffset: number = 0;
-    yOffset: number = 0;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
@@ -1475,8 +1469,6 @@ export class MAPB0GenPattern extends DataPattern {
 
     evenTrs: Uint8Array;
     oddTrs: Uint8Array;
-    xOffset: number = 0;
-    yOffset: number = 0;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;

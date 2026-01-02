@@ -184,8 +184,6 @@ export class TorusDataPattern extends DataPattern {
     pattern: Pattern;
     torusHeight: number;
     torusWidth: number;
-    xOffset: number = 0;
-    yOffset: number = 0;
     minX: number;
     maxX: number;
     minY: number;
