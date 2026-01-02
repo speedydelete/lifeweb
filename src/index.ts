@@ -927,5 +927,7 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
 // 2o$3bo$3bo$3bo$3bo$2o!`);
 
 // console.log(p);
-// p.runGeneration();
-// console.log(p.toRLE());
+// for (let i = 0; i < 5; i++) {
+//     p.runGeneration();
+//     console.log(p.toRLE());
+// }
