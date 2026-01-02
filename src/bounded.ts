@@ -25,7 +25,6 @@ export class FiniteDataPattern extends DataPattern {
         this.minY = -Math.floor(bbHeight / 2);
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
-        console.log(this.xOffset, this.yOffset);
         this.states = p.states;
         this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
         this.ruleSymmetry = p.ruleSymmetry;
