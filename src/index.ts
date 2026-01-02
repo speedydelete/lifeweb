@@ -410,8 +410,8 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
 
 export function parse(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
     let rule = 'B3/S23';
-    let xOffset = 0;
-    let yOffset = 0;
+    let xOffset: number | null = null;
+    let yOffset: number | null = null;
     let generation = 0;
     let data = '';
     let headerFound = false;
@@ -531,8 +531,12 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, useBgol
         }
     }
     let out = createPattern(rule, {height, width, data: pData}, namedRules, undefined, useBgolly);
-    out.xOffset = xOffset;
-    out.yOffset = yOffset;
+    if (xOffset !== null) {
+        out.xOffset = xOffset;
+    }
+    if (yOffset !== null) {
+        out.yOffset = yOffset;
+    }
     out.generation = generation;
     return out;
 }
@@ -541,8 +545,8 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
     let lines = rle.trim().split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
-    let xOffset = 0;
-    let yOffset = 0;
+    let xOffset: number | null = null;
+    let yOffset: number | null = null;
     let generation = 0;
     if (lines[0].startsWith('#L') && (lines[0] === '#Life 1.05' || lines[0] === '#Life 1.06')) {
         if (lines[0] === '#Life 1.05') {
@@ -561,6 +565,8 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
                 }
             }
         } else {
+            xOffset = 0;
+            yOffset = 0;
             for (let line of lines.slice(1)) {
                 let [xStr, yStr] = line.split(' ');
                 let x = parseInt(xStr) + xOffset;
@@ -611,8 +617,12 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
         }
     }
     let out = createPattern(rule, {height, width, data}, namedRules, undefined, useBgolly);
-    out.xOffset = xOffset;
-    out.yOffset = yOffset;
+    if (xOffset !== null) {
+        out.xOffset = xOffset;
+    }
+    if (yOffset !== null) {
+        out.yOffset = yOffset;
+    }
     out.generation = generation;
     return out;
 }

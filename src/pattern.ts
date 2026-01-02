@@ -469,7 +469,7 @@ export abstract class DataPattern implements Pattern {
 
     clearPart(x: number, y: number, height: number, width: number): this {
         let i = y * this.width + x;
-        for (let row = y; row < y + height; row++) {
+        for (let row = 0; row < height; row++) {
             this.data.fill(0, i, i + width);
             i += this.width;
         }
