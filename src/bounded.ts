@@ -207,9 +207,9 @@ export class TorusDataPattern extends DataPattern {
         this.torusHeight = torusHeight;
         this.torusWidth = torusWidth;
         this.minX = -Math.ceil(torusWidth / 2);
-        this.maxX = Math.floor(torusWidth / 2);
         this.minY = -Math.ceil(torusHeight / 2);
-        this.maxY = Math.floor(torusHeight / 2);
+        this.maxX = torusWidth + this.minX - 1;
+        this.maxY = torusHeight + this.minY - 1;
         this.states = pattern.states;
         this.ruleStr = pattern.ruleStr + ':T' + torusWidth + ',' + torusHeight;
         this.ruleSymmetry = pattern.ruleSymmetry;
