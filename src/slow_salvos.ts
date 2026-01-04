@@ -1,34 +1,109 @@
 
-import * as fs from 'node:fs/promises';
-import {MAPPattern, createPattern, INTSeparator, getKnots, identify, Pattern} from './core/index.js';
+/*
 
+slow salvo searching program
+
+this program is wrapped by the "ss" file which makes it easier to use
+remember to run "npx tsc" to recompile whenever you change this file!
+
+to use:
+
+./ss 1, 2, 3
+to get the slow salvo RLE for lanes 1, 2, and 3
+
+./ss search 3
+to search all slow salvos with 3 or less gliders
+note that the search command outputs an insane amount of data
+you should probably send it to a file, like "./ss search 3 > salvos.txt"
+it will also create a salvos.json file which future programs may use!
+the output consists of 2 parts: a full list of collision results, then a full list of salvos that do certain things
+
+*/
+
+// the default settings will work for the B2ce/S1 glider
 
 const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
 
+// the glider is the spaceship used for slow salvos and single channel recipes
 const GLIDER_HEIGHT = 2;
 const GLIDER_WIDTH = 3;
+// this part is an array of [x, y] coordinates
 const GLIDER_CELLS = [[2, 0], [0, 1], [1, 1]];
 const GLIDER_SLOPE = 1;
+const GLIDER_POPULATION_PERIOD = 1;
 
+// the starting object for syntheses
 const START_OBJECT = 'xs2_11';
 
+// the spacing (in cells) between 2 gliders in a multi-glider slow salvo
 const GLIDER_SPACING = 20;
+// the offset number for lanes, because it does not like negative lanes you should set this
 const LANE_OFFSET = 5;
-const TIMING_DIFFERENCE = 11;
+// the timing offset for collisions, set this to whatever notion of timing you like
+const TIMING_DIFFERENCE = 12;
 
+// the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
-const MAX_GENERATION = 1024;
-const PERIOD_FACTOR_NUMBER = 2;
-const PERIOD_SECURITY = 64;
+// the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
+const MAX_GENERATIONS = 30;
+// the number of population periods to repeat to make sure it's stable
+const PERIOD_SECURITY = 16;
+// this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
+const VALID_POPULATION_PERIODS: null | number[] = [1];
+// the extra generations to run after a collision, just to make sure
 const EXTRA_GENERATIONS = 60;
+// the generations to run the colorizing object separation for
 const SEPARATOR_GENERATIONS = 1;
+// the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 
-type ShipDirection = 'nw' | 'ne' | 'sw' | 'se';
+// the valid directions for a ship, this is purely for user convenience
+type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE';
 
+// the possible names for ships
 type ShipName = 'glider';
 
-const SHIP_IDENTIFICATION: {[key: string]: {name: ShipName, data: {height: number, width: number, population: number, data: [cells: number[], dir: ShipDirection, timing: number][]}[]}} = {
+/*
+ok this is how this part works:
+this lets you produce nice outputs for ships instead of literally dropping everything that outputs ships (well, they'll be kept, but won't be included in the final enumeration)
+for each apgcode you provide a name which is a ShipName
+then you provide a list of test cases, each case consists of a height, width, and population
+for each case you provide a lsit of subcases, each subcase has the following format:
+[cells: number[], dir: ShipDirection, timing: number][]
+the cells let you actually test for the pattern that is the ship
+here's an example
+{
+    height: 3,
+    width: 2,
+    population: 3,
+    data: [
+        [[1, 2, 4], 'NW', 2]
+    ],
+}
+the cells argument tells you the indices of alive cells
+you use a grid like this (for height 3 and width 2):
+0 1
+2 3
+4 5
+so [1, 2, 4] means that cells 1, 2, and 4 must be on, and therefore the pattern must look like this:
+bo$
+ob$
+ob!
+then a ShipDirection
+then a number of generations to run to get to the canonical phase (important for timing!), use whatever notion of timing and canonical phases of ships you like best
+*/
+
+interface ShipIdentification {
+    name: ShipName;
+    data: {
+        height: number;
+        width: number;
+        population: number;
+        data: [cells: number[], dir: ShipDirection, timing: number][];
+    }[];
+}
+
+const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     xq4_15: {
         name: 'glider',
         data: [
@@ -37,14 +112,14 @@ const SHIP_IDENTIFICATION: {[key: string]: {name: ShipName, data: {height: numbe
                 width: 2,
                 population: 3,
                 data: [
-                    [[1, 2, 4], 'nw', 2],
-                    [[0, 1, 4], 'nw', 1],
-                    [[0, 3, 5], 'ne', 2],
-                    [[0, 1, 5], 'ne', 1],
-                    [[0, 2, 5], 'sw', 2],
-                    [[0, 4, 5], 'sw', 1],
-                    [[1, 3, 4], 'se', 2],
-                    [[1, 4, 5], 'se', 1],
+                    [[1, 2, 4], 'NW', 2],
+                    [[0, 1, 4], 'NW', 1],
+                    [[0, 3, 5], 'NE', 2],
+                    [[0, 1, 5], 'NE', 1],
+                    [[0, 2, 5], 'SW', 2],
+                    [[0, 4, 5], 'SW', 1],
+                    [[1, 3, 4], 'SE', 2],
+                    [[1, 4, 5], 'SE', 1],
                 ],
             },
             {
@@ -52,19 +127,32 @@ const SHIP_IDENTIFICATION: {[key: string]: {name: ShipName, data: {height: numbe
                 width: 3,
                 population: 3,
                 data: [
-                    [[1, 2, 3], 'nw', 0],
-                    [[0, 2, 3], 'nw', 3],
-                    [[0, 1, 5], 'ne', 0],
-                    [[0, 2, 5], 'ne', 3],
-                    [[0, 4, 5], 'sw', 0],
-                    [[0, 3, 5], 'sw', 3],
-                    [[2, 3, 4], 'se', 0],
-                    [[2, 3, 5], 'se', 3],
+                    [[1, 2, 3], 'NW', 0],
+                    [[0, 2, 3], 'NW', 3],
+                    [[0, 1, 5], 'NE', 0],
+                    [[0, 2, 5], 'NE', 3],
+                    [[0, 4, 5], 'SW', 0],
+                    [[0, 3, 5], 'SW', 3],
+                    [[2, 3, 4], 'SE', 0],
+                    [[2, 3, 5], 'SE', 3],
                 ],
             },
         ],
     },
 }
+
+// this function determines lane numbers of ships, change this to whatever notion of lane numbering you like
+function findLane(ship: CAObject & {type: ShipName}): number {
+    if (ship.dir === 'NE' || ship.dir === 'SW') {
+        return ship.x + ship.y;
+    } else {
+        return ship.y - ship.x;
+    }
+}
+
+
+import * as fs from 'node:fs/promises';
+import {MAPPattern, createPattern, INTSeparator, getKnots, identify} from './core/index.js';
 
 
 let base = createPattern(RULE) as MAPPattern;
@@ -108,8 +196,8 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     let [p, xPos, yPos] = createConfiguration(s);
     let found = false;
     let prevPop = p.population;
-    for (let i = 0; i < s.lanes.length * WAIT_GENERATIONS; i++) {
-        p.runGeneration();
+    for (let i = 0; i < s.lanes.length * WAIT_GENERATIONS / GLIDER_POPULATION_PERIOD; i++) {
+        p.run(GLIDER_POPULATION_PERIOD);
         let pop = p.population;
         if (pop !== prevPop) {
             found = true;
@@ -122,21 +210,26 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     }
     let pops: number[] = [];
     found = false;
-    for (let i = 0; i < MAX_GENERATION; i++) {
+    let period = -1;
+    for (let i = 0; i < MAX_GENERATIONS; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pops.slice(-PERIOD_SECURITY).every(x => x === pop)) {
-            found = true;
-            break;
+        for (period = 1; period < Math.min(MAX_GENERATIONS, Math.floor(pops.length / PERIOD_SECURITY)); period++) {
+            let found = true;
+            for (let j = 1; j < 16; j++) {
+                if (pop !== pops[pops.length - period * j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
         }
         pops.push(pop);
     }
-    if (!found) {
-        for (let i = pops.length - PERIOD_SECURITY; i < pops.length - PERIOD_FACTOR_NUMBER; i++) {
-            if (pops[i] !== pops[i + PERIOD_FACTOR_NUMBER]) {
-                return false;
-            }
-        }
+    if (found && VALID_POPULATION_PERIODS && !VALID_POPULATION_PERIODS.includes(period)) {
+        return false;
     }
     p.run(EXTRA_GENERATIONS);
     p.shrinkToFit();
@@ -294,13 +387,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
         out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
     for (let ship of ships) {
-        let lane: number;
-        if (ship.dir === 'ne' || ship.dir === 'sw') {
-            lane = ship.x + ship.y;
-        } else {
-            lane = ship.y - ship.x;
-        }
-        out += `${ship.dir.toUpperCase()} ${ship.type} lane ${lane} timing ${ship.t - TIMING_DIFFERENCE}, `;
+        out += `${ship.dir} ${ship.type} lane ${findLane(ship)} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     if (data.length > 0) {
         out = out.slice(0, -2);
@@ -394,8 +481,8 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
         } else if (a.t > b.t) {
             return 1;
         }
-        let aLane = a.dir === 'ne' || a.dir === 'sw' ? a.x + a.y : a.y - a.x;
-        let bLane = b.dir === 'ne' || b.dir === 'sw' ? b.x + b.y : b.y - b.x;
+        let aLane = findLane(a);
+        let bLane = findLane(b);
         if (aLane < bLane) {
             return -1;
         } else if (aLane > bLane) {
@@ -409,13 +496,7 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
         out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
     for (let ship of ships) {
-        let lane: number;
-        if (ship.dir === 'ne' || ship.dir === 'sw') {
-            lane = ship.x + ship.y;
-        } else {
-            lane = ship.y - ship.x;
-        }
-        out += `${ship.dir.toUpperCase()} ${ship.type} lane ${lane} emitted ${ship.n} timing ${ship.t - TIMING_DIFFERENCE}, `;
+        out += `${ship.dir} ${ship.type} lane ${findLane(ship)} emitted ${ship.n} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     return out.slice(0, -2);
 }
@@ -426,10 +507,10 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]]
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
-        objs = objs.slice();
-        objs.push(...add.map(value => {
+        objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
-            if (out.type === 'glider') {
+            if (out.type !== 'sl' && out.type !== 'other') {
+                // @ts-ignore
                 out.n = count;
             }
             return out;
@@ -447,15 +528,15 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]]
             } else {
                 out[str] = [objs, [recipe]];
             }
-        }
-        if (count < limit) {
-            if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
-                getAllRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out);
-            } else {
-                for (let i = 0; i < objs.length; i++) {
-                    let obj = objs[i];
-                    if (obj.type === 'sl' && obj.code in data) {
-                        getAllRecipes(data, obj.code, recipe, obj.x, obj.y, count + 1, limit, out, objs.toSpliced(i, 1));
+            if (count < limit) {
+                if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
+                    getAllRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out);
+                } else {
+                    for (let i = 0; i < objs.length; i++) {
+                        let obj = objs[i];
+                        if (obj.type === 'sl' && obj.code in data) {
+                            getAllRecipes(data, obj.code, recipe, obj.x, obj.y, count + 1, limit, out, objs.toSpliced(i, 1));
+                        }
                     }
                 }
             }
@@ -490,7 +571,7 @@ if (process.argv[2] === 'search') {
     }
     console.log('');
     let recipes: {[key: string]: [CAObject[], number[][]]} = {};
-    getAllRecipes(out, START_OBJECT, [], 0, 0, 1, limit, recipes);
+    getAllRecipes(out, START_OBJECT, [], 0, 0, 0, limit - 1, recipes);
     for (let key in recipes) {
         console.log('');
         console.log(key + ':');
