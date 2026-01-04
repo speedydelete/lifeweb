@@ -1,5 +1,5 @@
 
-import {soupSearch} from './index.js';
+import {soupSearch} from './core/index.js';
 
 if (process.argv.length < 3) {
     console.log(`Usage: apgweb.mjs <rule> <symmetry> <num_soups> [options]`);

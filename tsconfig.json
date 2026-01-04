@@ -10,5 +10,5 @@
         "sourceMap": true,
         "declaration": true
     },
-    "files": ["./src/index.ts", "./src/tflsearch.ts", "src/apgweb.ts", "./src/syntheses.ts", "./src/slow_salvos.ts"]
+    "files": ["./src/core/index.ts", "./src/tflsearch.ts", "src/apgweb.ts", "./src/syntheses.ts", "./src/slow_salvos.ts"]
 }

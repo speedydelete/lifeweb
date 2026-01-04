@@ -1302,8 +1302,8 @@ export class INTSeparator extends MAPPattern {
                 data[(y - minY) * width + x - minX] = 1;
             }
             let p = new MAPPattern(height, width, data, this.trs, this.ruleStr, 'D8');
-            p.xOffset = minX;
-            p.yOffset = minY;
+            p.xOffset = minX + this.xOffset;
+            p.yOffset = minY + this.yOffset;
             out.push(p);
         }
         return out;

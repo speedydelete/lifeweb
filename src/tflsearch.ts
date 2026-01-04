@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync, spawn} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './index.js';
+import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './core/index.js';
 
 
 const CHECK_TRS = [

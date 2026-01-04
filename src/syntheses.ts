@@ -1,5 +1,5 @@
 
-import {Pattern, createPattern, findType, INTSeparator, MAPPattern, fullIdentify} from './index.js';
+import {Pattern, createPattern, findType, INTSeparator, MAPPattern, fullIdentify} from './core/index.js';
 
 
 export type Direction = 'N' | 'S' | 'E' | 'W' | 'NW' | 'NE' | 'SW' | 'SE';

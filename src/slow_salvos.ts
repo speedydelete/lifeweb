@@ -1,6 +1,6 @@
 
 import * as fs from 'node:fs/promises';
-import {MAPPattern, createPattern, INTSeparator, getKnots, identify} from './index.js';
+import {MAPPattern, createPattern, INTSeparator, getKnots, identify} from './core/index.js';
 
 
 const OFFSET = 5;
@@ -28,7 +28,7 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
         p.set(x, y + 1, 1);
         p.set(x + 1, y + 1, 1);
     }
-    let target = base.loadApgcode(s.target).shrinkToFit();
+    let target = base.loadApgcode(s.target);
     let yPos = (s.lanes.length - 1) * 20 + 6;
     let xPos = yPos + target.height + OFFSET - minLane * 2;
     p.ensure(target.width + xPos, target.height + yPos);
@@ -263,7 +263,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
             gliders.push(obj);
             continue;
         }
-        out += obj.code + ' (' + (obj.x - 1) + ', ' + (obj.y - 1) + '), ';
+        out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
     for (let ship of gliders) {
         let lane: number;
@@ -349,7 +349,7 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
         } else if (a.y > b.y) {
             return 1;
         } else {
-            throw new Error('Identical object positions!');
+            return 0;
         }
     });
     gliders = gliders.sort((a, b) => {
@@ -365,12 +365,12 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
         } else if (aLane > bLane) {
             return 1;
         } else {
-            throw new Error('Identical glider positions!');
+            return 1;
         }
     });
     let out = '';
     for (let obj of stillLifes) {
-        out += obj.code + ' (' + (obj.x - 1) + ', ' + (obj.y - 1) + '), ';
+        out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
     for (let ship of gliders) {
         let lane: number;
@@ -385,66 +385,36 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
     return out.slice(0, -2);
 }
 
-// function getAllPaths(code: string, all: Map<string, [string, number, number, number[]][]>): [string, number, number, number[]][] {
-//     if (code === 'xs2_11') {
-//         return [['xs2_11', []]];
-//     }
-//     for (let [key, value] of all) {
-//         if (key.startsWith(code + ' (')) {
-//             let coords = key.slice(code.length + 2);
-//             let xOffset = 0;
-//             let yOffset = 0;
-//         }
-//     }
-//     let data = all.get(code);
-//     if (!data) {
-//         throw new Error('No data for code!');
-//     }
-//     let out: [string, number[]][] = [];
-//     for (let value of data) {
-//         if (value[0] === 'xs2_11') {
-//             out.push(value);
-//         } else {
-//             for (let path of getAllPaths(value[0], all)) {
-//                 out.push([path[0], path[1].concat(...value[1])]);
-//             }
-//         }
-//     }
-//     return out;
-// }
-
-// function organizeData(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}): string {
-//     let out = new Map<string, [string, number, number, number[]][]>();
-//     for (let code in data) {
-//         let paths = getAllPaths(code, out);
-//         for (let [lane, outcome] of data[code]) {
-//             for (let path of paths) {
-//                 let str = normalizeOutcome(outcome);
-//                 if (!str) {
-//                     continue;
-//                 }
-//                 let array = out.get(str);
-//                 if (!array) {
-//                     array = [];
-//                     out.set(str, array);
-//                 }
-//                 for (let path of paths) {
-//                     array.push([path[0], path[1].concat(lane)]);
-//                 }
-//             }
-//         }
-//     }
-//     return Array.from(out.entries()).map(([key, value]) => {
-
-//     }).join('\n\n');
-// }
+function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}, code: string, prefix: number[], x: number, y: number, limit: number, out: {[key: string]: [CAObjectNoP[], number[][]]}): void {
+    for (let [lane, objs] of data[code]) {
+        let recipe = prefix.concat(lane + x - y);
+        if (!objs || objs.some(x => x.type === 'other')) {
+            continue;
+        } else {
+            objs = objs.map(value => {
+                let out = structuredClone(value);
+                out.x += x;
+                out.y += y;
+                return out;
+            });
+            let str = normalizeOutcome(objs);
+            if (str) {
+                if (str in out) {
+                    out[str][1].push(recipe);
+                } else {
+                    out[str] = [objs, [recipe]];
+                }
+            }
+            if (limit > 1 && objs.length === 1 && objs[0].type === 'sl') {
+                getAllRecipes(data, objs[0].code, recipe, x + objs[0].x, y + objs[0].y, limit - 1, out);
+            }
+        }
+    }
+}
 
 
 if (process.argv[2] === 'search') {
-    let [newObjs, out] = getSalvos(process.argv[3], 32);
-    console.log('outputs: ' + Array.from(newObjs).join(', '));
-    console.log(JSON.stringify(out));
-} else if (process.argv[2] === 'search_all') {
+    console.log('');
     let limit = parseInt(process.argv[3]);
     let done = new Set<string>();
     let out: {[key: string]: [number, false | null | CAObjectNoP[]][]} = {};
@@ -467,10 +437,25 @@ if (process.argv[2] === 'search') {
         }
         queue = newQueue;
     }
-    await fs.writeFile('salvos.json', JSON.stringify(out));
-// } else if (process.argv[2] === 'organize') {
-//     console.log(organizeData(JSON.parse((await fs.readFile('salvos.json')).toString())));
+    console.log('');
+    let recipes: {[key: string]: [CAObjectNoP[], number[][]]} = {};
+    getAllRecipes(out, 'xs2_11', [], 0, 0, limit, recipes);
+    for (let key in recipes) {
+        console.log('');
+        console.log(key + ':');
+        let data = recipes[key][1].sort((x, y) => x.length - y.length).map(x => {
+            while (x.length > 0 && x[0] === 6) {
+                x.shift();
+            }
+            return x;
+        });
+        recipes[key] = [recipes[key][0], data];
+        for (let recipe of new Set(data.map(x => x.join(', ')))) {
+            console.log(recipe);
+        }
+    }
+    await fs.writeFile('salvos.json', JSON.stringify(recipes));
 } else {
-    let lanes = process.argv.slice(3).map(x => parseInt(x)).reverse();
-    console.log(createConfiguration({lanes, target: process.argv[2].slice(process.argv[2].indexOf('_') + 1)})[0].toRLE());
+    let lanes = process.argv.slice(3).join(' ').split(',').map(x => parseInt(x.trim())).reverse();
+    console.log(createConfiguration({target: 'xs2_11', lanes})[0].toRLE());
 }
