@@ -390,32 +390,36 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
 
 function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}, code: string, prefix: number[], x: number, y: number, limit: number, out: {[key: string]: [CAObjectNoP[], number[][]]}, add: CAObjectNoP[] = []): void {
     for (let [lane, objs] of data[code]) {
-        let recipe = prefix.concat(lane - y + x);
-        if (!objs || objs.some(x => x.type === 'other')) {
+        if (!objs || objs.length === 0 || objs.some(x => x.type === 'other')) {
             continue;
-        } else {
-            objs = objs.map(value => {
-                let out = structuredClone(value);
-                out.x += x;
-                out.y += y;
-                return out;
-            });
-            objs.push(...add);
-            let str = normalizeOutcome(objs);
-            if (str) {
-                if (str in out) {
-                    out[str][1].push(recipe);
-                } else {
-                    out[str] = [objs, [recipe]];
-                }
+        }
+        let recipe = prefix.concat(lane + x - y);
+        objs = objs.slice();
+        objs.push(...add);
+        objs = objs.map(value => {
+            let out = structuredClone(value);
+            out.x += x;
+            out.y += y;
+            return out;
+        });
+        let str = normalizeOutcome(objs);
+        if (str) {
+            if (str in out) {
+                out[str][1].push(recipe);
+            } else {
+                out[str] = [objs, [recipe]];
             }
-            if (limit > 1) {
-                for (let i = 0; i < objs.length; i++) {
-                    let obj = objs[i];
-                    if (obj.type === 'sl' && obj.code in data) {
-                        getAllRecipes(data, obj.code, recipe, x + obj.x, y + obj.y, limit - 1, out, objs.toSpliced(i, 1));
-                    }
-                }
+        }
+        if (limit > 1) {
+            if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
+                getAllRecipes(data, objs[0].code, recipe, x + objs[0].x, y + objs[0].y, limit - 1, out);
+            } else {
+                // for (let i = 0; i < objs.length; i++) {
+                //     let obj = objs[i];
+                //     if (obj.type === 'sl' && obj.code in data) {
+                //         getAllRecipes(data, obj.code, recipe, x + obj.x, y + obj.y, limit - 1, out, objs.toSpliced(i, 1));
+                //     }
+                // }
             }
         }
     }
