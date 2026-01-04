@@ -448,7 +448,7 @@ export abstract class DataPattern implements Pattern {
     }
 
     set(x: number, y: number, value: number = 1): this {
-        this.data[(y - this.yOffset) * this.width + (x - this.xOffset)] = value;
+        this.data[y * this.width + x] = value;
         return this;
     }
 
@@ -462,7 +462,7 @@ export abstract class DataPattern implements Pattern {
             this.data = new Uint8Array(0);
         } else {
             // @ts-ignore
-            this.data[(y - this.yOffset) * this.width + (x - this.xOffset)] = 0;
+            this.data[y * this.width + x] = 0;
         }
         return this;
     }

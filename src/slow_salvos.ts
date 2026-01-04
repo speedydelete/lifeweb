@@ -20,7 +20,7 @@ the output consists of 2 parts: a full list of collision results, then a full li
 
 */
 
-// the default settings will work for the B2ce/S1 glider
+// the default settings will work for the B2ce/S1 glider, but you may have to modify some of the specifics for different rules
 
 const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
 
@@ -33,17 +33,20 @@ const GLIDER_SLOPE = 1;
 const GLIDER_POPULATION_PERIOD = 1;
 
 // the starting object for syntheses
+// must be D8 or D4 symmetric for now
 const START_OBJECT = 'xs2_11';
+// a rotated version of it, if applicable, set to null to disable
+const ROTATED_START_OBJECT: string | null = 'xs2_3';
 
 // the spacing (in cells) between 2 gliders in a multi-glider slow salvo
 const GLIDER_SPACING = 20;
-// the offset number for lanes, because negative lanes can be annoying
-const LANE_OFFSET = 5;
+// the spacing (in cells) between the glider and the target
+const GLIDER_TARGET_SPACING = 5;
+
 // the timing offset for collisions, set this to whatever notion of timing you like
 const TIMING_DIFFERENCE = 0;
-
-// the lane to start at for searches, make sure to consider LANE_OFFSET here
-const START_LANE = 0;
+// the lane offset, I set this to -1 because B2n
+const LANE_OFFSET = -1;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -61,7 +64,7 @@ const SEPARATOR_GENERATIONS = 1;
 const MAX_PSEUDO_DISTANCE = 6;
 
 // this setting can help if the START_OBJECT functions as an eater, it will strip input gliders of those lanes off
-const EATER_LANES = [6];
+const EATER_LANES = [2];
 
 // the valid directions for a ship, this is purely for user convenience
 type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE';
@@ -183,8 +186,8 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
         }
     }
     let target = base.loadApgcode(s.target);
-    let yPos = (s.lanes.length - 1) * GLIDER_SPACING + LANE_OFFSET + 1;
-    let xPos = Math.floor(yPos * GLIDER_SLOPE) + target.height + LANE_OFFSET - minLane;
+    let yPos = (s.lanes.length - 1) * GLIDER_SPACING + GLIDER_TARGET_SPACING;
+    let xPos = Math.floor(yPos * GLIDER_SLOPE) - LANE_OFFSET + target.height - minLane;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
@@ -198,7 +201,7 @@ function distance(a: CAObject, b: CAObject): number {
     return Math.abs(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
 }
 
-function findOutcome(s: Salvo): false | null | CAObject[] {
+function findOutcome(s: Salvo): false | null | true | CAObject[] {
     let [p, xPos, yPos] = createConfiguration(s);
     let found = false;
     let prevPop = p.population;
@@ -206,6 +209,9 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
         p.run(GLIDER_POPULATION_PERIOD);
         let pop = p.population;
         if (pop !== prevPop) {
+            if (i === 0) {
+                return true;
+            }
             found = true;
             break;
         }
@@ -407,16 +413,32 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
     return out;
 }
 
-function getSalvos(target: string, limit: number): [Set<string>, [number, false | null | CAObject[]][], string] {
+function getSalvos(target: string, limit: number): false | [Set<string>, [number, false | null | CAObject[]][], string] {
     target = target.slice(target.indexOf('_') + 1);
     let newObjs = new Set<string>();
     let out: [number, false | null | CAObject[]][] = [];
     let failed = false;
     let hadCollision = false;
     let str = 'xs' + base.loadApgcode(target).population + '_' + target + ':\n';
-    for (let lane = START_LANE; lane < limit; lane++) {
+    let lane = 0;
+    let data = findOutcome({target, lanes: [lane]});
+    if (data === true) {
+        return false;
+    }
+    while (data !== null) {
+        lane--;
+        data = findOutcome({target, lanes: [lane]});
+        if (data === true) {
+            return false;
+        }
+    }
+    lane++;
+    for (; lane < limit; lane++) {
         let s = {target, lanes: [lane]};
         let data = findOutcome(s);
+        if (data === true) {
+            return false;
+        }
         // @ts-ignore
         out.push([lane, data ? data.map(x => (x.type === 'sl' || x.type === 'other') ? {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, code: x.code} : {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, dir: x.dir, t: x.t, n: x.n}) : data]);
         if (data === null) {
@@ -619,9 +641,12 @@ function objectsSorter(a: CAObject[], b: CAObject[]): number {
     }
 }
 
+
+let args = process.argv.slice(2);
+
 async function searchSalvos(): Promise<void> {
-    console.log('\nPer-object data:\n');
-    let limit = parseInt(process.argv[3]);
+    console.log('\nPer-object data:\n\n');
+    let limit = parseInt(args[1]);
     let done = new Set<string>();
     let perObject: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [START_OBJECT];
@@ -633,17 +658,17 @@ async function searchSalvos(): Promise<void> {
             } else {
                 done.add(code);
             }
-            let [newObjs, newOut, str] = getSalvos(code, 64);
-            if (newOut.length === 64) {
-                continue;
+            let data = getSalvos(code, 64);
+            if (data) {
+                let [newObjs, newOut, str] = data;
+                console.log(str);
+                perObject[code] = newOut;
+                newQueue.push(...newObjs);
             }
-            console.log(str);
-            perObject[code] = newOut;
-            newQueue.push(...newObjs);
         }
         queue = newQueue;
     }
-    console.log('\nPer-recipe data:');
+    console.log('\nPer-recipe data:\n');
     let recipes: {[key: string]: [CAObject[], number[][]]} = {};
     getAllRecipes(perObject, START_OBJECT, [], 0, 0, 0, limit - 1, recipes);
     for (let [key, value] of Object.entries(recipes).sort(([_, [x, _2]], [_3, [y, _4]]) => objectsSorter(x, y))) {
@@ -666,12 +691,13 @@ async function searchSalvos(): Promise<void> {
         }
         recipes[key] = [recipes[key][0], outData];
     }
-    let moves: [[number, number][], number[][]][] = [];
+    let moves: [[number, number, boolean][], number[][]][] = [];
     for (let [objs, data] of Object.values(recipes)) {
-        if (objs.every(x => x.type === 'sl' && x.code === START_OBJECT)) {
-            moves.push([objs.map(x => [x.x, x.y]), data]);
+        if (objs.every(x => x.type === 'sl' && (x.code === START_OBJECT || x.code === ROTATED_START_OBJECT))) {
+            moves.push([objs.map(x => [x.x, x.y, (x as {code: string}).code === ROTATED_START_OBJECT]), data]);
         }
     }
+    moves = moves.filter(([x]) => !(x.length === 1 && x[0][0] === 0 && x[0][1] === 0 && x[0][2] === false));
     moves = moves.sort((a, b) => {
         if (a.length < b.length) {
             return -1;
@@ -692,13 +718,13 @@ async function searchSalvos(): Promise<void> {
             return 0;
         }
     });
-    console.log('\nMove recipes:');
+    console.log('\n\nMove recipes:\n');
     for (let [coords, recipes] of moves) {
         console.log('');
         if (coords.length === 1) {
-            console.log(`(${coords[0][0]}, ${coords[0][1]}) move:`);
+            console.log(`(${coords[0][0]}, ${coords[0][1]}) ${coords[0][2] ? 'rotate' : 'move'}:`);
         } else {
-            console.log(`${coords.map(x => `(${x[0]}, ${x[1]})`).join(', ')} split:`);
+            console.log(`${coords.map(x => `(${x[0]}, ${x[1]})${coords[0][2] ? ' rotated' : ''}`).join(', ')} split:`);
         }
         for (let recipe of recipes) {
             console.log(recipe.join(', '));
@@ -707,9 +733,9 @@ async function searchSalvos(): Promise<void> {
     await fs.writeFile('salvos.json', JSON.stringify({perObject, recipes, moves}));
 }
 
-if (process.argv[2] === 'search') {
+if (args[0] === 'search') {
     searchSalvos();
 } else {
-    let lanes = process.argv.slice(2).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
+    let lanes = args.join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
     console.log(createConfiguration({target: START_OBJECT.slice(START_OBJECT.indexOf('_') + 1), lanes})[0].toRLE());
 }
