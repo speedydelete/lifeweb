@@ -8,6 +8,7 @@ const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
 const GLIDER_HEIGHT = 2;
 const GLIDER_WIDTH = 3;
 const GLIDER_CELLS = [[2, 0], [0, 1], [1, 1]];
+const GLIDER_SLOPE = 1;
 
 const START_OBJECT = 'xs2_11';
 
@@ -81,7 +82,7 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
     for (let i = 0; i < s.lanes.length; i++) {
         let lane = s.lanes[i];
         let y = i * GLIDER_SPACING;
-        let x = y + lane - minLane;
+        let x = Math.floor(y * GLIDER_SLOPE) + lane - minLane;
         p.ensure(x + GLIDER_WIDTH, y + GLIDER_HEIGHT);
         for (let cell of GLIDER_CELLS) {
             p.set(x + cell[0], y + cell[1], 1);
@@ -89,7 +90,7 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
     }
     let target = base.loadApgcode(s.target);
     let yPos = (s.lanes.length - 1) * GLIDER_SPACING + LANE_OFFSET + 1;
-    let xPos = yPos + target.height + LANE_OFFSET - minLane * 2;
+    let xPos = Math.floor(yPos * GLIDER_SLOPE) + target.height + LANE_OFFSET - minLane * 2;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
