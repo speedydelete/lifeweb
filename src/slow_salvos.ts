@@ -43,7 +43,7 @@ type CAObjectNoP = ({x: number, y: number, w: number, h: number} & ({type: 'sl' 
 type CAObject = CAObjectNoP & {p: MAPPattern};
 
 function distance(a: CAObject, b: CAObject): number {
-    return Math.max(0, Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w))) + Math.max(0, Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h)));
+    return Math.abs(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
 }
 
 function findOutcome(s: Salvo): false | null | CAObject[] {
@@ -88,19 +88,17 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     sep.runGeneration();
     sep.resolveKnots();
     let objs: CAObject[] = [];
-    let out: CAObject[] = [];
     for (let p of sep.getObjects()) {
         if (p.isEmpty()) {
             return false;
         }
         p.shrinkToFit();
-        let type = identify(p, 1024);
-        p.run(type.stabilizedAt).shrinkToFit();
+        let type = identify(p, 1024, false);
         if (type.apgcode.startsWith('xs')) {
             if (type.apgcode === 'xs0_0') {
                 continue;
             }
-            out.push({
+            objs.push({
                 type: 'sl',
                 x: p.xOffset,
                 y: p.yOffset,
@@ -163,7 +161,7 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
             if (!dir) {
                 throw new Error(`Invalid glider:\n${p.toRLE()}`);
             }
-            out.push({
+            objs.push({
                 type: 'glider',
                 x: p.xOffset,
                 y: p.yOffset,
@@ -173,8 +171,10 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
                 p,
                 t: p.generation,
             });
+        } else if (type.apgcode === 'PATHOLOGICAL' || type.apgcode.startsWith('zz')) {
+            return false;
         } else {
-            out.push({
+            objs.push({
                 type: 'other',
                 x: p.xOffset,
                 y: p.yOffset,
@@ -185,13 +185,18 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
             });
         }
     }
+    let out: CAObject[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
-        if (objs[i].type !== 'sl' || used[i]) {
+        let obj = objs[i];
+        if (obj.type !== 'sl') {
+            out.push(obj);
+            continue;
+        }
+        if (used[i]) {
             continue;
         }
         used[i] = 1;
-        let obj = objs[i];
         let data = [];
         for (let j = 0; j < objs.length; j++) {
             if (objs[j].type !== 'sl' || used[j]) {
@@ -273,7 +278,6 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
             lane = ship.y - ship.x;
         }
         out += 'g ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 3) + ', ';
-        ship.y = 0;
     }
     if (data.length > 0) {
         out = out.slice(0, -2);
@@ -380,14 +384,13 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
             lane = ship.y - ship.x;
         }
         out += 'g ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 3) + ', ';
-        ship.y = 0;
     }
     return out.slice(0, -2);
 }
 
-function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}, code: string, prefix: number[], x: number, y: number, limit: number, out: {[key: string]: [CAObjectNoP[], number[][]]}): void {
+function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}, code: string, prefix: number[], x: number, y: number, limit: number, out: {[key: string]: [CAObjectNoP[], number[][]]}, add: CAObjectNoP[] = []): void {
     for (let [lane, objs] of data[code]) {
-        let recipe = prefix.concat(lane + x - y);
+        let recipe = prefix.concat(lane - y + x);
         if (!objs || objs.some(x => x.type === 'other')) {
             continue;
         } else {
@@ -397,6 +400,7 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP
                 out.y += y;
                 return out;
             });
+            objs.push(...add);
             let str = normalizeOutcome(objs);
             if (str) {
                 if (str in out) {
@@ -405,8 +409,13 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP
                     out[str] = [objs, [recipe]];
                 }
             }
-            if (limit > 1 && objs.length === 1 && objs[0].type === 'sl') {
-                getAllRecipes(data, objs[0].code, recipe, x + objs[0].x, y + objs[0].y, limit - 1, out);
+            if (limit > 1) {
+                for (let i = 0; i < objs.length; i++) {
+                    let obj = objs[i];
+                    if (obj.type === 'sl' && obj.code in data) {
+                        getAllRecipes(data, obj.code, recipe, x + obj.x, y + obj.y, limit - 1, out, objs.toSpliced(i, 1));
+                    }
+                }
             }
         }
     }
@@ -456,6 +465,6 @@ if (process.argv[2] === 'search') {
     }
     await fs.writeFile('salvos.json', JSON.stringify(recipes));
 } else {
-    let lanes = process.argv.slice(3).join(' ').split(',').map(x => parseInt(x.trim())).reverse();
-    console.log(createConfiguration({target: 'xs2_11', lanes})[0].toRLE());
+    let lanes = process.argv.slice(2).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
+    console.log(createConfiguration({target: '11', lanes})[0].toRLE());
 }
