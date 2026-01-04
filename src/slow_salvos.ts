@@ -62,6 +62,8 @@ const EXTRA_GENERATIONS = 60;
 const SEPARATOR_GENERATIONS = 1;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
+// the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
+const LANE_LIMIT = 128;
 
 // this setting can help if the START_OBJECT functions as an eater, it will strip input gliders of those lanes off
 const EATER_LANES = [2];
@@ -413,7 +415,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
     return out;
 }
 
-function getSalvos(target: string, limit: number): false | [Set<string>, [number, false | null | CAObject[]][], string] {
+function getSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][], string] {
     target = target.slice(target.indexOf('_') + 1);
     let newObjs = new Set<string>();
     let out: [number, false | null | CAObject[]][] = [];
@@ -431,9 +433,12 @@ function getSalvos(target: string, limit: number): false | [Set<string>, [number
         if (data === true) {
             return false;
         }
+        if (lane === -LANE_LIMIT) {
+            return false;
+        }
     }
     lane++;
-    for (; lane < limit; lane++) {
+    for (; lane < LANE_LIMIT; lane++) {
         let s = {target, lanes: [lane]};
         let data = findOutcome(s);
         if (data === true) {
@@ -464,6 +469,9 @@ function getSalvos(target: string, limit: number): false | [Set<string>, [number
                     newObjs.add(obj.code);
                 }
             }
+        }
+        if (lane === LANE_LIMIT - 1) {
+            return false;
         }
     }
     return [newObjs, out, str];
@@ -658,7 +666,7 @@ async function searchSalvos(): Promise<void> {
             } else {
                 done.add(code);
             }
-            let data = getSalvos(code, 64);
+            let data = getSalvos(code);
             if (data) {
                 let [newObjs, newOut, str] = data;
                 console.log(str);
