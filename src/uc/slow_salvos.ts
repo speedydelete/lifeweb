@@ -1,8 +1,6 @@
 
-
-import * as fs from 'node:fs/promises';
 import {MAPPattern, identify, INTSeparator, getKnots} from '../core/index.js';
-import {ShipName, CAObject, base, objectsSorter} from './config.js';
+import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base} from './config.js';
 import * as c from './config.js';
 
 
@@ -93,7 +91,7 @@ function findOutcome(s: Salvo): false | null | true | CAObject[] {
         sep.resolveKnots();
     }
     let out: CAObject[] = [];
-    let stillLifes: (CAObject & {type: 'sl', p: MAPPattern})[] = [];
+    let stillLifes: (StillLife & {p: MAPPattern})[] = [];
     for (let p of sep.getObjects()) {
         if (p.isEmpty()) {
             return false;
@@ -102,7 +100,7 @@ function findOutcome(s: Salvo): false | null | true | CAObject[] {
         let type = identify(p, 1024, false);
         if (type.apgcode.startsWith('xs')) {
             if (type.apgcode === 'xs0_0') {
-                continue;
+                return false;
             }
             stillLifes.push({
                 type: 'sl',
@@ -180,7 +178,14 @@ function findOutcome(s: Salvo): false | null | true | CAObject[] {
             }
         }
         if (data.length === 0) {
-            out.push(obj);
+            out.push({
+                type: 'sl',
+                code: obj.code,
+                x: obj.x,
+                y: obj.y,
+                w: obj.w,
+                h: obj.h,
+            });
             continue;
         }
         let minX = obj.x;
@@ -222,45 +227,19 @@ function findOutcome(s: Salvo): false | null | true | CAObject[] {
             y: minY,
             w: p.width,
             h: p.height,
-        })
+        });
     };
     return out;
 }
 
 
-function salvoToString(s: Salvo, data: false | CAObject[]): string {
-    let out = s.lanes.join(', ') + ': ';
-    if (data === false) {
-        return out + 'unknown';
-    }
-    let ships: (CAObject & {type: ShipName})[] = [];
-    for (let obj of data) {
-        if (obj.type !== 'sl' && obj.type !== 'other') {
-            // @ts-ignore
-            ships.push(obj);
-            continue;
-        }
-        out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
-    }
-    for (let ship of ships) {
-        out += `${ship.dir} ${ship.type} lane ${c.findLane(ship)} timing ${ship.t}, `;
-    }
-    if (data.length > 0) {
-        out = out.slice(0, -2);
-    } else {
-        out += 'nothing';
-    }
-    return out;
-}
-
-function getSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][], string] {
+function getSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][]] {
     let originalTarget = target;
     target = target.slice(target.indexOf('_') + 1);
     let newObjs = new Set<string>();
     let out: [number, false | null | CAObject[]][] = [];
     let failed = false;
     let hadCollision = false;
-    let str = originalTarget + ':\n';
     let lane = 0;
     let data = findOutcome({target, lanes: [lane]});
     if (data === true) {
@@ -284,7 +263,6 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
             return false;
         }
         if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === originalTarget && data[0].x === 0 && data[0].y === 0) {
-            str += lane + ': ' + 'eater\n';
             continue;
         }
         out.push([lane, data]);
@@ -296,7 +274,6 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
                 break;
             } else {
                 failed = true;
-                str += lane + ': ' + 'no collision\n';
                 continue;
             }
         }
@@ -304,7 +281,6 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
             hadCollision = true;
         }
         failed = false;
-        str += salvoToString(s, data) + '\n';
         if (data) {
             for (let obj of data) {
                 if (obj.type === 'sl') {
@@ -316,7 +292,7 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
             return false;
         }
     }
-    return [newObjs, out, str];
+    return [newObjs, out];
 }
 
 
@@ -324,8 +300,8 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
     if (!data || data.length === 0) {
         return false;
     }
-    let stillLifes: (CAObject & {type: 'sl'})[] = [];
-    let ships: (CAObject & {type: ShipName})[] = [];
+    let stillLifes: StillLife[] = [];
+    let ships: Spaceship[] = [];
     for (let obj of data) {
         if (obj.type === 'sl') {
             // @ts-ignore
@@ -383,7 +359,7 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
     return out.slice(0, -2);
 }
 
-function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [CAObject[], number[][]]}, add: CAObject[] = []): void {
+function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [string, number[][], StillLife[], Spaceship[]]}, add: CAObject[] = []): void {
     for (let [lane, objs] of data[code]) {
         if (!objs || objs.length === 0 || objs.some(x => x.type === 'other')) {
             continue;
@@ -403,12 +379,23 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]]
             out.y += y;
             return out;
         });
-        let str = normalizeOutcome(objs);
+        let str = code + ' to ' + normalizeOutcome(objs);
         if (str) {
             if (str in out) {
                 out[str][1].push(recipe);
             } else {
-                out[str] = [objs, [recipe]];
+                let sls: StillLife[] = [];
+                let ships: Spaceship[] = [];
+                for (let obj of objs) {
+                    if (obj.type === 'sl') {
+                        sls.push(obj);
+                    } else if (obj.type === 'other') {
+                        throw new Error('Non-SL or spaceship object present after filtering!');
+                    } else {
+                        ships.push(obj);
+                    }
+                }
+                out[str] = [code, [recipe], sls, ships];
             }
             if (count < limit) {
                 if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
@@ -427,7 +414,6 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]]
 }
 
 export async function searchSalvos(limit: number): Promise<void> {
-    console.log('\nPer-object data:\n\n');
     let done = new Set<string>();
     let perObject: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [c.START_OBJECT];
@@ -441,66 +427,23 @@ export async function searchSalvos(limit: number): Promise<void> {
             }
             let data = getSalvos(code);
             if (data) {
-                let [newObjs, newOut, str] = data;
-                console.log(str);
+                let [newObjs, newOut] = data;
                 perObject[code] = newOut;
                 newQueue.push(...newObjs);
             }
         }
         queue = newQueue;
     }
-    console.log('\nPer-recipe data:\n');
-    let recipes: {[key: string]: [CAObject[], number[][]]} = {};
-    getAllRecipes(perObject, c.START_OBJECT, [], 0, 0, 0, limit - 1, recipes);
-    for (let [key, value] of Object.entries(recipes).sort(([_, [x, _2]], [_3, [y, _4]]) => objectsSorter(x, y))) {
-        console.log('');
-        console.log(key + ':');
-        let data = value[1].sort((x, y) => x.length - y.length);
-        let outData: number[][] = [];
-        for (let recipe of new Set(data.map(x => x.join(', ')))) {
-            outData.push(recipe.split(', ').map(x => parseInt(x)));
-            console.log(recipe);
-        }
-        recipes[key] = [recipes[key][0], outData];
+    console.log('Completed search, compiling recipes');
+    let recipes: {[key: string]: [string, number[][], StillLife[], Spaceship[]]} = {};
+    for (let obj in perObject) {
+        getAllRecipes(perObject, obj, [], 0, 0, 0, limit - 1, recipes);
     }
-    let moves: [[number, number, boolean][], number[][]][] = [];
-    for (let [objs, data] of Object.values(recipes)) {
-        if (objs.every(x => x.type === 'sl' && (x.code === c.START_OBJECT || x.code === c.ROTATED_START_OBJECT))) {
-            moves.push([objs.map(x => [x.x, x.y, (x as {code: string}).code === c.ROTATED_START_OBJECT]), data]);
-        }
+    let data = await getRecipes();
+    if (!data.salvos) {
+        data.salvos = {all: Object.values(recipes)};
+    } else {
+        data.salvos.all.push(...Object.values(recipes));
     }
-    moves = moves.filter(([x]) => !(x.length === 1 && x[0][0] === 0 && x[0][1] === 0 && x[0][2] === false));
-    moves = moves.sort((a, b) => {
-        if (a.length < b.length) {
-            return -1;
-        } else if (a.length > b.length) {
-            return 1;
-        } else {
-            for (let i = 0; i < a.length; i++) {
-                if (a[i][0] < b[i][0]) {
-                    return -1;
-                } else if (a[i][0] > b[i][0]) {
-                    return 1;
-                } else if (a[i][1] < b[i][1]) {
-                    return -1;
-                } else if (a[i][1] > b[i][1]) {
-                    return 1;
-                }
-            }
-            return 0;
-        }
-    });
-    console.log('\n\nMove recipes:\n');
-    for (let [coords, recipes] of moves) {
-        console.log('');
-        if (coords.length === 1) {
-            console.log(`(${coords[0][0]}, ${coords[0][1]}) ${coords[0][2] ? 'rotate' : 'move'}:`);
-        } else {
-            console.log(`${coords.map(x => `(${x[0]}, ${x[1]})${coords[0][2] ? ' rotated' : ''}`).join(', ')} split:`);
-        }
-        for (let recipe of recipes) {
-            console.log(recipe.join(', '));
-        }
-    }
-    await fs.writeFile('salvos.json', JSON.stringify({perObject, recipes, moves}));
+    saveRecipes(data);
 }

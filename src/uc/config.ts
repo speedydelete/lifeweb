@@ -138,9 +138,53 @@ function findLane(ship: CAObject & {type: ShipName}): number {
 
 // internal stuff, don't change this
 
+import * as fs from 'node:fs/promises';
+import {existsSync as exists} from 'node:fs';
 import {createPattern, MAPPattern} from '../core/index.js';
 
-export type CAObject = ({x: number, y: number, w: number, h: number} & ({type: 'sl' | 'other', code: string} | {type: ShipName, dir: ShipDirection, t: number, n: number}));
+export interface BaseObject {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
+export interface StillLife extends BaseObject {
+    type: 'sl';
+    code: string;
+}
+
+export interface OtherObject extends BaseObject {
+    type: 'other';
+    code: string;
+}
+
+export interface Spaceship extends BaseObject {
+    type: ShipName;
+    dir: ShipDirection;
+    t: number;
+    n: number;
+}
+
+export type CAObject = StillLife | OtherObject | Spaceship;
+
+export interface RecipeData {
+    salvos?: {
+        all: [string, number[][], StillLife[], Spaceship[]][];
+    };
+}
+
+export async function getRecipes(): Promise<RecipeData> {
+    if (exists('recipes.json')) {
+        return JSON.parse((await fs.readFile('recipes.json')).toString());
+    } else {
+        return {};
+    }
+}
+
+export async function saveRecipes(recipes: RecipeData): Promise<void> {
+    await fs.writeFile('recipes.json', JSON.stringify(recipes));
+}
 
 export let base = createPattern(RULE) as MAPPattern;
 
