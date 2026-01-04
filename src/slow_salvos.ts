@@ -284,22 +284,23 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
     if (data === false) {
         return out + 'unknown';
     }
-    let gliders: (Omit<CAObject & {type: 'glider'}, 'p'>)[] = [];
+    let ships: (CAObject & {type: ShipName})[] = [];
     for (let obj of data) {
-        if (obj.type === 'glider') {
+        if (obj.type !== 'sl' && obj.type !== 'other') {
+            // @ts-ignore
             gliders.push(obj);
             continue;
         }
         out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
-    for (let ship of gliders) {
+    for (let ship of ships) {
         let lane: number;
         if (ship.dir === 'ne' || ship.dir === 'sw') {
             lane = ship.x + ship.y;
         } else {
             lane = ship.y - ship.x;
         }
-        out += `${ship.dir.toUpperCase()} glider lane ${lane} timing ${ship.t - TIMING_DIFFERENCE}, `;
+        out += `${ship.dir.toUpperCase()} ${ship.type} lane ${lane} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     if (data.length > 0) {
         out = out.slice(0, -2);
@@ -319,7 +320,8 @@ function getSalvos(target: string, limit: number): [Set<string>, [number, false 
     for (let lane = 0; lane < limit; lane++) {
         let s = {target, lanes: [lane]};
         let data = findOutcome(s);
-        out.push([lane, data ? data.map(x => x.type === 'glider' ? {type: 'glider', x: x.x, y: x.y, w: x.w, h: x.h, dir: x.dir, t: x.t, n: x.n} : {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, code: x.code,}) : data]);
+        // @ts-ignore
+        out.push([lane, data ? data.map(x => (x.type === 'sl' || x.type === 'other') ? {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, code: x.code} : {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, dir: x.dir, t: x.t, n: x.n}) : data]);
         if (data === null) {
             if (!hadCollision) {
                 continue;
@@ -354,7 +356,7 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
         return false;
     }
     let stillLifes: (CAObject & {type: 'sl'})[] = [];
-    let gliders: (CAObject & {type: ShipName})[] = [];
+    let ships: (CAObject & {type: ShipName})[] = [];
     for (let obj of data) {
         if (obj.type === 'sl') {
             // @ts-ignore
@@ -363,7 +365,7 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
             return false;
         } else {
             // @ts-ignore
-            gliders.push(obj);
+            ships.push(obj);
         }
     }
     stillLifes = stillLifes.sort((a, b) => {
@@ -379,7 +381,7 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
             return 0;
         }
     });
-    gliders = gliders.sort((a, b) => {
+    ships = ships.sort((a, b) => {
         if (a.type !== b.type) {
             if (a.type < b.type) {
                 return -1;
@@ -406,14 +408,14 @@ function normalizeOutcome(data: false | null | CAObject[]): string | false {
     for (let obj of stillLifes) {
         out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
     }
-    for (let ship of gliders) {
+    for (let ship of ships) {
         let lane: number;
         if (ship.dir === 'ne' || ship.dir === 'sw') {
             lane = ship.x + ship.y;
         } else {
             lane = ship.y - ship.x;
         }
-        out += `${ship.dir.toUpperCase()} glider lane ${lane} emitted ${ship.n} timing ${ship.t - TIMING_DIFFERENCE}, `;
+        out += `${ship.dir.toUpperCase()} ${ship.type} lane ${lane} emitted ${ship.n} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     return out.slice(0, -2);
 }
