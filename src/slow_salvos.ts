@@ -40,7 +40,7 @@ const GLIDER_SPACING = 20;
 // the offset number for lanes, because negative lanes can be annoying
 const LANE_OFFSET = 5;
 // the timing offset for collisions, set this to whatever notion of timing you like
-const TIMING_DIFFERENCE = 12;
+const TIMING_DIFFERENCE = 0;
 
 // the lane to start at for searches, make sure to consider LANE_OFFSET here
 const START_LANE = 0;
@@ -59,6 +59,9 @@ const EXTRA_GENERATIONS = 60;
 const SEPARATOR_GENERATIONS = 1;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
+
+// this setting can help if the START_OBJECT functions as an eater, it will strip input gliders of those lanes off
+const EATER_LANES = [6];
 
 // the valid directions for a ship, this is purely for user convenience
 type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE';
@@ -278,19 +281,23 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
                             }
                         }
                         if (found) {
+                            p.run(timing).shrinkToFit();
                             out.push({
                                 type: name,
                                 x: p.xOffset,
                                 y: p.yOffset,
-                                w: width,
-                                h: height,
+                                w: p.width,
+                                h: p.height,
                                 dir,
-                                t: p.generation + timing,
+                                t: p.generation,
                                 n: 0,
                             })
                             break;
                         }
                     }
+                }
+                if (found) {
+                    break;
                 }
             }
             if (!found) {
@@ -548,11 +555,75 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]]
 }
 
 
-if (process.argv[2] === 'search') {
-    console.log('');
+function xyCompare(a: CAObject, b: CAObject): number {
+    if (a.y < b.y) {
+        return -1;
+    } else if (a.y > b.y) {
+        return 1;
+    } else if (a.x < b.x) {
+        return -1;
+    } else if (a.x > b.x) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+function objectSorter(a: CAObject, b: CAObject): number {
+    if (a.type === 'sl') {
+        if (b.type !== 'sl') {
+            return -1;
+        } else if (a.code < b.code) {
+            return -1;
+        } else if (a.code > b.code) {
+            return 1;
+        } else {
+            return xyCompare(a, b);
+        }
+    } else if (a.type === 'other') {
+        if (b.type !== 'other') {
+            return 1;
+        } else if (a.code < b.code) {
+            return -1;
+        } else if (a.code > b.code) {
+            return 1;
+        } else {
+            return xyCompare(a, b);
+        }
+    } else {
+        if (a.type < b.type) {
+            return -1;
+        } else if (a.type > b.type) {
+            return 1;
+        } else {
+            return xyCompare(a, b);
+        }
+    }
+}
+
+function objectsSorter(a: CAObject[], b: CAObject[]): number {
+    if (a.length < b.length) {
+        return -1;
+    } else if (a.length > b.length) {
+        return 1;
+    } else {
+        a = a.toSorted(objectSorter);
+        b = b.toSorted(objectSorter);
+        for (let i = 0; i < a.length; i++) {
+            let out = objectSorter(a[i], b[i]);
+            if (out !== 0) {
+                return out;
+            }
+        }
+        return 0;
+    }
+}
+
+async function searchSalvos(): Promise<void> {
+    console.log('\nPer-object data:\n');
     let limit = parseInt(process.argv[3]);
     let done = new Set<string>();
-    let out: {[key: string]: [number, false | null | CAObject[]][]} = {};
+    let perObject: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [START_OBJECT];
     for (let i = 0; i < limit; i++) {
         let newQueue: string[] = [];
@@ -567,29 +638,77 @@ if (process.argv[2] === 'search') {
                 continue;
             }
             console.log(str);
-            out[code] = newOut;
+            perObject[code] = newOut;
             newQueue.push(...newObjs);
         }
         queue = newQueue;
     }
-    console.log('');
+    console.log('\nPer-recipe data:');
     let recipes: {[key: string]: [CAObject[], number[][]]} = {};
-    getAllRecipes(out, START_OBJECT, [], 0, 0, 0, limit - 1, recipes);
-    for (let key in recipes) {
+    getAllRecipes(perObject, START_OBJECT, [], 0, 0, 0, limit - 1, recipes);
+    for (let [key, value] of Object.entries(recipes).sort(([_, [x, _2]], [_3, [y, _4]]) => objectsSorter(x, y))) {
         console.log('');
         console.log(key + ':');
-        let data = recipes[key][1].sort((x, y) => x.length - y.length).map(x => {
-            while (x.length > 0 && x[0] === 6) {
-                x.shift();
-            }
-            return x;
-        });
-        recipes[key] = [recipes[key][0], data];
+        let data = value[1].sort((x, y) => x.length - y.length);
+        if (EATER_LANES.length > 0) {
+            data = data.map(x => {
+                while (EATER_LANES.includes(x[0])) {
+                    x.shift();
+                }
+                return x;
+            });
+            data = data.filter(x => x.length > 0);
+        }
+        let outData: number[][] = [];
         for (let recipe of new Set(data.map(x => x.join(', ')))) {
+            outData.push(recipe.split(', ').map(x => parseInt(x)));
             console.log(recipe);
         }
+        recipes[key] = [recipes[key][0], outData];
     }
-    await fs.writeFile('salvos.json', JSON.stringify(recipes));
+    let moves: [[number, number][], number[][]][] = [];
+    for (let [objs, data] of Object.values(recipes)) {
+        if (objs.every(x => x.type === 'sl' && x.code === START_OBJECT)) {
+            moves.push([objs.map(x => [x.x, x.y]), data]);
+        }
+    }
+    moves = moves.sort((a, b) => {
+        if (a.length < b.length) {
+            return -1;
+        } else if (a.length > b.length) {
+            return 1;
+        } else {
+            for (let i = 0; i < a.length; i++) {
+                if (a[i][0] < b[i][0]) {
+                    return -1;
+                } else if (a[i][0] > b[i][0]) {
+                    return 1;
+                } else if (a[i][1] < b[i][1]) {
+                    return -1;
+                } else if (a[i][1] > b[i][1]) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+    });
+    console.log('\nMove recipes:');
+    for (let [coords, recipes] of moves) {
+        console.log('');
+        if (coords.length === 1) {
+            console.log(`(${coords[0][0]}, ${coords[0][1]}) move:`);
+        } else {
+            console.log(`${coords.map(x => `(${x[0]}, ${x[1]})`).join(', ')} split:`);
+        }
+        for (let recipe of recipes) {
+            console.log(recipe.join(', '));
+        }
+    }
+    await fs.writeFile('salvos.json', JSON.stringify({perObject, recipes, moves}));
+}
+
+if (process.argv[2] === 'search') {
+    searchSalvos();
 } else {
     let lanes = process.argv.slice(2).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
     console.log(createConfiguration({target: START_OBJECT.slice(START_OBJECT.indexOf('_') + 1), lanes})[0].toRLE());

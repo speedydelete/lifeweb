@@ -650,12 +650,12 @@ export class INTSeparator extends MAPPattern {
             }
             if (trs[tr2]) {
                 out[loc2] = 1;
-                if (tr2 & 1) {
+                if (tr2 & 64) {
                     if (tr2 === 0b101000000) {
                         reassignments.push([groups[i - width - 1], groups[i + width - 1]]);
                     }
                     newGroups[loc2] = groups[i + width - 1];
-                } else if (tr2 & 2) {
+                } else if (tr2 & 128) {
                     newGroups[loc2] = groups[i - 1];
                 } else {
                     newGroups[loc2] = groups[i - width - 1];
