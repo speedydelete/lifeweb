@@ -1,13 +1,72 @@
 
 import * as fs from 'node:fs/promises';
-import {MAPPattern, createPattern, INTSeparator, getKnots, identify} from './core/index.js';
+import {MAPPattern, createPattern, INTSeparator, getKnots, identify, Pattern} from './core/index.js';
 
 
-const OFFSET = 5;
+const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+
+const GLIDER_HEIGHT = 2;
+const GLIDER_WIDTH = 3;
+const GLIDER_CELLS = [[2, 0], [0, 1], [1, 1]];
+
+const START_OBJECT = 'xs2_11';
+
+const GLIDER_SPACING = 20;
+const LANE_OFFSET = 5;
+const TIMING_DIFFERENCE = 11;
+
+const WAIT_GENERATIONS = 192;
+const MAX_GENERATION = 1024;
+const PERIOD_FACTOR_NUMBER = 2;
+const PERIOD_SECURITY = 64;
+const EXTRA_GENERATIONS = 60;
+const SEPARATOR_GENERATIONS = 1;
 const MAX_PSEUDO_DISTANCE = 6;
 
+type ShipDirection = 'nw' | 'ne' | 'sw' | 'se';
 
-let base = createPattern('B2-ak3y4jn5jy78/S12-k3j4-akn5ir') as MAPPattern;
+type ShipName = 'glider';
+
+const SHIP_IDENTIFICATION: {[key: string]: {name: ShipName, data: {height: number, width: number, population: number, data: [cells: number[], dir: ShipDirection, timing: number][]}[]}} = {
+    xq4_15: {
+        name: 'glider',
+        data: [
+            {
+                height: 3,
+                width: 2,
+                population: 3,
+                data: [
+                    [[1, 2, 4], 'nw', 2],
+                    [[0, 1, 4], 'nw', 1],
+                    [[0, 3, 5], 'ne', 2],
+                    [[0, 1, 5], 'ne', 1],
+                    [[0, 2, 5], 'sw', 2],
+                    [[0, 4, 5], 'sw', 1],
+                    [[1, 3, 4], 'se', 2],
+                    [[1, 4, 5], 'se', 1],
+                ],
+            },
+            {
+                height: 2,
+                width: 3,
+                population: 3,
+                data: [
+                    [[1, 2, 3], 'nw', 0],
+                    [[0, 2, 3], 'nw', 3],
+                    [[0, 1, 5], 'ne', 0],
+                    [[0, 2, 5], 'ne', 3],
+                    [[0, 4, 5], 'sw', 0],
+                    [[0, 3, 5], 'sw', 3],
+                    [[2, 3, 4], 'se', 0],
+                    [[2, 3, 5], 'se', 3],
+                ],
+            },
+        ],
+    },
+}
+
+
+let base = createPattern(RULE) as MAPPattern;
 let knots = getKnots(base.trs);
 
 
@@ -21,16 +80,16 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
     let p = base.copy();
     for (let i = 0; i < s.lanes.length; i++) {
         let lane = s.lanes[i];
-        let y = i * 20;
+        let y = i * GLIDER_SPACING;
         let x = y + lane - minLane;
-        p.ensure(x + 3, y + 2);
-        p.set(x + 2, y, 1);
-        p.set(x, y + 1, 1);
-        p.set(x + 1, y + 1, 1);
+        p.ensure(x + GLIDER_WIDTH, y + GLIDER_HEIGHT);
+        for (let cell of GLIDER_CELLS) {
+            p.set(x + cell[0], y + cell[1], 1);
+        }
     }
     let target = base.loadApgcode(s.target);
-    let yPos = (s.lanes.length - 1) * 20 + 6;
-    let xPos = yPos + target.height + OFFSET - minLane * 2;
+    let yPos = (s.lanes.length - 1) * GLIDER_SPACING + LANE_OFFSET + 1;
+    let xPos = yPos + target.height + LANE_OFFSET - minLane * 2;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
@@ -38,9 +97,7 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
 }
 
 
-type CAObjectNoP = ({x: number, y: number, w: number, h: number} & ({type: 'sl' | 'other', code: string} | {type: 'glider', dir: 'nw' | 'ne' | 'sw' | 'se', t: number}));
-
-type CAObject = CAObjectNoP & {p: MAPPattern};
+type CAObject = ({x: number, y: number, w: number, h: number} & ({type: 'sl' | 'other', code: string} | {type: ShipName, dir: ShipDirection, t: number, n: number}));
 
 function distance(a: CAObject, b: CAObject): number {
     return Math.abs(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
@@ -50,7 +107,7 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     let [p, xPos, yPos] = createConfiguration(s);
     let found = false;
     let prevPop = p.population;
-    for (let i = 0; i < s.lanes.length * 192; i++) {
+    for (let i = 0; i < s.lanes.length * WAIT_GENERATIONS; i++) {
         p.runGeneration();
         let pop = p.population;
         if (pop !== prevPop) {
@@ -64,30 +121,33 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
     }
     let pops: number[] = [];
     found = false;
-    for (let i = 0; i < 1024; i++) {
+    for (let i = 0; i < MAX_GENERATION; i++) {
         p.runGeneration();
         let pop = p.population;
-        if (pops.slice(-64).every(x => x === pop)) {
+        if (pops.slice(-PERIOD_SECURITY).every(x => x === pop)) {
             found = true;
             break;
         }
         pops.push(pop);
     }
     if (!found) {
-        for (let i = pops.length - 64; i < pops.length - 4; i++) {
-            if (pops[i] !== pops[i + 2]) {
+        for (let i = pops.length - PERIOD_SECURITY; i < pops.length - PERIOD_FACTOR_NUMBER; i++) {
+            if (pops[i] !== pops[i + PERIOD_FACTOR_NUMBER]) {
                 return false;
             }
         }
     }
-    p.run(60);
+    p.run(EXTRA_GENERATIONS);
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
     let sep = new INTSeparator(p, knots);
-    sep.runGeneration();
-    sep.resolveKnots();
-    let objs: CAObject[] = [];
+    for (let i = 0; i < SEPARATOR_GENERATIONS; i++) {
+        sep.runGeneration();
+        sep.resolveKnots();
+    }
+    let out: CAObject[] = [];
+    let stillLifes: (CAObject & {type: 'sl', p: MAPPattern})[] = [];
     for (let p of sep.getObjects()) {
         if (p.isEmpty()) {
             return false;
@@ -98,7 +158,7 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
             if (type.apgcode === 'xs0_0') {
                 continue;
             }
-            objs.push({
+            stillLifes.push({
                 type: 'sl',
                 x: p.xOffset,
                 y: p.yOffset,
@@ -107,104 +167,66 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
                 p,
                 code: p.toApgcode('xs' + p.population),
             });
-        } else if (type.apgcode === 'xq4_15') {
-            let dir: 'nw' | 'ne' | 'sw' | 'se' | null = null;
-            if (p.width === 2 && p.height === 3) {
-                if (p.data[1] && p.data[2] && p.data[4]) {
-                    dir = 'nw';
-                    p.run(2);
-                } else if (p.data[0] && p.data[1] && p.data[4]) {
-                    dir = 'nw';
-                    p.run(1);
-                } else if (p.data[0] && p.data[3] && p.data[5]) {
-                    dir = 'ne';
-                    p.run(2);
-                } else if (p.data[0] && p.data[1] && p.data[5]) {
-                    dir = 'ne';
-                    p.run(1);
-                } else if (p.data[0] && p.data[2] && p.data[5]) {
-                    dir = 'sw';
-                    p.run(2);
-                } else if (p.data[0] && p.data[4] && p.data[5]) {
-                    dir = 'sw';
-                    p.run(1);
-                } else if (p.data[1] && p.data[3] && p.data[4]) {
-                    dir = 'se';
-                    p.run(2);
-                } else if (p.data[1] && p.data[4] && p.data[5]) {
-                    dir = 'se';
-                    p.run(1);
-                }
-            } else if (p.width === 3 && p.height === 2) {
-                if (p.data[1] && p.data[2] && p.data[3]) {
-                    dir = 'nw';
-                } else if (p.data[0] && p.data[2] && p.data[3]) {
-                    dir = 'nw';
-                    p.run(3);
-                } else if (p.data[0] && p.data[1] && p.data[5]) {
-                    dir = 'ne';
-                } else if (p.data[0] && p.data[2] && p.data[5]) {
-                    dir = 'ne';
-                    p.run(3);
-                } else if (p.data[0] && p.data[4] && p.data[5]) {
-                    dir = 'sw';
-                } else if (p.data[0] && p.data[3] && p.data[5]) {
-                    dir = 'sw';
-                    p.run(3);
-                } else if (p.data[2] && p.data[3] && p.data[4]) {
-                    dir = 'se';
-                } else if (p.data[2] && p.data[3] && p.data[5]) {
-                    dir = 'se';
-                    p.run(3);
+        } else if (type.apgcode in SHIP_IDENTIFICATION) {
+            let {name, data: info} = SHIP_IDENTIFICATION[type.apgcode];
+            let found = false;
+            for (let {height, width, population, data} of info) {
+                if (p.height === height && p.width === width && p.population === population) {
+                    for (let [cells, dir, timing] of data) {
+                        found = true;
+                        for (let i of cells) {
+                            if (!p.data[i]) {
+                                found = false;
+                                break;
+                            }
+                        }
+                        if (found) {
+                            out.push({
+                                type: name,
+                                x: p.xOffset,
+                                y: p.yOffset,
+                                w: width,
+                                h: height,
+                                dir,
+                                t: p.generation + timing,
+                                n: 0,
+                            })
+                            break;
+                        }
+                    }
                 }
             }
-            if (!dir) {
-                throw new Error(`Invalid glider:\n${p.toRLE()}`);
+            if (!found) {
+                throw new Error(`Invalid glider: ${p.toRLE()}`);
             }
-            objs.push({
-                type: 'glider',
-                x: p.xOffset,
-                y: p.yOffset,
-                dir,
-                w: 3,
-                h: 2,
-                p,
-                t: p.generation,
-            });
         } else if (type.apgcode === 'PATHOLOGICAL' || type.apgcode.startsWith('zz')) {
             return false;
         } else {
-            objs.push({
+            out.push({
                 type: 'other',
                 x: p.xOffset,
                 y: p.yOffset,
                 w: p.width,
                 h: p.height,
-                p,
                 code: type.apgcode,
             });
         }
     }
-    let out: CAObject[] = [];
-    let used = new Uint8Array(objs.length);
-    for (let i = 0; i < objs.length; i++) {
-        let obj = objs[i];
-        if (obj.type !== 'sl') {
-            out.push(obj);
-            continue;
-        }
+    let used = new Uint8Array(stillLifes.length);
+    for (let i = 0; i < stillLifes.length; i++) {
+        let obj = stillLifes[i];
         if (used[i]) {
             continue;
         }
         used[i] = 1;
         let data = [];
-        for (let j = 0; j < objs.length; j++) {
-            if (objs[j].type !== 'sl' || used[j]) {
+        for (let j = 0; j < stillLifes.length; j++) {
+            if (used[j]) {
                 continue;
             }
-            if (distance(obj, objs[j]) <= MAX_PSEUDO_DISTANCE) {
+            if (distance(obj, stillLifes[j]) <= MAX_PSEUDO_DISTANCE) {
                 used[j] = 1;
-                data.push(objs[j]);
+                data.push(stillLifes[j]);
             }
         }
         if (data.length === 0) {
@@ -250,7 +272,6 @@ function findOutcome(s: Salvo): false | null | CAObject[] {
             y: minY,
             w: p.width,
             h: p.height,
-            p,
         })
     };
     return out;
@@ -277,7 +298,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
         } else {
             lane = ship.y - ship.x;
         }
-        out += 'g ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 3) + ', ';
+        out += `${ship.dir.toUpperCase()} glider lane ${lane} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     if (data.length > 0) {
         out = out.slice(0, -2);
@@ -287,17 +308,17 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
     return out;
 }
 
-function getSalvos(target: string, limit: number): [Set<string>, [number, false | null | CAObjectNoP[]][], string] {
+function getSalvos(target: string, limit: number): [Set<string>, [number, false | null | CAObject[]][], string] {
     target = target.slice(target.indexOf('_') + 1);
     let newObjs = new Set<string>();
-    let out: [number, false | null | CAObjectNoP[]][] = [];
+    let out: [number, false | null | CAObject[]][] = [];
     let failed = false;
     let hadCollision = false;
     let str = 'xs' + base.loadApgcode(target).population + '_' + target + ':\n';
     for (let lane = 0; lane < limit; lane++) {
         let s = {target, lanes: [lane]};
         let data = findOutcome(s);
-        out.push([lane, data ? data.map(x => x.type === 'glider' ? {type: 'glider', x: x.x, y: x.y, w: x.w, h: x.h, dir: x.dir, t: x.t} : {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, code: x.code}) : data]);
+        out.push([lane, data ? data.map(x => x.type === 'glider' ? {type: 'glider', x: x.x, y: x.y, w: x.w, h: x.h, dir: x.dir, t: x.t, n: x.n} : {type: x.type, x: x.x, y: x.y, w: x.w, h: x.h, code: x.code,}) : data]);
         if (data === null) {
             if (!hadCollision) {
                 continue;
@@ -327,20 +348,21 @@ function getSalvos(target: string, limit: number): [Set<string>, [number, false 
 }
 
 
-function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
+function normalizeOutcome(data: false | null | CAObject[]): string | false {
     if (!data || data.length === 0) {
         return false;
     }
-    let stillLifes: (CAObjectNoP & {type: 'sl'})[] = [];
-    let gliders: (CAObjectNoP & {type: 'glider'})[] = [];
+    let stillLifes: (CAObject & {type: 'sl'})[] = [];
+    let gliders: (CAObject & {type: ShipName})[] = [];
     for (let obj of data) {
         if (obj.type === 'sl') {
             // @ts-ignore
             stillLifes.push(obj);
-        } else if (obj.type === 'glider') {
-            gliders.push(obj);
-        } else {
+        } else if (obj.type === 'other') {
             return false;
+        } else {
+            // @ts-ignore
+            gliders.push(obj);
         }
     }
     stillLifes = stillLifes.sort((a, b) => {
@@ -357,6 +379,13 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
         }
     });
     gliders = gliders.sort((a, b) => {
+        if (a.type !== b.type) {
+            if (a.type < b.type) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
         if (a.t < b.t) {
             return -1;
         } else if (a.t > b.t) {
@@ -383,19 +412,25 @@ function normalizeOutcome(data: false | null | CAObjectNoP[]): string | false {
         } else {
             lane = ship.y - ship.x;
         }
-        out += 'g ' + ship.dir + ' lane ' + lane + ' timing ' + (ship.t - 3) + ', ';
+        out += `${ship.dir.toUpperCase()} glider lane ${lane} emitted ${ship.n} timing ${ship.t - TIMING_DIFFERENCE}, `;
     }
     return out.slice(0, -2);
 }
 
-function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP[]][]}, code: string, prefix: number[], x: number, y: number, limit: number, out: {[key: string]: [CAObjectNoP[], number[][]]}, add: CAObjectNoP[] = []): void {
+function getAllRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [CAObject[], number[][]]}, add: CAObject[] = []): void {
     for (let [lane, objs] of data[code]) {
         if (!objs || objs.length === 0 || objs.some(x => x.type === 'other')) {
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
         objs = objs.slice();
-        objs.push(...add);
+        objs.push(...add.map(value => {
+            let out = structuredClone(value);
+            if (out.type === 'glider') {
+                out.n = count;
+            }
+            return out;
+        }));
         objs = objs.map(value => {
             let out = structuredClone(value);
             out.x += x;
@@ -410,14 +445,14 @@ function getAllRecipes(data: {[key: string]: [number, false | null | CAObjectNoP
                 out[str] = [objs, [recipe]];
             }
         }
-        if (limit > 1) {
+        if (count < limit) {
             if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
-                getAllRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, limit - 1, out);
+                getAllRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out);
             } else {
                 for (let i = 0; i < objs.length; i++) {
                     let obj = objs[i];
                     if (obj.type === 'sl' && obj.code in data) {
-                        getAllRecipes(data, obj.code, recipe, obj.x, obj.y, limit - 1, out, objs.toSpliced(i, 1));
+                        getAllRecipes(data, obj.code, recipe, obj.x, obj.y, count + 1, limit, out, objs.toSpliced(i, 1));
                     }
                 }
             }
@@ -430,8 +465,8 @@ if (process.argv[2] === 'search') {
     console.log('');
     let limit = parseInt(process.argv[3]);
     let done = new Set<string>();
-    let out: {[key: string]: [number, false | null | CAObjectNoP[]][]} = {};
-    let queue = ['xs2_11'];
+    let out: {[key: string]: [number, false | null | CAObject[]][]} = {};
+    let queue = [START_OBJECT];
     for (let i = 0; i < limit; i++) {
         let newQueue: string[] = [];
         for (let code of queue) {
@@ -451,8 +486,8 @@ if (process.argv[2] === 'search') {
         queue = newQueue;
     }
     console.log('');
-    let recipes: {[key: string]: [CAObjectNoP[], number[][]]} = {};
-    getAllRecipes(out, 'xs2_11', [], 0, 0, limit, recipes);
+    let recipes: {[key: string]: [CAObject[], number[][]]} = {};
+    getAllRecipes(out, START_OBJECT, [], 0, 0, 1, limit, recipes);
     for (let key in recipes) {
         console.log('');
         console.log(key + ':');
@@ -470,5 +505,5 @@ if (process.argv[2] === 'search') {
     await fs.writeFile('salvos.json', JSON.stringify(recipes));
 } else {
     let lanes = process.argv.slice(2).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
-    console.log(createConfiguration({target: '11', lanes})[0].toRLE());
+    console.log(createConfiguration({target: START_OBJECT.slice(START_OBJECT.indexOf('_') + 1), lanes})[0].toRLE());
 }
