@@ -288,7 +288,7 @@ function salvoToString(s: Salvo, data: false | CAObject[]): string {
     for (let obj of data) {
         if (obj.type !== 'sl' && obj.type !== 'other') {
             // @ts-ignore
-            gliders.push(obj);
+            ships.push(obj);
             continue;
         }
         out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
