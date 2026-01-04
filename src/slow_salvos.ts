@@ -37,10 +37,13 @@ const START_OBJECT = 'xs2_11';
 
 // the spacing (in cells) between 2 gliders in a multi-glider slow salvo
 const GLIDER_SPACING = 20;
-// the offset number for lanes, because it does not like negative lanes you should set this
+// the offset number for lanes, because negative lanes can be annoying
 const LANE_OFFSET = 5;
 // the timing offset for collisions, set this to whatever notion of timing you like
 const TIMING_DIFFERENCE = 12;
+
+// the lane to start at for searches, make sure to consider LANE_OFFSET here
+const START_LANE = 0;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -404,7 +407,7 @@ function getSalvos(target: string, limit: number): [Set<string>, [number, false 
     let failed = false;
     let hadCollision = false;
     let str = 'xs' + base.loadApgcode(target).population + '_' + target + ':\n';
-    for (let lane = 0; lane < limit; lane++) {
+    for (let lane = START_LANE; lane < limit; lane++) {
         let s = {target, lanes: [lane]};
         let data = findOutcome(s);
         // @ts-ignore
