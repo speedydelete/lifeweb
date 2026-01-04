@@ -90,7 +90,7 @@ function createConfiguration(s: Salvo): [MAPPattern, number, number] {
     }
     let target = base.loadApgcode(s.target);
     let yPos = (s.lanes.length - 1) * GLIDER_SPACING + LANE_OFFSET + 1;
-    let xPos = Math.floor(yPos * GLIDER_SLOPE) + target.height + LANE_OFFSET - minLane * 2;
+    let xPos = Math.floor(yPos * GLIDER_SLOPE) + target.height + LANE_OFFSET - minLane;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
