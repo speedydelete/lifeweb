@@ -10,7 +10,7 @@ export interface Salvo {
 }
 
 
-export function createConfiguration(s: Salvo): [MAPPattern, number, number] {
+export function createSalvoPattern(s: Salvo): [MAPPattern, number, number] {
     let minLane = Math.min(0, ...s.lanes);
     let p = base.copy();
     for (let i = 0; i < s.lanes.length; i++) {
@@ -39,7 +39,7 @@ function distance(a: CAObject, b: CAObject): number {
 let knots = getKnots(base.trs);
 
 function findOutcome(s: Salvo): false | null | true | CAObject[] {
-    let [p, xPos, yPos] = createConfiguration(s);
+    let [p, xPos, yPos] = createSalvoPattern(s);
     let found = false;
     let prevPop = p.population;
     for (let i = 0; i < s.lanes.length * c.WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
