@@ -1,18 +1,34 @@
 
-import {MAPPattern, identify, INTSeparator, getKnots} from '../core/index.js';
+import {MAPPattern} from '../core/index.js';
 import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base} from './config.js';
 import * as c from './config.js';
+import {findOutcome} from './find_outcome.js';
 
 
-export function createSingleChannelPattern(recipe: number[]): MAPPattern {
+export function createSingleChannelPattern(recipe: number[]): [MAPPattern, number, number, number] {
     let p = base.copy();
-    for (let i = 0; i < recipe.length; i++) {
-        let y = i * c.GLIDER_SPACING;
-        let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
-        p.ensure(x + c.GLIDER_WIDTH, y + c.GLIDER_HEIGHT);
-        for (let cell of c.GLIDER_CELLS) {
+    let total = 0;
+    for (let i = recipe.length - 2; i >= 0; i--) {
+        total += recipe[i];
+        let y = Math.floor(total / c.GLIDER_PERIOD);
+        let x = Math.floor(y * c.GLIDER_SLOPE);
+        let [height, width, cells] = c.GLIDER_CELLS[total % c.GLIDER_PERIOD];
+        p.ensure(x + width, y + height);
+        for (let cell of cells) {
             p.set(x + cell[0], y + cell[1], 1);
         }
     }
+    let target = base.loadApgcode(c.START_OBJECT);
+    let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.SINGLE_CHANNEL_LANE + c.LANE_OFFSET + target.height;
+    p.ensure(target.width + xPos, target.height + yPos);
+    p.insert(target, xPos, yPos);
+    p.shrinkToFit();
+    return [p, xPos, yPos, total];
 }
 
+function findSingleChannelResult(recipe: number[]): null | false | true | CAObject[] {
+    let [p, xPos, yPos, total] = createSingleChannelPattern(recipe);
+    p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
+    return findOutcome(p, xPos, yPos);
+}

@@ -1,8 +1,8 @@
 
-import {MAPPattern, identify, INTSeparator, getKnots} from '../core/index.js';
+import {MAPPattern} from '../core/index.js';
 import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base} from './config.js';
 import * as c from './config.js';
-
+import {findOutcome} from './find_outcome.js';
 
 export interface Salvo {
     target: string;
@@ -15,15 +15,15 @@ export function createSalvoPattern(s: Salvo): [MAPPattern, number, number] {
     let p = base.copy();
     for (let i = 0; i < s.lanes.length; i++) {
         let lane = s.lanes[i];
-        let y = i * c.GLIDER_SPACING;
+        let y = i * c.GLIDER_SPACING_SS;
         let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
-        p.ensure(x + c.GLIDER_WIDTH, y + c.GLIDER_HEIGHT);
-        for (let cell of c.GLIDER_CELLS) {
+        p.ensure(x + c.GLIDER_CELLS[0][1], y + c.GLIDER_CELLS[0][0]);
+        for (let cell of c.GLIDER_CELLS[0][2]) {
             p.set(x + cell[0], y + cell[1], 1);
         }
     }
     let target = base.loadApgcode(s.target);
-    let yPos = (s.lanes.length - 1) * c.GLIDER_SPACING + c.GLIDER_TARGET_SPACING;
+    let yPos = (s.lanes.length - 1) * c.GLIDER_SPACING_SS + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + target.height - minLane;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
@@ -31,14 +31,7 @@ export function createSalvoPattern(s: Salvo): [MAPPattern, number, number] {
     return [p, xPos, yPos];
 }
 
-
-function distance(a: CAObject, b: CAObject): number {
-    return Math.abs(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-}
-
-let knots = getKnots(base.trs);
-
-function findOutcome(s: Salvo): false | null | true | CAObject[] {
+function findSalvoResult(s: Salvo): null | false | true | CAObject[] {
     let [p, xPos, yPos] = createSalvoPattern(s);
     let found = false;
     let prevPop = p.population;
@@ -57,183 +50,10 @@ function findOutcome(s: Salvo): false | null | true | CAObject[] {
     if (!found) {
         return null;
     }
-    let pops: number[] = [];
-    found = false;
-    let period = -1;
-    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
-        p.runGeneration();
-        let pop = p.population;
-        for (period = 1; period < Math.min(c.MAX_GENERATIONS, Math.floor(pops.length / c.PERIOD_SECURITY)); period++) {
-            let found = true;
-            for (let j = 1; j < 16; j++) {
-                if (pop !== pops[pops.length - period * j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        pops.push(pop);
-    }
-    // @ts-ignore
-    if (found && c.VALID_POPULATION_PERIODS && !c.VALID_POPULATION_PERIODS.includes(period)) {
-        return false;
-    }
-    p.run(c.EXTRA_GENERATIONS);
-    p.shrinkToFit();
-    p.xOffset -= xPos;
-    p.yOffset -= yPos;
-    let sep = new INTSeparator(p, knots);
-    for (let i = 0; i < c.SEPARATOR_GENERATIONS; i++) {
-        sep.runGeneration();
-        sep.resolveKnots();
-    }
-    let out: CAObject[] = [];
-    let stillLifes: (StillLife & {p: MAPPattern})[] = [];
-    for (let p of sep.getObjects()) {
-        if (p.isEmpty()) {
-            return false;
-        }
-        p.shrinkToFit();
-        let type = identify(p, 1024, false);
-        if (type.apgcode.startsWith('xs')) {
-            if (type.apgcode === 'xs0_0') {
-                return false;
-            }
-            stillLifes.push({
-                type: 'sl',
-                x: p.xOffset,
-                y: p.yOffset,
-                w: p.width,
-                h: p.height,
-                p,
-                code: p.toApgcode('xs' + p.population),
-            });
-        } else if (type.apgcode in c.SHIP_IDENTIFICATION) {
-            let {name, data: info} = c.SHIP_IDENTIFICATION[type.apgcode];
-            let found = false;
-            for (let {height, width, population, data} of info) {
-                if (p.height === height && p.width === width && p.population === population) {
-                    for (let [cells, dir, timing] of data) {
-                        found = true;
-                        for (let i of cells) {
-                            if (!p.data[i]) {
-                                found = false;
-                                break;
-                            }
-                        }
-                        if (found) {
-                            p.run(timing).shrinkToFit();
-                            out.push({
-                                type: name,
-                                x: p.xOffset,
-                                y: p.yOffset,
-                                w: p.width,
-                                h: p.height,
-                                dir,
-                                t: p.generation,
-                                n: 0,
-                            })
-                            break;
-                        }
-                    }
-                }
-                if (found) {
-                    break;
-                }
-            }
-            if (!found) {
-                throw new Error(`Invalid glider: ${p.toRLE()}`);
-            }
-        } else if (type.apgcode === 'PATHOLOGICAL' || type.apgcode.startsWith('zz')) {
-            return false;
-        } else {
-            out.push({
-                type: 'other',
-                x: p.xOffset,
-                y: p.yOffset,
-                w: p.width,
-                h: p.height,
-                code: type.apgcode,
-            });
-        }
-    }
-    let used = new Uint8Array(stillLifes.length);
-    for (let i = 0; i < stillLifes.length; i++) {
-        let obj = stillLifes[i];
-        if (used[i]) {
-            continue;
-        }
-        used[i] = 1;
-        let data = [];
-        for (let j = 0; j < stillLifes.length; j++) {
-            if (used[j]) {
-                continue;
-            }
-            if (distance(obj, stillLifes[j]) <= c.MAX_PSEUDO_DISTANCE) {
-                used[j] = 1;
-                data.push(stillLifes[j]);
-            }
-        }
-        if (data.length === 0) {
-            out.push({
-                type: 'sl',
-                code: obj.code,
-                x: obj.x,
-                y: obj.y,
-                w: obj.w,
-                h: obj.h,
-            });
-            continue;
-        }
-        let minX = obj.x;
-        let maxX = obj.x + obj.w;
-        let minY = obj.y;
-        let maxY = obj.y + obj.h;
-        for (let obj of data) {
-            if (obj.x < minX) {
-                minX = obj.x;
-            }
-            if (obj.x + obj.w > maxX) {
-                maxX = obj.x + obj.w;
-            }
-            if (obj.y < minY) {
-                minY = obj.y;
-            }
-            if (obj.y + obj.h > maxY) {
-                maxY = obj.y + obj.h;
-            }
-        }
-        let p = base.copy();
-        p.height = maxY - minY;
-        p.width = maxX - minX;
-        p.size = p.height * p.width;
-        p.data = new Uint8Array(p.size);
-        p.insert(obj.p, obj.x - minX, obj.y - minY);
-        for (let obj of data) {
-            p.insert(obj.p, obj.x - minX, obj.y - minY);
-        }
-        p.shrinkToFit();
-        let type = identify(p, 2, false);
-        if (type.period !== 1 || !type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
-            return false;
-        }
-        out.push({
-            type: 'sl',
-            code: p.toApgcode('xs' + p.population),
-            x: minX,
-            y: minY,
-            w: p.width,
-            h: p.height,
-        });
-    };
-    return out;
+    return findOutcome(p, xPos, yPos);
 }
 
-
-function getSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][]] {
+function searchSingleTargetSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][]] {
     let originalTarget = target;
     target = target.slice(target.indexOf('_') + 1);
     let newObjs = new Set<string>();
@@ -241,13 +61,13 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
     let failed = false;
     let hadCollision = false;
     let lane = 0;
-    let data = findOutcome({target, lanes: [lane]});
+    let data = findSalvoResult({target, lanes: [lane]});
     if (data === true) {
         return false;
     }
     while (data !== null) {
         lane--;
-        data = findOutcome({target, lanes: [lane]});
+        data = findSalvoResult({target, lanes: [lane]});
         if (data === true) {
             return false;
         }
@@ -258,7 +78,7 @@ function getSalvos(target: string): false | [Set<string>, [number, false | null 
     lane++;
     for (; lane < c.LANE_LIMIT; lane++) {
         let s = {target, lanes: [lane]};
-        let data = findOutcome(s);
+        let data = findSalvoResult(s);
         if (data === true) {
             return false;
         }
@@ -425,7 +245,7 @@ export async function searchSalvos(limit: number): Promise<void> {
             } else {
                 done.add(code);
             }
-            let data = getSalvos(code);
+            let data = searchSingleTargetSalvos(code);
             if (data) {
                 let [newObjs, newOut] = data;
                 perObject[code] = newOut;

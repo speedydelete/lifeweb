@@ -4,10 +4,14 @@
 const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
-const GLIDER_HEIGHT = 2;
-const GLIDER_WIDTH = 3;
-// this part is an array of [x, y] coordinates
-const GLIDER_CELLS = [[2, 0], [0, 1], [1, 1]];
+// this part is an array of [height, width, array of [x, y] coordinates] for each phase
+// should be facing southeast for diagonals or south for orthogonals
+const GLIDER_CELLS: [number, number, [number, number][]][] = [
+    [2, 3, [[2, 0], [0, 1], [1, 1]]],
+    [2, 3, [[2, 0], [0, 1], [2, 1]]],
+    [3, 2, [[1, 0], [1, 1], [0, 2]]],
+    [3, 2, [[1, 0], [0, 2], [1, 2]]],
+];
 const GLIDER_SLOPE = 1;
 const GLIDER_POPULATION_PERIOD = 1;
 
@@ -17,13 +21,17 @@ const START_OBJECT = 'xs2_11';
 // a rotated version of it, if applicable, set to null to disable
 const ROTATED_START_OBJECT: string | null = 'xs2_3';
 
-// the spacing (in cells) between 2 gliders in a multi-glider slow salvo
-const GLIDER_SPACING = 10;
 // the spacing (in cells) between the glider and the target
 const GLIDER_TARGET_SPACING = 7;
 
-// the offset number for lanes, I set this to -1 because B2n
-const LANE_OFFSET = -1;
+// settings specific to slow salvos
+
+// the spacing (in cells) between 2 gliders in a multi-glider slow salvo
+const GLIDER_SPACING = 10;
+
+// settings specific to single-channel synthesis
+
+// settings for searches
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -138,10 +146,6 @@ function findLane(ship: CAObject & {type: ShipName}): number {
 
 // internal stuff, don't change this
 
-import * as fs from 'node:fs/promises';
-import {existsSync as exists} from 'node:fs';
-import {createPattern, MAPPattern} from '../core/index.js';
-
 export interface BaseObject {
     x: number;
     y: number;
@@ -168,88 +172,4 @@ export interface Spaceship extends BaseObject {
 
 export type CAObject = StillLife | OtherObject | Spaceship;
 
-export interface RecipeData {
-    salvos?: {
-        all: [string, number[][], StillLife[], Spaceship[]][];
-    };
-}
-
-export async function getRecipes(): Promise<RecipeData> {
-    if (exists('recipes.json')) {
-        return JSON.parse((await fs.readFile('recipes.json')).toString());
-    } else {
-        return {};
-    }
-}
-
-export async function saveRecipes(recipes: RecipeData): Promise<void> {
-    await fs.writeFile('recipes.json', JSON.stringify(recipes));
-}
-
-export let base = createPattern(RULE) as MAPPattern;
-
-export {RULE, GLIDER_HEIGHT, GLIDER_WIDTH, GLIDER_CELLS, GLIDER_SLOPE, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, LANE_OFFSET, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION, findLane};
-
-function xyCompare(a: CAObject, b: CAObject): number {
-    if (a.y < b.y) {
-        return -1;
-    } else if (a.y > b.y) {
-        return 1;
-    } else if (a.x < b.x) {
-        return -1;
-    } else if (a.x > b.x) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-export function objectSorter(a: CAObject, b: CAObject): number {
-    if (a.type === 'sl') {
-        if (b.type !== 'sl') {
-            return -1;
-        } else if (a.code < b.code) {
-            return -1;
-        } else if (a.code > b.code) {
-            return 1;
-        } else {
-            return xyCompare(a, b);
-        }
-    } else if (a.type === 'other') {
-        if (b.type !== 'other') {
-            return 1;
-        } else if (a.code < b.code) {
-            return -1;
-        } else if (a.code > b.code) {
-            return 1;
-        } else {
-            return xyCompare(a, b);
-        }
-    } else {
-        if (a.type < b.type) {
-            return -1;
-        } else if (a.type > b.type) {
-            return 1;
-        } else {
-            return xyCompare(a, b);
-        }
-    }
-}
-
-export function objectsSorter(a: CAObject[], b: CAObject[]): number {
-    if (a.length < b.length) {
-        return -1;
-    } else if (a.length > b.length) {
-        return 1;
-    } else {
-        a = a.toSorted(objectSorter);
-        b = b.toSorted(objectSorter);
-        for (let i = 0; i < a.length; i++) {
-            let out = objectSorter(a[i], b[i]);
-            if (out !== 0) {
-                return out;
-            }
-        }
-        return 0;
-    }
-}
+export {RULE, GLIDER_CELLS, GLIDER_SLOPE, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION, findLane};
