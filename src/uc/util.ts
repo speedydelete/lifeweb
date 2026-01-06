@@ -11,16 +11,18 @@ export * from './config.js';
 
 export interface RecipeData {
     salvos: {
-        lastChange: number;
-        lastGraphUpdate: number;
-        stillLifes: string[];
         forInput: {[key: string]: [number, CAObject[]][]};
-        forOutput: {[key: string]: [string, StillLife[], Spaceship[], number[][]]};
-        basicRecipes: {[key: string]: [string, StillLife, number[][]]};
-        splitRecipes: {[key: string]: [string, StillLife[], number[][]]};
+        forOutput: {[key: string]: [CAObject[], StillLife[], Spaceship[], number[][]]};
+        tileRecipes: {[key: string]: [StillLife[], StillLife[], number[]]},
+        basicRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
+        splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
         destroyRecipes: {[key: string]: number[][]};
-        oneTimeTurners: {[key: string]: [string, Spaceship, number[]][]};
-        oneTimeSplitters: {[key: string]: [string, Spaceship[], number[]][]};
+        oneTimeTurners: {[key: string]: [string, StillLife, Spaceship, number[]][]};
+        oneTimeSplitters: {[key: string]: [string, StillLife, Spaceship[], number[]][]};
+    };
+    compilation: {
+        tileSize: number;
+        tiles: {[key: string]: {[key: string]: number[]}};
     };
 }
 
@@ -32,16 +34,18 @@ export async function getRecipes(): Promise<RecipeData> {
     } else {
         return {
             salvos: {
-                lastChange: Date.now() / 1000,
-                lastGraphUpdate: Date.now() / 1000,
-                stillLifes: [],
                 forInput: {},
                 forOutput: {},
+                tileRecipes: {},
                 basicRecipes: {},
                 splitRecipes: {},
                 destroyRecipes: {},
                 oneTimeTurners: {},
                 oneTimeSplitters: {},
+            },
+            compilation: {
+                tileSize: 0,
+                tiles: {},
             },
         };
     }
@@ -54,6 +58,15 @@ export async function saveRecipes(recipes: RecipeData): Promise<void> {
 
 export let base = createPattern(c.RULE) as MAPPattern;
 
+
+export function translateObjs<T extends CAObject>(objs: T[], x: number, y: number): T[] {
+    return objs.map(obj => {
+        obj = structuredClone(obj);
+        obj.x += x;
+        obj.y += y;
+        return obj;
+    });
+}
 
 function xyCompare(a: CAObject, b: CAObject): number {
     if (a.y < b.y) {
