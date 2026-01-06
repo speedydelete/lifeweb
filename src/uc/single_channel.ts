@@ -1,8 +1,7 @@
 
 import {MAPPattern} from '../core/index.js';
-import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base} from './config.js';
+import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base, findOutcome} from './util.js';
 import * as c from './config.js';
-import {findOutcome} from './find_outcome.js';
 
 
 export function createSingleChannelPattern(recipe: number[]): [MAPPattern, number, number, number] {
@@ -20,7 +19,7 @@ export function createSingleChannelPattern(recipe: number[]): [MAPPattern, numbe
     }
     let target = base.loadApgcode(c.START_OBJECT);
     let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.SINGLE_CHANNEL_LANE + c.LANE_OFFSET + target.height;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.SINGLE_CHANNEL_LANE - c.LANE_OFFSET + target.height;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();

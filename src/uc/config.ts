@@ -12,7 +12,9 @@ const GLIDER_CELLS: [number, number, [number, number][]][] = [
     [3, 2, [[1, 0], [1, 1], [0, 2]]],
     [3, 2, [[1, 0], [0, 2], [1, 2]]],
 ];
-const GLIDER_SLOPE = 1;
+const GLIDER_DX = 1;
+const GLIDER_DY = 1;
+const GLIDER_PERIOD = 4;
 const GLIDER_POPULATION_PERIOD = 1;
 
 // the starting object for syntheses
@@ -24,14 +26,16 @@ const ROTATED_START_OBJECT: string | null = 'xs2_3';
 // the spacing (in cells) between the glider and the target
 const GLIDER_TARGET_SPACING = 7;
 
-// settings specific to slow salvos
+// makes lane numbers more sane, set to -1 for B2n, and 0 otherwise
+const LANE_OFFSET = -1;
 
 // the spacing (in cells) between 2 gliders in a multi-glider slow salvo
-const GLIDER_SPACING = 10;
+const GLIDER_SPACING_SS = 10;
 
-// settings specific to single-channel synthesis
-
-// settings for searches
+// the lane used for single-channel collisions with START_OBJECT
+const SINGLE_CHANNEL_LANE = 10;
+// the minimum spacing between single-channel gliders
+const MIN_SPACING_SC = 20;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -146,6 +150,8 @@ function findLane(ship: CAObject & {type: ShipName}): number {
 
 // internal stuff, don't change this
 
+export const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
+
 export interface BaseObject {
     x: number;
     y: number;
@@ -172,4 +178,4 @@ export interface Spaceship extends BaseObject {
 
 export type CAObject = StillLife | OtherObject | Spaceship;
 
-export {RULE, GLIDER_CELLS, GLIDER_SLOPE, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION, findLane};
+export {RULE, GLIDER_CELLS, GLIDER_DX, GLIDER_DY, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_TARGET_SPACING, LANE_OFFSET, GLIDER_SPACING_SS, SINGLE_CHANNEL_LANE, MIN_SPACING_SC, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION, findLane};
