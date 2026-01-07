@@ -1,20 +1,21 @@
 
 import {MAPPattern} from '../core/index.js';
 import * as c from './config.js';
-import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base, translateObjs, findOutcome} from './util.js';
+import {StillLife, Spaceship, CAObject, base, translateObjects, objectsToString, findOutcome, getRecipes, saveRecipes} from './util.js';
 
 
-export interface Salvo {
-    target: string;
-    lanes: number[];
+export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
+    input: (Output extends null ? CAObject : Input)[];
+    output: (Output extends null ? Input : Output)[];
+    recipes: number[][];
 }
 
 
-export function createSalvoPattern(s: Salvo): [MAPPattern, number, number] {
-    let minLane = Math.min(0, ...s.lanes);
+export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern, number, number] {
+    let minLane = Math.min(0, ...lanes);
     let p = base.copy();
-    for (let i = 0; i < s.lanes.length; i++) {
-        let lane = s.lanes[i];
+    for (let i = 0; i < lanes.length; i++) {
+        let lane = lanes[i];
         let y = i * c.GLIDER_SPACING_SS;
         let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
         p.ensure(x + c.GLIDER_CELLS[0][0], y + c.GLIDER_CELLS[0][1]);
@@ -22,93 +23,26 @@ export function createSalvoPattern(s: Salvo): [MAPPattern, number, number] {
             p.set(x + cell[0], y + cell[1], 1);
         }
     }
-    let target = base.loadApgcode(s.target);
-    let yPos = (s.lanes.length - 1) * c.GLIDER_SPACING_SS + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + target.height - minLane;
-    p.ensure(target.width + xPos, target.height + yPos);
-    p.insert(target, xPos, yPos);
+    let q = base.loadApgcode(target);
+    let yPos = (lanes.length - 1) * c.GLIDER_SPACING_SS + c.GLIDER_TARGET_SPACING;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + q.height - minLane;
+    p.ensure(q.width + xPos, q.height + yPos);
+    p.insert(q, xPos, yPos);
     p.shrinkToFit();
     return [p, xPos, yPos];
 }
 
-export function getSalvoKey<T extends boolean = false>(data: T extends true ? false | null | CAObject[] : (StillLife[] | Spaceship[]), input?: string): T extends true ? false | string : string {
-    if (!data) {
-        // @ts-ignore
-        return false;
-    }
-    let prefix = input === undefined ? '' : input + ' to ';
-    if (data.length === 0) {
-        return prefix + 'nothing';
-    }
-    let stillLifes: StillLife[] = [];
-    let ships: Spaceship[] = [];
-    for (let obj of data as CAObject[]) {
-        if (obj.type === 'sl') {
-            stillLifes.push(obj);
-        } else if (obj.type === 'other') {
-            // @ts-ignore
-            return false;
-        } else {
-            ships.push(obj);
-        }
-    }
-    stillLifes = stillLifes.sort((a, b) => {
-        if (a.x < b.x) {
-            return -1;
-        } else if (a.x > b.x) {
-            return 1;
-        } else if (a.y < b.y) {
-            return -1;
-        } else if (a.y > b.y) {
-            return 1;
-        } else {
-            return 0;
-        }
-    });
-    ships = ships.sort((a, b) => {
-        if (a.type !== b.type) {
-            if (a.type < b.type) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
-        if (a.t < b.t) {
-            return -1;
-        } else if (a.t > b.t) {
-            return 1;
-        }
-        let aLane = c.findLane(a);
-        let bLane = c.findLane(b);
-        if (aLane < bLane) {
-            return -1;
-        } else if (aLane > bLane) {
-            return 1;
-        } else {
-            return 1;
-        }
-    });
-    let out = '';
-    for (let obj of stillLifes) {
-        out += obj.code + ' (' + obj.x + ', ' + obj.y + '), ';
-    }
-    for (let ship of ships) {
-        out += `${ship.dir} ${ship.type} lane ${c.findLane(ship)} emitted ${ship.n} timing ${ship.t}, `;
-    }
-    return out.slice(0, -2);
-}
 
-
-function findSalvoResult(s: Salvo): false | null | true | CAObject[] {
-    let [p, xPos, yPos] = createSalvoPattern(s);
+function findSalvoResult(target: string, lanes: number[]): 'no' | null | false | CAObject[] {
+    let [p, xPos, yPos] = createSalvoPattern(target, lanes);
     let found = false;
     let prevPop = p.population;
-    for (let i = 0; i < s.lanes.length * c.WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
+    for (let i = 0; i < lanes.length * c.WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
         p.run(c.GLIDER_POPULATION_PERIOD);
         let pop = p.population;
         if (pop !== prevPop) {
             if (i === 0) {
-                return true;
+                return 'no';
             }
             found = true;
             break;
@@ -129,14 +63,14 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
     let failed = false;
     let hadCollision = false;
     let lane = 0;
-    let data = findSalvoResult({target, lanes: [lane]});
-    if (data === true) {
+    let data = findSalvoResult(target, [lane]);
+    if (data === 'no') {
         return false;
     }
     while (data !== null) {
         lane--;
-        data = findSalvoResult({target, lanes: [lane]});
-        if (data === true) {
+        data = findSalvoResult(target, [lane]);
+        if (data === 'no') {
             return false;
         }
         if (lane === -c.LANE_LIMIT) {
@@ -145,9 +79,8 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
     }
     lane++;
     for (; lane < c.LANE_LIMIT; lane++) {
-        let s = {target, lanes: [lane]};
-        let data = findSalvoResult(s);
-        if (data === true) {
+        let data = findSalvoResult(target, [lane]);
+        if (data === 'no') {
             return false;
         }
         if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === originalTarget && data[0].x === 0 && data[0].y === 0) {
@@ -197,8 +130,8 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
             }
             return out;
         }));
-        objs = translateObjs(objs, x, y);
-        let str = getSalvoKey<true>(objs, code);
+        objs = translateObjects(objs, x, y);
+        let str = objectsToString(objs);
         if (str) {
             if (str in out) {
                 out[str][3].push(recipe);
@@ -309,7 +242,7 @@ export async function searchSalvos(limit: number): Promise<void> {
                                 data.oneTimeTurners[key] = [[key, input[0], outShips[0], recipes2]];
                             }
                         } else {
-                            key = getSalvoKey(outShips);
+                            key = objectsToString(outShips);
                             if (data.oneTimeSplitters[key]) {
                                 let list = data.oneTimeSplitters[key];
                                 let index = list.findIndex(x => x[0] === key);

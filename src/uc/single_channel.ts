@@ -1,6 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import {StillLife, Spaceship, CAObject, getRecipes, saveRecipes, base, findOutcome} from './util.js';
+import {CAObject, base, findOutcome} from './util.js';
 import * as c from './config.js';
 
 

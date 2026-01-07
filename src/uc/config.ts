@@ -54,15 +54,28 @@ const MAX_PSEUDO_DISTANCE = 6;
 // the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
 const LANE_LIMIT = 128;
 
-// the valid directions for a ship, this is purely for user convenience
+// the valid directions for a ship
+// for diagonals
 type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE';
+// for orthogonals
+// type ShipDirection = 'N' | 'E' | 'S' | 'W';
 
 // the possible names for ships
 type ShipName = 'glider';
 
 /*
 ok this is how this part works:
-this lets you produce nice outputs for ships instead of literally dropping everything that outputs ships (well, they'll be kept, but won't be included in the final enumeration)
+you must provide it like this
+for orthogonals, it's easy: every one must put it in the same phase (the phase doesn't matter) and the right orientation
+for diagonals, i shall give this example with the glider
+NW: NE:
+ooo ooo
+o.. ..o
+.o. .o.
+SW: SE:
+.o. .o.
+..o o..
+ooo ooo
 for each apgcode you provide a name which is a ShipName
 then you provide a list of test cases, each case consists of a height, width, and population
 for each case you provide a lsit of subcases, each subcase has the following format:
@@ -92,6 +105,8 @@ then a number of generations to run to get to the canonical phase (important for
 
 interface ShipIdentification {
     name: ShipName;
+    height: number;
+    width: number;
     data: {
         height: number;
         width: number;
@@ -103,6 +118,8 @@ interface ShipIdentification {
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     xq4_15: {
         name: 'glider',
+        height: 2,
+        width: 3,
         data: [
             {
                 height: 3,
@@ -138,44 +155,9 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-// this function determines lane numbers of ships, change this to whatever notion of lane numbering you like
-function findLane(ship: CAObject & {type: ShipName}): number {
-    if (ship.dir === 'NE' || ship.dir === 'SW') {
-        return ship.x + ship.y;
-    } else {
-        return ship.y - ship.x;
-    }
-}
-
 
 // internal stuff, don't change this
 
 export const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 
-export interface BaseObject {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-}
-
-export interface StillLife extends BaseObject {
-    type: 'sl';
-    code: string;
-}
-
-export interface OtherObject extends BaseObject {
-    type: 'other';
-    code: string;
-}
-
-export interface Spaceship extends BaseObject {
-    type: ShipName;
-    dir: ShipDirection;
-    t: number;
-    n: number;
-}
-
-export type CAObject = StillLife | OtherObject | Spaceship;
-
-export {RULE, GLIDER_CELLS, GLIDER_DX, GLIDER_DY, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_TARGET_SPACING, LANE_OFFSET, GLIDER_SPACING_SS, SINGLE_CHANNEL_LANE, MIN_SPACING_SC, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION, findLane};
+export {RULE, GLIDER_CELLS, GLIDER_DX, GLIDER_DY, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, START_OBJECT, ROTATED_START_OBJECT, GLIDER_TARGET_SPACING, LANE_OFFSET, GLIDER_SPACING_SS, SINGLE_CHANNEL_LANE, MIN_SPACING_SC, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, ShipName, ShipIdentification, SHIP_IDENTIFICATION};

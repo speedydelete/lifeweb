@@ -1,8 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
-import {StillLife, getRecipes, translateObjs} from './util.js';
-import {getSalvoKey} from './slow_salvos.js';
+import {StillLife, getRecipes, translateObjects, objectsToString} from './util.js';
 
 
 let sourcePath = `${import.meta.dirname}/dijkstra.c`;
@@ -24,9 +23,9 @@ export async function updateTiles(size: number): Promise<void> {
     let reverseRecipeNumbers: {[key: string]: number} = {};
     for (let [input, output, recipe] of Object.values(salvos.tileRecipes)) {
         let minX = Math.min(...input.map(x => x.x), ...output.map(x => x.x));
-        let maxX = Math.min(...input.map(x => x.x + x.w), ...output.map(x => x.x + x.w));
+        let maxX = Math.min(...input.map(x => x.x + x.width), ...output.map(x => x.x + x.width));
         let minY = Math.min(...input.map(x => x.y), ...output.map(x => x.y));
-        let maxY = Math.min(...input.map(x => x.y + x.h), ...output.map(x => x.y + x.h));
+        let maxY = Math.min(...input.map(x => x.y + x.height), ...output.map(x => x.y + x.height));
         for (let x = 0; x < size; x++) {
             if (x + minX < 0 || x + maxX >= size) {
                 continue;
@@ -35,10 +34,10 @@ export async function updateTiles(size: number): Promise<void> {
                 if (y + minY < 0 || y + maxY >= size) {
                     continue;
                 }
-                let input2 = translateObjs(input, x, y);
-                let output2 = translateObjs(output, x, y);
-                let inputKey = getSalvoKey(input2);
-                let outputKey = getSalvoKey(output2);
+                let input2 = translateObjects(input, x, y);
+                let output2 = translateObjects(output, x, y);
+                let inputKey = objectsToString(input2);
+                let outputKey = objectsToString(output2);
                 if (!inputKey || !outputKey) {
                     throw new Error('Invalid objects!');
                 }
