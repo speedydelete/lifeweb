@@ -228,7 +228,16 @@ export class TorusDataPattern extends DataPattern {
             this.generation++;
             return;
         }
+        let torusHeight = this.torusHeight;
+        let torusWidth = this.torusWidth;
         let data = new Uint8Array((this.torusHeight + 2) * (this.torusWidth + 2));
+        let i = 0;
+        for (let y = 0; y < this.height; y++) {
+            let base = (((y + this.yOffset - this.minY % torusHeight) + torusHeight) % torusHeight + 1) * (this.torusWidth + 2);
+            for (let x = 0; x < this.width; x++) {;
+                data[base + ((x + this.xOffset - this.minX % torusWidth) + torusWidth) % torusWidth + 1] = this.data[i++];
+            }
+        }
         p.setData(data, this.torusHeight + 2, this.torusWidth + 2);
         p.xOffset = 0;
         p.yOffset = 0;
