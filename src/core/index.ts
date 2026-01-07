@@ -371,7 +371,17 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
                 if (p instanceof CoordPattern) {
                     return new TorusCoordPattern(p.coords, p.range, p, x, y);;
                 } else {
-                    return new TorusDataPattern(data.height, data.width, data.data, p, x, y);
+                    let height = y;
+                    let width = x;
+                    let minX = -Math.floor(width / 2);
+                    let maxX = x - minX - 1;
+                    let minY = -Math.floor(height / 2);
+                    let maxY = y - minY - 1;
+                    let out = new TorusDataPattern(data.height, data.width, data.data, p);
+                    out.offsetBy(minX - Math.max(0, data.width - maxX), minY - Math.max(0, data.height - maxY));
+                    out.xOffset = 0;
+                    out.yOffset = 0;
+                    return out;
                 }
             } else {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
@@ -923,8 +933,8 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
 }
 
 
-// let p = parse(`x = 4, y = 6, rule = R2,C2,S4,B4:P6,8
-// 2o$3bo$3bo$3bo$3bo$2o!`);
+// let p = parse(`x = 3, y = 3, rule = B3/S23:T10,10
+// bo$2bo$3o!`);
 
 // console.log(p);
 // for (let i = 0; i < 5; i++) {
