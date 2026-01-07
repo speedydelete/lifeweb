@@ -374,13 +374,15 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
                     let height = y;
                     let width = x;
                     let minX = -Math.floor(width / 2);
-                    let maxX = x - minX - 1;
+                    let maxX = x + minX - 1;
                     let minY = -Math.floor(height / 2);
-                    let maxY = y - minY - 1;
+                    let maxY = y + minY - 1;
                     let out = new TorusDataPattern(data.height, data.width, data.data, p);
-                    out.offsetBy(minX - Math.max(0, data.width - maxX), minY - Math.max(0, data.height - maxY));
+                    out.offsetBy(Math.max(0, -(minX + Math.max(0, data.width - maxX))), Math.max(0, -(minY + Math.max(0, data.height - maxY))));
+                    out.ensure(height, width);
                     out.xOffset = 0;
                     out.yOffset = 0;
+                    out.ruleStr = p.ruleStr + ':T' + width + ',' + height;
                     return out;
                 }
             } else {
@@ -933,11 +935,10 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
 }
 
 
-// let p = parse(`x = 3, y = 3, rule = B3/S23:T10,10
+// let p = parse(`x = 3, y = 3, rule = B3/S23:T3,3
 // bo$2bo$3o!`);
 
-// console.log(p);
-// for (let i = 0; i < 5; i++) {
+// for (let i = 0; i < 1; i++) {
 //     p.runGeneration();
 //     console.log(p.toRLE());
 // }

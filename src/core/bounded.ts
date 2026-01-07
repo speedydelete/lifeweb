@@ -198,19 +198,23 @@ export class TorusDataPattern extends DataPattern {
         let width = this.width;
         let data = new Uint8Array((height + 2) * (width + 2));
         data.set(this.data.slice(this.size - width), 1);
-        data.set(this.data.slice(0, width), data.length - width - 1);
         for (let y = 0; y < height; y++) {
+            data[width + 2 + y * (width + 2)] = this.data[(y + 1) * width - 1];
             data.set(this.data.slice(y * width, (y + 1) * width), width + 3 + y * (width + 2));
+            data[width + 1 + (y + 1) * (width + 2)] = this.data[y * width];
         }
-        p.setData(data, height, width);
+        data.set(this.data.slice(0, width), data.length - width - 1);
+        p.setData(data, height + 2, width + 2);
+        console.log(p.toRLE());
         p.runGeneration();
+        console.log(p.toRLE());
         let shrink = false;
         if (p.xOffset < 0) {
-            p.clearPart(0, 0, 1, p.width);
+            p.clearPart(0, 0, p.height, 1);
             shrink = true;
         }
         if (p.yOffset < 0) {
-            p.clearPart(0, 0, p.height, 1);
+            p.clearPart(0, 0, 1, p.width);
             shrink = true;
         }
         if (shrink) {
