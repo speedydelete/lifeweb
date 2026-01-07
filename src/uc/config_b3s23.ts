@@ -1,10 +1,8 @@
 
-const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+const RULE = 'B3/S23';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
-// this part is an array of [height, width, array of [x, y] coordinates] for each phase
-// should be facing southeast for diagonals or south for orthogonals
-const GLIDER_APGCODE = 'xq4_15';
+const GLIDER_APGCODE = 'xq4_153';
 const GLIDER_DX = 1;
 const GLIDER_DY = 1;
 const GLIDER_PERIOD = 4;
@@ -12,36 +10,35 @@ const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 1;
 
 // makes lane numbers more sane for some rules
-const LANE_OFFSET = -1;
+const LANE_OFFSET = 0;
 
 // the spacing (in cells) between the glider and the target
 const GLIDER_TARGET_SPACING = 7;
 
 // the starting object for slow-salvo syntheses
-const START_OBJECT = 'xs2_11';
+const START_OBJECT = 'xs4_33';
 // the spacing (in cells) between 2 gliders in a multi-glider slow salvo
 const GLIDER_SPACING = 10;
 // the period of slow salvos
-const SLOW_SALVO_PERIOD = 1;
+const SLOW_SALVO_PERIOD = 2;
 
 // the valid single-channel elbow objects, format is [lane, whether it is flipped from SINGLE_CHANNEL_START]
 const SINGLE_CHANNEL_OBJECTS: {[key: string]: [number, boolean][]} = {
-    xs2_11: [[10, false], ],
+    xs4_33: [[2, true], [8, false]],
 };
-// the single-channel object to start with
-const SINGLE_CHANNEL_START: [string, number] = ['xs2_11', 10];
+const SINGLE_CHANNEL_START: [string, number] = ['xs4_33', 8];
 
 // the minimum spacing between single-channel gliders
-const MIN_SPACING = 20;
+const MIN_SPACING = 43;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 64;
+const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
-const VALID_POPULATION_PERIODS: null | number[] = [1];
+const VALID_POPULATION_PERIODS: null | number[] = [];
 // the extra generations to run after a collision, just to make sure
 const EXTRA_GENERATIONS = 64;
 // the generations to run the colorizing object separation for
@@ -108,39 +105,32 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_15: {
-        height: 2,
+    xq4_153: {
+        height: 3,
         width: 3,
-        cells: [2, 3, 4],
+        cells: [1, 5, 6, 7, 8],
         data: [
             {
                 height: 3,
-                width: 2,
-                population: 3,
-                data: [
-                    [[1, 2, 4], 'NW', 2],
-                    [[0, 1, 4], 'NW', 1],
-                    [[0, 3, 5], 'NE', 0],
-                    [[0, 1, 5], 'NE', 3],
-                    [[0, 2, 5], 'SW', 0],
-                    [[0, 4, 5], 'SW', 3],
-                    [[1, 3, 4], 'SE', 2],
-                    [[1, 4, 5], 'SE', 1],
-                ],
-            },
-            {
-                height: 2,
                 width: 3,
-                population: 3,
+                population: 5,
                 data: [
-                    [[1, 2, 3], 'NW', 0],
-                    [[0, 2, 3], 'NW', 3],
-                    [[0, 1, 5], 'NE', 2],
-                    [[0, 2, 5], 'NE', 1],
-                    [[0, 4, 5], 'SW', 2],
-                    [[0, 3, 5], 'SW', 1],
-                    [[2, 3, 4], 'SE', 0],
-                    [[2, 3, 5], 'SE', 3],
+                    [[0, 1, 2, 3, 7], 'NW', 0],
+                    [[1, 3, 4, 6, 8], 'NW', 3],
+                    [[0, 1, 3, 5, 6], 'NW', 2],
+                    [[1, 2, 3, 4, 8], 'NW', 1],
+                    [[1, 2, 3, 5, 8], 'NE', 0],
+                    [[0, 1, 4, 5, 6], 'NE', 3],
+                    [[0, 1, 2, 5, 7], 'NE', 2],
+                    [[1, 4, 5, 6, 8], 'NE', 1],
+                    [[0, 3, 5, 6, 7], 'SW', 0],
+                    [[2, 3, 4, 7, 8], 'SW', 3],
+                    [[1, 3, 6, 7, 8], 'SW', 2],
+                    [[0, 2, 3, 4, 7], 'SW', 1],
+                    [[1, 5, 6, 7, 8], 'SE', 0],
+                    [[0, 1, 3, 4, 6], 'SE', 3],
+                    [[2, 3, 5, 7, 8], 'SE', 2],
+                    [[0, 4, 5, 6, 7], 'SE', 1],
                 ],
             },
         ],

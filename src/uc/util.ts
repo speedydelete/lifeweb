@@ -5,13 +5,17 @@ import {MAPPattern, identify, getKnots, INTSeparator, createPattern, toCatagolue
 import * as c from './config.js';
 
 export * from './config.js';
+export * as c from './config.js';
 
+
+export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
 
 export interface BaseObject {
     x: number;
     y: number;
     width: number;
     height: number;
+    code: string;
 }
 
 export interface StillLife extends BaseObject {
@@ -19,22 +23,48 @@ export interface StillLife extends BaseObject {
     code: string;
 }
 
-export interface OtherObject extends BaseObject {
-    type: 'other';
-    code: string;
+export interface Oscillator extends BaseObject {
+    type: 'osc';
+    at: number;
+    phase: number;
+    timing: number;
 }
 
 export interface Spaceship extends BaseObject {
-    type: c.ShipName;
+    type: 'ship';
     dir: c.ShipDirection;
-    t: number;
-    n: number;
+    at: number;
+    timing: number;
 }
 
-export type CAObject = StillLife | OtherObject | Spaceship;
+export interface OtherObject extends BaseObject {
+    type: 'other';
+    realCode: string;
+    at: number;
+    timing: number;
+}
+
+export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 
 
 export let base = createPattern(c.RULE) as MAPPattern;
+
+let data = c.SHIP_IDENTIFICATION[c.GLIDER_APGCODE];
+let p = base.clearedCopy();
+p.height = data.height;
+p.width = data.width;
+p.size = data.height * data.width;
+p.data = new Uint8Array(p.size);
+for (let i of data.cells) {
+    p.data[i] = 1;
+}
+export let gliderPattern = p.copy();
+export let gliderPatterns: MAPPattern[] = [gliderPattern];
+for (let i = 1; i < c.GLIDER_PERIOD; i++) {
+    p.runGeneration();
+    p.shrinkToFit();
+    gliderPatterns.push(p.copy());
+}
 
 
 export function translateObjects<T extends CAObject>(objs: T[], x: number, y: number): T[] {
@@ -47,53 +77,65 @@ export function translateObjects<T extends CAObject>(objs: T[], x: number, y: nu
 }
 
 function xyCompare(a: CAObject, b: CAObject): number {
-    if (a.y < b.y) {
-        return -1;
-    } else if (a.y > b.y) {
-        return 1;
-    } else if (a.x < b.x) {
-        return -1;
-    } else if (a.x > b.x) {
-        return 1;
+    if (a.y === b.y) {
+        return a.x - b.x;
     } else {
-        return 0;
+        return a.y - b.y;
     }
 }
 
 export function objectSorter(a: CAObject, b: CAObject): number {
-    if (a.type === 'sl') {
-        if (b.type !== 'sl') {
-            return -1;
-        } else if (a.code < b.code) {
-            return -1;
-        } else if (a.code > b.code) {
-            return 1;
+    if (a.type === 'sl' || a.type === 'osc') {
+        if (b.type === a.type) {
+            if (a.code.length === b.code.length) {
+                if (a.code === b.code) {
+                    return xyCompare(a, b);
+                } else if (a.code < b.code) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            } else {
+                return a.code.length - b.code.length;
+            }
         } else {
-            return xyCompare(a, b);
+            return a.type === 'osc' && b.type === 'sl' ? 1 : -1;
         }
-    } else if (a.type === 'other') {
-        if (b.type !== 'other') {
-            return 1;
-        } else if (a.code < b.code) {
-            return -1;
-        } else if (a.code > b.code) {
-            return 1;
+    } else if (a.type === 'ship') {
+        if (b.type === a.type) {
+            if (a.code.length === b.code.length) {
+                if (a.code === b.code) {
+                    if (a.at === b.at) {
+                        return xyCompare(a, b);
+                    } else {
+                        return a.at - b.at;
+                    }
+                } else if (a.code < b.code) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            } else {
+                return a.code.length - b.code.length;
+            }
         } else {
-            return xyCompare(a, b);
+            return b.type === 'other' ? -1 : 1;
         }
     } else {
         if (b.type === 'other') {
-            return -1;
-        } else if (a.type === b.type) {
-            if (a.t < b.t) {
+            if (a.realCode === b.realCode) {
+                if (a.code === b.code) {
+                    return xyCompare(a, b);
+                } else if (a.code < b.code) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            } else if (a.realCode < b.realCode) {
                 return -1;
-            } else if (a.t > b.t) {
-                return 1;
             } else {
-                return xyCompare(a, b);
+                return 1;
             }
-        } else if (a.type < b.type) {
-            return -1;
         } else {
             return 1;
         }
@@ -106,9 +148,7 @@ export function objectsSorter(a: CAObject[], b: CAObject[]): number {
     } else if (a.length > b.length) {
         return 1;
     } else {
-        // @ts-ignore
         a = a.toSorted(objectSorter);
-        // @ts-ignore
         b = b.toSorted(objectSorter);
         for (let i = 0; i < a.length; i++) {
             let out = objectSorter(a[i], b[i]);
@@ -120,17 +160,20 @@ export function objectsSorter(a: CAObject[], b: CAObject[]): number {
     }
 }
 
-
 export function objectsToString(objs: CAObject[]): string {
     if (objs.length === 0) {
         return 'nothing';
     }
     let out: string[] = [];
     for (let obj of objs.sort(objectSorter)) {
-        if (obj.type === 'sl' || obj.type === 'other') {
+        if (obj.type === 'sl') {
             out.push(`${obj.code} (${obj.x}, ${obj.y})`);
+        } else if (obj.type === 'osc') {
+            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.at}, ${obj.phase}, ${obj.timing})`);
+        } else if (obj.type === 'ship') {
+            out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         } else {
-            out.push(`${obj.dir} ${obj.type} (${obj.x}, ${obj.y}) timing ${obj.t} at ${obj.n}`);
+            out.push(`${obj.code} (${obj.realCode}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         }
     }
     return out.join(', ');
@@ -154,38 +197,79 @@ export function stringToObjects(data: string): CAObject[] {
     }
     let out: CAObject[] = [];
     for (let obj in objs) {
-        let parts = obj.split(' ');
-        if (parts[0].startsWith('xs')) {
-            let p = base.loadApgcode(parts[0]).shrinkToFit();
+        let data = obj.split(' (');
+        let code = data[0];
+        let args = data[1].slice(0, -1).split(', ');
+        if (code.startsWith('xs')) {
+            let p = base.loadApgcode(code.slice(code.indexOf('_') + 1)).shrinkToFit();
             out.push({
                 type: 'sl',
-                code: parts[0],
-                x: parseInt(parts[0].slice(1)),
-                y: parseInt(parts[0]),
+                code,
+                x: parseInt(args[0]),
+                y: parseInt(args[1]),
                 width: p.width,
                 height: p.height,
             });
-        } else if (parts.length === 3) {
-            let p = base.loadApgcode(parts[0]).shrinkToFit();
+        } else if (code.startsWith('xp')) {
+            let phase = parseInt(args[3]);
+            let p = base.loadApgcode(code.slice(code.indexOf('_') + 1)).run(phase).shrinkToFit();
             out.push({
-                type: 'other',
-                code: parts[0],
-                x: parseInt(parts[0].slice(1)),
-                y: parseInt(parts[0]),
+                type: 'osc',
+                code,
+                x: parseInt(args[0]),
+                y: parseInt(args[1]),
                 width: p.width,
                 height: p.height,
+                at: parseInt(args[2]),
+                phase,
+                timing: parseInt(args[4]),
+            });
+        } else if (code.startsWith('xq') && SHIP_DIRECTIONS.includes(args[0])) {
+            let dir = args[0] as c.ShipDirection;
+            let timing = parseInt(args[3]);
+            let data = c.SHIP_IDENTIFICATION[code];
+            let p = base.clearedCopy();
+            for (let i of data.cells) {
+                p.data[i] = 1;
+            }
+            if (dir.endsWith('2')) {
+                if (dir.length === 3) {
+                    p = p.rotateRight().flipHorizontal();
+                } else {
+                    p = p.flipHorizontal();
+                }
+                dir = dir.slice(0, -1) as c.ShipDirection;
+            }
+            if (dir === 'NW' || dir === 'N') {
+                p.rotate180();
+            } else if (dir === 'NE' || dir === 'E') {
+                p.rotateLeft();
+            } else if (dir === 'SW' || dir === 'W') {
+                p.rotateRight();
+            }
+            out.push({
+                type: 'ship',
+                code,
+                x: parseInt(args[1]),
+                y: parseInt(args[2]),
+                width: p.width,
+                height: p.height,
+                dir: args[0] as c.ShipDirection,
+                at: parseInt(args[3]),
+                timing,
             });
         } else {
-            let type = parts[1] as c.ShipName;
+            let p = base.loadApgcode(args[0]).shrinkToFit();
             out.push({
-                type,
-                dir: parts[0] as c.ShipDirection,
-                x: parseInt(parts[2].slice(1)),
-                y: parseInt(parts[3]),
-                height: c.SHIP_IDENTIFICATION[type].height,
-                width: c.SHIP_IDENTIFICATION[type].width,
-                t: parseInt(parts[5]),
-                n: parseInt(parts[7]),
+                type: 'other',
+                code,
+                x: parseInt(args[1].slice(1)),
+                y: parseInt(args[2]),
+                height: p.height,
+                width: p.width,
+                realCode: args[0],
+                at: parseInt(args[3]),
+                timing: parseInt(args[4]),
             });
         }
     }
@@ -332,8 +416,49 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 p,
                 code: p.toApgcode('xs' + p.population),
             });
+        } else if (type.apgcode.startsWith('xp')) {
+            let phase = 0;
+            let goal = base.loadApgcode(type.apgcode);
+            while (true) {
+                let found = false;
+                for (let i = 0; i < 2; i++) {
+                    if (p.rotateRight().isEqual(goal)) {
+                        found = true;
+                        break;
+                    }
+                    if (p.rotateRight().isEqual(goal)) {
+                        found = true;
+                        break;
+                    }
+                    if (p.rotateRight().isEqual(goal)) {
+                        found = true;
+                        break;
+                    }
+                    if (p.rotateRight().isEqual(goal)) {
+                        found = true;
+                        break;
+                    }
+                    p.flipHorizontal();
+                }
+                if (found) {
+                    break;
+                }
+                phase++;
+                p.runGeneration();
+            }
+            out.push({
+                type: 'osc',
+                code: p.toApgcode('xp' + type.period),
+                x: p.xOffset,
+                y: p.yOffset,
+                width: p.width,
+                height: p.width,
+                at: 0,
+                phase: type.period - phase,
+                timing: p.generation,
+            });
         } else if (type.apgcode in c.SHIP_IDENTIFICATION) {
-            let {name, data: info} = c.SHIP_IDENTIFICATION[type.apgcode];
+            let {data: info} = c.SHIP_IDENTIFICATION[type.apgcode];
             let found = false;
             for (let {height, width, population, data} of info) {
                 if (p.height === height && p.width === width && p.population === population) {
@@ -348,14 +473,15 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                         if (found) {
                             p.run(timing).shrinkToFit();
                             out.push({
-                                type: name,
+                                type: 'ship',
+                                code: type.apgcode,
                                 x: p.xOffset,
                                 y: p.yOffset,
                                 width: p.width,
                                 height: p.height,
                                 dir,
-                                t: p.generation,
-                                n: 0,
+                                at: 0,
+                                timing: p.generation,
                             })
                             break;
                         }
@@ -373,11 +499,14 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
         } else {
             out.push({
                 type: 'other',
+                code: type.apgcode,
                 x: p.xOffset,
                 y: p.yOffset,
                 width: p.width,
                 height: p.height,
-                code: type.apgcode,
+                realCode: p.toApgcode(),
+                at: 0,
+                timing: p.generation,
             });
         }
     }

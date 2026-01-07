@@ -1,7 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import * as c from './config.js';
-import {StillLife, Spaceship, CAObject, base, translateObjects, objectsToString, findOutcome, getRecipes, saveRecipes} from './util.js';
+import {c, StillLife, Spaceship, CAObject, base, gliderPattern, translateObjects, objectsToString, findOutcome, getRecipes, saveRecipes} from './util.js';
 
 
 export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
@@ -16,15 +15,13 @@ export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern
     let p = base.copy();
     for (let i = 0; i < lanes.length; i++) {
         let lane = lanes[i];
-        let y = i * c.GLIDER_SPACING_SS;
+        let y = i * c.GLIDER_SPACING;
         let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
-        p.ensure(x + c.GLIDER_CELLS[0][0], y + c.GLIDER_CELLS[0][1]);
-        for (let cell of c.GLIDER_CELLS[0][2]) {
-            p.set(x + cell[0], y + cell[1], 1);
-        }
+        p.ensure(x + gliderPattern.width, y + gliderPattern.height);
+        p.insert(gliderPattern, x, y);
     }
     let q = base.loadApgcode(target);
-    let yPos = (lanes.length - 1) * c.GLIDER_SPACING_SS + c.GLIDER_TARGET_SPACING;
+    let yPos = (lanes.length - 1) * c.GLIDER_SPACING + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + q.height - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
@@ -124,9 +121,8 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
         let recipe = prefix.concat(lane - y + x);
         objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
-            if (out.type !== 'sl' && out.type !== 'other') {
-                // @ts-ignore
-                out.n = count;
+            if ('at' in out) {
+                out.at = count;
             }
             return out;
         }));
@@ -141,9 +137,7 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
                 for (let obj of objs) {
                     if (obj.type === 'sl') {
                         sls.push(obj);
-                    } else if (obj.type === 'other') {
-                        throw new Error('Non-SL or spaceship object present after filtering!');
-                    } else {
+                    } else if (obj.type === 'ship') {
                         ships.push(obj);
                     }
                 }
@@ -165,11 +159,27 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
     }
 }
 
-function addRecipes(data: number[][], newData: number[][]): void {
-    for (let recipe of newData) {
-        if (!data.some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
-            data.push(recipe);
+function addRecipes<T extends PropertyKey>(data: {[K in T]?: number[][]}, newData: number[][], key: T): void {
+    if (data[key]) {
+        for (let recipe of newData) {
+            if (!data[key].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+                data[key].push(recipe);
+            }
         }
+    } else {
+        data[key] = newData;
+    }
+}
+
+function addRecipesSubkey<T extends PropertyKey, U extends PropertyKey>(data: {[K in T]?: {[K in U]: number[][]}}, newData: {[K in U]: number[][]}, key: T, subkey: U): void {
+    if (data[key]) {
+        for (let recipe of newData[subkey]) {
+            if (!data[key][subkey].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+                data[key][subkey].push(recipe);
+            }
+        }
+    } else {
+        data[key] = newData;
     }
 }
 
@@ -207,21 +217,13 @@ export async function searchSalvos(limit: number): Promise<void> {
         }
     }
     for (let key in forOutput) {
-        if (key in data.forOutput) {
-            addRecipes(forOutput[key][3], data.forOutput[key][3]);
-        } else {
-            data.forOutput[key] = forOutput[key];
-        }
+        addRecipesSubkey(data.forOutput, forOutput[key], key, 3);
     }
     for (let [key, [input, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
         if (input.length === 1 && input[0].type === 'sl') {
             if (outLifes.length === 0) {
                 if (outShips.length === 0) {
-                    if (data.destroyRecipes[key]) {
-                        addRecipes(recipes, data.destroyRecipes[key]);
-                    } else {
-                        data.destroyRecipes[key] = recipes;
-                    }
+                    addRecipes(data.destroyRecipes, recipes, key);
                 } else {
                     let recipes2 = recipes.filter(x => x.length === 1).map(x => x[0]);
                     if (recipes2.length > 0) {
@@ -264,34 +266,29 @@ export async function searchSalvos(limit: number): Promise<void> {
             } else {
                 if (outShips.length === 0) {
                     if (outLifes.length === 1) {
-                        if (data.basicRecipes[key]) {
-                            addRecipes(recipes, data.basicRecipes[key][2]);
-                        } else {
-                            data.basicRecipes[key] = [input[0], outLifes[1], recipes];
-                        }
+                        addRecipesSubkey(data.basicRecipes, [input[0], outLifes[1], recipes] as const, key, 2);
                     } else {
-                        if (data.splitRecipes[key]) {
-                            addRecipes(recipes, data.splitRecipes[key][2]);
-                        } else {
-                            data.splitRecipes[key] = [input[0], outLifes, recipes];
-                        }
+                        addRecipesSubkey(data.splitRecipes, [input[0], outLifes, recipes] as const, key, 2);
                     }
                 }
             }
         }
         if (outShips.length === 0 && input.every(x => x.type === 'sl')) {
-            if (data.tileRecipes[key]) {
-                addRecipes(recipes, data.splitRecipes[key][2]);
-            } else {
-                let shortest = recipes[0];
-                for (let recipe of recipes.slice(1)) {
-                    if (recipe.length < shortest.length) {
-                        shortest = recipe;
-                    }
+            let shortest = recipes[0];
+            for (let recipe of recipes.slice(1)) {
+                if (recipe.length < shortest.length) {
+                    shortest = recipe;
                 }
+            }
+            if (data.tileRecipes[key]) {
+                if (shortest.length < data.tileRecipes[key][2].length) {
+                    data.tileRecipes[key][2] = shortest;
+                }
+            } else {
                 data.tileRecipes[key] = [input, outLifes, shortest];
             }
         }
     }
     saveRecipes(recipes);
 }
+
