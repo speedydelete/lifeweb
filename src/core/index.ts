@@ -933,12 +933,3 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
         return `(${dx}, ${dy})c/${period}`;
     }
 }
-
-
-// let p = parse(`x = 3, y = 3, rule = B3/S23:T3,3
-// bo$2bo$3o!`);
-
-// for (let i = 0; i < 1; i++) {
-//     p.runGeneration();
-//     console.log(p.toRLE());
-// }
