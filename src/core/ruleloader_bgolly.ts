@@ -70,7 +70,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
             if (index !== -1) {
                 this.states = parseInt(rule.slice(index + 2));
             } else {
-                this.states = 2;
+                this.states = 256;
             }
             this.ruleSymmetry = 'C1';
             return;
