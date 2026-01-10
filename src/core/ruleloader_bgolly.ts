@@ -62,8 +62,19 @@ export class RuleLoaderBgollyPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string) {
+    constructor(height: number, width: number, data: Uint8Array, rule: string, override?: string, thisParameterIsStupid?: boolean) {
         super(height, width, data);
+        if (thisParameterIsStupid) {
+            this.ruleStr = rule;
+            let index = rule.indexOf(',C');
+            if (index !== -1) {
+                this.states = parseInt(rule.slice(index + 2));
+            } else {
+                this.states = 2;
+            }
+            this.ruleSymmetry = 'C1';
+            return;
+        }
         if (override) {
             this.ruleStr = override;
             let value = rules.get(override);
