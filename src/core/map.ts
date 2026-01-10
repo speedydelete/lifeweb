@@ -297,7 +297,8 @@ export function findSymmetry(trs: Uint8Array): RuleSymmetry {
     let C4 = true;
     let D2h = true;
     let D2v = true;
-    let D2x = true;
+    let D2s = true;
+    let D2b = true;
     for (let i = 0; i < 512; i++) {
         let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
         j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
@@ -329,11 +330,17 @@ export function findSymmetry(trs: Uint8Array): RuleSymmetry {
     }
     for (let i = 0; i < 512; i++) {
         if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            D2x = false;
+            D2s = false;
             break;
         }
     }
-    return symmetryFromBases(C2, C4, D2h, D2v, D2x);
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[(i & 341) | ((i >> 2) & 136) | ((i << 2) & 34)]) {
+            D2b = false;
+            break;
+        }
+    }
+    return symmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
 }
 
 
