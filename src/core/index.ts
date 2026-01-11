@@ -47,6 +47,17 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
     let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
     let states = 2;
     let match: RegExpMatchArray | null;
+    let end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+        rule = rule.slice(0, -1);
+    } else if (end === 'v') {
+        neighborhood = 'V';
+        rule = rule.slice(0, -1);
+    } else if (end === 'h') {
+        neighborhood = 'H';
+        rule = rule.slice(0, -1);
+    }
     if (match = rule.match(/^[gG]([0-9]+)/)) {
         states = parseInt(match[1]);
         rule = rule.slice(match[0].length);
@@ -55,7 +66,7 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
         states = parseInt(match[1]);
         rule = rule.slice(0, -match[0].length);
     }
-    let end = rule[rule.length - 1];
+    end = rule[rule.length - 1];
     if (end === 'V' || end === 'H') {
         neighborhood = end;
         rule = rule.slice(0, -1);
