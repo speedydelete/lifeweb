@@ -658,9 +658,11 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
     let max: string[] = [];
     let count = p.patterns.length * step;
     for (let i = 0; i < count; i += step) {
-        let q = p.patterns[i].copy();
+        let q = p.patterns[i % p.patterns.length].copy();
+        let phase = data.phases[i] as AlternatingPattern;
+        q.setData(phase.data, phase.height, phase.width);
         let newData: PhaseData = {pops: [], hashes: [], phases: []};
-        for (let j = i; j < gens; j += p.patterns.length) {
+        for (let j = i; j < gens; j += count) {
             newData.pops.push(data.pops[j]);
             newData.hashes.push(data.hashes[j]);
             newData.phases.push(data.phases[j]);
@@ -689,7 +691,7 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: num
         data = {pops, hashes, phases};
     } else {
         let q = data.phases[data.phases.length - 1].copy();
-        q.runGeneration();
+        q.run(step);
         q.shrinkToFit();
         data.pops.push(q.population);
         data.hashes.push(q.hash32());
