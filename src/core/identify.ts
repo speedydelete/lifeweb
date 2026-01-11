@@ -97,6 +97,10 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
                 }
                 prefix = 'xs' + cells;
             } else {
+                let cells = type.pops[type.pops.length - 1];
+                if (cells === 0) {
+                    return {apgcode: `xp${type.period}_0`, ...type};
+                }
                 prefix = 'xp' + type.period;
             }
         } else {
