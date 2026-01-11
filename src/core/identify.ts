@@ -90,14 +90,13 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
     if (type.disp) {
         let prefix: string;
         if (type.disp[0] === 0 && type.disp[1] === 0) {
+            let cells = type.pops[type.pops.length - 1];
             if (type.period === 1) {
-                let cells = type.pops[type.pops.length - 1];
                 if (cells === 0) {
                     return {apgcode: 'xs0_0', ...type};
                 }
                 prefix = 'xs' + cells;
             } else {
-                let cells = type.pops[type.pops.length - 1];
                 if (cells === 0) {
                     return {apgcode: `xp${type.period}_0`, ...type};
                 }
