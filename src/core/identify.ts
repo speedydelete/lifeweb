@@ -583,7 +583,7 @@ export interface Identified extends PatternType {
     symmetry: PatternSymmetry;
 }
 
-export function getDescription(type: Identified): string {
+export function getDescription(type: PatternType): string {
     let out: string;
     if (type.linear) {
         if (type.disp) {
