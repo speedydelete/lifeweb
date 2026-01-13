@@ -123,7 +123,7 @@ For optimization, we don't implement B1c.
 
 
 import {MAPPattern, TRANSITIONS} from './map.js';
-import {identify, Identified} from './identify.js';
+import {findType, PatternType} from './identify.js';
 
 
 const MULTI_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => TRANSITIONS[x]);
@@ -1309,14 +1309,14 @@ export class INTSeparator extends MAPPattern {
         return out;
     }
 
-    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [Identified[], boolean] | null {
-        if (this.population === 0) {
+    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [PatternType[], boolean] | null {
+        if (this.isEmpty()) {
             return [[], false];
         }
         let i = 0;
         let totalI = 0;
         let maxPeriod = max;
-        let objs: Identified[] = [];
+        let objs: PatternType[] = [];
         let failed = false;
         while (totalI < max) {
             let reassigned = this.runGeneration();
@@ -1372,8 +1372,8 @@ export class INTSeparator extends MAPPattern {
                             }
                         }
                         if (single) {
-                            let x = identify(p, limit);
-                            if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                            let x = findType(p, limit);
+                            if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                 found = false;
                                 break;
                             }
@@ -1383,8 +1383,8 @@ export class INTSeparator extends MAPPattern {
                             let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                             if (data === null) {
                                 failed = true;
-                                let x = identify(p, limit);
-                                if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                let x = findType(p, limit);
+                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                     found = false;
                                     break;
                                 }
@@ -1394,7 +1394,7 @@ export class INTSeparator extends MAPPattern {
                                     failed = true;
                                 }
                                 for (let x of data[0]) {
-                                    if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                    if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                         found = false;
                                         break;
                                     }
@@ -1407,9 +1407,9 @@ export class INTSeparator extends MAPPattern {
                         }
                     }
                 } else {
-                    objs = this.getObjects().map(x => identify(x, limit));
+                    objs = this.getObjects().map(x => findType(x, limit));
                 }
-                if (!objs.every(x => x.stabilizedAt === 0 && x.apgcode !== 'xs0_0')) {
+                if (!objs.every(x => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty())) {
                     i = 0;
                 } else if (i === 0) {
                     i = 1;
@@ -1461,8 +1461,8 @@ export class INTSeparator extends MAPPattern {
                                 }
                             }
                             if (single) {
-                                let x = identify(p, limit);
-                                if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                let x = findType(p, limit);
+                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                     found = false;
                                     break;
                                 }
@@ -1472,8 +1472,8 @@ export class INTSeparator extends MAPPattern {
                                 let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                                 if (data === null) {
                                     failed = true;
-                                    let x = identify(p, limit);
-                                    if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                    let x = findType(p, limit);
+                                    if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                         found = false;
                                         break;
                                     }
@@ -1483,7 +1483,7 @@ export class INTSeparator extends MAPPattern {
                                         failed = true;
                                     }
                                     for (let x of data[0]) {
-                                        if (x.stabilizedAt !== 0 || x.apgcode === 'xs0_0') {
+                                        if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                             found = false;
                                             break;
                                         }
@@ -1496,8 +1496,8 @@ export class INTSeparator extends MAPPattern {
                             }
                         }
                     } else {
-                        objs = this.getObjects().map(x => identify(x, limit));
-                        failed = !objs.every(x => x.stabilizedAt === 0 && x.apgcode !== 'xs0_0');
+                        objs = this.getObjects().map(x => findType(x, limit));
+                        failed = !objs.every(x => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty());
                     }
                     return [objs, failed];
                 }

@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import {readFileSync} from 'node:fs';
 import {stringMD5} from './md5.js';
 import {RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
-import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findSymmetry} from './map.js';
+import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findTrsSymmetry} from './map.js';
 import {parseHROTRule, parseCatagolueHROTRule, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
@@ -201,16 +201,16 @@ function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MA
                 oddTrs[i] = trs[511 - i];
             }
             if (states > 2) {
-                return new MAPB0GenPattern(data.height, data.width, data.data, evenTrs, oddTrs, states, ruleStr, SYMMETRY_LEAST[findSymmetry(evenTrs)][findSymmetry(oddTrs)]);
+                return new MAPB0GenPattern(data.height, data.width, data.data, evenTrs, oddTrs, states, ruleStr, SYMMETRY_LEAST[findTrsSymmetry(evenTrs)][findTrsSymmetry(oddTrs)]);
             } else {
-                return new MAPB0Pattern(data.height, data.width, data.data, evenTrs, oddTrs, ruleStr, SYMMETRY_LEAST[findSymmetry(evenTrs)][findSymmetry(oddTrs)]);
+                return new MAPB0Pattern(data.height, data.width, data.data, evenTrs, oddTrs, ruleStr, SYMMETRY_LEAST[findTrsSymmetry(evenTrs)][findTrsSymmetry(oddTrs)]);
             }
         }
     }
     if (states > 2) {
-        return new MAPGenPattern(data.height, data.width, data.data, trs, states, ruleStr, findSymmetry(trs));
+        return new MAPGenPattern(data.height, data.width, data.data, trs, states, ruleStr, findTrsSymmetry(trs));
     } else {
-        return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, findSymmetry(trs));
+        return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, findTrsSymmetry(trs));
     }
 }
 

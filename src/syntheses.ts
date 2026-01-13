@@ -1,5 +1,5 @@
 
-import {Pattern, createPattern, findType, INTSeparator, MAPPattern, fullIdentify} from './core/index.js';
+import {Pattern, createPattern, findType, getApgcode, identify, INTSeparator, MAPPattern} from './core/index.js';
 
 
 export type Direction = 'N' | 'S' | 'E' | 'W' | 'NW' | 'NE' | 'SW' | 'SE';
@@ -285,11 +285,12 @@ export function findOutcome(synth: Synthesis, config: Config): {apgcode: string,
     for (let obj of data[0]) {
         let x = obj.phases[0].xOffset;
         let y = obj.phases[0].yOffset;
-        if (obj.apgcode.startsWith('x')) {
-            out.push({apgcode: obj.apgcode, x, y});
+        let apgcode = getApgcode(obj);
+        if (apgcode.startsWith('x')) {
+            out.push({apgcode: apgcode, x, y});
         } else {
-            let obj2 = fullIdentify(obj.phases[0], 4096, 16);
-            out.push({apgcode: obj2.apgcode, x, y});
+            let obj2 = identify(obj.phases[0], 4096, 16);
+            out.push({apgcode: getApgcode(obj2), x, y});
         }
     }
     return out;

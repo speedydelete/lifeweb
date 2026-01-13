@@ -1,6 +1,7 @@
 
 import {Pattern, RLE_CHARS} from './pattern.js';
 import {MAPPattern} from './map.js';
+import {getApgcode} from './identify.js';
 import {INTSeparator} from './intsep.js';
 
 
@@ -93,7 +94,8 @@ export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: strin
         }
     }
     let out: {[key: string]: number} = {};
-    for (let {apgcode} of data[0]) {
+    for (let type of data[0]) {
+        let apgcode = getApgcode(type);
         if (apgcode in out) {
             out[apgcode]++;
         } else {

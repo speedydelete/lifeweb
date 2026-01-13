@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, identify, getKnots, INTSeparator, createPattern, toCatagolueRule} from '../core/index.js';
+import {MAPPattern, findType, getApgcode, getKnots, INTSeparator, createPattern, toCatagolueRule} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
@@ -361,7 +361,7 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObj
             p.insert(obj.p, obj.x - minX, obj.y - minY);
         }
         p.shrinkToFit();
-        let type = identify(p, 2, false);
+        let type = findType(p, 2, false);
         if (type.period !== 1 || !type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
@@ -402,9 +402,10 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
         }
         p.shrinkToFit();
         p.generation = sep.generation;
-        let type = identify(p, 1024, false);
-        if (type.apgcode.startsWith('xs')) {
-            if (type.apgcode === 'xs0_0') {
+        let type = findType(p, 1024, false);
+        let apgcode = getApgcode(type);
+        if (apgcode.startsWith('xs')) {
+            if (apgcode === 'xs0_0') {
                 return false;
             }
             stillLifes.push({
@@ -416,9 +417,9 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 p,
                 code: p.toApgcode('xs' + p.population),
             });
-        } else if (type.apgcode.startsWith('xp')) {
+        } else if (apgcode.startsWith('xp')) {
             let phase = 0;
-            let goal = base.loadApgcode(type.apgcode);
+            let goal = base.loadApgcode(apgcode);
             while (true) {
                 let found = false;
                 for (let i = 0; i < 2; i++) {
@@ -457,8 +458,8 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 phase: type.period - phase,
                 timing: p.generation,
             });
-        } else if (type.apgcode in c.SHIP_IDENTIFICATION) {
-            let {data: info} = c.SHIP_IDENTIFICATION[type.apgcode];
+        } else if (apgcode in c.SHIP_IDENTIFICATION) {
+            let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
             let found = false;
             for (let {height, width, population, data} of info) {
                 if (p.height === height && p.width === width && p.population === population) {
@@ -474,7 +475,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                             p.run(timing).shrinkToFit();
                             out.push({
                                 type: 'ship',
-                                code: type.apgcode,
+                                code: apgcode,
                                 x: p.xOffset,
                                 y: p.yOffset,
                                 width: p.width,
@@ -494,12 +495,12 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
             if (!found) {
                 throw new Error(`Invalid glider: ${p.toRLE()}`);
             }
-        } else if (type.apgcode === 'PATHOLOGICAL' || type.apgcode.startsWith('zz')) {
+        } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
             return false;
         } else {
             out.push({
                 type: 'other',
-                code: type.apgcode,
+                code: apgcode,
                 x: p.xOffset,
                 y: p.yOffset,
                 width: p.width,
