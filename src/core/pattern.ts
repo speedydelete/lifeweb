@@ -367,6 +367,7 @@ export interface Pattern {
     rotateLeft(): this;
     rotate180(): this;
     flipDiagonal(): this;
+    flipAntiDiagonal(): this;
     toApgcode(prefix?: string): string;
     toCanonicalApgcode(period?: number, prefix?: string): string;
     toRLE(): string;
@@ -419,7 +420,12 @@ export abstract class DataPattern implements Pattern {
     }
 
     isEmpty(): boolean {
-        return this.height === 0 || this.width === 0;
+        for (let i = 0; i < this.data.length; i++) {
+            if (this.data[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     abstract copy(): DataPattern;
@@ -835,6 +841,10 @@ export abstract class DataPattern implements Pattern {
 
     flipDiagonal(): this {
         return this.rotateRight().flipHorizontal();
+    }
+
+    flipAntiDiagonal(): this {
+        return this.rotateLeft().flipHorizontal();
     }
 
     _toApgcode(data: Uint8Array): string {
@@ -1447,6 +1457,10 @@ export abstract class CoordPattern implements Pattern {
 
     flipDiagonal(): this {
         return this.rotateRight().flipHorizontal();
+    }
+
+    flipAntiDiagonal(): this {
+        return this.rotateLeft().flipHorizontal();
     }
 
     _toApgcode(data: Uint8Array, height: number, width: number): string {

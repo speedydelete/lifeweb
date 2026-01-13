@@ -21,6 +21,7 @@ export * from './ruleloader.js';
 export * from './ruleloader_bgolly.js';
 export * from './alternating.js';
 export * from './bounded.js';
+export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';
 export * from './search.js';
@@ -408,6 +409,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         }
     }
     if (rule.startsWith('__ruleloader_bgolly_')) {
+        // @ts-ignore
         return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(join(import.meta.dirname, '..', rule + '.rule')).toString(), rule);
     }
     if (rule.includes('|')) {

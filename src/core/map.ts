@@ -292,7 +292,7 @@ export function unparseMAP(trs: Uint8Array): string {
 }
 
 
-export function findSymmetry(trs: Uint8Array): RuleSymmetry {
+export function findTrsSymmetry(trs: Uint8Array): RuleSymmetry {
     let C2 = true;
     let C4 = true;
     let D2h = true;

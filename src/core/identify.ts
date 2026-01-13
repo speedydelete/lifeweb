@@ -1,20 +1,10 @@
 
 import {stringMD5} from './md5.js';
-import {Pattern, RuleError} from './pattern.js';
-import {MAPPattern, MAPGenPattern, MAPB0Pattern, MAPB0GenPattern, TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, arrayToTransitions, unparseTransitions, unparseMAP} from './map.js';
-import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
-import {AlternatingPattern} from './alternating.js';
-import {TreePattern} from './ruleloader.js';
+import {RuleError, Pattern} from './pattern.js';
+import {PhaseData, findMinmax} from './minmax.js';
 
 
-export interface PhaseData {
-    pops: number[];
-    hashes: number[];
-    phases: Pattern[];
-}
-
-export interface Identified extends PhaseData {
-    apgcode: string;
+export interface PatternType extends PhaseData {
     stabilizedAt: number;
     period: number;
     disp?: [number, number];
@@ -22,10 +12,8 @@ export interface Identified extends PhaseData {
     power?: number;
 }
 
-export type PartialIdentified = Omit<Identified, 'rle' | 'apgcode' | 'desc' | 'min' | 'max'>;
 
-
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PartialIdentified {
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PatternType {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -83,29 +71,26 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
 }
 
 
-export function identify(p: Pattern, limit: number, acceptStabilized: boolean = true): Identified {
-    p = p.copy();
-    let type = findType(p, limit, acceptStabilized);
-    let apgcode: string;
+export function getApgcode(type: PatternType): string {
     if (type.disp) {
         let prefix: string;
         if (type.disp[0] === 0 && type.disp[1] === 0) {
             let cells = type.pops[type.pops.length - 1];
             if (type.period === 1) {
                 if (cells === 0) {
-                    return {apgcode: 'xs0_0', ...type};
+                    return 'xs0_0';
                 }
                 prefix = 'xs' + cells;
             } else {
                 if (cells === 0) {
-                    return {apgcode: `xp${type.period}_0`, ...type};
+                    return `xp${type.period}_0`;
                 }
                 prefix = 'xp' + type.period;
             }
         } else {
             prefix = 'xq' + type.period;
         }
-        apgcode = p.toCanonicalApgcode(type.period, prefix);
+        return type.phases[0].toCanonicalApgcode(type.period, prefix);
     } else if (type.linear) {
         let diffs = type.pops.slice(type.stabilizedAt, -type.period).map((x, i) => type.pops[type.stabilizedAt + i + type.period] - x);
         let subperiod: number | null = null;
@@ -123,7 +108,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
             }
         }
         if (subperiod === null) {
-            apgcode = 'PATHOLOGICAL';
+            return 'PATHOLOGICAL';
         } else {
             let moment0 = 0;
             let moment1 = 0;
@@ -139,7 +124,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
             for (let i = 0; i < str.length; i++) {
                 array[i] = str.charCodeAt(i);
             }
-            apgcode = `yl${type.period}_${subperiod}_${moment0}_${stringMD5(moment1 + '#' + moment2)}`;
+            return `yl${type.period}_${subperiod}_${moment0}_${stringMD5(moment1 + '#' + moment2)}`;
         }
     } else {
         let data: [number, number][] = [];
@@ -162,563 +147,16 @@ export function identify(p: Pattern, limit: number, acceptStabilized: boolean = 
         let power = a / b;
         type.power = power;
         if (power < 1.15) {
-            apgcode = 'PATHOLOGICAL';
+            return 'PATHOLOGICAL';
         } else if (power < 1.65) {
-            apgcode = 'zz_REPLICATOR';
+            return 'zz_REPLICATOR';
         } else if (power < 2.1) {
-            apgcode = 'zz_LINEAR';
+            return 'zz_LINEAR';
         } else if (power < 2.9) {
-            apgcode = 'zz_EXPLOSIVE';
+            return 'zz_EXPLOSIVE';
         } else {
-            apgcode = 'zz_QUADRATIC';
+            return 'zz_QUADRATIC';
         }
-    }
-    return {apgcode, ...type};
-}
-
-
-function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
-    for (let i = 0; i < gens + 1; i++) {
-        if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
-            return false;
-        }
-        let q = data.phases[i];
-        if (!p.isEqualWithTranslate(q)) {
-            return false;
-        }
-        p.run(step);
-        p.shrinkToFit();
-    }
-    return true;
-}
-
-function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number, allTrs: {[key: string]: number[]}): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
-    let [b, s] = arrayToTransitions(p.trs, allTrs);
-    let minB = new Set(b);
-    let minS = new Set(s);
-    let maxB = new Set(b);
-    let maxS = new Set(s);
-    for (let tr in allTrs) {
-        let q = p.copy();
-        q.trs = q.trs.slice();
-        if (tr !== '0c') {
-            if (minB.has(tr)) {
-                for (let i of allTrs[tr]) {
-                    q.trs[i] = 0;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minB.delete(tr);
-                }
-            } else {
-                for (let i of allTrs[tr]) {
-                    q.trs[i] = 1;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxB.add(tr);
-                }
-            }
-            q = p.copy();
-            q.trs = q.trs.slice();
-        }
-        if (minS.has(tr)) {
-            for (let i of allTrs[tr]) {
-                q.trs[i | (1 << 4)] = 0;
-            }
-            if (verifyType(q, data, gens, step)) {
-                minS.delete(tr);
-            }
-        } else {
-            for (let i of allTrs[tr]) {
-                q.trs[i | (1 << 4)] = 1;
-            }
-            if (verifyType(q, data, gens, step)) {
-                maxS.add(tr);
-            }
-        }
-    }
-    return {
-        minB: Array.from(minB),
-        minS: Array.from(minS),
-        maxB: Array.from(maxB),
-        maxS: Array.from(maxS),
-    };
-}
-
-function isotropicB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number, allTrs: {[key: string]: number[]}): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
-    let [b, s] = arrayToTransitions(p.evenTrs.map(x => 1 - x), allTrs);
-    b.push('0c');
-    let minB = new Set(b);
-    let minS = new Set(s);
-    let maxB = new Set(b);
-    let maxS = new Set(s);
-    for (let tr in allTrs) {
-        if (tr !== '0c') {
-            let q = p.copy();
-            q.evenTrs = q.evenTrs.slice();
-            q.oddTrs = q.oddTrs.slice();
-            if (minB.has(tr)) {
-                for (let i of allTrs[tr]) {
-                    q.evenTrs[i] = 1;
-                    q.oddTrs[511 - i] = 0;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minB.delete(tr);
-                }
-            } else {
-                for (let i of allTrs[tr]) {
-                    q.evenTrs[i] = 0;
-                    q.oddTrs[511 - i] = 1;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxB.add(tr);
-                }
-            }
-        }
-        if (tr !== '8c') {
-            let q = p.copy();
-            q.evenTrs = q.evenTrs.slice();
-            q.oddTrs = q.oddTrs.slice();
-            if (minS.has(tr)) {
-                for (let i of allTrs[tr]) {
-                    q.evenTrs[i | (1 << 4)] = 1;
-                    q.oddTrs[511 - (i | (1 << 4))] = 0;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minS.delete(tr);
-                }
-            } else {
-                for (let i of allTrs[tr]) {
-                    q.evenTrs[i | (1 << 4)] = 0;
-                    q.oddTrs[511 - (i | (1 << 4))] = 1;
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxS.add(tr);
-                }
-            }
-        }
-    }
-    return {
-        minB: Array.from(minB),
-        minS: Array.from(minS),
-        maxB: Array.from(maxB),
-        maxS: Array.from(maxS),
-    };
-}
-
-function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let min = p.trs.slice();
-    let max = p.trs.slice();
-    for (let i = 0; i < 512; i++) {
-        let q = p.copy();
-        q.trs[i] = 1 - q.trs[i];
-        if (verifyType(q, data, gens, step)) {
-            if (q.trs[i]) {
-                min[i] = 0;
-            } else {
-                max[i] = 1;
-            }
-        }
-        q.trs[i] = 1 - q.trs[i];
-    }
-    return [unparseMAP(min), unparseMAP(max)];
-}
-
-function mapB0StringMinmax(p: MAPB0Pattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let min = p.evenTrs.map(x => 1 - x);
-    let max = p.evenTrs.map(x => 1 - x);
-    for (let i = 0; i < 512; i++) {
-        let q = p.copy();
-        q.evenTrs[i] = 1 - q.evenTrs[i];
-        q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
-        if (verifyType(q, data, gens, step)) {
-            if (q.evenTrs[i]) {
-                min[i] = 1;
-            } else {
-                max[i] = 0;
-            }
-        }
-        q.evenTrs[i] = 1 - q.evenTrs[i];
-        q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
-    }
-    return [unparseMAP(min), unparseMAP(max)];
-}
-
-function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    p.shrinkToFit();
-    let minB: string;
-    let minS: string;
-    let maxB: string;
-    let maxS: string;
-    let out: ReturnType<typeof isotropicMinmax>;
-    if (p.ruleStr.endsWith('H')) {
-        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-            out = isotropicMinmax(p, data, gens, step, HEX_TRANSITIONS);
-        } else {
-            out = isotropicB0Minmax(p, data, gens, step, HEX_TRANSITIONS);
-        }
-        minB = unparseTransitions(out.minB, VALID_HEX_TRANSITIONS, true);
-        minS = unparseTransitions(out.minS, VALID_HEX_TRANSITIONS, true);
-        maxB = unparseTransitions(out.maxB, VALID_HEX_TRANSITIONS, true);
-        maxS = unparseTransitions(out.maxS, VALID_HEX_TRANSITIONS, true);
-    } else if (p.ruleStr.startsWith('MAP')) {
-        let min: string, max: string;
-        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-            [min, max] = mapStringMinmax(p, data, gens, step);
-        } else {
-            [min, max] = mapB0StringMinmax(p, data, gens, step);
-        }
-        if (p instanceof MAPGenPattern) {
-            min += '/' + p.states;
-            max += '/' + p.states;
-        }
-        return [min, max];
-    } else {
-        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-            out = isotropicMinmax(p, data, gens, step, TRANSITIONS);
-        } else {
-            out = isotropicB0Minmax(p, data, gens, step, TRANSITIONS);
-        }
-        minB = unparseTransitions(out.minB, VALID_TRANSITIONS, false);
-        minS = unparseTransitions(out.minS, VALID_TRANSITIONS, false);
-        maxB = unparseTransitions(out.maxB, VALID_TRANSITIONS, false);
-        maxS = unparseTransitions(out.maxS, VALID_TRANSITIONS, false);
-    }
-    let min: string;
-    let max: string;
-    if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
-        min = `B${minB}/S${minS}`;
-        max = `B${maxB}/S${maxS}`;
-    } else {
-        min = `${minS}/${minB}/${p.states}`;
-        max = `${maxS}/${maxB}/${p.states}`;
-    }
-    if (p.ruleStr.endsWith('H')) {
-        min += 'H';
-        max += 'H';
-    }
-    return [min, max];
-}
-
-function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, allTrs: {[key: string]: number[]}, validTrs: string[]): [number[], number[], number[], number[]] {
-    let maxB = minB.slice();
-    let maxS = minS.slice();
-    for (let i = 0; i < validTrs.length; i++) {
-        let q = p.copy();
-        q.trs = q.trs.slice();
-        if (i !== 0) {
-            if (minB.includes(i)) {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.trs[tr] = 0;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minB.splice(minB.indexOf(i), 1);
-                }
-            } else {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.trs[tr] = 1;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxB.push(i);
-                }
-            }
-            q = p.copy();
-            q.trs = q.trs.slice();
-        }
-        if (minS.includes(i)) {
-            for (let letter of validTrs[i]) {
-                for (let tr of allTrs[i + letter]) {
-                    q.trs[tr | (1 << 4)] = 0;
-                }
-            }
-            if (verifyType(q, data, gens, step)) {
-                minS.splice(minS.indexOf(i), 1);
-            }
-        } else {
-            for (let letter of validTrs[i]) {
-                for (let tr of allTrs[i + letter]) {
-                    q.trs[tr | (1 << 4)] = 1;
-                }
-            }
-            if (verifyType(q, data, gens, step)) {
-                maxS.push(i);
-            }
-        }
-    }
-    return [minB, minS, maxB, maxS];
-}
-
-function otB0Minmax(p: MAPB0Pattern | MAPB0GenPattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, allTrs: {[key: string]: number[]}, validTrs: string[]): [number[], number[], number[], number[]] {
-    let maxB = minB.slice();
-    let maxS = minS.slice();
-    for (let i = 0; i < validTrs.length; i++) {
-        if (i !== 0) {
-            let q = p.copy();
-            q.evenTrs = q.evenTrs.slice();
-            q.oddTrs = q.oddTrs.slice();
-            if (minB.includes(i)) {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr] = 1;
-                        q.oddTrs[511 - tr] = 0;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minB.splice(minB.indexOf(i), 1);
-                }
-            } else {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr] = 0;
-                        q.oddTrs[511 - tr] = 1;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxB.push(i);
-                }
-            }
-        }
-        if (i !== 8) {
-            let q = p.copy();
-            q.evenTrs = q.evenTrs.slice();
-            q.oddTrs = q.oddTrs.slice();
-            if (minS.includes(i)) {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr | (1 << 4)] = 1;
-                        q.oddTrs[511 - (tr | (1 << 4))] = 0;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    minS.splice(minS.indexOf(i), 1);
-                }
-            } else {
-                for (let letter of validTrs[i]) {
-                    for (let tr of allTrs[i + letter]) {
-                        q.evenTrs[tr | (1 << 4)] = 0;
-                        q.oddTrs[511 - (tr | (1 << 4))] = 1;
-                    }
-                }
-                if (verifyType(q, data, gens, step)) {
-                    maxS.push(i);
-                }
-            }
-        }
-    }
-    return [minB, minS, maxB, maxS];
-}
-
-function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPB0GenPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let isHex = p.ruleStr.endsWith('H');
-    let allTrs = isHex ? HEX_TRANSITIONS : TRANSITIONS;
-    let validTrs = isHex ? VALID_HEX_TRANSITIONS : VALID_TRANSITIONS;
-    if (isHex ? p.ruleSymmetry === 'D4x' : p.ruleSymmetry !== 'D8') {
-        throw new Error(`Pattern must be in [Hexagonal] [Generations] [B0] INT for outer-totalistic minmax`);
-    }
-    let startB: number[] = [];
-    let startS: number[] = [];
-    let trs = 'trs' in p ? p.trs : p.evenTrs.map(x => 1 - x);
-    for (let i = 0; i <= (isHex ? 6 : 8); i++) {
-        let bFound = true;
-        let sFound = true;
-        for (let letter of validTrs[i]) {
-            if (!trs[allTrs[i + letter][0]]) {
-                bFound = false;
-            }
-            if (!trs[allTrs[i + letter][0] | (1 << 4)]) {
-                sFound = false;
-            }
-        }
-        if (bFound) {
-            startB.push(i);
-        }
-        if (sFound) {
-            startS.push(i);
-        }
-    }
-    let outData: number[][] = [];
-    if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-        outData = otMinmax(p, startB, startS, data, gens, step, allTrs, validTrs);
-    } else {
-        outData = otB0Minmax(p, startB, startS, data, gens, step, allTrs, validTrs);
-    }
-    let [minB, minS, maxB, maxS] = outData.map(x => x.sort((x, y) => x - y).join(''));
-    if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
-        return [`B${minB}/S${minS}`, `B${maxB}/S${maxS}`];
-    } else {
-        return [`${minS}/${minB}/${p.states}`, `${maxS}/${maxB}/${p.states}`];
-    }
-}
-
-function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let parts = p.ruleStr.split(',');
-    let min = `${parts[0]},${parts[1]},S`;
-    let max = `${parts[0]},${parts[1]},S`;
-    let minS = p.s.slice();
-    let maxS = p.s.slice();
-    for (let i = 0; i < minS.length; i++) {
-        if (minS[i]) {
-            p.s[i] = 0;
-            if (verifyType(p, data, gens, step)) {
-                minS[i] = 0;
-            }
-            p.s[i] = 1;
-        } else {
-            p.s[i] = 1;
-            if (verifyType(p, data, gens, step)) {
-                maxS[i] = 1;
-            }
-            p.s[i] = 0;
-        }
-    }
-    min += unparseHROTRanges(minS) + ',B';
-    max += unparseHROTRanges(maxS) + ',B';
-    let minB = p.b.slice();
-    let maxB = p.b.slice();
-    for (let i = 1; i < minB.length; i++) {
-        if (minB[i]) {
-            p.b[i] = 0;
-            if (verifyType(p, data, gens, step)) {
-                minB[i] = 0;
-            }
-            p.b[i] = 1;
-        } else {
-            p.b[i] = 1;
-            if (verifyType(p, data, gens, step)) {
-                maxB[i] = 1;
-            }
-            p.b[i] = 0;
-        }
-    }
-    min += unparseHROTRanges(minB);
-    max += unparseHROTRanges(maxB);
-    if (parts.length === 5) {
-        min += ',' + parts[4];
-        max += ',' + parts[4];
-    }
-    return [min, max];
-}
-
-function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let parts = p.ruleStr.split(',');
-    let min = `${parts[0]},${parts[1]},S`;
-    let max = `${parts[0]},${parts[1]},S`;
-    let minS = p.evenS.map(x => 1 - x);
-    let maxS = p.evenS.map(x => 1 - x);
-    for (let i = 0; i < minS.length; i++) {
-        if (minS[i]) {
-            p.evenS[i] = 1;
-            p.oddS[minS.length - 1 - i] = 0;
-            if (verifyType(p, data, gens, step)) {
-                minS[i] = 0;
-            }
-            p.evenS[i] = 0;
-            p.oddS[minS.length - 1 - i] = 1;
-        } else {
-            p.evenS[i] = 0;
-            p.oddS[minS.length - 1 - i] = 1;
-            if (verifyType(p, data, gens, step)) {
-                maxS[i] = 1;
-            }
-            p.evenS[i] = 1;
-            p.oddS[minS.length - 1 - i] = 0;
-        }
-    }
-    min += unparseHROTRanges(minS) + ',B';
-    max += unparseHROTRanges(maxS) + ',B';
-    let minB = p.evenB.map(x => 1 - x);
-    let maxB = p.evenB.map(x => 1 - x);
-    for (let i = 0; i < minB.length; i++) {
-        if (minB[i]) {
-            p.evenB[i] = 1;
-            p.oddB[minB.length - 1 - i] = 0;
-            if (verifyType(p, data, gens, step)) {
-                minB[i] = 0;
-            }
-            p.evenB[i] = 0;
-            p.oddB[minB.length - 1 - i] = 1;
-        } else {
-            p.evenB[i] = 0;
-            p.oddB[minB.length - 1 - i] = 1;
-            if (verifyType(p, data, gens, step)) {
-                maxB[i] = 1;
-            }
-            p.evenB[i] = 1;
-            p.oddB[minB.length - 1 - i] = 0;
-        }
-    }
-    min += unparseHROTRanges(minB);
-    max += unparseHROTRanges(maxB);
-    if (parts.length === 5) {
-        min += ',' + parts[4];
-        max += ',' + parts[4];
-    }
-    return [min, max];
-}
-
-function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number, step: number, ot?: boolean): [string, string] {
-    let min: string[] = [];
-    let max: string[] = [];
-    let count = p.patterns.length * step;
-    for (let i = 0; i < count; i += step) {
-        let q = p.patterns[i % p.patterns.length].copy();
-        let phase = data.phases[i] as AlternatingPattern;
-        q.setData(phase.data, phase.height, phase.width);
-        let newData: PhaseData = {pops: [], hashes: [], phases: []};
-        for (let j = i; j < gens; j += count) {
-            newData.pops.push(data.pops[j]);
-            newData.hashes.push(data.hashes[j]);
-            newData.phases.push(data.phases[j]);
-        }
-        let minmax = findMinmax(q, Math.floor((gens - i) / count), newData, count, ot);
-        min.push(minmax[0]);
-        max.push(minmax[1]);
-    }
-    return [min.join('|'), max.join('|')];
-}
-
-export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: number = 1, ot?: boolean): [string, string] {
-    p = p.copy();
-    if (data === undefined) {
-        let pops: number[] = [p.population];
-        let hashes: number[] = [p.hash32()];
-        let phases: Pattern[] = [p.copy()];
-        let q = p.copy();
-        for (let i = 0; i < gens + 1; i++) {
-            q.run(step);
-            q.shrinkToFit();
-            pops.push(q.population);
-            hashes.push(q.hash32());
-            phases.push(q.copy());
-        }
-        data = {pops, hashes, phases};
-    } else {
-        let q = data.phases[data.phases.length - 1].copy();
-        q.run(step);
-        q.shrinkToFit();
-        data.pops.push(q.population);
-        data.hashes.push(q.hash32());
-        data.phases.push(q);
-    }
-    if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern || p instanceof MAPB0GenPattern) {
-        if (ot && p.ruleSymmetry === 'D8') {
-            return fullOTMinmax(p, data, gens, step);
-        } else {
-            return mapMinmax(p, data, gens, step);
-        }
-    } else if (p instanceof HROTPattern) {
-        return hrotMinmax(p, data, gens, step);
-    } else if (p instanceof HROTB0Pattern) {
-        return hrotB0Minmax(p, data, gens, step);
-    } else if (p instanceof AlternatingPattern) {
-        return alternatingMinmax(p, data, gens, step, ot);
-    } else if (p instanceof TreePattern) {
-        return [p.ruleStr, p.ruleStr];
-    } else {
-        throw new RuleError(`Unknown Pattern subclass: ${p}`);
     }
 }
 
@@ -729,7 +167,7 @@ export interface LinearInfo {
     ash: Pattern;
 }
 
-export function classifyLinear(p: Pattern, type: PartialIdentified, maxPeriodMul: number): null | LinearInfo {
+export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: number): null | LinearInfo {
     p = p.copy().run(type.stabilizedAt).shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
@@ -785,7 +223,7 @@ export interface OscillatorInfo {
     strictVolatility: number;
 }
 
-export function findOscillatorInfo(type: PartialIdentified): number | OscillatorInfo {
+export function findOscillatorInfo(type: PatternType): number | OscillatorInfo {
     let period = type.period;
     let oldPhases = type.phases.slice(type.stabilizedAt, type.stabilizedAt + period);
     let phases: Uint8Array[] = [];
@@ -881,6 +319,270 @@ export function findOscillatorInfo(type: PartialIdentified): number | Oscillator
 }
 
 
+export type StaticSymmetry = 'n' | '.c' | '.-e' | '.|e' | '.k' | 'rc' | 'rk' | '-c' | '-e' | '|c' | '|e' | '/' | '\\' | '+c' | '+-e' | '+|e' | '+k' | 'xc' | 'xk' | 'rc' | 'rk' | '*c' | '*k';
+export type PatternSymmetry = StaticSymmetry | 'n.c' | 'n.-e' | 'n.|e' | 'n.k' | 'nrc' | 'nrk' | 'n-c' | 'n-e' | 'n|c' | 'n|e' | 'n/' | 'n\\' | '.crc' | '.c+c' | '.cxc' | '.-e+-e' | '.|e+|e' | '.krk' | '.k+k' | '.kxk' | 'rc*c' | 'rk*k' | '-c+c' | '-c+-e' | '-e+-e' | '-e+k' | '|c+c' | '|c+|e' | '|e+|e' | '|e+k' | '/xc' | '/xk' | '\\xc' | '\\xk' | '+c*c' | '+k*k' | 'xc*c' | 'xk*k';
+
+export const ALTERNATE_SYMMETRIES: {[K in PatternSymmetry]: string} = {
+    'n': 'C1',
+    '.c': 'C2_1',
+    '.-e': 'C2_-2',
+    '.|e': 'C2_|2',
+    '.k': 'C2_4',
+    'rc': 'C4_1',
+    'rk': 'C4_4',
+    '-c': 'D2_-1',
+    '-e': 'D2_-2',
+    '|c': 'D2_|1',
+    '|e': 'D2_|2',
+    '/': 'D2_/',
+    '\\': 'D2_\\',
+    '+c': 'D4_+1',
+    '+-e': 'D4_-2',
+    '+|e': 'D4_|2',
+    '+k': 'D4_+4',
+    'xc': 'D4_x1',
+    'xk': 'D4_x4',
+    '*c': 'D8_1',
+    '*k': 'D8_4',
+    'n.c': 'C1 C2_1',
+    'n.-e': 'C1 C2_-',
+    'n.|e': 'C1 C2_|',
+    'n.k': 'C1 C2_4',
+    'nrc': 'C1 C4_1',
+    'nrk': 'C1 C4_4',
+    'n-c': 'C1 D2_-1',
+    'n-e': 'C1 D2_-2',
+    'n|c': 'C1 D2_|1',
+    'n|e': 'C1 D2_|2',
+    'n/': 'C1 D2_/',
+    'n\\': 'C1 D2_\\',
+    '.crc': 'C2_1 C4_1',
+    '.c+c': 'C2_1 D4_+1',
+    '.cxc': 'C2_1 D4_x1',
+    '.-e+-e': 'C2_- D4_-2',
+    '.|e+|e': 'C2_| D4_|2',
+    '.krk': 'C2_4 C4_4',
+    '.k+k': 'C2_4 D4_+4',
+    '.kxk': 'C2_4 D4_x4',
+    'rc*c': 'C4_1 D8_1',
+    'rk*k': 'C4_4 D8_4',
+    '-c+c': 'D2_-1 D4_+1',
+    '-c+-e': 'D2_-1 D4_-2',
+    '-e+-e': 'D2_-2 D4_+2',
+    '-e+k': 'D2_-2 D4_+4',
+    '|c+c': 'D2_|1 D4_+1',
+    '|c+|e': 'D2_|1 D4_|2',
+    '|e+|e': 'D2_|2 D4_|2',
+    '|e+k': 'D2_|2 D4_+4',
+    '/xc': 'D2_/ D4_x1',
+    '/xk': 'D2_/ D4_x4',
+    '\\xc': 'D2_\\ D4_x1',
+    '\\xk': 'D2_\\ D4_x4',
+    '+c*c': 'D4_+1 D8_1',
+    '+k*k': 'D4_+4 D8_4',
+    'xc*c': 'D4_x1 D8_1',
+    'xk*k': 'D4_x4 D8_4',
+};
+
+export function findStaticSymmetry(p: Pattern): StaticSymmetry {
+    if (p.copy().rotate180().isEqual(p)) {
+        if (p.copy().rotateRight().isEqual(p)) {
+            if (p.copy().flipHorizontal().isEqual(p)) {
+                return p.width % 2 === 1 ? '*c' : '*k';
+            } else {
+                return p.width % 2 === 1 ? 'rc' : 'rk';
+            }
+        } else if (p.copy().flipHorizontal().isEqual(p) || p.copy().flipVertical().isEqual(p)) {
+            if (p.height % 2 === 1) {
+                return p.width % 2 === 1 ? '+c' : '+|e';
+            } else {
+                return p.width % 2 === 1 ? '+-e' : '+k';
+            }
+        } else {
+            if (p.height % 2 === 1) {
+                return p.width % 2 === 1 ? '.c' : '.|e';
+            } else {
+                return p.width % 2 === 1 ? '.-e' : '.k';
+            }
+        }
+    } else if (p.copy().flipVertical().isEqual(p)) {
+        if (p.copy().flipHorizontal().isEqual(p)) {
+            if (p.height % 2 === 1) {
+                return p.width % 2 === 1 ? '+c' : '+|e';
+            } else {
+                return p.width % 2 === 1 ? '+-e' : '+k';
+            }
+        } else {
+            return p.height % 2 === 1 ? '-c' : '-e';
+        }
+    } else if (p.copy().flipHorizontal().isEqual(p)) {
+        return p.width % 2 === 1 ? '|c' : '|e';
+    } else if (p.copy().flipAntiDiagonal().isEqual(p)) {
+        if (p.copy().flipDiagonal().isEqual(p)) {
+            return p.width % 2 === 1 ? 'xc' : 'xk';
+        } else {
+            return '/';
+        }
+    } else if (p.copy().flipDiagonal().isEqual(p)) {
+        return '\\';
+    } else {
+        return 'n';
+    }
+}
+
+export function findPatternSymmetry(type: PatternType): PatternSymmetry {
+    let p = type.phases[0].run(type.stabilizedAt).shrinkToFit();
+    if (p.isEmpty()) {
+        return 'n';
+    }
+    let start = findStaticSymmetry(p);
+    if (type.period === -1 || type.period === 1 || type.period % 2 === 1) {
+        return start;
+    }
+    let half = p.copy().run(type.period / 2).shrinkToFit();
+    if (start === 'n') {
+        if (p.copy().rotate180().isEqual(half)) {
+            if (p.copy().run(type.period / 4).rotateRight().isEqual(p)) {
+                return p.width % 2 === 1 ? 'nrc' : 'nrk';
+            } else {
+                if (p.width % 2 === 1) {
+                    return p.height % 2 === 1 ? 'n.c' : 'n.|e';
+                } else {
+                    return p.height % 2 === 1 ? 'n.-e' : 'n.k';
+                }
+            }
+        } else if (p.copy().flipVertical().isEqual(half)) {
+            return p.width % 2 === 1 ? 'n-c' : 'n-e';
+        } else if (p.copy().flipHorizontal().isEqual(half)) {
+            return p.height % 2 === 1 ? 'n|c' : 'n|e';
+        } else if (p.copy().flipAntiDiagonal().isEqual(half)) {
+            return 'n/';
+        } else if (p.copy().flipDiagonal().isEqual(half)) {
+            return 'n\\';
+        } else {
+            return 'n';
+        }
+    } else if (start === '.c') {
+        if (p.copy().rotateRight().isEqual(half)) {
+            return '.crc';
+        } else if (p.copy().flipHorizontal().isEqual(half)) {
+            return '.c+c';
+        } else if (p.copy().flipDiagonal().isEqual(half)) {
+            return '.cxc';
+        } else {
+            return '.c';
+        }
+    } else if (start === '.-e') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return '.-e+-e';
+        } else {
+            return '.-e';
+        }
+    } else if (start === '.|e') {
+        if (p.copy().flipVertical().isEqual(half)) {
+            return '.|e+|e';
+        } else {
+            return '.|e';
+        }
+    } else if (start === '.k') {
+        if (p.copy().rotateRight().isEqual(half)) {
+            return '.krk';
+        } else if (p.copy().flipHorizontal().isEqual(half)) {
+            return '.k+k';
+        } else if (p.copy().flipDiagonal().isEqual(half)) {
+            return '.kxk';
+        } else {
+            return '.k';
+        }
+    } else if (start === 'rc') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return 'rc*c';
+        } else {
+            return 'rc';
+        }
+    } else if (start === 'rk') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return 'rk*k';
+        } else {
+            return 'rk';
+        }
+    } else if (start === '-c') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return p.height % 2 === 1 ? '-c+c' : '-c+-e';
+        } else {
+            return '-c';
+        }
+    } else if (start === '-e') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return p.height % 2 === 1 ? '-e+-e' : '-e+k';
+        } else {
+            return '-e';
+        }
+    } else if (start === '|c') {
+        if (p.copy().flipVertical().isEqual(half)) {
+            return p.height % 2 === 1 ? '|c+c' : '|c+|e';
+        } else {
+            return '|c';
+        }
+    } else if (start === '|e') {
+        if (p.copy().flipVertical().isEqual(half)) {
+            return p.height % 2 === 1 ? '|e+|e' : '|e+k';
+        } else {
+            return '|e';
+        }
+    } else if (start === '/') {
+        if (p.copy().flipDiagonal().isEqual(half)) {
+            return p.height % 2 === 1 ? '/xc' : '/xk';
+        } else {
+            return '/';
+        }
+    } else if (start === '\\') {
+        if (p.copy().flipAntiDiagonal().isEqual(half)) {
+            return p.height % 2 === 1 ? '\\xc' : '\\xk';
+        } else {
+            return '\\';
+        }
+    } else if (start === '+c') {
+        if (p.copy().flipDiagonal().isEqual(half)) {
+            return '+c*c';
+        } else {
+            return '+c';
+        }
+    } else if (start === '+k') {
+        if (p.copy().flipDiagonal().isEqual(half)) {
+            return '+k*k';
+        } else {
+            return '+k';
+        }
+    } else if (start === 'xc') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return 'xc*c';
+        } else {
+            return 'xc';
+        }
+    } else if (start === 'xk') {
+        if (p.copy().flipHorizontal().isEqual(half)) {
+            return 'xk*k';
+        } else {
+            return 'xk';
+        }
+    } else {
+        return start;
+    }
+}
+
+
+export interface Identified extends PatternType {
+    desc: string;
+    output?: Identified;
+    heat?: number;
+    temperature?: number;
+    volatility?: number;
+    strictVolatility?: number;
+    minmax?: [string, string];
+    symmetry: PatternSymmetry;
+}
+
 export function getDescription(type: Identified): string {
     let out: string;
     if (type.linear) {
@@ -909,22 +611,12 @@ export function getDescription(type: Identified): string {
     return out;
 }
 
-export interface FullIdentified extends Identified {
-    desc: string;
-    output?: FullIdentified;
-    heat?: number;
-    temperature?: number;
-    volatility?: number;
-    strictVolatility?: number;
-    minmax?: [string, string];
-}
-
-export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8): FullIdentified {
+export function identify(p: Pattern, limit: number, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
     let type = identify(p, limit);
     let minmax: [string, string] | undefined = undefined;
     try {
-        minmax = findMinmax(p, type.period > 0 ? type.period + type.stabilizedAt : limit, type);
+        minmax = findMinmax(p, type.period === -1 ? limit : type.period, type);
     } catch (error) {
         if (!(error instanceof RuleError)) {
             throw error;
@@ -932,7 +624,6 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
     }
     let oscInfo: Partial<OscillatorInfo> = {};
     if (type.disp) {
-        // @ts-ignore
         let data = findOscillatorInfo(type);
         if (typeof data === 'number') {
             oscInfo = {heat: data};
@@ -940,14 +631,14 @@ export function fullIdentify(p: Pattern, limit: number, maxPeriodMul: number = 8
             oscInfo = data;
         }
     }
-    let output: FullIdentified | undefined = undefined;
+    let output: Identified | undefined = undefined;
     if (type.linear) {
         let data = classifyLinear(p, type, maxPeriodMul);
         if (data) {
             type.period = data.period;
             type.disp = data.disp;
-            output = fullIdentify(data.ash, limit, maxPeriodMul);
+            output = identify(data.ash, limit, maxPeriodMul);
         }
     }
-    return {...type, minmax, output, desc: getDescription(type), ...oscInfo};
+    return {...type, output, desc: getDescription(type), ...oscInfo, minmax, symmetry: findPatternSymmetry(type)};
 }
