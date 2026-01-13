@@ -160,6 +160,34 @@ export function getApgcode(type: PatternType): string {
     }
 }
 
+export function getDescription(type: PatternType): string {
+    let out: string;
+    if (type.linear) {
+        if (type.disp) {
+            if (type.disp[0] === 0 && type.disp[1] === 0) {
+                out = `p${type.period} gun`;
+            } else {
+                out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
+            }
+        } else {
+            out = `p${type.period} linear growth`;
+        }
+    } else if (type.disp) {
+        if (type.disp[0] === 0 && type.disp[1] === 0) {
+            if (type.period === 1) {
+                out = `${type.pops[type.pops.length - 1]}-cell still life`;
+            } else {
+                out = `p${type.period} oscillator`;
+            }
+        } else {
+            out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
+        }
+    } else {
+        out = 'cannot identify';
+    }
+    return out;
+}
+
 
 export interface LinearInfo {
     period: number;
@@ -581,34 +609,6 @@ export interface Identified extends PatternType {
     strictVolatility?: number;
     minmax?: [string, string];
     symmetry: PatternSymmetry;
-}
-
-export function getDescription(type: PatternType): string {
-    let out: string;
-    if (type.linear) {
-        if (type.disp) {
-            if (type.disp[0] === 0 && type.disp[1] === 0) {
-                out = `p${type.period} gun`;
-            } else {
-                out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
-            }
-        } else {
-            out = `p${type.period} linear growth`;
-        }
-    } else if (type.disp) {
-        if (type.disp[0] === 0 && type.disp[1] === 0) {
-            if (type.period === 1) {
-                out = `${type.pops[type.pops.length - 1]}-cell still life`;
-            } else {
-                out = `p${type.period} oscillator`;
-            }
-        } else {
-            out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
-        }
-    } else {
-        out = 'cannot identify';
-    }
-    return out;
 }
 
 export function identify(p: Pattern, limit: number, maxPeriodMul: number = 8): Identified {
