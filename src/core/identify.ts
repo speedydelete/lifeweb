@@ -611,9 +611,9 @@ export interface Identified extends PatternType {
     symmetry: PatternSymmetry;
 }
 
-export function identify(p: Pattern, limit: number, maxPeriodMul: number = 8): Identified {
+export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
-    let type = identify(p, limit);
+    let type = findType(p, limit, acceptStabilized);
     let minmax: [string, string] | undefined = undefined;
     try {
         minmax = findMinmax(p, type.period === -1 ? limit : type.period, type);
@@ -637,7 +637,7 @@ export function identify(p: Pattern, limit: number, maxPeriodMul: number = 8): I
         if (data) {
             type.period = data.period;
             type.disp = data.disp;
-            output = identify(data.ash, limit, maxPeriodMul);
+            output = identify(data.ash, limit, acceptStabilized, maxPeriodMul);
         }
     }
     return {...type, output, desc: getDescription(type), ...oscInfo, minmax, symmetry: findPatternSymmetry(type)};
