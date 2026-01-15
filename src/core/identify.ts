@@ -59,25 +59,25 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 }
             }
         }
+        for (let period = 1; period < Math.floor(pops.length / 8); period++) {
+            let diffs: number[] = [];
+            let prev = pops[0];
+            for (let i = period; i < pops.length; i += period) {
+                diffs.push(pops[i] - prev);
+                prev = pops[i];
+            }
+            if (diffs.length < 8) {
+                continue;
+            }
+            for (let j = 0; j < diffs.length - 7; j++) {
+                if (diffs[j] > 0 && diffs.slice(j + 1).every(x => x === diffs[j])) {
+                    return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
+                }
+            }
+        }
         phases.push(p.copy());
         pops.push(pop);
         hashes.push(hash);
-    }
-    for (let period = 1; period < pops.length; period++) {
-        let diffs: number[] = [];
-        let prev = pops[0];
-        for (let i = period; i < pops.length; i += period) {
-            diffs.push(pops[i] - prev);
-            prev = pops[i];
-        }
-        if (diffs.length < 8) {
-            continue;
-        }
-        for (let j = 0; j < diffs.length - 7; j++) {
-            if (diffs[j] > 0 && diffs.slice(j + 1).every(x => x === diffs[j])) {
-                return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
-            }
-        }
     }
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
 }
