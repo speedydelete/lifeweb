@@ -184,7 +184,7 @@ export function parseTransitions(data: string, validTrs: string[]): string[] {
  * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
  * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
  */
-export function unparseTransitions(trs: string[], validTrs: string[], preferMinus: boolean): string {
+export function unparseTransitions(trs: string[], validTrs: string[], preferMinus?: boolean): string {
     let sorted: string[] = [];
     for (let i = 0; i < validTrs.length; i++) {
         sorted.push('');
@@ -257,7 +257,7 @@ export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: numbe
  * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
  * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
  */
-export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
+export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], preferMinus?: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
     let bTrs = parseTransitions(b, validTrs);
     let sTrs = parseTransitions(s, validTrs);
     return {
@@ -2105,7 +2105,7 @@ export function createMAPPattern(rule: string, height: number, width: number, da
         }
         let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
         if (neighborhood === 'M') {
-            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, false);
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS);
         } else if (neighborhood === 'H') {
             out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
         } else {
