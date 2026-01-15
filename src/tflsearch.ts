@@ -149,7 +149,7 @@ async function check(base: string, change: string[]): Promise<void> {
         let {height, width, data} = await getHashsoup('k_tfltest_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
         soups++;
         let q = p.copy();
-        q.setData(data, height, width);
+        q.setData(height, width, data);
         let e = isExplosive(q);
         if (e === 'yes') {
             await writeOut(`${p.ruleStr}: explosive (${i + 1})`);

@@ -289,7 +289,7 @@ export function findOutcome(synth: Synthesis, config: Config): {apgcode: string,
         if (apgcode.startsWith('x')) {
             out.push({apgcode: apgcode, x, y});
         } else {
-            let obj2 = identify(obj.phases[0], 4096, 16);
+            let obj2 = identify(obj.phases[0], 4096, undefined, 16);
             out.push({apgcode: getApgcode(obj2), x, y});
         }
     }
