@@ -1,8 +1,11 @@
 
+/* Implements higher-range outer-totalistic rules (https://conwaylife.com/wiki/Larger_than_Life). */
+
 import {CoordPattern, RuleError, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
 
 
-function parseRange(data: string): number[] {
+/** Parses a HROT range, such as "3-4" or "1". */
+export function parseHROTRange(data: string): number[] {
     if (!data.match(/^\d+((-|\.\.)\d+)?$/)) {
         throw new RuleError(`Invalid HROT range: ${data}`);
     }
@@ -27,6 +30,7 @@ function parseRange(data: string): number[] {
     return out;
 }
 
+/** Takes in a B/S Uint8Array and outputs HROT ranges. */
 export function unparseHROTRanges(data: Uint8Array): string {
     let out = '';
     let start: number | null = null;
@@ -56,6 +60,7 @@ export function unparseHROTRanges(data: Uint8Array): string {
     return out.slice(0, -1);
 }
 
+/** Parses a HROT rule into sections. */
 function parseSections(rule: string): {r: number, c: number, m: boolean, s: number[], b: number[], n: string, w: number | null} {
     let r = 1;
     let c = 2;
@@ -71,16 +76,16 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             if (section[0] === 'B') {
                 bFound = true;
                 sFound = false;
-                b.push(...parseRange(section.slice(1)));
+                b.push(...parseHROTRange(section.slice(1)));
             } else {
-                s.push(...parseRange(section));
+                s.push(...parseHROTRange(section));
             }
         } else if (bFound) {
             if (section[0] === 'N') {
                 n = section.slice(1);
                 break;
             } else {
-                b.push(...parseRange(section));
+                b.push(...parseHROTRange(section));
             }
         } else if (section[0] === 'R') {
             r = parseInt(section.slice(1));
@@ -88,7 +93,7 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             c = parseInt(section.slice(1));
         } else if (section[0] === 'S') {
             sFound = true;
-            s.push(...parseRange(section.slice(1)));
+            s.push(...parseHROTRange(section.slice(1)));
         } else if (section[0] === 'M') {
             m = parseInt(section.slice(1)) === 0 ? false : true;
         } else if (section[0] === 'W') {
@@ -101,6 +106,7 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
 }
 
 
+/** A list of checking functions for the supported HROT neighborhoods. */
 const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number} = {
     N(x, y, r) {
         return (Math.abs(x) + Math.abs(y) <= r) && !(x === 0 && y === 0) ? 1 : 0;
@@ -143,6 +149,7 @@ const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number
     }
 };
 
+/** Parses a HROT rulestring into a lot of data. */
 export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let {r, c, m, s, b, n, w} = parseSections(rule);
     if (c < 2) {
@@ -236,6 +243,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
 
 export const HEX_CHARS = '0123456789abcdef';
 
+/** Parses a Catagolue-format HROT rulestring into a bunch of data. */
 export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
     let states = 2;
     if (rule.startsWith('x')) {
@@ -293,6 +301,7 @@ export function parseCatagolueHROTRule(rule: string): string | {range: number, b
 }
 
 
+/** Implements higher-range outer-totalistic rules. */
 export class HROTPattern extends CoordPattern {
 
     b: Uint8Array;
@@ -410,6 +419,7 @@ export class HROTPattern extends CoordPattern {
 }
 
 
+/** Implements higher-range outer-totalistic rules with B0. */
 export class HROTB0Pattern extends CoordPattern {
 
     evenB: Uint8Array;
@@ -537,4 +547,38 @@ export class HROTB0Pattern extends CoordPattern {
         return new HROTB0Pattern(this._loadApgcode(code), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
+}
+
+
+/** Parses a HROT rule. */
+export function createHROTPattern(rule: string, height: number, width: number, data: Uint8Array): string | HROTPattern | HROTB0Pattern {
+    let out = rule.startsWith('R') ? parseHROTRule(rule) : parseCatagolueHROTRule(rule);
+    if (typeof out === 'string') {
+        return out;
+    }
+    let {range, b, s, nh, states, ruleStr, ruleSymmetry} = out;
+    let coords = new Map<number, number>();
+    let i = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let value = data[i++];
+            if (value) {
+                coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+            }
+        }
+    }
+    if (b[0]) {
+        if (s[range**2]) {
+            let temp = s;
+            s = b.reverse().map(x => 1 - x);
+            b = temp.reverse().map(x => 1 - x);
+        } else {
+            let evenB = b.map(x => 1 - x);
+            let evenS = s.map(x => 1 - x);
+            let oddB = s.reverse();
+            let oddS = b.reverse();
+            return new HROTB0Pattern(coords, range, evenB, evenS, oddB, oddS, nh, states, ruleStr, ruleSymmetry);
+        }
+    }
+    return new HROTPattern(coords, range, b, s, nh, states, ruleStr, ruleSymmetry);
 }

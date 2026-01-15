@@ -1,7 +1,12 @@
 
+/** Implements the Golly Super algorithm (https://conwaylife.com/wiki/OCA:LifeSuper) plus [R]Investigator (https://conwaylife.com/wiki/User:Entity_Valkyrie_2/StateInvestigator). */
+
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 
 
+/** A DataPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class DataHistoryPattern extends DataPattern {
 
     pattern: DataPattern;
@@ -23,7 +28,7 @@ export class DataHistoryPattern extends DataPattern {
         let oldWidth = this.width;
         let data = this.data;
         let alive = data.map(x => x % 2 === 1 ? 1 : 0);
-        p.setData(alive, oldHeight, oldWidth);
+        p.setData(oldHeight, oldWidth, alive);
         p.runGeneration();
         let height = p.height;
         let width = p.width;
@@ -125,6 +130,9 @@ export class DataHistoryPattern extends DataPattern {
 }
 
 
+/** A CoordPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class CoordHistoryPattern extends CoordPattern {
 
     pattern: CoordPattern;
@@ -247,6 +255,9 @@ export class CoordHistoryPattern extends CoordPattern {
 }
 
 
+/** A DataPattern-based implementation of [R]Super (https://conwaylife.com/wiki/OCA:LifeSuper).
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class DataSuperPattern extends DataPattern {
 
     pattern: DataPattern;
@@ -268,7 +279,7 @@ export class DataSuperPattern extends DataPattern {
         let oldWidth = this.width;
         let data = this.data;
         let alive = data.map(x => x % 2 === 1 ? 1 : 0);
-        p.setData(alive, oldHeight, oldWidth);
+        p.setData(oldHeight, oldWidth, alive);
         p.runGeneration();
         let height = p.height;
         let width = p.width;
@@ -459,6 +470,9 @@ export class DataSuperPattern extends DataPattern {
 }
 
 
+/** A CoordPattern-based implementation of [R]Super (https://conwaylife.com/wiki/OCA:LifeSuper).
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class CoordSuperPattern extends CoordPattern {
 
     pattern: CoordPattern;
@@ -663,6 +677,9 @@ export class CoordSuperPattern extends CoordPattern {
 }
 
 
+/** Implements [R]Investigator (https://conwaylife.com/wiki/User:Entity_Valkyrie_2/StateInvestigator).
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class InvestigatorPattern extends DataPattern {
 
     pattern: DataPattern;
@@ -684,7 +701,7 @@ export class InvestigatorPattern extends DataPattern {
         let oldWidth = this.width;
         let data = this.data;
         let alive = data.map(x => (x < 2 ? x : (x < 14 ? (x % 2 === 0 ? 1 : 0) : (x === 18 || x === 20 ? 0 : 1))));
-        p.setData(alive, oldHeight, oldWidth);
+        p.setData(oldHeight, oldWidth, alive);
         p.runGeneration();
         let height = p.height;
         let width = p.width;
@@ -717,7 +734,7 @@ export class InvestigatorPattern extends DataPattern {
             }
             i = 0;
             loc = oStart;
-            p.setData(survive, oldHeight, oldWidth);
+            p.setData(oldHeight, oldWidth, survive);
             p.runGeneration();
             outSurvive = p.getData();
         } else {

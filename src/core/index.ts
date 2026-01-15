@@ -1,10 +1,12 @@
 
+/* The main file, exporting everything and also implementing many utility functions. */
+
 import {join} from 'node:path';
 import {readFileSync} from 'node:fs';
 import {stringMD5} from './md5.js';
-import {RuleError, RLE_CHARS, SYMMETRY_LEAST, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
-import {HEX_TRANSITIONS, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPB0GenPattern, parseIsotropic, parseMAP, TRANSITIONS, VALID_HEX_TRANSITIONS, VALID_TRANSITIONS, findTrsSymmetry} from './map.js';
-import {parseHROTRule, parseCatagolueHROTRule, HROTPattern, HROTB0Pattern} from './hrot.js';
+import {RuleError, RLE_CHARS, SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
+import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
@@ -27,199 +29,15 @@ export * from './intsep.js';
 export * from './search.js';
 
 
-export interface PatternData {
-    height: number;
-    width: number;
-    data: Uint8Array;
-}
-
-const VON_NEUMANN: string[][] = [
-    ['0c', '1c', '2c', '2n', '3c', '4c'],
-    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
-    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
-    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
-    ['4e', '5c', '6c', '6n', '7c', '8c'],
-];
-
-function parseMAPRule(rule: string, data: PatternData): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPB0GenPattern {
-    let raw = rule;
-    let ruleStr: string;
-    let trs = new Uint8Array(512);
-    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
-    let states = 2;
-    let match: RegExpMatchArray | null;
-    let end = rule[rule.length - 1];
-    if (end === 'V' || end === 'H') {
-        neighborhood = end;
-        rule = rule.slice(0, -1);
-    } else if (end === 'v') {
-        neighborhood = 'V';
-        rule = rule.slice(0, -1);
-    } else if (end === 'h') {
-        neighborhood = 'H';
-        rule = rule.slice(0, -1);
-    }
-    if (match = rule.match(/^[gG]([0-9]+)/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(match[0].length);
-    }
-    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(0, -match[0].length);
-    }
-    end = rule[rule.length - 1];
-    if (end === 'V' || end === 'H') {
-        neighborhood = end;
-        rule = rule.slice(0, -1);
-    } else if (end === 'v') {
-        neighborhood = 'V';
-        rule = rule.slice(0, -1);
-    } else if (end === 'h') {
-        neighborhood = 'H';
-        rule = rule.slice(0, -1);
-    }
-    if (rule.startsWith('MAP')) {
-        trs = parseMAP(rule.slice(3));
-        ruleStr = raw;
-    } else if (rule.startsWith('W')) {
-        if (!rule.match(/^W\d+$/)) {
-            throw new RuleError('Invalid W rule');
-        }
-        let num = parseInt(rule.slice(1));
-        if (Number.isNaN(num)) {
-            throw new RuleError('Invalid W rule');
-        }
-        for (let i = 0; i < 512; i++) {
-            trs[i | (1 << 4)] = 1;
-        }
-        for (let i = 0; i < 8; i++) {
-            if (num & (1 << i)) {
-                trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = 1;
-            }
-        }
-        ruleStr = 'W' + num;
-    } else {
-        let b = '';
-        let s = '';
-        let sections: string[];
-        let bs = false;
-        if (rule.includes('/')) {
-            sections = rule.split('/');
-            if (sections.length > 2) {
-                throw new RuleError('More than 1 slash provided');
-            }
-        } else if (rule.includes('_')) {
-            sections = rule.split('_');
-            if (sections.length > 2) {
-                throw new RuleError('More than 1 underscore provided');
-            }
-        } else if (rule.includes('S') || rule.includes('s')) {
-            let index = rule.indexOf('s');
-            if (index === -1) {
-                index = rule.indexOf('S');
-            }
-            sections = [rule.slice(0, index), rule.slice(index)];
-            bs = true;
-        } else {
-            sections = [rule];
-        }
-        for (let i = 0; i < sections.length; i++) {
-            let section = sections[i];
-            if (section[0] === 'B' || section[0] === 'b') {
-                bs = true;
-                b = section.slice(1);
-            } else if (section[0] === 'S' || section[0] === 's') {
-                bs = true;
-                s = section.slice(1);
-            } else {
-                if (!bs) {
-                    if (i === 0) {
-                        s = section;
-                    } else if (i === 1) {
-                        b = section;
-                    } else {
-                        throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
-                    }
-                } else {
-                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
-                }
-            }
-        }
-        if (neighborhood === 'V') {
-            let newB = '';
-            for (let char of b) {
-                let value = parseInt(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
-                }
-                newB += VON_NEUMANN[value].join('');
-            }
-            b = newB;
-            let newS = '';
-            for (let char of s) {
-                let value = parseInt(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
-                }
-                newS += VON_NEUMANN[value].join('');
-            }
-            s = newS;
-            neighborhood = 'M';
-        }
-        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
-        if (neighborhood === 'M') {
-            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, false);
-        } else if (neighborhood === 'H') {
-            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
-        } else {
-            return `R1,C${states},B${b},S${s},NL`;
-        }
-        b = out.b;
-        s = out.s;
-        trs = out.data;
-        if (states > 2) {
-            ruleStr = `${s}/${b}/${states}`;
-        } else {
-            ruleStr = `B${b}/S${s}`;
-        }
-        if (neighborhood === 'H') {
-            ruleStr += 'H';
-        }
-    }
-    if (trs[0]) {
-        if (trs[511]) {
-            let out = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                out[i] = 1 - trs[511 - i];
-            }
-            trs = out;
-        } else {
-            let evenTrs = new Uint8Array(512);
-            let oddTrs = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                evenTrs[i] = 1 - trs[i];
-                oddTrs[i] = trs[511 - i];
-            }
-            if (states > 2) {
-                return new MAPB0GenPattern(data.height, data.width, data.data, evenTrs, oddTrs, states, ruleStr, SYMMETRY_LEAST[findTrsSymmetry(evenTrs)][findTrsSymmetry(oddTrs)]);
-            } else {
-                return new MAPB0Pattern(data.height, data.width, data.data, evenTrs, oddTrs, ruleStr, SYMMETRY_LEAST[findTrsSymmetry(evenTrs)][findTrsSymmetry(oddTrs)]);
-            }
-        }
-    }
-    if (states > 2) {
-        return new MAPGenPattern(data.height, data.width, data.data, trs, states, ruleStr, findTrsSymmetry(trs));
-    } else {
-        return new MAPPattern(data.height, data.width, data.data, trs, ruleStr, findTrsSymmetry(trs));
-    }
-}
-
-
-export function createPattern(rule: string, data: PatternData = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string, useBgolly?: boolean): Pattern {
+/** Creates a pattern from a rulestring.
+ * @param namedRules An object mapping aliases to rules.
+ * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
+ */
+export function createPattern(rule: string, data: {height: number, width: number, data: Uint8Array} = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string, useBgolly?: boolean): Pattern {
     rule = rule.trim();
     let errors: string[] = [];
     try {
-        let out = parseMAPRule(rule, data);
+        let out = createMAPPattern(rule, data.height, data.width, data.data);
         if (typeof out === 'object') {
             return out;
         } else {
@@ -234,35 +52,11 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     }
     if (rule.startsWith('R') || rule.startsWith('r')) {
         try {
-            let out = rule.startsWith('R') ? parseHROTRule(rule) : parseCatagolueHROTRule(rule);
-            if (typeof out === 'object') {
-                let {range, b, s, nh, states, ruleStr, ruleSymmetry} = out;
-                let coords = new Map<number, number>();
-                let i = 0;
-                for (let y = 0; y < data.height; y++) {
-                    for (let x = 0; x < data.width; x++) {
-                        let value = data.data[i++];
-                        if (value) {
-                            coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
-                        }
-                    }
-                }
-                if (b[0]) {
-                    if (s[range**2]) {
-                        let temp = s;
-                        s = b.reverse().map(x => 1 - x);
-                        b = temp.reverse().map(x => 1 - x);
-                    } else {
-                        let evenB = b.map(x => 1 - x);
-                        let evenS = s.map(x => 1 - x);
-                        let oddB = s.reverse();
-                        let oddS = b.reverse();
-                        return new HROTB0Pattern(coords, range, evenB, evenS, oddB, oddS, nh, states, ruleStr, ruleSymmetry);
-                    }
-                }
-                return new HROTPattern(coords, range, b, s, nh, states, ruleStr, ruleSymmetry);
-            } else {
+            let out = createHROTPattern(rule, data.height, data.width, data.data);
+            if (typeof out === 'string') {
                 rule = out;
+            } else {
+                return out;
             }
         } catch (error) {
             if (error instanceof RuleError) {
@@ -418,7 +212,7 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
         let ruleStr = patterns.map(x => x.ruleStr).join('|');
         let symmetry = patterns[0].ruleSymmetry;
         for (let q of patterns.slice(1)) {
-            symmetry = SYMMETRY_LEAST[symmetry][q.ruleSymmetry];
+            symmetry = SYMMETRY_MEET[symmetry][q.ruleSymmetry];
             if (symmetry === 'C1') {
                 break;
             }
@@ -432,7 +226,10 @@ export function createPattern(rule: string, data: PatternData = {height: 0, widt
     throw new RuleError(errors.join(', '));
 }
 
-
+/** Parses a RLE. 
+ * @param namedRules An object mapping aliases to rules.
+ * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
+*/
 export function parse(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
     let rule = 'B3/S23';
     let xOffset: number | null = null;
@@ -566,6 +363,10 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, useBgol
     return out;
 }
 
+/** Parses a RLE, but also supports legacy formats like Life 1.05.
+ * @param namedRules An object mapping aliases to rules.
+ * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
+*/
 export function parseWithCompatibility(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
     let lines = rle.trim().split('\n');
     let raw: number[][] = [];
@@ -655,6 +456,9 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
 
 const HEX_CHARS = '0123456789abcdef';
 
+/** Turns a rule into its Catagolue equivalent
+ * @param namedRules An object mapping aliases to rules.
+ */
 export function toCatagolueRule(rule: string, customRules?: {[key: string]: string}): string {
     if (rule.includes('|')) {
         return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
@@ -780,15 +584,20 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
 }
 
 
+/** Options for the soupSearch function */
 export interface SoupSearchOptions {
     rule: string;
     symmetry: string;
     soups: number;
+    /** The seed for the search, equivalent to apgsearch's -s setting. */
     seed?: string;
+    /** An optional function that logs data, will log messages similar to apgsearch. */
     print?: (data: string) => void;
 }
 
+/** The output of soupSearch, just an easier-to-use form of the haul files outputted by apgsearch. */
 export interface Haul {
+    /** The MD5 hash of the rule seed, apgsearch outputs this for some reason. */
     md5: string;
     seed: string;
     rule: string;
@@ -799,6 +608,7 @@ export interface Haul {
     samples: {[key: string]: number[]};
 }
 
+/** Uses a trick to redraw the screen if it's running in a browser. */
 function redraw(): Promise<number> | undefined {
     if (typeof requestAnimationFrame === 'function') {
         return new Promise(resolve => {
@@ -809,6 +619,7 @@ function redraw(): Promise<number> | undefined {
     }
 }
 
+/** Performs a soup search similar to apgsearch, but worse! */
 export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
     let print = options.print;
     let seed = options.seed ?? randomHashsoup();
@@ -889,6 +700,7 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
 }
 
 
+/** Parses a 5S-style speed format. */
 export function parseSpeed(speed: string): {dx: number, dy: number, period: number} {
     speed = speed.toLowerCase();
     if (!speed.includes('c')) {
@@ -929,9 +741,12 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     return {dx: x, dy: y, period: p};
 }
 
+/** The reverse of `parseSpeed`, unparses into a normalized 5S-style format. */
 export function speedToString({dx, dy, period}: {dx: number, dy: number, period: number}): string {
     if (dy === 0) {
-        if (dx === 1) {
+        if (dx === 0) {
+            return `p${period}`;
+        } else if (dx === 1) {
             return `c/${period}o`;
         } else {
             return `${dx}c/${period}o`;
@@ -944,5 +759,70 @@ export function speedToString({dx, dy, period}: {dx: number, dy: number, period:
         }
     } else {
         return `(${dx}, ${dy})c/${period}`;
+    }
+}
+
+
+/** Gets the black/white reversal of a rule, if available. */
+export function getBlackWhiteReversal(rule: string): string {
+    let p = createPattern(rule);
+    if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern || p instanceof MAPGenB0Pattern) {
+        let trs: Uint8Array;
+        if ('trs' in p) {
+            trs = p.trs.map(x => 1 - x).reverse();
+        } else {
+            trs = p.evenTrs.reverse();
+        }
+        let bStr: string;
+        let sStr: string;
+        if (rule.endsWith('H')) {
+            let [bTrs, sTrs] = arrayToTransitions(trs, HEX_TRANSITIONS);
+            bStr = unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true);
+            sStr = unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true);
+        } else {
+            let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
+            bStr = unparseTransitions(bTrs, VALID_TRANSITIONS, true);
+            sStr = unparseTransitions(sTrs, VALID_TRANSITIONS, true);
+        }
+        if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
+            return `${sStr}/${bStr}/${p.states}`;
+        } else {
+            return `B${bStr}/S${sStr}`;
+        }
+    } else if (p instanceof HROTPattern || p instanceof HROTB0Pattern) {
+        let b: Uint8Array;
+        let s: Uint8Array;
+        if (p instanceof HROTPattern) {
+            b = p.s.map(x => 1 - x).reverse();
+            s = p.b.map(x => 1 - x).reverse();
+        } else {
+            b = p.evenS.toReversed();
+            s = p.evenB.toReversed();
+        }
+        let out = `R${p.range},C${p.states},S${unparseHROTRanges(s)},B${unparseHROTRanges(b)}`;
+        if (p.nh) {
+            out += ',NW';
+            if (p.nh.every(x => x > -9 && x < 8)) {
+                out += Array.from(p.nh).map(x => (x < 0 ? x + 16 : x).toString(16)).join('');
+            } else {
+                out += Array.from(p.nh).map(x => (x < 0 ? x + 256 : x).toString(16).padStart(2, '0')).join('');
+            }
+        }
+        return out;
+    } else if (p instanceof DataHistoryPattern || p instanceof CoordHistoryPattern) {
+        return getBlackWhiteReversal(p.ruleStr.slice(0, -7)) + 'History';
+    } else if (p instanceof DataSuperPattern || p instanceof CoordSuperPattern) {
+        return getBlackWhiteReversal(p.ruleStr.slice(0, -5)) + 'Super';
+    } else if (p instanceof InvestigatorPattern) {
+        return getBlackWhiteReversal(p.ruleStr.slice(0, -12)) + 'Investigator';
+    } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
+        let index = p.ruleStr.lastIndexOf(':');
+        return getBlackWhiteReversal(p.ruleStr.slice(0, index)) + p.ruleStr.slice(index);
+    } else if (p instanceof TreePattern || p instanceof RuleLoaderBgollyPattern) {
+        throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
+    } else if (p instanceof AlternatingPattern) {
+        return p.ruleStr.split('|').map(getBlackWhiteReversal).join('|');
+    } else {
+        throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }
 }

@@ -1,10 +1,15 @@
 
+/** Implements an apgsearch-style soup searcher. */
+
 import {Pattern, RLE_CHARS} from './pattern.js';
 import {MAPPattern} from './map.js';
 import {getApgcode} from './identify.js';
 import {INTSeparator} from './intsep.js';
 
 
+/** Runs a pattern to stabilization.
+ * @param print A logging function.
+ */
 export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined, soup?: string, maxgen?: number, maxpop?: number): null | number | 'died' | {linear: true, period: number} {
     p.run(60);
     let maxPeriod = 6;
@@ -65,6 +70,10 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
     return null;
 }
 
+/** Runs a INT pattern to stabilization and censuses it into apgcodes and counts.
+ * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
+ * @param print A logging function.
+ */
 export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void, soup?: string): {[key: string]: number} {
     let period = stabilize(p, print, soup);
     if (period === 'died') {
@@ -106,6 +115,7 @@ export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: strin
 }
 
 
+/** Get an apgsearch/Catagolue hashsoup. */
 export async function getHashsoup(soup: string, symmetry: string): Promise<{height: number, width: number, data: Uint8Array}> {
     let hash = new Uint8Array(await crypto.subtle.digest('SHA-256', (new TextEncoder()).encode(soup)));
     let height = 16;
@@ -439,6 +449,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
 
 const HASHSOUP_LETTERS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
 
+/** Get a random apgsearch/Catagolue hashsoup. */
 export function randomHashsoup(): string {
     let data = crypto.getRandomValues(new Uint8Array(16));
     let out = 'k_';

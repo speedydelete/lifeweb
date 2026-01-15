@@ -1,12 +1,18 @@
 
+/* Contains abstract base classes for patterns and other utilites. */
+
+
+/** This error is raised when a rulestring is invalid or the wrong rule is passed. */
 export class RuleError extends Error {
     name: 'RuleError' = 'RuleError';
 }
 
+/** A symmetry for a rule. */
 export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2|' | 'D2-' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
 
 const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const RLE_PREFIXES = 'pqrstuvwxyz';
+/** The characters used by extended RLE's. */
 export const RLE_CHARS = ['.'];
 RLE_CHARS.push(...RLE_LETTERS);
 for (let prefix of RLE_PREFIXES) {
@@ -18,16 +24,20 @@ for (let prefix of RLE_PREFIXES) {
     }
 }
 
+/** The characters usable by apgcodes. */
 export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
 
 
+/** Used to convert 26-bit signed integers into 26-bit unsigned integers. */
 export const COORD_BIAS = 1 << 25;
+/** Used to pack 2 26-bit unsigned integers into a double. */
 export const COORD_WIDTH = 1 << 26;
 
 const BIAS = COORD_BIAS;
 const WIDTH = COORD_WIDTH
 
-export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
+/** The join operation for rule symmetries. */
+export const SYMMETRY_JOIN: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
     'C1': {
         'C1': 'C1',
         'C2': 'C2',
@@ -150,7 +160,8 @@ export const SYMMETRY_COMBINE: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleS
     },
 };
 
-export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
+/** The meet operation for rule symmetries. */
+export const SYMMETRY_MEET: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
     'C1': {
         'C1': 'C1',
         'C2': 'C1',
@@ -273,7 +284,15 @@ export const SYMMETRY_LEAST: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSym
     },
 };
 
-export function symmetryFromBases(C2: boolean, C4: boolean, D2h: boolean, D2v: boolean, D2s: boolean, D2b: boolean): RuleSymmetry {
+/** Takes in the 6 base rule symmetries and outputs the combination.
+ * @param C2 C2 symmetry
+ * @param C4 C4 symmetry
+ * @param D2h D2- symmetry
+ * @param D2v D2| symmetry
+ * @param D2s D2/ symmetry
+ * @param D2b D2\ symmetry
+ */
+export function getRuleSymmetryFromBases(C2: boolean, C4: boolean, D2h: boolean, D2v: boolean, D2s: boolean, D2b: boolean): RuleSymmetry {
     if (C4) {
         if (D2h || D2v || D2s || D2h) {
             return 'D8';
@@ -316,6 +335,7 @@ export function symmetryFromBases(C2: boolean, C4: boolean, D2h: boolean, D2v: b
 }
 
 
+/** Returned by Pattern.getRect(). */
 export interface Rect {
     height: number;
     width: number;
@@ -324,59 +344,111 @@ export interface Rect {
 }
 
 export interface Pattern {
+    /** The height of the pattern. */
     height: number;
+    /** The width of the pattern. */
     width: number;
+    /** Keeps track of how far it is offset in the X direction. */
     xOffset: number;
+    /** Keeps track of how far it is offset in the Y direction. */
     yOffset: number;
+    /** The generation it is on, this value is used by AlternatingPattern and B0 rules. */
     generation: number;
+    /** The number of states the rule has. */
     states: number;
+    /** The normalized rulestring. */
     ruleStr: string;
+    /** The symmetry that the rule follows. */
     ruleSymmetry: RuleSymmetry;
+    /** The period of the rule. This is 1 for most rules, 2 for B0 rules, and the number of alternations for alternating-time rules. */
     rulePeriod: number;
+    /** Runs a single generation. */
     runGeneration(): unknown;
+    /** Runs one or more generations. */
     run(generations?: number): this;
+    /** The number of non-state-0 cells. This may be implemented as a getter, so don't change it unless you're sure. */
     population: number;
+    /** Gets the bounding box of the pattern, like g.getrect(). */
     getRect(): Rect;
+    /** Checks if the pattern consists of dead cells. */
     isEmpty(): boolean;
+    /** Copies the pattern, including the rule and the data. */
     copy(): Pattern;
+    /** Copies the pattern, including the rule, but not including the data. */
     clearedCopy(): Pattern;
+    /** Ensures the pattern can hold at least a x by y value, does nothing in `CoordPattern`. */
     ensure(x: number, y: number): this;
+    /** Offsets the pattern data by x and y. */
     offsetBy(x: number, y: number): this;
+    /** Gets the value at the provided coordinates. */
     get(x: number, y: number): number;
+    /** Sets the value at the provided coordinates. */
     set(x: number, y: number, value: number): this;
+    /** Clears the data of the pattern. */
     clear(): this;
-    clear(x: number, y: number): this;
+    /** Clears part of the pattern. */
     clearPart(x: number, y: number, height: number, width: number): this;
+    /** Inserts a different pattern using OR insertion. */
     insert(p: Pattern, x?: number, y?: number): this;
-    insertOr(p: Pattern, x?: number, y?: number): this;
+    /** Inserts a different pattern, clearing all dead cells in the pattern. */
+    insertCopy(p: Pattern, x?: number, y?: number): this;
+    /** Inserts a different pattern using AND insertion. */
+    insertAnd(p: Pattern, x?: number, y?: number): this;
+    /** Inserts a different pattern using XOR insertion. */
+    insertXor(p: Pattern, x?: number, y?: number): this;
+    /** Extracts part of the pattern into a new one. */
     copyPart(x: number, y: number, height: number, width: number): Pattern;
+    /** Gets the pattern data as a Uint8Array. */
     getData(): Uint8Array;
-    setData(data: Uint8Array, height: number, width: number): this;
+    /** Sets the pattern data using a height, width, and Uint8Array. */
+    setData(height: number, width: number, data: Uint8Array): this;
+    /** Gets the pattern data as a Map. */
     getCoords(): Map<number, number>;
+    /** Sets the pattern data using a Map. */
     setCoords(coords: Map<number, number>): this;
+    /** Checks if 2 patterns are exactly equal. */
     isEqual(other: Pattern): boolean;
+    /** Checks if 2 patterns are equal, but with optional translation. (You should generally call `shrinkToFit` before calling this.) */
     isEqualWithTranslate(other: Pattern): boolean;
+    /** Hashes the pattern into a 32-bit number. */
     hash32(): number;
+    /** Hashes the pattern into a 64-bit number. */
     hash64(): bigint;
+    /** Shrinks the pattern so there are cells touching every edge, does nothing in `CoordPattern`. */
     shrinkToFit(): this;
+    /** Expands the pattern by the given amounts, does nothing in `CoordPattern`. */
     expand(up: number, down: number, left: number, right: number): this;
+    /** Flips the pattern along the line x = 0. */
     flipHorizontal(): this;
+    /** Flips the pattern along the line y = 0. */
     flipVertical(): this;
+    /** Swaps the x and y coordinates of every live cell. */
     transpose(): this;
+    /** Rotates the entire pattern right by 90 degrees. */
     rotateRight(): this;
+    /** Rotates the entire pattern left by 90 degrees. */
     rotateLeft(): this;
+    /** Flips the pattern by 180 degrees. */
     rotate180(): this;
+    /** Flips the pattern along the line x = -y, alias for `transpose`. */
     flipDiagonal(): this;
+    /** Flips the pattern along the line x = y. */
     flipAntiDiagonal(): this;
+    /** Gets the apgcode of the pattern. */
     toApgcode(prefix?: string): string;
+    /** Gets the canonicalized apgcode of the pattern. */
     toCanonicalApgcode(period?: number, prefix?: string): string;
+    /** Gets the RLE of the pattern. */
     toRLE(): string;
+    /** Loads an apgcode and returns a new pattern running the same rule. */
     loadApgcode(code: string): Pattern;
 }
 
 
+/** Implements Pattern while storing the internal data as a Uint8Array. Should only be used for range-1 rules. */
 export abstract class DataPattern implements Pattern {
 
+    /** Stores the pattern data in row-major order. */
     data: Uint8Array;
     height: number;
     width: number;
@@ -504,18 +576,11 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    clear(): this;
-    clear(x: number, y: number): this;
-    clear(x?: number, y?: number): this {
-        if (!x) {
-            this.height = 0;
-            this.width = 0;
-            this.size = 0;
-            this.data = new Uint8Array(0);
-        } else {
-            // @ts-ignore
-            this.data[y * this.width + x] = 0;
-        }
+    clear(): this {
+        this.height = 0;
+        this.width = 0;
+        this.size = 0;
+        this.data = new Uint8Array(0);
         return this;
     }
 
@@ -529,16 +594,6 @@ export abstract class DataPattern implements Pattern {
     }
 
     insert(p: Pattern, x: number = 0, y: number = 0): this {
-        let index = 0;
-        let pData = p.getData();
-        for (let i = 0; i < p.height; i++) {
-            this.data.set(pData.slice(index, index + p.width), (y + i) * this.width + x);
-            index += p.width;
-        }
-        return this;
-    }
-
-    insertOr(p: Pattern, x: number = 0, y: number = 0): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             for (let x2 = 0; x2 < p.width; x2++) {
                 let value = p.get(x2, y2);
@@ -550,11 +605,45 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
+    insertCopy(p: Pattern, x: number = 0, y: number = 0): this {
+        let index = 0;
+        let pData = p.getData();
+        for (let i = 0; i < p.height; i++) {
+            this.data.set(pData.slice(index, index + p.width), (y + i) * this.width + x);
+            index += p.width;
+        }
+        return this;
+    }
+
+    insertAnd(p: Pattern, x: number = 0, y: number = 0): this {
+        for (let y2 = 0; y2 < p.height; y2++) {
+            for (let x2 = 0; x2 < p.width; x2++) {
+                let value = p.get(x2, y2);
+                if (value) {
+                    this.data[(y + y2) * this.width + x + x2] &= value;
+                }
+            }
+        }
+        return this;
+    }
+
+    insertXor(p: Pattern, x: number = 0, y: number = 0): this {
+        for (let y2 = 0; y2 < p.height; y2++) {
+            for (let x2 = 0; x2 < p.width; x2++) {
+                let value = p.get(x2, y2);
+                if (value) {
+                    this.data[(y + y2) * this.width + x + x2] ^= value;
+                }
+            }
+        }
+        return this;
+    }
+
     getData(): Uint8Array {
         return this.data;
     }
 
-    setData(data: Uint8Array, height: number, width: number): this {
+    setData(height: number, width: number, data: Uint8Array): this {
         this.data = data;
         this.height = height;
         this.width = width;
@@ -840,11 +929,11 @@ export abstract class DataPattern implements Pattern {
     }
 
     flipDiagonal(): this {
-        return this.rotateRight().flipHorizontal();
+        return this.transpose();
     }
 
     flipAntiDiagonal(): this {
-        return this.rotateLeft().flipHorizontal();
+        return this.transpose().rotate180();
     }
 
     _toApgcode(data: Uint8Array): string {
@@ -1169,10 +1258,15 @@ export abstract class DataPattern implements Pattern {
 
 }
 
+
+/** Implements CA by storing the pattern data in a Map. Much more general than `DataPattern`, but slower. */
 export abstract class CoordPattern implements Pattern {
 
+    /** The maximum number of cells away (in any direction, even diagonally) that can be affected by a cell change in a single generation. */
     range: number;
+    /** The equivalent HROT weighted neighborhood for the rule. If null, it will assume it is using a Moore nieghborhood. */
     nh?: Int8Array | null;
+    /** Stores the pattern data in a Map. We pack 26-bit signed integers into a 52-bit integer, which is then used as a double. */
     coords: Map<number, number>;
     xOffset: number = 0;
     yOffset: number = 0;
@@ -1187,6 +1281,7 @@ export abstract class CoordPattern implements Pattern {
         this.range = range;
     }
 
+    /** Gets the bounding box of the pattern. */
     getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {
         if (this.coords.size === 0) {
             return {minX: 0, maxX: 0, minY: 0, maxY: 0};
@@ -1289,15 +1384,31 @@ export abstract class CoordPattern implements Pattern {
     }
 
     insert(p: Pattern, x: number = 0, y: number = 0): this {
-        this.clearPart(x, y, p.height, p.width);
-        this.insertOr(p, x, y);
-        return this;
-    }
-
-    insertOr(p: Pattern, x: number = 0, y: number = 0): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, value] of p.getCoords()) {
             this.coords.set(key + offset, value);
+        }
+        return this;
+    }
+
+    insertCopy(p: Pattern, x: number = 0, y: number = 0): this {
+        this.clearPart(x, y, p.height, p.width);
+        this.insert(p, x, y);
+        return this;
+    }
+
+    insertAnd(p: Pattern, x: number = 0, y: number = 0): this {
+        let offset = (x + BIAS) * WIDTH + (y + BIAS);
+        for (let [key, value] of p.getCoords()) {
+            this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) & value);
+        }
+        return this;
+    }
+
+    insertXor(p: Pattern, x: number = 0, y: number = 0): this {
+        let offset = (x + BIAS) * WIDTH + (y + BIAS);
+        for (let [key, value] of p.getCoords()) {
+            this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) ^ value);
         }
         return this;
     }
@@ -1317,7 +1428,7 @@ export abstract class CoordPattern implements Pattern {
         return out;
     }
 
-    setData(data: Uint8Array, height: number, width: number): this {
+    setData(height: number, width: number, data: Uint8Array): this {
         this.coords.clear();
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {

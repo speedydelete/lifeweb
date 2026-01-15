@@ -1,4 +1,6 @@
 
+/* Temporary file for Caterer until ruleloader.ts gets fixed. */
+
 import {join} from 'node:path';
 import * as fs from 'node:fs';
 import {execSync} from 'node:child_process';
@@ -109,6 +111,7 @@ export class RuleLoaderBgollyPattern extends DataPattern {
         fs.writeFileSync(join(dir, 'in.rle'), this.toRLE());
         execSync(`(cd ${dir}; ./bgolly -a RuleLoader -s ./ -o out.rle -m ${n} in.rle)`, {stdio: 'inherit'});
         let rle = fs.readFileSync(join(dir, 'out.rle')).toString().split('\n').slice(1).join('\n').slice(0, -1);
+        // Copied from the parse function in index.ts
         let raw: number[][] = [];
         let num = '';
         let prefix = '';

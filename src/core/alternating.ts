@@ -1,4 +1,6 @@
 
+/* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
+
 import {Pattern, DataPattern, RuleSymmetry} from './pattern.js';
 
 
@@ -12,11 +14,13 @@ function gcd(a: number, b: number): number {
 }
 
 
+/** Implements alternating-time rules. */
 export class AlternatingPattern extends DataPattern {
 
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
+    /** A list of internal patterns that are copied into and out of when generations are run. Can be shared by multiple instances. */
     patterns: Pattern[];
     rulePeriod: number;
 
@@ -37,12 +41,12 @@ export class AlternatingPattern extends DataPattern {
 
     runGeneration(): void {
         let p = this.patterns[this.generation % this.patterns.length];
-        p.setData(this.data, this.height, this.width);
+        p.setData(this.height, this.width, this.data);
         p.generation = this.generation;
         p.xOffset = this.xOffset;
         p.yOffset = this.yOffset;
         p.runGeneration();
-        this.setData(p.getData(), p.height, p.width);
+        this.setData(p.height, p.width, p.getData());
         this.generation = p.generation;
         this.xOffset = p.xOffset;
         this.yOffset = p.yOffset;

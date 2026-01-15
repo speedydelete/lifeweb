@@ -1,7 +1,7 @@
 
 /*
 
-Implements xp2's algorithm for object seperation for INT rules:
+Implements xp2_882030kgz010602's algorithm for object seperation for INT rules:
 1. Give each group of kingwise-connected cells a number
 2. Run it for some number of generations, combining objects that birth cells
 3. After each generation, resolve knots
@@ -121,23 +121,36 @@ For optimization, we don't implement B1c.
 
 */
 
-
 import {MAPPattern, TRANSITIONS} from './map.js';
 import {findType, PatternType} from './identify.js';
 
 
-const MULTI_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => TRANSITIONS[x]);
+function gcd(a: number, b: number): number {
+    while (b > 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+
+/** The list of two-island knots */
+const TWO_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => TRANSITIONS[x]);
+/** The list of knots with three or more islands */
 const THREE_OR_MORE_ISLANDS = ['3c', '3y', '4c', '4y', '5e'].flatMap(x => TRANSITIONS[x]);
-let isMultiIsland = new Uint8Array(512);
+let isTwoIsland = new Uint8Array(512);
 let isThreeOrMoreIslands = new Uint8Array(512);
 for (let i = 0; i < 512; i++) {
-    if (MULTI_ISLAND.includes(i)) {
-        isMultiIsland[i] = 1;
+    if (TWO_ISLAND.includes(i)) {
+        isTwoIsland[i] = 1;
     }
     if (THREE_OR_MORE_ISLANDS.includes(i)) {
         isThreeOrMoreIslands[i] = 1;
     }
 }
+
+/* We precompute a 512-byte array containing all the knot information for a rule. For 2-island knots, the byte is 0 if merging should not happen or 1 if merging should happen. It is also 0 if it isn't a knot at all. For 3+-island knots, it is more complicated.*/
 
 const KNOT_TYPE = 0xF0;
 
@@ -168,17 +181,7 @@ const A5E_B2C = 1;
 const A5E_B4N = 2;
 const A5E_MERGE_ALL = 8;
 
-
-function gcd(a: number, b: number): number {
-    while (b > 0) {
-        let temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
-
-
+/** Gets a precomputed 512-bit array of knots for `INTSeparator`. */
 export function getKnots(trs: Uint8Array): Uint8Array {
     let out = new Uint8Array(512);
     let B1e = trs[0b010000000];
@@ -443,10 +446,16 @@ export function getKnots(trs: Uint8Array): Uint8Array {
 }
 
 
+/** Separates objects in INT rules using a colorizing algorithm. May have bugs. For details about that algorithm, see the comments at the top of lifeweb/src/2d/intsep.ts. 
+ * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
+*/
 export class INTSeparator extends MAPPattern {
 
+    /** Contains precomputed data to help with disconnected strict objects, for more information see the comments at the top of lifeweb/src/2d/intsep.ts. */
     knots: Uint8Array;
+    /** The group number of each live cell. */
     groups: Uint32Array;
+    /** The list of reassigned group numbers */
     reassignedGroups: {[key: number]: number} = {};
 
     constructor(p: MAPPattern | INTSeparator, knots: Uint8Array) {
@@ -464,14 +473,18 @@ export class INTSeparator extends MAPPattern {
             this.groups = p.groups;
             return;
         }
+        // We need to assign the initial group numbers.
+        // We do this for every contiguous group of cells, as described above.
         let groups = new Uint32Array(this.size);
         this.groups = groups;
         let nextGroup = 1;
+        // Top-left cell.
         if (data[0]) {
             groups[0] = nextGroup++;
         }
         let i = 1;
         for (; i < width; i++) {
+            // The other cells in the top row.
             if (data[i]) {
                 if (groups[i - 1]) {
                     groups[i] = groups[i - 1];
@@ -481,6 +494,7 @@ export class INTSeparator extends MAPPattern {
             }
         }
         for (let y = 1; y < height; y++) {
+            // The cells on the left column.
             if (data[i]) {
                 if (groups[i - width]) {
                     groups[i] = groups[i - width];
@@ -492,6 +506,7 @@ export class INTSeparator extends MAPPattern {
             }
             i++;
             for (let x = 1; x < width - 1; x++) {
+                // The cells in the middle. This part gets pretty complicated.
                 if (data[i]) {
                     let g0 = groups[i - width - 1];
                     let g1 = groups[i - width];
@@ -520,6 +535,7 @@ export class INTSeparator extends MAPPattern {
                 }
                 i++;
             }
+            // The cells in the right column.
             if (data[i]) {
                 if (groups[i - width - 1]) {
                     groups[i] = groups[i - width - 1];
@@ -535,6 +551,7 @@ export class INTSeparator extends MAPPattern {
         }
     }
 
+    /** Reassigns a group to another one, replacing all members and adding it to `reassignedGroups`. */
     reassign(a: number, b: number): boolean {
         if (a === b) {
             return false;
@@ -558,6 +575,9 @@ export class INTSeparator extends MAPPattern {
     }
 
     runGeneration(): boolean {
+        // This does not implement knot resolution, just the birth rule.
+        // Very similar to `MAPPattern.runGeneration`, but has additional birth checks.
+        // There are probably some bugs in this function.
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -760,7 +780,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc1] = groups[i + width];
                     }
-                    if (isMultiIsland[tr1]) {
+                    if (isTwoIsland[tr1]) {
                         let a = 0;
                         for (let x of [i - 2, i, i + width - 2, i + width - 1, i + width]) {
                             let y = groups[x];
@@ -791,7 +811,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc2] = groups[j];
                     }
-                    if (isMultiIsland[tr2]) {
+                    if (isTwoIsland[tr2]) {
                         let a = 0;
                         for (let x of [j - 2, j, j - width - 2, j - width - 1, j - width]) {
                             let y = groups[x];
@@ -853,7 +873,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc] = groups[i + width];
                     }
-                    if (isMultiIsland[tr]) {
+                    if (isTwoIsland[tr]) {
                         let a = 0;
                         for (let x of [i - width, i, i + width, i - width - 1, i + width - 1]) {
                             let y = groups[x];
@@ -893,7 +913,7 @@ export class INTSeparator extends MAPPattern {
                         } else {
                             newGroups[loc] = groups[i + width];
                         }
-                        if (isMultiIsland[tr]) {
+                        if (isTwoIsland[tr]) {
                             let a = 0;
                             for (let x of [i - width, i, i + width, i - width - 1, i + width - 1, i - width - 2, i, i + width - 2]) {
                                 let y = groups[x];
@@ -929,7 +949,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc] = groups[i + width - 1];
                     }
-                    if (isMultiIsland[tr]) {
+                    if (isTwoIsland[tr]) {
                         let a = 0;
                         for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
                             let y = groups[x];
@@ -965,20 +985,29 @@ export class INTSeparator extends MAPPattern {
         return out2;
     }
 
+    /** Merges disconnected strict objects. */
     resolveKnots(): boolean {
+        // Does the knot resolution step described above.
         let height = this.height;
         let width = this.width;
         let data = this.data;
         let groups = this.groups;
         let i = width + 1;
         let reassignments: [number, number][] = [];
+        // We only have to do it for the middle cells, because knots can only exist there.
+        // This considerably simplifies the code compared to `MAPPAttern.runGeneration`.
         for (let y = 1; y < height - 1; y++) {
             let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
             i++;
             for (let x = 1; x < width - 1; x++) {
                 tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
                 let value = this.knots[tr];
+                if (value === 0) {
+                    i++;
+                    continue;
+                }
                 if (value === 1) {
+                    // If it's 1, we know it is a 2-island knot, so we then find what to reassign.
                     let a = 0;
                     let x = groups[i - width - 2];
                     if (x) {
@@ -1046,7 +1075,8 @@ export class INTSeparator extends MAPPattern {
                             reassignments.push([x, a]);
                         }
                     }
-                } else if (value > 0) {
+                } else {
+                    // This implements the more complicated cases.
                     let type = value & KNOT_TYPE;
                     if (type === A3C) {
                         if (value === A3C) {
@@ -1259,6 +1289,7 @@ export class INTSeparator extends MAPPattern {
         return out;
     }
 
+    /** Gets all the groups as individual objects. Does not set the generation property, so if you want that, you should set it yourself. */
     getObjects(): MAPPattern[] {
         let groups = this.groups;
         let data: {[key: number]: [number, number][]} = [];
@@ -1309,6 +1340,12 @@ export class INTSeparator extends MAPPattern {
         return out;
     }
 
+    /** Performs complete object separation.
+     * @param limit The maximum number of generations to identify for.
+     * @param max The maximum number of object separation generations to run.
+     * @param recurseEveryTime I honestly forget what this thing actually does.
+     * @param depth The recursion depth. I think this is internal, but I'm not sure.
+     */
     separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [PatternType[], boolean] | null {
         if (this.isEmpty()) {
             return [[], false];

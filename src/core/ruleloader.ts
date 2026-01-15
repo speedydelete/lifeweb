@@ -1,15 +1,21 @@
 
+/* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
+
 import {RuleError, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
 
 
+/** Stores a compiled rule tree data. */
 export type Tree = (number | Tree)[];
 
+/** Associated information for a rule tree. */
 export interface RuleTree {
     states: number;
+    /** The weighted HROT neighborhood. */
     neighborhood: Int8Array;
     data: Tree;
 }
 
+/** A parsed @ RULE rule. */
 export interface AtRule {
     name?: string;
     desc?: string;
@@ -20,6 +26,7 @@ export interface AtRule {
 }
 
 
+/** The valid neighorhoods. */
 const RULELOADER_NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]],
     'vonneumann': [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]],
@@ -27,6 +34,9 @@ const RULELOADER_NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'onedimensional': [[0, 0], [-1, 0], [1, 0]],
 };
 
+
+// These functions are symmetry generators for a given neighborhood.
+// I honestly forget how exactly the symmetries are stored in it.
 
 function symC1(nh: [number, number][]): number[][] {
     return [];
@@ -301,6 +311,7 @@ function symPermute(nh: [number, number][]): number[][] {
     return permutations(nh.slice(1).map((_, i) => i + 1)).map(x => [0].concat(x));
 }
 
+/** Every valid symmetry in RuleLoader. */
 const SYMMETRIES: {[key: string]: (nh: [number, number][]) => number[][]} = {
     C1: symC1,
     C2: symC2,
@@ -328,9 +339,11 @@ const SYMMETRIES: {[key: string]: (nh: [number, number][]) => number[][]} = {
     permute: symPermute,
 };
 
+/** The default symmetry for rules. */
 const MOORE_PERMUTE = symPermute(RULELOADER_NEIGHBORHOODS['moore']);
 
 
+/** Parses JSON loosely. Lifelib uses literal_eval for this, which is probably unsafe and doesn't exist in JS anyway. */
 function parseJSONLoose(data: string): number[][] {
     let level = 0;
     let out: number[][] = [];
@@ -363,6 +376,7 @@ function parseJSONLoose(data: string): number[][] {
     return out;
 }
 
+/** Parses a rule tree. This function is probably broken. */
 function parseTree(data: string): RuleTree {
     let nh: [number, number][] = [];
     let nodes: Tree[] = [];
@@ -404,10 +418,13 @@ function parseTree(data: string): RuleTree {
     };
 }
 
+/** A single line in a rule table. */
 type TableValue = (number | {bind: true, index: number})[][];
 
+/** Stores the current variables in a rule table. */
 type TableVars = {[key: string]: {value: TableValue, bind: boolean}};
 
+/** Parses a brace list. These can be used inside rule table entries, unlike Golly, but like Nutshell. */
 function parseBraceList(data: string, vars: TableVars): TableValue {
     let braceLevel = 0;
     let out: TableValue = [];
@@ -505,10 +522,12 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
     return out;
 }
 
+/** Turns a rule table line into a rule tree. */
 function trsToTree(trs: number[][], states: number, center: number | null = null): Tree {
     if (trs[0].length === 2) {
         let out: Tree = [];
         for (let state = 0; state < states; state++) {
+            // -1 means any
             let value = trs.find(x => x[0] === state || x[0] === -1);
             if (value) {
                 out.push(value[1]);
@@ -547,7 +566,9 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
     return out;
 }
 
+/** Parses a rule table. */
 function parseTable(data: string): RuleTree {
+    // First, we resolve all variables and generate a normalized transition list in the lines variable.
     let nh: [number, number][] = RULELOADER_NEIGHBORHOODS['moore'];
     let sym = 0;
     let symString = 'permute';
@@ -574,6 +595,7 @@ function parseTable(data: string): RuleTree {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
                 }
+                // We have to reset the symmetries for every one.
                 let newSym = SYMMETRIES[symString](nh);
                 let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
                 if (index === -1) {
@@ -617,6 +639,7 @@ function parseTable(data: string): RuleTree {
             let bind = false;
             if (name.startsWith('var ')) {
                 // bind = true;
+                // I don't remember why I commented this out.
                 name = name.slice(4);
             }
             vars[name] = {bind, value: parseBraceList(value, vars)};
@@ -691,6 +714,7 @@ function parseTable(data: string): RuleTree {
                 }
             }
         }
+        // We need to remap the neighborhoods, because you can change the neighborhood within the rule table.
         let remap: number[] = [];
         for (let [x, y] of totalNh) {
             remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
@@ -740,6 +764,7 @@ function parseTable(data: string): RuleTree {
     };
 }
 
+/** Parses an @ RULE rule. */
 export function parseAtRule(rule: string): AtRule {
     let section = '';
     let out: Omit<AtRule, 'tree'> = {};
@@ -803,6 +828,7 @@ export function parseAtRule(rule: string): AtRule {
     return {...out, tree};
 }
 
+/** Turns a parsed @ RULE into a canonicalized rulestring. */
 export function atRuleToString(rule: AtRule): string {
     let out = '';
     if (rule.name || rule.desc) {
@@ -829,6 +855,7 @@ export function atRuleToString(rule: AtRule): string {
 }
 
 
+/** The most general built-in pattern class, can implement any rule, but is probably broken in some way. */
 export class TreePattern extends CoordPattern {
     
     nh: Int8Array;

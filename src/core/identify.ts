@@ -1,18 +1,30 @@
 
+/* Contains utilities for identifying and getting other information about patterns. */
+
 import {stringMD5} from './md5.js';
 import {RuleError, Pattern} from './pattern.js';
 import {PhaseData, findMinmax} from './minmax.js';
 
 
+/** The output of `findType`, contains basic information about a possibly periodic pattern. */
 export interface PatternType extends PhaseData {
+    /** If the pattern wasn't stable when identified, this will be set to the generation where the periodicity started. */
     stabilizedAt: number;
+    /** The period, is -1 if no periodicity is detected. */
     period: number;
+    /** The (x, y) displacement. */
     disp?: [number, number];
+    /** Whether it is linear growth. In this case, unless `classifyLinear` has been called and succeeded (set the `disp` property), the period is the population period. */
     linear?: boolean;
+    /** The power of it, set by `getApgcode` but nowhere else. Also, `getApgcode`'s implementation may be broken. */
     power?: number;
 }
 
 
+/** Performs basic identification of a pattern.
+ * @param limit The maximum number of generations to run for.
+ * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
+ */
 export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PatternType {
     p.shrinkToFit();
     let phases: Pattern[] = [p.copy()];
@@ -71,6 +83,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
 }
 
 
+/** Gets the apgcode of a pattern. */
 export function getApgcode(type: PatternType): string {
     if (type.disp) {
         let prefix: string;
@@ -160,6 +173,7 @@ export function getApgcode(type: PatternType): string {
     }
 }
 
+/** Gets a human-readable description of a pattern, such as "(1, 1)c/4 spaceship". */
 export function getDescription(type: PatternType): string {
     let out: string;
     if (type.linear) {
@@ -189,12 +203,16 @@ export function getDescription(type: PatternType): string {
 }
 
 
+/** Contains information about linear-growth patterns. */
 export interface LinearInfo {
     period: number;
     disp: [number, number];
     ash: Pattern;
 }
 
+/** Attempts to classify a linear-growth pattern.
+ * @param maxPeriodMul The maximum period multiplication for linear growth detection (for example, C4-symmetric RRG's can have a true period 4 times their given one).
+ */
 export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: number): null | LinearInfo {
     p = p.copy().run(type.stabilizedAt).shrinkToFit();
     p.xOffset = 0;
@@ -233,7 +251,7 @@ export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: numb
                             }
                         }
                     }
-                    ash.setData(ashData, ash.height, ash.width);
+                    ash.setData(ash.height, ash.width, ashData);
                     ash.shrinkToFit();
                     return {period: (i + 1) * type.period, disp: [xDisp, yDisp], ash};
                 }
@@ -244,15 +262,24 @@ export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: numb
 }
 
 
+/** Represents statistics about oscillators. */
 export interface OscillatorInfo {
+    /** The average number of cells that change each generation, only for still lifes, oscillators, and spaceships. */
     heat: number;
+    /** The average percentage of cells (across the whole envelope) that change each generation, only for oscillators. */
     temperature: number;
+    /** The number of cells that change divided by the number of cells in the envelope, only for oscillators. */
     volatility: number;
+    /** The number of cells whose period is the period of the oscillator (not a subperiod!) divided by the number of cells in the envelope, only for oscillators. */
     strictVolatility: number;
 }
 
-export function findOscillatorInfo(type: PatternType): number | OscillatorInfo {
+/** Finds the statistics of an oscillator. If given a non-oscillator or a still life, will return undefined. If given a spaceship, will only output the heat. */
+export function findOscillatorInfo(type: PatternType): undefined | {heat: number} | OscillatorInfo {
     let period = type.period;
+    if (period === -1 || (period === 1 && type.disp && type.disp[0] === 0 && type.disp[1] === 0)) {
+        return undefined;
+    }
     let oldPhases = type.phases.slice(type.stabilizedAt, type.stabilizedAt + period);
     let phases: Uint8Array[] = [];
     let minX = Math.min(...oldPhases.map(p => p.xOffset));
@@ -291,7 +318,7 @@ export function findOscillatorInfo(type: PatternType): number | OscillatorInfo {
     }
     let heat = totalHeat / type.period;
     if (!type.disp || (type.disp[0] !== 0 || type.disp[1] !== 0)) {
-        return heat;
+        return {heat};
     }
     let cellHistories: Uint8Array[] = [];
     for (let i = 0; i < size; i++) {
@@ -347,9 +374,12 @@ export function findOscillatorInfo(type: PatternType): number | OscillatorInfo {
 }
 
 
+/** Represents static symmetries, the possible symmetries of a pattern if it is only viewed in one generation. */
 export type StaticSymmetry = 'n' | '.c' | '.-e' | '.|e' | '.k' | 'rc' | 'rk' | '-c' | '-e' | '|c' | '|e' | '/' | '\\' | '+c' | '+-e' | '+|e' | '+k' | 'xc' | 'xk' | 'rc' | 'rk' | '*c' | '*k';
+/** Represents static symmetries as well as kinetic symmetries, a superset of static symmetries that take into account patterns flipping or rotating part-way through their period. */
 export type PatternSymmetry = StaticSymmetry | 'n.c' | 'n.-e' | 'n.|e' | 'n.k' | 'nrc' | 'nrk' | 'n-c' | 'n-e' | 'n|c' | 'n|e' | 'n/' | 'n\\' | '.crc' | '.c+c' | '.cxc' | '.-e+-e' | '.|e+|e' | '.krk' | '.k+k' | '.kxk' | 'rc*c' | 'rk*k' | '-c+c' | '-c+-e' | '-e+-e' | '-e+k' | '|c+c' | '|c+|e' | '|e+|e' | '|e+k' | '/xc' | '/xk' | '\\xc' | '\\xk' | '+c*c' | '+k*k' | 'xc*c' | 'xk*k';
 
+/** The Catagolue symmetry names of all the static symmetries and kinetic symmetries. */
 export const ALTERNATE_SYMMETRIES: {[K in PatternSymmetry]: string} = {
     'n': 'C1',
     '.c': 'C2_1',
@@ -412,6 +442,7 @@ export const ALTERNATE_SYMMETRIES: {[K in PatternSymmetry]: string} = {
     'xk*k': 'D4_x4 D8_4',
 };
 
+/** Finds the static symmetry of a pattern. */
 export function findStaticSymmetry(p: Pattern): StaticSymmetry {
     if (p.copy().rotate180().isEqual(p)) {
         if (p.copy().rotateRight().isEqual(p)) {
@@ -458,6 +489,7 @@ export function findStaticSymmetry(p: Pattern): StaticSymmetry {
     }
 }
 
+/** Finds the symmetry (static or kinetic) of a pattern. */
 export function findPatternSymmetry(type: PatternType): PatternSymmetry {
     let p = type.phases[0].run(type.stabilizedAt).shrinkToFit();
     if (p.isEmpty()) {
@@ -600,17 +632,31 @@ export function findPatternSymmetry(type: PatternType): PatternSymmetry {
 }
 
 
+/** An expanded version of `PatternType` containing more information. */
 export interface Identified extends PatternType {
+    /** A human-readable description, such as "(1, 1)c/4 spaceship". */
     desc: string;
+    /** If it is infinite growth, this may contain the output of each stage. */
     output?: Identified;
+    /** The average number of cells that change each generation, only for still lifes, oscillators, and spaceships. */
     heat?: number;
+    /** The average percentage of cells (across the whole envelope) that change each generation, only for oscillators. */
     temperature?: number;
+    /** The number of cells that change divided by the number of cells in the envelope, only for oscillators. */
     volatility?: number;
+    /** The number of cells whose period is the period of the oscillator (not a subperiod!) divided by the number of cells in the envelope, only for oscillators. */
     strictVolatility?: number;
+    /** The minimum and maximum rule that the pattern evolves the same in. */
     minmax?: [string, string];
+    /** The static/kinetic symmetry of the pattern. */
     symmetry: PatternSymmetry;
 }
 
+/** Performs a complete identification of a pattern.
+ * @param limit The maximum number of generations to run for.
+ * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
+ * @param maxPeriodMul The maximum period multiplication for linear growth detection (for example, C4-symmetric RRG's can have a true period 4 times their given one).
+ */
 export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
     let type = findType(p, limit, acceptStabilized);
@@ -625,9 +671,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
     let oscInfo: Partial<OscillatorInfo> = {};
     if (type.disp) {
         let data = findOscillatorInfo(type);
-        if (typeof data === 'number') {
-            oscInfo = {heat: data};
-        } else {
+        if (data !== undefined) {
             oscInfo = data;
         }
     }

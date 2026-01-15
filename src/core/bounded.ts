@@ -1,15 +1,26 @@
 
+/* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
+
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 
 
+/** A DataPattern-based implementation of rules running on finite planes.
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class FiniteDataPattern extends DataPattern {
 
     pattern: Pattern;
+    /** The height of the bounding box. */
     bbHeight: number;
+    /** The width of the bounding box. */
     bbWidth: number;
+    /** The minimum X value of live cells. */
     minX: number;
+    /** The minimum Y value of live cells. */
     minY: number;
+    /** The maximum X value of live cells. */
     maxX: number;
+    /** The maximum Y value of live cells. */
     maxY: number;
     xOffset: number;
     yOffset: number;
@@ -37,7 +48,7 @@ export class FiniteDataPattern extends DataPattern {
 
     runGeneration(): void {
         let p = this.pattern;
-        p.setData(this.data, this.height, this.width);
+        p.setData(this.height, this.width, this.data);
         p.xOffset = this.xOffset;
         p.yOffset = this.yOffset;
         p.runGeneration();
@@ -108,10 +119,15 @@ export class FiniteDataPattern extends DataPattern {
 }
 
 
+/** A CoordPattern-based implementation of rules running on finite planes.
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class FiniteCoordPattern extends CoordPattern {
 
     pattern: Pattern;
+    /** The height of the bounding box. */
     bbHeight: number;
+    /** The width of the bounding box. */
     bbWidth: number;
     states: number;
     ruleStr: string;
@@ -175,6 +191,9 @@ export class FiniteCoordPattern extends CoordPattern {
 }
 
 
+/** A DataPattern-based implementation of rules running on toruses, broken.
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class TorusDataPattern extends DataPattern {
 
     pattern: Pattern;
@@ -204,7 +223,7 @@ export class TorusDataPattern extends DataPattern {
             data[width + 1 + (y + 1) * (width + 2)] = this.data[y * width];
         }
         data.set(this.data.slice(0, width), data.length - width - 1);
-        p.setData(data, height + 2, width + 2);
+        p.setData(height + 2, width + 2, data);
         console.log(p.toRLE());
         p.runGeneration();
         console.log(p.toRLE());
@@ -270,14 +289,23 @@ export class TorusDataPattern extends DataPattern {
 }
 
 
+/** A CoordPattern-based implementation of rules running on toruses, broken.
+ * @param pattern The pattern that implements the rule, can be shared by multiple instances.
+ */
 export class TorusCoordPattern extends CoordPattern {
 
     pattern: Pattern;
+    /** The height of the torus. */
     torusHeight: number;
+    /** The width of the torus. */
     torusWidth: number;
+    /** The minimum X value of live cells. */
     minX: number;
-    maxX: number;
+    /** The minimum Y value of live cells. */
     minY: number;
+    /** The maximum X value of live cells. */
+    maxX: number;
+    /** The maximum Y value of live cells. */
     maxY: number;
     states: number;
     ruleStr: string;

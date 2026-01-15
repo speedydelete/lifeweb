@@ -1,7 +1,15 @@
 
-import {DataPattern, RuleError, RuleSymmetry, symmetryFromBases} from './pattern.js';
+/* Implements the 2**512 2-state range-1 Moore-neighborhood cellular automata and their Generations variants. 
+We index the trs variables like this to make it faster:
+852
+741
+630
+The rest of this file assumes you are familiar with the INT notation (https://conwaylife.com/wiki/Isotropic_non-totalistic_rule). */
+
+import {DataPattern, RuleError, RuleSymmetry, SYMMETRY_MEET, getRuleSymmetryFromBases} from './pattern.js';
 
 
+/** Each INT transition's mapping to a 9-bit number. */
 export const TRANSITIONS: {[key: string]: number[]} = {
     '0c': [0],
     '1c': [4, 256, 1, 64],
@@ -56,6 +64,7 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '8c': [495],
 };
 
+/** The valid INT transitions. */
 export const VALID_TRANSITIONS: string[] = [
     'c',
     'ce',
@@ -68,6 +77,7 @@ export const VALID_TRANSITIONS: string[] = [
     'c'
 ];
 
+/** Each hexagonal INT transition's mapping to a 512-bit number */
 export const HEX_TRANSITIONS: {[key: string]: number[]} = {
     '0o': [0, 4, 64, 68],
     '1o': [32, 36, 96, 100, 2, 6, 66, 70, 1, 5, 65, 69, 8, 12, 72, 76, 128, 132, 192, 196, 256, 260, 320, 324],
@@ -84,6 +94,7 @@ export const HEX_TRANSITIONS: {[key: string]: number[]} = {
     '6o': [427, 431, 491, 495],
 };
 
+/** The valid hexagonal INT transitions. */
 export const VALID_HEX_TRANSITIONS: string[] = [
     'o',
     'o',
@@ -97,6 +108,9 @@ export const VALID_HEX_TRANSITIONS: string[] = [
 const DIGITS = '0123456789';
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
+/** Parses an isotropic rule.
+ * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
+ */
 export function parseTransitions(data: string, validTrs: string[]): string[] {
     if (data.length === 0) {
         return [];
@@ -165,6 +179,11 @@ export function parseTransitions(data: string, validTrs: string[]): string[] {
     return Array.from(out);
 }
 
+/** The revese of `parseTransitions`, takes a list of transitions and outputs the shortened version.
+ * @param trs Something like `['2c', '2e', '3a', '4q']`.
+ * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
+ * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
+ */
 export function unparseTransitions(trs: string[], validTrs: string[], preferMinus: boolean): string {
     let sorted: string[] = [];
     for (let i = 0; i < validTrs.length; i++) {
@@ -198,6 +217,9 @@ export function unparseTransitions(trs: string[], validTrs: string[], preferMinu
     return out;
 }
 
+/** Takes in lists of B/S transitions and outputs the 512-bit Uint8Array for it
+ * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
+ */
 export function transitionsToArray(b: string[], s: string[], trs: {[key: string]: number[]}): Uint8Array<ArrayBuffer> {
     let out = new Uint8Array(512);
     for (let tr of b) {
@@ -213,6 +235,9 @@ export function transitionsToArray(b: string[], s: string[], trs: {[key: string]
     return out;
 }
 
+/** The reverse of `transitionsToArray`, takes in a 512-bit Uint8Array and outputs the B/S transition lists.
+ * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
+*/
 export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: number[]}): [string[], string[]] {
     let b: string[] = [];
     let s: string[] = [];
@@ -227,6 +252,11 @@ export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: numbe
     return [b, s];
 }
 
+/** Parses an isotropic rulestring (pre-split into B and S components)
+ * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
+ * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
+ * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
+ */
 export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], preferMinus: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
     let bTrs = parseTransitions(b, validTrs);
     let sTrs = parseTransitions(s, validTrs);
@@ -292,7 +322,7 @@ export function unparseMAP(trs: Uint8Array): string {
 }
 
 
-export function findTrsSymmetry(trs: Uint8Array): RuleSymmetry {
+export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
     let C2 = true;
     let C4 = true;
     let D2h = true;
@@ -340,11 +370,13 @@ export function findTrsSymmetry(trs: Uint8Array): RuleSymmetry {
             break;
         }
     }
-    return symmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
+    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
 }
 
 
-export function create16Trs(trs: Uint8Array): Uint8Array {
+/** Bad, very incomplete, QuickLife implementation. */
+
+function create16Trs(trs: Uint8Array): Uint8Array {
     let out = new Uint8Array(65536);
     for (let i = 0; i < 65536; i++) {
         out[i] |= trs[((i >> 5) & 7) | ((i >> 6) & 56) | ((i >> 7) & 448)] << 7;
@@ -486,8 +518,15 @@ function runTile(t: Tile, trs: Uint8Array): void {
 }
 
 
+/** Implements the 2**511 2-state range-1 Moore-neighborhood cellular automata without B0, which includes Conway's Game of Life and most other studied rules. */
 export class MAPPattern extends DataPattern {
 
+    /** A 512-bit Uint8Array storing the transition to do for each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     trs: Uint8Array;
     states: 2 = 2;
     ruleStr: string;
@@ -502,14 +541,24 @@ export class MAPPattern extends DataPattern {
     }
 
     runGeneration(): void {
+        // I will explain how this function works, but not the ones in MAPB0Pattern, MAPGenPattern, and MAPGenB0Pattern.
+        // We first compute how it should expand, if at all.
+        // Then we run the interior of the pattern.
         let width = this.width;
         let height = this.height;
+        /** The width multiplied by the height. */
         let size = this.size;
+        /** The pattern data (before running the generation). */
         let data = this.data;
+        /** The 512-bit string that encodes the rule. */
         let trs = this.trs;
+        /** The width multiplied by 2. */
         let width2 = width << 1;
+        /** The index in `data` of the last row of the original data. */
         let lastRow = size - width;
+        /** The index in `data` of the second-to-last row of the original data. */
         let secondLastRow = size - width2;
+        // We first compute how it should expand in the top and bottom
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -518,6 +567,7 @@ export class MAPPattern extends DataPattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
+        // This part is only for B1e and B2a rules.
         if (width > 1) {
             if (trs[tr1]) {
                 expandUp = 1;
@@ -540,7 +590,9 @@ export class MAPPattern extends DataPattern {
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
             j++;
+            // This is why we index the trs variables weirdly, so we can do this!
             tr1 = ((tr1 << 3) & 511) | data[i];
+            // We shift it by 2 because we are computing the bottom, we need to move it to the top of the transition because we are seeing if it should expand downwards.
             tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
             if (trs[tr1]) {
                 expandUp = 1;
@@ -551,6 +603,7 @@ export class MAPPattern extends DataPattern {
                 downExpands[loc] = 1;
             }
         }
+        // This part is only for B1e and B2a rules.
         if (width > 1) {
             if (trs[(tr1 << 3) & 511]) {
                 expandUp = 1;
@@ -570,12 +623,14 @@ export class MAPPattern extends DataPattern {
                 downExpands[width - 1] = 1;
             }
         }
+        // We then compute how it should expand to the left and right.
         let expandLeft = 0;
         let expandRight = 0;
         let leftExpands = new Uint8Array(height);
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
+        // This part is only for B1e and B2a rules.
         if (height > 1) {
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -598,7 +653,9 @@ export class MAPPattern extends DataPattern {
         let loc = 0;
         for (i = width2; i < size; i += width) {
             loc++;
+            // In this case, we are computing to the left, so the 3 bits to consider are all on the right.
             tr1 = ((tr1 << 1) & 7) | data[i];
+            // In this case, we are computing to the right, so the 3 bits to consider are all on the right, so we shift by 6 bits.
             tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -610,6 +667,7 @@ export class MAPPattern extends DataPattern {
             }
         }
         i -= width;
+        // This part is only for B1c, B1e, or B2a rules.
         if (height > 1) {
             if (trs[(tr1 << 1) & 7]) {
                 expandLeft = 1;
@@ -629,6 +687,7 @@ export class MAPPattern extends DataPattern {
                 rightExpands[height - 1] = 1;
             }
         }
+        // Special B1c checks.
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
         let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
@@ -645,13 +704,21 @@ export class MAPPattern extends DataPattern {
         if (b1cne || b1cse) {
             expandRight = 1;
         }
+        /** The offset for each row, how many new elements are between each row. */
         let oX = expandLeft + expandRight;
+        /** The offset between the start of `data` and the start of `out`. */
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        /** The offset between the end of `data` and the end of `out`. */
         let oSize = oStart + oX * height;
+        /** The width of each row of `out`. */
         let newWidth = width + oX;
+        /** The height of `out`. */
         let newHeight = height + expandUp + expandDown;
+        /** The length of `out`. */
         let newSize = newWidth * newHeight;
+        /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
+        // Putting the expansion data into the output
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
@@ -676,34 +743,41 @@ export class MAPPattern extends DataPattern {
                 out[loc] = rightExpands[i];
             }
         }
+        // We need to do a special case for when width === 1, the basic method breaks in that case.
         if (width <= 1) {
             if (width === 1) {
                 let tr = (data[0] << 4) | (data[1] << 3);
                 let loc = oStart;
+                // The top cell.
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
                 loc += oX + 1;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
+                    // Each middle cell.
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     loc += oX + 1;
                 }
+                // The bottom cell.
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
                 }
             }
         } else {
+            // We first need to compute the top and bottom rows.
             let loc1 = oStart;
             let loc2 = lastRow + oSize - oX;
             j = lastRow + 1;
             tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
+            // The top-left cell.
             if (trs[tr1]) {
                 out[loc1] = 1;
             }
+            // The bottom-left cell.
             if (trs[tr2]) {
                 out[loc2] = 1;
             }
@@ -712,25 +786,31 @@ export class MAPPattern extends DataPattern {
                 loc1++;
                 loc2++;
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
+                // The middle cells of the top row.
                 if (trs[tr1]) {
                     out[loc1] = 1;
                 }
+                // The middle cells of the bottom row.
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
                 }
             }
+            // The top-right cell.
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
             }
+            // The bottom-right cell.
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
             }
+            // We then finally compute all the middle rows!
             i = width + 1;
             loc = oStart + width;
             for (let y = 1; y < height - 1; y++) {
                 loc += oX;
                 let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                // The leftmost cell of the row.
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
@@ -738,12 +818,14 @@ export class MAPPattern extends DataPattern {
                 loc++;
                 for (let x = 1; x < width - 1; x++) {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                    // The middle cells.
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     i++;
                     loc++;
                 }
+                // The rightmost cell of the row.
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
                 }
@@ -790,9 +872,22 @@ export class MAPPattern extends DataPattern {
 }
 
 
+/** Implements the 2**511 2-state range-1 Moore-neighborhood cellular automata with B0. Because we cannot simulate an infinite grid of cells, these are emulated via the process described at (https://golly.sourceforge.io/Help/Algorithms/QuickLife.html). */
 export class MAPB0Pattern extends DataPattern {
 
+    /** A 512-bit Uint8Array storing the transition to do on even generations for each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     evenTrs: Uint8Array;
+    /** A 512-bit Uint8Array storing the transition to do on odd generations each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     oddTrs: Uint8Array;
     states: 2 = 2;
     ruleStr: string;
@@ -808,6 +903,7 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     runGeneration(): void {
+        // An explanation of how this function works is in the comments in MAPPattern.runGeneration
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1096,8 +1192,15 @@ export class MAPB0Pattern extends DataPattern {
 }
 
 
+/** Implements the Generations (https://conwaylife.com/wiki/Generations) variant of the rules implemented by  `MAPPattern`. */
 export class MAPGenPattern extends DataPattern {
 
+    /** A 512-bit Uint8Array storing the transition to do for each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     trs: Uint8Array;
     states: number;
     ruleStr: string;
@@ -1113,6 +1216,7 @@ export class MAPGenPattern extends DataPattern {
     }
 
     runGeneration(): void {
+        // An explanation of how this function works is in the comments in MAPPattern.runGeneration
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1472,9 +1576,22 @@ export class MAPGenPattern extends DataPattern {
 }
 
 
-export class MAPB0GenPattern extends DataPattern {
+/** Implements the Generations (https://conwaylife.com/wiki/Generations) variant of the rules implemented by  `MAPB0Pattern`. */
+export class MAPGenB0Pattern extends DataPattern {
 
+    /** A 512-bit Uint8Array storing the transition to do on even generations for each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     evenTrs: Uint8Array;
+    /** A 512-bit Uint8Array storing the transition to do on odd generations each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
     oddTrs: Uint8Array;
     states: number;
     ruleStr: string;
@@ -1491,6 +1608,7 @@ export class MAPB0GenPattern extends DataPattern {
     }
 
     runGeneration(): void {
+        // An explanation of how this function works is in the comments in MAPPattern.runGeneration.
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1820,31 +1938,217 @@ export class MAPB0GenPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): MAPB0GenPattern {
-        let out = new MAPB0GenPattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+    copy(): MAPGenB0Pattern {
+        let out = new MAPGenB0Pattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): MAPB0GenPattern {
-        return new MAPB0GenPattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+    clearedCopy(): MAPGenB0Pattern {
+        return new MAPGenB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): MAPB0GenPattern {
+    copyPart(x: number, y: number, height: number, width: number): MAPGenB0Pattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPB0GenPattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
-    loadApgcode(code: string): MAPB0GenPattern {
+    loadApgcode(code: string): MAPGenB0Pattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPB0GenPattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
+}
+
+
+/** The mapping of von Neumann neighorhood rules to INT transitions. */
+export const VON_NEUMANN: string[][] = [
+    ['0c', '1c', '2c', '2n', '3c', '4c'],
+    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
+    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
+    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
+    ['4e', '5c', '6c', '6n', '7c', '8c'],
+];
+
+/** Parses the rulestring format for MAP rules and their subsets. */
+export function createMAPPattern(rule: string, height: number, width: number, data: Uint8Array): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pattern {
+    let raw = rule;
+    let ruleStr: string;
+    let trs = new Uint8Array(512);
+    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
+    let states = 2;
+    let match: RegExpMatchArray | null;
+    let end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+        rule = rule.slice(0, -1);
+    } else if (end === 'v') {
+        neighborhood = 'V';
+        rule = rule.slice(0, -1);
+    } else if (end === 'h') {
+        neighborhood = 'H';
+        rule = rule.slice(0, -1);
+    }
+    if (match = rule.match(/^[gG]([0-9]+)/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(match[0].length);
+    }
+    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+        states = parseInt(match[1]);
+        rule = rule.slice(0, -match[0].length);
+    }
+    end = rule[rule.length - 1];
+    if (end === 'V' || end === 'H') {
+        neighborhood = end;
+        rule = rule.slice(0, -1);
+    } else if (end === 'v') {
+        neighborhood = 'V';
+        rule = rule.slice(0, -1);
+    } else if (end === 'h') {
+        neighborhood = 'H';
+        rule = rule.slice(0, -1);
+    }
+    if (rule.startsWith('MAP')) {
+        trs = parseMAP(rule.slice(3));
+        ruleStr = raw;
+    } else if (rule.startsWith('W')) {
+        if (!rule.match(/^W\d+$/)) {
+            throw new RuleError('Invalid W rule');
+        }
+        let num = parseInt(rule.slice(1));
+        if (Number.isNaN(num)) {
+            throw new RuleError('Invalid W rule');
+        }
+        for (let i = 0; i < 512; i++) {
+            trs[i | (1 << 4)] = 1;
+        }
+        for (let i = 0; i < 8; i++) {
+            if (num & (1 << i)) {
+                trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = 1;
+            }
+        }
+        ruleStr = 'W' + num;
+    } else {
+        let b = '';
+        let s = '';
+        let sections: string[];
+        let bs = false;
+        if (rule.includes('/')) {
+            sections = rule.split('/');
+            if (sections.length > 2) {
+                throw new RuleError('More than 1 slash provided');
+            }
+        } else if (rule.includes('_')) {
+            sections = rule.split('_');
+            if (sections.length > 2) {
+                throw new RuleError('More than 1 underscore provided');
+            }
+        } else if (rule.includes('S') || rule.includes('s')) {
+            let index = rule.indexOf('s');
+            if (index === -1) {
+                index = rule.indexOf('S');
+            }
+            sections = [rule.slice(0, index), rule.slice(index)];
+            bs = true;
+        } else {
+            sections = [rule];
+        }
+        for (let i = 0; i < sections.length; i++) {
+            let section = sections[i];
+            if (section[0] === 'B' || section[0] === 'b') {
+                bs = true;
+                b = section.slice(1);
+            } else if (section[0] === 'S' || section[0] === 's') {
+                bs = true;
+                s = section.slice(1);
+            } else {
+                if (!bs) {
+                    if (i === 0) {
+                        s = section;
+                    } else if (i === 1) {
+                        b = section;
+                    } else {
+                        throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                    }
+                } else {
+                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                }
+            }
+        }
+        if (neighborhood === 'V') {
+            let newB = '';
+            for (let char of b) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newB += VON_NEUMANN[value].join('');
+            }
+            b = newB;
+            let newS = '';
+            for (let char of s) {
+                let value = parseInt(char);
+                if (!(value >= 0 && value < VON_NEUMANN.length)) {
+                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
+                }
+                newS += VON_NEUMANN[value].join('');
+            }
+            s = newS;
+            neighborhood = 'M';
+        }
+        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
+        if (neighborhood === 'M') {
+            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS, false);
+        } else if (neighborhood === 'H') {
+            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
+        } else {
+            return `R1,C${states},B${b},S${s},NL`;
+        }
+        b = out.b;
+        s = out.s;
+        trs = out.data;
+        if (states > 2) {
+            ruleStr = `${s}/${b}/${states}`;
+        } else {
+            ruleStr = `B${b}/S${s}`;
+        }
+        if (neighborhood === 'H') {
+            ruleStr += 'H';
+        }
+    }
+    if (trs[0]) {
+        if (trs[511]) {
+            let out = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                out[i] = 1 - trs[511 - i];
+            }
+            trs = out;
+        } else {
+            let evenTrs = new Uint8Array(512);
+            let oddTrs = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                evenTrs[i] = 1 - trs[i];
+                oddTrs[i] = trs[511 - i];
+            }
+            let symmetry = SYMMETRY_MEET[findTransitionsSymmetry(evenTrs)][findTransitionsSymmetry(oddTrs)];
+            if (states > 2) {
+                return new MAPGenB0Pattern(height, width, data, evenTrs, oddTrs, states, ruleStr, symmetry);
+            } else {
+                return new MAPB0Pattern(height, width, data, evenTrs, oddTrs, ruleStr, symmetry);
+            }
+        }
+    }
+    let symmetry = findTransitionsSymmetry(trs);
+    if (states > 2) {
+        return new MAPGenPattern(height, width, data, trs, states, ruleStr, symmetry);
+    } else {
+        return new MAPPattern(height, width, data, trs, ruleStr, symmetry);
+    }
 }
