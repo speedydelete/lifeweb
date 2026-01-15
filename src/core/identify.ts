@@ -85,26 +85,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
 
 /** Gets the apgcode of a pattern. */
 export function getApgcode(type: PatternType): string {
-    if (type.disp) {
-        let prefix: string;
-        if (type.disp[0] === 0 && type.disp[1] === 0) {
-            let cells = type.pops[type.pops.length - 1];
-            if (type.period === 1) {
-                if (cells === 0) {
-                    return 'xs0_0';
-                }
-                prefix = 'xs' + cells;
-            } else {
-                if (cells === 0) {
-                    return `xp${type.period}_0`;
-                }
-                prefix = 'xp' + type.period;
-            }
-        } else {
-            prefix = 'xq' + type.period;
-        }
-        return type.phases[0].toCanonicalApgcode(type.period, prefix);
-    } else if (type.linear) {
+    if (type.linear) {
         let diffs = type.pops.slice(type.stabilizedAt, -type.period).map((x, i) => type.pops[type.stabilizedAt + i + type.period] - x);
         let subperiod: number | null = null;
         for (let i = 1; i < type.period; i++) {
@@ -139,6 +120,25 @@ export function getApgcode(type: PatternType): string {
             }
             return `yl${type.period}_${subperiod}_${moment0}_${stringMD5(moment1 + '#' + moment2)}`;
         }
+    } else if (type.disp) {
+        let prefix: string;
+        if (type.disp[0] === 0 && type.disp[1] === 0) {
+            let cells = type.pops[type.pops.length - 1];
+            if (type.period === 1) {
+                if (cells === 0) {
+                    return 'xs0_0';
+                }
+                prefix = 'xs' + cells;
+            } else {
+                if (cells === 0) {
+                    return `xp${type.period}_0`;
+                }
+                prefix = 'xp' + type.period;
+            }
+        } else {
+            prefix = 'xq' + type.period;
+        }
+        return type.phases[0].toCanonicalApgcode(type.period, prefix);
     } else {
         let data: [number, number][] = [];
         let totalI = 0;
