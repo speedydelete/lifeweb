@@ -500,6 +500,10 @@ export function findPatternSymmetry(type: PatternType): PatternSymmetry {
         return start;
     }
     let half = p.copy().run(type.period / 2).shrinkToFit();
+    p.xOffset = 0;
+    p.yOffset = 0;
+    half.xOffset = 0;
+    half.yOffset = 0;
     if (start === 'n') {
         if (p.copy().rotate180().isEqual(half)) {
             if (p.copy().run(type.period / 4).rotateRight().isEqual(p)) {
