@@ -318,7 +318,7 @@ export function unparseMAP(trs: Uint8Array): string {
             out[Math.floor(i / 8)] |= (1 << (8 - i % 8));
         }
     }
-    return 'MAP' + btoa(String.fromCharCode(...out));
+    return btoa(String.fromCharCode(...out));
 }
 
 
