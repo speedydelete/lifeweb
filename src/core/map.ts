@@ -2017,7 +2017,7 @@ export function createMAPPattern(rule: string, height: number, width: number, da
     }
     if (rule.startsWith('MAP')) {
         trs = parseMAP(rule.slice(3));
-        ruleStr = raw;
+        ruleStr = 'MAP' + unparseMAP(trs);
     } else if (rule.startsWith('W')) {
         if (!rule.match(/^W\d+$/)) {
             throw new RuleError('Invalid W rule');
