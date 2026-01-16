@@ -345,7 +345,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
         let data = cellHistories[i];
         if (data.every(x => x === 0)) {
             continue;
-        } else if (data.every(x => x > 0)) {
+        } else if (data.slice(1).every(x => x === data[0])) {
             statorCells++;
         } else {
             let isStrict = true;
