@@ -469,7 +469,11 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         parts[0] = parts[0];
         parts[1] = parts[1];
         if (parts.length === 2) {
-            return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
+            if (parts[1].endsWith('H')) {
+                return `b${parts[0].slice(1)}s${parts[1].slice(1, -1)}h`;
+            } else {
+                return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
+            }
         } else {
             let isHex = false;
             if (parts[2].endsWith('H')) {
