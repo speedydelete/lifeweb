@@ -138,7 +138,7 @@ export function getApgcode(type: PatternType): string {
         } else {
             prefix = 'xq' + type.period;
         }
-        return type.phases[0].toCanonicalApgcode(type.period, prefix);
+        return type.phases[type.stabilizedAt].toCanonicalApgcode(type.period, prefix);
     } else {
         let data: [number, number][] = [];
         let totalI = 0;
