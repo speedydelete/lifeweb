@@ -315,7 +315,7 @@ export function unparseMAP(trs: Uint8Array): string {
     let out = new Uint8Array(64);
     for (let i = 0; i < 512; i++) {
         if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            out[Math.floor(i / 8)] |= (1 << (7 - i % 7));
+            out[Math.floor(i / 8)] |= (1 << (7 - i % 8));
         }
     }
     return btoa(String.fromCharCode(...out));
