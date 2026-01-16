@@ -382,6 +382,7 @@ let knots = getKnots(base.trs);
 export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | CAObject[] {
     let period = stabilize(p);
     if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
+        console.log('invalid period');
         return false;
     }
     p.run(c.EXTRA_GENERATIONS);
@@ -406,6 +407,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
         let apgcode = getApgcode(type);
         if (apgcode.startsWith('xs')) {
             if (apgcode === 'xs0_0') {
+                console.log('xs0_0');
                 return false;
             }
             stillLifes.push({
@@ -537,10 +539,10 @@ export interface RecipeData {
     };
 }
 
-let recipeFile = `recipes_${toCatagolueRule(c.RULE)}`;
+let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.json`;
 
 export async function getRecipes(): Promise<RecipeData> {
-    if (exists('recipes.json')) {
+    if (exists(recipeFile)) {
         return JSON.parse((await fs.readFile(recipeFile)).toString());
     } else {
         return {

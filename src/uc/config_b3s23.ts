@@ -38,7 +38,7 @@ const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
-const VALID_POPULATION_PERIODS: null | number[] = [];
+const VALID_POPULATION_PERIODS: null | number[] = null;
 // the extra generations to run after a collision, just to make sure
 const EXTRA_GENERATIONS = 64;
 // the generations to run the colorizing object separation for
