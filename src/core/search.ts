@@ -24,7 +24,7 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
         if (maxpop && pop > maxpop) {
             return null;
         }
-        for (let period = 1; period < Math.min(maxPeriod, Math.floor(pops.length / 15)); period++) {
+        for (let period = 1; period < Math.min(maxPeriod, Math.floor(pops.length / 16)); period++) {
             let found = true;
             for (let j = 1; j < 16; j++) {
                 if (pop !== pops[pops.length - period * j]) {
@@ -37,7 +37,7 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
             }
         }
         if (i > 500 && i % 50 === 0) {
-            for (let period = 1; period < Math.floor(i / 20); period++) {
+            for (let period = 1; period < Math.floor(i / 16); period++) {
                 let diff = pop - pops[pops.length - period];
                 let found = true;
                 for (let j = 1; j < 16; j++) {
