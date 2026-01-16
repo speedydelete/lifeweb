@@ -24,7 +24,7 @@ export function stabilize(p: Pattern, print?: ((data: string) => void) | undefin
         if (maxpop && pop > maxpop) {
             return null;
         }
-        for (let period = 1; period < Math.min(maxPeriod, Math.floor(pops.length / 16)); period++) {
+        for (let period = 1; period < Math.min(maxPeriod, Math.floor(i / 16)); period++) {
             let found = true;
             for (let j = 1; j < 16; j++) {
                 if (pop !== pops[pops.length - period * j]) {
