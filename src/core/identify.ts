@@ -336,8 +336,6 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
     for (let i = 2; i < Math.ceil(Math.sqrt(period)); i++) {
         if (period % i === 0) {
             factors.push(i);
-        }
-        if (i**2 !== period) {
             factors.push(period / i);
         }
     }
