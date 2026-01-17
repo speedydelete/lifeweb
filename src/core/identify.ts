@@ -341,6 +341,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
             factors.push(period / i);
         }
     }
+    console.log('testing');
     for (let i = 0; i < size; i++) {
         let data = cellHistories[i];
         if (data.every(x => x === 0)) {
@@ -359,6 +360,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
                     }
                 }
                 if (!found) {
+                    console.log(p);
                     isStrict = false;
                     break;
                 }
