@@ -339,7 +339,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
             factors.push(period / i);
         }
     }
-    console.log('testing');
+    console.log(factors);
     for (let i = 0; i < size; i++) {
         let data = cellHistories[i];
         if (data.every(x => x === 0)) {
