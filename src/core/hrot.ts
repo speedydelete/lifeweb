@@ -6,6 +6,9 @@ import {CoordPattern, RuleError, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH a
 
 /** Parses a HROT range, such as "3-4" or "1". */
 export function parseHROTRange(data: string): number[] {
+    if (data.length === 0) {
+        return [];
+    }
     if (!data.match(/^\d+((-|\.\.)\d+)?$/)) {
         throw new RuleError(`Invalid HROT range: ${data}`);
     }
