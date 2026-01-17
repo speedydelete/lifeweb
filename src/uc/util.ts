@@ -180,23 +180,32 @@ export function objectsToString(objs: CAObject[]): string {
 }
 
 export function stringToObjects(data: string): CAObject[] {
+    data = data.trim();
+    if (data === 'nothing') {
+        return [];
+    }
     let objs: string[] = [];
     let inParen = false;
     let current = '';
     for (let char of data) {
-        if (char === '(') {
-            inParen = true;
-        } else if (char === ')') {
-            inParen = false;
-        } else if (char === ',' && !inParen) {
+        if (char === ',' && !inParen) {
             objs.push(current.trim());
             current = '';
         } else {
+            if (char === '(') {
+                inParen = true;
+            } else if (char === ')') {
+                inParen = false;
+            }
             current += char;
         }
     }
+    current = current.trim();
+    if (current.length > 0) {
+        objs.push(current);
+    }
     let out: CAObject[] = [];
-    for (let obj in objs) {
+    for (let obj of objs) {
         let data = obj.split(' (');
         let code = data[0];
         let args = data[1].slice(0, -1).split(', ');
@@ -382,7 +391,6 @@ let knots = getKnots(base.trs);
 export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | CAObject[] {
     let period = stabilize(p);
     if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        console.log('invalid period');
         return false;
     }
     p.run(c.EXTRA_GENERATIONS);
@@ -407,7 +415,6 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
         let apgcode = getApgcode(type);
         if (apgcode.startsWith('xs')) {
             if (apgcode === 'xs0_0') {
-                console.log('xs0_0');
                 return false;
             }
             stillLifes.push({
@@ -525,45 +532,129 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
 export interface RecipeData {
     salvos: {
         forInput: {[key: string]: [number, CAObject[]][]};
-        forOutput: {[key: string]: [CAObject[], StillLife[], Spaceship[], number[][]]};
-        tileRecipes: {[key: string]: [StillLife[], StillLife[], number[]]},
-        basicRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
+        forOutput: {[key: string]: [CAObject[], number[][]]};
+        moveRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
         splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
         destroyRecipes: {[key: string]: number[][]};
-        oneTimeTurners: {[key: string]: [string, StillLife, Spaceship, number[]][]};
-        oneTimeSplitters: {[key: string]: [string, StillLife, Spaceship[], number[]][]};
-    };
-    compilation: {
-        tileSize: number;
-        tiles: {[key: string]: {[key: string]: number[]}};
     };
 }
 
-let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.json`;
+type RecipeSection = `salvos.${keyof RecipeData['salvos']}`;
 
-export async function getRecipes(): Promise<RecipeData> {
-    if (exists(recipeFile)) {
-        return JSON.parse((await fs.readFile(recipeFile)).toString());
-    } else {
-        return {
-            salvos: {
-                forInput: {},
-                forOutput: {},
-                tileRecipes: {},
-                basicRecipes: {},
-                splitRecipes: {},
-                destroyRecipes: {},
-                oneTimeTurners: {},
-                oneTimeSplitters: {},
-            },
-            compilation: {
-                tileSize: 0,
-                tiles: {},
-            },
-        };
+let sectionNames: {[key: string]: RecipeSection} = {
+    'Salvos (for input)': 'salvos.forInput',
+    'Salvos (for output)': 'salvos.forOutput',
+    'Move recipes': 'salvos.moveRecipes',
+    'Split recipes': 'salvos.splitRecipes',
+    'Destroy recipes': 'salvos.destroyRecipes',
+};
+
+let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
+
+function parseRecipeSections(data: string[]): [string, string[]][] {
+    let out: [string, string[]][] = [];
+    let name: string | undefined = undefined;
+    let current: string[] = [];
+    for (let line of data) {
+        if (line.endsWith(':')) {
+            if (typeof name === 'string' && current.length > 0) {
+                out.push([name, current]);
+            }
+            name = line.slice(0, -1);
+            current = [];
+        } else {
+            current.push(line);
+        }
+    }
+    if (typeof name === 'string' && current.length > 0) {
+        out.push([name, current]);
+    }
+    return out;
+}
+
+function addSection(section: string, current: string[], out: RecipeData): void {
+    if (section === 'salvos.forInput') {
+        for (let [apgcode, data] of parseRecipeSections(current)) {
+            out.salvos.forInput[apgcode] = data.map(x => x.split(':')).map(x => [parseInt(x[0]), stringToObjects(x[1])]);
+        }
+    } else if (section === 'salvos.forOutput') {
+        for (let [key, data] of parseRecipeSections(current)) {
+            out.salvos.forOutput[key] = [stringToObjects(key.split(' to ')[1]), data.map(x => x.split(', ').map(y => parseInt(y)))];
+        }
+    } else if (section === 'salvos.moveRecipes') {
+        for (let [key, data] of parseRecipeSections(current)) {
+            let [input, output] = key.split(' to ');
+            out.salvos.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.map(x => x.split(', ').map(y => parseInt(y)))];
+        }
+    } else if (section === 'salvos.splitRecipes') {
+        for (let [key, data] of parseRecipeSections(current)) {
+            let [input, output] = key.split(' to ');
+            out.salvos.splitRecipes[key] = [stringToObjects(input)[0] as StillLife, stringToObjects(output) as StillLife[], data.map(x => x.split(', ').map(y => parseInt(y)))];
+        }
+    } else if (section === 'salvos.destroyRecipes') {
+        for (let [key, data] of parseRecipeSections(current)) {
+            out.salvos.destroyRecipes[key] = data.map(x => x.split(', ').map(y => parseInt(y)));
+        }   
     }
 }
 
-export async function saveRecipes(recipes: RecipeData): Promise<void> {
-    await fs.writeFile(recipeFile, JSON.stringify(recipes));
+export async function getRecipes(): Promise<RecipeData> {
+    let out: RecipeData = {
+        salvos: {
+            forInput: {},
+            forOutput: {},
+            moveRecipes: {},
+            splitRecipes: {},
+            destroyRecipes: {},
+        },
+    };
+    if (!exists(recipeFile)) {
+        return out;
+    }
+    let data = (await fs.readFile(recipeFile)).toString();
+    let section: RecipeSection | undefined = undefined;
+    let current: string[] = [];
+    for (let line of data.split('\n')) {
+        line = line.trim();
+        if (line.length === 0 || line.startsWith('#')) {
+            continue;
+        } else if (line.endsWith(':') && line.slice(0, -1) in sectionNames) {
+            if (section !== undefined) {
+                addSection(section, current, out);
+            }
+            section = sectionNames[line.slice(0, -1)];
+            current = [];
+            continue;
+        } else {
+            current.push(line);
+        }
+    }
+    if (section !== undefined) {
+        addSection(section, current, out);
+    }
+    return out;
+}
+
+export async function saveRecipes(data: RecipeData): Promise<void> {
+    let out = '\nSalvos (for input):\n\n';
+    for (let [key, value] of Object.entries(data.salvos.forInput)) {
+        out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
+    }
+    out += '\nSalvos (for output):\n\n';
+    for (let [key, value] of Object.entries(data.salvos.forOutput)) {
+        out += `${key}:\n${value[1].map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    out += '\nMove recipes:\n\n';
+    for (let [key, value] of Object.entries(data.salvos.moveRecipes)) {
+        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    out += `\nSplit recipes:\n\n`;
+    for (let [key, value] of Object.entries(data.salvos.splitRecipes)) {
+        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    out += `\nDestroy recipes:\n\n`;
+    for (let [key, value] of Object.entries(data.salvos.destroyRecipes)) {
+        out += `${key}:\n${value.map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    await fs.writeFile(recipeFile, out.slice(0, -1));
 }
