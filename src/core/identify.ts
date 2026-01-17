@@ -329,7 +329,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
             cellHistories[j][i] = phases[i][j];
         }
     }
-    let activeCells = cellHistories.map<number>(x => x.some(y => y) ? 1 : 0).reduce((x, y) => x + y);
+    let activeCells = 0;
     let statorCells = 0;
     let strictCells = 0;
     let factors: number[] = [];
@@ -348,6 +348,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
         } else if (data.slice(1).every(x => x === data[0])) {
             statorCells++;
         } else {
+            activeCells++;
             let isStrict = true;
             for (let p of factors) {
                 let found = false;
