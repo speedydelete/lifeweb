@@ -358,8 +358,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
                         break;
                     }
                 }
-                if (found) {
-                    console.log(p);
+                if (!found) {
                     isStrict = false;
                     break;
                 }
