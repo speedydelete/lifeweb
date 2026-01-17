@@ -1,6 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, StillLife, Spaceship, CAObject, base, gliderPattern, translateObjects, objectsToString, findOutcome, getRecipes, saveRecipes} from './util.js';
+import {c, StillLife, Spaceship, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, findOutcome, getRecipes, saveRecipes} from './util.js';
 
 
 export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
@@ -113,9 +113,9 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
     return [newObjs, out];
 }
 
-function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [CAObject[], StillLife[], Spaceship[], number[][]]}, start: string, add: CAObject[] = []): void {
+function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [StillLife, CAObject[], StillLife[], Spaceship[], number[][]]}, start: string, startObj: StillLife, add: CAObject[] = []): void {
     for (let [lane, objs] of data[code]) {
-        if (!objs || objs.length === 0 || objs.some(x => x.type === 'other')) {
+        if (!objs || objs.some(x => x.type === 'other')) {
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
@@ -130,7 +130,7 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
         let str = start + ' to ' + objectsToString(objs);
         if (str) {
             if (str in out) {
-                out[str][3].push(recipe);
+                out[str][4].push(recipe);
             } else {
                 let sls: StillLife[] = [];
                 let ships: Spaceship[] = [];
@@ -141,18 +141,11 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
                         ships.push(obj);
                     }
                 }
-                out[str] = [objs, sls, ships, [recipe]];
+                out[str] = [startObj, objs, sls, ships, [recipe]];
             }
             if (count < limit) {
                 if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
-                    getForOutputRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start);
-                } else {
-                    for (let i = 0; i < objs.length; i++) {
-                        let obj = objs[i];
-                        if (obj.type === 'sl' && obj.code in data) {
-                            getForOutputRecipes(data, obj.code, recipe, obj.x, obj.y, count + 1, limit, out, start, objs.toSpliced(i, 1));
-                        }
-                    }
+                    getForOutputRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start, startObj);
                 }
             }
         }
@@ -204,8 +197,8 @@ export async function searchSalvos(limit: number): Promise<void> {
                 newQueue.push(...newObjs);
             }
             let now = performance.now();
-            if (now - prevUpdateTime > 1500) {
-                console.log(`Depth ${i + 1} ${(j / queue.length).toFixed(2)}% complete`);
+            if (now - prevUpdateTime > 1000) {
+                console.log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
                 prevUpdateTime = now;
             }
         }
@@ -214,9 +207,11 @@ export async function searchSalvos(limit: number): Promise<void> {
         queue = newQueue;
     }
     console.log('Completed search, compiling recipes');
-    let forOutput: {[key: string]: [CAObject[], StillLife[], Spaceship[], number[][]]} = {};
-    for (let obj in forInput) {
-        getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, obj);
+    let forOutput: {[key: string]: [StillLife, CAObject[], StillLife[], Spaceship[], number[][]]} = {};
+    for (let obj of c.INTERMEDIATE_OBJECTS) {
+        if (obj in forInput) {
+            getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, obj, stringToObjects(obj + ' (0, 0)')[0] as StillLife);
+        }
     }
     let recipes = await getRecipes();
     let data = recipes.salvos;
@@ -225,34 +220,24 @@ export async function searchSalvos(limit: number): Promise<void> {
             data.forInput[key] = forInput[key].filter(x => x[1]) as [number, CAObject[]][];
         }
     }
-    for (let key in forOutput) {
-        addRecipesSubkey(data.forOutput, [forOutput[key][0], forOutput[key][3]] as const, key, 1);
+    for (let [key, value] of Object.entries(forOutput)) {
+        addRecipesSubkey(data.forOutput, [value[0], value[1], value[4]] as const, key, 2);
     }
-    for (let [key, [input, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
-        if (input.length === 1 && input[0].type === 'sl') {
-            if (outLifes.length === 0) {
-                if (outShips.length === 0) {
-                    addRecipes(data.destroyRecipes, recipes, input[0].code);
-                }
-            } else {
-                if (outShips.length === 0) {
-                    if (outLifes.length === 1) {
-                        addRecipesSubkey(data.moveRecipes, [input[0], outLifes[1], recipes] as const, key, 2);
-                    } else {
-                        addRecipesSubkey(data.splitRecipes, [input[0], outLifes, recipes] as const, key, 2);
-                    }
-                }
-            }
-        }
-        if (outShips.length === 0 && input.every(x => x.type === 'sl')) {
-            let shortest = recipes[0];
-            for (let recipe of recipes.slice(1)) {
-                if (recipe.length < shortest.length) {
-                    shortest = recipe;
-                }
-            }
-        }
-    }
+    // for (let [key, [input, outFull, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
+    //     if (outLifes.length === 0) {
+    //         if (outShips.length === 0) {
+    //             addRecipes(data.destroyRecipes, recipes, input.code);
+    //         }
+    //     } else {
+    //         if (outShips.length === 0 && outLifes.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
+    //             if (outLifes.length === 1) {
+    //                 addRecipesSubkey(data.moveRecipes, [input, outLifes[1], recipes] as const, key, 2);
+    //             } else {
+    //                 addRecipesSubkey(data.splitRecipes, [input, outLifes, recipes] as const, key, 2);
+    //             }
+    //         }
+    //     }
+    // }
     saveRecipes(recipes);
 }
 
