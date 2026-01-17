@@ -359,6 +359,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
                     }
                 }
                 if (found) {
+                    console.log(p);
                     isStrict = false;
                     break;
                 }
