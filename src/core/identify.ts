@@ -350,10 +350,10 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
         } else {
             let isStrict = true;
             for (let p of factors) {
-                let found = true;
+                let found = false;
                 for (let i = 0; i < data.length - p; i++) {
                     if (data[i] !== data[i + p]) {
-                        found = false;
+                        found = true;
                         break;
                     }
                 }
