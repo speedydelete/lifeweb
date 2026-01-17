@@ -335,7 +335,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
     let factors: number[] = [];
     for (let i = 2; i < Math.ceil(Math.sqrt(period)); i++) {
         if (period % i === 0) {
-            factors.push(period);
+            factors.push(i);
         }
         if (i**2 !== period) {
             factors.push(period / i);
@@ -360,7 +360,6 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
                     }
                 }
                 if (!found) {
-                    console.log(p);
                     isStrict = false;
                     break;
                 }
