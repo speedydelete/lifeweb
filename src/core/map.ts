@@ -2130,6 +2130,24 @@ export function createMAPPattern(rule: string, height: number, width: number, da
                 out[i] = 1 - trs[511 - i];
             }
             trs = out;
+            if (ruleStr.startsWith('MAP')) {
+                ruleStr = 'MAP' + unparseMAP(trs);
+            } else {
+                let isHex = ruleStr.endsWith('H');
+                let allTrs = isHex ? HEX_TRANSITIONS : TRANSITIONS;
+                let validTrs = isHex ? VALID_HEX_TRANSITIONS : VALID_TRANSITIONS;
+                let [bTrs, sTrs] = arrayToTransitions(trs, allTrs);
+                let b = unparseTransitions(bTrs, validTrs, isHex);
+                let s = unparseTransitions(sTrs, validTrs, isHex);
+                if (states > 2) {
+                    ruleStr = `${s}/${b}/${states}`;
+                } else {
+                    ruleStr = `B${b}/S${s}`;
+                }
+                if (isHex) {
+                    ruleStr += 'H';
+                }
+            }
         } else {
             let evenTrs = new Uint8Array(512);
             let oddTrs = new Uint8Array(512);
