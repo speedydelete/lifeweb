@@ -20,7 +20,7 @@ export function parseHROTRange(data: string): number[] {
     } else {
         index = data.indexOf('..');
         if (index !== -1) {
-            end = parseInt(data.slice(index + 1));
+            end = parseInt(data.slice(index + 2));
         }
     }
     if (Number.isNaN(start) || Number.isNaN(end)) {
