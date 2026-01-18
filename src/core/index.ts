@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {readFileSync} from 'node:fs';
 import {stringMD5} from './md5.js';
 import {RuleError, RLE_CHARS, SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
-import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
+import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
@@ -777,21 +777,25 @@ export function getBlackWhiteReversal(rule: string): string {
         } else {
             trs = p.evenTrs.reverse();
         }
-        let bStr: string;
-        let sStr: string;
-        if (rule.endsWith('H')) {
-            let [bTrs, sTrs] = arrayToTransitions(trs, HEX_TRANSITIONS);
-            bStr = unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true);
-            sStr = unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true);
+        if (p.ruleSymmetry === 'D8') {
+            let bStr: string;
+            let sStr: string;
+            if (rule.endsWith('H')) {
+                let [bTrs, sTrs] = arrayToTransitions(trs, HEX_TRANSITIONS);
+                bStr = unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true);
+                sStr = unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true);
+            } else {
+                let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
+                bStr = unparseTransitions(bTrs, VALID_TRANSITIONS, true);
+                sStr = unparseTransitions(sTrs, VALID_TRANSITIONS, true);
+            }
+            if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
+                return `${sStr}/${bStr}/${p.states}`;
+            } else {
+                return `B${bStr}/S${sStr}`;
+            }
         } else {
-            let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
-            bStr = unparseTransitions(bTrs, VALID_TRANSITIONS, true);
-            sStr = unparseTransitions(sTrs, VALID_TRANSITIONS, true);
-        }
-        if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
-            return `${sStr}/${bStr}/${p.states}`;
-        } else {
-            return `B${bStr}/S${sStr}`;
+            return 'MAP' + unparseMAP(trs);
         }
     } else if (p instanceof HROTPattern || p instanceof HROTB0Pattern) {
         let b: Uint8Array;

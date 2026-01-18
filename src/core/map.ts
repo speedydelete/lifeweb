@@ -718,7 +718,7 @@ export class MAPPattern extends DataPattern {
         let newSize = newWidth * newHeight;
         /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
-        // Putting the expansion data into the output
+        // Putting the expansion data into the output.
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
