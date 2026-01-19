@@ -707,12 +707,19 @@ export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
 /** Parses a 5S-style speed format. */
 export function parseSpeed(speed: string): {dx: number, dy: number, period: number} {
     speed = speed.toLowerCase();
-    if (!speed.includes('c')) {
+    let disp: string;
+    let period: string;
+    if (speed.includes('c')) {
+        [disp, period] = speed.split('c');
+        if (period.startsWith('/')) {
+            period = period.slice(1);
+        }
+    } else if (speed.includes('/')) {
+        [disp, period] = speed.split('/');
+    } else if (speed.startsWith('p')) {
+        return {dx: 0, dy: 0, period: parseInt(speed.slice(1))};
+    } else {
         throw new Error('Invalid speed!');
-    }
-    let [disp, period] = speed.split('c');
-    if (period.startsWith('/')) {
-        period = period.slice(1);
     }
     let p = parseInt(period);
     let x: number;
