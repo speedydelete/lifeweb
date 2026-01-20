@@ -1,118 +1,8 @@
 
 /** Implements an apgsearch-style soup searcher. */
 
-import {Pattern, RLE_CHARS} from './pattern.js';
-import {MAPPattern} from './map.js';
-import {getApgcode} from './identify.js';
-import {INTSeparator} from './intsep.js';
-
-
-/** Runs a pattern to stabilization.
- * @param print A logging function.
- */
-export function stabilize(p: Pattern, print?: ((data: string) => void) | undefined, soup?: string, maxgen?: number, maxpop?: number): null | number | 'died' | {linear: true, period: number} {
-    p.run(60);
-    let maxPeriod = 6;
-    let pops: number[] = [];
-    maxgen ??= 120000;
-    for (let i = 0; i < maxgen; i++) {
-        p.runGeneration();
-        let pop = p.population;
-        if (pop === 0) {
-            return 'died';
-        }
-        if (maxpop && pop > maxpop) {
-            return null;
-        }
-        for (let period = 1; period < Math.min(maxPeriod, Math.floor(i / 16)); period++) {
-            let found = true;
-            for (let j = 1; j < 16; j++) {
-                if (pop !== pops[pops.length - period * j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return period;
-            }
-        }
-        if (i > 500 && i % 50 === 0) {
-            for (let period = 1; period < Math.floor(i / 16); period++) {
-                let diff = pop - pops[pops.length - period];
-                let found = true;
-                for (let j = 1; j < 16; j++) {
-                    if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
-                        found = false;
-                        break;
-                    }
-                }
-                if (found) {
-                    return {linear: true, period};
-                }
-            }
-        }
-        pops.push(pop);
-        if (i === 60) {
-            maxPeriod = 12;
-        } else if (i === 120) {
-            maxPeriod = 24;
-        } else if (i === 240) {
-            maxPeriod = 60;
-        }
-    }
-    if (print) {
-        if (soup) {
-            print(`Failed to detect periodic behavior in soup ${soup}!`);
-        } else {
-            print('Failed to detect periodic behavior!');
-        }
-    }
-    return null;
-}
-
-/** Runs a INT pattern to stabilization and censuses it into apgcodes and counts.
- * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
- * @param print A logging function.
- */
-export function censusINT(p: MAPPattern, knots: Uint8Array, print?: (data: string) => void, soup?: string): {[key: string]: number} {
-    let period = stabilize(p, print, soup);
-    if (period === 'died') {
-        period = 1;
-    } else if (period === null) {
-        period = 0;
-    } else if (typeof period === 'object') {
-        period = period.period;
-    }
-    let sep = new INTSeparator(p, knots);
-    let data = sep.separate(period * 8, Math.max(period * 8, 256));
-    if (!data) {
-        if (print) {
-            if (soup) {
-                print(`Unable to separate objects in soup ${soup}!`);
-            } else {
-                print('Unable to separate objects!');
-            }
-        }
-        return {PATHOLOGICAL: 1};
-    }
-    if (data[1] && print) {
-        if (soup) {
-            print(`Unable to separate multi-island object or confirm that it is strict in soup ${soup}!`);
-        } else {
-            print(`Unable to separate multi-island object or confirm that it is strict!`);
-        }
-    }
-    let out: {[key: string]: number} = {};
-    for (let type of data[0]) {
-        let apgcode = getApgcode(type);
-        if (apgcode in out) {
-            out[apgcode]++;
-        } else {
-            out[apgcode] = 1;
-        }
-    }
-    return out;
-}
+import {RuleError, RLE_CHARS} from './pattern.js';
+import {createPattern} from './index.js';
 
 
 /** Get an apgsearch/Catagolue hashsoup. */
@@ -466,4 +356,138 @@ export function randomHashsoup(): string {
         out += HASHSOUP_LETTERS[value];
     }
     return out;
+}
+
+
+const HEX_CHARS = '0123456789abcdef';
+
+/** Turns a rule into its Catagolue equivalent
+ * @param namedRules An object mapping aliases to rules.
+ */
+export function toCatagolueRule(rule: string, customRules?: {[key: string]: string}): string {
+    if (rule.includes('|')) {
+        return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
+    }
+    let ruleStr = createPattern(rule, undefined, customRules).ruleStr;
+    if (ruleStr.includes('/')) {
+        let parts = ruleStr.split('/');
+        parts[0] = parts[0];
+        parts[1] = parts[1];
+        if (parts.length === 2) {
+            if (parts[1].endsWith('H')) {
+                return `b${parts[0].slice(1)}s${parts[1].slice(1, -1)}h`;
+            } else {
+                return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
+            }
+        } else {
+            let isHex = false;
+            if (parts[2].endsWith('H')) {
+                isHex = true;
+                parts[2] = parts[2].slice(-1);
+            }
+            let out = `g${parts[2]}b${parts[1]}s${parts[0]}`;
+            if (isHex) {
+                return out + 'h';
+            } else {
+                return out;
+            }
+        }
+    } else if (ruleStr.startsWith('R')) {
+        let parts = ruleStr.split(',');
+        let r = parseInt(parts[0].slice(1));
+        let c = parseInt(parts[1].slice(1));
+        if (parts[2].startsWith('W')) {
+            let w = parts[2].slice(1);
+            if (c > 2) {
+                return `xg${c}r${r}w${w}`;
+            } else {
+                return `xr${r}w${w}`;
+            }
+        }
+        let s: number[] = [];
+        let b: number[] = [];
+        let parsingB = false;
+        parts[2] = parts[2].slice(1);
+        let n: string | null = null;
+        for (let part of parts.slice(2)) {
+            if (part.length === 0) {
+                continue;
+            } else if (part.startsWith('B')) {
+                parsingB = true;
+                part = part.slice(1);
+            } else if (part.startsWith('N')) {
+                n = part.slice(1);
+                continue;
+            }
+            if (parsingB) {
+                b.push(parseInt(part));
+            } else {
+                s.push(parseInt(part));
+            }
+        }
+        let out = 'r' + r + 'b';
+        if (c > 2) {
+            out = 'g' + c + out;
+        }
+        for (let x of [b, s]) {
+            for (let i = (2*r + 1)**2 - 1; i > 0; i -= 4) {
+                let value = 0;
+                if (b.includes(i)) {
+                    value |= 8;
+                }
+                if (b.includes(i - 1)) {
+                    value |= 4;
+                }
+                if (b.includes(i - 2)) {
+                    value |= 2;
+                }
+                if (b.includes(i - 3)) {
+                    value |= 1;
+                }
+                out += HEX_CHARS[value];
+            }
+            if (x === b) {
+                out += 's';
+            }
+        }
+        if (n !== null) {
+            out = 'x' + out + 'n';
+            if (n === '*') {
+                out += 'star';
+            } else if (n === '+') {
+                out += 'plus';
+            } else if (n === '#') {
+                out += 'hash';
+            } else if (n.startsWith('@')) {
+                out += 'at' + n.slice(1);
+            } else {
+                out += n.toLowerCase();
+            }
+        }
+        if (out.endsWith('h')) {
+            out += 'x';
+        }
+        return out;
+    } else if (ruleStr.startsWith('MAP')) {
+        if (ruleStr.length < 89) {
+            // @ts-ignore
+            if (typeof alert === 'function') {
+                // @ts-ignore
+                alert('bruh');
+            }
+            throw new RuleError('bruh');
+        }
+        let out = 'map' + ruleStr.slice(3, 88);
+        if (ruleStr.length > 89 && ruleStr[89] === '/') {
+            out = 'g' + parseInt(ruleStr.slice(90)) + out;
+        }
+        if (out.endsWith('h')) {
+            out += 'x';
+        }
+        return 'x' + out;
+    } else if (ruleStr.startsWith('W')) {
+        return 'xw' + ruleStr.slice(1);
+    } else {
+        throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
+    }
 }

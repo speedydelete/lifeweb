@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {execSync, spawn} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './index.js';
+import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './core/index.js';
 import {getKnots, INTSeparator} from './intsep.js';
 
 

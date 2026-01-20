@@ -244,7 +244,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     return {range: r, b: outB, s: outS, nh: n2 ? new Int8Array(n2.flat()) : null, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
 }
 
-export const HEX_CHARS = '0123456789abcdef';
+const HEX_CHARS = '0123456789abcdef';
 
 /** Parses a Catagolue-format HROT rulestring into a bunch of data. */
 export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {

@@ -3,7 +3,6 @@
 
 import {join} from 'node:path';
 import {readFileSync} from 'node:fs';
-import {stringMD5} from './md5.js';
 import {RuleError, RLE_CHARS, SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
@@ -12,8 +11,6 @@ import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPatte
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
 import {RuleLoaderBgollyPattern} from './ruleloader_bgolly.js';
-import {getKnots} from './intsep.js';
-import {censusINT, getHashsoup, randomHashsoup} from './search.js';
 
 export * from './pattern.js';
 export * from './map.js';
@@ -26,7 +23,7 @@ export * from './bounded.js';
 export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';
-export * from './search.js';
+export * from './catagolue.js';
 
 
 /** Creates a pattern from a rulestring.
@@ -451,256 +448,6 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
     }
     out.generation = generation;
     return out;
-}
-
-
-const HEX_CHARS = '0123456789abcdef';
-
-/** Turns a rule into its Catagolue equivalent
- * @param namedRules An object mapping aliases to rules.
- */
-export function toCatagolueRule(rule: string, customRules?: {[key: string]: string}): string {
-    if (rule.includes('|')) {
-        return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
-    }
-    let ruleStr = createPattern(rule, undefined, customRules).ruleStr;
-    if (ruleStr.includes('/')) {
-        let parts = ruleStr.split('/');
-        parts[0] = parts[0];
-        parts[1] = parts[1];
-        if (parts.length === 2) {
-            if (parts[1].endsWith('H')) {
-                return `b${parts[0].slice(1)}s${parts[1].slice(1, -1)}h`;
-            } else {
-                return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
-            }
-        } else {
-            let isHex = false;
-            if (parts[2].endsWith('H')) {
-                isHex = true;
-                parts[2] = parts[2].slice(-1);
-            }
-            let out = `g${parts[2]}b${parts[1]}s${parts[0]}`;
-            if (isHex) {
-                return out + 'h';
-            } else {
-                return out;
-            }
-        }
-    } else if (ruleStr.startsWith('R')) {
-        let parts = ruleStr.split(',');
-        let r = parseInt(parts[0].slice(1));
-        let c = parseInt(parts[1].slice(1));
-        if (parts[2].startsWith('W')) {
-            let w = parts[2].slice(1);
-            if (c > 2) {
-                return `xg${c}r${r}w${w}`;
-            } else {
-                return `xr${r}w${w}`;
-            }
-        }
-        let s: number[] = [];
-        let b: number[] = [];
-        let parsingB = false;
-        parts[2] = parts[2].slice(1);
-        let n: string | null = null;
-        for (let part of parts.slice(2)) {
-            if (part.length === 0) {
-                continue;
-            } else if (part.startsWith('B')) {
-                parsingB = true;
-                part = part.slice(1);
-            } else if (part.startsWith('N')) {
-                n = part.slice(1);
-                continue;
-            }
-            if (parsingB) {
-                b.push(parseInt(part));
-            } else {
-                s.push(parseInt(part));
-            }
-        }
-        let out = 'r' + r + 'b';
-        if (c > 2) {
-            out = 'g' + c + out;
-        }
-        for (let x of [b, s]) {
-            for (let i = (2*r + 1)**2 - 1; i > 0; i -= 4) {
-                let value = 0;
-                if (b.includes(i)) {
-                    value |= 8;
-                }
-                if (b.includes(i - 1)) {
-                    value |= 4;
-                }
-                if (b.includes(i - 2)) {
-                    value |= 2;
-                }
-                if (b.includes(i - 3)) {
-                    value |= 1;
-                }
-                out += HEX_CHARS[value];
-            }
-            if (x === b) {
-                out += 's';
-            }
-        }
-        if (n !== null) {
-            out = 'x' + out + 'n';
-            if (n === '*') {
-                out += 'star';
-            } else if (n === '+') {
-                out += 'plus';
-            } else if (n === '#') {
-                out += 'hash';
-            } else if (n.startsWith('@')) {
-                out += 'at' + n.slice(1);
-            } else {
-                out += n.toLowerCase();
-            }
-        }
-        if (out.endsWith('h')) {
-            out += 'x';
-        }
-        return out;
-    } else if (ruleStr.startsWith('MAP')) {
-        if (ruleStr.length < 89) {
-            // @ts-ignore
-            if (typeof alert === 'function') {
-                // @ts-ignore
-                alert('bruh');
-            }
-            throw new RuleError('bruh');
-        }
-        let out = 'map' + ruleStr.slice(3, 88);
-        if (ruleStr.length > 89 && ruleStr[89] === '/') {
-            out = 'g' + parseInt(ruleStr.slice(90)) + out;
-        }
-        if (out.endsWith('h')) {
-            out += 'x';
-        }
-        return 'x' + out;
-    } else if (ruleStr.startsWith('W')) {
-        return 'xw' + ruleStr.slice(1);
-    } else {
-        throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
-    }
-}
-
-
-/** Options for the soupSearch function */
-export interface SoupSearchOptions {
-    rule: string;
-    symmetry: string;
-    soups: number;
-    /** The seed for the search, equivalent to apgsearch's -s setting. */
-    seed?: string;
-    /** An optional function that logs data, will log messages similar to apgsearch. */
-    print?: (data: string) => void;
-}
-
-/** The output of soupSearch, just an easier-to-use form of the haul files outputted by apgsearch. */
-export interface Haul {
-    /** The MD5 hash of the rule seed, apgsearch outputs this for some reason. */
-    md5: string;
-    seed: string;
-    rule: string;
-    symmetry: string;
-    soups: number;
-    objects: number;
-    census: {[key: string]: number};
-    samples: {[key: string]: number[]};
-}
-
-/** Uses a trick to redraw the screen if it's running in a browser. */
-function redraw(): Promise<number> | undefined {
-    if (typeof requestAnimationFrame === 'function') {
-        return new Promise(resolve => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(resolve);
-            });
-        });
-    }
-}
-
-/** Performs a soup search similar to apgsearch, but worse! */
-export async function soupSearch(options: SoupSearchOptions): Promise<Haul> {
-    let print = options.print;
-    let seed = options.seed ?? randomHashsoup();
-    if (print) {
-        print('Using seed ' + seed);
-        await redraw();
-    }
-    let rule = toCatagolueRule(options.rule);
-    let census: {[key: string]: number} = {};
-    let samples: {[key: string]: number[]} = {};
-    let pattern = createPattern(options.rule);
-    if (!(pattern instanceof MAPPattern) || pattern.ruleSymmetry !== 'D8') {
-        throw new Error('Cannot search non-INT rules');
-    }
-    let knots = getKnots(pattern.trs);
-    let start = performance.now();
-    let prev = start;
-    let prevI = 0;
-    for (let i = 0; i < options.soups; i++) {
-        let {height, width, data} = await getHashsoup(seed + i, options.symmetry);
-        let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
-        let out = censusINT(soup, knots, print, seed + i);
-        for (let key in out) {
-            if (key in census) {
-                census[key] += out[key];
-            } else {
-                census[key] = out[key];
-            }
-            if (!samples[key]) {
-                samples[key] = [i];
-            } else if (samples[key].length < 10) {
-                samples[key].push(i);
-            }
-            if (print) {
-                if (key.startsWith('x')) {
-                    if (rule === 'b3s23') {
-                        if (key[1] === 'p') {
-                            if ((key[2] !== '2' || key[3] !== '_') && key !== 'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401' && key !== 'xp15_4r4z4r4') {
-                                print('Rare oscillator detected: \x1b[1;31m' + key + '\x1b[0m in soup ' + seed + i);
-                            }
-                        } else if (key[1] === 'q' && key !== 'xq4_153' && key !== 'xq4_6frc' && key !== 'xq4_27dee6' && key !== 'xq4_27deee6') {
-                            print('Rare spaceship detected: \x1b[1;34m' + key + '\x1b[0m in soup ' + seed + i);
-                        }
-                    }
-                } else if (key.startsWith('y')) {
-                    print('Linear-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m in soup ' + seed + i);
-                } else if (key.startsWith('z')) {
-                    print('Chaotic-growth pattern detected: \x1b[1;32m' + key + '\x1b[0m in soup ' + seed + i);
-                } else if (key.startsWith('P')) {
-                    print('Pathological object detected in soup ' + seed + i);
-                }
-            }
-        }
-        if (print) {
-            let now = performance.now();
-            if (now - prev > 10000) {
-                print(`${rule}/${options.symmetry}: ${i} soups completed (${((i - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(i / ((now - start) / 1000)).toFixed(3)} overall).`);
-                prev = now;
-                prevI = i;
-            }
-            await redraw();
-        }
-    }
-    if (print) {
-        let now = performance.now();
-        print(`${rule}/${options.symmetry}: ${options.soups} soups completed (${((options.soups - prevI) / ((now - prev) / 1000)).toFixed(3)} soups/second current, ${(options.soups / ((now - start) / 1000)).toFixed(3)} overall).`);
-    }
-    return {
-        md5: stringMD5(seed),
-        seed,
-        rule,
-        symmetry: options.symmetry,
-        soups: options.soups,
-        objects: Object.values(census).reduce((x, y) => x + y),
-        census,
-        samples,
-    };
 }
 
 

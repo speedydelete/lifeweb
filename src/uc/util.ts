@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, findType, getApgcode, getKnots, INTSeparator, createPattern, toCatagolueRule} from '../core/index.js';
+import {MAPPattern, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
