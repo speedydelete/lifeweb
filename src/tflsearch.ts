@@ -155,7 +155,7 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
             await writeOut(`${p.ruleStr}: explosive (${i + 1})`);
             return;
         } else if (typeof e === 'number') {
-            if (e > 2) {
+            if (e > 1) {
                 interesting = true;
             }
             allDied = false;
