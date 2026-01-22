@@ -270,7 +270,7 @@ process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 process.on('SIGHUP', cleanup);
 
-const TRS = ['B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'B5o', 'B6o', 'S0o', 'S1o', 'S2o', 'S2m', 'S2p', 'S3o', 'S3m', 'S3p', 'S4o', 'S5o', 'S6o'];
+const TRS = ['B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'S0o', 'S1o', 'S2o', 'S2m', 'S2p', 'S3o', 'S3m', 'S3p', 'S4o', 'S4m', 'S4p'];
 
 for (let num = 0; num < 2**TRS.length; num++) {
     let allTrs = TRS.filter((_, i) => num & (1 << (21 - i)));
