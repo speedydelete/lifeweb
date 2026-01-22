@@ -387,13 +387,35 @@ function create16Trs(trs: Uint8Array): Uint8Array {
     return out;
 }
 
+/** Represents a 16x16 region. a and b contain the allocations that are swapped on every generation. */
 interface Chunk {
-    a: number;
-    b: number;
-    c: number;
-    d: number;
+    a: Uint32Array;
+    b?: Uint32Array;
     pop: number;
 }
+/* Chunk format:
+0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
+0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
+0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
+0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
+1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
+1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
+1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
+1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
+2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
+2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
+2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
+2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
+3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
+3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
+3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
+3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
+Bits for each one:
+31 27 23 19 15 11 07 03
+30 26 22 18 14 10 06 02
+29 25 21 17 13 09 05 01
+28 24 20 16 12 08 04 00
+*/
 
 interface Tile {
     super: false;
@@ -416,106 +438,114 @@ for (let i = 0; i < 256; i++) {
     POPCOUNT_TABLE[i] = (i & 1) + ((i >> 1) & 1) + ((i >> 2) & 1) + ((i >> 3) & 1) + ((i >> 4) & 1) + ((i >> 5) & 1) + ((i >> 6) & 1) + ((i >> 7) & 1);
 }
 
-function runChunk(c: Chunk, trs: Uint8Array): void {
-    let a = trs[c.a & 0xffff] | (trs[(c.a >>> 8) & 0xffff] << 8) | (trs[c.a >>> 16] << 16);
-    let b = trs[c.b & 0xffff] | (trs[(c.b >>> 8) & 0xffff] << 8) | (trs[c.b >>> 16] << 16);
-    let m = trs[((c.a & 0x3333) << 2) | ((c.b & 0xcccc) >>> 2)];
-    m |= trs[(((c.a >>> 8) & 0x3333) << 2) | (((c.b >>> 8) & 0xcccc) >>> 2)] << 8;
-    m |= trs[(((c.a >>> 8) & 0x3333) << 2) | (((c.b >>> 8) & 0xcccc) >>> 2)] << 16;
-    c.c = a | ((m & 0x4444) >>> 2);
-    c.d = b | ((m & 0x2222) << 2);
+/** Run a single chunk by 1 generation. */
+function runChunk(c: Chunk, trs: Uint32Array): void {
+    if (!c.b) {
+        c.b = new Uint32Array(256);
+    }
+    for (let i = 0; i < 8; i += 2) {
+        let m = trs[((c.a[i] & 0x3333) << 2) | ((c.a[i + 1] & 0xcccc) >>> 2)] | (trs[(((c.a[i] >>> 8) & 0x3333) << 2) | (((c.a[i + 1] >>> 8) & 0xcccc) >>> 2)] << 8) | (trs[((c.a[i] >>> 6) & 0xcccc) | ((c.a[i + 1] >>> 10) & 0x3333)] << 16);
+        c.b[i] = trs[c.a[i] & 0xffff] | (trs[(c.a[i] >>> 8) & 0xffff] << 8) | (trs[c.a[i] >>> 16] << 16) | ((m & 0x4444) >>> 2);
+        c.b[i + 1] = trs[c.a[i + 1] & 0xffff] | (trs[(c.a[i + 1] >>> 8) & 0xffff] << 8) | (trs[c.a[i + 1] >>> 16] << 16) | ((m & 0x2222) << 2);
+    }
+    let m0 = trs[((c.a[0] & 0xff) << 8) | (c.a[4] >>> 24)];
+    let m1 = trs[((c.a[0] & 0x33) << 12) | ((c.a[4] >>> 26) & 0x00cc) | ((c.a[1] >> 2) & 0x3300) | ((c.a[5] >> 28) & 0x33)];
+    let m2 = trs[((c.a[1] & 0xff) << 8) | (c.a[5] >>> 24)];
+    let temp = c.b;
+    c.b = c.a;
+    c.a = temp;
 }
 
-function runTile(t: Tile, trs: Uint8Array): void {
-    if (t.nw) {
-        runChunk(t.nw, trs);
-    }
-    if (t.ne) {
-        runChunk(t.ne, trs);
-    }
-    if (t.sw) {
-        runChunk(t.sw, trs);
-    }
-    if (t.se) {
-        runChunk(t.se, trs);
-    }
-    if (t.nw) {
-        if (t.ne) {
-            let v1 = trs[((t.nw.a & 255) << 8) | ((t.ne.a >>> 24) & 255)];
-            let v2 = trs[((t.nw.b & 255) << 8) | ((t.ne.b >>> 24) & 255)];
-            t.nw.c |= v1 >>> 4;
-            t.nw.d |= v2 >>> 4;
-            t.ne.c |= v1 << 28;
-            t.ne.d |= v2 << 28;
-        } else {
-            let v1 = trs[(t.nw.a & 255) << 8];
-            let v2 = trs[(t.nw.b & 255) << 8];
-            t.nw.c |= v1 >>> 4;
-            t.nw.d |= v2 >>> 4;
-            if ((v1 & 15) || (v2 & 15)) {
-                t.ne = {
-                    a: 0,
-                    b: 0,
-                    c: (v1 & 15) << 28,
-                    d: (v2 & 15) << 28,
-                    pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-                };
-            }
-        }
-    } else if (t.ne) {
-        let v1 = trs[t.ne.a >>> 24];
-        let v2 = trs[t.ne.b >>> 24];
-        t.ne.c |= v1 << 24;
-        t.ne.d |= v2 << 24;
-        if ((v1 & 15) || (v2 & 15)) {
-            t.nw = {
-                a: 0,
-                b: 0,
-                c: v1 >> 4,
-                d: v2 >> 4,
-                pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-            };
-        }
-    }
-    if (t.sw) {
-        if (t.se) {
-            let v1 = trs[((t.sw.a & 255) << 8) | ((t.se.a >>> 24) & 255)];
-            let v2 = trs[((t.sw.b & 255) << 8) | ((t.se.b >>> 24) & 255)];
-            t.sw.c |= v1 >>> 4;
-            t.sw.d |= v2 >>> 4;
-            t.se.c |= v1 << 28;
-            t.se.d |= v2 << 28;
-        } else {
-            let v1 = trs[(t.sw.a & 255) << 8];
-            let v2 = trs[(t.sw.b & 255) << 8];
-            t.sw.c |= v1 >>> 4;
-            t.sw.d |= v2 >>> 4;
-            if ((v1 & 15) || (v2 & 15)) {
-                t.se = {
-                    a: 0,
-                    b: 0,
-                    c: (v1 & 15) << 28,
-                    d: (v2 & 15) << 28,
-                    pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-                };
-            }
-        }
-    } else if (t.se) {
-        let v1 = trs[t.se.a >>> 24];
-        let v2 = trs[t.se.b >>> 24];
-        t.se.c |= v1 << 24;
-        t.se.d |= v2 << 24;
-        if ((v1 & 15) || (v2 & 15)) {
-            t.sw = {
-                a: 0,
-                b: 0,
-                c: v1 >> 4,
-                d: v2 >> 4,
-                pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-            };
-        }
-    }
-}
+// function runTile(t: Tile, trs: Uint8Array): void {
+//     if (t.nw) {
+//         runChunk(t.nw, trs);
+//     }
+//     if (t.ne) {
+//         runChunk(t.ne, trs);
+//     }
+//     if (t.sw) {
+//         runChunk(t.sw, trs);
+//     }
+//     if (t.se) {
+//         runChunk(t.se, trs);
+//     }
+//     if (t.nw) {
+//         if (t.ne) {
+//             let v1 = trs[((t.nw.a & 255) << 8) | ((t.ne.a >>> 24) & 255)];
+//             let v2 = trs[((t.nw.b & 255) << 8) | ((t.ne.b >>> 24) & 255)];
+//             t.nw.c |= v1 >>> 4;
+//             t.nw.d |= v2 >>> 4;
+//             t.ne.c |= v1 << 28;
+//             t.ne.d |= v2 << 28;
+//         } else {
+//             let v1 = trs[(t.nw.a & 255) << 8];
+//             let v2 = trs[(t.nw.b & 255) << 8];
+//             t.nw.c |= v1 >>> 4;
+//             t.nw.d |= v2 >>> 4;
+//             if ((v1 & 15) || (v2 & 15)) {
+//                 t.ne = {
+//                     a: 0,
+//                     b: 0,
+//                     c: (v1 & 15) << 28,
+//                     d: (v2 & 15) << 28,
+//                     pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+//                 };
+//             }
+//         }
+//     } else if (t.ne) {
+//         let v1 = trs[t.ne.a >>> 24];
+//         let v2 = trs[t.ne.b >>> 24];
+//         t.ne.c |= v1 << 24;
+//         t.ne.d |= v2 << 24;
+//         if ((v1 & 15) || (v2 & 15)) {
+//             t.nw = {
+//                 a: 0,
+//                 b: 0,
+//                 c: v1 >> 4,
+//                 d: v2 >> 4,
+//                 pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+//             };
+//         }
+//     }
+//     if (t.sw) {
+//         if (t.se) {
+//             let v1 = trs[((t.sw.a & 255) << 8) | ((t.se.a >>> 24) & 255)];
+//             let v2 = trs[((t.sw.b & 255) << 8) | ((t.se.b >>> 24) & 255)];
+//             t.sw.c |= v1 >>> 4;
+//             t.sw.d |= v2 >>> 4;
+//             t.se.c |= v1 << 28;
+//             t.se.d |= v2 << 28;
+//         } else {
+//             let v1 = trs[(t.sw.a & 255) << 8];
+//             let v2 = trs[(t.sw.b & 255) << 8];
+//             t.sw.c |= v1 >>> 4;
+//             t.sw.d |= v2 >>> 4;
+//             if ((v1 & 15) || (v2 & 15)) {
+//                 t.se = {
+//                     a: 0,
+//                     b: 0,
+//                     c: (v1 & 15) << 28,
+//                     d: (v2 & 15) << 28,
+//                     pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+//                 };
+//             }
+//         }
+//     } else if (t.se) {
+//         let v1 = trs[t.se.a >>> 24];
+//         let v2 = trs[t.se.b >>> 24];
+//         t.se.c |= v1 << 24;
+//         t.se.d |= v2 << 24;
+//         if ((v1 & 15) || (v2 & 15)) {
+//             t.sw = {
+//                 a: 0,
+//                 b: 0,
+//                 c: v1 >> 4,
+//                 d: v2 >> 4,
+//                 pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
+//             };
+//         }
+//     }
+// }
 
 
 /** Implements the 2**511 2-state range-1 Moore-neighborhood cellular automata without B0, which includes Conway's Game of Life and most other studied rules. */

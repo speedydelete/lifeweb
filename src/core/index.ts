@@ -1,8 +1,6 @@
 
 /* The main file, exporting everything and also implementing many utility functions. */
 
-import {join} from 'node:path';
-import {readFileSync} from 'node:fs';
 import {RuleError, RLE_CHARS, SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
@@ -10,7 +8,13 @@ import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPat
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
-import {RuleLoaderBgollyPattern} from './ruleloader_bgolly.js';
+export let isNode = typeof process === 'object' && process && typeof process.versions === 'object' && process.versions;
+let RuleLoaderBgollyPattern: (typeof import('./ruleloader_bgolly.js'))['RuleLoaderBgollyPattern'] | undefined = undefined;
+let readFileSync: (typeof import('node:fs'))['readFileSync'] | undefined = undefined;
+if (isNode) {
+    RuleLoaderBgollyPattern = (await import('./ruleloader_bgolly.js')).RuleLoaderBgollyPattern;
+    readFileSync = (await import('node:fs')).readFileSync;
+}
 
 export * from './pattern.js';
 export * from './map.js';
@@ -66,6 +70,9 @@ export function createPattern(rule: string, data: {height: number, width: number
     if (rule.startsWith('@')) {
         try {
             if (useBgolly) {
+                if (RuleLoaderBgollyPattern === undefined) {
+                    throw new Error('Cannot use bgolly in browsers');
+                }
                 return new RuleLoaderBgollyPattern(data.height, data.width, data.data, rule);
             }
             let out = parseAtRule(rule);
@@ -200,8 +207,11 @@ export function createPattern(rule: string, data: {height: number, width: number
         }
     }
     if (rule.startsWith('__ruleloader_bgolly_')) {
+        if (RuleLoaderBgollyPattern === undefined || readFileSync === undefined) {
+            throw new Error('Cannot use bgolly in browsers');
+        }
         // @ts-ignore
-        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(join(import.meta.dirname, '..', rule + '.rule')).toString(), rule);
+        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(`${import.meta.dirname}/../${rule}.rule`).toString(), rule);
     }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
@@ -580,7 +590,7 @@ export function getBlackWhiteReversal(rule: string): string {
     } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
         let index = p.ruleStr.lastIndexOf(':');
         return getBlackWhiteReversal(p.ruleStr.slice(0, index)) + p.ruleStr.slice(index);
-    } else if (p instanceof TreePattern || p instanceof RuleLoaderBgollyPattern) {
+    } else if (p instanceof TreePattern || (RuleLoaderBgollyPattern !== undefined && p instanceof RuleLoaderBgollyPattern)) {
         throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
     } else if (p instanceof AlternatingPattern) {
         return p.ruleStr.split('|').map(getBlackWhiteReversal).join('|');
