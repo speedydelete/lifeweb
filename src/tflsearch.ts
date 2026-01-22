@@ -155,7 +155,7 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
             await writeOut(`${p.ruleStr}: explosive (${i + 1})`);
             return;
         } else if (typeof e === 'number') {
-            if (e > 1) {
+            if (e > 2) {
                 interesting = true;
             }
             allDied = false;
@@ -270,14 +270,14 @@ process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 process.on('SIGHUP', cleanup);
 
-const TRS = ['B2o', 'B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'B5', 'B6', 'S0', 'S1', 'S2o', 'S2m', 'S2p', 'S3o', 'S3m', 'S3p', 'S4', 'S5', 'S6'];
+const TRS = ['B2o', 'B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'B5o', 'B6o', 'S0o', 'S1o', 'S2o', 'S2m', 'S2p', 'S3o', 'S3m', 'S3p', 'S4o', 'S5o', 'S6o'];
 
 for (let num = 0; num < 2**TRS.length; num++) {
-    let allTrs = TRS.filter((_, i) => Boolean(num & (1 << (22 - i))));
-    let bTrs = allTrs.filter(x => x.startsWith('B'));
-    let sTrs = allTrs.filter(x => x.startsWith('S'));
+    let allTrs = TRS.filter((_, i) => num & (1 << (21 - i)));
+    let bTrs = allTrs.filter(x => x.startsWith('B')).map(x => x.slice(1));
+    let sTrs = allTrs.filter(x => x.startsWith('S')).map(x => x.slice(1));
     let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
-    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false);
+    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false) + 'H';
     let p = new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
     await check(p, []);
 }
