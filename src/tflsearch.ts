@@ -278,7 +278,7 @@ for (let num = 0; num < 2**TRS.length; num++) {
     bTrs.push('2o');
     let sTrs = allTrs.filter(x => x.startsWith('S')).map(x => x.slice(1));
     let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
-    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false) + 'H';
+    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true) + 'H';
     let p = new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
     await check(p, []);
 }
