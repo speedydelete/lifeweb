@@ -242,10 +242,20 @@ export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: numbe
     let b: string[] = [];
     let s: string[] = [];
     for (let tr in trs) {
-        if (array[trs[tr][0]]) {
+        let bCount = 0;
+        let sCount = 0;
+        for (let i of trs[tr]) {
+            if (array[i]) {
+                bCount++;
+            }
+            if (array[i | (1 << 4)]) {
+                sCount++;
+            }
+        }
+        if (bCount >= Math.ceil(trs[tr].length / 2)) {
             b.push(tr);
         }
-        if (array[trs[tr][0] | (1 << 4)]) {
+        if (sCount >= Math.ceil(trs[tr].length / 2)) {
             s.push(tr);
         }
     }
