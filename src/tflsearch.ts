@@ -1,77 +1,77 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync, spawn} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './core/index.js';
+import {HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getHashsoup, toCatagolueRule} from './core/index.js';
 
 
-const CHECK_TRS = [
-    'B2c', 'B2e', 'B2i', 'B2k', 'B2n',
-    'B3a', 'B3c', 'B3e', 'B3i', 'B3j', 'B3k', 'B3n', 'B3q', 'B3r', 'B3y',
-    'B4a', 'B4c', 'B4e', 'B4i', 'B4j', 'B4k', 'B4n', 'B4q', 'B4r', 'B4t', 'B4w', 'B4y', 'B4z',
-    'B5a', 'B5c', 'B5e', 'B5i', 'B5j', 'B5k', 'B5n', 'B5q', 'B5r', 'B5y',
-    'B6a', 'B6c', 'B6e', 'B6i', 'B6k', 'B6n',
-    'B7c', 'B7e',
-    'B8c',
-    'S0c',
-    'S1c', 'S1e',
-    'S2a', 'S2c', 'S2e', 'S2i', 'S2k', 'S2n',
-    'S3a', 'S3c', 'S3e', 'S3i', 'S3j', 'S3k', 'S3n', 'S3q', 'S3r', 'S3y',
-    'S4a', 'S4c', 'S4e', 'S4i', 'S4j', 'S4k', 'S4n', 'S4q', 'S4r', 'S4t', 'S4w', 'S4y', 'S4z',
-    'S5a', 'S5c', 'S5e', 'S5i', 'S5j', 'S5k', 'S5n', 'S5q', 'S5r', 'S5y',
-    'S6a', 'S6c', 'S6e', 'S6i', 'S6k', 'S6n',
-    'S7c', 'S7e',
-    'S8c',
-];
+// const CHECK_TRS = [
+//     'B2c', 'B2e', 'B2i', 'B2k', 'B2n',
+//     'B3a', 'B3c', 'B3e', 'B3i', 'B3j', 'B3k', 'B3n', 'B3q', 'B3r', 'B3y',
+//     'B4a', 'B4c', 'B4e', 'B4i', 'B4j', 'B4k', 'B4n', 'B4q', 'B4r', 'B4t', 'B4w', 'B4y', 'B4z',
+//     'B5a', 'B5c', 'B5e', 'B5i', 'B5j', 'B5k', 'B5n', 'B5q', 'B5r', 'B5y',
+//     'B6a', 'B6c', 'B6e', 'B6i', 'B6k', 'B6n',
+//     'B7c', 'B7e',
+//     'B8c',
+//     'S0c',
+//     'S1c', 'S1e',
+//     'S2a', 'S2c', 'S2e', 'S2i', 'S2k', 'S2n',
+//     'S3a', 'S3c', 'S3e', 'S3i', 'S3j', 'S3k', 'S3n', 'S3q', 'S3r', 'S3y',
+//     'S4a', 'S4c', 'S4e', 'S4i', 'S4j', 'S4k', 'S4n', 'S4q', 'S4r', 'S4t', 'S4w', 'S4y', 'S4z',
+//     'S5a', 'S5c', 'S5e', 'S5i', 'S5j', 'S5k', 'S5n', 'S5q', 'S5r', 'S5y',
+//     'S6a', 'S6c', 'S6e', 'S6i', 'S6k', 'S6n',
+//     'S7c', 'S7e',
+//     'S8c',
+// ];
 
-const RULES: string[] = [];
-for (let b4 of ['', '4']) {
-    for (let b5 of ['', '5']) {
-        for (let b6 of ['', '6']) {
-            for (let b7 of ['', '7']) {
-                for (let b8 of ['', '8']) {
-                    for (let s0 of ['', '0']) {
-                        for (let s1 of ['', '1']) {
-                            for (let s2 of ['', '2']) {
-                                for (let s3 of ['', '3']) {
-                                    for (let s4 of ['', '4']) {
-                                        for (let s5 of ['', '5']) {
-                                            for (let s6 of ['', '6']) {
-                                                for (let s7 of ['', '7']) {
-                                                    for (let s8 of ['', '8']) {
-                                                        RULES.push('B3' + b4 + b5 + b6 + b7 + b8 + '/S' + s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// const RULES: string[] = [];
+// for (let b4 of ['', '4']) {
+//     for (let b5 of ['', '5']) {
+//         for (let b6 of ['', '6']) {
+//             for (let b7 of ['', '7']) {
+//                 for (let b8 of ['', '8']) {
+//                     for (let s0 of ['', '0']) {
+//                         for (let s1 of ['', '1']) {
+//                             for (let s2 of ['', '2']) {
+//                                 for (let s3 of ['', '3']) {
+//                                     for (let s4 of ['', '4']) {
+//                                         for (let s5 of ['', '5']) {
+//                                             for (let s6 of ['', '6']) {
+//                                                 for (let s7 of ['', '7']) {
+//                                                     for (let s8 of ['', '8']) {
+//                                                         RULES.push('B3' + b4 + b5 + b6 + b7 + b8 + '/S' + s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8);
+//                                                     }
+//                                                 }
+//                                             }
+//                                         }
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
 
 
 let soups = 0;
 
 function createPattern(base: string, change: string[]): MAPPattern {
     let [baseB, baseS] = base.split('/').map(x => x.slice(1));
-    let bTrs = parseTransitions(baseB, VALID_TRANSITIONS);
-    let sTrs = parseTransitions(baseS, VALID_TRANSITIONS);
-    for (let tr of change) {
-        let trs = tr.startsWith('B') ? bTrs : sTrs;
-        tr = tr.slice(1);
-        if (trs.includes(tr)) {
-            trs.splice(trs.indexOf(tr), 1);
-        } else {
-            trs.push(tr);
-        }
-    }
-    let trs = transitionsToArray(bTrs, sTrs, TRANSITIONS);
-    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_TRANSITIONS, false);
+    let bTrs = parseTransitions(baseB, VALID_HEX_TRANSITIONS);
+    let sTrs = parseTransitions(baseS, VALID_HEX_TRANSITIONS);
+    // for (let tr of change) {
+    //     let trs = tr.startsWith('B') ? bTrs : sTrs;
+    //     tr = tr.slice(1);
+    //     if (trs.includes(tr)) {
+    //         trs.splice(trs.indexOf(tr), 1);
+    //     } else {
+    //         trs.push(tr);
+    //     }
+    // }
+    let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
+    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false);
     return new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
 }
 
@@ -119,7 +119,7 @@ function isExplosive(p: MAPPattern): 'yes' | number | 'died' | 'linear' {
     return 'yes';
 }
 
-let out = (await fs.readFile('out2.txt')).toString();
+let out = (await fs.readFile('out3.txt')).toString();
 
 let lastUpdate = 0;
 
@@ -130,15 +130,15 @@ async function writeOut(data: string): Promise<void> {
     out += data + '\n';
     let now = performance.now();
     if (lastUpdate === 0 || (now - lastUpdate) > 3000) {
-        await fs.writeFile('out2.txt', out);
+        await fs.writeFile('out3.txt', out);
         lastUpdate = now;
     }
 }
 
 let done = new Set(out.split('\n').map(x => x.trim()).filter(x => x.length > 0).map(x => x.split(':')[0]));
 
-async function check(base: string, change: string[]): Promise<void> {
-    let p = createPattern(base, change);
+async function check(p: MAPPattern, change: string[]): Promise<void> {
+    // let p = createPattern(base, change);
     if (done.has(p.ruleStr)) {
         return;
     }
@@ -270,9 +270,21 @@ process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 process.on('SIGHUP', cleanup);
 
-for (let rule of RULES) {
-    await check(rule, []);
-    for (let tr of CHECK_TRS) {
-        await check(rule, [tr]);
-    }
+const TRS = ['B2o', 'B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'B5', 'B6', 'S0', 'S1', 'S2o', 'S2m', 'S2p', 'S3o', 'S3m', 'S3p', 'S4', 'S5', 'S6'];
+
+for (let num = 0; num < 2**TRS.length; num++) {
+    let allTrs = TRS.filter((_, i) => Boolean(num & (1 << (22 - i))));
+    let bTrs = allTrs.filter(x => x.startsWith('B'));
+    let sTrs = allTrs.filter(x => x.startsWith('S'));
+    let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
+    let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false);
+    let p = new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
+    await check(p, []);
 }
+
+// for (let rule of RULES) {
+//     await check(rule, []);
+//     for (let tr of CHECK_TRS) {
+//         await check(rule, [tr]);
+//     }
+// }
