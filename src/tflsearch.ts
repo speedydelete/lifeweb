@@ -275,7 +275,7 @@ const TRS = ['B2m', 'B2p', 'B3o', 'B3m', 'B3p', 'B4o', 'B4m', 'B4p', 'B5o', 'B6o
 for (let num = 0; num < 2**TRS.length; num++) {
     let allTrs = TRS.filter((_, i) => num & (1 << (21 - i)));
     let bTrs = allTrs.filter(x => x.startsWith('B')).map(x => x.slice(1));
-    bTrs.push('B2o');
+    bTrs.push('2o');
     let sTrs = allTrs.filter(x => x.startsWith('S')).map(x => x.slice(1));
     let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
     let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false) + 'H';
