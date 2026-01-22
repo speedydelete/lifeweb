@@ -173,7 +173,7 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
     }
     execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
     let timedOut = await new Promise<boolean>((resolve, reject) => {
-        let child = spawn('./apgmera/apgluxe', ['-n', '2000', '-i', '1', '-t', '1', '-L', '1', '-v', '0'], {stdio: 'inherit', detached: true});
+        let child = spawn('./apgmera/apgluxe', ['-n', '20000', '-i', '1', '-t', '1', '-L', '1', '-v', '0'], {stdio: 'inherit', detached: true});
         let timeout: any = null;
         child.on('error', error => {
             if (timeout) {
