@@ -1,7 +1,7 @@
 
 /** Finds the minimum and maximum rule of patterns. */
 
-import {RuleError, Pattern} from './pattern.js';
+import {RuleError, Pattern, CoordPattern} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
@@ -21,12 +21,11 @@ export interface PhaseData {
 
 /** Verifies that a pattern is consistent with a given `PhaseData`. */
 function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
-    for (let i = 0; i < gens + 1; i++) {
+    for (let i = 0; i <= gens; i++) {
         if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
         }
-        let q = data.phases[i];
-        if (!p.isEqualWithTranslate(q)) {
+        if (!(p instanceof CoordPattern ? p.isEqualWithTranslate(data.phases[i]) : p.isEqual(data.phases[i]))) {
             return false;
         }
         p.run(step);
@@ -544,7 +543,7 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
  * @param ot Whether to use outer-totalistic minmax instead of isotropic minmax when available.
 */
 export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: number = 1, ot?: boolean): [string, string] {
-    p = p.copy();
+    p = p.copy().shrinkToFit();
     if (data === undefined) {
         let pops: number[] = [p.population];
         let hashes: number[] = [p.hash32()];
