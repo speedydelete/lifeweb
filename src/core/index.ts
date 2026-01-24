@@ -598,11 +598,3 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }
 }
-
-
-let p = parse(`x = 6, y = 12, rule = B36n/S23
-b3o$bo2bo$bo3bo$2bo2bo$3b3o5!`);
-
-import {findMinmax} from './minmax.js';
-
-console.log(findMinmax(p, 2));
