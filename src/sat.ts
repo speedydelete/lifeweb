@@ -1,7 +1,7 @@
 
 /** Implements a LLS-like SAT-solver-based search program. */
 
-import {Pattern, TRANSITIONS, VALID_TRANSITIONS, parseTransitions, PatternSymmetry, ALTERNATE_SYMMETRIES, isNode, createPattern, parseSpeed} from './core/index.js';
+import {Pattern, TRANSITIONS, VALID_TRANSITIONS, parseTransitions, PatternSymmetry, ALTERNATE_SYMMETRIES, createPattern, parseSpeed} from './core/index.js';
 
 
 let nextVar = 1;
@@ -411,6 +411,8 @@ export interface SolverArgs {
     file?: string;
     preset?: Preset;
 }
+
+let isNode = typeof process === 'object' && process && Array.isArray(process.argv);
 
 let execSync: (typeof import('node:child_process'))['execSync'] | undefined = undefined;
 let fs: typeof import('node:fs') | undefined = undefined;
