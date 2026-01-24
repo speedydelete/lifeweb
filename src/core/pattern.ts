@@ -1487,6 +1487,7 @@ export abstract class CoordPattern implements Pattern {
         if (this.getData().every((x, i) => x === otherData[i])) {
             let [xOffset, yOffset] = other.getFullOffset();
             let [otherXOffset, otherYOffset] = other.getFullOffset();
+            console.log(xOffset - otherXOffset, yOffset - otherYOffset);
             return [xOffset - otherXOffset, yOffset - otherYOffset];
         } else {
             return false;
