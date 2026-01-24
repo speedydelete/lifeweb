@@ -45,17 +45,17 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
             for (let j = 0; j <= (acceptStabilized ? i : 0); j += p.rulePeriod) {
                 if (hash === hashes[j] && pop === pops[j]) {
                     let q = phases[j];
-                    if (!p.isEqualWithTranslate(q)) {
-                        continue;
+                    let disp = p.isEqualWithTranslate(q);
+                    if (disp) {
+                        return {
+                            period: i - j + 1,
+                            stabilizedAt: j,
+                            disp,
+                            pops,
+                            hashes,
+                            phases,
+                        };
                     }
-                    return {
-                        period: i - j + 1,
-                        stabilizedAt: j,
-                        disp: [p.xOffset - q.xOffset, p.yOffset - q.yOffset],
-                        pops,
-                        hashes,
-                        phases,
-                    };
                 }
             }
         }
