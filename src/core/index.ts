@@ -8,20 +8,12 @@ import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPat
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
-export let isNode = typeof process === 'object' && process && typeof process.versions === 'object' && process.versions;
-let RuleLoaderBgollyPattern: (typeof import('./ruleloader_bgolly.js'))['RuleLoaderBgollyPattern'] | undefined = undefined;
-let readFileSync: (typeof import('node:fs'))['readFileSync'] | undefined = undefined;
-if (isNode) {
-    RuleLoaderBgollyPattern = (await import('./ruleloader_bgolly.js')).RuleLoaderBgollyPattern;
-    readFileSync = (await import('node:fs')).readFileSync;
-}
 
 export * from './pattern.js';
 export * from './map.js';
 export * from './hrot.js';
 export * from './super.js';
 export * from './ruleloader.js';
-export * from './ruleloader_bgolly.js';
 export * from './alternating.js';
 export * from './bounded.js';
 export * from './minmax.js';
@@ -32,9 +24,8 @@ export * from './catagolue.js';
 
 /** Creates a pattern from a rulestring.
  * @param namedRules An object mapping aliases to rules.
- * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
  */
-export function createPattern(rule: string, data: {height: number, width: number, data: Uint8Array} = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string, useBgolly?: boolean): Pattern {
+export function createPattern(rule: string, data: {height: number, width: number, data: Uint8Array} = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string): Pattern {
     rule = rule.trim();
     let errors: string[] = [];
     try {
@@ -69,12 +60,6 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.startsWith('@')) {
         try {
-            if (useBgolly) {
-                if (RuleLoaderBgollyPattern === undefined) {
-                    throw new Error('Cannot use bgolly in browsers');
-                }
-                return new RuleLoaderBgollyPattern(data.height, data.width, data.data, rule);
-            }
             let out = parseAtRule(rule);
             let coords = new Map<number, number>();
             let i = 0;
@@ -97,7 +82,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.endsWith('History')) {
         try {
-            let p = createPattern(rule.slice(0, -7), data, namedRules, undefined, useBgolly);
+            let p = createPattern(rule.slice(0, -7), data, namedRules, undefined);
             if (p.states !== 2) {
                 throw new RuleError('History is only supported for 2-state rules');
             }
@@ -118,7 +103,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.endsWith('Super')) {
         try {
-            let p = createPattern(rule.slice(0, -5), data, namedRules, undefined, useBgolly);
+            let p = createPattern(rule.slice(0, -5), data, namedRules, undefined);
             if (p.states !== 2) {
                 throw new RuleError('Super is only supported for 2-state rules');
             }
@@ -139,7 +124,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.endsWith('Investigator')) {
         try {
-            let p = createPattern(rule.slice(0, -12), data, namedRules, undefined, useBgolly);
+            let p = createPattern(rule.slice(0, -12), data, namedRules, undefined);
             if (p.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
@@ -164,7 +149,7 @@ export function createPattern(rule: string, data: {height: number, width: number
             if (parts.length > 2) {
                 throw new RuleError('Only 1 bounded grid specifier allowed');
             }
-            let p = createPattern(parts[0], data, namedRules, prevName, useBgolly);
+            let p = createPattern(parts[0], data, namedRules, prevName);
             let spec = parts[1];
             let type = spec[0];
             let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
@@ -206,15 +191,8 @@ export function createPattern(rule: string, data: {height: number, width: number
             }
         }
     }
-    if (rule.startsWith('__ruleloader_bgolly_')) {
-        if (RuleLoaderBgollyPattern === undefined || readFileSync === undefined) {
-            throw new Error('Cannot use bgolly in browsers');
-        }
-        // @ts-ignore
-        return new RuleLoaderBgollyPattern(data.height, data.width, data.data, readFileSync(`${import.meta.dirname}/../${rule}.rule`).toString(), rule);
-    }
     if (rule.includes('|')) {
-        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined, useBgolly));
+        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined));
         let states = Math.max(...patterns.map(x => x.states));
         let ruleStr = patterns.map(x => x.ruleStr).join('|');
         let symmetry = patterns[0].ruleSymmetry;
@@ -228,16 +206,15 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
-        return createPattern(namedRules[lower], data, namedRules, rule, useBgolly);
+        return createPattern(namedRules[lower], data, namedRules, rule);
     }
     throw new RuleError(errors.join(', '));
 }
 
 /** Parses a RLE. 
  * @param namedRules An object mapping aliases to rules.
- * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
 */
-export function parse(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
+export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
     let rule = 'B3/S23';
     let xOffset: number | null = null;
     let yOffset: number | null = null;
@@ -359,7 +336,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, useBgol
             i++;
         }
     }
-    let out = createPattern(rule, {height, width, data: pData}, namedRules, undefined, useBgolly);
+    let out = createPattern(rule, {height, width, data: pData}, namedRules, undefined);
     if (xOffset !== null) {
         out.xOffset = xOffset;
     }
@@ -372,9 +349,8 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, useBgol
 
 /** Parses a RLE, but also supports legacy formats like Life 1.05.
  * @param namedRules An object mapping aliases to rules.
- * @param useBgolly This is a temporary parameter until the RuleLoader implementation is fixed. If true, it will output instances of `RuleLoaderBgollyPattern` instead of `TreePattern`.
 */
-export function parseWithCompatibility(rle: string, namedRules?: {[key: string]: string}, useBgolly?: boolean): Pattern {
+export function parseWithCompatibility(rle: string, namedRules?: {[key: string]: string}): Pattern {
     let lines = rle.trim().split('\n');
     let raw: number[][] = [];
     let rule = 'B3/S23';
@@ -449,7 +425,7 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
             i++;
         }
     }
-    let out = createPattern(rule, {height, width, data}, namedRules, undefined, useBgolly);
+    let out = createPattern(rule, {height, width, data}, namedRules, undefined);
     if (xOffset !== null) {
         out.xOffset = xOffset;
     }
@@ -590,7 +566,7 @@ export function getBlackWhiteReversal(rule: string): string {
     } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
         let index = p.ruleStr.lastIndexOf(':');
         return getBlackWhiteReversal(p.ruleStr.slice(0, index)) + p.ruleStr.slice(index);
-    } else if (p instanceof TreePattern || (RuleLoaderBgollyPattern !== undefined && p instanceof RuleLoaderBgollyPattern)) {
+    } else if (p instanceof TreePattern) {
         throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
     } else if (p instanceof AlternatingPattern) {
         return p.ruleStr.split('|').map(getBlackWhiteReversal).join('|');
