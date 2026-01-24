@@ -370,6 +370,8 @@ export interface Pattern {
     population: number;
     /** Gets the bounding box of the pattern, like g.getrect(). */
     getRect(): Rect;
+    /** Gets the "actual" x and y offsets (only different from `[xOffset, yOffset]` if the implementation supports negative coordinates). */
+    getFullOffset(): [number, number];
     /** Checks if the pattern consists of dead cells. */
     isEmpty(): boolean;
     /** Copies the pattern, including the rule and the data. */
@@ -408,8 +410,8 @@ export interface Pattern {
     setCoords(coords: Map<number, number>): this;
     /** Checks if 2 patterns are exactly equal. */
     isEqual(other: Pattern): boolean;
-    /** Checks if 2 patterns are equal, but with optional translation. (You should generally call `shrinkToFit` before calling this.) */
-    isEqualWithTranslate(other: Pattern): boolean;
+    /** Checks if 2 patterns are equal, but with optional translation. (You should generally call `shrinkToFit` before calling this.) Also returns how much it is translated. */
+    isEqualWithTranslate(other: Pattern): false | [number, number];
     /** Hashes the pattern into a 32-bit number. */
     hash32(): number;
     /** Hashes the pattern into a 64-bit number. */
@@ -489,6 +491,10 @@ export abstract class DataPattern implements Pattern {
 
     getRect(): Rect {
         return {height: this.height, width: this.width, xOffset: this.xOffset, yOffset: this.yOffset};
+    }
+
+    getFullOffset(): [number, number] {
+        return [this.xOffset, this.yOffset];
     }
 
     isEmpty(): boolean {
@@ -711,9 +717,14 @@ export abstract class DataPattern implements Pattern {
         return this.height === other.height && this.width === other.width && this.xOffset === other.xOffset && this.yOffset === other.yOffset && this.data.every((x, i) => x === otherData[i]);
     }
 
-    isEqualWithTranslate(other: Pattern): boolean {
+    isEqualWithTranslate(other: Pattern): false | [number, number] {
         let otherData = other.getData();
-        return this.height === other.height && this.width === other.width && this.data.every((x, i) => x === otherData[i]);
+        if (this.height === other.height && this.width === other.width && this.data.every((x, i) => x === otherData[i])) {
+            let [xOffset, yOffset] = other.getFullOffset();
+            return [this.xOffset - xOffset, yOffset - yOffset];
+        } else {
+            return false;
+        }
     }
 
     hash32(): number {
@@ -1317,6 +1328,11 @@ export abstract class CoordPattern implements Pattern {
         return {height: maxY - minY + 1, width: maxX - minX + 1, xOffset: 0, yOffset: 0};
     }
 
+    getFullOffset(): [number, number] {
+        let {minX, minY} = this.getMinMaxCoords();
+        return [minX, minY];
+    }
+
     get height(): number {
         return this.getRect().height;
     }
@@ -1451,13 +1467,30 @@ export abstract class CoordPattern implements Pattern {
     }
 
     isEqual(other: Pattern): boolean {
+        if (this.height !== other.height || this.width !== other.width) {
+            return false;
+        }
+        let [xOffset, yOffset] = other.getFullOffset();
+        let [otherXOffset, otherYOffset] = other.getFullOffset();
+        if (xOffset !== otherXOffset && yOffset !== otherYOffset) {
+            return false;
+        }
         let otherData = other.getData();
-        return this.height === other.height && this.width === other.width && other.xOffset === this.xOffset && other.yOffset === this.yOffset && this.getData().every((x, i) => x === otherData[i]);
+        return this.getData().every((x, i) => x === otherData[i]);
     }
 
-    isEqualWithTranslate(other: Pattern): boolean {
+    isEqualWithTranslate(other: Pattern): false | [number, number] {
+        if (this.height !== other.height || this.width !== other.width) {
+            return false;
+        }
         let otherData = other.getData();
-        return this.height === other.height && this.width === other.width && this.getData().every((x, i) => x === otherData[i]);
+        if (this.getData().every((x, i) => x === otherData[i])) {
+            let [xOffset, yOffset] = other.getFullOffset();
+            let [otherXOffset, otherYOffset] = other.getFullOffset();
+            return [xOffset - otherXOffset, yOffset - otherYOffset];
+        } else {
+            return false;
+        }
     }
 
     hash32(): number {
