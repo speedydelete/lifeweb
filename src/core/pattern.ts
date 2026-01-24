@@ -721,7 +721,7 @@ export abstract class DataPattern implements Pattern {
         let otherData = other.getData();
         if (this.height === other.height && this.width === other.width && this.data.every((x, i) => x === otherData[i])) {
             let [xOffset, yOffset] = other.getFullOffset();
-            return [this.xOffset - xOffset, yOffset - yOffset];
+            return [this.xOffset - xOffset, this.yOffset - yOffset];
         } else {
             return false;
         }
