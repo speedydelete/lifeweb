@@ -2011,8 +2011,8 @@ export class MAPGenB0Pattern extends DataPattern {
 /** The mapping of von Neumann neighorhood rules to INT transitions. */
 export const VON_NEUMANN: string[][] = [
     ['0c', '1c', '2c', '2n', '3c', '4c'],
-    ['1e', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
-    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5i', '5r', '6e', '6i'],
+    ['1e', '2a', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
+    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5j', '5r', '6e', '6i'],
     ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
     ['4e', '5c', '6c', '6n', '7c', '8c'],
 ];
