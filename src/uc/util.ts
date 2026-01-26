@@ -655,8 +655,8 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nSalvos (for output):\n\n';
     for (let key of Object.keys(groups).sort()) {
         out += groups[key].sort((a, b) => {
-            let aCount = a.split(',').length;
-            let bCount = b.split(',').length;
+            let aCount = a.split('),').length;
+            let bCount = b.split('),').length;
             if (aCount !== bCount) {
                 return aCount - bCount;
             } else if (a < b) {
