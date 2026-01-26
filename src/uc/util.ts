@@ -533,9 +533,9 @@ export interface RecipeData {
     salvos: {
         forInput: {[key: string]: [number, CAObject[]][]};
         forOutput: {[key: string]: [CAObject, CAObject[], number[][]]};
-        // moveRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
-        // splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
-        // destroyRecipes: {[key: string]: number[][]};
+        moveRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
+        splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
+        destroyRecipes: {[key: string]: number[][]};
     };
 }
 
@@ -544,9 +544,9 @@ type RecipeSection = `salvos.${keyof RecipeData['salvos']}`;
 let sectionNames: {[key: string]: RecipeSection} = {
     'Salvos (for input)': 'salvos.forInput',
     'Salvos (for output)': 'salvos.forOutput',
-    // 'Move recipes': 'salvos.moveRecipes',
-    // 'Split recipes': 'salvos.splitRecipes',
-    // 'Destroy recipes': 'salvos.destroyRecipes',
+    'Move recipes': 'salvos.moveRecipes',
+    'Split recipes': 'salvos.splitRecipes',
+    'Destroy recipes': 'salvos.destroyRecipes',
 };
 
 let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
@@ -583,7 +583,7 @@ function addSection(section: string, current: string[], out: RecipeData): void {
             let [input, output] = key.split(' to ');
             out.salvos.forOutput[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output), data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
-    }/* else if (section === 'salvos.moveRecipes') {
+    } else if (section === 'salvos.moveRecipes') {
         for (let [key, data] of parseRecipeSections(current)) {
             let [input, output] = key.split(' to ');
             out.salvos.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.map(x => x.split(', ').map(y => parseInt(y)))];
@@ -597,7 +597,7 @@ function addSection(section: string, current: string[], out: RecipeData): void {
         for (let [key, data] of parseRecipeSections(current)) {
             out.salvos.destroyRecipes[key] = data.map(x => x.split(', ').map(y => parseInt(y)));
         }
-    }*/
+    }
 }
 
 export async function getRecipes(): Promise<RecipeData> {
@@ -605,9 +605,9 @@ export async function getRecipes(): Promise<RecipeData> {
         salvos: {
             forInput: {},
             forOutput: {},
-            // moveRecipes: {},
-            // splitRecipes: {},
-            // destroyRecipes: {},
+            moveRecipes: {},
+            splitRecipes: {},
+            destroyRecipes: {},
         },
     };
     if (!exists(recipeFile)) {
@@ -666,17 +666,17 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
             }
         }).join('\n') + '\n\n';
     }
-    // out += '\nMove recipes:\n\n';
-    // for (let [key, value] of Object.entries(data.salvos.moveRecipes)) {
-    //     out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
-    // }
-    // out += `\nSplit recipes:\n\n`;
-    // for (let [key, value] of Object.entries(data.salvos.splitRecipes)) {
-    //     out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
-    // }
-    // out += `\nDestroy recipes:\n\n`;
-    // for (let [key, value] of Object.entries(data.salvos.destroyRecipes)) {
-    //     out += `${key}:\n${value.map(x => x.join(', ')).join('\n')}\n\n`;
-    // }
+    out += '\nMove recipes:\n\n';
+    for (let [key, value] of Object.entries(data.salvos.moveRecipes)) {
+        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    out += `\nSplit recipes:\n\n`;
+    for (let [key, value] of Object.entries(data.salvos.splitRecipes)) {
+        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
+    }
+    out += `\nDestroy recipes:\n\n`;
+    for (let [key, value] of Object.entries(data.salvos.destroyRecipes)) {
+        out += `${key}:\n${value.map(x => x.join(', ')).join('\n')}\n\n`;
+    }
     await fs.writeFile(recipeFile, out.slice(0, -1));
 }

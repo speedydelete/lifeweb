@@ -223,21 +223,21 @@ export async function searchSalvos(limit: number): Promise<void> {
     for (let [key, value] of Object.entries(forOutput)) {
         addRecipesSubkey(data.forOutput, [value[0], value[1], value[4]] as const, key, 2);
     }
-    // for (let [key, [input, outFull, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
-    //     if (outLifes.length === 0) {
-    //         if (outShips.length === 0) {
-    //             addRecipes(data.destroyRecipes, recipes, input.code);
-    //         }
-    //     } else {
-    //         if (outShips.length === 0 && outLifes.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
-    //             if (outLifes.length === 1) {
-    //                 addRecipesSubkey(data.moveRecipes, [input, outLifes[1], recipes] as const, key, 2);
-    //             } else {
-    //                 addRecipesSubkey(data.splitRecipes, [input, outLifes, recipes] as const, key, 2);
-    //             }
-    //         }
-    //     }
-    // }
+    for (let [key, [input, outFull, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
+        if (outLifes.length === 0) {
+            if (outShips.length === 0) {
+                addRecipes(data.destroyRecipes, recipes, input.code);
+            }
+        } else {
+            if (outShips.length === 0 && outLifes.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
+                if (outLifes.length === 1) {
+                    addRecipesSubkey(data.moveRecipes, [input, outLifes[1], recipes] as const, key, 2);
+                } else {
+                    addRecipesSubkey(data.splitRecipes, [input, outLifes, recipes] as const, key, 2);
+                }
+            }
+        }
+    }
     saveRecipes(recipes);
 }
 
