@@ -691,6 +691,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nMove recipes:\n\n' + sortStringRecipes(data.salvos.moveRecipes, true);
     out += '\nSplit recipes:\n\n' + sortStringRecipes(data.salvos.splitRecipes, true);
     out += '\nDestroy recipes:\n\n' + sortStringRecipes(data.salvos.destroyRecipes, false);
+    await fs.writeFile(recipeFile + '_' + 'compact', out.slice(0, -1));
     out += '\nOne-time turners:\n\n' + sortStringRecipes(data.salvos.oneTimeTurners, true);
     out += '\nOne-time splitters:\n\n' + sortStringRecipes(data.salvos.oneTimeSplitters, true);
     out += '\nSalvos (for input):\n\n';

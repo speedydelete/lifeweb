@@ -7,8 +7,14 @@ let cmd = process.argv[2];
 let args = process.argv.slice(3);
 
 if (cmd === 'get_ss') {
-    let lanes = args.join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x).map(x => parseInt(x)).reverse();
-    console.log(createSalvoPattern(c.START_OBJECT.slice(c.START_OBJECT.indexOf('_') + 1), lanes)[0].toRLE());
+    let lanes = args.join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x);
+    let start = c.START_OBJECT;
+    if (lanes[0].startsWith('x')) {
+        start = lanes[0];
+        lanes = lanes.slice(1);
+    }
+    start = start.slice(start.indexOf('_') + 1);
+    console.log(createSalvoPattern(start, lanes.map(x => parseInt(x)).reverse())[0].toRLE());
 } else if (cmd === 'search_ss') {
     searchSalvos(parseInt(args[0]));
 } else {

@@ -119,6 +119,9 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
+        if (JSON.stringify(recipe) === '[11,12,20]') {
+            console.log(lane, x, y, recipe, objectsToString([startObj]), 'to', objectsToString(objs));
+        }
         objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
             if ('at' in out) {
@@ -223,7 +226,7 @@ export async function searchSalvos(limit: number): Promise<void> {
     for (let [key, value] of Object.entries(forOutput)) {
         addRecipesSubkey(data.forOutput, [value[0], value[1], value[4]] as const, key, 2);
     }
-    for (let [key, [input, outFull, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
+    for (let [key, [input, _, outLifes, outShips, recipes]] of Object.entries(forOutput)) {
         if (outLifes.length === 0) {
             if (outShips.length === 0) {
                 addRecipes(data.destroyRecipes, recipes, input.code);
