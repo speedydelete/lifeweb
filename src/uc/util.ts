@@ -536,6 +536,8 @@ export interface RecipeData {
         moveRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
         splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
         destroyRecipes: {[key: string]: number[][]};
+        oneTimeTurners: {[key: string]: [StillLife, Spaceship, number[][]]};
+        oneTimeSplitters: {[key: string]: [StillLife, Spaceship[], number[][]]};
     };
 }
 
@@ -547,6 +549,8 @@ let sectionNames: {[key: string]: RecipeSection} = {
     'Move recipes': 'salvos.moveRecipes',
     'Split recipes': 'salvos.splitRecipes',
     'Destroy recipes': 'salvos.destroyRecipes',
+    'One-time turners': 'salvos.oneTimeTurners',
+    'One-time splitters': 'salvos.oneTimeSplitters',
 };
 
 let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
@@ -584,18 +588,33 @@ function addSection(section: string, current: string[], out: RecipeData): void {
             out.salvos.forOutput[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output), data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
     } else if (section === 'salvos.moveRecipes') {
-        for (let [key, data] of parseRecipeSections(current)) {
+        for (let line of current) {
+            let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
-            out.salvos.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.map(x => x.split(', ').map(y => parseInt(y)))];
+            out.salvos.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
     } else if (section === 'salvos.splitRecipes') {
-        for (let [key, data] of parseRecipeSections(current)) {
+        for (let line of current) {
+            let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
-            out.salvos.splitRecipes[key] = [stringToObjects(input)[0] as StillLife, stringToObjects(output) as StillLife[], data.map(x => x.split(', ').map(y => parseInt(y)))];
+            out.salvos.splitRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as StillLife[], data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
     } else if (section === 'salvos.destroyRecipes') {
-        for (let [key, data] of parseRecipeSections(current)) {
-            out.salvos.destroyRecipes[key] = data.map(x => x.split(', ').map(y => parseInt(y)));
+        for (let line of current) {
+            let [key, data] = line.split(':');
+            out.salvos.destroyRecipes[key] = data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)));
+        }
+    } else if (section === 'salvos.oneTimeTurners') {
+        for (let line of current) {
+            let [key, data] = line.split(':');
+            let [input, output] = key.split(' to ');
+            out.salvos.oneTimeTurners[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as Spaceship, data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
+        }
+    } else if (section === 'salvos.oneTimeSplitters') {
+        for (let line of current) {
+            let [key, data] = line.split(':');
+            let [input, output] = key.split(' to ');
+            out.salvos.oneTimeSplitters[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as Spaceship[], data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
     }
 }
@@ -608,6 +627,8 @@ export async function getRecipes(): Promise<RecipeData> {
             moveRecipes: {},
             splitRecipes: {},
             destroyRecipes: {},
+            oneTimeTurners: {},
+            oneTimeSplitters: {},
         },
     };
     if (!exists(recipeFile)) {
@@ -637,22 +658,18 @@ export async function getRecipes(): Promise<RecipeData> {
     return out;
 }
 
-export async function saveRecipes(data: RecipeData): Promise<void> {
-    let out = '\nSalvos (for input):\n\n';
-    for (let [key, value] of Object.entries(data.salvos.forInput)) {
-        out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
-    }
+function sortStringRecipes<T extends boolean>(data: T extends true ? {[key: string]: {2: number[][]}} : {[key: string]: number[][]}, type: T): string {
     let groups: {[key: string]: string[]} = {};
-    for (let [key, value] of Object.entries(data.salvos.forOutput)) {
+    for (let [key, value] of Object.entries(data)) {
         let keyStart = key.split(' ').slice(0, 3).join(' ');
-        let line = `${key}: ${value[2].sort((a, b) => a.length - b.length).map(x => x.join(', ')).join(' / ')}`;
+        let line = `${key}: ${((type ? value[2] : value) as number[][]).sort((a, b) => a.length - b.length).map(x => x.join(', ')).join(' / ')}`;
         if (keyStart in groups) {
             groups[keyStart].push(line);
         } else {
             groups[keyStart] = [line];
         }
     }
-    out += '\nSalvos (for output):\n\n';
+    let out = '';
     for (let key of Object.keys(groups).sort()) {
         out += groups[key].sort((a, b) => {
             let aCount = a.split('),').length;
@@ -666,17 +683,20 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
             }
         }).join('\n') + '\n\n';
     }
-    out += '\nMove recipes:\n\n';
-    for (let [key, value] of Object.entries(data.salvos.moveRecipes)) {
-        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
+    return out;
+}
+
+export async function saveRecipes(data: RecipeData): Promise<void> {
+    let out = '';
+    out += '\nMove recipes:\n\n' + sortStringRecipes(data.salvos.moveRecipes, true);
+    out += '\nSplit recipes:\n\n' + sortStringRecipes(data.salvos.splitRecipes, true);
+    out += '\nDestroy recipes:\n\n' + sortStringRecipes(data.salvos.destroyRecipes, false);
+    out += '\nOne-time turners:\n\n' + sortStringRecipes(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + sortStringRecipes(data.salvos.oneTimeSplitters, true);
+    out += '\nSalvos (for input):\n\n';
+    for (let [key, value] of Object.entries(data.salvos.forInput)) {
+        out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
     }
-    out += `\nSplit recipes:\n\n`;
-    for (let [key, value] of Object.entries(data.salvos.splitRecipes)) {
-        out += `${key}:\n${value[2].map(x => x.join(', ')).join('\n')}\n\n`;
-    }
-    out += `\nDestroy recipes:\n\n`;
-    for (let [key, value] of Object.entries(data.salvos.destroyRecipes)) {
-        out += `${key}:\n${value.map(x => x.join(', ')).join('\n')}\n\n`;
-    }
+    out += '\nSalvos (for output):\n\n' + sortStringRecipes(data.salvos.forOutput, true);
     await fs.writeFile(recipeFile, out.slice(0, -1));
 }

@@ -177,6 +177,7 @@ function addRecipesSubkey<T extends PropertyKey, U extends PropertyKey>(data: {[
 }
 
 export async function searchSalvos(limit: number): Promise<void> {
+    let recipes = await getRecipes();
     let done = new Set<string>();
     let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [c.START_OBJECT];
@@ -213,7 +214,6 @@ export async function searchSalvos(limit: number): Promise<void> {
             getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, obj, stringToObjects(obj + ' (0, 0)')[0] as StillLife);
         }
     }
-    let recipes = await getRecipes();
     let data = recipes.salvos;
     for (let key in forInput) {
         if (!(key in data.forInput)) {
@@ -227,6 +227,10 @@ export async function searchSalvos(limit: number): Promise<void> {
         if (outLifes.length === 0) {
             if (outShips.length === 0) {
                 addRecipes(data.destroyRecipes, recipes, input.code);
+            } else if (outShips.length === 1) {
+                addRecipesSubkey(data.oneTimeTurners, [input, outShips[0], recipes] as const, key, 2);
+            } else {
+                addRecipesSubkey(data.oneTimeSplitters, [input, outShips, recipes] as const, key, 2);
             }
         } else {
             if (outShips.length === 0 && outLifes.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
