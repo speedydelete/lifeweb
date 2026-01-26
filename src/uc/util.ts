@@ -654,7 +654,17 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     }
     out += '\nSalvos (for output):\n\n';
     for (let key of Object.keys(groups).sort()) {
-        out += groups[key].sort().join('\n') + '\n\n';
+        out += groups[key].sort((a, b) => {
+            let aCount = a.split(',').length;
+            let bCount = b.split(',').length;
+            if (aCount !== bCount) {
+                return aCount - bCount;
+            } else if (a < b) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }).join('\n') + '\n\n';
     }
     // out += '\nMove recipes:\n\n';
     // for (let [key, value] of Object.entries(data.salvos.moveRecipes)) {
