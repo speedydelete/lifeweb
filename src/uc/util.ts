@@ -658,11 +658,15 @@ export async function getRecipes(): Promise<RecipeData> {
     return out;
 }
 
-function sortStringRecipes<T extends boolean>(data: T extends true ? {[key: string]: {2: number[][]}} : {[key: string]: number[][]}, type: T): string {
+function sortStringRecipes<T extends boolean>(data: T extends true ? {[key: string]: {2: number[][]}} : {[key: string]: number[][]}, type: T, limit?: number): string {
     let groups: {[key: string]: string[]} = {};
     for (let [key, value] of Object.entries(data)) {
         let keyStart = key.split(' ').slice(0, 3).join(' ');
-        let line = `${key}: ${((type ? value[2] : value) as number[][]).sort((a, b) => a.length - b.length).map(x => x.join(', ')).join(' / ')}`;
+        let data: number[][] = type ? value[2] : value;
+        if (limit) {
+            data = data.slice(0, limit);
+        }
+        let line = `${key}: ${data.sort((a, b) => a.length - b.length).map(x => x.join(', ')).join(' / ')}`;
         if (keyStart in groups) {
             groups[keyStart].push(line);
         } else {
@@ -688,16 +692,22 @@ function sortStringRecipes<T extends boolean>(data: T extends true ? {[key: stri
 
 export async function saveRecipes(data: RecipeData): Promise<void> {
     let out = '';
-    out += '\nMove recipes:\n\n' + sortStringRecipes(data.salvos.moveRecipes, true);
-    out += '\nSplit recipes:\n\n' + sortStringRecipes(data.salvos.splitRecipes, true);
-    out += '\nDestroy recipes:\n\n' + sortStringRecipes(data.salvos.destroyRecipes, false);
-    await fs.writeFile(recipeFile + '_' + 'compact', out.slice(0, -1));
-    out += '\nOne-time turners:\n\n' + sortStringRecipes(data.salvos.oneTimeTurners, true);
-    out += '\nOne-time splitters:\n\n' + sortStringRecipes(data.salvos.oneTimeSplitters, true);
     out += '\nSalvos (for input):\n\n';
     for (let [key, value] of Object.entries(data.salvos.forInput)) {
         out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
     }
     out += '\nSalvos (for output):\n\n' + sortStringRecipes(data.salvos.forOutput, true);
+    out += '\nMove recipes:\n\n' + sortStringRecipes(data.salvos.moveRecipes, true);
+    out += '\nSplit recipes:\n\n' + sortStringRecipes(data.salvos.splitRecipes, true);
+    out += '\nDestroy recipes:\n\n' + sortStringRecipes(data.salvos.destroyRecipes, false);
+    out += '\nOne-time turners:\n\n' + sortStringRecipes(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + sortStringRecipes(data.salvos.oneTimeSplitters, true);
     await fs.writeFile(recipeFile, out.slice(0, -1));
+    out = '';
+    out += '\nMove recipes:\n\n' + sortStringRecipes(data.salvos.moveRecipes, true, 20);
+    out += '\nSplit recipes:\n\n' + sortStringRecipes(data.salvos.splitRecipes, true, 20);
+    out += '\nDestroy recipes:\n\n' + sortStringRecipes(data.salvos.destroyRecipes, false, 5);
+    out += '\nOne-time turners:\n\n' + sortStringRecipes(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + sortStringRecipes(data.salvos.oneTimeSplitters, true);
+    await fs.writeFile(recipeFile.slice(0, -4) + '_useful.txt', out.slice(0, -1));
 }

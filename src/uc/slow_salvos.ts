@@ -119,9 +119,9 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
-        if (JSON.stringify(recipe) === '[11,12,20]') {
-            console.log(lane, x, y, recipe, objectsToString([startObj]), 'to', objectsToString(objs));
-        }
+        // if (JSON.stringify(recipe) === '[11,12,20]') {
+        //     console.log(lane, x, y, recipe, objectsToString([startObj]), 'to', objectsToString(objs));
+        // }
         objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
             if ('at' in out) {
