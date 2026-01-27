@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
+import {MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
@@ -11,22 +11,19 @@ export * as c from './config.js';
 export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
 
 export interface BaseObject {
+    code: string;
     x: number;
     y: number;
-    width: number;
-    height: number;
-    code: string;
 }
 
 export interface StillLife extends BaseObject {
     type: 'sl';
-    code: string;
 }
 
 export interface Oscillator extends BaseObject {
     type: 'osc';
     at: number;
-    phase: number;
+    timing: number;
 }
 
 export interface Spaceship extends BaseObject {
@@ -170,7 +167,7 @@ export function objectsToString(objs: CAObject[]): string {
         if (obj.type === 'sl') {
             out.push(`${obj.code} (${obj.x}, ${obj.y})`);
         } else if (obj.type === 'osc') {
-            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.at}, ${obj.phase})`);
+            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         } else if (obj.type === 'ship') {
             out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         } else {
@@ -211,61 +208,30 @@ export function stringToObjects(data: string): CAObject[] {
         let code = data[0];
         let args = data[1].slice(0, -1).split(', ');
         if (code.startsWith('xs')) {
-            let p = base.loadApgcode(code.slice(code.indexOf('_') + 1)).shrinkToFit();
             out.push({
                 type: 'sl',
                 code,
                 x: parseInt(args[0]),
                 y: parseInt(args[1]),
-                width: p.width,
-                height: p.height,
             });
         } else if (code.startsWith('xp')) {
-            let phase = parseInt(args[3]);
-            let p = base.loadApgcode(code.slice(code.indexOf('_') + 1)).run(phase).shrinkToFit();
             out.push({
                 type: 'osc',
                 code,
                 x: parseInt(args[0]),
                 y: parseInt(args[1]),
-                width: p.width,
-                height: p.height,
                 at: parseInt(args[2]),
-                phase,
+                timing: parseInt(args[3]),
             });
         } else if (code.startsWith('xq') && SHIP_DIRECTIONS.includes(args[0])) {
-            let dir = args[0] as c.ShipDirection;
-            let timing = parseInt(args[3]);
-            let data = c.SHIP_IDENTIFICATION[code];
-            let p = base.clearedCopy();
-            for (let i of data.cells) {
-                p.data[i] = 1;
-            }
-            if (dir.endsWith('2')) {
-                if (dir.length === 3) {
-                    p = p.rotateRight().flipHorizontal();
-                } else {
-                    p = p.flipHorizontal();
-                }
-                dir = dir.slice(0, -1) as c.ShipDirection;
-            }
-            if (dir === 'NW' || dir === 'N') {
-                p.rotate180();
-            } else if (dir === 'NE' || dir === 'E') {
-                p.rotateLeft();
-            } else if (dir === 'SW' || dir === 'W') {
-                p.rotateRight();
-            }
             out.push({
                 type: 'ship',
                 code,
                 x: parseInt(args[1]),
                 y: parseInt(args[2]),
-                width: p.width,
-                height: p.height,
                 dir: args[0] as c.ShipDirection,
                 at: parseInt(args[3]),
-                timing,
+                timing: parseInt(args[4]),
             });
         } else {
             let p = base.loadApgcode(args[0]).shrinkToFit();
@@ -274,8 +240,6 @@ export function stringToObjects(data: string): CAObject[] {
                 code,
                 x: parseInt(args[1].slice(1)),
                 y: parseInt(args[2]),
-                height: p.height,
-                width: p.width,
                 realCode: args[0],
                 at: parseInt(args[3]),
                 timing: parseInt(args[4]),
@@ -286,18 +250,14 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
-export function distance(a: CAObject, b: CAObject): number {
-    return Math.abs(Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-}
-
 function stabilize(p: MAPPattern): number | null {
     let pops: number[] = [];
     for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
         let pop = p.population;
-        for (let period = 1; period < Math.min(c.MAX_GENERATIONS, Math.floor(pops.length / c.PERIOD_SECURITY)); period++) {
+        for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
             let found = true;
-            for (let j = 1; j < 16; j++) {
+            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
                 if (pop !== pops[pops.length - period * j]) {
                     found = false;
                     break;
@@ -312,7 +272,8 @@ function stabilize(p: MAPPattern): number | null {
     return null;
 }
 
-function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObject[] {
+
+function combineStillLifes(objs: (StillLife & {p: MAPPattern, height: number, width: number})[]): false | CAObject[] {
     let out: CAObject[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
@@ -326,7 +287,10 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObj
             if (used[j]) {
                 continue;
             }
-            if (distance(obj, objs[j]) <= c.MAX_PSEUDO_DISTANCE) {
+            let a = obj;
+            let b = objs[j];
+            let dist = Math.abs(Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+            if (dist <= c.MAX_PSEUDO_DISTANCE) {
                 used[j] = 1;
                 data.push(objs[j]);
             }
@@ -337,8 +301,6 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObj
                 code: obj.code,
                 x: obj.x,
                 y: obj.y,
-                width: obj.width,
-                height: obj.height,
             });
             continue;
         }
@@ -379,8 +341,6 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObj
             code: p.toApgcode('xs' + p.population),
             x: minX,
             y: minY,
-            width: p.width,
-            height: p.height,
         });
     }
     return out;
@@ -388,7 +348,7 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern})[]): false | CAObj
 
 let knots = getKnots(base.trs);
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | CAObject[] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | CAObject[] {
     let period = stabilize(p);
     if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
         return false;
@@ -397,21 +357,41 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
+    if (p.isEmpty()) {
+        return [];
+    }
     let sep = new INTSeparator(p, knots);
     sep.generation = p.generation;
-    for (let i = 0; i < c.SEPARATOR_GENERATIONS; i++) {
-        sep.runGeneration();
-        sep.resolveKnots();
+    let objs: [MAPPattern, PatternType][] = [];
+    let found = false;
+    for (let i = 0; i < period * 8; i++) {
+        let reassigned = sep.runGeneration();
+        let reassigned2 = sep.resolveKnots();
+        if (reassigned || reassigned2) {
+            continue;
+        }
+        objs = sep.getObjects().map(x => [x, findType(x, period * 8)]);
+        if (objs.every(([_, x]) => x.stabilizedAt === 0 && !x.phases[x.phases.length - 1].isEmpty())) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        if (input) {
+            console.log(`Unable to separate objects for ${input}!`);
+        } else {
+            console.log(`Unable to separate objects!`);
+        }
+        return false;
     }
     let out: CAObject[] = [];
-    let stillLifes: (StillLife & {p: MAPPattern})[] = [];
-    for (let p of sep.getObjects()) {
+    let stillLifes: (StillLife & {p: MAPPattern, width: number, height: number})[] = [];
+    for (let [p, type] of objs) {
         if (p.isEmpty()) {
             return false;
         }
         p.shrinkToFit();
         p.generation = sep.generation;
-        let type = findType(p, 1024, false);
         let apgcode = getApgcode(type);
         if (apgcode.startsWith('xs')) {
             if (apgcode === 'xs0_0') {
@@ -427,45 +407,13 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 code: p.toApgcode('xs' + p.population),
             });
         } else if (apgcode.startsWith('xp')) {
-            let phase = 0;
-            let goal = base.loadApgcode(apgcode);
-            while (true) {
-                let found = false;
-                for (let i = 0; i < 2; i++) {
-                    if (p.rotateRight().isEqual(goal)) {
-                        found = true;
-                        break;
-                    }
-                    if (p.rotateRight().isEqual(goal)) {
-                        found = true;
-                        break;
-                    }
-                    if (p.rotateRight().isEqual(goal)) {
-                        found = true;
-                        break;
-                    }
-                    if (p.rotateRight().isEqual(goal)) {
-                        found = true;
-                        break;
-                    }
-                    p.flipHorizontal();
-                }
-                if (found) {
-                    break;
-                }
-                phase++;
-                p.runGeneration();
-            }
-            console.log('hi');
             out.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + type.period),
                 x: p.xOffset,
                 y: p.yOffset,
-                width: p.width,
-                height: p.width,
                 at: 0,
-                phase: (type.period - phase + p.generation) % type.period,
+                timing: p.generation % type.period,
             });
         } else if (apgcode in c.SHIP_IDENTIFICATION) {
             let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
@@ -487,8 +435,6 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                                 code: apgcode,
                                 x: p.xOffset,
                                 y: p.yOffset,
-                                width: p.width,
-                                height: p.height,
                                 dir,
                                 at: 0,
                                 timing: p.generation,
@@ -502,7 +448,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 }
             }
             if (!found) {
-                throw new Error(`Invalid glider: ${p.toRLE()}`);
+                throw new Error(`Invalid spaceship: ${p.toRLE()}`);
             }
         } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
             return false;
@@ -512,8 +458,6 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 code: apgcode,
                 x: p.xOffset,
                 y: p.yOffset,
-                width: p.width,
-                height: p.height,
                 realCode: p.toApgcode(),
                 at: 0,
                 timing: p.generation,
@@ -705,10 +649,10 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
     await fs.writeFile(recipeFile, out.slice(0, -1));
     out = '';
-    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true, 5);
-    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true, 5);
-    out += '\nDestroy recipes:\n\n' + getStringRecipes(data.salvos.destroyRecipes, false, 5);
-    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true, 5);
-    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true, 5);
+    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true);
+    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true);
+    out += '\nDestroy recipes:\n\n' + getStringRecipes(data.salvos.destroyRecipes, false);
+    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
     await fs.writeFile(recipeFile.slice(0, -4) + '_useful.txt', out.slice(0, -1));
 }

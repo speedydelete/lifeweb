@@ -46,12 +46,13 @@ const PERIOD_SECURITY = 16;
 const VALID_POPULATION_PERIODS: null | number[] = [1];
 // the extra generations to run after a collision, just to make sure
 const EXTRA_GENERATIONS = 64;
-// the generations to run the colorizing object separation for
-const SEPARATOR_GENERATIONS = 1;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 // the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
 const LANE_LIMIT = 128;
+
+// the maximum number of slow salvo recipes to store for each outcome
+const MAX_SS_RECIPES = 5;
 
 // don't change this
 // the ones with 2 after them are flipped
@@ -149,4 +150,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, SINGLE_CHANNEL_OBJECTS, SINGLE_CHANNEL_START, MIN_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, SEPARATOR_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, SINGLE_CHANNEL_OBJECTS, SINGLE_CHANNEL_START, MIN_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};

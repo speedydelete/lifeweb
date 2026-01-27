@@ -1346,14 +1346,14 @@ export class INTSeparator extends MAPPattern {
      * @param recurseEveryTime I honestly forget what this thing actually does.
      * @param depth The recursion depth. I think this is internal, but I'm not sure.
      */
-    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [PatternType[], boolean] | null {
+    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [[MAPPattern, PatternType][], boolean] | null {
         if (this.isEmpty()) {
             return [[], false];
         }
         let i = 0;
         let totalI = 0;
         let maxPeriod = max;
-        let objs: PatternType[] = [];
+        let objs: [MAPPattern, PatternType][] = [];
         let failed = false;
         while (totalI < max) {
             let reassigned = this.runGeneration();
@@ -1371,9 +1371,102 @@ export class INTSeparator extends MAPPattern {
             //     console.log('\n\n' + this.toRLE() + '\n\n' + q.toRLE() + '\n\n'/* + Object.entries(this.reassignedGroups).map(x => x[0] + ' ' + x[1]).join('\n') + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n'*/);
             //     process.exit();
             // }
-            if (!reassigned && !reassigned2) {
-                let found = true;
-                if (recurseEveryTime && depth > 0) {
+            if (reassigned || reassigned2) {
+                i = 0;
+                totalI++;
+                continue;
+            }
+            let found = true;
+            if (recurseEveryTime && depth > 0) {
+                objs = [];
+                for (let p of this.getObjects()) {
+                    let single = true;
+                    let i = 1;
+                    for (; i < p.width; i++) {
+                        if (p.data[i] && !p.data[i - 1]) {
+                            single = false;
+                            break;
+                        }
+                    }
+                    if (single) {
+                        for (let y = 0; y < p.height; y++) {
+                            if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                single = false;
+                                break;
+                            }
+                            i++;
+                            for (let x = 1; x < p.width - 1; x++) {
+                                if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                            }
+                            if (!single) {
+                                break;
+                            }
+                            if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
+                                single = false;
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    if (single) {
+                        let x = findType(p, limit);
+                        if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                            found = false;
+                            break;
+                        }
+                        objs.push([p.copy(), x]);
+                    } else {
+                        let sep = new INTSeparator(p, this.knots);
+                        let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
+                        if (data === null) {
+                            failed = true;
+                            let x = findType(p, limit);
+                            if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                found = false;
+                                break;
+                            }
+                            objs.push([p.copy(), x]);
+                        } else {
+                            if (data[1] === true) {
+                                failed = true;
+                            }
+                            for (let [p, x] of data[0]) {
+                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                    found = false;
+                                    break;
+                                }
+                                objs.push([p, x]);
+                            }
+                            if (!found) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                objs = this.getObjects().map(x => [x, findType(x, limit)]);
+            }
+            if (!objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty())) {
+                i = 0;
+            } else if (i === 0) {
+                i = 1;
+                let periods = objs.map(([_, x]) => x.linear ? x.period * 8 : x.period);
+                maxPeriod = periods[0];
+                for (let period of periods.slice(1)) {
+                    maxPeriod = maxPeriod * period / gcd(maxPeriod, period);
+                }
+            } else {
+                i++;
+            }
+            if (i === maxPeriod) {
+                if (recurseEveryTime) {
+                    return [objs, failed];
+                }
+                if (depth > 0) {
                     objs = [];
                     for (let p of this.getObjects()) {
                         let single = true;
@@ -1414,7 +1507,7 @@ export class INTSeparator extends MAPPattern {
                                 found = false;
                                 break;
                             }
-                            objs.push(x);
+                            objs.push([p.copy(), x]);
                         } else {
                             let sep = new INTSeparator(p, this.knots);
                             let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
@@ -1425,17 +1518,17 @@ export class INTSeparator extends MAPPattern {
                                     found = false;
                                     break;
                                 }
-                                objs.push(x);
+                                objs.push([p.copy(), x]);
                             } else {
                                 if (data[1] === true) {
                                     failed = true;
                                 }
-                                for (let x of data[0]) {
+                                for (let [p, x] of data[0]) {
                                     if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                         found = false;
                                         break;
                                     }
-                                    objs.push(x);
+                                    objs.push([p, x]);
                                 }
                                 if (!found) {
                                     break;
@@ -1444,102 +1537,10 @@ export class INTSeparator extends MAPPattern {
                         }
                     }
                 } else {
-                    objs = this.getObjects().map(x => findType(x, limit));
+                    objs = this.getObjects().map(x => [x, findType(x, limit)]);
+                    failed = !objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty());
                 }
-                if (!objs.every(x => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty())) {
-                    i = 0;
-                } else if (i === 0) {
-                    i = 1;
-                    let periods = objs.map(x => x.linear ? x.period * 8 : x.period);
-                    maxPeriod = periods[0];
-                    for (let period of periods.slice(1)) {
-                        maxPeriod = maxPeriod * period / gcd(maxPeriod, period);
-                    }
-                } else {
-                    i++;
-                }
-                if (i === maxPeriod) {
-                    if (recurseEveryTime) {
-                        return [objs, failed];
-                    }
-                    if (depth > 0) {
-                        objs = [];
-                        for (let p of this.getObjects()) {
-                            let single = true;
-                            let i = 1;
-                            for (; i < p.width; i++) {
-                                if (p.data[i] && !p.data[i - 1]) {
-                                    single = false;
-                                    break;
-                                }
-                            }
-                            if (single) {
-                                for (let y = 0; y < p.height; y++) {
-                                    if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
-                                        single = false;
-                                        break;
-                                    }
-                                    i++;
-                                    for (let x = 1; x < p.width - 1; x++) {
-                                        if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
-                                            single = false;
-                                            break;
-                                        }
-                                        i++;
-                                    }
-                                    if (!single) {
-                                        break;
-                                    }
-                                    if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
-                                        single = false;
-                                        break;
-                                    }
-                                    i++;
-                                }
-                            }
-                            if (single) {
-                                let x = findType(p, limit);
-                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
-                                    found = false;
-                                    break;
-                                }
-                                objs.push(x);
-                            } else {
-                                let sep = new INTSeparator(p, this.knots);
-                                let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
-                                if (data === null) {
-                                    failed = true;
-                                    let x = findType(p, limit);
-                                    if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
-                                        found = false;
-                                        break;
-                                    }
-                                    objs.push(x);
-                                } else {
-                                    if (data[1] === true) {
-                                        failed = true;
-                                    }
-                                    for (let x of data[0]) {
-                                        if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
-                                            found = false;
-                                            break;
-                                        }
-                                        objs.push(x);
-                                    }
-                                    if (!found) {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        objs = this.getObjects().map(x => findType(x, limit));
-                        failed = !objs.every(x => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty());
-                    }
-                    return [objs, failed];
-                }
-            } else {
-                i = 0;
+                return [objs, failed];
             }
             totalI++;
         }

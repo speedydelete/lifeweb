@@ -95,7 +95,7 @@ async function censusINT(p: MAPPattern, knots: Uint8Array, soup?: string): Promi
         }
     }
     let out: {[key: string]: number} = {};
-    for (let type of data[0]) {
+    for (let [_, type] of data[0]) {
         let apgcode = getApgcode(type);
         if (apgcode in out) {
             out[apgcode]++;

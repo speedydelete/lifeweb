@@ -282,15 +282,15 @@ export function findOutcome(synth: Synthesis, config: Config): {apgcode: string,
         throw new Error('Failed to detect periodic behavior!');
     }
     let out: {apgcode: string, x: number, y: number}[] = [];
-    for (let obj of data[0]) {
-        let x = obj.phases[0].xOffset;
-        let y = obj.phases[0].yOffset;
-        let apgcode = getApgcode(obj);
+    for (let [p, type] of data[0]) {
+        let x = p.xOffset;
+        let y = p.yOffset;
+        let apgcode = getApgcode(type);
         if (apgcode.startsWith('x')) {
             out.push({apgcode: apgcode, x, y});
         } else {
-            let obj2 = identify(obj.phases[0], 4096, undefined, 16);
-            out.push({apgcode: getApgcode(obj2), x, y});
+            let type2 = identify(p, 4096, undefined, 16);
+            out.push({apgcode: getApgcode(type2), x, y});
         }
     }
     return out;
