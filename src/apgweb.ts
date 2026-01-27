@@ -35,19 +35,17 @@ async function stabilize(p: Pattern, soup?: string, maxgen?: number, maxpop?: nu
                 return period;
             }
         }
-        if (i > 500 && i % 50 === 0) {
-            for (let period = 1; period < Math.floor(i / 16); period++) {
-                let diff = pop - pops[pops.length - period];
-                let found = true;
-                for (let j = 1; j < 16; j++) {
-                    if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
-                        found = false;
-                        break;
-                    }
+        for (let period = 1; period < Math.floor(i / 16); period++) {
+            let diff = pop - pops[pops.length - period];
+            let found = true;
+            for (let j = 1; j < 16; j++) {
+                if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
+                    found = false;
+                    break;
                 }
-                if (found) {
-                    return {linear: true, period};
-                }
+            }
+            if (found) {
+                return {linear: true, period};
             }
         }
         pops.push(pop);
