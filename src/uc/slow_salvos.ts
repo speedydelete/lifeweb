@@ -20,9 +20,9 @@ export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern
         p.ensure(x + gliderPattern.width, y + gliderPattern.height);
         p.insert(gliderPattern, x, y);
     }
-    let q = base.loadApgcode(target);
+    let q = base.loadApgcode(target).shrinkToFit();
     let yPos = (lanes.length - 1) * c.GLIDER_SPACING + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + q.height - minLane;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + 5 - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
     p.shrinkToFit();
@@ -58,7 +58,6 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
     let newObjs = new Set<string>();
     let out: [number, false | null | CAObject[]][] = [];
     let failed = false;
-    let hadCollision = false;
     let lane = 0;
     let data = findSalvoResult(target, [lane]);
     if (data === 'no') {
@@ -74,7 +73,19 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
             return false;
         }
     }
+    data = findSalvoResult(target, [lane]);
+    while (data !== null) {
+        lane--;
+        data = findSalvoResult(target, [lane]);
+        if (data === 'no') {
+            return false;
+        }
+        if (lane === -c.LANE_LIMIT) {
+            return false;
+        }
+    }
     lane++;
+    let hadCollision = false;
     for (; lane < c.LANE_LIMIT; lane++) {
         let data = findSalvoResult(target, [lane]);
         if (data === 'no') {
@@ -118,7 +129,7 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
         if (!objs || objs.some(x => x.type === 'other')) {
             continue;
         }
-        let recipe = prefix.concat(lane - y + x);
+        let recipe = prefix.concat(lane + x - y);
         objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
             if ('at' in out) {
@@ -128,9 +139,6 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
         }));
         objs = translateObjects(objs, x, y);
         let str = start + ' to ' + objectsToString(objs);
-        if (start === 'xs2_11' && JSON.stringify(recipe) === '[0,6,7,16]') {
-            console.log(lane, x, y, recipe, str);
-        }
         if (str in out) {
             out[str][4].push(recipe);
         } else {
@@ -177,12 +185,13 @@ function addRecipesSubkey<T extends PropertyKey, U extends PropertyKey>(data: {[
     }
 }
 
-async function saveSearchResults(forInput: {[key: string]: [number, false | null | CAObject[]][]}, limit: number): Promise<void> {
+async function saveSearchResults(forInput: {[key: string]: [number, false | null | CAObject[]][]}, limit: number, objs: string[] = c.INTERMEDIATE_OBJECTS): Promise<void> {
     let recipes = await getRecipes();
     let forOutput: {[key: string]: [StillLife, CAObject[], StillLife[], Spaceship[], number[][]]} = {};
-    for (let obj of c.INTERMEDIATE_OBJECTS) {
+    for (let obj of objs) {
         if (obj in forInput) {
-            getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, obj, stringToObjects(obj + ' (0, 0)')[0] as StillLife);
+            let sl = stringToObjects(obj + ' (0, 0)')[0] as StillLife;
+            getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, obj, sl);
         }
     }
     let data = recipes.salvos;
@@ -246,7 +255,7 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
         console.log(`Depth ${i + 1} 100.00% complete`);
         prevUpdateTime = performance.now();
         queue = newQueue;
-        await saveSearchResults(forInput, limit);
+        await saveSearchResults(forInput, limit, start === c.START_OBJECT ? c.INTERMEDIATE_OBJECTS : [start]);
     }
 }
 
