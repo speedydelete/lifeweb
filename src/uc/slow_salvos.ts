@@ -259,4 +259,3 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
         await saveSearchResults(forInput, limit, start === c.START_OBJECT ? c.INTERMEDIATE_OBJECTS : [start]);
     }
 }
-
