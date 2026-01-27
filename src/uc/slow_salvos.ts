@@ -177,17 +177,26 @@ function addRecipes<T extends PropertyKey>(data: {[K in T]?: number[][]}, newDat
                 data[key].push(recipe);
             }
         }
+        data[key].sort((a, b) => a.length - b.length);
+        if (data[key].length > c.MAX_SS_RECIPES) {
+            data[key] = data[key].slice(0, c.MAX_SS_RECIPES);
+        }
     } else {
         data[key] = newData;
     }
 }
 
-function addRecipesSubkey<T extends PropertyKey, U extends PropertyKey>(data: {[K in T]?: {[K in U]: number[][]}}, newData: {[K in U]: number[][]}, key: T, subkey: U): void {
+function addRecipesSubkey<T extends PropertyKey>(data: {[K in T]?: {2: number[][]}}, newData: {2: number[][]}, key: T): void {
     if (data[key]) {
-        for (let recipe of newData[subkey]) {
-            if (!data[key][subkey].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
-                data[key][subkey].push(recipe);
+        let out = data[key];
+        for (let recipe of newData[2]) {
+            if (!out[2].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+                out[2].push(recipe);
             }
+        }
+        out[2].sort((a, b) => a.length - b.length);
+        if (out[2].length > c.MAX_SS_RECIPES) {
+            out[2] = out[2].slice(0, c.MAX_SS_RECIPES);
         }
     } else {
         data[key] = newData;
@@ -255,20 +264,7 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
             }
         }
         for (let [key, value] of Object.entries(forOutput)) {
-            if (data.forOutput[key]) {
-                let out = data.forOutput[key];
-                for (let recipe of value[4]) {
-                    if (!out[2].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
-                        out[2].push(recipe);
-                    }
-                }
-                out[2].sort((a, b) => a.length - b.length);
-                if (out[2].length > c.MAX_SS_RECIPES) {
-                    out[2] = out[2].slice(0, c.MAX_SS_RECIPES);
-                }
-            } else {
-                data.forOutput[key] = [value[0], value[1], value[4]] as const;
-            }
+            addRecipesSubkey(data.forOutput, [value[0], value[1], value[4]] as const, key);
         }
         for (let [key, [input, outFull, outStable, outShips, recipes]] of Object.entries(forOutput)) {
             if (!c.INTERMEDIATE_OBJECTS.includes(input.code) || outFull.length !== outStable.length + outShips.length) {
@@ -278,16 +274,16 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                 if (outShips.length === 0) {
                     addRecipes(data.destroyRecipes, recipes, input.code);
                 } else if (outShips.length === 1) {
-                    addRecipesSubkey(data.oneTimeTurners, [input, outShips[0], recipes] as const, key, 2);
+                    addRecipesSubkey(data.oneTimeTurners, [input, outShips[0], recipes] as const, key);
                 } else {
-                    addRecipesSubkey(data.oneTimeSplitters, [input, outShips, recipes] as const, key, 2);
+                    addRecipesSubkey(data.oneTimeSplitters, [input, outShips, recipes] as const, key);
                 }
             } else {
                 if (outShips.length === 0 && outStable.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
                     if (outStable.length === 1) {
-                        addRecipesSubkey(data.moveRecipes, [input, outStable[1], recipes] as const, key, 2);
+                        addRecipesSubkey(data.moveRecipes, [input, outStable[1], recipes] as const, key);
                     } else {
-                        addRecipesSubkey(data.splitRecipes, [input, outStable, recipes] as const, key, 2);
+                        addRecipesSubkey(data.splitRecipes, [input, outStable, recipes] as const, key);
                     }
                 }
             }
