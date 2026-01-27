@@ -705,10 +705,10 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
     await fs.writeFile(recipeFile, out.slice(0, -1));
     out = '';
-    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true, 20);
-    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true, 20);
+    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true, 5);
+    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true, 5);
     out += '\nDestroy recipes:\n\n' + getStringRecipes(data.salvos.destroyRecipes, false, 5);
-    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true);
-    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
+    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true, 5);
+    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true, 5);
     await fs.writeFile(recipeFile.slice(0, -4) + '_useful.txt', out.slice(0, -1));
 }

@@ -1170,11 +1170,11 @@ export abstract class DataPattern implements Pattern {
                         } else if (char === 'x') {
                             stripData.push(0, 0, 0);
                         } else {
-                            let letter = strip[i + 1];
-                            let count = APGCODE_CHARS.indexOf(letter) + 4;
+                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
                             for (let i = 0; i < count; i++) {
                                 stripData.push(0);
                             }
+                            i++;
                         }
                     } else {
                         stripData.push(index);

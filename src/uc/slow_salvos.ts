@@ -232,6 +232,7 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
     let prevUpdateTime = performance.now();
     for (let i = 0; i < limit; i++) {
         console.log(`Searching depth ${i + 1}`);
+        prevUpdateTime = performance.now();
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
             let code = queue[j];
