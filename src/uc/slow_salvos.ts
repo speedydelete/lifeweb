@@ -119,9 +119,6 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
             continue;
         }
         let recipe = prefix.concat(lane - y + x);
-        // if (JSON.stringify(recipe) === '[11,12,20]') {
-        //     console.log(lane, x, y, recipe, objectsToString([startObj]), 'to', objectsToString(objs));
-        // }
         objs = objs.concat(add.map(value => {
             let out = structuredClone(value);
             if ('at' in out) {
@@ -131,25 +128,26 @@ function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObj
         }));
         objs = translateObjects(objs, x, y);
         let str = start + ' to ' + objectsToString(objs);
-        if (str) {
-            if (str in out) {
-                out[str][4].push(recipe);
-            } else {
-                let sls: StillLife[] = [];
-                let ships: Spaceship[] = [];
-                for (let obj of objs) {
-                    if (obj.type === 'sl') {
-                        sls.push(obj);
-                    } else if (obj.type === 'ship') {
-                        ships.push(obj);
-                    }
+        if (start === 'xs2_11' && JSON.stringify(recipe) === '[0,6,7,16]') {
+            console.log(lane, x, y, recipe, str);
+        }
+        if (str in out) {
+            out[str][4].push(recipe);
+        } else {
+            let sls: StillLife[] = [];
+            let ships: Spaceship[] = [];
+            for (let obj of objs) {
+                if (obj.type === 'sl') {
+                    sls.push(obj);
+                } else if (obj.type === 'ship') {
+                    ships.push(obj);
                 }
-                out[str] = [startObj, objs, sls, ships, [recipe]];
             }
-            if (count < limit) {
-                if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
-                    getForOutputRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start, startObj);
-                }
+            out[str] = [startObj, objs, sls, ships, [recipe]];
+        }
+        if (count < limit) {
+            if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
+                getForOutputRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start, startObj);
             }
         }
     }
@@ -179,38 +177,8 @@ function addRecipesSubkey<T extends PropertyKey, U extends PropertyKey>(data: {[
     }
 }
 
-export async function searchSalvos(limit: number): Promise<void> {
+async function saveSearchResults(forInput: {[key: string]: [number, false | null | CAObject[]][]}, limit: number): Promise<void> {
     let recipes = await getRecipes();
-    let done = new Set<string>();
-    let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
-    let queue = [c.START_OBJECT];
-    let prevUpdateTime = performance.now();
-    for (let i = 0; i < limit; i++) {
-        let newQueue: string[] = [];
-        for (let j = 0; j < queue.length; j++) {
-            let code = queue[j];
-            if (done.has(code)) {
-                continue;
-            } else {
-                done.add(code);
-            }
-            let data = get1GSalvos(code);
-            if (data) {
-                let [newObjs, newOut] = data;
-                forInput[code] = newOut;
-                newQueue.push(...newObjs);
-            }
-            let now = performance.now();
-            if (now - prevUpdateTime > 1000) {
-                console.log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
-                prevUpdateTime = now;
-            }
-        }
-        console.log(`Depth ${i + 1} 100.00% complete`);
-        prevUpdateTime = performance.now();
-        queue = newQueue;
-    }
-    console.log('Completed search, compiling recipes');
     let forOutput: {[key: string]: [StillLife, CAObject[], StillLife[], Spaceship[], number[][]]} = {};
     for (let obj of c.INTERMEDIATE_OBJECTS) {
         if (obj in forInput) {
@@ -245,6 +213,40 @@ export async function searchSalvos(limit: number): Promise<void> {
             }
         }
     }
-    saveRecipes(recipes);
+    await saveRecipes(recipes);
+}
+
+export async function searchSalvos(limit: number): Promise<void> {
+    let done = new Set<string>();
+    let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
+    let queue = [c.START_OBJECT];
+    let prevUpdateTime = performance.now();
+    for (let i = 0; i < limit; i++) {
+        console.log(`Searching depth ${i + 1}`);
+        let newQueue: string[] = [];
+        for (let j = 0; j < queue.length; j++) {
+            let code = queue[j];
+            if (done.has(code)) {
+                continue;
+            } else {
+                done.add(code);
+            }
+            let data = get1GSalvos(code);
+            if (data) {
+                let [newObjs, newOut] = data;
+                forInput[code] = newOut;
+                newQueue.push(...newObjs);
+            }
+            let now = performance.now();
+            if (now - prevUpdateTime > 1000) {
+                console.log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
+                prevUpdateTime = now;
+            }
+        }
+        console.log(`Depth ${i + 1} 100.00% complete`);
+        prevUpdateTime = performance.now();
+        queue = newQueue;
+        await saveSearchResults(forInput, limit);
+    }
 }
 
