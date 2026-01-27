@@ -425,7 +425,7 @@ export class DataSuperPattern extends DataPattern {
                     toSet.push([loc - width - 1, data[i - oldWidth - 1]]);
                 }
                 if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
-                    toSet.push([loc - width - 1, data[i - oldWidth + 1]]);
+                    toSet.push([loc - width + 1, data[i - oldWidth + 1]]);
                 }
             }
             if (y < oldHeight - 1) {

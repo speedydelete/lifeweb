@@ -87,6 +87,7 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
     lane++;
     let hadCollision = false;
     for (; lane < c.LANE_LIMIT; lane++) {
+        console.log('searching', target, lane);
         let data = findSalvoResult(target, [lane]);
         if (data === 'no') {
             return false;

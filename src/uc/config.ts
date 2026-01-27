@@ -39,7 +39,7 @@ const MIN_SPACING = 20;
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 64;
+const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
