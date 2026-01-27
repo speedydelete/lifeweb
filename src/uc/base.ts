@@ -27,7 +27,6 @@ export interface Oscillator extends BaseObject {
     type: 'osc';
     at: number;
     phase: number;
-    timing: number;
 }
 
 export interface Spaceship extends BaseObject {
@@ -43,6 +42,8 @@ export interface OtherObject extends BaseObject {
     at: number;
     timing: number;
 }
+
+export type StableObject = StillLife | Oscillator;
 
 export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 
@@ -169,7 +170,7 @@ export function objectsToString(objs: CAObject[]): string {
         if (obj.type === 'sl') {
             out.push(`${obj.code} (${obj.x}, ${obj.y})`);
         } else if (obj.type === 'osc') {
-            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.at}, ${obj.phase}, ${obj.timing})`);
+            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.at}, ${obj.phase})`);
         } else if (obj.type === 'ship') {
             out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         } else {
@@ -231,7 +232,6 @@ export function stringToObjects(data: string): CAObject[] {
                 height: p.height,
                 at: parseInt(args[2]),
                 phase,
-                timing: parseInt(args[4]),
             });
         } else if (code.startsWith('xq') && SHIP_DIRECTIONS.includes(args[0])) {
             let dir = args[0] as c.ShipDirection;
@@ -456,6 +456,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 phase++;
                 p.runGeneration();
             }
+            console.log('hi');
             out.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + type.period),
@@ -464,8 +465,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
                 width: p.width,
                 height: p.width,
                 at: 0,
-                phase: type.period - phase,
-                timing: p.generation,
+                phase: (type.period - phase + p.generation) % type.period,
             });
         } else if (apgcode in c.SHIP_IDENTIFICATION) {
             let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
@@ -533,11 +533,11 @@ export interface RecipeData {
     salvos: {
         forInput: {[key: string]: [number, CAObject[]][]};
         forOutput: {[key: string]: [CAObject, CAObject[], number[][]]};
-        moveRecipes: {[key: string]: [StillLife, StillLife, number[][]]};
-        splitRecipes: {[key: string]: [StillLife, StillLife[], number[][]]};
+        moveRecipes: {[key: string]: [StableObject, StableObject, number[][]]};
+        splitRecipes: {[key: string]: [StableObject, StableObject[], number[][]]};
         destroyRecipes: {[key: string]: number[][]};
-        oneTimeTurners: {[key: string]: [StillLife, Spaceship, number[][]]};
-        oneTimeSplitters: {[key: string]: [StillLife, Spaceship[], number[][]]};
+        oneTimeTurners: {[key: string]: [StableObject, Spaceship, number[][]]};
+        oneTimeSplitters: {[key: string]: [StableObject, Spaceship[], number[][]]};
     };
 }
 

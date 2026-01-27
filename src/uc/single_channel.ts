@@ -1,6 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, CAObject, base, gliderPatterns, findOutcome} from './util.js';
+import {c, CAObject, base, gliderPatterns, findOutcome} from './base.js';
 
 
 export function createSingleChannelPattern(recipe: number[]): [MAPPattern, number, number, number] {
