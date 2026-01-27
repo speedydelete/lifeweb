@@ -41,6 +41,7 @@ export class DataHistoryPattern extends DataPattern {
         let oStart = (expandUp ? width : 0) + expandLeft;
         let i = 0;
         let loc = oStart;
+        let state6: {i: number, loc: number, x: number, y: number}[] = [];
         for (let y = 0; y < oldHeight; y++) {
             for (let x = 0; x < oldWidth; x++) {
                 let oldValue = data[i];
@@ -57,39 +58,42 @@ export class DataHistoryPattern extends DataPattern {
                     out[loc] = newValue ? 3 : 4;
                 } else if (oldValue === 6) {
                     out[loc] = 6;
-                    if (y > 0) {
-                        if (alive[i - oldWidth]) {
-                            out[loc - width] = 2;
-                        }
-                        if (x > 0 && alive[i - oldWidth - 1]) {
-                            out[loc - width - 1] = 2;
-                        }
-                        if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
-                            out[loc - width + 1] = 2;
-                        }
-                    }
-                    if (y < oldHeight - 1) {
-                        if (alive[i + oldWidth]) {
-                            out[loc + width] = 2;
-                        }
-                        if (x > 0 && alive[i + oldWidth - 1]) {
-                            out[loc + width - 1] = 2;
-                        }
-                        if (x < oldWidth - 1 && alive[i + oldWidth + 1]) {
-                            out[loc + width + 1] = 2;
-                        }
-                    }
-                    if (x > 0 && alive[i - 1]) {
-                        out[loc - 1] = 2;
-                    }
-                    if (x < oldWidth - 1 && alive[i + 1]) {
-                        out[loc + 1] = 2;
-                    }
+                    state6.push({i, loc, x, y});
                 }
                 i++;
                 loc++;
             }
             loc += oX;
+        }
+        for (let {i, loc, x, y} of state6) {
+            if (y > 0) {
+                if (alive[i - oldWidth]) {
+                    out[loc - width] = data[i - oldWidth] === 1 ? 2 : 4;
+                }
+                if (x > 0 && alive[i - oldWidth - 1]) {
+                    out[loc - width - 1] = data[i - oldWidth - 1] === 1 ? 2 : 4;
+                }
+                if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
+                    out[loc - width + 1] = data[i - oldWidth + 1] === 1 ? 2 : 4;
+                }
+            }
+            if (y < oldHeight - 1) {
+                if (alive[i + oldWidth]) {
+                    out[loc + width] = data[i + oldWidth] === 1 ? 2 : 4;
+                }
+                if (x > 0 && alive[i + oldWidth - 1]) {
+                    out[loc + width - 1] = data[i + oldWidth - 1] === 1 ? 2 : 4;
+                }
+                if (x < oldWidth - 1 && alive[i + oldWidth + 1]) {
+                    out[loc + width + 1] = data[i + oldWidth + 1] === 1 ? 2 : 4;
+                }
+            }
+            if (x > 0 && alive[i - 1]) {
+                out[loc - 1] = data[i - 1] === 1 ? 2 : 4;
+            }
+            if (x < oldWidth - 1 && alive[i + 1]) {
+                out[loc + 1] = data[i + 1] === 1 ? 2 : 4;
+            }
         }
         this.height = height;
         this.width = width;
@@ -159,6 +163,7 @@ export class CoordHistoryPattern extends CoordPattern {
         maxX = maxX + this.range + BIAS;
         minY = minY - this.range + BIAS;
         maxY = maxY + this.range + BIAS;
+        let state6: number[] = [];
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
                 let key = x * WIDTH + y;
@@ -176,23 +181,7 @@ export class CoordHistoryPattern extends CoordPattern {
                     out.set(key, newValue ? 3 : 4);
                 } else if (oldValue === 6) {
                     out.set(key, 6);
-                    if (p.nh) {
-                        for (let i = 0; i < p.nh.length; i += 2) {
-                            let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
-                            if (coords.get(key2)) {
-                                out.set(key2, 2);
-                            }
-                        }
-                    } else {
-                        for (let y = -this.range; y <= this.range; y++) {
-                            for (let x = -this.range; x <= this.range; x++) {
-                                let key2 = key + y * WIDTH + x;
-                                if (coords.get(key2)) {
-                                    out.set(key2, 2);
-                                }
-                            }
-                        }
-                    }
+                    state6.push(key);
                     if ((coords.get(key - WIDTH - 1) ?? 0) % 2 === 1) {
                         out.set(key - WIDTH - 1, 2);
                     }
@@ -220,7 +209,28 @@ export class CoordHistoryPattern extends CoordPattern {
                 }
             }
         }
-        this.coords = coords;
+        for (let key of state6) {
+            if (p.nh) {
+                for (let i = 0; i < p.nh.length; i += 2) {
+                    let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
+                    let value = coords.get(key2);
+                    if (value) {
+                        out.set(key2, value === 1 ? 2 : 4);
+                    }
+                }
+            } else {
+                for (let y = -this.range; y <= this.range; y++) {
+                    for (let x = -this.range; x <= this.range; x++) {
+                        let key2 = key + y * WIDTH + x;
+                        let value = coords.get(key2);
+                        if (value) {
+                            out.set(key2, value === 1 ? 2 : 4);
+                        }
+                    }
+                }
+            }
+        }
+        this.coords = out;
         this.generation++;
     }
 
@@ -292,6 +302,7 @@ export class DataSuperPattern extends DataPattern {
         let oStart = (expandUp ? width : 0) + expandLeft;
         let i = 0;
         let loc = oStart;
+        let state6: {i: number, loc: number, x: number, y: number}[] = [];
         for (let y = 0; y < oldHeight; y++) {
             for (let x = 0; x < oldWidth; x++) {
                 let oldValue = data[i];
@@ -350,34 +361,7 @@ export class DataSuperPattern extends DataPattern {
                     out[loc] = newValue ? 3 : 4;
                 } else if (oldValue === 6) {
                     out[loc] = 6;
-                    if (y > 0) {
-                        if (alive[i - oldWidth]) {
-                            out[loc - width] = 2;
-                        }
-                        if (x > 0 && alive[i - oldWidth - 1]) {
-                            out[loc - width - 1] = 2;
-                        }
-                        if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
-                            out[loc - width + 1] = 2;
-                        }
-                    }
-                    if (y < oldHeight - 1) {
-                        if (alive[i + oldWidth]) {
-                            out[loc + width] = 2;
-                        }
-                        if (x > 0 && alive[i + oldWidth - 1]) {
-                            out[loc + width - 1] = 2;
-                        }
-                        if (x < oldWidth - 1 && alive[i + oldWidth + 1]) {
-                            out[loc + width + 1] = 2;
-                        }
-                    }
-                    if (x > 0 && alive[i - 1]) {
-                        out[loc - 1] = 2;
-                    }
-                    if (x < oldWidth - 1 && alive[i + 1]) {
-                        out[loc + 1] = 2;
-                    }
+                    state6.push({i, loc, x, y});
                 } else if (oldValue === 7 || oldValue === 8) {
                     out[loc] = newValue ? 7 : 8;
                 } else if (oldValue === 9 || oldValue === 10) {
@@ -430,6 +414,52 @@ export class DataSuperPattern extends DataPattern {
                 loc++;
             }
             loc += oX;
+        }
+        for (let {i, loc, x, y} of state6) {
+            let toSet: [number, number][] = [];
+            if (y > 0) {
+                if (alive[i - oldWidth]) {
+                    toSet.push([loc - width, data[i - oldWidth]]);
+                }
+                if (x > 0 && alive[i - oldWidth - 1]) {
+                    toSet.push([loc - width - 1, data[i - oldWidth - 1]]);
+                }
+                if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
+                    toSet.push([loc - width - 1, data[i - oldWidth + 1]]);
+                }
+            }
+            if (y < oldHeight - 1) {
+                if (alive[i + oldWidth]) {
+                    toSet.push([loc + width, data[i + oldWidth]]);
+                }
+                if (x > 0 && alive[i + oldWidth - 1]) {
+                    toSet.push([loc + width - 1, data[i + oldWidth - 1]]);
+                }
+                if (x < oldWidth - 1 && alive[i + oldWidth + 1]) {
+                    toSet.push([loc + width + 1, i + oldWidth + 1]);
+                }
+            }
+            if (x > 0 && alive[i - 1]) {
+                toSet.push([loc - 1, data[i - 1]]);
+            }
+            if (x < oldWidth - 1 && alive[i + 1]) {
+                toSet.push([loc + 1, data[i + 1]]);
+            }
+            for (let [loc, value] of toSet) {
+                if (value === 1) {
+                    out[loc] = 2;
+                } else if (value === 3 || value === 5) {
+                    out[loc] = 4;
+                } else if (value === 7) {
+                    out[loc] = 8;
+                } else if (value === 9) {
+                    out[loc] = 10;
+                } else if (value === 11) {
+                    out[loc] = 12;
+                } else {
+                    out[loc] = 0;
+                }
+            }
         }
         this.height = height;
         this.width = width;
@@ -499,6 +529,7 @@ export class CoordSuperPattern extends CoordPattern {
         maxX = maxX + this.range + BIAS;
         minY = minY - this.range + BIAS;
         maxY = maxY + this.range + BIAS;
+        let state6: number[] = [];
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
                 let key = x * WIDTH + y;
@@ -558,47 +589,6 @@ export class CoordSuperPattern extends CoordPattern {
                     out.set(key, newValue ? 3 : 4);
                 } else if (oldValue === 6) {
                     out.set(key, 6);
-                    if (p.nh) {
-                        for (let i = 0; i < p.nh.length; i += 2) {
-                            let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
-                            if (coords.get(key2)) {
-                                out.set(key2, 2);
-                            }
-                        }
-                    } else {
-                        for (let y = -this.range; y <= this.range; y++) {
-                            for (let x = -this.range; x <= this.range; x++) {
-                                let key2 = key + y * WIDTH + x;
-                                if (coords.get(key2)) {
-                                    out.set(key2, 2);
-                                }
-                            }
-                        }
-                    }
-                    if ((coords.get(key - WIDTH - 1) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH - 1, 2);
-                    }
-                    if ((coords.get(key - WIDTH) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH, 2);
-                    }
-                    if ((coords.get(key - WIDTH + 1) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH + 1, 2);
-                    }
-                    if ((coords.get(key - 1) ?? 0) % 2 === 1) {
-                        out.set(key - 1, 2);
-                    }
-                    if ((coords.get(key + 1) ?? 0) % 2 === 1) {
-                        out.set(key + 1, 2);
-                    }
-                    if ((coords.get(key + WIDTH - 1) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH - 1, 2);
-                    }
-                    if ((coords.get(key + WIDTH) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH, 2);
-                    }
-                    if ((coords.get(key + WIDTH + 1) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH + 1, 2);
-                    }
                 } else if (oldValue === 7 || oldValue === 8) {
                     out.set(key, newValue ? 7 : 8);
                 } else if (oldValue === 9 || oldValue === 10) {
@@ -639,6 +629,43 @@ export class CoordSuperPattern extends CoordPattern {
                     } else if (oldValue === 24) {
                         out.set(key, cells.some(x => x % 2 === 1) ? 18 : 24);
                     }
+                }
+            }
+        }
+        for (let key of state6) {
+            let toSet: [number, number][] = [];
+            if (p.nh) {
+                for (let i = 0; i < p.nh.length; i += 2) {
+                    let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
+                    let value = coords.get(key2) ?? 0;
+                    if (value % 2 === 1) {
+                        toSet.push([key2, value]);
+                    }
+                }
+            } else {
+                for (let y = -this.range; y <= this.range; y++) {
+                    for (let x = -this.range; x <= this.range; x++) {
+                        let key2 = key + y * WIDTH + x;
+                        let value = coords.get(key2) ?? 0;
+                        if (value % 2 === 1) {
+                            toSet.push([key2, value]);
+                        }
+                    }
+                }
+            }
+            for (let [key, value] of toSet) {
+                if (value === 1) {
+                    out.set(key, 2);
+                } else if (value === 3 || value === 5) {
+                    out.set(key, 4);
+                } else if (value === 7) {
+                    out.set(key, 8);
+                } else if (value === 9) {
+                    out.set(key, 10);
+                } else if (value === 11) {
+                    out.set(key, 12);
+                } else {
+                    out.set(key, 0);
                 }
             }
         }

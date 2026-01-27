@@ -574,3 +574,10 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }
 }
+
+
+let p = parse(`x = 3, y = 3, rule = B3/S23History
+3A$AFA$3A!`);
+console.log(p.toRLE());
+p.runGeneration();
+console.log(p.toRLE());
