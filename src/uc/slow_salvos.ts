@@ -216,10 +216,10 @@ async function saveSearchResults(forInput: {[key: string]: [number, false | null
     await saveRecipes(recipes);
 }
 
-export async function searchSalvos(limit: number): Promise<void> {
+export async function searchSalvos(start: string, limit: number): Promise<void> {
     let done = new Set<string>();
     let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
-    let queue = [c.START_OBJECT];
+    let queue = [start];
     let prevUpdateTime = performance.now();
     for (let i = 0; i < limit; i++) {
         console.log(`Searching depth ${i + 1}`);

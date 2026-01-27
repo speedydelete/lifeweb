@@ -16,7 +16,11 @@ if (cmd === 'get_ss') {
     start = start.slice(start.indexOf('_') + 1);
     console.log(createSalvoPattern(start, lanes.map(x => parseInt(x)).reverse())[0].toRLE());
 } else if (cmd === 'search_ss') {
-    searchSalvos(parseInt(args[0]));
+    if (args[0].startsWith('x')) {
+        searchSalvos(args[0], parseInt(args[1]));
+    } else {
+        searchSalvos(c.START_OBJECT, parseInt(args[0]));
+    }
 } else {
     throw new Error(`Invalid command: '${cmd}' (expected 'get_ss' or 'search_ss').`);
 }
