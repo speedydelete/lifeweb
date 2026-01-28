@@ -295,6 +295,15 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                 data.push(objs[j]);
                 isOsc ||= objs[j].type === 'osc';
             }
+            for (let a of data) {
+                let b = objs[j];
+                let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
+                if (dist <= c.MAX_PSEUDO_DISTANCE) {
+                    used[j] = 1;
+                    data.push(objs[j]);
+                    isOsc ||= objs[j].type === 'osc';
+                }
+            }
         }
         if (data.length === 0) {
             if (obj.type === 'sl') {
