@@ -38,10 +38,9 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [n
             let elt: [number, number] = [timing, channel];
             out.push([elt]);
             if (depth - timing > info.minSpacing) {
-                let data = getRecipesForDepth(info, depth - timing, prev);
                 for (let recipe of getRecipesForDepth(info, depth - timing, prev)) {
                     recipe.unshift(elt);
-                    data.push(recipe);
+                    out.push(recipe);
                 }
             }
         }
@@ -155,6 +154,9 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                     entry[2] = recipe;
                 }
             } else {
+                if (move === 0) {
+                    continue;
+                }
                 let entry = out.moveRecipes.find(x => x[0] === move);
                 if (entry === undefined) {
                     out.moveRecipes.push([move, recipe]);
