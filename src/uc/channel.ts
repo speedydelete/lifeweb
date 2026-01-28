@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
+import {c, log, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
 
 
 export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
@@ -34,7 +34,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
 function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [number, number][][] {
     let out: [number, number][][] = [];
     for (let channel = 0; channel < info.channels.length; channel++) {
-        for (let timing = prev === undefined ? 0 : info.minSpacings[prev][channel]; timing < depth; timing++) {
+        for (let timing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; timing < depth; timing++) {
             let elt: [number, number] = [timing, channel];
             out.push([elt]);
             if (depth - timing > info.minSpacing) {
@@ -54,17 +54,21 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
     let out = recipes.channels[type];
     let done = new Set<string>();
     while (true) {
-        console.log(`Searching depth ${depth}`);
-        let recipesToCheck = getRecipesForDepth(info, depth);
-        console.log(`Checking ${recipesToCheck.length} recipes`);
-        let possibleLongRange = '\n';
-        for (let recipe of recipesToCheck) {
+        log(`Searching depth ${depth}`, true);
+        let recipesToCheck: [number, number][][] = [];
+        for (let recipe of getRecipesForDepth(info, depth)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
-            if (done.has(key)) {
-                continue;
-            } else {
+            if (!done.has(key)) {
                 done.add(key);
+                recipesToCheck.push(recipe);
             }
+        }
+        log(`Checking ${recipesToCheck.length} recipes`, true);
+        let possibleUseful = '\n';
+        for (let i = 0; i < recipesToCheck.length; i++) {
+            log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(1)}%) recipes checked`);
+            let recipe = recipesToCheck[i];
+            let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
             let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
             let result = findOutcome(p, xPos, yPos);
@@ -75,6 +79,9 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
             let found = false;
+            if (result.length === 0) {
+                possibleUseful += `Destroy: ${unparseChannelRecipe(info, recipe)}\n`;
+            }
             for (let obj of result) {
                 if (obj.type === 'sl') {
                     let lane = obj.x - obj.y;
@@ -111,7 +118,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                     if (shipData[1] === 'down' && parseInt(ship.code.slice(1)) <= c.SPEED_LIMIT) {
                         continue;
                     }
-                    possibleLongRange += `${ship.dir}, lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}`;
+                    possibleUseful += `${ship.dir}, lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}\n`;
                 } else {
                     continue;
                 }
@@ -134,7 +141,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                     let entry = out.recipes0Deg.find(x => x[0] === lane && x[1] === move);
                     if (entry === undefined) {
                         out.recipes0Deg.push([lane, move, recipe]);
-                    } else if (entry[2].length > recipe.length) {
+                    } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
                         entry[2] = recipe;
                     }
                 } else {
@@ -142,7 +149,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                     let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
                     if (entry === undefined) {
                         out.recipes90Deg.push([lane, ix, move, recipe]);
-                    } else if (entry[3].length > recipe.length) {
+                    } else if (entry[3].map(x => x[0]).reduce((x, y) => x + y) > time) {
                         entry[3] = recipe;
                     }
                 }
@@ -150,7 +157,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                 let entry = out.createHandRecipes.find(x => x[0].code === hand.code && x[0].x === hand.x && x[0].y === hand.y && x[1] === move);
                 if (entry === undefined) {
                     out.createHandRecipes.push([hand, move, recipe]);
-                } else if (entry[2].length > recipe.length) {
+                } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
                     entry[2] = recipe;
                 }
             } else {
@@ -160,14 +167,14 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
                 let entry = out.moveRecipes.find(x => x[0] === move);
                 if (entry === undefined) {
                     out.moveRecipes.push([move, recipe]);
-                } else if (entry[1].length > recipe.length) {
+                } else if (entry[1].map(x => x[0]).reduce((x, y) => x + y) > time) {
                     entry[1] = recipe;
                 }
             }
         }
         await saveRecipes(recipes);
-        if (possibleLongRange.length > 1) {
-            await fs.appendFile('possible_long_range.txt', possibleLongRange + '\n');
+        if (possibleUseful.length > 1) {
+            await fs.appendFile('possible_useful.txt', possibleUseful);
         }
         depth++;
     }

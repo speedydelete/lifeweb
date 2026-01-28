@@ -8,6 +8,17 @@ export * from './config.js';
 export * as c from './config.js';
 
 
+let prevUpdateTime = performance.now();
+
+export function log(msg: string, force?: boolean): void {
+    let now = performance.now();
+    if (force || now - prevUpdateTime > 1000) {
+        console.log(msg);
+        prevUpdateTime = now;
+    }
+}
+
+
 export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
 
 export interface BaseObject {
@@ -755,7 +766,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nOne-time splitters:\n\n' + salvoRecipesToString(data.salvos.oneTimeSplitters, true);
     for (let [key, value] of Object.entries(data.channels)) {
         let info = c.CHANNEL_INFO[key];
-        out += `\n${key} move recipes:\n\n` + value.moveRecipes.sort((a, b) => a[0] - b[0]).map(x => `${x[0]}: ${unparseChannelRecipe(info, x[1])}`).join('\n') + '\n\n';
+        out += `\n${key} move recipes:` + value.moveRecipes.sort((a, b) => a[0] - b[0]).map(x => `${x[0]}: ${unparseChannelRecipe(info, x[1])}`).join('\n') + '\n\n';
         let groups: {[key: string]: [number, boolean, number, [number, number][]][]} = {};
         for (let recipe of value.recipes90Deg) {
             let key = recipe[0] + (recipe[1] ? 'x' : 'i');
@@ -765,7 +776,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
                 groups[key] = [recipe];
             }
         }
-        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a[1] === b[1] ? a[0] - b[0] : a[0] - b[0]).map(recipes => recipes.sort((a, b) => a[2] - b[2]).map(x => `emit ${x[0]}${x[1] ? 'x' : 'i'} move ${x[2]}: ${unparseChannelRecipe(info, x[3])}`).join('\n')).join('\n\n') + '\n\n';
+        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a[1] === b[1] ? a[0] - b[0] : a[0] - b[0]).map(recipes => recipes.sort((a, b) => a[2] - b[2]).map(x => `emit ${x[0]}${x[1] ? 'x' : 'i'} move ${x[2]}: ${unparseChannelRecipe(info, x[3])}`).join('\n') + '\n\n').join('');
         let groups2: {[key: number]: [number, number, [number, number][]][]} = {};
         for (let recipe of value.recipes0Deg) {
             if (recipe[0] in groups2) {
@@ -774,7 +785,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
                 groups2[recipe[0]] = [recipe];
             }
         }
-        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]).map(x => `emit ${x[0]} move ${x[1]}: ${unparseChannelRecipe(info, x[2])}`).join('\n')).join('\n\n') + '\n\n';
+        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]).map(x => `emit ${x[0]} move ${x[1]}: ${unparseChannelRecipe(info, x[2])}`).join('\n') + '\n\n').join('');
         let groups3: {[key: string]: [StillLife, number, [number, number][]][]} = {};
         for (let recipe of value.createHandRecipes) {
             let key = objectsToString([recipe[0]]);
@@ -784,7 +795,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
                 groups3[key] = [recipe];
             }
         }
-        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0][0], b[0][0])).map(recipes => recipes.map(x => `${objectsToString([x[0]])} (move ${x[1]}): ${unparseChannelRecipe(info, x[2])}`).join('\n')).join('\n\n') + '\n\n';
+        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0][0], b[0][0])).map(recipes => recipes.map(x => `${objectsToString([x[0]])} (move ${x[1]}): ${unparseChannelRecipe(info, x[2])}`).join('\n') + '\n\n').join('');
     }
     await fs.writeFile(recipeFile, out.slice(0, -1));
     out = '';

@@ -1,6 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, Spaceship, StableObject, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, separateObjects, findOutcome, getRecipes, saveRecipes} from './base.js';
+import {c, log, Spaceship, StableObject, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, separateObjects, findOutcome, getRecipes, saveRecipes} from './base.js';
 
 
 export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
@@ -237,10 +237,8 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
     let done = new Set<string>();
     let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [start];
-    let prevUpdateTime = performance.now();
     for (let i = 0; i < limit; i++) {
-        console.log(`Searching depth ${i + 1} (${queue.length} objects)`);
-        prevUpdateTime = performance.now();
+        log(`Searching depth ${i + 1} (${queue.length} objects)`, true);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
             let code = queue[j];
@@ -255,18 +253,12 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                 forInput[code] = newOut;
                 newQueue.push(...newObjs);
             }
-            let now = performance.now();
-            if (now - prevUpdateTime > 1000) {
-                console.log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
-                prevUpdateTime = now;
-            }
+            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
         }
-        console.log(`Depth ${i + 1} 100.00% complete`);
-        prevUpdateTime = performance.now();
+        log(`Depth ${i + 1} 100.00% complete`, true);
         queue = newQueue;
         let forOutput: {[key: string]: [StableObject, CAObject[], StableObject[], Spaceship[], number[][]]} = {};
-        console.log('Compiling recipes');
-        prevUpdateTime = performance.now();
+        log('Compiling recipes', true);
         if (start === c.START_OBJECT) {
             for (let i = 0; i < c.INTERMEDIATE_OBJECTS.length; i++) {
                 let obj = c.INTERMEDIATE_OBJECTS[i];
@@ -274,18 +266,13 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
                     getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, start);
                 }
-                let now = performance.now();
-                if (now - prevUpdateTime > 1000) {
-                    console.log(`Finished compiling recipes for ${i + 1} out of ${c.INTERMEDIATE_OBJECTS.length} objects`);
-                    prevUpdateTime = now;
-                }
+                log(`Finished compiling recipes for ${i + 1}/${c.INTERMEDIATE_OBJECTS.length} (${((i + 1) / c.INTERMEDIATE_OBJECTS.length * 100).toFixed(1)}%) objects`);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
             getForOutputRecipes(forInput, start, [], 0, 0, 0, limit - 1, forOutput, obj);
         }
-        console.log('Compiled all recipes');
-        prevUpdateTime = performance.now();
+        log('Compiled all recipes', true);
         let data = recipes.salvos;
         for (let key in forInput) {
             if (!(key in data.forInput)) {

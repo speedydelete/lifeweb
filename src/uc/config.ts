@@ -11,7 +11,7 @@ const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 1;
 // the speed limit in the direction the ship moves as a period
-const SPEED_LIMIT = 3;
+const SPEED_LIMIT = 4;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 6;
