@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {execSync, spawn} from 'node:child_process';
 import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './core/index.js';
-import {getKnots, INTSeparator} from './intsep.js';
+import {getKnots, INTSeparator} from './core/intsep.js';
 
 
 const LINK_TEXT = `For more information, see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961`;
@@ -390,7 +390,7 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
             let {height, width, data} = await getHashsoup('rss_' + soups + '_' + Math.floor(Math.random() * 1000000), 'C1');
             soups++;
             let p = base.copy();
-            p.setData(data, height, width);
+            p.setData(height, width, data);
             let period = stabilize(p, undefined, undefined, config.maxgen, config.maxpop);
             if (period !== 'died') {
                 allDied = false;
@@ -471,7 +471,8 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
                         print(`Unable to separate multi-island object or confirm that it is strict in ${rule}!`);
                     }
                 }
-                for (let {apgcode} of data[0]) {
+                for (let [_, type] of data[0]) {
+                    let apgcode = getA
                     if (apgcode in apgcodes) {
                         apgcodes[apgcode]++;
                     } else {

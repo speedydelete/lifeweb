@@ -32,6 +32,8 @@ if (cmd === 'get_ss') {
     let data = args.map(x => parseInt(x));
     data = data.map(lane => lane + x - y);
     console.log(start + data.join(', '));
+} else if (cmd === 'rle_to_ss') {
+    // let p = parse(process.argv.slice(3).join(' '));
 } else {
-    throw new Error(`Invalid command: '${cmd}' (expected 'get_ss' or 'search_ss').`);
+    throw new Error(`Invalid command: '${cmd}' (expected 'get_ss', 'search_ss', 'translate_ss', 'rle_to_ss').`);
 }

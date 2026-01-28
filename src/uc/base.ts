@@ -272,8 +272,7 @@ function stabilize(p: MAPPattern): number | null {
     return null;
 }
 
-
-function combineStillLifes(objs: (StillLife & {p: MAPPattern, height: number, width: number})[]): false | CAObject[] {
+function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]})[]): false | CAObject[] {
     let out: CAObject[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
@@ -282,6 +281,7 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern, height: number, wi
             continue;
         }
         used[i] = 1;
+        let isOsc = obj.type === 'osc';
         let data = [];
         for (let j = 0; j < objs.length; j++) {
             if (used[j]) {
@@ -289,39 +289,50 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern, height: number, wi
             }
             let a = obj;
             let b = objs[j];
-            let dist = Math.abs(Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) + Math.abs(Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+            let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
             if (dist <= c.MAX_PSEUDO_DISTANCE) {
                 used[j] = 1;
                 data.push(objs[j]);
+                isOsc ||= objs[j].type === 'osc';
             }
         }
         if (data.length === 0) {
-            out.push({
-                type: 'sl',
-                code: obj.code,
-                x: obj.x,
-                y: obj.y,
-            });
+            if (obj.type === 'sl') {
+                out.push({
+                    type: 'sl',
+                    code: obj.code,
+                    x: obj.x,
+                    y: obj.y,
+                });
+            } else {
+                out.push({
+                    type: 'osc',
+                    code: obj.code,
+                    x: obj.x,
+                    y: obj.y,
+                    at: obj.at,
+                    timing: obj.timing,
+                })
+            }
             continue;
         }
-        let minX = obj.x;
-        let maxX = obj.x + obj.width;
-        let minY = obj.y;
-        let maxY = obj.y + obj.height;
+        let [minX, minY, maxX, maxY] = obj.bb;
         for (let obj of data) {
-            if (obj.x < minX) {
-                minX = obj.x;
+            if (obj.bb[0] < minX) {
+                minX = obj.bb[0];
             }
-            if (obj.x + obj.width > maxX) {
-                maxX = obj.x + obj.width;
+            if (obj.bb[1] < minY) {
+                minY = obj.bb[1];
             }
-            if (obj.y < minY) {
-                minY = obj.y;
+            if (obj.bb[2] > maxX) {
+                maxX = obj.bb[2];
             }
-            if (obj.y + obj.height > maxY) {
-                maxY = obj.y + obj.height;
+            if (obj.bb[3] > maxY) {
+                maxY = obj.bb[3];
             }
         }
+        maxX++;
+        maxY++;
         let p = base.copy();
         p.height = maxY - minY;
         p.width = maxX - minX;
@@ -336,12 +347,39 @@ function combineStillLifes(objs: (StillLife & {p: MAPPattern, height: number, wi
         if (type.period !== 1 || !type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
-        out.push({
-            type: 'sl',
-            code: p.toApgcode('xs' + p.population),
-            x: minX,
-            y: minY,
-        });
+        if (isOsc) {
+            let period = obj.type === 'osc' ? parseInt(obj.code.slice(2)) : 1;
+            for (let obj of objs) {
+                if (obj.type === 'sl') {
+                    continue;
+                }
+                let objPeriod = parseInt(obj.code.slice(2));
+                let gcd = period;
+                let b = objPeriod;
+                while (b > 0) {
+                    let temp = b;
+                    b = gcd % b;
+                    gcd = temp;
+                }
+                period = (period * objPeriod) / gcd;
+            }
+            out.push({
+                type: 'osc',
+                code: p.toApgcode('xp' + period),
+                x: minX,
+                y: minY,
+                at: 0,
+                timing: obj.p.generation % period,
+            });
+        } else {
+            out.push({
+                type: 'sl',
+                code: p.toApgcode('xs' + p.population),
+                x: minX,
+                y: minY,
+            });
+        }
+
     }
     return out;
 }
@@ -385,7 +423,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
         return false;
     }
     let out: CAObject[] = [];
-    let stillLifes: (StillLife & {p: MAPPattern, width: number, height: number})[] = [];
+    let stableObjects: ((StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]})[] = [];
     for (let [p, type] of objs) {
         if (p.isEmpty()) {
             return false;
@@ -394,26 +432,28 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
         p.generation = sep.generation;
         let apgcode = getApgcode(type);
         if (apgcode.startsWith('xs')) {
-            if (apgcode === 'xs0_0') {
+            if (apgcode.startsWith('xs0')) {
                 return false;
             }
-            stillLifes.push({
+            stableObjects.push({
                 type: 'sl',
+                code: p.toApgcode('xs' + p.population),
                 x: p.xOffset,
                 y: p.yOffset,
-                width: p.width,
-                height: p.height,
                 p,
-                code: p.toApgcode('xs' + p.population),
+                bb: [p.xOffset, p.yOffset, p.xOffset + p.width - 1, p.yOffset + p.height - 1],
             });
         } else if (apgcode.startsWith('xp')) {
-            out.push({
+            let q = p.copy().run(type.period);
+            stableObjects.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + type.period),
                 x: p.xOffset,
                 y: p.yOffset,
                 at: 0,
                 timing: p.generation % type.period,
+                p,
+                bb: [q.xOffset, q.yOffset, q.xOffset + q.width - 1, q.yOffset + q.height - 1],
             });
         } else if (apgcode in c.SHIP_IDENTIFICATION) {
             let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
@@ -464,7 +504,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
             });
         }
     }
-    let data = combineStillLifes(stillLifes);
+    let data = combineStillLifes(stableObjects);
     if (!data) {
         return false;
     }
