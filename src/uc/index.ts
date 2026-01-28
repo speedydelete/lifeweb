@@ -41,7 +41,7 @@ if (cmd === 'get') {
             await searchSalvos(c.START_OBJECT, parseInt(args[0]));
         }
     } else {
-        await searchChannel(type, typeof args[0] === 'string' ? parseInt(args[0]) : 1);
+        await searchChannel(type, typeof args[0] === 'string' ? parseInt(args[0]) : c.CHANNEL_INFO[type].minSpacing, typeof args[1] === 'string' ? parseInt(args[1]) : undefined);
     }
 } else if (cmd === 'translate') {
     if (type !== 'ss') {

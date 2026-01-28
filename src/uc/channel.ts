@@ -31,14 +31,15 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
 }
 
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [number, number][][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: number, prev?: number): [number, number][][] {
     let out: [number, number][][] = [];
+    let limit = maxSpacing ? Math.min(depth, maxSpacing + 1) : depth;
     for (let channel = 0; channel < info.channels.length; channel++) {
-        for (let timing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; timing < depth; timing++) {
+        for (let timing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; timing < limit; timing++) {
             let elt: [number, number] = [timing, channel];
             out.push([elt]);
             if (depth - timing > info.minSpacing) {
-                for (let recipe of getRecipesForDepth(info, depth - timing, prev)) {
+                for (let recipe of getRecipesForDepth(info, depth - timing, maxSpacing, prev)) {
                     recipe.unshift(elt);
                     out.push(recipe);
                 }
@@ -48,7 +49,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [n
     return out;
 }
 
-export async function searchChannel(type: string, depth: number): Promise<void> {
+export async function searchChannel(type: string, depth: number, maxSpacing?: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await getRecipes();
     let out = recipes.channels[type];
@@ -56,7 +57,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
     while (true) {
         log(`Searching depth ${depth}`, true);
         let recipesToCheck: [number, number][][] = [];
-        for (let recipe of getRecipesForDepth(info, depth)) {
+        for (let recipe of getRecipesForDepth(info, depth, maxSpacing)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             if (!done.has(key)) {
                 done.add(key);
@@ -82,7 +83,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
             let found = false;
-            if (result.length === 0 && !possibleUseful.includes('Destroy')) {
+            if (result.length === 0) {
                 possibleUseful += `Destroy: ${unparseChannelRecipe(info, recipe)}\n`;
             }
             for (let obj of result) {
