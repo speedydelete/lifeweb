@@ -11,6 +11,7 @@ export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAO
 
 
 export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern, number, number] {
+    lanes = lanes.reverse();
     let minLane = Math.min(0, ...lanes);
     let p = base.copy();
     for (let i = 0; i < lanes.length; i++) {
@@ -22,7 +23,7 @@ export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern
     }
     let q = base.loadApgcode(target).shrinkToFit();
     let yPos = (lanes.length - 1) * c.GLIDER_SPACING + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - c.LANE_OFFSET + 5 - minLane;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.LANE_OFFSET - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
     p.shrinkToFit();

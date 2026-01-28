@@ -294,14 +294,15 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                 used[j] = 1;
                 data.push(objs[j]);
                 isOsc ||= objs[j].type === 'osc';
+                continue;
             }
             for (let a of data) {
-                let b = objs[j];
                 let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
                 if (dist <= c.MAX_PSEUDO_DISTANCE) {
                     used[j] = 1;
                     data.push(objs[j]);
                     isOsc ||= objs[j].type === 'osc';
+                    break;
                 }
             }
         }
@@ -395,15 +396,7 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
 
 let knots = getKnots(base.trs);
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | CAObject[] {
-    let period = stabilize(p);
-    if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        return false;
-    }
-    p.run(c.EXTRA_GENERATIONS);
-    p.shrinkToFit();
-    p.xOffset -= xPos;
-    p.yOffset -= yPos;
+export function separateObjects(p: MAPPattern, sepGens: number, limit: number, input?: string): false | CAObject[] {
     if (p.isEmpty()) {
         return [];
     }
@@ -411,13 +404,13 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
     sep.generation = p.generation;
     let objs: [MAPPattern, PatternType][] = [];
     let found = false;
-    for (let i = 0; i < period * 8; i++) {
+    for (let i = 0; i < sepGens; i++) {
         let reassigned = sep.runGeneration();
         let reassigned2 = sep.resolveKnots();
         if (reassigned || reassigned2) {
             continue;
         }
-        objs = sep.getObjects().map(x => [x, findType(x, period * 8)]);
+        objs = sep.getObjects().map(x => [x, findType(x, limit)]);
         if (objs.every(([_, x]) => x.stabilizedAt === 0 && !x.phases[x.phases.length - 1].isEmpty())) {
             found = true;
             break;
@@ -519,6 +512,18 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
     }
     out.push(...data);
     return out;
+}
+
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | CAObject[] {
+    let period = stabilize(p);
+    if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
+        return false;
+    }
+    p.run(c.EXTRA_GENERATIONS);
+    p.shrinkToFit();
+    p.xOffset -= xPos;
+    p.yOffset -= yPos;
+    return separateObjects(p, period * 8, period * 8, input);
 }
 
 
