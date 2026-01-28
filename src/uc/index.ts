@@ -24,7 +24,7 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1);
         console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
     } else {
-        console.log(createChannelPattern(type, parseChannelRecipe(args.join(' '))));
+        console.log(createChannelPattern(type, parseChannelRecipe(args.join(' ')))[0].toRLE());
     }
 } else if (cmd === 'from') {
     if (type === 'ss') {

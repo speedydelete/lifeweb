@@ -37,11 +37,12 @@ interface ChannelInfo {
     // for 0hd, these should all be the same
     // for >0hd, you do [AA, AB, BA, BB], where A is the lower-numbered lane and B is the greater-numbered lane
     minSpacing: [number, number, number, number];
-    // the valid elbow objects, format is [lane, then whether it is flipped from the starting object]
+    // the starting elbow, format is [unprefixed apgcode, lane number]
+    start: [string, number];
+    // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
+    // this must be such that 
     // for >0hd, this is the lower-numbered lane, so the higher-numbered one is (hd number) + (this value)
     objects: {[key: string]: [number, boolean][]};
-    // the starting elbow, format is [apgcode, lane]
-    start: [string, number];
 }
 
 // you name them whatever you want
@@ -50,11 +51,11 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '1hd': {
         lanes: [0, 1],
         minSpacing: [20, 22, 22, 20],
+        start: ['11', 0],
         objects: {
             xs2_11: [[0, false]],
             xs2_3: [[11, true]],
         },
-        start: ['xs2_11', 0],
     },
 };
 

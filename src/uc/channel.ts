@@ -36,18 +36,23 @@ export function createChannelPattern(type: string, recipe: [number, number][]): 
     let info = c.CHANNEL_INFO[type];
     let p = base.copy();
     let total = 0;
-    for (let i = recipe.length - 2; i >= 0; i--) {
+    for (let i = recipe.length - 1; i >= 0; i--) {
         let [timing, channel] = recipe[i];
-        total += timing;
         let y = Math.floor(total / c.GLIDER_PERIOD);
         let x = Math.floor(y * c.GLIDER_SLOPE) + info.lanes[channel];
         let q = gliderPatterns[total % c.GLIDER_PERIOD];
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
+        total += timing;
     }
-    let target = base.loadApgcode(info.start[0]);
+    let y = Math.floor(total / c.GLIDER_PERIOD);
+    let x = Math.floor(y * c.GLIDER_SLOPE);
+    let q = gliderPatterns[total % c.GLIDER_PERIOD];
+    p.ensure(x + q.width, y + q.height);
+    p.insert(q, x, y);
+    let target = base.loadApgcode(info.start[0]).shrinkToFit();
     let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + info.start[1] - c.LANE_OFFSET + target.height;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + info.start[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
