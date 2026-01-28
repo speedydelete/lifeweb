@@ -1,6 +1,6 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, Spaceship, StableObject, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, findOutcome, getRecipes, saveRecipes} from './base.js';
+import {c, Spaceship, StableObject, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, separateObjects, findOutcome, getRecipes, saveRecipes} from './base.js';
 
 
 export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
@@ -28,6 +28,34 @@ export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern
     p.insert(q, xPos, yPos);
     p.shrinkToFit();
     return [p, xPos, yPos];
+}
+
+export function patternToSalvo(p: MAPPattern): [string, number[]] {
+    let objs = separateObjects(p, 1, 256);
+    if (objs === false) {
+        throw new Error('Object separation failed!');
+    }
+    let target: StableObject | null = null;
+    let ships: {lane: number, timing: number}[] = [];
+    for (let obj of objs) {
+        if (obj.type === 'ship') {
+            ships.push({lane: obj.x - obj.y, timing: obj.x + obj.y});
+        } else if (obj.type === 'sl' || obj.type === 'osc') {
+            if (target !== null) {
+                throw new Error('More than 1 target!');
+            }
+            target = obj;
+        } else {
+            throw new Error(`Invalid object: ${obj}`);
+        }
+    }
+    if (!target) {
+        throw new Error('No target!');
+    }
+    let lanes = ships.sort((a, b) => b.timing - a.timing).map(x => x.lane);
+    let laneOffset = target.y - target.x;
+    lanes = lanes.map(x => x + laneOffset + c.LANE_OFFSET);
+    return [target.code, lanes];
 }
 
 

@@ -1,5 +1,5 @@
 
-const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+const RULE = 'B2-ak5j/S12-k';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 // this part is an array of [height, width, array of [x, y] coordinates] for each phase
@@ -24,26 +24,53 @@ const GLIDER_SPACING = 10;
 // the period of slow salvos
 const SLOW_SALVO_PERIOD = 1;
 // the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364'];
+const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'];
 
-// the valid single-channel elbow objects, format is [lane, whether it is flipped from SINGLE_CHANNEL_START]
-const SINGLE_CHANNEL_OBJECTS: {[key: string]: [number, boolean][]} = {
-    xs2_11: [[10, false], ],
+
+// information about single-channel (0hd), double-channel (>0hd), and/or multi-channel (i don't even think anyone has used this, but i support it anyway) construction
+// in this file we do 1hd double-channel construction
+
+interface ChannelInfo {
+    // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
+    lanes: number[];
+    // the minimum spacing between gliders
+    // for 0hd, these should all be the same
+    // for >0hd, you do [AA, AB, BA, BB], where A is the lower-numbered lane and B is the greater-numbered lane
+    minSpacing: [number, number, number, number];
+    // the valid elbow objects, format is [lane, then whether it is flipped from the starting object]
+    // for >0hd, this is the lower-numbered lane, so the higher-numbered one is (hd number) + (this value)
+    objects: {[key: string]: [number, boolean][]};
+    // the starting elbow, format is [apgcode, lane]
+    start: [string, number];
+}
+
+// you name them whatever you want
+
+const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
+    '1hd': {
+        lanes: [0, 1],
+        minSpacing: [20, 22, 22, 20],
+        objects: {
+            xs2_11: [[0, false]],
+            xs2_3: [[11, true]],
+        },
+        start: ['xs2_11', 0],
+    },
 };
-// the single-channel object to start with
-const SINGLE_CHANNEL_START: [string, number] = ['xs2_11', 10];
 
 // the minimum spacing between single-channel gliders
 const MIN_SPACING = 20;
 
+// the spacing between the 2 construction lanes in single-channel (so it's really double-channel) in half diagonals
+
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 64;
+const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
-const VALID_POPULATION_PERIODS: null | number[] = [1];
+const VALID_POPULATION_PERIODS: null | number[] = null;
 // the extra generations to run after a collision, just to make sure
 const EXTRA_GENERATIONS = 64;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
@@ -150,4 +177,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, SINGLE_CHANNEL_OBJECTS, SINGLE_CHANNEL_START, MIN_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, CHANNEL_INFO, MIN_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
