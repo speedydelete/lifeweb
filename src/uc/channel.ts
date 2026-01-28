@@ -60,6 +60,9 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             if (!done.has(key)) {
                 done.add(key);
+                if (info.forceStart) {
+                    recipe.unshift(...info.forceStart);
+                }
                 recipesToCheck.push(recipe);
             }
         }
@@ -79,7 +82,7 @@ export async function searchChannel(type: string, depth: number): Promise<void> 
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
             let found = false;
-            if (result.length === 0) {
+            if (result.length === 0 && !possibleUseful.includes('Destroy')) {
                 possibleUseful += `Destroy: ${unparseChannelRecipe(info, recipe)}\n`;
             }
             for (let obj of result) {

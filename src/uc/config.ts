@@ -46,6 +46,8 @@ interface ChannelInfo {
     // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
     elbows: {[key: string]: {[key: number]: boolean}};
+    // force a start sequence
+    forceStart?: [number, number][];
 }
 
 // you name them whatever you want
@@ -60,6 +62,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs2_11: {0: false},
             xs2_3: {11: true},
         },
+        forceStart: [[20, 1]],
     },
 };
 

@@ -11,7 +11,7 @@ const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 1;
 // the speed limit in the direction the ship moves as a period
-const SPEED_LIMIT = 3;
+const SPEED_LIMIT = 4;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 6;
@@ -46,6 +46,8 @@ interface ChannelInfo {
     // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
     elbows: {[key: string]: {[key: number]: boolean}};
+    // force a start sequence
+    forceStart?: [number, number][];
 }
 
 // you name them whatever you want
@@ -60,6 +62,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs2_11: {0: false},
             xs2_3: {11: true},
         },
+        forceStart: [[20, 1]],
     },
 };
 
