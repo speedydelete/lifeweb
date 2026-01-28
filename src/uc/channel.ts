@@ -1,6 +1,7 @@
 
+import * as fs from 'node:fs/promises';
 import {MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, StillLife, Spaceship, CAObject, base, gliderPatterns, findOutcome, getRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
 
 
 export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
@@ -48,14 +49,23 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [n
     return out;
 }
 
-export async function searchChannel(info: ChannelInfo, depth: number): Promise<void> {
+export async function searchChannel(type: string, depth: number): Promise<void> {
+    let info = c.CHANNEL_INFO[type];
     let recipes = await getRecipes();
+    let out = recipes.channels[type];
     let done = new Set<string>();
     while (true) {
         console.log(`Searching depth ${depth}`);
-        let recipes = getRecipesForDepth(info, depth);
-        console.log(`Checking ${recipes.length} recipes`);
-        for (let recipe of recipes) {
+        let recipesToCheck = getRecipesForDepth(info, depth);
+        console.log(`Checking ${recipesToCheck.length} recipes`);
+        let possibleLongRange = '\n';
+        for (let recipe of recipesToCheck) {
+            let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
+            if (done.has(key)) {
+                continue;
+            } else {
+                done.add(key);
+            }
             let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
             let result = findOutcome(p, xPos, yPos);
@@ -63,35 +73,99 @@ export async function searchChannel(info: ChannelInfo, depth: number): Promise<v
                 continue;
             }
             let elbow: [StillLife, number] | null = null;
+            let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
-            let ship: Spaceship | null = null;
             let found = false;
             for (let obj of result) {
                 if (obj.type === 'sl') {
                     let lane = obj.x - obj.y;
                     let spacing = obj.x + obj.y;
                     if (!elbow && lane === 0) {
-                        elbow = [obj, lane];
+                        elbow = [obj, spacing];
                     } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
                         hand = obj;        
                     } else {
                         found = true;
                         break;
                     }
-                } else if (!ship && obj.type === 'ship') {
-                    ship = obj;
+                } else if (!shipData && obj.type === 'ship') {
+                    let dir: 'up' | 'down' | 'left' | 'right';
+                    if (obj.dir.startsWith('N')) {
+                        dir = obj.dir.startsWith('NE') ? 'right' : 'up';
+                    } else if (obj.dir.startsWith('S')) {
+                        dir = obj.dir.startsWith('SW') ? 'left' : 'down';
+                    } else {
+                        dir = obj.dir.startsWith('W') ? 'left' : 'right';
+                    }
+                    shipData = [obj, dir];
                 } else {
                     found = true;
                     break;
                 }
             }
-            if (found || !elbow || (hand && ship)) {
+            if (found || (shipData && hand)) {
+                continue;
+            }
+            if (!elbow) {
+                if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
+                    let ship = shipData[0];
+                    if (shipData[1] === 'down' && parseInt(ship.code.slice(1)) <= c.SPEED_LIMIT) {
+                        continue;
+                    }
+                    possibleLongRange += `${ship.dir}, lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}`;
+                } else {
+                    continue;
+                }
+            }
+            if (found || !elbow || (shipData && hand)) {
                 continue;
             }
             let laneMap = info.elbows[elbow[0].code];
             if (!laneMap || !(elbow[1] in laneMap)) {
                 continue;
             }
+            let move = elbow[1] + Number(laneMap[elbow[1]]);
+            if (shipData) {
+                let [ship, dir] = shipData;
+                if (dir === 'up') {
+                    continue;
+                }
+                let lane = ship.x - ship.y;
+                if (dir === 'down') {
+                    let entry = out.recipes0Deg.find(x => x[0] === lane && x[1] === move);
+                    if (entry === undefined) {
+                        out.recipes0Deg.push([lane, move, recipe]);
+                    } else if (entry[2].length > recipe.length) {
+                        entry[2] = recipe;
+                    }
+                } else {
+                    let ix = dir === 'right';
+                    let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
+                    if (entry === undefined) {
+                        out.recipes90Deg.push([lane, ix, move, recipe]);
+                    } else if (entry[3].length > recipe.length) {
+                        entry[3] = recipe;
+                    }
+                }
+            } else if (hand) {
+                let entry = out.createHandRecipes.find(x => x[0].code === hand.code && x[0].x === hand.x && x[0].y === hand.y && x[1] === move);
+                if (entry === undefined) {
+                    out.createHandRecipes.push([hand, move, recipe]);
+                } else if (entry[2].length > recipe.length) {
+                    entry[2] = recipe;
+                }
+            } else {
+                let entry = out.moveRecipes.find(x => x[0] === move);
+                if (entry === undefined) {
+                    out.moveRecipes.push([move, recipe]);
+                } else if (entry[1].length > recipe.length) {
+                    entry[1] = recipe;
+                }
+            }
+        }
+        await saveRecipes(recipes);
+        if (possibleLongRange.length > 1) {
+            await fs.appendFile('possible_long_range.txt', possibleLongRange + '\n');
         }
         depth++;
     }
