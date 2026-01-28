@@ -1,45 +1,15 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, CAObject, base, gliderPatterns, findOutcome} from './base.js';
+import {c, ChannelInfo, StillLife, Spaceship, CAObject, base, gliderPatterns, findOutcome, getRecipes, saveRecipes} from './base.js';
 
 
-const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
-
-export function parseChannelRecipe(data: string): [number, number][] {
-    let out: [number, number][] = [];
-    for (let part of data.split(/[, ]/)) {
-        part = part.trim();
-        if (part === '') {
-            continue;
-        }
-        let timing = parseInt(part);
-        let end = part[part.length - 1];
-        let index = LETTERS.indexOf(end);
-        if (index === -1) {
-            out.push([timing, 0]);
-        } else {
-            out.push([timing, index]);
-        }
-    }
-    return out;
-}
-
-export function unparseChannelRecipe(type: string, data: [number, number][]): string {
-    if (c.CHANNEL_INFO[type].lanes.length === 1) {
-        return data.map(x => x[0]).join(', ');
-    } else {
-        return data.map(x => x[0] + LETTERS[x[1]]).join(', ');
-    }
-}
-
-export function createChannelPattern(type: string, recipe: [number, number][]): [MAPPattern, number, number, number] {
-    let info = c.CHANNEL_INFO[type];
+export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
     let p = base.copy();
     let total = 0;
     for (let i = recipe.length - 1; i >= 0; i--) {
         let [timing, channel] = recipe[i];
         let y = Math.floor(total / c.GLIDER_PERIOD);
-        let x = Math.floor(y * c.GLIDER_SLOPE) + info.lanes[channel];
+        let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
         let q = gliderPatterns[total % c.GLIDER_PERIOD];
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
@@ -60,8 +30,69 @@ export function createChannelPattern(type: string, recipe: [number, number][]): 
 }
 
 
-function findChannelResult(type: string, recipe: [number, number][]): null | false | true | CAObject[] {
-    let [p, xPos, yPos, total] = createChannelPattern(type, recipe);
-    p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
-    return findOutcome(p, xPos, yPos);
+function getRecipesForDepth(info: ChannelInfo, depth: number, prev?: number): [number, number][][] {
+    let out: [number, number][][] = [];
+    for (let channel = 0; channel < info.channels.length; channel++) {
+        for (let timing = prev === undefined ? 0 : info.minSpacings[prev][channel]; timing < depth; timing++) {
+            let elt: [number, number] = [timing, channel];
+            out.push([elt]);
+            if (depth - timing > info.minSpacing) {
+                let data = getRecipesForDepth(info, depth - timing, prev);
+                for (let recipe of getRecipesForDepth(info, depth - timing, prev)) {
+                    recipe.unshift(elt);
+                    data.push(recipe);
+                }
+            }
+        }
+    }
+    return out;
+}
+
+export async function searchChannel(info: ChannelInfo, depth: number): Promise<void> {
+    let recipes = await getRecipes();
+    let done = new Set<string>();
+    while (true) {
+        console.log(`Searching depth ${depth}`);
+        let recipes = getRecipesForDepth(info, depth);
+        console.log(`Checking ${recipes.length} recipes`);
+        for (let recipe of recipes) {
+            let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
+            p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
+            let result = findOutcome(p, xPos, yPos);
+            if (result === false) {
+                continue;
+            }
+            let elbow: [StillLife, number] | null = null;
+            let hand: StillLife | null = null;
+            let ship: Spaceship | null = null;
+            let found = false;
+            for (let obj of result) {
+                if (obj.type === 'sl') {
+                    let lane = obj.x - obj.y;
+                    let spacing = obj.x + obj.y;
+                    if (!elbow && lane === 0) {
+                        elbow = [obj, lane];
+                    } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
+                        hand = obj;        
+                    } else {
+                        found = true;
+                        break;
+                    }
+                } else if (!ship && obj.type === 'ship') {
+                    ship = obj;
+                } else {
+                    found = true;
+                    break;
+                }
+            }
+            if (found || !elbow || (hand && ship)) {
+                continue;
+            }
+            let laneMap = info.elbows[elbow[0].code];
+            if (!laneMap || !(elbow[1] in laneMap)) {
+                continue;
+            }
+        }
+        depth++;
+    }
 }

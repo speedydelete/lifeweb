@@ -27,41 +27,43 @@ const SLOW_SALVO_PERIOD = 1;
 const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'];
 
 
-// information about single-channel (0hd), double-channel (>0hd), and/or multi-channel (i don't even think anyone has used this, but i support it anyway) construction
+// information about single-channel (0hd), double-channel (>0hd), and/or even higher numbers of channels (i don't even think anyone has used this, but i support it anyway) construction
 // in this file we do 1hd double-channel construction
 
 interface ChannelInfo {
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
-    lanes: number[];
-    // the minimum spacing between gliders
-    // for 0hd, these should all be the same
-    // for >0hd, you do [AA, AB, BA, BB], where A is the lower-numbered lane and B is the greater-numbered lane
-    minSpacing: [number, number, number, number];
-    // the valid elbow objects, format is [lane, then whether it is flipped from the starting object]
-    // for >0hd, this is the lower-numbered lane, so the higher-numbered one is (hd number) + (this value)
-    objects: {[key: string]: [number, boolean][]};
-    // the starting elbow, format is [apgcode, lane]
+    channels: number[];
+    // the minimum spacing between gliders on every combination of channels
+    // format is a square 2D array for each channel, it should be mirrored across the diagonal
+    // for 0hd, you can just do [[spacing]]
+    minSpacings: number[][];
+    // the minimum value of minSpacings
+    minSpacing: number;
+    // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
+    // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
+    // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
+    elbows: {[key: string]: {[key: number]: boolean}};
 }
 
 // you name them whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '1hd': {
-        lanes: [0, 1],
-        minSpacing: [20, 22, 22, 20],
-        objects: {
-            xs2_11: [[0, false]],
-            xs2_3: [[11, true]],
+        channels: [0, 1],
+        minSpacings: [[20, 22], [22, 20]],
+        minSpacing: 20,
+        start: ['11', 0],
+        elbows: {
+            xs2_11: {0: false},
+            xs2_3: {11: true},
         },
-        start: ['xs2_11', 0],
     },
 };
 
-// the minimum spacing between single-channel gliders
-const MIN_SPACING = 20;
+// the minimum spacing in full diagonals between a hand block and the construction lanes
+const MIN_HAND_SPACING = 10;
 
-// the spacing between the 2 construction lanes in single-channel (so it's really double-channel) in half diagonals
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -177,4 +179,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, CHANNEL_INFO, MIN_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};

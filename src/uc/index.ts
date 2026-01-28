@@ -1,9 +1,9 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, StableObject, separateObjects} from './base.js';
+import {c, parseChannelRecipe} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {parseChannelRecipe, createChannelPattern} from './channel.js';
+import {createChannelPattern, searchChannel} from './channel.js';
 
 
 let cmd = process.argv[2];
@@ -24,7 +24,7 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1);
         console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
     } else {
-        console.log(createChannelPattern(type, parseChannelRecipe(args.join(' ')))[0].toRLE());
+        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(args.join(' ')))[0].toRLE());
     }
 } else if (cmd === 'from') {
     if (type === 'ss') {
@@ -36,10 +36,12 @@ if (cmd === 'get') {
 } else if (cmd === 'search') {
     if (type === 'ss') {
         if (args[0].startsWith('x')) {
-            searchSalvos(args[0], parseInt(args[1]));
+            await searchSalvos(args[0], parseInt(args[1]));
         } else {
-            searchSalvos(c.START_OBJECT, parseInt(args[0]));
+            await searchSalvos(c.START_OBJECT, parseInt(args[0]));
         }
+    } else {
+        await searchChannel(c.CHANNEL_INFO[type], typeof args[0] === 'string' ? parseInt(args[0]) : 1);
     }
 } else if (cmd === 'translate') {
     if (type !== 'ss') {

@@ -527,6 +527,36 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
 }
 
 
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+
+export function parseChannelRecipe(data: string): [number, number][] {
+    let out: [number, number][] = [];
+    for (let part of data.split(/[, ]/)) {
+        part = part.trim();
+        if (part === '') {
+            continue;
+        }
+        let timing = parseInt(part);
+        let end = part[part.length - 1];
+        let index = LETTERS.indexOf(end);
+        if (index === -1) {
+            out.push([timing, 0]);
+        } else {
+            out.push([timing, index]);
+        }
+    }
+    return out;
+}
+
+export function unparseChannelRecipe(info: c.ChannelInfo, data: [number, number][]): string {
+    if (info.channels.length === 1) {
+        return data.map(x => x[0]).join(', ');
+    } else {
+        return data.map(x => x[0] + LETTERS[x[1]]).join(', ');
+    }
+}
+
+
 export interface RecipeData {
     salvos: {
         forInput: {[key: string]: [number, CAObject[]][]};
@@ -537,19 +567,13 @@ export interface RecipeData {
         oneTimeTurners: {[key: string]: [StableObject, Spaceship, number[][]]};
         oneTimeSplitters: {[key: string]: [StableObject, Spaceship[], number[][]]};
     };
+    channels: {[key: string]: {
+        moveRecipes: [number, [number, number][]][];
+        recipes90Deg: [number, boolean, number, [number, number][]][];
+        recipes0Deg: [number, number, [number, number][]][];
+        createHandRecipes: [StillLife, number, [number, number][]][];
+    }};
 }
-
-type RecipeSection = `salvos.${keyof RecipeData['salvos']}`;
-
-let sectionNames: {[key: string]: RecipeSection} = {
-    'Salvos (for input)': 'salvos.forInput',
-    'Salvos (for output)': 'salvos.forOutput',
-    'Move recipes': 'salvos.moveRecipes',
-    'Split recipes': 'salvos.splitRecipes',
-    'Destroy recipes': 'salvos.destroyRecipes',
-    'One-time turners': 'salvos.oneTimeTurners',
-    'One-time splitters': 'salvos.oneTimeSplitters',
-};
 
 let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
 
@@ -575,44 +599,71 @@ function parseRecipeSections(data: string[]): [string, string[]][] {
 }
 
 function addSection(section: string, current: string[], out: RecipeData): void {
-    if (section === 'salvos.forInput') {
+    if (section === 'Salvos (for input)') {
         for (let [apgcode, data] of parseRecipeSections(current)) {
             out.salvos.forInput[apgcode] = data.map(x => x.split(':')).map(x => [parseInt(x[0]), stringToObjects(x[1])]);
         }
-    } else if (section === 'salvos.forOutput') {
+    } else if (section === 'Salvos (for output)') {
         for (let line of current) {
             let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
             out.salvos.forOutput[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output), data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
-    } else if (section === 'salvos.moveRecipes') {
+    } else if (section === 'Move recipes') {
         for (let line of current) {
             let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
             out.salvos.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
-    } else if (section === 'salvos.splitRecipes') {
+    } else if (section === 'Split recipes') {
         for (let line of current) {
             let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
             out.salvos.splitRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as StillLife[], data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
-    } else if (section === 'salvos.destroyRecipes') {
+    } else if (section === 'Destroy recipes') {
         for (let line of current) {
             let [key, data] = line.split(':');
             out.salvos.destroyRecipes[key] = data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)));
         }
-    } else if (section === 'salvos.oneTimeTurners') {
+    } else if (section === 'One-time turners') {
         for (let line of current) {
             let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
             out.salvos.oneTimeTurners[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as Spaceship, data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
         }
-    } else if (section === 'salvos.oneTimeSplitters') {
+    } else if (section === 'One-time splitters') {
         for (let line of current) {
             let [key, data] = line.split(':');
             let [input, output] = key.split(' to ');
             out.salvos.oneTimeSplitters[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as Spaceship[], data.split(' / ').map(x => x.split(', ').map(y => parseInt(y)))];
+        }
+    } else if (section.endsWith('move recipes')) {
+        let type = section.slice(0, section.indexOf(' '));
+        for (let line of current) {
+            let [amount, recipe] = line.split(': ');
+            out.channels[type].moveRecipes.push([parseInt(amount), parseChannelRecipe(recipe)]);
+        }
+    } else if (section.endsWith('90-degree recipes')) {
+        let type = section.slice(0, section.indexOf(' '));
+        for (let line of current) {
+            let data = line.split(' ');
+            out.channels[type].recipes90Deg.push([parseInt(data[1]), data[1].endsWith('x'), parseInt(data[3]), parseChannelRecipe(data.slice(4).join(' '))]);
+        }
+    } else if (section.endsWith('0-degree recipes')) {
+        let type = section.slice(0, section.indexOf(' '));
+        for (let line of current) {
+            let data = line.split(' ');
+            out.channels[type].recipes0Deg.push([parseInt(data[1]), parseInt(data[3]), parseChannelRecipe(data.slice(4).join(' '))]);
+        }
+    } else if (section.endsWith('hand creation recipes')) {
+        let type = section.slice(0, section.indexOf(' '));
+        for (let line of current) {
+            let [data, recipe] = line.split(': ');
+            let index = data.lastIndexOf(' (');
+            let sl = stringToObjects(data.slice(0, index))[0] as StillLife;
+            let move = parseInt(data.slice(index + 2 + 'move '.length));
+            out.channels[type].createHandRecipes.push([sl, move, parseChannelRecipe(recipe)]);
         }
     }
 }
@@ -628,22 +679,23 @@ export async function getRecipes(): Promise<RecipeData> {
             oneTimeTurners: {},
             oneTimeSplitters: {},
         },
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []}])),
     };
     if (!exists(recipeFile)) {
         return out;
     }
     let data = (await fs.readFile(recipeFile)).toString();
-    let section: RecipeSection | undefined = undefined;
+    let section: string | undefined = undefined;
     let current: string[] = [];
     for (let line of data.split('\n')) {
         line = line.trim();
         if (line.length === 0 || line.startsWith('#')) {
             continue;
-        } else if (line.endsWith(':') && line.slice(0, -1) in sectionNames) {
+        } else if (line.endsWith(':')) {
             if (section !== undefined) {
                 addSection(section, current, out);
             }
-            section = sectionNames[line.slice(0, -1)];
+            section = line.slice(0, -1);
             current = [];
             continue;
         } else {
@@ -656,7 +708,7 @@ export async function getRecipes(): Promise<RecipeData> {
     return out;
 }
 
-function getStringRecipes<T extends boolean>(data: T extends true ? {[key: string]: {2: number[][]}} : {[key: string]: number[][]}, type: T, limit?: number): string {
+function salvoRecipesToString<T extends boolean>(data: T extends true ? {[key: string]: {2: number[][]}} : {[key: string]: number[][]}, type: T, limit?: number): string {
     let groups: {[key: string]: string[]} = {};
     for (let [key, value] of Object.entries(data)) {
         let keyStart = key.split(' ').slice(0, 3).join(' ');
@@ -695,18 +747,51 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     for (let [key, value] of Object.entries(data.salvos.forInput)) {
         out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
     }
-    out += '\nSalvos (for output):\n\n' + getStringRecipes(data.salvos.forOutput, true);
-    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true);
-    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true);
-    out += '\nDestroy recipes:\n\n' + getStringRecipes(data.salvos.destroyRecipes, false);
-    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true);
-    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
+    out += '\nSalvos (for output):\n\n' + salvoRecipesToString(data.salvos.forOutput, true);
+    out += '\nMove recipes:\n\n' + salvoRecipesToString(data.salvos.moveRecipes, true);
+    out += '\nSplit recipes:\n\n' + salvoRecipesToString(data.salvos.splitRecipes, true);
+    out += '\nDestroy recipes:\n\n' + salvoRecipesToString(data.salvos.destroyRecipes, false);
+    out += '\nOne-time turners:\n\n' + salvoRecipesToString(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + salvoRecipesToString(data.salvos.oneTimeSplitters, true);
+    for (let [key, value] of Object.entries(data.channels)) {
+        let info = c.CHANNEL_INFO[key];
+        out += `\n${key} move recipes:\n\n` + value.moveRecipes.sort((a, b) => a[0] - b[0]).map(x => `${x[0]}: ${unparseChannelRecipe(info, x[1])}`).join('\n') + '\n\n';
+        let groups: {[key: string]: [number, boolean, number, [number, number][]][]} = {};
+        for (let recipe of value.recipes90Deg) {
+            let key = recipe[0] + (recipe[1] ? 'x' : 'i');
+            if (key in groups) {
+                groups[key].push(recipe);
+            } else {
+                groups[key] = [recipe];
+            }
+        }
+        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a[1] === b[1] ? a[0] - b[0] : a[0] - b[0]).map(recipes => recipes.sort((a, b) => a[2] - b[2]).map(x => `emit ${x[0]}${x[1] ? 'x' : 'i'} move ${x[2]}: ${unparseChannelRecipe(info, x[3])}`).join('\n')).join('\n\n') + '\n\n';
+        let groups2: {[key: number]: [number, number, [number, number][]][]} = {};
+        for (let recipe of value.recipes0Deg) {
+            if (recipe[0] in groups2) {
+                groups2[recipe[0]].push(recipe);
+            } else {
+                groups2[recipe[0]] = [recipe];
+            }
+        }
+        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]).map(x => `emit ${x[0]} move ${x[1]}: ${unparseChannelRecipe(info, x[2])}`).join('\n')).join('\n\n') + '\n\n';
+        let groups3: {[key: string]: [StillLife, number, [number, number][]][]} = {};
+        for (let recipe of value.createHandRecipes) {
+            let key = objectsToString([recipe[0]]);
+            if (key in groups3) {
+                groups3[key].push(recipe);
+            } else {
+                groups3[key] = [recipe];
+            }
+        }
+        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0][0], b[0][0])).map(recipes => recipes.map(x => `${objectsToString([x[0]])} (move ${x[1]}): ${unparseChannelRecipe(info, x[2])}`).join('\n')).join('\n\n') + '\n\n';
+    }
     await fs.writeFile(recipeFile, out.slice(0, -1));
     out = '';
-    out += '\nMove recipes:\n\n' + getStringRecipes(data.salvos.moveRecipes, true);
-    out += '\nSplit recipes:\n\n' + getStringRecipes(data.salvos.splitRecipes, true);
-    out += '\nDestroy recipes:\n\n' + getStringRecipes(data.salvos.destroyRecipes, false);
-    out += '\nOne-time turners:\n\n' + getStringRecipes(data.salvos.oneTimeTurners, true);
-    out += '\nOne-time splitters:\n\n' + getStringRecipes(data.salvos.oneTimeSplitters, true);
+    out += '\nMove recipes:\n\n' + salvoRecipesToString(data.salvos.moveRecipes, true);
+    out += '\nSplit recipes:\n\n' + salvoRecipesToString(data.salvos.splitRecipes, true);
+    out += '\nDestroy recipes:\n\n' + salvoRecipesToString(data.salvos.destroyRecipes, false);
+    out += '\nOne-time turners:\n\n' + salvoRecipesToString(data.salvos.oneTimeTurners, true);
+    out += '\nOne-time splitters:\n\n' + salvoRecipesToString(data.salvos.oneTimeSplitters, true);
     await fs.writeFile(recipeFile.slice(0, -4) + '_useful.txt', out.slice(0, -1));
 }
