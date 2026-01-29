@@ -57,7 +57,7 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '1hd': {
         channels: [0, 1],
-        minSpacings: [[20, 22], [22, 20]],
+        minSpacings: [[20, 23], [23, 20]],
         minSpacing: 20,
         start: ['11', 0],
         elbows: {
@@ -66,7 +66,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs2_3: {10: true},
             xs3_7: {10: true},
         },
-        forceStart: [[-1, 0], [22, 1]],
+        forceStart: [[-1, 0], [23, 1]],
     },
 };
 
