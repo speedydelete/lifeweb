@@ -61,8 +61,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         excludeSpacings: [[[], [24]], [[24], []]],
         start: ['11', 8],
         elbows: {
-            xs2_11: {8: false},
-            xs2_3: {2: true},
+            xs2_11: {0: false},
+            xs2_3: {6: true},
         },
     },
 };
@@ -74,7 +74,7 @@ const POSSIBLY_USEFUL_FILTER = ['xq4_152', 'xq4_259'];
 const MIN_HAND_SPACING = 10;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
-const WAIT_GENERATIONS = 192;
+const WAIT_GENERATIONS = 20;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
 const MAX_GENERATIONS = 512;
 // the number of population periods to repeat to make sure it's stable
