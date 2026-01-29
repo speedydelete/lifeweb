@@ -118,18 +118,16 @@ export async function searchChannel(type: string, threads: number, depth: number
             possibleUseful = data[0];
             filter.push(...data[1]);
         } else {
-            let perThread = Math.floor(recipeCount / threads);
-            let data = findChannelResults(info, recipesToCheck.slice(recipeCount - perThread * threads - 1), out);
-            possibleUseful = data[0];
-            filter.push(...data[1]);
-            let index = 0;
+            possibleUseful = '';
+            recipesToCheck.forEach(x => x.p = (x.p as MAPPattern).toApgcode());
             let workers: Worker[] = [];
             let finished: RecipeData['channels'][string][] = [];
             let finishedCount = 0;
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
-                let recipes = recipesToCheck.filter((_, i) => i % index === 0);
-                let worker = new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: recipes});
+                let recipes = recipesToCheck.filter((_, j) => j % threads === i);
+                console.log(recipeCount, recipes.length);
+                let worker = new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: {info, recipes}});
                 worker.on('message', data => {
                     if (typeof data === 'number') {
                         checkedRecipes += data;
@@ -144,7 +142,6 @@ export async function searchChannel(type: string, threads: number, depth: number
                     }
                 });
                 workers.push(worker);
-                index++;
             }
             let {promise, resolve} = Promise.withResolvers<void>();
             let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2000);
@@ -188,7 +185,8 @@ export async function searchChannel(type: string, threads: number, depth: number
                 }
             }
         }
-        console.log(`Depth ${depth} complete, took ${((performance.now() - start)/1000).toFixed(3)} seconds`);
+        let time = (performance.now() - start) / 1000;
+        console.log(`Depth ${depth} complete, took ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);

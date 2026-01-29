@@ -3,24 +3,30 @@ import {MAPPattern, findType} from '../core/index.js';
 import {c, base, StillLife, Spaceship, ChannelInfo, RecipeData, findOutcome, unparseChannelRecipe} from './base.js';
 
 
-export type ChannelRecipeData = {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[];
+export type ChannelRecipeData = {recipe: [number, number][], key: string, p: MAPPattern | string, xPos: number, yPos: number, total: number, time: number}[];
 
 export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData, out: RecipeData['channels'][string], parentPort?: (typeof import('node:worker_threads'))['parentPort'], log?: (data: string) => void): [string, string[]] {
     let possibleUseful = '';
     let filter: string[] = [];
     let lastUpdate = performance.now();
+    let done = 0;
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
         if (now - lastUpdate > 1000) {
             lastUpdate = now;
             if (parentPort) {
-                parentPort.postMessage(i);
+                parentPort.postMessage(done);
+                done = 0;
             }
             if (log) {
                 log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
             }
         }
+        done++;
         let {recipe, key, p, xPos, yPos, total, time} = recipes[i];
+        if (typeof p === 'string') {
+            p = base.loadApgcode(p);
+        }
         let strRecipe = unparseChannelRecipe(info, recipe);
         for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
             p.runGeneration();
