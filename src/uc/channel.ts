@@ -143,7 +143,7 @@ export async function searchChannel(type: string, threads: number, depth: number
                 workers.push(worker);
             }
             let {promise, resolve} = Promise.withResolvers<void>();
-            let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2000);
+            let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2200);
             await promise;
             for (let data of finished) {
                 for (let recipe of data.moveRecipes) {
