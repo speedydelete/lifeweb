@@ -114,7 +114,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     shipData = [obj, dir];
                 } else {
                     if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                        let type = findType(base.loadApgcode(obj.code), parseInt(obj.code.slice(2)));
+                        let type = findType(base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)), parseInt(obj.code.slice(2)));
                         if (type.disp) {
                             possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}): ${strRecipe}\n`;
                         } else {
