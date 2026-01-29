@@ -91,7 +91,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         log(`Checking ${recipesToCheck.length} recipes`, true);
         let possibleUseful = '';
         for (let i = 0; i < recipesToCheck.length; i++) {
-            log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
+            log(`${i - 1}/${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
             let {recipe, key, p, xPos, yPos, total, time} = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
             for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
