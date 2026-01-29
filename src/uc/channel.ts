@@ -87,7 +87,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         log(`Checking ${recipesToCheck.length} recipes`, true);
         let possibleUseful = '\n';
         for (let i = 0; i < recipesToCheck.length; i++) {
-            log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(1)}%) recipes checked`);
+            log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
             let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
