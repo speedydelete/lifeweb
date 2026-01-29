@@ -45,7 +45,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: numbe
             let elt: [number, number] = [spacing, channel];
             out.push([elt]);
             if (depth - spacing > info.minSpacing) {
-                for (let recipe of getRecipesForDepth(info, depth - spacing, maxSpacing, prev)) {
+                for (let recipe of getRecipesForDepth(info, depth - spacing, maxSpacing, channel)) {
                     recipe.unshift(elt);
                     out.push(recipe);
                 }
