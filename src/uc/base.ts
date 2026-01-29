@@ -378,7 +378,6 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
             });
         }
     }
-    console.log(out);
     return out;
 }
 
@@ -392,24 +391,18 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     sep.generation = p.generation;
     let objs: [MAPPattern, PatternType][] = [];
     let found = false;
-    sep.ruleStr = 'B2-ak5j/S12-kSuper';
-    // @ts-ignore
-    sep.states = 256;
     for (let i = 0; i < sepGens; i++) {
         let reassigned = sep.runGeneration();
         let reassigned2 = sep.resolveKnots();
-        console.log(reassigned, reassigned2);
         if (reassigned || reassigned2) {
             continue;
         }
         objs = sep.getObjects().map(x => [x, findType(x, limit)]);
-        console.log('raw objs:', objs);
-        if (objs.every(([_, x]) => x.stabilizedAt === 0 && !x.phases[x.phases.length - 1].isEmpty())) {
+        if (objs.every(([_, x]) => x.stabilizedAt === 0 && x.pops[x.pops.length - 1] !== 0)) {
             found = true;
             break;
         }
     }
-    console.log(objs);
     if (!found) {
         if (input) {
             console.log(`Unable to separate objects for ${input}!`);

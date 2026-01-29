@@ -722,11 +722,11 @@ export class INTSeparator extends MAPPattern {
                     loc += 3;
                 }
                 if (trs[(tr << 1) & 63]) {
-                    out[loc + 4] = 1;
+                    out[loc] = 1;
                     if (tr & 16) {
-                        newGroups[loc + 4] = groups[i - 1];
+                        newGroups[loc] = groups[i - 1];
                     } else {
-                        newGroups[loc + 4] = groups[i - 2];
+                        newGroups[loc] = groups[i - 2];
                     }
                 }
             }

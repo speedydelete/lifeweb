@@ -28,7 +28,6 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
     let target = base.loadApgcode(info.start[0]).shrinkToFit();
-    total += c.GLIDER_TARGET_SPACING;
     let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
@@ -66,9 +65,6 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let done = new Set<string>();
     let knownDestroys: string[] = [];
     while (true) {
-        if (depth > 45) {
-            return;
-        }
         log(`Searching depth ${depth}`, true);
         let recipesToCheck: [[MAPPattern, number, number, number], number, [number, number][]][] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
@@ -84,6 +80,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 done.add(key);
                 if (info.forceStart) {
                     recipe.unshift(...info.forceStart);
+                    time += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
                 }
                 let data = createChannelPattern(info, recipe);
                 if (data) {
@@ -97,8 +94,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
             let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
-            console.log(total / c.GLIDER_DY);
-            for (let gen = 0; gen < total / c.GLIDER_DY; gen++) {
+            for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
                 p.runGeneration();
                 p.shrinkToFit();
             }
@@ -113,7 +109,6 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let hand: StillLife | null = null;
             let found = false;
             if (result.length === 0) {
-                console.log(p.toRLE());
                 possibleUseful += `Destroy: ${strRecipe}\n`;
                 knownDestroys.push(strRecipe + ' ');
             }
