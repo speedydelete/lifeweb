@@ -64,23 +64,13 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs2_3: {7: true},
         }
     },
-    '1hd': {
-        channels: [0, 1],
-        minSpacings: [[20, 23], [23, 20]],
-        minSpacing: 20,
-        excludeSpacings: [[[], [24]], [[24], []]],
-        start: ['11', 8],
-        elbows: {
-            xs2_11: {0: false},
-        },
-    },
 };
 
 // a filter for possibly useful recipes
 const POSSIBLY_USEFUL_FILTER = ['xq4_152', 'xq4_259'];
 
 // the minimum spacing in full diagonals between a hand object and the construction lane(s)
-const MIN_HAND_SPACING = 6;
+const MIN_HAND_SPACING = 8;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 20;

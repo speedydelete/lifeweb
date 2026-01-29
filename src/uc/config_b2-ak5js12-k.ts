@@ -72,7 +72,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 const POSSIBLY_USEFUL_FILTER = ['xq4_59'];
 
 // the minimum spacing in full diagonals between a hand block and the construction lanes
-const MIN_HAND_SPACING = 10;
+const MIN_HAND_SPACING = 8;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 40;
