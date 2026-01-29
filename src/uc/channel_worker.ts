@@ -10,6 +10,6 @@ if (!parentPort) {
 
 let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []};
 
-let possibleUseful = findChannelResults(workerData.info, workerData.recipes, out, parentPort);
+let data = findChannelResults(workerData.info, workerData.recipes, out, parentPort);
 
-parentPort.postMessage([out, possibleUseful]);
+parentPort.postMessage([out, data[0], data[1]]);

@@ -133,6 +133,7 @@ export async function searchChannel(type: string, threads: number, depth: number
                     } else {
                         finished.push(data[0]);
                         possibleUseful += data[1];
+                        filter.push(...data[2]);
                         finishedCount++;
                         if (finishedCount === threads) {
                             clearInterval(interval);
