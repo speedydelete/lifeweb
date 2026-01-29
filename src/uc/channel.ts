@@ -63,9 +63,13 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let knownDestroys: string[] = [];
     while (true) {
         log(`Searching depth ${depth}`, true);
-        let recipesToCheck: [[MAPPattern, number, number, number], [number, number][]][] = [];
+        let recipesToCheck: [[MAPPattern, number, number, number], number, [number, number][]][] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
+            let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
+            if (time !== depth) {
+                continue;
+            }
             if (knownDestroys.some(x => key.startsWith(x))) {
                 continue;
             }
@@ -76,7 +80,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 }
                 let data = createChannelPattern(info, recipe);
                 if (data) {
-                    recipesToCheck.push([data, recipe]);
+                    recipesToCheck.push([data, time, recipe]);
                 }
             }
         }
@@ -84,9 +88,8 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         let possibleUseful = '\n';
         for (let i = 0; i < recipesToCheck.length; i++) {
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(1)}%) recipes checked`);
-            let [[p, xPos, yPos, total], recipe] = recipesToCheck[i];
+            let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
-            let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
             let result = findOutcome(p, xPos, yPos, );
             if (result === false) {
