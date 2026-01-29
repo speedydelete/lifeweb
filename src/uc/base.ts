@@ -12,7 +12,7 @@ let prevUpdateTime = performance.now();
 
 export function log(msg: string, force?: boolean): void {
     let now = performance.now();
-    if (force || now - prevUpdateTime > 1000) {
+    if (force || now - prevUpdateTime > 2000) {
         console.log(msg);
         prevUpdateTime = now;
     }
