@@ -61,8 +61,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         excludeSpacings: [[[], [24]], [[24], []]],
         start: ['11', 8],
         elbows: {
-            xs2_11: {8: false},
-            xs2_3: {2: true},
+            xs2_11: {0: false},
+            xs2_3: {6: true},
         },
     },
 };

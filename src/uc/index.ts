@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, parseChannelRecipe} from './base.js';
+import {c, parseChannelRecipe, unparseChannelRecipe} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
 
@@ -24,7 +24,7 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1);
         console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
     } else {
-        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(args.join(' ')));
+        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' ')));
         if (!x) {
             throw new Error('Does not satisfy congruence');
         }
@@ -61,6 +61,23 @@ if (cmd === 'get') {
     let data = args.map(x => parseInt(x));
     data = data.map(lane => lane + x - y);
     console.log(start + data.join(', '));
+} else if (cmd === 'merge') {
+    if (type === 'ss') {
+        throw new Error('Cannot merge slow salvos');
+    }
+    let info = c.CHANNEL_INFO[type];
+    if (info.channels.length === 1) {
+        console.log(args.join(', '));
+    } else {
+        let data = process.argv.slice(4).map(x => parseChannelRecipe(info, x));
+        let out: [number, number][] = data[0].slice(0, -1);
+        let prev = data[0][data[0].length - 1];
+        for (let x of data.slice(1)) {
+            x[0][0] = Math.max(prev[0], info.minSpacings[prev[1]][x[0][1]]);
+            out.push(...x.slice(0, -1));
+            prev = x[x.length - 1];
+        }
+    }
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
 }

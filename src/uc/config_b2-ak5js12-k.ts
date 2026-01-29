@@ -66,7 +66,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs3_111: {0: false},
             xs3_7: {10: true},
         },
-        forceStart: [[22, 1]],
+        forceStart: [[-1, 0], [22, 1]],
     },
 };
 

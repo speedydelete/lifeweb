@@ -551,7 +551,7 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
 
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
-export function parseChannelRecipe(data: string): [number, number][] {
+export function parseChannelRecipe(info: c.ChannelInfo, data: string): [number, number][] {
     let out: [number, number][] = [];
     for (let part of data.split(/[, ]/)) {
         part = part.trim();
@@ -560,12 +560,20 @@ export function parseChannelRecipe(data: string): [number, number][] {
         }
         if (part.startsWith('(')) {
             out.push([parseInt(part.slice(1)), -1]);
+        } else if (part.length === 1 && LETTERS.includes(part[0])) {
+            out.push([-1, LETTERS.indexOf(part[0])]);
         } else {
             let timing = parseInt(part);
             let end = part[part.length - 1];
             let index = LETTERS.indexOf(end);
-            if (index === -1) {
-                out.push([timing, 0]);
+            if (part.length === 1 && Number.isNaN(timing)) {
+                out.push([-1, index]);
+            } else if (index === -1) {
+                if (info.channels.length === 1) {
+                    out.push([timing, 0]);
+                } else {
+                    out.push([timing, -1]);
+                }
             } else {
                 out.push([timing, index]);
             }
@@ -576,9 +584,9 @@ export function parseChannelRecipe(data: string): [number, number][] {
 
 export function unparseChannelRecipe(info: c.ChannelInfo, data: [number, number][]): string {
     if (info.channels.length === 1) {
-        return data.map(x => x[1] === -1 ? `(${x[0]})` : x[0]).join(', ');
+        return data.map(x => x[1] === -1 ? x[0] : x[0]).join(', ');
     } else {
-        return data.map(x => x[1] === -1 ? `(${x[0]})` : x[0] + LETTERS[x[1]]).join(', ');
+        return data.map(x => x[1] === -1 ? x[0] : (x[0] === -1 ? LETTERS[x[1]] : x[0] + LETTERS[x[1]])).join(', ');
     }
 }
 
@@ -668,19 +676,19 @@ function addSection(section: string, current: string[], out: RecipeData): void {
         let type = section.slice(0, section.indexOf(' '));
         for (let line of current) {
             let [amount, recipe] = line.split(': ');
-            out.channels[type].moveRecipes.push([parseInt(amount), parseChannelRecipe(recipe)]);
+            out.channels[type].moveRecipes.push([parseInt(amount), parseChannelRecipe(c.CHANNEL_INFO[type], recipe)]);
         }
     } else if (section.endsWith('90-degree recipes')) {
         let type = section.slice(0, section.indexOf(' '));
         for (let line of current) {
             let data = line.split(' ');
-            out.channels[type].recipes90Deg.push([parseInt(data[1]), data[1].endsWith('x'), parseInt(data[3]), parseChannelRecipe(data.slice(4).join(' '))]);
+            out.channels[type].recipes90Deg.push([parseInt(data[1]), data[1].endsWith('x'), parseInt(data[3]), parseChannelRecipe(c.CHANNEL_INFO[type], data.slice(4).join(' '))]);
         }
     } else if (section.endsWith('0-degree recipes')) {
         let type = section.slice(0, section.indexOf(' '));
         for (let line of current) {
             let data = line.split(' ');
-            out.channels[type].recipes0Deg.push([parseInt(data[1]), parseInt(data[3]), parseChannelRecipe(data.slice(4).join(' '))]);
+            out.channels[type].recipes0Deg.push([parseInt(data[1]), parseInt(data[3]), parseChannelRecipe(c.CHANNEL_INFO[type], data.slice(4).join(' '))]);
         }
     } else if (section.endsWith('hand creation recipes')) {
         let type = section.slice(0, section.indexOf(' '));
@@ -689,7 +697,7 @@ function addSection(section: string, current: string[], out: RecipeData): void {
             let index = data.lastIndexOf(' (');
             let sl = stringToObjects(data.slice(0, index))[0] as StillLife;
             let move = parseInt(data.slice(index + 2 + 'move '.length));
-            out.channels[type].createHandRecipes.push([sl, move, parseChannelRecipe(recipe)]);
+            out.channels[type].createHandRecipes.push([sl, move, parseChannelRecipe(c.CHANNEL_INFO[type], recipe)]);
         }
     }
 }

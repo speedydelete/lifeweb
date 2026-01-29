@@ -7,7 +7,7 @@ import {c, log, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOut
 export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): false | [MAPPattern, number, number, number] {
     let p = base.copy();
     let total = 0;
-    for (let i = recipe.length - 1; i >= 0; i--) {
+    for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
         if (channel === -1) {
             continue;
@@ -24,6 +24,9 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     }
     let y = Math.floor(total / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
+    if (info.channels.length > 1) {
+        x += info.channels[recipe[0][1]];
+    }
     let q = gliderPatterns[total % c.GLIDER_PERIOD];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
@@ -37,7 +40,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
 }
 
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: number, prev?: number): [number, number][][] {
+function _getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: number, prev?: number): [number, number][][] {
     let out: [number, number][][] = [];
     let limit = maxSpacing ? Math.min(depth, maxSpacing) : depth;
     for (let channel = 0; channel < info.channels.length; channel++) {
@@ -48,7 +51,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: numbe
             let elt: [number, number] = [spacing, channel];
             out.push([elt]);
             if (depth - spacing > info.minSpacing) {
-                for (let recipe of getRecipesForDepth(info, depth - spacing, maxSpacing, channel)) {
+                for (let recipe of _getRecipesForDepth(info, depth - spacing, maxSpacing, channel)) {
                     recipe.unshift(elt);
                     out.push(recipe);
                 }
@@ -56,6 +59,21 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: numbe
         }
     }
     return out;
+}
+
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: number, prev?: number): [number, number][][] {
+    if (info.channels.length === 1 || prev) {
+        return _getRecipesForDepth(info, depth, maxSpacing, prev);
+    } else {
+        let out: [number, number][][] = [];
+        for (let channel = 0; channel < info.channels.length; channel++) {
+            for (let recipe of _getRecipesForDepth(info, depth, maxSpacing, channel)) {
+                recipe.unshift([-1, channel]);
+                out.push(recipe);
+            }
+        }
+        return out;
+    }
 }
 
 export async function searchChannel(type: string, depth: number, maxSpacing?: number): Promise<void> {
@@ -69,7 +87,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         let recipesToCheck: {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
-            let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
+            let time = recipe.map(x => x[0]).filter(x => x !== -1).reduce((x, y) => x + y);
             if (time !== depth) {
                 continue;
             }
@@ -107,7 +125,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 continue;
             }
             recipe.push([stabilizeTime, -1]);
-            strRecipe += `, (${stabilizeTime})`;
+            strRecipe += `, ${stabilizeTime}`;
             let elbow: [StillLife, number] | null = null;
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
@@ -122,7 +140,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             }
             for (let obj of result) {
                 if (obj.type === 'sl') {
-                    let lane = obj.x - obj.y;
+                    let lane = obj.y - obj.x;
                     let spacing = obj.x + obj.y;
                     if (!elbow && lane === 0) {
                         elbow = [obj, spacing];
