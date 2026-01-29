@@ -1,6 +1,6 @@
 
 import * as fs from 'node:fs/promises';
-import {MAPPattern} from '../core/index.js';
+import {MAPPattern, findType} from '../core/index.js';
 import {c, log, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
 
 
@@ -114,7 +114,12 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     shipData = [obj, dir];
                 } else {
                     if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                        possibleUseful += `Creates ${obj.code}: ${strRecipe}`;
+                        let type = findType(base.loadApgcode(obj.code), parseInt(obj.code.slice(2)));
+                        if (type.disp) {
+                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}): ${strRecipe}\n`;
+                        } else {
+                            possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
+                        }
                     }
                     found = true;
                     break;
