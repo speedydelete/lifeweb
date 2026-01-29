@@ -112,7 +112,7 @@ export async function searchChannel(type: string, threads: number, depth: number
         let recipeCount = recipesToCheck.length;
         log(`Checking ${recipeCount} recipes`, true);
         let possibleUseful: string;
-        if (threads === 1 || recipeCount < 5000) {
+        if (threads === 1 || recipeCount < 3000) {
             let data = findChannelResults(info, recipesToCheck, out, undefined, log);
             possibleUseful = data[0];
             filter.push(...data[1]);
