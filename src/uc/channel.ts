@@ -75,10 +75,11 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         for (let i = 0; i < recipesToCheck.length; i++) {
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(1)}%) recipes checked`);
             let recipe = recipesToCheck[i];
+            let strRecipe = unparseChannelRecipe(info, recipe);
             let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
             let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
-            let result = findOutcome(p, xPos, yPos, unparseChannelRecipe(info, recipe));
+            let result = findOutcome(p, xPos, yPos, );
             if (result === false) {
                 continue;
             }
@@ -87,7 +88,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let hand: StillLife | null = null;
             let found = false;
             if (result.length === 0) {
-                possibleUseful += `Destroy: ${unparseChannelRecipe(info, recipe)}\n`;
+                possibleUseful += `Destroy: ${strRecipe}\n`;
             }
             for (let obj of result) {
                 if (obj.type === 'sl') {
@@ -112,6 +113,10 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     }
                     shipData = [obj, dir];
                 } else {
+                    if (obj.type === 'other' && obj.code.startsWith('xq')) {
+                        possibleUseful += `Creates ${obj.code}: ${strRecipe}`;
+                        found = true;
+                    }
                     found = true;
                     break;
                 }
@@ -125,7 +130,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     if (shipData[1] === 'down' && parseInt(ship.code.slice(2)) <= c.SPEED_LIMIT) {
                         continue;
                     }
-                    possibleUseful += `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}\n`;
+                    possibleUseful += `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
                 } else {
                     continue;
                 }
