@@ -15,7 +15,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
-        if (total % 10 > 5) {
+        if ((total + 2) % 10 > 5) {
             return false;
         }
     }
