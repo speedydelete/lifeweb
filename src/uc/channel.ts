@@ -146,7 +146,17 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                             filter.push(key + ' ');
                             let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                             if (type.disp) {
-                                possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+                                let lane: number;
+                                if (type.disp[0] === 0) {
+                                    lane = obj.y;
+                                } else if (type.disp[1] === 0) {
+                                    lane = obj.x;
+                                } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
+                                    lane = obj.x - obj.y;
+                                } else {
+                                    lane = obj.x + obj.y;
+                                }
+                                possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}): ${strRecipe}\n`;
                             } else {
                                 possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
                             }
@@ -178,6 +188,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 continue;
             }
             let move = elbow[1] + Number(laneMap[elbow[1]]);
+            recipe[recipe.length - 1][0] += move * c.GLIDER_PERIOD / c.GLIDER_DY;
             if (shipData) {
                 let [ship, dir] = shipData;
                 if (dir === 'up') {
