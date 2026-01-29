@@ -91,7 +91,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
-            let result = findOutcome(p, xPos, yPos, );
+            let result = findOutcome(p, xPos, yPos, strRecipe);
             if (result === false) {
                 continue;
             }
