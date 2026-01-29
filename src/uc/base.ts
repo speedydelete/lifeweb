@@ -797,7 +797,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
     out += '\nOne-time splitters:\n\n' + salvoRecipesToString(data.salvos.oneTimeSplitters, true);
     for (let [key, value] of Object.entries(data.channels)) {
         let info = c.CHANNEL_INFO[key];
-        out += `\n${key} move recipes:` + value.moveRecipes.sort((a, b) => a.move - b.move).map(x => `${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n';
+        out += `\n${key} move recipes:\n` + value.moveRecipes.sort((a, b) => a.move - b.move).map(x => `${x.move}: ${unparseChannelRecipe(info, x.recipe)}\n`).join('') + '\n';
         let groups: {[key: string]: RecipeData['channels'][string]['recipes90Deg']} = {};
         for (let recipe of value.recipes90Deg) {
             let key = recipe.lane + (recipe.ix ? 'x' : 'i');
