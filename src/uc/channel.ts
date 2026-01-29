@@ -129,7 +129,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     if (obj.type === 'other' && obj.code.startsWith('xq')) {
                         let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                         if (type.disp) {
-                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}): ${strRecipe}\n`;
+                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                         } else {
                             possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
                         }
