@@ -98,9 +98,9 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                             } else {
                                 lane = obj.x + obj.y;
                             }
-                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}): ${strRecipe}\n`;
+                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
                         } else {
-                            possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
+                            possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
                         }
                     }
                 }
