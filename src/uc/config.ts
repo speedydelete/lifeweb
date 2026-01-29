@@ -72,6 +72,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         start: ['11', 8],
         elbows: {
             xs2_11: {0: false},
+            xs2_3: {[-7]: false},
         },
     },
 };
