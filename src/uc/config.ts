@@ -54,6 +54,16 @@ interface ChannelInfo {
 // you name them whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
+    '0hd': {
+        channels: [0],
+        minSpacings: [[20]],
+        minSpacing: 20,
+        start: ['11', 9],
+        elbows: {
+            xs2_11: {0: false},
+            xs2_3: {7: true},
+        }
+    },
     '1hd': {
         channels: [0, 1],
         minSpacings: [[20, 23], [23, 20]],
