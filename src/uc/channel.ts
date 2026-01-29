@@ -27,7 +27,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
-    return [p, xPos, yPos, total];
+    return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
 }
 
 
@@ -78,7 +78,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
             let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
-            let result = findOutcome(p, xPos, yPos);
+            let result = findOutcome(p, xPos, yPos, unparseChannelRecipe(info, recipe));
             if (result === false) {
                 continue;
             }
@@ -143,8 +143,8 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 if (dir === 'up') {
                     continue;
                 }
-                let lane = ship.x - ship.y;
                 if (dir === 'down') {
+                    let lane = ship.x - ship.y;
                     let entry = out.recipes0Deg.find(x => x[0] === lane && x[1] === move);
                     if (entry === undefined) {
                         out.recipes0Deg.push([lane, move, recipe]);
@@ -152,6 +152,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                         entry[2] = recipe;
                     }
                 } else {
+                    let lane = ship.x + ship.y;
                     let ix = dir === 'right';
                     let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
                     if (entry === undefined) {
