@@ -6,8 +6,8 @@ import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js
 import {createChannelPattern, searchChannel} from './channel.js';
 
 
-let cmd = process.argv[2];
-let type = process.argv[3];
+let cmd = process.argv[2].toLowerCase();
+let type = process.argv[3].toLowerCase();
 let args = process.argv.slice(4).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x);;
 
 if (!(type === 'ss' || type in c.CHANNEL_INFO)) {

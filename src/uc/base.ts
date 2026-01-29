@@ -71,7 +71,6 @@ export let gliderPattern = p.copy();
 export let gliderPatterns: MAPPattern[] = [gliderPattern];
 for (let i = 1; i < c.GLIDER_PERIOD; i++) {
     p.runGeneration();
-    p.shrinkToFit();
     gliderPatterns.push(p.copy());
 }
 

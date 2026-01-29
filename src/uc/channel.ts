@@ -23,7 +23,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     p.insert(q, x, y);
     let target = base.loadApgcode(info.start[0]).shrinkToFit();
     let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + info.start[1] + c.LANE_OFFSET;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     p.shrinkToFit();
@@ -122,10 +122,10 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             if (!elbow) {
                 if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
                     let ship = shipData[0];
-                    if (shipData[1] === 'down' && parseInt(ship.code.slice(1)) <= c.SPEED_LIMIT) {
+                    if (shipData[1] === 'down' && parseInt(ship.code.slice(2)) <= c.SPEED_LIMIT) {
                         continue;
                     }
-                    possibleUseful += `${ship.dir}, lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}\n`;
+                    possibleUseful += `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${unparseChannelRecipe(info, recipe)}\n`;
                 } else {
                     continue;
                 }
