@@ -35,11 +35,14 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: numbe
     let out: [number, number][][] = [];
     let limit = maxSpacing ? Math.min(depth, maxSpacing + 1) : depth;
     for (let channel = 0; channel < info.channels.length; channel++) {
-        for (let timing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; timing < limit; timing++) {
-            let elt: [number, number] = [timing, channel];
+        for (let spacing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; spacing < limit; spacing++) {
+            if (prev && info.excludeSpacings?.[prev]?.[channel]?.includes(spacing)) {
+                continue;
+            }
+            let elt: [number, number] = [spacing, channel];
             out.push([elt]);
-            if (depth - timing > info.minSpacing) {
-                for (let recipe of getRecipesForDepth(info, depth - timing, maxSpacing, prev)) {
+            if (depth - spacing > info.minSpacing) {
+                for (let recipe of getRecipesForDepth(info, depth - spacing, maxSpacing, prev)) {
                     recipe.unshift(elt);
                     out.push(recipe);
                 }
@@ -57,7 +60,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     while (true) {
         log(`Searching depth ${depth}`, true);
         let recipesToCheck: [number, number][][] = [];
-        for (let recipe of getRecipesForDepth(info, depth, maxSpacing)) {
+        for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             if (!done.has(key)) {
                 done.add(key);

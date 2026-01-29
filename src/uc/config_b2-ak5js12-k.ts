@@ -41,6 +41,8 @@ interface ChannelInfo {
     minSpacings: number[][];
     // the minimum value of minSpacings
     minSpacing: number;
+    // exclude these spacings, this makes it so you can do overclocking, same format as minSpacings except you provide an array
+    excludeSpacings?: number[][][];
     // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
     // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
@@ -68,7 +70,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
 // the minimum spacing in full diagonals between a hand block and the construction lanes
 const MIN_HAND_SPACING = 10;
-
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;

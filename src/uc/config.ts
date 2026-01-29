@@ -1,5 +1,5 @@
 
-const RULE = 'B2-ak5j/S12-k';
+const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 // this part is an array of [height, width, array of [x, y] coordinates] for each phase
@@ -26,8 +26,7 @@ const GLIDER_SPACING = 10;
 // the period of slow salvos
 const SLOW_SALVO_PERIOD = 1;
 // the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'];
-
+const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs7_69a4', 'xs6_25a4', 'xs6_4a52'];
 
 // information about single-channel (0hd), double-channel (>0hd), and/or even higher numbers of channels (i don't even think anyone has used this, but i support it anyway) construction
 // in this file we do 1hd double-channel construction
@@ -41,6 +40,8 @@ interface ChannelInfo {
     minSpacings: number[][];
     // the minimum value of minSpacings
     minSpacing: number;
+    // exclude these spacings, this makes it so you can do overclocking, same format as minSpacings except you provide an array
+    excludeSpacings?: number[][][];
     // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
     // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
@@ -57,18 +58,16 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         channels: [0, 1],
         minSpacings: [[20, 22], [22, 20]],
         minSpacing: 20,
-        start: ['11', 0],
+        excludeSpacings: [[[], [23]], [[23], []]],
+        start: ['11', 8],
         elbows: {
-            xs2_11: {0: false},
-            xs2_3: {11: true},
+            xs2_11: {8: false},
         },
-        forceStart: [[20, 1]],
     },
 };
 
 // the minimum spacing in full diagonals between a hand block and the construction lanes
 const MIN_HAND_SPACING = 10;
-
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
