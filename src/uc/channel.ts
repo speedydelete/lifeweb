@@ -4,7 +4,7 @@ import {MAPPattern, findType} from '../core/index.js';
 import {c, log, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
 
 
-export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
+export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): false | [MAPPattern, number, number, number] {
     let p = base.copy();
     let total = 0;
     for (let i = recipe.length - 1; i >= 0; i--) {
@@ -15,6 +15,9 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
+        if (total % 10 > 5) {
+            return false;
+        }
     }
     let y = Math.floor(total / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
@@ -59,7 +62,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let done = new Set<string>();
     while (true) {
         log(`Searching depth ${depth}`, true);
-        let recipesToCheck: [number, number][][] = [];
+        let recipesToCheck: [[MAPPattern, number, number, number], [number, number][]][] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             if (!done.has(key)) {
@@ -67,17 +70,19 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 if (info.forceStart) {
                     recipe.unshift(...info.forceStart);
                 }
-                recipesToCheck.push(recipe);
+                let data = createChannelPattern(info, recipe);
+                if (data) {
+                    recipesToCheck.push([data, recipe]);
+                }
             }
         }
         log(`Checking ${recipesToCheck.length} recipes`, true);
         let possibleUseful = '\n';
         for (let i = 0; i < recipesToCheck.length; i++) {
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(1)}%) recipes checked`);
-            let recipe = recipesToCheck[i];
+            let [[p, xPos, yPos, total], recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
             let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
-            let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
             p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
             let result = findOutcome(p, xPos, yPos, );
             if (result === false) {
@@ -114,7 +119,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     shipData = [obj, dir];
                 } else {
                     if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                        let type = findType(base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)), parseInt(obj.code.slice(2)));
+                        let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                         if (type.disp) {
                             possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}): ${strRecipe}\n`;
                         } else {

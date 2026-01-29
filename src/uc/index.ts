@@ -24,7 +24,11 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1);
         console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
     } else {
-        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(args.join(' ')))[0].toRLE());
+        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(args.join(' ')));
+        if (!x) {
+            throw new Error('Does not satisfy congruence');
+        }
+        console.log(x[0].toRLE());
     }
 } else if (cmd === 'from') {
     if (type === 'ss') {
