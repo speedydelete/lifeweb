@@ -64,17 +64,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs2_3: {7: true},
         }
     },
-    '1hd': {
-        channels: [0, 1],
-        minSpacings: [[20, 23], [23, 20]],
-        minSpacing: 20,
-        excludeSpacings: [[[], [24]], [[24], []]],
-        start: ['11', 8],
-        elbows: {
-            xs2_11: {0: false},
-            xs2_3: {[-7]: false},
-        },
-    },
 };
 
 // a filter for possibly useful recipes
