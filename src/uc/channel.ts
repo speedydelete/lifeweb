@@ -8,6 +8,16 @@ import {ChannelRecipeData, findChannelResults} from './channel_searcher.js';
 
 export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): false | [MAPPattern, number, number, number] {
     let p = base.copy();
+    // let total2 = 0;
+    // for (let x of recipe) {
+    //     if (x[1] === -1) {
+    //         continue;
+    //     }
+    //     total2 += x[0];
+    //     if (total2 % 10 > 5) {
+    //         return false;
+    //     }
+    // }
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
@@ -20,9 +30,6 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
-        // if (total % 10 > 5) {
-        //     return false;
-        // }
     }
     let y = Math.floor(total / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
