@@ -25,7 +25,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         done++;
         let {recipe, key, p, xPos, yPos, total, time} = recipes[i];
         if (typeof p === 'string') {
-            p = base.loadApgcode(p);
+            p = base.loadApgcode(p).shrinkToFit();
         }
         let strRecipe = unparseChannelRecipe(info, recipe);
         for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {

@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
-import {c, log, ChannelInfo, base, gliderPatterns, getRecipes, saveRecipes, RecipeData} from './base.js';
+import {c, log, ChannelInfo, base, gliderPatterns, getRecipes, saveRecipes, RecipeData, unparseChannelRecipe} from './base.js';
 import {ChannelRecipeData, findChannelResults} from './channel_searcher.js';
 
 
@@ -37,7 +37,6 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
-    p.shrinkToFit();
     return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
 }
 
