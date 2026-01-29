@@ -87,6 +87,7 @@ export async function searchChannel(type: string, threads: number, depth: number
     let filter: string[] = [];
     while (true) {
         log(`Searching depth ${depth}`, true);
+        let start = performance.now();
         let recipesToCheck: ChannelRecipeData = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
@@ -117,20 +118,18 @@ export async function searchChannel(type: string, threads: number, depth: number
             possibleUseful = data[0];
             filter.push(...data[1]);
         } else {
-            possibleUseful = '';
             let perThread = Math.floor(recipeCount / threads);
+            console.log(recipeCount - perThread * threads);
+            let data = findChannelResults(info, recipesToCheck.slice(recipeCount - perThread * threads), out);
+            possibleUseful = data[0];
+            filter.push(...data[1]);
             let index = 0;
             let workers: Worker[] = [];
             let finished: RecipeData['channels'][string][] = [];
             let finishedCount = 0;
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
-                let recipes: ChannelRecipeData;
-                if (i === threads - 1) {
-                    recipes = recipesToCheck.slice(index);
-                } else {
-                    recipes = recipesToCheck.slice(index, index + perThread);
-                }
+                let recipes = recipesToCheck.filter((_, i) => i % index === 0);
                 let worker = new Worker('./channel_worker.js', {workerData: recipes});
                 worker.on('message', data => {
                     if (typeof data === 'number') {
@@ -146,7 +145,7 @@ export async function searchChannel(type: string, threads: number, depth: number
                     }
                 });
                 workers.push(worker);
-                index += perThread;
+                index++;
             }
             let {promise, resolve} = Promise.withResolvers<void>();
             let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2000);
@@ -190,6 +189,7 @@ export async function searchChannel(type: string, threads: number, depth: number
                 }
             }
         }
+        console.log(`Depth ${depth} complete, took ${((performance.now() - start)/1000).toFixed(3)} seconds`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
