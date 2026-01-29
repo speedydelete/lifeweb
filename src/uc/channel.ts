@@ -160,6 +160,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 if (dir === 'down') {
                     let lane = ship.x - ship.y;
                     let entry = out.recipes0Deg.find(x => x[0] === lane && x[1] === move);
+                    possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
                     if (entry === undefined) {
                         out.recipes0Deg.push([lane, move, recipe]);
                     } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
@@ -168,6 +169,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 } else {
                     let lane = ship.x + ship.y;
                     let ix = dir === 'right';
+                    possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
                     let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
                     if (entry === undefined) {
                         out.recipes90Deg.push([lane, ix, move, recipe]);
@@ -177,6 +179,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 }
             } else if (hand) {
                 let entry = out.createHandRecipes.find(x => x[0].code === hand.code && x[0].x === hand.x && x[0].y === hand.y && x[1] === move);
+                    possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
                 if (entry === undefined) {
                     out.createHandRecipes.push([hand, move, recipe]);
                 } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
