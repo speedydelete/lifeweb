@@ -826,7 +826,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
                 groups3[key] = [recipe];
             }
         }
-        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0].obj, b[0].obj)).map(recipes => recipes.map(x => `${objectsToString([x.obj])} (move ${x.move}): ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0].obj, b[0].obj)).map(recipes => recipes.map(x => `${objectsToString([x.obj])} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
     }
     await fs.writeFile(recipeFile, out.slice(0, -1));
     out = '';
