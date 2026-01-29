@@ -125,6 +125,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 continue;
             }
             recipe.push([stabilizeTime, -1]);
+            time += Math.max(stabilizeTime, info.minSpacing);
             strRecipe += `, ${stabilizeTime}`;
             let elbow: [StillLife, number] | null = null;
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
@@ -218,41 +219,41 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 }
                 if (dir === 'down') {
                     let lane = ship.x - ship.y;
-                    let entry = out.recipes0Deg.find(x => x[0] === lane && x[1] === move);
+                    let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
                     possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
                     if (entry === undefined) {
-                        out.recipes0Deg.push([lane, move, recipe]);
-                    } else if (entry[2].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
-                        entry[2] = recipe;
+                        out.recipes0Deg.push({recipe, time, lane, move});
+                    } else if (entry.time > time) {
+                        entry.recipe = recipe;
                     }
                 } else {
                     let lane = ship.x + ship.y;
-                    let ix = dir === 'right';
-                    possibleUseful += `90 degree emit ${lane}${ix ? 'x' : 'i'} move ${move}: ${strRecipe}\n`;
-                    let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
+                    let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
+                    possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
+                    let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
                     if (entry === undefined) {
-                        out.recipes90Deg.push([lane, ix, move, recipe]);
-                    } else if (entry[3].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
-                        entry[3] = recipe;
+                        out.recipes90Deg.push({recipe, time, lane, ix, move});
+                    } else if (entry.time > time) {
+                        entry.recipe = recipe;
                     }
                 }
             } else if (hand) {
-                let entry = out.createHandRecipes.find(x => x[0].code === hand.code && x[0].x === hand.x && x[0].y === hand.y && x[1] === move);
+                let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
                     possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
                 if (entry === undefined) {
-                    out.createHandRecipes.push([hand, move, recipe]);
-                } else if (entry[2].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
-                    entry[2] = recipe;
+                    out.createHandRecipes.push({recipe, time, obj: hand, move});
+                } else if (entry.time > time) {
+                    entry.recipe = recipe;
                 }
             } else {
                 if (move === 0) {
                     continue;
                 }
-                let entry = out.moveRecipes.find(x => x[0] === move);
+                let entry = out.moveRecipes.find(x => x.move === move);
                 if (entry === undefined) {
-                    out.moveRecipes.push([move, recipe]);
-                } else if (entry[1].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
-                    entry[1] = recipe;
+                    out.moveRecipes.push({recipe, time, move});
+                } else if (entry.time > time) {
+                    entry.recipe = recipe;
                 }
             }
         }

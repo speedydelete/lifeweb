@@ -24,7 +24,7 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1);
         console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
     } else {
-        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' ')));
+        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0]);
         if (!x) {
             throw new Error('Does not satisfy congruence');
         }
@@ -69,7 +69,7 @@ if (cmd === 'get') {
     if (info.channels.length === 1) {
         console.log(args.join(', '));
     } else {
-        let data = process.argv.slice(4).map(x => parseChannelRecipe(info, x));
+        let data = process.argv.slice(4).map(x => parseChannelRecipe(info, x)[0]);
         let out: [number, number][] = data[0].slice(0, -1);
         let prev = data[0][data[0].length - 1];
         for (let x of data.slice(1)) {
