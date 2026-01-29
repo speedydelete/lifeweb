@@ -15,9 +15,9 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
-        if (total % 10 > 5) {
-            return false;
-        }
+        // if (total % 10 > 5) {
+        //     return false;
+        // }
     }
     let y = Math.floor(total / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
