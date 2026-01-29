@@ -60,11 +60,15 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let recipes = await getRecipes();
     let out = recipes.channels[type];
     let done = new Set<string>();
+    let knownDestroys: string[] = [];
     while (true) {
         log(`Searching depth ${depth}`, true);
         let recipesToCheck: [[MAPPattern, number, number, number], [number, number][]][] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
+            if (knownDestroys.some(x => key.startsWith(x))) {
+                continue;
+            }
             if (!done.has(key)) {
                 done.add(key);
                 if (info.forceStart) {
@@ -94,6 +98,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let found = false;
             if (result.length === 0) {
                 possibleUseful += `Destroy: ${strRecipe}\n`;
+                knownDestroys.push(strRecipe + ' ');
             }
             for (let obj of result) {
                 if (obj.type === 'sl') {
