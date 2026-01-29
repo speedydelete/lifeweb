@@ -63,17 +63,17 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let recipes = await getRecipes();
     let out = recipes.channels[type];
     let done = new Set<string>();
-    let knownDestroys: string[] = [];
+    let filter: string[] = [];
     while (true) {
         log(`Searching depth ${depth}`, true);
-        let recipesToCheck: [[MAPPattern, number, number, number], number, [number, number][]][] = [];
+        let recipesToCheck: {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             let time = recipe.map(x => x[0]).reduce((x, y) => x + y);
             if (time !== depth) {
                 continue;
             }
-            if (knownDestroys.some(x => key.startsWith(x))) {
+            if (filter.some(x => key.startsWith(x))) {
                 continue;
             }
             if (!done.has(key)) {
@@ -84,7 +84,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 }
                 let data = createChannelPattern(info, recipe);
                 if (data) {
-                    recipesToCheck.push([data, time, recipe]);
+                    recipesToCheck.push({recipe, key, p: data[0], xPos: data[1], yPos: data[2], total: data[3], time});
                 }
             }
         }
@@ -92,7 +92,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
         let possibleUseful = '';
         for (let i = 0; i < recipesToCheck.length; i++) {
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
-            let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
+            let {recipe, key, p, xPos, yPos, total, time} = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
             for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
                 p.runGeneration();
@@ -110,7 +110,11 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             let found = false;
             if (result.length === 0) {
                 possibleUseful += `Destroy: ${strRecipe}\n`;
-                knownDestroys.push(strRecipe + ' ');
+                filter.push(key + ' ');
+            }
+            if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
+                filter.push(key + ' ');
+                continue;   
             }
             for (let obj of result) {
                 if (obj.type === 'sl') {
@@ -124,7 +128,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                         found = true;
                         break;
                     }
-                } else if (!shipData && obj.type === 'ship') {
+                } else if (!shipData && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
                     let dir: 'up' | 'down' | 'left' | 'right';
                     if (obj.dir.startsWith('N')) {
                         dir = obj.dir.startsWith('NE') ? 'right' : 'up';
@@ -135,12 +139,17 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     }
                     shipData = [obj, dir];
                 } else {
-                    if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                        let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
-                        if (type.disp) {
-                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
-                        } else {
-                            possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
+                    if (!c.POSSIBLY_USEFUL_FILTER.includes(obj.code)) {
+                        if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
+                            possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+                        } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
+                            filter.push(key + ' ');
+                            let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
+                            if (type.disp) {
+                                possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+                            } else {
+                                possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
+                            }
                         }
                     }
                     found = true;
@@ -186,7 +195,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 } else {
                     let lane = ship.x + ship.y;
                     let ix = dir === 'right';
-                    possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
+                    possibleUseful += `90 degree emit ${lane}${ix ? 'x' : 'i'} move ${move}: ${strRecipe}\n`;
                     let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
                     if (entry === undefined) {
                         out.recipes90Deg.push([lane, ix, move, recipe]);
