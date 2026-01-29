@@ -63,6 +63,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         elbows: {
             xs2_11: {0: false},
             xs3_111: {0: false},
+            xs2_3: {10: true},
+            xs3_7: {10: true},
         },
         forceStart: [[-1, 0], [22, 1]],
     },
