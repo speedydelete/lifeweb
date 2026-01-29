@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 1; // only for 1hd searching, make it higher for other stuff
+const GLIDER_TARGET_SPACING = 5; // only for 1hd searching, make it higher for other stuff
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
@@ -56,8 +56,9 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '1hd': {
         channels: [0, 1],
-        minSpacings: [[20, 22], [22, 20]],
+        minSpacings: [[20, 23], [23, 20]],
         minSpacing: 20,
+        excludeSpacings: [[[], [24]], [[24], []]],
         start: ['11', 8],
         elbows: {
             xs2_11: {8: false},

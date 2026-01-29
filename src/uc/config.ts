@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 4; // only for 1hd searching, make it higher for other stuff
+const GLIDER_TARGET_SPACING = 5; // only for 1hd searching, make it higher for other stuff
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
