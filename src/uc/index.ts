@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, parseChannelRecipe, unparseChannelRecipe} from './base.js';
+import {c, parseChannelRecipe} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
 
@@ -45,7 +45,9 @@ if (cmd === 'get') {
             await searchSalvos(c.START_OBJECT, parseInt(args[0]));
         }
     } else {
-        await searchChannel(type, typeof args[0] === 'string' ? parseInt(args[0]) : c.CHANNEL_INFO[type].minSpacing, typeof args[1] === 'string' ? parseInt(args[1]) : undefined);
+        let depth = typeof args[1] === 'string' ? parseInt(args[1]) : c.CHANNEL_INFO[type].minSpacing;
+        let maxSpacing = typeof args[2] === 'string' ? parseInt(args[2]) : undefined;
+        await searchChannel(type, parseInt(args[0]), depth, maxSpacing);
     }
 } else if (cmd === 'translate') {
     if (type !== 'ss') {

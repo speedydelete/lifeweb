@@ -1,7 +1,9 @@
 
 import * as fs from 'node:fs/promises';
-import {MAPPattern, findType} from '../core/index.js';
-import {c, log, ChannelInfo, StillLife, Spaceship, base, gliderPatterns, findOutcome, unparseChannelRecipe, getRecipes, saveRecipes} from './base.js';
+import {Worker} from 'node:worker_threads';
+import {MAPPattern} from '../core/index.js';
+import {c, log, ChannelInfo, base, gliderPatterns, getRecipes, saveRecipes, RecipeData} from './base.js';
+import {ChannelRecipeData, findChannelResults} from './channel_searcher.js';
 
 
 export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): false | [MAPPattern, number, number, number] {
@@ -76,7 +78,8 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: numbe
     }
 }
 
-export async function searchChannel(type: string, depth: number, maxSpacing?: number): Promise<void> {
+
+export async function searchChannel(type: string, threads: number, depth: number, maxSpacing?: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await getRecipes();
     let out = recipes.channels[type];
@@ -84,7 +87,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let filter: string[] = [];
     while (true) {
         log(`Searching depth ${depth}`, true);
-        let recipesToCheck: {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[] = [];
+        let recipesToCheck: ChannelRecipeData = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             let time = recipe.map(x => x[0]).filter(x => x !== -1).reduce((x, y) => x + y);
@@ -106,154 +109,84 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 }
             }
         }
-        log(`Checking ${recipesToCheck.length} recipes`, true);
-        let possibleUseful = '';
-        for (let i = 0; i < recipesToCheck.length; i++) {
-            log(`${i - 1}/${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
-            let {recipe, key, p, xPos, yPos, total, time} = recipesToCheck[i];
-            let strRecipe = unparseChannelRecipe(info, recipe);
-            for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
-                p.runGeneration();
-                p.shrinkToFit();
-            }
-            let [result, stabilizeTime] = findOutcome(p, xPos, yPos, strRecipe);
-            if (result === false) {
-                continue;
-            }
-            if (result === 'linear') {
-                possibleUseful += `Linear growth: ${strRecipe}\n`;
-                continue;
-            }
-            recipe.push([stabilizeTime, -1]);
-            time += Math.max(stabilizeTime, info.minSpacing);
-            strRecipe += `, ${stabilizeTime}`;
-            let elbow: [StillLife, number] | null = null;
-            let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
-            let hand: StillLife | null = null;
-            let found = false;
-            if (result.length === 0) {
-                possibleUseful += `Destroy: ${strRecipe}\n`;
-                filter.push(key + ' ');
-            }
-            if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
-                filter.push(key + ' ');
-                continue;
-            }
-            for (let obj of result) {
-                if (obj.type === 'sl') {
-                    let lane = obj.y - obj.x;
-                    let spacing = obj.x + obj.y;
-                    if (!elbow && lane === 0) {
-                        elbow = [obj, spacing];
-                    } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
-                        hand = obj;        
-                    } else {
-                        found = true;
-                        break;
-                    }
-                } else if (!shipData && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-                    let dir: 'up' | 'down' | 'left' | 'right';
-                    if (obj.dir.startsWith('N')) {
-                        dir = obj.dir.startsWith('NE') ? 'right' : 'up';
-                    } else if (obj.dir.startsWith('S')) {
-                        dir = obj.dir.startsWith('SW') ? 'left' : 'down';
-                    } else {
-                        dir = obj.dir.startsWith('W') ? 'left' : 'right';
-                    }
-                    shipData = [obj, dir];
+        let recipeCount = recipesToCheck.length;
+        log(`Checking ${recipeCount} recipes`, true);
+        let possibleUseful: string;
+        if (threads === 1 || recipeCount < 1000) {
+            let data = findChannelResults(info, recipesToCheck, out, undefined, log);
+            possibleUseful = data[0];
+            filter.push(...data[1]);
+        } else {
+            possibleUseful = '';
+            let perThread = Math.floor(recipeCount / threads);
+            let index = 0;
+            let workers: Worker[] = [];
+            let finished: RecipeData['channels'][string][] = [];
+            let finishedCount = 0;
+            let checkedRecipes = 0;
+            for (let i = 0; i < threads; i++) {
+                let recipes: ChannelRecipeData;
+                if (i === threads - 1) {
+                    recipes = recipesToCheck.slice(index);
                 } else {
-                    if (!c.POSSIBLY_USEFUL_FILTER.includes(obj.code)) {
-                        if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
-                            possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
-                        } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                            filter.push(key + ' ');
-                            let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
-                            if (type.disp) {
-                                let lane: number;
-                                if (type.disp[0] === 0) {
-                                    lane = obj.y;
-                                } else if (type.disp[1] === 0) {
-                                    lane = obj.x;
-                                } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
-                                    lane = obj.x - obj.y;
-                                } else {
-                                    lane = obj.x + obj.y;
-                                }
-                                possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}): ${strRecipe}\n`;
-                            } else {
-                                possibleUseful += `Creates ${obj.code} (no found displacement): ${strRecipe}\n`;
-                            }
+                    recipes = recipesToCheck.slice(index, index + perThread);
+                }
+                let worker = new Worker('./channel_worker.js', {workerData: recipes});
+                worker.on('message', data => {
+                    if (typeof data === 'number') {
+                        checkedRecipes += data;
+                    } else {
+                        finished.push(data[0]);
+                        possibleUseful += data[1];
+                        finishedCount++;
+                        if (finishedCount === threads) {
+                            clearInterval(interval);
+                            resolve();
                         }
                     }
-                    found = true;
-                    break;
-                }
+                });
+                workers.push(worker);
+                index += perThread;
             }
-            if (found || (shipData && hand)) {
-                continue;
-            }
-            if (!elbow) {
-                if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
-                    let ship = shipData[0];
-                    if (shipData[1] === 'down' && parseInt(ship.code.slice(2)) <= c.SPEED_LIMIT) {
-                        continue;
-                    }
-                    possibleUseful += `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
-                } else {
-                    continue;
-                }
-            }
-            if (found || !elbow || (shipData && hand)) {
-                continue;
-            }
-            let laneMap = info.elbows[elbow[0].code];
-            if (!laneMap || !(elbow[1] in laneMap)) {
-                continue;
-            }
-            let move = elbow[1] + Number(laneMap[elbow[1]]);
-            recipe[recipe.length - 1][0] += move * c.GLIDER_PERIOD / c.GLIDER_DY;
-            if (shipData) {
-                let [ship, dir] = shipData;
-                if (dir === 'up') {
-                    continue;
-                }
-                if (dir === 'down') {
-                    let lane = ship.x - ship.y;
-                    let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
-                    possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
+            let {promise, resolve} = Promise.withResolvers<void>();
+            let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2000);
+            await promise;
+            for (let data of finished) {
+                for (let recipe of data.moveRecipes) {
+                    let entry = out.moveRecipes.find(x => x.move === recipe.move);
                     if (entry === undefined) {
-                        out.recipes0Deg.push({recipe, time, lane, move});
-                    } else if (entry.time > time) {
-                        entry.recipe = recipe;
+                        out.moveRecipes.push(recipe);
+                    } else if (entry.time > recipe.time) {
+                        entry.recipe = recipe.recipe;
+                        entry.time = recipe.time;
                     }
-                } else {
-                    let lane = ship.x + ship.y;
-                    let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
-                    possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
-                    let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
+                }
+                for (let recipe of data.recipes90Deg) {
+                    let entry = out.recipes90Deg.find(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move);
                     if (entry === undefined) {
-                        out.recipes90Deg.push({recipe, time, lane, ix, move});
-                    } else if (entry.time > time) {
-                        entry.recipe = recipe;
+                        out.recipes90Deg.push(recipe);
+                    } else if (entry.time > recipe.time) {
+                        entry.recipe = recipe.recipe;
+                        entry.time = recipe.time;
                     }
                 }
-            } else if (hand) {
-                let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
-                    possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
-                if (entry === undefined) {
-                    out.createHandRecipes.push({recipe, time, obj: hand, move});
-                } else if (entry.time > time) {
-                    entry.recipe = recipe;
+                for (let recipe of data.recipes0Deg) {
+                    let entry = out.recipes0Deg.find(x => x.lane === recipe.lane && x.move === recipe.move);
+                    if (entry === undefined) {
+                        out.recipes0Deg.push(recipe);
+                    } else if (entry.time > recipe.time) {
+                        entry.recipe = recipe.recipe;
+                        entry.time = recipe.time;
+                    }
                 }
-            } else {
-                if (move === 0) {
-                    continue;
-                }
-                let entry = out.moveRecipes.find(x => x.move === move);
-                if (entry === undefined) {
-                    out.moveRecipes.push({recipe, time, move});
-                } else if (entry.time > time) {
-                    entry.recipe = recipe;
+                for (let recipe of data.createHandRecipes) {
+                    let entry = out.createHandRecipes.find(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
+                    if (entry === undefined) {
+                        out.createHandRecipes.push(recipe);
+                    } else if (entry.time > recipe.time) {
+                        entry.recipe = recipe.recipe;
+                        entry.time = recipe.time;
+                    }
                 }
             }
         }
