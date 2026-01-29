@@ -136,7 +136,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             }
             if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
                 filter.push(key + ' ');
-                continue;   
+                continue;
             }
             for (let obj of result) {
                 if (obj.type === 'sl') {
@@ -222,7 +222,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
                     if (entry === undefined) {
                         out.recipes0Deg.push([lane, move, recipe]);
-                    } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
+                    } else if (entry[2].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
                         entry[2] = recipe;
                     }
                 } else {
@@ -232,7 +232,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     let entry = out.recipes90Deg.find(x => x[0] === lane && x[1] === ix && x[2] === move);
                     if (entry === undefined) {
                         out.recipes90Deg.push([lane, ix, move, recipe]);
-                    } else if (entry[3].map(x => x[0]).reduce((x, y) => x + y) > time) {
+                    } else if (entry[3].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
                         entry[3] = recipe;
                     }
                 }
@@ -241,7 +241,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                     possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
                 if (entry === undefined) {
                     out.createHandRecipes.push([hand, move, recipe]);
-                } else if (entry[2].map(x => x[0]).reduce((x, y) => x + y) > time) {
+                } else if (entry[2].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
                     entry[2] = recipe;
                 }
             } else {
@@ -251,7 +251,7 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 let entry = out.moveRecipes.find(x => x[0] === move);
                 if (entry === undefined) {
                     out.moveRecipes.push([move, recipe]);
-                } else if (entry[1].map(x => x[0]).reduce((x, y) => x + y) > time) {
+                } else if (entry[1].filter(x => x[1] >= 0).map(x => x[0]).reduce((x, y) => x + y) > time) {
                     entry[1] = recipe;
                 }
             }
