@@ -59,7 +59,7 @@ export function patternToSalvo(p: MAPPattern): [string, number[]] {
 }
 
 
-function findSalvoResult(target: string, lanes: number[]): 'no' | null | false | CAObject[] {
+function findSalvoResult(target: string, lanes: number[]): 'no' | null | false | 'linear' | CAObject[] {
     let [p, xPos, yPos] = createSalvoPattern(target.slice(target.indexOf('_') + 1), lanes);
     let found = false;
     let prevPop = p.population;
@@ -119,7 +119,10 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
         if (data === 'no') {
             return false;
         }
-        if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === originalTarget && data[0].x === 0 && data[0].y === 0) {
+        if (data === 'linear') {
+            out.push([lane, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
+            continue;
+        } else if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === originalTarget && data[0].x === 0 && data[0].y === 0) {
             continue;
         }
         out.push([lane, data]);

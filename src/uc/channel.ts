@@ -102,6 +102,10 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             if (result === false) {
                 continue;
             }
+            if (result === 'linear') {
+                possibleUseful += `Linear growth: ${strRecipe}\n`;
+                continue;
+            }
             recipe.push([stabilizeTime, -1]);
             strRecipe += `, (${stabilizeTime})`;
             let elbow: [StillLife, number] | null = null;

@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 7;
+const GLIDER_TARGET_SPACING = 1; // only for 1hd searching, make it higher for other stuff
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
@@ -54,17 +54,20 @@ interface ChannelInfo {
 // you name them whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-    '0hd': {
-        channels: [0],
-        minSpacings: [[20]],
+    '1hd': {
+        channels: [0, 1],
+        minSpacings: [[20, 22], [22, 20]],
         minSpacing: 20,
-        start: ['11', 9],
+        start: ['11', 8],
         elbows: {
-            xs2_11: {9: false},
+            xs2_11: {8: false},
             xs2_3: {2: true},
         },
     },
 };
+
+// a filter for possibly useful recipes
+const POSSIBLY_USEFUL_FILTER = ['xq4_152', 'xq4_259'];
 
 // the minimum spacing in full diagonals between a hand block and the construction lanes
 const MIN_HAND_SPACING = 10;
@@ -72,13 +75,11 @@ const MIN_HAND_SPACING = 10;
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 256;
+const MAX_GENERATIONS = 512;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
-// the extra generations to run after a collision, just to make sure
-const EXTRA_GENERATIONS = 64;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 // the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
@@ -183,4 +184,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, SPEED_LIMIT, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, SPEED_LIMIT, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, POSSIBLY_USEFUL_FILTER, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};

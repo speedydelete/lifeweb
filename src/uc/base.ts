@@ -404,11 +404,11 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
         }
     }
     if (!found) {
-        if (input) {
-            console.log(`Unable to separate objects for ${input}!`);
-        } else {
-            console.log(`Unable to separate objects!`);
-        }
+        // if (input) {
+        //     console.log(`Unable to separate objects for ${input}!`);
+        // } else {
+        //     console.log(`Unable to separate objects!`);
+        // }
         return false;
     }
     let out: CAObject[] = [];
@@ -501,7 +501,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     return out;
 }
 
-function stabilize(p: MAPPattern): number | null {
+function stabilize(p: MAPPattern): number | 'linear' | null {
     let pops: number[] = [];
     for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
@@ -517,16 +517,29 @@ function stabilize(p: MAPPattern): number | null {
             if (found) {
                 return period;
             }
+            let diff = pop - pops[pops.length - period];
+            found = true;
+            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
+                if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return 'linear';
+            }
         }
         pops.push(pop);
     }
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): [false | CAObject[], number] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): [false | 'linear' | CAObject[], number] {
     p.generation = 0;
     let period = stabilize(p);
-    if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
+    if (period === 'linear') {
+        return ['linear', p.generation];
+    } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
         return [false, p.generation];
     }
     p.shrinkToFit();
