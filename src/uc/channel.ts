@@ -113,14 +113,13 @@ export async function searchChannel(type: string, threads: number, depth: number
         let recipeCount = recipesToCheck.length;
         log(`Checking ${recipeCount} recipes`, true);
         let possibleUseful: string;
-        if (threads === 1 || recipeCount < 1000) {
+        if (threads === 1 || recipeCount < 5000) {
             let data = findChannelResults(info, recipesToCheck, out, undefined, log);
             possibleUseful = data[0];
             filter.push(...data[1]);
         } else {
             let perThread = Math.floor(recipeCount / threads);
-            console.log(recipeCount - perThread * threads);
-            let data = findChannelResults(info, recipesToCheck.slice(recipeCount - perThread * threads), out);
+            let data = findChannelResults(info, recipesToCheck.slice(recipeCount - perThread * threads - 1), out);
             possibleUseful = data[0];
             filter.push(...data[1]);
             let index = 0;
@@ -130,7 +129,7 @@ export async function searchChannel(type: string, threads: number, depth: number
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
                 let recipes = recipesToCheck.filter((_, i) => i % index === 0);
-                let worker = new Worker('./channel_worker.js', {workerData: recipes});
+                let worker = new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: recipes});
                 worker.on('message', data => {
                     if (typeof data === 'number') {
                         checkedRecipes += data;
