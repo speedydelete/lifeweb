@@ -59,8 +59,8 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             if (obj.type === 'sl') {
                 let lane = obj.y - obj.x;
                 let spacing = obj.x + obj.y;
-                if ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === 3)) {
-                    possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}`;
+                if (result.length === 1 && (obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === 3)) {
+                    possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
                 }
                 if (!elbow && lane === 0) {
                     elbow = [obj, spacing];
