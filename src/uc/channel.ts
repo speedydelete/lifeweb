@@ -115,7 +115,6 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
                 } else {
                     if (obj.type === 'other' && obj.code.startsWith('xq')) {
                         possibleUseful += `Creates ${obj.code}: ${strRecipe}`;
-                        found = true;
                     }
                     found = true;
                     break;
