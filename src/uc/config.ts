@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 7;
+const GLIDER_TARGET_SPACING = 0; // only for 1hd searching, make it higher for other stuff
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
@@ -81,8 +81,6 @@ const MAX_GENERATIONS = 256;
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
-// the extra generations to run after a collision, just to make sure
-const EXTRA_GENERATIONS = 64;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 // the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
@@ -187,4 +185,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, SPEED_LIMIT, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, EXTRA_GENERATIONS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, SPEED_LIMIT, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};

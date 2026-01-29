@@ -78,7 +78,7 @@ function findSalvoResult(target: string, lanes: number[]): 'no' | null | false |
     if (!found) {
         return null;
     }
-    return findOutcome(p, xPos, yPos, target + ', ' + lanes.join(', '));
+    return findOutcome(p, xPos, yPos, target + ', ' + lanes.join(', '))[0];
 }
 
 function get1GSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][]] {

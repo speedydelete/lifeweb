@@ -260,28 +260,6 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
-function stabilize(p: MAPPattern): number | null {
-    let pops: number[] = [];
-    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
-        p.runGeneration();
-        let pop = p.population;
-        for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
-            let found = true;
-            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
-                if (pop !== pops[pops.length - period * j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return period;
-            }
-        }
-        pops.push(pop);
-    }
-    return null;
-}
-
 function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]})[]): false | CAObject[] {
     let out: CAObject[] = [];
     let used = new Uint8Array(objs.length);
@@ -399,8 +377,8 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                 y: minY,
             });
         }
-
     }
+    console.log(out);
     return out;
 }
 
@@ -414,18 +392,24 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     sep.generation = p.generation;
     let objs: [MAPPattern, PatternType][] = [];
     let found = false;
+    sep.ruleStr = 'B2-ak5j/S12-kSuper';
+    // @ts-ignore
+    sep.states = 256;
     for (let i = 0; i < sepGens; i++) {
         let reassigned = sep.runGeneration();
         let reassigned2 = sep.resolveKnots();
+        console.log(reassigned, reassigned2);
         if (reassigned || reassigned2) {
             continue;
         }
         objs = sep.getObjects().map(x => [x, findType(x, limit)]);
+        console.log('raw objs:', objs);
         if (objs.every(([_, x]) => x.stabilizedAt === 0 && !x.phases[x.phases.length - 1].isEmpty())) {
             found = true;
             break;
         }
     }
+    console.log(objs);
     if (!found) {
         if (input) {
             console.log(`Unable to separate objects for ${input}!`);
@@ -524,16 +508,38 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     return out;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | CAObject[] {
+function stabilize(p: MAPPattern): number | null {
+    let pops: number[] = [];
+    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
+        p.runGeneration();
+        let pop = p.population;
+        for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
+            let found = true;
+            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
+                if (pop !== pops[pops.length - period * j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return period;
+            }
+        }
+        pops.push(pop);
+    }
+    return null;
+}
+
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): [false | CAObject[], number] {
+    p.generation = 0;
     let period = stabilize(p);
     if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        return false;
+        return [false, p.generation];
     }
-    p.run(c.EXTRA_GENERATIONS);
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
-    return separateObjects(p, period * 8, period * 8, input);
+    return [separateObjects(p, period * 8, period * 8, input), p.generation - (period + 1) * c.PERIOD_SECURITY - 1];
 }
 
 
@@ -546,13 +552,17 @@ export function parseChannelRecipe(data: string): [number, number][] {
         if (part === '') {
             continue;
         }
-        let timing = parseInt(part);
-        let end = part[part.length - 1];
-        let index = LETTERS.indexOf(end);
-        if (index === -1) {
-            out.push([timing, 0]);
+        if (part.startsWith('(')) {
+            out.push([parseInt(part.slice(1)), -1]);
         } else {
-            out.push([timing, index]);
+            let timing = parseInt(part);
+            let end = part[part.length - 1];
+            let index = LETTERS.indexOf(end);
+            if (index === -1) {
+                out.push([timing, 0]);
+            } else {
+                out.push([timing, index]);
+            }
         }
     }
     return out;
@@ -560,9 +570,9 @@ export function parseChannelRecipe(data: string): [number, number][] {
 
 export function unparseChannelRecipe(info: c.ChannelInfo, data: [number, number][]): string {
     if (info.channels.length === 1) {
-        return data.map(x => x[0]).join(', ');
+        return data.map(x => x[1] === -1 ? `(${x[0]})` : x[0]).join(', ');
     } else {
-        return data.map(x => x[0] + LETTERS[x[1]]).join(', ');
+        return data.map(x => x[1] === -1 ? `(${x[0]})` : x[0] + LETTERS[x[1]]).join(', ');
     }
 }
 

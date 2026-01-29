@@ -9,6 +9,9 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     let total = 0;
     for (let i = recipe.length - 1; i >= 0; i--) {
         let [timing, channel] = recipe[i];
+        if (channel === -1) {
+            continue;
+        }
         let y = Math.floor(total / c.GLIDER_PERIOD);
         let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
         let q = gliderPatterns[total % c.GLIDER_PERIOD];
@@ -25,6 +28,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
     let target = base.loadApgcode(info.start[0]).shrinkToFit();
+    total += c.GLIDER_TARGET_SPACING;
     let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
@@ -36,9 +40,9 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
 
 function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing?: number, prev?: number): [number, number][][] {
     let out: [number, number][][] = [];
-    let limit = maxSpacing ? Math.min(depth, maxSpacing + 1) : depth;
+    let limit = maxSpacing ? Math.min(depth, maxSpacing) : depth;
     for (let channel = 0; channel < info.channels.length; channel++) {
-        for (let spacing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; spacing < limit; spacing++) {
+        for (let spacing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; spacing <= limit; spacing++) {
             if (prev && info.excludeSpacings?.[prev]?.[channel]?.includes(spacing)) {
                 continue;
             }
@@ -62,6 +66,9 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
     let done = new Set<string>();
     let knownDestroys: string[] = [];
     while (true) {
+        if (depth > 45) {
+            return;
+        }
         log(`Searching depth ${depth}`, true);
         let recipesToCheck: [[MAPPattern, number, number, number], number, [number, number][]][] = [];
         for (let recipe of getRecipesForDepth(info, depth, maxSpacing, info.forceStart ? info.forceStart[info.forceStart.length - 1][1] : undefined)) {
@@ -85,21 +92,28 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             }
         }
         log(`Checking ${recipesToCheck.length} recipes`, true);
-        let possibleUseful = '\n';
+        let possibleUseful = '';
         for (let i = 0; i < recipesToCheck.length; i++) {
             log(`${i - 1} out of ${recipesToCheck.length} (${((i - 1) / recipesToCheck.length * 100).toFixed(3)}%) recipes checked`);
             let [[p, xPos, yPos, total], time, recipe] = recipesToCheck[i];
             let strRecipe = unparseChannelRecipe(info, recipe);
-            p.run(total * c.GLIDER_PERIOD / c.GLIDER_DY);
-            let result = findOutcome(p, xPos, yPos, strRecipe);
+            console.log(total / c.GLIDER_DY);
+            for (let gen = 0; gen < total / c.GLIDER_DY; gen++) {
+                p.runGeneration();
+                p.shrinkToFit();
+            }
+            let [result, stabilizeTime] = findOutcome(p, xPos, yPos, strRecipe);
             if (result === false) {
                 continue;
             }
+            recipe.push([stabilizeTime, -1]);
+            strRecipe += `, (${stabilizeTime})`;
             let elbow: [StillLife, number] | null = null;
             let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
             let hand: StillLife | null = null;
             let found = false;
             if (result.length === 0) {
+                console.log(p.toRLE());
                 possibleUseful += `Destroy: ${strRecipe}\n`;
                 knownDestroys.push(strRecipe + ' ');
             }
@@ -206,8 +220,8 @@ export async function searchChannel(type: string, depth: number, maxSpacing?: nu
             }
         }
         await saveRecipes(recipes);
-        if (possibleUseful.length > 1) {
-            await fs.appendFile('possible_useful.txt', possibleUseful);
+        if (possibleUseful.length > 0) {
+            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
         depth++;
     }
