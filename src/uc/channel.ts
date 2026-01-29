@@ -126,7 +126,6 @@ export async function searchChannel(type: string, threads: number, depth: number
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
                 let recipes = recipesToCheck.filter((_, j) => j % threads === i);
-                console.log(recipeCount, recipes.length);
                 let worker = new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: {info, recipes}});
                 worker.on('message', data => {
                     if (typeof data === 'number') {
@@ -186,7 +185,7 @@ export async function searchChannel(type: string, threads: number, depth: number
             }
         }
         let time = (performance.now() - start) / 1000;
-        console.log(`Depth ${depth} complete, took ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
+        log(`Depth ${depth} complete, took ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`, true);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
