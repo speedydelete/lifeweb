@@ -800,7 +800,7 @@ export async function saveRecipes(data: RecipeData): Promise<void> {
         out += `\n${key} move recipes:\n` + value.moveRecipes.sort((a, b) => a.move - b.move).map(x => `${x.move}: ${unparseChannelRecipe(info, x.recipe)}\n`).join('') + '\n';
         let groups: {[key: string]: RecipeData['channels'][string]['recipes90Deg']} = {};
         for (let recipe of value.recipes90Deg) {
-            let key = recipe.lane + (recipe.ix ? 'x' : 'i');
+            let key = recipe.lane + recipe.ix;
             if (key in groups) {
                 groups[key].push(recipe);
             } else {
