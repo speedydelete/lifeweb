@@ -60,6 +60,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.startsWith('@')) {
         try {
+            throw new Error('hi');
             let out = parseAtRule(rule);
             let coords = new Map<number, number>();
             let i = 0;
@@ -206,7 +207,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
-        throw new Error(namedRules[lower]); // return createPattern(namedRules[lower], data, namedRules, rule);
+        return createPattern(namedRules[lower], data, namedRules, rule);
     }
     throw new RuleError(errors.join(', '));
 }
