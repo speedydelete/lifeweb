@@ -1,6 +1,7 @@
 
 /* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
 
+import {inspect} from 'node:util';
 import {RuleError, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
 
 
@@ -436,6 +437,39 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
         if (char === '{') {
             braceLevel++;
         } else if (char === '}') {
+            if (value !== '') {
+                if (value.match(/^\d+$/)) {
+                    if (inBind) {
+                        section.push({bind: true, index: parseInt(value)});
+                    } else {
+                        section.push(parseInt(value));
+                    }
+                } else {
+                    if (inBind) {
+                        throw new RuleError(`Cannot lookup variable binds`);
+                    }
+                    if (!(value in vars)) {
+                        throw new RuleError(`Undeclared variable: '${value}'`);
+                    }
+                    if (value in boundVars) {
+                        section.push({bind: true, index: boundVars[value]});
+                    } else {
+                        let data = vars[value];
+                        if (braceLevel === 0) {
+                            if (data.bind) {
+                                boundVars[value] = out.length;
+                            }
+                            out.push(...data.value);
+                        } else {
+                            section.push(...data.value.flat());
+                        }
+                    }
+                }
+                value = '';
+            }
+            if (section.length > 0) {
+                out.push(Array.from(new Set(section)));
+            }
             braceLevel--;
             if (braceLevel < 0) {
                 braceLevel = 0;
