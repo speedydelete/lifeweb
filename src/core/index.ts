@@ -71,8 +71,7 @@ export function createPattern(rule: string, data: {height: number, width: number
                     }
                 }
             }
-            let actualOut = new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
-            throw new Error('wtf');
+            return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
