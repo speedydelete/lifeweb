@@ -256,7 +256,7 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                 forInput[code] = newOut;
                 newQueue.push(...newObjs);
             }
-            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, false);
+            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
         }
         log(`Depth ${i + 1} 100.00% complete`);
         queue = newQueue;
