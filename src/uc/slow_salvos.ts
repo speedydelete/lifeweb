@@ -241,7 +241,7 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
     let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
     let queue = [start];
     for (let i = 0; i < limit; i++) {
-        log(`Searching depth ${i + 1} (${queue.length} objects)`, true);
+        log(`Searching depth ${i + 1} (${queue.length} objects)`);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
             let code = queue[j];
@@ -256,12 +256,12 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                 forInput[code] = newOut;
                 newQueue.push(...newObjs);
             }
-            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`);
+            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, false);
         }
-        log(`Depth ${i + 1} 100.00% complete`, true);
+        log(`Depth ${i + 1} 100.00% complete`);
         queue = newQueue;
         let forOutput: {[key: string]: [StableObject, CAObject[], StableObject[], Spaceship[], number[][]]} = {};
-        log('Compiling recipes', true);
+        log('Compiling recipes');
         if (start === c.START_OBJECT) {
             for (let i = 0; i < c.INTERMEDIATE_OBJECTS.length; i++) {
                 let obj = c.INTERMEDIATE_OBJECTS[i];
@@ -269,13 +269,13 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
                     getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, start);
                 }
-                log(`Finished compiling recipes for ${i + 1}/${c.INTERMEDIATE_OBJECTS.length} (${((i + 1) / c.INTERMEDIATE_OBJECTS.length * 100).toFixed(1)}%) objects`);
+                log(`Finished compiling recipes for ${i + 1}/${c.INTERMEDIATE_OBJECTS.length} (${((i + 1) / c.INTERMEDIATE_OBJECTS.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
             getForOutputRecipes(forInput, start, [], 0, 0, 0, limit - 1, forOutput, obj);
         }
-        log('Compiled all recipes', true);
+        log('Compiled all recipes');
         let data = recipes.salvos;
         for (let key in forInput) {
             if (!(key in data.forInput)) {

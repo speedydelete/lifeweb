@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
-import {StillLife, getRecipes, translateObjects, objectsToString} from './util.js';
+import {StillLife, getRecipes, translateObjects, objectsToString} from './base.js';
 
 
 let sourcePath = `${import.meta.dirname}/dijkstra.c`;

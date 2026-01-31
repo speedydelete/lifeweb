@@ -44,9 +44,9 @@ interface ChannelInfo {
     excludeSpacings?: number[][][];
     // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
-    // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
+    // the valid elbow objects, should be a list of lane differences from starting elbow where it produces the reaction
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
-    elbows: {[key: string]: {[key: number]: boolean}};
+    elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
 }
@@ -60,8 +60,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 20,
         start: ['11', 9],
         elbows: {
-            xs2_11: {0: false},
-            xs2_3: {[-7]: true},
+            xs2_11: [0],
+            xs2_3: [-7],
         }
     },
 };

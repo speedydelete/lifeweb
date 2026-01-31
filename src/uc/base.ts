@@ -10,9 +10,9 @@ export * as c from './config.js';
 
 let prevUpdateTime = performance.now();
 
-export function log(msg: string, force?: boolean): void {
+export function log(msg: string, notImportant?: boolean): void {
     let now = performance.now();
-    if (force || now - prevUpdateTime > 2000) {
+    if (!notImportant || now - prevUpdateTime > 2000) {
         console.log(msg);
         prevUpdateTime = now;
     }

@@ -1,6 +1,6 @@
 
 import {MAPPattern, findType} from '../core/index.js';
-import {c, base, StillLife, Spaceship, ChannelInfo, RecipeData, findOutcome, unparseChannelRecipe} from './base.js';
+import {c, base, StillLife, Spaceship, ChannelInfo, objectsToString, findOutcome, unparseChannelRecipe, RecipeData} from './base.js';
 
 
 export type ChannelRecipeData = {recipe: [number, number][], key: string, p: MAPPattern | string, xPos: number, yPos: number, total: number, time: number}[];
@@ -43,7 +43,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         recipe.push([stabilizeTime, -1]);
         time += Math.max(stabilizeTime, info.minSpacing);
         strRecipe += `, ${stabilizeTime}`;
-        let elbow: [StillLife, number, boolean] | null = null;
+        let elbow: [StillLife, number] | null = null;
         let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
         let hand: StillLife | null = null;
         let found = false;
@@ -63,7 +63,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
                 }
                 if (!elbow && obj.code in info.elbows && lane in info.elbows[obj.code]) {
-                    elbow = [obj, spacing, info.elbows[obj.code][lane]];
+                    elbow = [obj, spacing + Number(info.elbows[obj.code][lane])];
                 } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
                     hand = obj;        
                 } else {
@@ -125,7 +125,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         if (found || !elbow || (shipData && hand)) {
             continue;
         }
-        let move = elbow[1] + Number(elbow[2]);
+        let move = elbow[1];
         recipe[recipe.length - 1][0] += move * c.GLIDER_PERIOD / c.GLIDER_DY;
         if (shipData) {
             let [ship, dir] = shipData;
@@ -137,8 +137,14 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
                 possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
                 if (entry === undefined) {
+                    if (!parentPort) {
+                        console.log(`\x1b[92mNew recipe: 0 degree emit ${lane} move ${move}: ${strRecipe}\x1b[0m`);
+                    }
                     out.recipes0Deg.push({recipe, time, lane, move});
                 } else if (entry.time > time) {
+                    if (!parentPort) {
+                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): 0 degree emit ${lane} move ${move}: ${strRecipe}\x1b[0m`);
+                    }
                     entry.recipe = recipe;
                     entry.time = time;
                 }
@@ -148,8 +154,14 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
                 let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
                 if (entry === undefined) {
+                    if (!parentPort) {
+                        console.log(`\x1b[92mNew recipe: 90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\x1b[0m`);
+                    }
                     out.recipes90Deg.push({recipe, time, lane, ix, move});
                 } else if (entry.time > time) {
+                    if (!parentPort) {
+                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): 90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\x1b[0m`);
+                    }
                     entry.recipe = recipe;
                     entry.time = time;
                 }
@@ -158,8 +170,14 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
                 possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
             if (entry === undefined) {
+                if (!parentPort) {
+                    console.log(`\x1b[92mNew recipe: create ${objectsToString([hand])} move ${move}: ${strRecipe}\x1b[0m`);
+                }
                 out.createHandRecipes.push({recipe, time, obj: hand, move});
             } else if (entry.time > time) {
+                if (!parentPort) {
+                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): create ${objectsToString([hand])} move ${move}: ${strRecipe}\x1b[0m`);
+                }
                 entry.recipe = recipe;
                 entry.time = time;
             }
@@ -169,8 +187,14 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             }
             let entry = out.moveRecipes.find(x => x.move === move);
             if (entry === undefined) {
+                if (!parentPort) {
+                    console.log(`\x1b[92mNew recipe: move ${move}: ${strRecipe}\x1b[0m`);
+                }
                 out.moveRecipes.push({recipe, time, move});
             } else if (entry.time > time) {
+                if (!parentPort) {
+                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): move ${move}: ${strRecipe}\x1b[0m`);
+                }
                 entry.recipe = recipe;
                 entry.time = time;
             }
