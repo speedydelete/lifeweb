@@ -62,8 +62,8 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 if (result.length === 1 && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
                     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
                 }
-                if (!elbow && obj.code in info.elbows && lane in info.elbows[obj.code]) {
-                    elbow = [obj, spacing + Number(info.elbows[obj.code][lane])];
+                if (!elbow && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
+                    elbow = [obj, spacing];
                 } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
                     hand = obj;        
                 } else {

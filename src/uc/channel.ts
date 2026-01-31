@@ -111,8 +111,6 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
         let start = performance.now();
         let recipesToCheck: ChannelRecipeData = [];
         let data = getRecipesForDepth(info, depth, filter, maxSpacing, prev);
-        let heap = process.memoryUsage().heapUsed / 1048576;
-        log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
         for (let [recipe, time] of data) {
             let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
             if (time !== depth) {
@@ -135,10 +133,10 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
         }
         let recipeCount = recipesToCheck.length;
         log(`Checking ${recipeCount} recipes`);
-        // let heap = process.memoryUsage().heapUsed / 1048576;
-        // if (heap > 2048) {
-        //     log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
-        // }
+        let heap = process.memoryUsage().heapUsed / 1048576;
+        if (heap > 2048) {
+            log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
+        }
         let possibleUseful: string;
         if (threads === 1) {
             let data = findChannelResults(info, recipesToCheck, out, undefined, log);
