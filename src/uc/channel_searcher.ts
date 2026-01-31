@@ -126,6 +126,11 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             continue;
         }
         let move = elbow[1];
+        if (move < 0) {
+            stabilizeTime -= move * c.GLIDER_PERIOD / c.GLIDER_DY;
+            recipe[recipe.length - 1][0] = stabilizeTime;
+            strRecipe = strRecipe.slice(0, strRecipe.lastIndexOf(',')) + ', ' + stabilizeTime;
+        }
         if (shipData) {
             let [ship, dir] = shipData;
             if (dir === 'up') {
