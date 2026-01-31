@@ -208,14 +208,16 @@ export function createPattern(rule: string, data: {height: number, width: number
     if (namedRules && lower in namedRules) {
         return createPattern(namedRules[lower], data, namedRules, rule);
     }
-    // @ts-ignore
-    throw new RuleError(`hiii lower = \`${lower}\`\nnamed rules: ${Object.keys(namedRules).join(', ')}\n` + errors.join(', '));
+    throw new RuleError(errors.join(', '));
 }
 
 /** Parses a RLE. 
  * @param namedRules An object mapping aliases to rules.
 */
 export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
+    if (namedRules) {
+        throw new Error(Object.keys(namedRules).join(', '));
+    }
     let rule = 'B3/S23';
     let xOffset: number | null = null;
     let yOffset: number | null = null;
