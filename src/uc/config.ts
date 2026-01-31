@@ -1,5 +1,5 @@
 
-const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+const RULE = 'B2-ak5j/S12-k';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 // this part is an array of [height, width, array of [x, y] coordinates] for each phase
@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 5; // only for 1hd searching, make it higher for other stuff
+const GLIDER_TARGET_SPACING = 5;
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
@@ -26,7 +26,8 @@ const GLIDER_SPACING = 10;
 // the period of slow salvos
 const SLOW_SALVO_PERIOD = 1;
 // the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs7_69a4', 'xs6_25a4', 'xs6_4a52'];
+const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'];
+
 
 // information about single-channel (0hd), double-channel (>0hd), and/or even higher numbers of channels (i don't even think anyone has used this, but i support it anyway) construction
 // in this file we do 1hd double-channel construction
@@ -56,26 +57,26 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '0hd': {
         channels: [0],
-        minSpacings: [[20]],
-        minSpacing: 20,
-        start: ['11', 9],
+        minSpacings: [[13]],
+        minSpacing: 13,
+        start: ['11', 3],
         elbows: {
-            xs2_11: [0],
-            xs2_3: [-7],
-        }
+            xs2_11: [3],
+            xs2_3: [8],
+        },
     },
 };
 
 // a filter for possibly useful recipes
-const POSSIBLY_USEFUL_FILTER = ['xq4_152', 'xq4_259'];
+const POSSIBLY_USEFUL_FILTER = ['xq4_59'];
 
-// the minimum spacing in full diagonals between a hand object and the construction lane(s)
+// the minimum spacing in full diagonals between a hand block and the construction lanes
 const MIN_HAND_SPACING = 8;
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
-const WAIT_GENERATIONS = 20;
+const WAIT_GENERATIONS = 40;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 512;
+const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable

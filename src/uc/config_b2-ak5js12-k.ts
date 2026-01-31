@@ -17,7 +17,7 @@ const SPEED_LIMIT = 4;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 0; // only for 1hd searching, make it higher for other stuff
+const GLIDER_TARGET_SPACING = 5;
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs2_11';
@@ -45,9 +45,9 @@ interface ChannelInfo {
     excludeSpacings?: number[][][];
     // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
-    // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
+    // the valid elbow objects, should be a list of lane differences from starting elbow where it produces the reaction
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
-    elbows: {[key: string]: {[key: number]: boolean}};
+    elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
 }
@@ -55,18 +55,16 @@ interface ChannelInfo {
 // you name them whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-    '1hd': {
-        channels: [0, 1],
-        minSpacings: [[20, 23], [23, 20]],
-        minSpacing: 20,
-        start: ['11', 0],
+    '0hd': {
+        channels: [0],
+        minSpacings: [[16]],
+        minSpacing: 16,
+        start: ['11', 3],
         elbows: {
-            xs2_11: {0: false},
-            xs3_111: {0: false},
-            xs2_3: {10: true},
-            xs3_7: {10: true},
+            xs2_11: [3],
+            xs2_3: [8],
         },
-        forceStart: [[-1, 0], [23, 1]],
+        forceStart: [[17, 0]],
     },
 };
 
