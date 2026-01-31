@@ -623,14 +623,14 @@ function parseTable(data: string): RuleTree {
                 }
                 try {
                     let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
+                    if (index === -1) {
+                        sym = syms.length;
+                        syms.push(newSym);
+                    } else {
+                        sym = index;
+                    }
                 } catch (error) {
-                    throw new Error(JSON.stringify(syms, undefined, 4));
-                }
-                if (index === -1) {
-                    sym = syms.length;
-                    syms.push(newSym);
-                } else {
-                    sym = index;
+                    throw new Error(JSON.stringify({newSym, syms}, undefined, 4));
                 }
                 continue;
             } else if (cmd === 'n_states' || cmd === 'states' || cmd === 'num_states') {
