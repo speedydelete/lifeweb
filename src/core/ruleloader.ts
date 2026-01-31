@@ -621,7 +621,11 @@ function parseTable(data: string): RuleTree {
                         throw new RuleError(`Invalid symmetry: '${arg}'`);
                     }
                 }
-                let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
+                try {
+                    let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
+                } catch (error) {
+                    throw new Error(JSON.stringify(syms, undefined, 4));
+                }
                 if (index === -1) {
                     sym = syms.length;
                     syms.push(newSym);
