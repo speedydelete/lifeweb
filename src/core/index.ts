@@ -73,11 +73,12 @@ export function createPattern(rule: string, data: {height: number, width: number
             }
             return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
         } catch (error) {
-            if (error instanceof RuleError) {
-                errors.push(error.message);
-            } else {
-                throw error;
-            }
+            throw error;
+            // if (error instanceof RuleError) {
+            //     errors.push(error.message);
+            // } else {
+            //     throw error;
+            // }
         }
     }
     if (rule.endsWith('History')) {
