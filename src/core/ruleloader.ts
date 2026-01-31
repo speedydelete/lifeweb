@@ -630,7 +630,7 @@ function parseTable(data: string): RuleTree {
                         sym = index;
                     }
                 } catch (error) {
-                    throw new Error(JSON.stringify({newSym, syms}, undefined, 4));
+                    throw new Error(JSON.stringify({newSym, syms}));
                 }
                 continue;
             } else if (cmd === 'n_states' || cmd === 'states' || cmd === 'num_states') {
