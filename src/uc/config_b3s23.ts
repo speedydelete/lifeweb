@@ -24,7 +24,7 @@ const GLIDER_SPACING = 10;
 // the period of slow salvos
 const SLOW_SALVO_PERIOD = 2;
 // the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs4_33', 'xp2_111', 'xp2_7', 'xs4_252', 'xs5_253', 'xs5_352', 'xs5_256', 'xs5_652', 'xs6_696', 'xs6_2552', 'xs6_356', 'xs6_653', 'xs8_6996'];
+const INTERMEDIATE_OBJECTS = ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'];
 
 interface ChannelInfo {
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
@@ -39,9 +39,9 @@ interface ChannelInfo {
     excludeSpacings?: number[][][];
     // the starting elbow, format is [unprefixed apgcode, lane number]
     start: [string, number];
-    // the valid elbow objects, format is [lane difference from starting elbow, then whether it is flipped from the starting elbow]
+    // the valid elbow objects, should be a list of lane differences from starting elbow where it produces the reaction
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
-    elbows: {[key: string]: {[key: number]: boolean}};
+    elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
 }
@@ -50,14 +50,17 @@ interface ChannelInfo {
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     '0hd': {
-        channels: [0, 1],
-        minSpacings: [[61]],
-        minSpacing: 61,
-        excludeSpacings: [],
-        start: ['11', 8],
+        channels: [0],
+        minSpacings: [[90]],
+        minSpacing: 90,
+        start: ['33', 9],
         elbows: {
-            xs2_11: {0: false},
-            xs2_3: {6: true},
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
         },
     },
 };
@@ -164,7 +167,7 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
                     [[1, 3, 6, 7, 8], 'SW', 2],
                     [[0, 2, 3, 4, 7], 'SW', 1],
                     [[1, 5, 6, 7, 8], 'SE', 0],
-                    [[0, 1, 3, 4, 6], 'SE', 3],
+                    [[0, 2, 4, 5, 7], 'SE', 3],
                     [[2, 3, 5, 7, 8], 'SE', 2],
                     [[0, 4, 5, 6, 7], 'SE', 1],
                 ],
