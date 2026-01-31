@@ -208,7 +208,8 @@ export function createPattern(rule: string, data: {height: number, width: number
     if (namedRules && lower in namedRules) {
         return createPattern(namedRules[lower], data, namedRules, rule);
     }
-    throw new RuleError(`hiii lower = \`${lower}\`\n` + errors.join(', '));
+    // @ts-ignore
+    throw new RuleError(`hiii lower = \`${lower}\`\nnamed rules: ${Object.keys(namedRules).join(', ')}\n` + errors.join(', '));
 }
 
 /** Parses a RLE. 
