@@ -216,7 +216,7 @@ export function createPattern(rule: string, data: {height: number, width: number
 */
 export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
     if (namedRules) {
-        throw new Error(Object.keys(namedRules).join(', '));
+        throw new Error(Object.keys(namedRules).join(', ').slice(0, 1000));
     }
     let rule = 'B3/S23';
     let xOffset: number | null = null;
