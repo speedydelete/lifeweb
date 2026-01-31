@@ -61,7 +61,6 @@ export function createPattern(rule: string, data: {height: number, width: number
     if (rule.startsWith('@')) {
         try {
             let out = parseAtRule(rule);
-            throw new Error('HUH?');
             let coords = new Map<number, number>();
             let i = 0;
             for (let y = 0; y < data.height; y++) {
@@ -72,7 +71,8 @@ export function createPattern(rule: string, data: {height: number, width: number
                     }
                 }
             }
-            return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+            let actualOut = new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+            throw new Error('wtf');
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
