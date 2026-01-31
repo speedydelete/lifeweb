@@ -26,23 +26,23 @@ export * from './catagolue.js';
  * @param namedRules An object mapping aliases to rules.
  */
 export function createPattern(rule: string, data: {height: number, width: number, data: Uint8Array} = {height: 0, width: 0, data: new Uint8Array(0)}, namedRules?: {[key: string]: string}, prevName?: string): Pattern {
+    rule = rule.trim();
+    let errors: string[] = [];
+    try {
+        let out = createMAPPattern(rule, data.height, data.width, data.data);
+        if (typeof out === 'object') {
+            return out;
+        } else {
+            rule = out;
+        }
+    } catch (error) {
+        if (error instanceof RuleError) {
+            errors.push(error.message);
+        } else {
+            throw error;
+        }
+    }
     throw new Error('from createPattern: ' + namedRules);
-    // rule = rule.trim();
-    // let errors: string[] = [];
-    // try {
-    //     let out = createMAPPattern(rule, data.height, data.width, data.data);
-    //     if (typeof out === 'object') {
-    //         return out;
-    //     } else {
-    //         rule = out;
-    //     }
-    // } catch (error) {
-    //     if (error instanceof RuleError) {
-    //         errors.push(error.message);
-    //     } else {
-    //         throw error;
-    //     }
-    // }
     // if (rule.startsWith('R') || rule.startsWith('r')) {
     //     try {
     //         let out = createHROTPattern(rule, data.height, data.width, data.data);
