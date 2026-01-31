@@ -501,11 +501,15 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     return out;
 }
 
-function stabilize(p: MAPPattern): number | 'linear' | null {
-    let pops: number[] = [];
+function stabilize(p: MAPPattern, minGens?: number): number | 'linear' | null {
+    let pops: number[] = [p.population];
     for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
         let pop = p.population;
+        if (minGens && i < minGens) {
+            pops.push(pop);
+            continue;
+        }
         for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
             let found = true;
             for (let j = 1; j < c.PERIOD_SECURITY; j++) {
@@ -515,6 +519,19 @@ function stabilize(p: MAPPattern): number | 'linear' | null {
                 }
             }
             if (found) {
+                if (period === 1) {
+                    let j = pops.length - c.PERIOD_SECURITY;
+                    while (p.generation > 0) {
+                        if (pop !== pops[j]) {
+                            break;
+                        }
+                        p.generation--;
+                        j--;
+                    }
+                    if (p.generation === 0) {
+                        console.log('\x1b[96mbruh\b1b[0m');
+                    }
+                }
                 return period;
             }
             let diff = pop - pops[pops.length - period];
@@ -534,9 +551,9 @@ function stabilize(p: MAPPattern): number | 'linear' | null {
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): [false | 'linear' | CAObject[], number] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string, minGens?: number): [false | 'linear' | CAObject[], number] {
     p.generation = 0;
-    let period = stabilize(p);
+    let period = stabilize(p, minGens);
     if (period === 'linear') {
         return ['linear', p.generation];
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
@@ -545,7 +562,14 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
-    return [separateObjects(p, period * 8, period * 8, input), p.generation - (period + 1) * c.PERIOD_SECURITY - 1];
+    let stabilizeTime = p.generation - (period + 1) * c.PERIOD_SECURITY - 1;
+    if (minGens) {
+        stabilizeTime -= minGens;
+        if (stabilizeTime < 0) {
+            stabilizeTime = 0;
+        }
+    }
+    return [separateObjects(p, period * 8, period * 8, input), stabilizeTime];
 }
 
 

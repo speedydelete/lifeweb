@@ -28,11 +28,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             p = base.loadApgcode(p).shrinkToFit();
         }
         let strRecipe = unparseChannelRecipe(info, recipe);
-        for (let gen = 0; gen < Math.max(total / c.GLIDER_DY, 0); gen++) {
-            p.runGeneration();
-            p.shrinkToFit();
-        }
-        let [result, stabilizeTime] = findOutcome(p, xPos, yPos, strRecipe);
+        let [result, stabilizeTime] = findOutcome(p, xPos, yPos, strRecipe, Math.max(total / c.GLIDER_DY, 0));
         if (result === false) {
             continue;
         }
@@ -126,11 +122,6 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             continue;
         }
         let move = elbow[1];
-        if (move < 0) {
-            stabilizeTime -= move * c.GLIDER_PERIOD / c.GLIDER_DY;
-            recipe[recipe.length - 1][0] = stabilizeTime;
-            strRecipe = strRecipe.slice(0, strRecipe.lastIndexOf(',')) + ', ' + stabilizeTime;
-        }
         if (shipData) {
             let [ship, dir] = shipData;
             if (dir === 'up') {
