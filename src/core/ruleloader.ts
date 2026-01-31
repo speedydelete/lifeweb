@@ -570,11 +570,10 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
 function parseTable(data: string): RuleTree {
     // First, we resolve all variables and generate a normalized transition list in the lines variable.
     let nh: [number, number][] = RULELOADER_NEIGHBORHOODS['moore'];
-    let sym = 0;
+    let sym: number[][] = MOORE_PERMUTE;
     let symString = 'permute';
-    let syms: number[][][] = [MOORE_PERMUTE];
     let vars: TableVars = {};
-    let lines: {value: TableValue, nh: [number, number][], sym: number}[] = [];
+    let lines: {value: TableValue, nh: [number, number][], sym: number[][]}[] = [];
     for (let line of data.split('\n')) {
         if (line.includes(':')) {
             let index = line.indexOf(':');
@@ -595,15 +594,7 @@ function parseTable(data: string): RuleTree {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
                 }
-                // We have to reset the symmetries for every one.
-                let newSym = SYMMETRIES[symString](nh);
-                let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
-                if (index === -1) {
-                    sym = syms.length;
-                    syms.push(newSym);
-                } else {
-                    sym = index;
-                }
+                sym = SYMMETRIES[symString](nh);
                 continue;
             } else if (cmd === 'symmetry' || cmd === 'symmetries') {
                 let newSym: number[][];
@@ -621,17 +612,7 @@ function parseTable(data: string): RuleTree {
                         throw new RuleError(`Invalid symmetry: '${arg}'`);
                     }
                 }
-                try {
-                    let index = syms.findIndex(sym => sym.every((x, i) => x.every((y, j) => y === newSym[i][j])));
-                    if (index === -1) {
-                        sym = syms.length;
-                        syms.push(newSym);
-                    } else {
-                        sym = index;
-                    }
-                } catch (error) {
-                    throw new Error(JSON.stringify({newSym, syms}));
-                }
+                sym = newSym;
                 continue;
             } else if (cmd === 'n_states' || cmd === 'states' || cmd === 'num_states') {
                 continue;
@@ -642,8 +623,7 @@ function parseTable(data: string): RuleTree {
             name = name.trim();
             let bind = false;
             if (name.startsWith('var ')) {
-                // bind = true;
-                // I don't remember why I commented this out.
+                bind = true;
                 name = name.slice(4);
             }
             vars[name] = {bind, value: parseBraceList(value, vars)};
@@ -673,7 +653,7 @@ function parseTable(data: string): RuleTree {
     states++;
     let trs: number[][] = [];
     let done = new Set<string>();
-    for (let {value: line, nh, sym: symNum} of lines) {
+    for (let {value: line, nh, sym} of lines) {
         let data: number[][] = [];
         if (line.length === 0) {
             continue;
@@ -723,7 +703,6 @@ function parseTable(data: string): RuleTree {
         for (let [x, y] of totalNh) {
             remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
         }
-        let sym = syms[symNum];
         for (let tr of data) {
             let tr2: number[] = [];
             for (let i of remap) {
