@@ -389,7 +389,7 @@ function parseTree(data: string): RuleTree {
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
                 nh = parseJSONLoose(arg) as [number, number][];
                 if (!nh.every(x => x.length === 2)) {
-                    throw new Error(`Invalid neighborhood: '${arg}'`);
+                    throw new RuleError(`Invalid neighborhood: '${arg}'`);
                 }
             } else if (cmd === 'num_neighbors') {
                 if (parseInt(arg) === 4) {
@@ -823,7 +823,7 @@ export function parseAtRule(rule: string): AtRule {
         data = '';
     }
     if (tree === null) {
-        throw new Error('At least one @TABLE or @TREE expected');
+        throw new RuleError('At least one @TABLE or @TREE expected');
     }
     return {...out, tree};
 }

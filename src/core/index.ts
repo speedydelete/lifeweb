@@ -60,7 +60,6 @@ export function createPattern(rule: string, data: {height: number, width: number
     }
     if (rule.startsWith('@')) {
         try {
-            throw new Error('hi');
             let out = parseAtRule(rule);
             let coords = new Map<number, number>();
             let i = 0;
