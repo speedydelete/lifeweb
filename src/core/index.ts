@@ -42,174 +42,173 @@ export function createPattern(rule: string, data: {height: number, width: number
             throw error;
         }
     }
-    throw new Error('from createPattern: ' + namedRules);
-    // if (rule.startsWith('R') || rule.startsWith('r')) {
-    //     try {
-    //         let out = createHROTPattern(rule, data.height, data.width, data.data);
-    //         if (typeof out === 'string') {
-    //             rule = out;
-    //         } else {
-    //             return out;
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.startsWith('@')) {
-    //     try {
-    //         let out = parseAtRule(rule);
-    //         let coords = new Map<number, number>();
-    //         let i = 0;
-    //         for (let y = 0; y < data.height; y++) {
-    //             for (let x = 0; x < data.width; x++) {
-    //                 let value = data.data[i++];
-    //                 if (value) {
-    //                     coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
-    //                 }
-    //             }
-    //         }
-    //         return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.endsWith('History')) {
-    //     try {
-    //         let p = createPattern(rule.slice(0, -7), data, namedRules, undefined);
-    //         if (p.states !== 2) {
-    //             throw new RuleError('History is only supported for 2-state rules');
-    //         }
-    //         if (p instanceof DataPattern) {
-    //             return new DataHistoryPattern(data.height, data.width, data.data, p);
-    //         } else if (p instanceof CoordPattern) {
-    //             return new CoordHistoryPattern(p.coords, p.range, p);
-    //         } else {
-    //             throw new RuleError(`Unknown Pattern subclass: ${p}`);
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.endsWith('Super')) {
-    //     try {
-    //         let p = createPattern(rule.slice(0, -5), data, namedRules, undefined);
-    //         if (p.states !== 2) {
-    //             throw new RuleError('Super is only supported for 2-state rules');
-    //         }
-    //         if (p instanceof DataPattern) {
-    //             return new DataSuperPattern(data.height, data.width, data.data, p);
-    //         } else if (p instanceof CoordPattern) {
-    //             return new CoordSuperPattern(p.coords, p.range, p);
-    //         } else {
-    //             throw new RuleError(`Unknown Pattern subclass: ${p}`);
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.endsWith('Investigator')) {
-    //     try {
-    //         let p = createPattern(rule.slice(0, -12), data, namedRules, undefined);
-    //         if (p.states !== 2) {
-    //             throw new RuleError('Investigator is only supported for 2-state rules');
-    //         }
-    //         if (p instanceof DataPattern) {
-    //             return new InvestigatorPattern(data.height, data.width, data.data, p);
-    //         } else if (p instanceof CoordPattern) {
-    //             throw new RuleError(`Investigator is not supported for CoordPatterns`);
-    //         } else {
-    //             throw new RuleError(`Unknown Pattern subclass: ${p}`);
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.includes(':')) {
-    //     try {
-    //         let parts = rule.split(':');
-    //         if (parts.length > 2) {
-    //             throw new RuleError('Only 1 bounded grid specifier allowed');
-    //         }
-    //         let p = createPattern(parts[0], data, namedRules, prevName);
-    //         let spec = parts[1];
-    //         let type = spec[0];
-    //         let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
-    //         if (Number.isNaN(x) || Number.isNaN(y)) {
-    //             throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
-    //         }
-    //         if (type === 'P') {
-    //             if (p instanceof CoordPattern) {
-    //                 return new FiniteCoordPattern(p.coords, p.range, p, x, y);
-    //             } else {
-    //                 return new FiniteDataPattern(data.height, data.width, data.data, p, x, y);
-    //             }
-    //         } else if (type === 'T') {
-    //             if (p instanceof CoordPattern) {
-    //                 return new TorusCoordPattern(p.coords, p.range, p, x, y);;
-    //             } else {
-    //                 let height = y;
-    //                 let width = x;
-    //                 let minX = -Math.floor(width / 2);
-    //                 let maxX = x + minX - 1;
-    //                 let minY = -Math.floor(height / 2);
-    //                 let maxY = y + minY - 1;
-    //                 let out = new TorusDataPattern(data.height, data.width, data.data, p);
-    //                 out.offsetBy(Math.max(0, -(minX + Math.max(0, data.width - maxX))), Math.max(0, -(minY + Math.max(0, data.height - maxY))));
-    //                 out.ensure(height, width);
-    //                 out.xOffset = 0;
-    //                 out.yOffset = 0;
-    //                 out.ruleStr = p.ruleStr + ':T' + width + ',' + height;
-    //                 return out;
-    //             }
-    //         } else {
-    //             throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
-    //         }
-    //     } catch (error) {
-    //         if (error instanceof RuleError) {
-    //             errors.push(error.message);
-    //         } else {
-    //             throw error;
-    //         }
-    //     }
-    // }
-    // if (rule.includes('|')) {
-    //     let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined));
-    //     let states = Math.max(...patterns.map(x => x.states));
-    //     let ruleStr = patterns.map(x => x.ruleStr).join('|');
-    //     let symmetry = patterns[0].ruleSymmetry;
-    //     for (let q of patterns.slice(1)) {
-    //         symmetry = SYMMETRY_MEET[symmetry][q.ruleSymmetry];
-    //         if (symmetry === 'C1') {
-    //             break;
-    //         }
-    //     }
-    //     return new AlternatingPattern(data.height, data.width, data.data, patterns, states, ruleStr, symmetry);
-    // }
-    // let lower = rule.toLowerCase();
-    // if (namedRules && lower in namedRules) {
-    //     return createPattern(namedRules[lower], data, namedRules, rule);
-    // }
-    // throw new RuleError(errors.join(', '));
+    if (rule.startsWith('R') || rule.startsWith('r')) {
+        try {
+            let out = createHROTPattern(rule, data.height, data.width, data.data);
+            if (typeof out === 'string') {
+                rule = out;
+            } else {
+                return out;
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.startsWith('@')) {
+        try {
+            let out = parseAtRule(rule);
+            let coords = new Map<number, number>();
+            let i = 0;
+            for (let y = 0; y < data.height; y++) {
+                for (let x = 0; x < data.width; x++) {
+                    let value = data.data[i++];
+                    if (value) {
+                        coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                    }
+                }
+            }
+            return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('History')) {
+        try {
+            let p = createPattern(rule.slice(0, -7), data, namedRules, undefined);
+            if (p.states !== 2) {
+                throw new RuleError('History is only supported for 2-state rules');
+            }
+            if (p instanceof DataPattern) {
+                return new DataHistoryPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
+                return new CoordHistoryPattern(p.coords, p.range, p);
+            } else {
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Super')) {
+        try {
+            let p = createPattern(rule.slice(0, -5), data, namedRules, undefined);
+            if (p.states !== 2) {
+                throw new RuleError('Super is only supported for 2-state rules');
+            }
+            if (p instanceof DataPattern) {
+                return new DataSuperPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
+                return new CoordSuperPattern(p.coords, p.range, p);
+            } else {
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Investigator')) {
+        try {
+            let p = createPattern(rule.slice(0, -12), data, namedRules, undefined);
+            if (p.states !== 2) {
+                throw new RuleError('Investigator is only supported for 2-state rules');
+            }
+            if (p instanceof DataPattern) {
+                return new InvestigatorPattern(data.height, data.width, data.data, p);
+            } else if (p instanceof CoordPattern) {
+                throw new RuleError(`Investigator is not supported for CoordPatterns`);
+            } else {
+                throw new RuleError(`Unknown Pattern subclass: ${p}`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.includes(':')) {
+        try {
+            let parts = rule.split(':');
+            if (parts.length > 2) {
+                throw new RuleError('Only 1 bounded grid specifier allowed');
+            }
+            let p = createPattern(parts[0], data, namedRules, prevName);
+            let spec = parts[1];
+            let type = spec[0];
+            let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
+            if (Number.isNaN(x) || Number.isNaN(y)) {
+                throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
+            }
+            if (type === 'P') {
+                if (p instanceof CoordPattern) {
+                    return new FiniteCoordPattern(p.coords, p.range, p, x, y);
+                } else {
+                    return new FiniteDataPattern(data.height, data.width, data.data, p, x, y);
+                }
+            } else if (type === 'T') {
+                if (p instanceof CoordPattern) {
+                    return new TorusCoordPattern(p.coords, p.range, p, x, y);;
+                } else {
+                    let height = y;
+                    let width = x;
+                    let minX = -Math.floor(width / 2);
+                    let maxX = x + minX - 1;
+                    let minY = -Math.floor(height / 2);
+                    let maxY = y + minY - 1;
+                    let out = new TorusDataPattern(data.height, data.width, data.data, p);
+                    out.offsetBy(Math.max(0, -(minX + Math.max(0, data.width - maxX))), Math.max(0, -(minY + Math.max(0, data.height - maxY))));
+                    out.ensure(height, width);
+                    out.xOffset = 0;
+                    out.yOffset = 0;
+                    out.ruleStr = p.ruleStr + ':T' + width + ',' + height;
+                    return out;
+                }
+            } else {
+                throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
+            }
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.includes('|')) {
+        let patterns = rule.split('|').map(x => createPattern(x, undefined, namedRules, undefined));
+        let states = Math.max(...patterns.map(x => x.states));
+        let ruleStr = patterns.map(x => x.ruleStr).join('|');
+        let symmetry = patterns[0].ruleSymmetry;
+        for (let q of patterns.slice(1)) {
+            symmetry = SYMMETRY_MEET[symmetry][q.ruleSymmetry];
+            if (symmetry === 'C1') {
+                break;
+            }
+        }
+        return new AlternatingPattern(data.height, data.width, data.data, patterns, states, ruleStr, symmetry);
+    }
+    let lower = rule.toLowerCase();
+    if (namedRules && lower in namedRules) {
+        throw new Error(namedRules[lower]); // return createPattern(namedRules[lower], data, namedRules, rule);
+    }
+    throw new RuleError(errors.join(', '));
 }
 
 /** Parses a RLE. 
