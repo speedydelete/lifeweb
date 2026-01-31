@@ -208,7 +208,7 @@ export function createPattern(rule: string, data: {height: number, width: number
     if (namedRules && lower in namedRules) {
         return createPattern(namedRules[lower], data, namedRules, rule);
     }
-    throw new RuleError(errors.join(', '));
+    throw new RuleError('hiii\n' + errors.join(', '));
 }
 
 /** Parses a RLE. 
