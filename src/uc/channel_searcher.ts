@@ -76,8 +76,8 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                     dir = obj.dir.startsWith('W') ? 'left' : 'right';
                 }
                 shipData = [obj, dir];
-                if (dir === 'up' && result.length === 1) {
-                    possibleUseful += `Creates ${obj.code} (${obj.x}, ${obj.y}, lane ${obj.y - obj.x}) and 0 other objects: ${strRecipe}\n`;
+                if (result.length === 1) {
+                    possibleUseful += `Creates ${obj.dir} ${obj.code} (${obj.x}, ${obj.y}, lane ${obj.y - obj.x}) and 0 other objects: ${strRecipe}\n`;
                 }
             } else {
                 if (!c.POSSIBLY_USEFUL_FILTER.includes(obj.code)) {
