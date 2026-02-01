@@ -80,7 +80,6 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 }
             }
         }
-
         phases.push(p.copy());
         pops.push(pop);
         hashes.push(hash);
