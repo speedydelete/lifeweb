@@ -726,8 +726,8 @@ function addSection(section: string, current: string[], out: RecipeData): void {
         for (let line of current) {
             let [data, recipeStr] = line.split(': ');
             let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], recipeStr);
-            let index = data.lastIndexOf(' (');
-            let sl = stringToObjects(data.slice(0, index))[0] as StillLife;
+            let index = data.indexOf(')');
+            let sl = stringToObjects(data.slice(0, index + 1))[0] as StillLife;
             let move = parseInt(data.slice(index + 2 + 'move '.length));
             out.channels[type].createHandRecipes.push({recipe, time, obj: sl, move});
         }
