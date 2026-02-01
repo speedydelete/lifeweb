@@ -712,7 +712,7 @@ function addSection(section: string, current: string[], out: RecipeData): void {
         for (let line of current) {
             let data = line.split(' ');
             let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], data.slice(4).join(' '));
-            out.channels[type].recipes90Deg.push({recipe, time, lane: parseInt(data[1]), ix: data[1][data[1].length - 1] as 'i' | 'x', move: parseInt(data[3])});
+            out.channels[type].recipes90Deg.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', move: parseInt(data[3])});
         }
     } else if (section.endsWith('0-degree recipes')) {
         let type = section.slice(0, section.indexOf(' '));
