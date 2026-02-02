@@ -27,6 +27,8 @@ const GLIDER_SPACING = 10;
 const SLOW_SALVO_PERIOD = 1;
 // the valid intermediate objects in slow salvos
 const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs7_69a4', 'xs6_25a4', 'xs6_4a52'];
+// the maximum number of slow salvo recipes to store for each outcome
+const MAX_SS_RECIPES = 5;
 
 // information about single-channel (0hd), double-channel (>0hd), and/or even higher numbers of channels (i don't even think anyone has used this, but i support it anyway) construction
 // in this file we do 1hd double-channel construction
@@ -68,7 +70,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
 // a filter for possibly useful recipes
 const POSSIBLY_USEFUL_FILTER = ['xq4_152', 'xq4_259'];
-
 // the minimum spacing in full diagonals between a hand object and the construction lane(s)
 const MIN_HAND_SPACING = 8;
 
@@ -84,9 +85,6 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 const MAX_PSEUDO_DISTANCE = 6;
 // the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
 const LANE_LIMIT = 128;
-
-// the maximum number of slow salvo recipes to store for each outcome
-const MAX_SS_RECIPES = 5;
 
 // don't change this
 // the ones with 2 after them are flipped
