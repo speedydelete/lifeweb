@@ -1,17 +1,7 @@
 
 /* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
 
-import {Pattern, DataPattern, RuleSymmetry} from './pattern.js';
-
-
-function gcd(a: number, b: number): number {
-    while (b > 0) {
-        let temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
+import {gcd, Pattern, DataPattern, RuleSymmetry} from './pattern.js';
 
 
 /** Implements alternating-time rules. */

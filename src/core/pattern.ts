@@ -335,6 +335,16 @@ export function getRuleSymmetryFromBases(C2: boolean, C4: boolean, D2h: boolean,
 }
 
 
+export function gcd(a: number, b: number): number {
+    while (b > 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+
 /** Returned by Pattern.getRect(). */
 export interface Rect {
     height: number;

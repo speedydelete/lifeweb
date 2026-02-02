@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
+import {gcd, MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
@@ -352,14 +352,7 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                     continue;
                 }
                 let objPeriod = parseInt(obj.code.slice(2));
-                let gcd = period;
-                let b = objPeriod;
-                while (b > 0) {
-                    let temp = b;
-                    b = gcd % b;
-                    gcd = temp;
-                }
-                period = (period * objPeriod) / gcd;
+                period = period * objPeriod / gcd(period, objPeriod);
             }
             out.push({
                 type: 'osc',
