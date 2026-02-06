@@ -1,32 +1,46 @@
 
+// basic information
+
 const RULE = 'B3/S23';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 const GLIDER_APGCODE = 'xq4_153';
 const GLIDER_DX = 1;
+// this one should be greater than or equal to GLIDER_DX
 const GLIDER_DY = 1;
 const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 1;
-// the speed limit in the direction the ship moves as a period
-const SPEED_LIMIT = 4;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 5;
 
-// the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 7;
+
+// information for slow salvo synthesis
 
 // the starting object for slow-salvo syntheses
 const START_OBJECT = 'xs4_33';
 // the spacing (in cells) between 2 gliders in a multi-glider slow salvo
 const GLIDER_SPACING = 10;
+// the spacing (in cells) between the glider and the target
+const GLIDER_TARGET_SPACING = 7;
+
 // the period of slow salvos
 const SLOW_SALVO_PERIOD = 2;
 // the valid intermediate objects in slow salvos
 const INTERMEDIATE_OBJECTS = ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'];
 
+// the maximum number of slow salvo recipes to store for each outcome
+const MAX_SS_RECIPES = 5;
+// the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
+const LANE_LIMIT = 128;
+
+
+// information about restricted-channel synthesis methods
+
 interface ChannelInfo {
+    // aliases for it, can be used in the cli
+    aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
     // the minimum spacing between gliders on every combination of channels
@@ -37,23 +51,36 @@ interface ChannelInfo {
     minSpacing: number;
     // exclude these spacings, this makes it so you can do overclocking, same format as minSpacings except you provide an array
     excludeSpacings?: number[][][];
-    // the starting elbow, format is [unprefixed apgcode, lane number]
-    start: [string, number];
+    // the starting elbow
+    start: {
+        apgcode: string;
+        lane: number;
+        spacing: number;
+    };
     // the valid elbow objects, should be a list of lane differences from starting elbow where it produces the reaction
     // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
     elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
+    // the minimum spacing in full diagonals between a hand object and the construction lane(s)
+    minHandSpacing: number;
+    // a filter for possibly useful recipes
+    possiblyUsefulFilter?: string[];
 }
 
-// you name them whatever you want
+// you name the construction types whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-    '0hd': {
+    'Single-channel': {
+        aliases: ['sc', '0hd'],
         channels: [0],
         minSpacings: [[43]],
         minSpacing: 43,
-        start: ['33', 9],
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
         elbows: {
             xs4_33: [2, 9],
             xs5_253: [10],
@@ -62,14 +89,12 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs6_696: [1],
             xs8_6996: [1, 10],
         },
+        minHandSpacing: 8,
     },
 };
 
-// a filter for possibly useful recipes
-const POSSIBLY_USEFUL_FILTER = [];
 
-// the minimum spacing in full diagonals between a hand block and the construction lanes
-const MIN_HAND_SPACING = 10;
+// information for how searches proceed
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
 const WAIT_GENERATIONS = 192;
@@ -79,13 +104,12 @@ const MAX_GENERATIONS = 256;
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
+
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
-// the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
-const LANE_LIMIT = 128;
 
-// the maximum number of slow salvo recipes to store for each outcome
-const MAX_SS_RECIPES = 5;
+
+// information for spaceship identification
 
 // don't change this
 // the ones with 2 after them are flipped
@@ -176,4 +200,9 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
     },
 }
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, SPEED_LIMIT, LANE_OFFSET, GLIDER_TARGET_SPACING, START_OBJECT, GLIDER_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, ChannelInfo, CHANNEL_INFO, POSSIBLY_USEFUL_FILTER, MIN_HAND_SPACING, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, LANE_LIMIT, MAX_SS_RECIPES, ShipDirection, SHIP_IDENTIFICATION};
+
+
+
+// don't change this
+
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, MAX_SS_RECIPES, LANE_LIMIT, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};

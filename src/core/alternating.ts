@@ -1,25 +1,25 @@
 
 /* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
 
-import {gcd, Pattern, DataPattern, RuleSymmetry} from './pattern.js';
+import {gcd, RuleSymmetry, Pattern, DataPattern} from './pattern.js';
 
 
 /** Implements alternating-time rules. */
 export class AlternatingPattern extends DataPattern {
 
+    /** A list of internal patterns that are copied into and out of when generations are run. Can be shared by multiple instances. */
+    patterns: Pattern[];
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
-    /** A list of internal patterns that are copied into and out of when generations are run. Can be shared by multiple instances. */
-    patterns: Pattern[];
     rulePeriod: number;
 
     constructor(height: number, width: number, data: Uint8Array, patterns: Pattern[], states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
         super(height, width, data);
+        this.patterns = patterns;
         this.states = states;
         this.ruleStr = ruleStr;
         this.ruleSymmetry = ruleSymmetry;
-        this.patterns = patterns;
         let rulePeriod = patterns.length;
         for (let p of patterns.slice(1)) {
             if (p.rulePeriod > 1) {

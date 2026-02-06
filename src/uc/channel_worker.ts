@@ -8,8 +8,6 @@ if (!parentPort) {
     throw new Error('No parent port!');
 }
 
-let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []};
+let data = findChannelResults(workerData.info, workerData.recipes, parentPort);
 
-let data = findChannelResults(workerData.info, workerData.recipes, out, parentPort);
-
-parentPort.postMessage([out, data[0], data[1]]);
+parentPort.postMessage(data);

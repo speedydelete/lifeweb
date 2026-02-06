@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {execSync, spawn} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, stabilize, getHashsoup, toCatagolueRule} from './core/index.js';
+import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getApgcode, getHashsoup, toCatagolueRule} from './core/index.js';
 import {getKnots, INTSeparator} from './core/intsep.js';
 
 
@@ -49,6 +49,7 @@ type PeriodFilter = {required: boolean, op: '=' | '!=' | '>' | '<' | '>=' | '<='
 const FILTER_OPS = ['!=', '>=', '<=', '=', '>', '<'] as const;
 
 
+/** Throw an error. */
 function error(msg: string): never {
     msg += '\n' + HELP_TEXT;
     if (import.meta.main) {
@@ -59,6 +60,7 @@ function error(msg: string): never {
     }
 }
 
+/** Parse a RSS configuration file. */
 function parseConfig(config: string): {config: Config, min: string, max: string} {
     let out: Config = {};
     for (let line of config.split('\n')) {
@@ -118,6 +120,7 @@ function parseConfig(config: string): {config: Config, min: string, max: string}
 }
 
 
+/** Parse a rule into transition lists. */
 function parseRule(rule: string): [string[], string[]] {
     let parts = rule.split('/');
     if (parts.length !== 2) {
@@ -132,6 +135,7 @@ function parseRule(rule: string): [string[], string[]] {
     ];
 }
 
+/** Parse a list of transitions. */
 function parseTransitionsList(data: string): [string[], string[]] {
     let b: string[] = [];
     let s: string[] = [];
@@ -164,10 +168,12 @@ function parseTransitionsList(data: string): [string[], string[]] {
     return [b, s];
 }
 
+/** Turn transition lists into a rulestring. */
 function unparseRule(b: string[], s: string[]): string {
     return `B${unparseTransitions(b, VALID_TRANSITIONS, false)}/S${unparseTransitions(s, VALID_TRANSITIONS, false)}`;
 }
 
+/** Adds the set of rules that are n transitions from the input rules. */
 function getNTransitionsFrom(rules: Set<string>, bTrs: string[], sTrs: string[], n: number, changeB: string[], changeS: string[]): void {
     for (let tr of changeB) {
         let newB = bTrs.slice();
@@ -197,6 +203,7 @@ function getNTransitionsFrom(rules: Set<string>, bTrs: string[], sTrs: string[],
     }
 }
 
+/** Make a transition list outer-totalistic. */
 function getOuterTotalistic(trs: string[], type: string): number[] {
     let out: number[] = [];
     for (let i = 0; i < VALID_TRANSITIONS.length; i++) {
@@ -219,6 +226,7 @@ function getOuterTotalistic(trs: string[], type: string): number[] {
     return out;
 }
 
+/** Generates rules inside a min and max range. */
 function generateRules(min: string, max: string, config: Config): Set<string> {
     let [minB, minS] = parseRule(min);
     let [maxB, maxS] = parseRule(max);
@@ -367,10 +375,64 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
 }
 
 
+/** Runs a pattern to stabilization. */
+function stabilize(p: MAPPattern, maxgen?: number, maxpop?: number): null | number | 'died' | {linear: true, period: number} {
+    p.run(60);
+    let maxPeriod = 6;
+    let pops: number[] = [];
+    maxgen ??= 120000;
+    for (let i = 0; i < maxgen; i++) {
+        p.runGeneration();
+        let pop = p.population;
+        if (pop === 0) {
+            return 'died';
+        }
+        if (maxpop && pop > maxpop) {
+            return null;
+        }
+        for (let period = 1; period < Math.min(maxPeriod, Math.floor(i / 16)); period++) {
+            let found = true;
+            for (let j = 1; j < 16; j++) {
+                if (pop !== pops[pops.length - period * j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return period;
+            }
+        }
+        for (let period = 1; period < Math.floor(i / 16); period++) {
+            let diff = pop - pops[pops.length - period];
+            let found = true;
+            for (let j = 1; j < 16; j++) {
+                if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return {linear: true, period};
+            }
+        }
+        pops.push(pop);
+        if (i === 60) {
+            maxPeriod = 12;
+        } else if (i === 120) {
+            maxPeriod = 24;
+        } else if (i === 240) {
+            maxPeriod = 60;
+        }
+    }
+    return null;
+}
+
+
 let soups = 0;
 
 let apgsearchPID: number | null = null;
 
+/** Run RSS given a parsed configuration */
 async function search(rule: string, config: Config, print: ((data: string) => void) | null | undefined, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
     if (!config.check && !config.apgsearch) {
         return rule;   
@@ -391,7 +453,7 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
             soups++;
             let p = base.copy();
             p.setData(height, width, data);
-            let period = stabilize(p, undefined, undefined, config.maxgen, config.maxpop);
+            let period = stabilize(p, config.maxgen, config.maxpop);
             if (period !== 'died') {
                 allDied = false;
             } else {
@@ -472,7 +534,7 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
                     }
                 }
                 for (let [_, type] of data[0]) {
-                    let apgcode = getA
+                    let apgcode = getApgcode(type);
                     if (apgcode in apgcodes) {
                         apgcodes[apgcode]++;
                     } else {
@@ -603,6 +665,7 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
 
 let defaultPrint = typeof process === 'object' ? process.stdout.write.bind(process.stdout) : console.log;
 
+/** Run RSS. */
 export async function runRSS(configFile: string, print: ((data: string) => void) | null = defaultPrint, out: string = '', write?: (data: string) => void): Promise<string> {
     let {config, min, max} = parseConfig(configFile);
     let rules = generateRules(min, max, config);

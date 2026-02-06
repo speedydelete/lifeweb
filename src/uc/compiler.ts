@@ -1,15 +1,14 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
-import {StillLife, getRecipes, translateObjects, objectsToString} from './base.js';
+import {StillLife, loadRecipes, translateObjects, objectsToString} from './base.js';
 
 
-let sourcePath = `${import.meta.dirname}/dijkstra.c`;
-let compiledPath = `${import.meta.dirname}/dijkstra`;
+// let sourcePath = `${import.meta.dirname}/dijkstra.c`;
+// let compiledPath = `${import.meta.dirname}/dijkstra`;
 
-let data = await getRecipes();
-let salvos = data.salvos;
-
+// let data = await loadRecipes();
+// let salvos = data.salvos;
 
 // export async function updateTiles(size: number): Promise<void> {
 //     if ((await fs.stat(sourcePath)).mtimeMs > (await fs.stat(compiledPath)).mtimeMs) {

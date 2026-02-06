@@ -1,28 +1,39 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, log, Spaceship, StableObject, CAObject, base, gliderPattern, translateObjects, objectsToString, stringToObjects, separateObjects, findOutcome, getRecipes, saveRecipes} from './base.js';
+import {c, SalvoInfo, log, Spaceship, StableObject, CAObject, base, gliderPattern, gliderPatterns, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes, separateObjects, findOutcome} from './base.js';
 
 
-export interface SalvoInfo<Input extends CAObject = CAObject, Output extends CAObject | null = null> {
-    input: (Output extends null ? CAObject : Input)[];
-    output: (Output extends null ? Input : Output)[];
-    recipes: number[][];
-}
-
-
-export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern, number, number] {
+/** Turns a salvo into a `Pattern`. */
+export function createSalvoPattern(info: SalvoInfo, target: string, lanes: [number, number][]): [MAPPattern, number, number] {
     lanes = lanes.reverse();
-    let minLane = Math.min(0, ...lanes);
+    let minLane = 0;
+    for (let [lane] of lanes) {
+        if (lane < minLane) {
+            minLane = lane;
+        }
+    }
     let p = base.copy();
     for (let i = 0; i < lanes.length; i++) {
-        let lane = lanes[i];
-        let y = i * c.GLIDER_SPACING;
+        let [lane, timing] = lanes[i];
+        let y = i * info.gliderSpacing;
         let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
-        p.ensure(x + gliderPattern.width, y + gliderPattern.height);
-        p.insert(gliderPattern, x, y);
+        if (timing === 0) {
+            p.ensure(x + gliderPattern.width, y + gliderPattern.height);
+            p.insert(gliderPattern, x, y);
+        } else {
+            if (timing > c.GLIDER_PERIOD) {
+                let periods = Math.floor(timing / c.GLIDER_PERIOD);
+                x += c.GLIDER_DX * periods;
+                y += c.GLIDER_DY * periods;
+                timing -= periods;
+            }
+            let q = gliderPatterns[timing];
+            p.ensure(x + q.width, y + q.height);
+            p.insert(q, x, y);
+        }
     }
     let q = base.loadApgcode(target).shrinkToFit();
-    let yPos = (lanes.length - 1) * c.GLIDER_SPACING + c.GLIDER_TARGET_SPACING;
+    let yPos = (lanes.length - 1) * info.gliderSpacing + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.LANE_OFFSET - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
@@ -30,7 +41,8 @@ export function createSalvoPattern(target: string, lanes: number[]): [MAPPattern
     return [p, xPos, yPos];
 }
 
-export function patternToSalvo(p: MAPPattern): [string, number[]] {
+/** Reads a slow salvo from a `Pattern`. */
+export function patternToSalvo(p: MAPPattern): [string, [number, number][]] {
     let objs = separateObjects(p, 1, 256);
     if (objs === false) {
         throw new Error('Object separation failed!');
@@ -52,15 +64,15 @@ export function patternToSalvo(p: MAPPattern): [string, number[]] {
     if (!target) {
         throw new Error('No target!');
     }
-    let lanes = ships.sort((a, b) => b.timing - a.timing).map(x => x.lane);
+    let lanes = ships.sort((a, b) => b.timing - a.timing).map<[number, number]>(x => [x.lane, x.timing]);
     let laneOffset = target.y - target.x;
-    lanes = lanes.map(x => x + laneOffset + c.LANE_OFFSET);
+    lanes = lanes.map(x => [x[0] + laneOffset + c.LANE_OFFSET, x[1] % c.GLIDER_PERIOD]);
     return [target.code, lanes];
 }
 
 
-function findSalvoResult(target: string, lanes: number[]): 'no' | null | false | 'linear' | CAObject[] {
-    let [p, xPos, yPos] = createSalvoPattern(target.slice(target.indexOf('_') + 1), lanes);
+function findSalvoResult(info: SalvoInfo, target: string, lanes: [number, number][]): 'no' | null | false | 'linear' | CAObject[] {
+    let [p, xPos, yPos] = createSalvoPattern(info, target.slice(target.indexOf('_') + 1), lanes);
     let found = false;
     let prevPop = p.population;
     for (let i = 0; i < lanes.length * c.WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
@@ -81,51 +93,50 @@ function findSalvoResult(target: string, lanes: number[]): 'no' | null | false |
     return findOutcome(p, xPos, yPos, target + ', ' + lanes.join(', '))[0];
 }
 
-function get1GSalvos(target: string): false | [Set<string>, [number, false | null | CAObject[]][]] {
-    let originalTarget = target;
-    let newObjs = new Set<string>();
-    let out: [number, false | null | CAObject[]][] = [];
-    let failed = false;
+function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
-    let data = findSalvoResult(target, [lane]);
+    let data = findSalvoResult(info, target, [[lane, timing]]);
     if (data === 'no') {
         return false;
     }
     while (data !== null) {
         lane--;
-        data = findSalvoResult(target, [lane]);
+        data = findSalvoResult(info, target, [[lane, timing]]);
         if (data === 'no') {
             return false;
         }
-        if (lane === -c.LANE_LIMIT) {
+        if (lane === -info.laneLimit) {
             return false;
         }
     }
-    data = findSalvoResult(target, [lane]);
+    data = findSalvoResult(info, target, [[lane, timing]]);
     while (data !== null) {
         lane--;
-        data = findSalvoResult(target, [lane]);
+        data = findSalvoResult(info, target, [[lane, timing]]);
         if (data === 'no') {
             return false;
         }
-        if (lane === -c.LANE_LIMIT) {
+        if (lane === -info.laneLimit) {
             return false;
         }
     }
     lane++;
+    let failed = false;
+    let newObjs = new Set<string>();
+    let out: [number, number, false | null | CAObject[]][] = [];
     let hadCollision = false;
-    for (; lane < c.LANE_LIMIT; lane++) {
-        let data = findSalvoResult(target, [lane]);
+    for (; lane < info.laneLimit; lane++) {
+        let data = findSalvoResult(info, target, [[lane, timing]]);
         if (data === 'no') {
             return false;
         }
         if (data === 'linear') {
-            out.push([lane, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
+            out.push([lane, timing, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
             continue;
-        } else if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === originalTarget && data[0].x === 0 && data[0].y === 0) {
+        } else if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === target && data[0].x === 0 && data[0].y === 0) {
             continue;
         }
-        out.push([lane, data]);
+        out.push([lane, timing, data]);
         if (data === null) {
             if (!hadCollision) {
                 continue;
@@ -148,99 +159,116 @@ function get1GSalvos(target: string): false | [Set<string>, [number, false | nul
                 }
             }
         }
-        if (lane === c.LANE_LIMIT - 1) {
+        if (lane === info.laneLimit - 1) {
             return false;
         }
     }
     return [newObjs, out];
 }
 
-function getForOutputRecipes(data: {[key: string]: [number, false | null | CAObject[]][]}, code: string, prefix: number[], x: number, y: number, count: number, limit: number, out: {[key: string]: [StableObject, CAObject[], StableObject[], Spaceship[], number[][]]}, start: StableObject, add?: CAObject[]): void {
-    let startStr: string;
-    if (start.type === 'sl') {
-        startStr = `${start.code} to `;
-    } else {
-        startStr = `${start.code} (${start.timing}) to `;
+function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in T]: [number, number][][]}, recipe: [number, number][]): void {
+    if (!entry[index].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+        entry[index].push(recipe);
+        if (info.maxRecipes && entry[index].length > info.maxRecipes) {
+            entry[index] = entry[index].sort((a, b) => a.length - b.length).slice(0, info.maxRecipes);
+        }
     }
-    for (let [lane, objs] of data[code]) {
+}
+
+function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
+    for (let [lane, timing, objs] of data[code]) {
         if (!objs) {
             continue;
         }
-        let recipe = prefix.concat(lane + x - y);
-        if (add) {
-            objs = objs.concat(add.map(value => {
-                let out = structuredClone(value);
-                if ('at' in out) {
-                    out.at = count;
-                }
-                return out;
-            }));
-        }
+        let recipe = prefix.concat([lane + x - y, timing]);
         objs = translateObjects(objs, x, y);
-        let str = startStr + objectsToString(objs);
-        if (str in out) {
-            if (out[str][4].length < c.MAX_SS_RECIPES) {
-                out[str][4].push(recipe);
+        let key = `${start.code} to ${objectsToString(objs)}`;
+        let stable: StableObject[] = [];
+        let ships: Spaceship[] = [];
+        for (let obj of objs) {
+            if (obj.type === 'sl' || obj.type === 'osc') {
+                stable.push(obj);
+            } else if (obj.type === 'ship') {
+                ships.push(obj);
             }
+        }
+        if (stable.length > 0 && ships.length > 0) {
+            if (!(stable.length === 1 && ships.length === 1)) {
+                continue;
+            }
+        }
+        if (key in out.recipes) {
+            addRecipe(info, 2, out.recipes[key], recipe);
         } else {
-            let stable: StableObject[] = [];
-            let ships: Spaceship[] = [];
-            for (let obj of objs) {
-                if (obj.type === 'sl' || obj.type === 'osc') {
-                    stable.push(obj);
-                } else if (obj.type === 'ship') {
-                    ships.push(obj);
+            out.recipes[key] = [start, objs, [recipe]];
+        }
+        if (stable.every(x => info.intermediateObjects.includes(x.code))) {
+            let part: {[key: string]: {2: [number, number][][]}} | undefined = undefined;
+            if (ships.length > 0) {
+                if (stable.length === 0) {
+                    if (ships.length === 1) {
+                        if (key in out.oneTimeTurners) {
+                            addRecipe(info, 2, out.oneTimeTurners[key], recipe);
+                        } else {
+                            out.oneTimeTurners[key] = [start, ships[0], [recipe]];
+                        }
+                    } else {
+                        if (key in out.oneTimeSplitters) {
+                            addRecipe(info, 2, out.oneTimeSplitters[key], recipe);
+                        } else {
+                            out.oneTimeSplitters[key] = [start, ships, [recipe]];
+                        }
+                    }
+                } else if (stable.length === 1 && ships.length === 1) {
+                    if (key in out.elbowRecipes) {
+                        addRecipe(info, 3, out.elbowRecipes[key], recipe);
+                    } else {
+                        out.elbowRecipes[key] = [start, stable[0], ships[0], [recipe]];
+                    }
+                }
+            } else {
+                if (stable.length === 0) {
+                    if (key in out.destroyRecipes) {
+                        let entry = out.destroyRecipes[key];
+                        if (!entry.some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+                            entry.push(recipe);
+                            if (info.maxRecipes && entry.length > info.maxRecipes) {
+                                out.destroyRecipes[key] = entry.sort((a, b) => a.length - b.length).slice(0, info.maxRecipes);
+                            }
+                        }
+                    }
+                } else if (stable.length === 1) {
+                    if (key in out.moveRecipes) {
+                        addRecipe(info, 2, out.moveRecipes[key], recipe);
+                    } else {
+                        out.moveRecipes[key] = [start, stable[0], [recipe]];
+                    }
+                } else {
+                    if (key in out.splitRecipes) {
+                        addRecipe(info, 2, out.splitRecipes[key], recipe);
+                    } else {
+                        out.splitRecipes[key] = [start, stable, [recipe]];
+                    }
                 }
             }
-            out[str] = [start, objs, stable, ships, [recipe]];
         }
         if (count < limit) {
             if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
-                getForOutputRecipes(data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start);
+                compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start);
             }
         }
     }
 }
 
-function addRecipes<T extends PropertyKey>(data: {[K in T]?: number[][]}, newData: number[][], key: T): void {
-    if (data[key]) {
-        for (let recipe of newData) {
-            if (!data[key].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
-                data[key].push(recipe);
-            }
-        }
-        data[key].sort((a, b) => a.length - b.length);
-        if (data[key].length > c.MAX_SS_RECIPES) {
-            data[key] = data[key].slice(0, c.MAX_SS_RECIPES);
-        }
-    } else {
-        data[key] = newData;
-    }
-}
-
-function addRecipesSubkey<T extends PropertyKey>(data: {[K in T]?: {2: number[][]}}, newData: {2: number[][]}, key: T): void {
-    if (data[key]) {
-        let out = data[key];
-        for (let recipe of newData[2]) {
-            if (!out[2].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
-                out[2].push(recipe);
-            }
-        }
-        out[2].sort((a, b) => a.length - b.length);
-        if (out[2].length > c.MAX_SS_RECIPES) {
-            out[2] = out[2].slice(0, c.MAX_SS_RECIPES);
-        }
-    } else {
-        data[key] = newData;
-    }
-}
-
-export async function searchSalvos(start: string, limit: number): Promise<void> {
-    let recipes = await getRecipes();
+/** Searches slow salvos. */
+export async function searchSalvos(type: string, start: string, limit: number): Promise<void> {
+    let info = c.SALVO_INFO[type];
+    let recipes = await loadRecipes();
     let done = new Set<string>();
-    let forInput: {[key: string]: [number, false | null | CAObject[]][]} = {};
+    let forInput: {[key: string]: [number, number, false | null | CAObject[]][]} = {};
     let queue = [start];
-    for (let i = 0; i < limit; i++) {
+    let i = 0;
+    while (true) {
         log(`Searching depth ${i + 1} (${queue.length} objects)`);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
@@ -250,63 +278,33 @@ export async function searchSalvos(start: string, limit: number): Promise<void> 
             } else {
                 done.add(code);
             }
-            let data = get1GSalvos(code);
-            if (data) {
-                let [newObjs, newOut] = data;
-                forInput[code] = newOut;
-                newQueue.push(...newObjs);
+            for (let timing = 0; timing < info.period; timing++) {
+                let data = get1GSalvos(info, code, timing);
+                if (data) {
+                    let [newObjs, newOut] = data;
+                    forInput[code] = newOut;
+                    newQueue.push(...newObjs);
+                }
             }
             log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
         }
-        log(`Depth ${i + 1} 100.00% complete`);
+        log(`Depth ${i + 1} 100.00% complete, compiling recipes`);
         queue = newQueue;
-        let forOutput: {[key: string]: [StableObject, CAObject[], StableObject[], Spaceship[], number[][]]} = {};
-        log('Compiling recipes');
-        if (start === c.START_OBJECT) {
-            for (let i = 0; i < c.INTERMEDIATE_OBJECTS.length; i++) {
-                let obj = c.INTERMEDIATE_OBJECTS[i];
+        if (start === info.startObject) {
+            for (let i = 0; i < info.intermediateObjects.length; i++) {
+                let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    getForOutputRecipes(forInput, obj, [], 0, 0, 0, limit - 1, forOutput, start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, limit - 1, recipes.salvos[type], start);
                 }
-                log(`Finished compiling recipes for ${i + 1}/${c.INTERMEDIATE_OBJECTS.length} (${((i + 1) / c.INTERMEDIATE_OBJECTS.length * 100).toFixed(1)}%) objects`, true);
+                log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            getForOutputRecipes(forInput, start, [], 0, 0, 0, limit - 1, forOutput, obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, limit - 1, recipes.salvos[type], obj);
         }
         log('Compiled all recipes');
-        let data = recipes.salvos;
-        for (let key in forInput) {
-            if (!(key in data.forInput)) {
-                data.forInput[key] = forInput[key].filter(x => x[1]) as [number, CAObject[]][];
-            }
-        }
-        for (let [key, value] of Object.entries(forOutput)) {
-            addRecipesSubkey(data.forOutput, [value[0], value[1], value[4]] as const, key);
-        }
-        for (let [key, [input, outFull, outStable, outShips, recipes]] of Object.entries(forOutput)) {
-            if (!c.INTERMEDIATE_OBJECTS.includes(input.code) || outFull.length !== outStable.length + outShips.length) {
-                continue;
-            }
-            if (outStable.length === 0) {
-                if (outShips.length === 0) {
-                    addRecipes(data.destroyRecipes, recipes, input.code);
-                } else if (outShips.length === 1) {
-                    addRecipesSubkey(data.oneTimeTurners, [input, outShips[0], recipes] as const, key);
-                } else {
-                    addRecipesSubkey(data.oneTimeSplitters, [input, outShips, recipes] as const, key);
-                }
-            } else {
-                if (outShips.length === 0 && outStable.every(x => c.INTERMEDIATE_OBJECTS.includes(x.code))) {
-                    if (outStable.length === 1) {
-                        addRecipesSubkey(data.moveRecipes, [input, outStable[1], recipes] as const, key);
-                    } else {
-                        addRecipesSubkey(data.splitRecipes, [input, outStable, recipes] as const, key);
-                    }
-                }
-            }
-        }
         await saveRecipes(recipes);
+        i++;
     }
 }

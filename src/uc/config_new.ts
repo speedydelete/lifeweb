@@ -1,7 +1,6 @@
 
-// basic information
-
 const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 // this part is an array of [height, width, array of [x, y] coordinates] for each phase
@@ -17,61 +16,64 @@ const GLIDER_POPULATION_PERIOD = 1;
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 6;
 
-// the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 5;
-
 // the ones with F after them are flipped, so you can e.g. have loafers of 2 different directions in a single-channel loafer synthesis recipe, this doesn't matter for symmetric ships
 // for diagonals, only use NW, NE, SW, and SE (with F perhaps at the end)
 // for orthogonals, only use N, E, S, and W (with F perhaps at the end)
 // for obliques, only use NW, NE, SW, SE, N, E, S, and W
 type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W' | 'NWF' | 'NEF' | 'SWF' | 'SEF' | 'NF' | 'EF' | 'SF' | 'WF';
-// // uncomment the right one
-// type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
-// // type GliderDirection = 'N' | 'E' | 'S' | 'W';
-// // type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
-// // type GliderDirection = 'N' | 'E' | 'S' | 'W' | 'N2' | 'E2' | 'S2' | 'W2';
-// // type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
+// uncomment the right one
+type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
+// type GliderDirection = 'N' | 'E' | 'S' | 'W';
+// type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
+// type GliderDirection = 'N' | 'E' | 'S' | 'W' | 'N2' | 'E2' | 'S2' | 'W2';
+// type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 
 
-// // you now define a list of construction types
-// // you can name them whatever you want
-// // types can either be slow or fast
+// you now define a list of construction types
+// you can name them whatever you want
+// types can either be slow or fast
 
-// // these are shared by both slow and fast types
-// // the type argument is the valid directions a ship can come from
-// interface BaseInfo<T extends GliderDirection[] = []> {
-//     // aliases for it, can be used in the cli
-//     aliases?: string[];
-//     // the directions that gliders can come from
-//     directions: ShipDirection[];
-//     // the starting elbow object
-//     startObject: string;
-//     // the spacing (in cells) between the first glider and the target
-//     gliderTargetSpacing: number;
-//     // restrictions on usable lanes in different directions
-//     laneRestrictions?: {[K in ShipDirection]?: {
-//         // only these lanes are allowed
-//         only?: number[];
-//         // these lanes aren't allowed
-//         exclude?: number[];
-//     }};
-// }
+// these are shared by both slow and fast types
+// the type argument is the valid directions a ship can come from
+interface BaseInfo<T extends GliderDirection[] = []> {
+    // aliases for it, can be used in the cli
+    aliases?: string[];
+    // the directions that gliders can come from
+    directions: ShipDirection[];
+    // the starting elbow object
+    startObject: string;
+    // the spacing (in cells) between the first glider and the target
+    gliderTargetSpacing: number;
+    // restrictions on usable lanes in different directions
+    laneRestrictions?: {[K in ShipDirection]?: {
+        // only these lanes are allowed
+        only?: number[];
+        // these lanes aren't allowed
+        exclude?: number[];
+    }};
+}
 
-// // these are only for slow types
-// interface SlowInfo extends BaseInfo {
-//     slow: true;
-//     // the period that the timings can be controlled at (per-direction)
-//     period: {[K in ShipDirection]?: number};
-//     // the spacing between gliders (used during recipe pattern creation)
-//     gliderSpacing: number;
-// }
+// these are only for slow types
+interface SlowInfo extends BaseInfo {
+    slow: true;
+    // the period that the timings can be controlled at (per-direction)
+    period: {[K in ShipDirection]?: number};
+    // the spacing between gliders (used during recipe pattern creation)
+    gliderSpacing: number;
+}
 
-// // these are only for fast types
-// interface FastInfo extends BaseInfo {
-//     slow: false;
-// }
+// these are only for fast types
+interface FastInfo extends BaseInfo {
+    slow: false;
+}
 
-// type Info = SlowInfo | FastInfo;
+type Info = SlowInfo | FastInfo;
+
+interface Info<Slow extends boolean = boolean> {
+
+
+    // 
+}
 
 // information for slow salvo synthesis
 
@@ -82,10 +84,11 @@ interface SalvoInfo {
     startObject: string;
     // the spacing (in cells) between 2 gliders in a multi-glider salvo
     gliderSpacing: number;
+    // the spacing (in cells) between a glider and the target
+    gliderTargetSpacing: number;
     // the period, as in p2 slow salvo
     period: number;
     // the valid intermediate objects
-    intermediateObjects: string[];
     // the limit for the number of lanes to search (during searching)
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
@@ -100,6 +103,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         aliases: ['ss'],
         startObject: 'xs2_11',
         gliderSpacing: 10,
+        gliderTargetSpacing: 5,
         period: 1,
         intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs7_69a4', 'xs6_25a4', 'xs6_4a52'],
         laneLimit: 128,
@@ -277,4 +281,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};

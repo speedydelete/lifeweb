@@ -353,6 +353,7 @@ export interface Rect {
     yOffset: number;
 }
 
+/** Represents a pattern in a cellular automata. */
 export interface Pattern {
     /** The height of the pattern. */
     height: number;
@@ -410,9 +411,9 @@ export interface Pattern {
     insertXor(p: Pattern, x?: number, y?: number): this;
     /** Extracts part of the pattern into a new one. */
     copyPart(x: number, y: number, height: number, width: number): Pattern;
-    /** Gets the pattern data as a Uint8Array. */
+    /** Gets the pattern data as an array. */
     getData(): Uint8Array;
-    /** Sets the pattern data using a height, width, and Uint8Array. */
+    /** Sets the pattern data using a height, width, and array. */
     setData(height: number, width: number, data: Uint8Array): this;
     /** Gets the pattern data as a Map. */
     getCoords(): Map<number, number>;

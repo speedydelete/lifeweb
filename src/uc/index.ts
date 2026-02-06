@@ -1,72 +1,118 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, parseChannelRecipe} from './base.js';
+import {c, LETTERS, unparseSlowSalvo, parseChannelRecipe} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {createChannelPattern, searchChannel} from './channel.js';
+import {createChannelPattern, searchChannel, mergeChannelRecipes} from './channel.js';
 
 
-let cmd = process.argv[2].toLowerCase();
-let type = process.argv[3].toLowerCase();
-let args = process.argv.slice(4).join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x);;
+function error(msg: string): never {
+    console.error(msg);
+    process.exit(1);
+}
 
+
+function normalizeArgs(args: string[]): string[] {
+    return args.join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x);
+}
+
+
+
+const HELP = `
+Usage: ./uc command type [command_options] [flags]
+
+Search program and utility for universal construction in cellular automata.
+
+Subcommands:
+    get: Turns a list of lanes/timing gaps into a RLE.
+    from: Turns a RLE into a list of lanes/timing gaps.
+    search: Perform a search for recipes.
+    merge: Merge two restricted-channel recipes.
+
+The type argument is the construction type. The 'ss' construction type is always supported.
+
+Flags:
+    -h, --help: Show this help message.
+    -m, --monochrome: Use monochrome slow salvos.
+`;
+
+
+let posArgs: string[] = [];
+let monochrome = false;
+
+for (let i = 2; i < process.argv.length; i++) {
+    let arg = process.argv[i];
+    if (arg.startsWith('-')) {
+        if (arg === '-h' || arg === '--help') {
+            console.log(HELP);
+            process.exit(0);
+        } else if (arg === '-m' || arg === '--monochrome') {
+            monochrome = true;
+        } else {
+            error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
+        }
+    } else {
+        posArgs.push(arg);
+    }
+}
+
+if (posArgs.length < 2) {
+    error('At least 2 positional arguments expected!');
+}
+
+let cmd = posArgs[0];
+let type = posArgs[1].toLowerCase();
+let args = posArgs.slice(2);
 if (!(type === 'ss' || type in c.CHANNEL_INFO)) {
-    throw new Error(`Invalid construction type: ${type}`);
+    error(`Invalid construction type: '${type}'`);
 }
 
 if (cmd === 'get') {
     if (type === 'ss') {
-        let start = c.START_OBJECT;
+        let info = c.SALVO_INFO[type];
+        let start = info.startObject;
         if (args[0].startsWith('x')) {
             start = args[0];
             args = args.slice(1);
         }
         start = start.slice(start.indexOf('_') + 1);
-        console.log(createSalvoPattern(start, args.map(x => parseInt(x)))[0].toRLE());
+        console.log(createSalvoPattern(info, start, args.map<[number, number]>(x => {
+            if (info.period === 1) {
+                return [parseInt(x), 0];
+            } else if (info.period === 2) {
+                return [parseInt(x.slice(0, -1)), x[x.length - 1] === 'o' ? 1 : 0];
+            } else {
+                return [parseInt(x.slice(0, -1)), LETTERS.indexOf(x[x.length - 1])];
+            }
+        }))[0].toRLE());
     } else {
-        let x = createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0]);
-        if (!x) {
-            throw new Error('Does not satisfy congruence');
-        }
-        console.log(x[0].toRLE());
+        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0])[0].toRLE());
     }
 } else if (cmd === 'from') {
     if (type === 'ss') {
         let data = (await fs.readFile(process.argv.slice(4).join(' '))).toString();
         let p = parse(data) as MAPPattern;
         let [target, lanes] = patternToSalvo(p);
-        console.log(target + ', ' + lanes.join(', '));
+        console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
     }
 } else if (cmd === 'search') {
     if (type === 'ss') {
+        args = normalizeArgs(args);
         if (args[0].startsWith('x')) {
-            await searchSalvos(args[0], parseInt(args[1]));
+            await searchSalvos(type, args[0], parseInt(args[1]));
         } else {
-            await searchSalvos(c.START_OBJECT, parseInt(args[0]));
+            await searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
         }
     } else {
-        let depth = typeof args[1] === 'string' ? parseInt(args[1]) : c.CHANNEL_INFO[type].minSpacing;
-        let maxSpacing = typeof args[2] === 'string' ? parseInt(args[2]) : undefined;
-        await searchChannel(type, parseInt(args[0]), depth, maxSpacing);
+        let depth = typeof args[1] === 'string' ? parseInt(args[1]) : Infinity;
+        await searchChannel(type, parseInt(args[0]), parseInt(args[1]), depth);
     }
-} else if (cmd === 'translate') {
-    if (type !== 'ss') {
-        throw new Error('Can only translate slow salvos');
-    }
-    let x = parseInt(args[0].replaceAll('(', ''));
-    let y = parseInt(args[1].replaceAll(')', ''));
-    let start = '';
-    if (args[0].startsWith('x')) {
-        start = args[0] + ' ';
-        args = args.slice(1);
-    }
-    let data = args.map(x => parseInt(x));
-    data = data.map(lane => lane + x - y);
-    console.log(start + data.join(', '));
 } else if (cmd === 'merge') {
     if (type === 'ss') {
         throw new Error('Cannot merge slow salvos');
     }
+    // todo: replace with mergeChannelRecipes
+    args = normalizeArgs(args);
     let info = c.CHANNEL_INFO[type];
     if (info.channels.length === 1) {
         console.log(args.join(', '));

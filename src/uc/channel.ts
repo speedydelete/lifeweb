@@ -2,22 +2,13 @@
 import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
-import {c, log, ChannelInfo, base, gliderPatterns, objectsToString, unparseChannelRecipe, RecipeData, getRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, log, base, gliderPatterns, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {ChannelRecipeData, findChannelResults} from './channel_searcher.js';
 
 
-export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): false | [MAPPattern, number, number, number] {
+/** Turns a single-channel sequence into a `Pattern`. */
+export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
     let p = base.copy();
-    // let total2 = 0;
-    // for (let x of recipe) {
-    //     if (x[1] === -1) {
-    //         continue;
-    //     }
-    //     total2 += x[0];
-    //     if (total2 % 10 > 5) {
-    //         return false;
-    //     }
-    // }
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
@@ -39,21 +30,50 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     let q = gliderPatterns[total % c.GLIDER_PERIOD];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
-    let target = base.loadApgcode(info.start[0]).shrinkToFit();
-    let yPos = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start[1] + c.LANE_OFFSET;
+    let target = base.loadApgcode(info.start.apgcode).shrinkToFit();
+    let yPos = Math.floor(total / c.GLIDER_PERIOD) + info.start.spacing;
+    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
 }
 
 
-function _getRecipesForDepth(info: ChannelInfo, depth: number, filter: string[], maxSpacing: number | undefined, prev: number | undefined, prevKey: string | undefined): [[number, number][], number][] {
-    let out: [[number, number][], number][] = [];
-    let limit = maxSpacing ? Math.min(depth, maxSpacing) : depth;
+function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
+    let out: [[number, number][], number, string][] = [];
+    for (let spacing = info.minSpacing; spacing < maxSpacing; spacing++) {
+        if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
+            continue;
+        }
+        let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
+        if (filter.includes(key)) {
+            continue;
+        }
+        let elt: [number, number] = [spacing, 0];
+        out.push([[[spacing, 0]], spacing, key]);
+        if (depth > 0) {
+            for (let recipe of getRecipesForDepthSingleChannel(info, depth - 1, maxSpacing, filter, key)) {
+                recipe[0].unshift(elt);
+                recipe[1] += spacing;
+                out.push(recipe);
+            }
+        }
+    }
+    return out;
+}
+
+function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev: number | undefined, prevKey: string | undefined, lastUses: number[]): [[number, number][], number, string][] {
+    let out: [[number, number][], number, string][] = [];
     for (let channel = 0; channel < info.channels.length; channel++) {
-        for (let spacing = prev === undefined ? info.minSpacing : info.minSpacings[prev][channel]; spacing <= limit; spacing++) {
-            if (prev && info.excludeSpacings?.[prev]?.[channel]?.includes(spacing)) {
+        let start: number;
+        if (prev === undefined) {
+            start = info.minSpacing;
+        } else {
+            start = info.minSpacings[prev][channel];
+        }
+        start = Math.max(start, info.minSpacings[channel][channel] - lastUses[channel]);
+        for (let spacing = start; spacing <= maxSpacing; spacing++) {
+            if (prev && info.excludeSpacings && info.excludeSpacings[prev][channel].includes(spacing)) {
                 continue;
             }
             let key = prevKey === undefined ? `${spacing}:${channel}` : prevKey + ` ${spacing}:${channel}`;
@@ -61,11 +81,11 @@ function _getRecipesForDepth(info: ChannelInfo, depth: number, filter: string[],
                 continue;
             }
             let elt: [number, number] = [spacing, channel];
-            if (spacing === depth) {
-                out.push([[elt], spacing]);
-            }
-            if (depth - spacing > info.minSpacing) {
-                for (let recipe of _getRecipesForDepth(info, depth - spacing, filter, maxSpacing, channel, key)) {
+            out.push([[elt], spacing, key]);
+            if (depth > 0) {
+                let newLastUses = lastUses.map(x => x + spacing);
+                newLastUses[channel] = 0;
+                for (let recipe of getRecipesForDepthMultiChannel(info, depth - 1, maxSpacing, filter, channel, key, newLastUses)) {
                     if (recipe[1] + spacing === depth) {
                         recipe[0].unshift(elt);
                         recipe[1] += spacing;
@@ -78,15 +98,18 @@ function _getRecipesForDepth(info: ChannelInfo, depth: number, filter: string[],
     return out;
 }
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, filter: string[], maxSpacing?: number, prev?: [number, string]): [[number, number][], number][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev?: [number, string]): [[number, number][], number, string][] {
     if (info.channels.length === 1) {
-        return _getRecipesForDepth(info, depth, filter, maxSpacing, undefined, '');
+        return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
     } else if (prev) {
-        return _getRecipesForDepth(info, depth, filter, maxSpacing, prev[0], prev[1]);
+        return getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, prev[0], prev[1], (new Array(info.channels.length)).fill(Infinity));
     } else {
-        let out: [[number, number][], number][] = [];
+        let out: [[number, number][], number, string][] = [];
+        let lastUses = (new Array(info.channels.length)).fill(Infinity);
         for (let channel = 0; channel < info.channels.length; channel++) {
-            for (let recipe of _getRecipesForDepth(info, depth, filter, maxSpacing, channel, `${channel}:-1`)) {
+            let newLastUses = lastUses.slice();
+            newLastUses[channel] = 0;
+            for (let recipe of getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, channel, `${channel}:-1`, newLastUses)) {
                 recipe[0].unshift([-1, channel]);
                 out.push(recipe);
             }
@@ -95,9 +118,10 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, filter: string[], 
     }
 }
 
-export async function searchChannel(type: string, maxThreads: number, depth: number, maxSpacing?: number): Promise<void> {
+/** Performs a restricted-channel search. */
+export async function searchChannel(type: string, maxThreads: number, depth: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
-    let recipes = await getRecipes();
+    let recipes = await loadRecipes();
     let out = recipes.channels[type];
     let done = new Set<string>();
     let filter: string[] = [];
@@ -110,19 +134,12 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
     while (true) {
         let start = performance.now();
         let recipesToCheck: ChannelRecipeData = [];
-        let data = getRecipesForDepth(info, depth, filter, maxSpacing, prev);
+        let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev);
         let heap = process.memoryUsage().heapUsed / 1048576;
         if (heap > 1024) {
             log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
         }
-        for (let [recipe, time] of data) {
-            let key = recipe.map(x => x[0] + ':' + x[1]).join(' ');
-            if (time !== depth) {
-                continue;
-            }
-            if (filter.some(x => key.startsWith(x))) {
-                continue;
-            }
+        for (let [recipe, time, key] of data) {
             if (!done.has(key)) {
                 done.add(key);
                 if (info.forceStart) {
@@ -138,15 +155,16 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
         let recipeCount = recipesToCheck.length;
         log(`Checking ${recipeCount} recipes`);
         let possibleUseful: string;
+        let finished: RecipeData['channels'][string][] = [];
         if (threads === 1) {
-            let data = findChannelResults(info, recipesToCheck, out, undefined, log);
-            possibleUseful = data[0];
-            filter.push(...data[1]);
+            let data = findChannelResults(info, recipesToCheck);
+            finished.push(data[0]);
+            possibleUseful = data[1];
+            filter.push(...data[2]);
         } else {
             possibleUseful = '';
             recipesToCheck.forEach(x => x.p = (x.p as MAPPattern).toApgcode());
             let workers: Worker[] = [];
-            let finished: RecipeData['channels'][string][] = [];
             let finishedCount = 0;
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
@@ -171,50 +189,50 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
             let {promise, resolve} = Promise.withResolvers<void>();
             let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2200);
             await promise;
-            for (let data of finished) {
-                for (let recipe of data.moveRecipes) {
-                    let entry = out.moveRecipes.find(x => x.move === recipe.move);
-                    if (entry === undefined) {
-                        console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        out.moveRecipes.push(recipe);
-                    } else if (entry.time > recipe.time) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        entry.recipe = recipe.recipe;
-                        entry.time = recipe.time;
-                    }
+        }
+        for (let data of finished) {
+            for (let recipe of data.moveRecipes) {
+                let entry = out.moveRecipes.find(x => x.move === recipe.move);
+                if (entry === undefined) {
+                    console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.moveRecipes.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
                 }
-                for (let recipe of data.recipes90Deg) {
-                    let entry = out.recipes90Deg.find(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move);
-                    if (entry === undefined) {
-                        console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        out.recipes90Deg.push(recipe);
-                    } else if (entry.time > recipe.time) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        entry.recipe = recipe.recipe;
-                        entry.time = recipe.time;
-                    }
+            }
+            for (let recipe of data.recipes90Deg) {
+                let entry = out.recipes90Deg.find(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move);
+                if (entry === undefined) {
+                    console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.recipes90Deg.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
                 }
-                for (let recipe of data.recipes0Deg) {
-                    let entry = out.recipes0Deg.find(x => x.lane === recipe.lane && x.move === recipe.move);
-                    if (entry === undefined) {
-                        console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        out.recipes0Deg.push(recipe);
-                    } else if (entry.time > recipe.time) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        entry.recipe = recipe.recipe;
-                        entry.time = recipe.time;
-                    }
+            }
+            for (let recipe of data.recipes0Deg) {
+                let entry = out.recipes0Deg.find(x => x.lane === recipe.lane && x.move === recipe.move);
+                if (entry === undefined) {
+                    console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.recipes0Deg.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
                 }
-                for (let recipe of data.createHandRecipes) {
-                    let entry = out.createHandRecipes.find(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
-                    if (entry === undefined) {
-                        console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        out.createHandRecipes.push(recipe);
-                    } else if (entry.time > recipe.time) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                        entry.recipe = recipe.recipe;
-                        entry.time = recipe.time;
-                    }
+            }
+            for (let recipe of data.createHandRecipes) {
+                let entry = out.createHandRecipes.find(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
+                if (entry === undefined) {
+                    console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.createHandRecipes.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
                 }
             }
         }
@@ -231,3 +249,40 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
         depth++;
     }
 }
+
+
+/** Merges multiple restricted-channel recipes. */
+export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, number][][]): [number, number][] {
+    let recipe = recipes.flat();
+    let out: [number, number][] = [];
+    let lastUses = (new Array(info.channels.length)).fill(Infinity);
+    let prevChannel: number | null = null;
+    for (let i = 0; i < recipe.length; i++) {
+        let [spacing, channel] = recipe[i];
+        if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
+            throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
+        }
+        if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
+            throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
+        }
+        if (channel === -1 && i !== recipe.length - 1 && recipe[i + 1][0] === -1) {
+            i++;
+            channel = recipe[i][1];
+        }
+        for (let j = 0; j < info.channels.length; j++) {
+            lastUses[channel] += spacing;
+        }
+        lastUses[channel] = 0;
+        out.push([spacing, channel]);
+        prevChannel = channel;
+    }
+    return out;
+}
+
+// /** Turns a slow salvo into a restricted-channel synthesis. */
+// export function slowSalvoToChannel(info: c.ChannelInfo, salvo: [number, number][]): [number, number][] {
+//     let out: [number, number][] = [];
+//     for (let lane of salvo) {
+        
+//     }
+// }

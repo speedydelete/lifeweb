@@ -1,11 +1,86 @@
 
 import {MAPPattern, findType} from '../core/index.js';
-import {c, base, StillLife, Spaceship, ChannelInfo, objectsToString, findOutcome, unparseChannelRecipe, RecipeData} from './base.js';
+import {c, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, objectsToString, findOutcome, RecipeData} from './base.js';
 
 
 export type ChannelRecipeData = {recipe: [number, number][], key: string, p: MAPPattern | string, xPos: number, yPos: number, total: number, time: number}[];
 
-export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData, out: RecipeData['channels'][string], parentPort?: (typeof import('node:worker_threads'))['parentPort'], log?: (data: string) => void): [string, string[]] {
+function addObjects(recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, out: RecipeData['channels'][string]): string | undefined {
+    if (move === null) {
+        if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
+            let ship = shipData[0];
+            if (shipData[1] === 'down') {
+                let p = base.loadApgcode(ship.code.slice(ship.code.indexOf('_') + 1));
+                let type = findType(p, parseInt(ship.code.slice(2)) + 1);
+                if (!type.disp) {
+                    return;
+                }
+                let slope = type.disp[1] / type.disp[0];
+                if (slope > 1) {
+                    slope = 1/slope;
+                }
+                if (slope !== c.GLIDER_SLOPE || (type.disp[1] + type.disp[0]) / type.period > (c.GLIDER_DX + c.GLIDER_DY) / c.GLIDER_PERIOD) {
+                    return;
+                }
+            }
+            return `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
+        } else {
+            return;
+        }
+    }
+    if (shipData) {
+        let [ship, dir, timing] = shipData;
+        if (dir === 'up') {
+            return;
+        }
+        if (dir === 'down') {
+            let lane = ship.x - ship.y;
+            let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
+            if (entry === undefined) {
+                out.recipes0Deg.push({recipe, time, lane, timing, move});
+            } else if (entry.time > time) {
+                entry.recipe = recipe;
+                entry.time = time;
+            }
+            return `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
+        } else {
+            let lane = ship.x + ship.y;
+            let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
+            let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
+            if (entry === undefined) {
+                out.recipes90Deg.push({recipe, time, lane, ix, timing, move});
+            } else if (entry.time > time) {
+                entry.recipe = recipe;
+                entry.time = time;
+            }
+            return `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
+        }
+    } else if (hand) {
+        let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
+        if (entry === undefined) {
+            out.createHandRecipes.push({recipe, time, obj: hand, move});
+        } else if (entry.time > time) {
+            entry.recipe = recipe;
+            entry.time = time;
+        }
+        return `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
+    } else {
+        if (move === 0) {
+            return;
+        }
+        let entry = out.moveRecipes.find(x => x.move === move);
+        if (entry === undefined) {
+            out.moveRecipes.push({recipe, time, move});
+        } else if (entry.time > time) {
+            entry.recipe = recipe;
+            entry.time = time;
+        }
+        return `move ${move}: ${strRecipe}\n`;
+    }
+}
+
+export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData, parentPort?: (typeof import('node:worker_threads'))['parentPort']): [RecipeData['channels'][string], string, string[]] {
+    let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []};
     let possibleUseful = '';
     let filter: string[] = [];
     let lastUpdate = performance.now();
@@ -17,9 +92,8 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             if (parentPort) {
                 parentPort.postMessage(done);
                 done = 0;
-            }
-            if (log) {
-                log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
+            } else {
+                console.log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
             }
         }
         done++;
@@ -39,8 +113,8 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         recipe.push([stabilizeTime, -1]);
         time += Math.max(stabilizeTime, info.minSpacing);
         strRecipe += `, ${stabilizeTime}`;
-        let elbow: [StillLife, number] | null = null;
-        let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right'] | null = null;
+        let move: number | null = null;
+        let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null = null;
         let hand: StillLife | null = null;
         let found = false;
         if (result.length === 0) {
@@ -58,9 +132,9 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 if (result.length === 1 && (c.RULE as string) === 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir' && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
                     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
                 }
-                if (!elbow && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
-                    elbow = [obj, spacing];
-                } else if (!hand && (lane > c.MIN_HAND_SPACING || spacing > c.MIN_HAND_SPACING)) {
+                if (move === null && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
+                    move = spacing;
+                } else if (!hand && (lane > info.minHandSpacing || spacing > info.minHandSpacing)) {
                     hand = obj;        
                 } else {
                     found = true;
@@ -75,32 +149,33 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 } else {
                     dir = obj.dir.startsWith('W') ? 'left' : 'right';
                 }
-                shipData = [obj, dir];
+                shipData = [obj, dir, obj.timing/* % c.SLOW_SALVO_PERIOD*/];
                 if (result.length === 1) {
                     possibleUseful += `Creates ${obj.dir} ${obj.code} (${obj.x}, ${obj.y}, lane ${obj.y - obj.x}) and 0 other objects: ${strRecipe}\n`;
                 }
             } else {
-                if (!c.POSSIBLY_USEFUL_FILTER.includes(obj.code)) {
-                    if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
-                        possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
-                    } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                        filter.push(key + ' ');
-                        let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
-                        if (type.disp) {
-                            let lane: number;
-                            if (type.disp[0] === 0) {
-                                lane = obj.y;
-                            } else if (type.disp[1] === 0) {
-                                lane = obj.x;
-                            } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
-                                lane = obj.x - obj.y;
-                            } else {
-                                lane = obj.x + obj.y;
-                            }
-                            possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                if (info.possiblyUsefulFilter && info.possiblyUsefulFilter.includes(obj.code)) {
+                    continue;
+                }
+                if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
+                    possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+                } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
+                    filter.push(key + ' ');
+                    let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
+                    if (type.disp) {
+                        let lane: number;
+                        if (type.disp[0] === 0) {
+                            lane = obj.y;
+                        } else if (type.disp[1] === 0) {
+                            lane = obj.x;
+                        } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
+                            lane = obj.x - obj.y;
                         } else {
-                            possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                            lane = obj.x + obj.y;
                         }
+                        possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                    } else {
+                        possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
                     }
                 }
                 found = true;
@@ -110,93 +185,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         if (found || (shipData && hand)) {
             continue;
         }
-        if (!elbow) {
-            if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
-                let ship = shipData[0];
-                if (shipData[1] === 'down' && parseInt(ship.code.slice(2)) <= c.SPEED_LIMIT) {
-                    continue;
-                }
-                possibleUseful += `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
-            } else {
-                continue;
-            }
-        }
-        if (found || !elbow || (shipData && hand)) {
-            continue;
-        }
-        let move = elbow[1];
-        if (shipData) {
-            let [ship, dir] = shipData;
-            if (dir === 'up') {
-                continue;
-            }
-            if (dir === 'down') {
-                let lane = ship.x - ship.y;
-                let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
-                possibleUseful += `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
-                if (entry === undefined) {
-                    if (!parentPort) {
-                        console.log(`\x1b[92mNew recipe: 0 degree emit ${lane} move ${move}: ${strRecipe}\x1b[0m`);
-                    }
-                    out.recipes0Deg.push({recipe, time, lane, move});
-                } else if (entry.time > time) {
-                    if (!parentPort) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): 0 degree emit ${lane} move ${move}: ${strRecipe}\x1b[0m`);
-                    }
-                    entry.recipe = recipe;
-                    entry.time = time;
-                }
-            } else {
-                let lane = ship.x + ship.y;
-                let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
-                possibleUseful += `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
-                let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
-                if (entry === undefined) {
-                    if (!parentPort) {
-                        console.log(`\x1b[92mNew recipe: 90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\x1b[0m`);
-                    }
-                    out.recipes90Deg.push({recipe, time, lane, ix, move});
-                } else if (entry.time > time) {
-                    if (!parentPort) {
-                        console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): 90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\x1b[0m`);
-                    }
-                    entry.recipe = recipe;
-                    entry.time = time;
-                }
-            }
-        } else if (hand) {
-            let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
-                possibleUseful += `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
-            if (entry === undefined) {
-                if (!parentPort) {
-                    console.log(`\x1b[92mNew recipe: create ${objectsToString([hand])} move ${move}: ${strRecipe}\x1b[0m`);
-                }
-                out.createHandRecipes.push({recipe, time, obj: hand, move});
-            } else if (entry.time > time) {
-                if (!parentPort) {
-                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): create ${objectsToString([hand])} move ${move}: ${strRecipe}\x1b[0m`);
-                }
-                entry.recipe = recipe;
-                entry.time = time;
-            }
-        } else {
-            if (move === 0) {
-                continue;
-            }
-            let entry = out.moveRecipes.find(x => x.move === move);
-            if (entry === undefined) {
-                if (!parentPort) {
-                    console.log(`\x1b[92mNew recipe: move ${move}: ${strRecipe}\x1b[0m`);
-                }
-                out.moveRecipes.push({recipe, time, move});
-            } else if (entry.time > time) {
-                if (!parentPort) {
-                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${time}): move ${move}: ${strRecipe}\x1b[0m`);
-                }
-                entry.recipe = recipe;
-                entry.time = time;
-            }
-        }
+        addObjects(recipe, strRecipe, time, move, shipData, hand, out);
     }
-    return [possibleUseful, filter];
+    return [out, possibleUseful, filter];
 }

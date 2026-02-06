@@ -1,19 +1,17 @@
 
-/* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
+/* An implementation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
 
-import {inspect} from 'node:util';
-import {RuleError, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
+import {RuleError, RuleSymmetry, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS, DataPattern, CoordPattern} from './pattern.js';
 
-
-/** Stores a compiled rule tree data. */
-export type Tree = (number | Tree)[];
 
 /** Associated information for a rule tree. */
 export interface RuleTree {
+    /** The number of states. */
     states: number;
-    /** The weighted HROT neighborhood. */
+    /** The neighborhood, represented as an array of (x, y) pairs. */
     neighborhood: Int8Array;
-    data: Tree;
+    /** The tree data. */
+    data: Uint32Array;
 }
 
 /** A parsed @ RULE rule. */
@@ -379,9 +377,9 @@ function parseJSONLoose(data: string): number[][] {
 
 /** Parses a rule tree. This function is probably broken. */
 function parseTree(data: string): RuleTree {
+    let out: number[] = [];
     let nh: [number, number][] = [];
-    let nodes: Tree[] = [];
-    let states = 0;
+    let states: number | undefined = undefined;
     for (let line of data.split('\n')) {
         if (line.includes('=')) {
             let [cmd, arg] = line.split('=');
@@ -398,24 +396,28 @@ function parseTree(data: string): RuleTree {
                 } else {
                     nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
                 }
+            } else if (cmd === 'num_states' || cmd === 'n_states' || cmd === 'states') {
+                states = parseInt(arg);
             }
         } else {
+            if (states === undefined) {
+                throw new RuleError('No states provided!');
+            }
             let [depth, ...data] = line.split(' ').map(x => parseInt(x));
             if (depth === 1) {
-                let newStates = Math.max(...data);
-                if (newStates > states) {
-                    states = newStates;
-                }
-                nodes.push(data);
+                out.push(...data);
             } else {
-                nodes.push(data.map(x => nodes[x]));
+                out.push(...data.map(x => x * (states as number)));
             }
         }
     }
+    if (states === undefined) {
+        throw new RuleError('No states provided!');
+    }
     return {
-        states: states + 1,
+        states,
         neighborhood: new Int8Array(nh.flat()),
-        data: nodes[nodes.length - 1],
+        data: new Uint32Array(out),
     };
 }
 
@@ -872,18 +874,76 @@ export function atRuleToString(rule: AtRule): string {
 }
 
 
-/** The most general built-in pattern class, can implement any rule, but is probably broken in some way. */
+/** Implements range-1 rule trees. */
+export class R1TreePattern extends DataPattern {
+
+    /** The neighborhood, represented as an array of (x, y) pairs. */
+    nh: Int8Array;
+    /** The rule tree. */
+    tree: Uint32Array;
+    states: number;
+    ruleStr: string;
+    ruleSymmetry: RuleSymmetry;
+    rulePeriod: 1 = 1;
+
+    constructor(height: number, width: number, data: Uint8Array, nh: Int8Array, tree: Uint32Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
+        super(height, width, data);
+        this.nh = nh;
+        this.tree = tree;
+        this.states = states;
+        this.ruleStr = ruleStr;
+        this.ruleSymmetry = ruleSymmetry;
+    }
+
+    runGeneration(): void {
+        // See MAPPattern.prototype.runGeneration for more information on how this works
+
+    }
+
+    copy(): R1TreePattern {
+        let out = new R1TreePattern(this.height, this.width, this.data, this.nh, this.tree, this.states, this.ruleStr, this.ruleSymmetry);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
+    }
+    
+    clearedCopy(): R1TreePattern {
+        return new R1TreePattern(0, 0, new Uint8Array(0), this.nh, this.tree, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
+    copyPart(x: number, y: number, height: number, width: number): R1TreePattern {
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
+            loc += width;
+        }
+        return new R1TreePattern(height, width, data, this.nh, this.tree, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadApgcode(code: string): R1TreePattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new R1TreePattern(height, width, data, this.nh, this.tree, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
+}
+
+
+/** The most general built-in pattern class, can implement any rule. */
 export class TreePattern extends CoordPattern {
     
+    /** The neighborhood, represented as an array of (x, y) pairs. */
     nh: Int8Array;
-    tree: Tree;
+    /** The rule tree. */
+    tree: Uint32Array;
     states: number;
     ruleStr: string;
     ruleSymmetry: 'C1' = 'C1';
     rule: AtRule;
     rulePeriod: 1 = 1;
 
-    constructor(coords: Map<number, number>, nh: Int8Array, tree: Tree, states: number, ruleStr: string, rule: AtRule) {
+    constructor(coords: Map<number, number>, nh: Int8Array, tree: Uint32Array, states: number, ruleStr: string, rule: AtRule) {
         super(coords, Math.max(...nh.map(Math.abs)));
         this.nh = nh;
         this.tree = tree;
@@ -902,15 +962,12 @@ export class TreePattern extends CoordPattern {
         let out = new Map<number, number>();
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
-                let value: Tree | number = this.tree;
+                let index = 0;
                 for (let i = 0; i < this.nh.length; i += 2) {
-                    value = value[this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i + 1])) ?? 0];
-                    if (typeof value === 'number') {
-                        break;
-                    }
+                    index = this.tree[index + (this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i + 1])) ?? 0)];
                 }
-                if (value) {
-                    out.set(x * WIDTH + y, value as number);
+                if (index) {
+                    out.set(x * WIDTH + y, index);
                 }
             }
         }
