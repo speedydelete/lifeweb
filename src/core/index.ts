@@ -7,7 +7,7 @@ import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from '
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
-import {parseAtRule, R1TreePattern, TreePattern} from './ruleloader.js';
+import {parseAtRule, TreePattern} from './ruleloader.js';
 
 export * from './pattern.js';
 export * from './map.js';
@@ -566,7 +566,7 @@ export function getBlackWhiteReversal(rule: string): string {
     } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
         let index = p.ruleStr.lastIndexOf(':');
         return getBlackWhiteReversal(p.ruleStr.slice(0, index)) + p.ruleStr.slice(index);
-    } else if (p instanceof R1TreePattern || p instanceof TreePattern) {
+    } else if (p instanceof TreePattern) {
         throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
     } else if (p instanceof AlternatingPattern) {
         return p.ruleStr.split('|').map(getBlackWhiteReversal).join('|');
