@@ -123,7 +123,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 } else {
                     dir = obj.dir.startsWith('W') ? 'left' : 'right';
                 }
-                shipData = [obj, dir, obj.timing/* % c.SLOW_SALVO_PERIOD*/];
+                shipData = [obj, dir, obj.timing % info.period];
             } else {
                 if (info.possiblyUsefulFilter && info.possiblyUsefulFilter.includes(obj.code)) {
                     continue;

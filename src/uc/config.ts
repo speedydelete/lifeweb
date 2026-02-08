@@ -62,6 +62,8 @@ interface ChannelInfo {
     aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
+    // the period for output gliders (so it can be used to implement period n synthesis)
+    period: number;
     // the minimum spacing between gliders on every combination of channels
     // format is a square 2D array for each channel, it should be mirrored across the diagonal
     // for 0hd, you can just do [[spacing]]
@@ -94,6 +96,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel (90)': {
         aliases: ['sc90'],
         channels: [0],
+        period: 2,
         minSpacings: [[90]],
         minSpacing: 90,
         start: {
@@ -115,6 +118,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel (syringe)': {
         aliases: ['sc78'],
         channels: [0],
+        period: 2,
         minSpacings: [[74]],
         minSpacing: 74,
         excludeSpacings: [[[76, 77]]],
@@ -137,6 +141,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel (61)': {
         aliases: ['sc61'],
         channels: [0],
+        period: 2,
         minSpacings: [[61]],
         minSpacing: 61,
         start: {
@@ -158,6 +163,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel (14)': {
         aliases: ['sc14'],
         channels: [0],
+        period: 2,
         minSpacings: [[14]],
         minSpacing: 14,
         start: {

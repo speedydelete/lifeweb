@@ -92,9 +92,18 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
 }
 
 
-// /** Runs Dijkstra's algorithm. */
-// export function dijkstra(graph: Uint32Array): [number, number[]][] {
+// type Edge = [Vertex, number];
+// type Vertex = true | Edge[];
 
+// /** Runs Dijkstra's algorithm. */
+// export function dijkstra(graph: Vertex[]): [number, number[]][] {
+//     let dists: number[] = [];
+//     let prevs: (undefined | Vertex)[] = [];
+//     for (let i = 0; i < graph.length; i++) {
+//         dists.push(Infinity);
+//         prevs.push(undefined)
+//     }
+//     let queue
 // }
 
 
