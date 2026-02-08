@@ -41,6 +41,31 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
 
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
+    let limit = Math.max(maxSpacing, depth);
+    for (let spacing = info.minSpacing; spacing < limit; spacing++) {
+        if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
+            continue;
+        }
+        let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
+        if (filter.includes(key)) {
+            continue;
+        }
+        let elt: [number, number] = [spacing, 0];
+        if (spacing === depth) {
+            out.push([[elt], spacing, key]);
+        } else if (depth - spacing > info.minSpacing) {
+            for (let recipe of getRecipesForDepthSingleChannel(info, depth - spacing, maxSpacing, filter, key)) {
+                recipe[0].unshift(elt);
+                recipe[1] += spacing;
+                out.push(recipe);
+            }
+        }
+    }
+    return out;
+}
+
+function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
+    let out: [[number, number][], number, string][] = [];
     for (let spacing = info.minSpacing; spacing < maxSpacing; spacing++) {
         if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
             continue;
@@ -50,9 +75,9 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
             continue;
         }
         let elt: [number, number] = [spacing, 0];
-        out.push([[[spacing, 0]], spacing, key]);
+        out.push([[elt], spacing, key]);
         if (depth > 0) {
-            for (let recipe of getRecipesForDepthSingleChannel(info, depth - 1, maxSpacing, filter, key)) {
+            for (let recipe of getRecipesForDepthSingleChannelGliderDepth(info, depth - 1, maxSpacing, filter, key)) {
                 recipe[0].unshift(elt);
                 recipe[1] += spacing;
                 out.push(recipe);
@@ -98,9 +123,13 @@ function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpa
     return out;
 }
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev?: [number, string]): [[number, number][], number, string][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev?: [number, string], gliderDepth: boolean = false): [[number, number][], number, string][] {
     if (info.channels.length === 1) {
-        return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
+        if (gliderDepth) {
+            return getRecipesForDepthSingleChannelGliderDepth(info, depth, maxSpacing, filter, undefined);
+        } else {
+            return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
+        }
     } else if (prev) {
         return getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, prev[0], prev[1], (new Array(info.channels.length)).fill(Infinity));
     } else {
@@ -119,7 +148,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, maxThreads: number, depth: number, maxSpacing: number): Promise<void> {
+export async function searchChannel(type: string, maxThreads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
@@ -130,11 +159,13 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
         let data = info.forceStart[info.forceStart.length - 1];
         prev = [data[1], `${data[0]}:${data[1]}`];
     }
+    let depth = 0;
     let threads = 1;
     while (true) {
+        log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipesToCheck: ChannelRecipeData = [];
-        let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev);
+        let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
         let heap = process.memoryUsage().heapUsed / 1048576;
         if (heap > 1024) {
             log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
@@ -237,13 +268,13 @@ export async function searchChannel(type: string, maxThreads: number, depth: num
             }
         }
         let time = (performance.now() - start) / 1000;
-        log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second), searching depth ${depth + 1}`);
+        log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
-        if (time > 3 && threads < maxThreads) {
-            threads++;
+        if (time > 1 && threads < maxThreads) {
+            threads = Math.min(maxThreads, threads + Math.ceil(time) - 1);
             log(`\x1b[91mIncreasing to ${threads} threads\x1b[0m`);
         }
         depth++;

@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, LETTERS, unparseSlowSalvo, parseChannelRecipe} from './base.js';
+import {c, LETTERS, INFO_ALIASES, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes} from './channel.js';
 
@@ -19,7 +19,7 @@ function normalizeArgs(args: string[]): string[] {
 
 
 const HELP = `
-Usage: ./uc command type [command_options] [flags]
+Usage: ./uc <command> <type> [command_options] [flags]
 
 Search program and utility for universal construction in cellular automata.
 
@@ -33,14 +33,17 @@ The type argument is the construction type, defined in src/uc/config.ts.
 
 Flags:
     -h, --help: Show this help message.
-    -p <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
+    -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
+    -g, --glider-depth: For channel searching, make it so it searches by number of gliders and not recipe length.
 `;
 
 
 let argv = process.argv;
 
 let posArgs: string[] = [];
+
 let threads = 1;
+let gliderDepth = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -48,11 +51,13 @@ for (let i = 2; i < argv.length; i++) {
         if (arg === '-h' || arg === '--help') {
             console.log(HELP);
             process.exit(0);
-        } else if (arg === '-m' || arg === '--monochrome') {
+        } else if (arg === '-t' || arg === '--threads') {
             threads = parseInt(argv[++i]);
             if (Number.isNaN(threads)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
+        } else if (arg === '-g' || arg === '--glider-depth') {
+            gliderDepth = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -68,12 +73,15 @@ if (posArgs.length < 2) {
 let cmd = posArgs[0];
 let type = posArgs[1].toLowerCase();
 let args = posArgs.slice(2);
-if (!(type === 'ss' || type in c.CHANNEL_INFO)) {
+if (type in INFO_ALIASES) {
+    type = INFO_ALIASES[type];
+}
+if (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO)) {
     error(`Invalid construction type: '${type}'`);
 }
 
 if (cmd === 'get') {
-    if (type === 'ss') {
+    if (type in c.SALVO_INFO) {
         let info = c.SALVO_INFO[type];
         let start = info.startObject;
         if (args[0].startsWith('x')) {
@@ -94,14 +102,14 @@ if (cmd === 'get') {
         console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0])[0].toRLE());
     }
 } else if (cmd === 'from') {
-    if (type === 'ss') {
+    if (type in c.SALVO_INFO) {
         let data = (await fs.readFile(process.argv.slice(4).join(' '))).toString();
         let p = parse(data) as MAPPattern;
         let [target, lanes] = patternToSalvo(p);
         console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
     }
 } else if (cmd === 'search') {
-    if (type === 'ss') {
+    if (type in c.SALVO_INFO) {
         args = normalizeArgs(args);
         if (args[0].startsWith('x')) {
             await searchSalvos(type, args[0], parseInt(args[1]));
@@ -109,28 +117,15 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
         }
     } else {
-        let depth = typeof args[1] === 'string' ? parseInt(args[1]) : Infinity;
-        await searchChannel(type, parseInt(args[0]), parseInt(args[1]), depth);
+        await searchChannel(type, threads, parseInt(args[0]));
     }
 } else if (cmd === 'merge') {
-    if (type === 'ss') {
+    if (type in c.SALVO_INFO) {
         throw new Error('Cannot merge slow salvos');
     }
-    // todo: replace with mergeChannelRecipes
-    args = normalizeArgs(args);
     let info = c.CHANNEL_INFO[type];
-    if (info.channels.length === 1) {
-        console.log(args.join(', '));
-    } else {
-        let data = process.argv.slice(4).map(x => parseChannelRecipe(info, x)[0]);
-        let out: [number, number][] = data[0].slice(0, -1);
-        let prev = data[0][data[0].length - 1];
-        for (let x of data.slice(1)) {
-            x[0][0] = Math.max(prev[0], info.minSpacings[prev[1]][x[0][1]]);
-            out.push(...x.slice(0, -1));
-            prev = x[x.length - 1];
-        }
-    }
+    let recipes = args.map(x => parseChannelRecipe(info, x)[0]);
+    console.log(unparseChannelRecipe(info, mergeChannelRecipes(info, ...recipes)));
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
 }

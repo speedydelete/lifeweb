@@ -283,9 +283,7 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
             },
         ],
     },
-}
-
-
+};
 
 
 // don't change this

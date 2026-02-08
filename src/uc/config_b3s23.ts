@@ -15,25 +15,44 @@ const GLIDER_POPULATION_PERIOD = 1;
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 5;
 
+// the spacing (in cells) between a glider and the target
+const GLIDER_TARGET_SPACING = 5;
+
 
 // information for slow salvo synthesis
 
-// the starting object for slow-salvo syntheses
-const START_OBJECT = 'xs4_33';
-// the spacing (in cells) between 2 gliders in a multi-glider slow salvo
-const GLIDER_SPACING = 10;
-// the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 7;
+interface SalvoInfo {
+    // aliases for it, can be used in the cli
+    aliases?: string[];
+    // the starting elbow object
+    startObject: string;
+    // the spacing (in cells) between 2 gliders in a multi-glider salvo
+    gliderSpacing: number;
+    // the period, as in p2 slow salvo
+    period: number;
+    // the valid intermediate objects
+    intermediateObjects: string[];
+    // the limit for the number of lanes to search (during searching)
+    laneLimit: number;
+    // the maximum number of recipes to store for each outcome
+    maxRecipes?: number;
+}
 
-// the period of slow salvos
-const SLOW_SALVO_PERIOD = 2;
-// the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'];
+// you name the construction types whatever you want
 
-// the maximum number of slow salvo recipes to store for each outcome
-const MAX_SS_RECIPES = 5;
-// the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
-const LANE_LIMIT = 128;
+const SALVO_INFO: {[key: string]: SalvoInfo} = {
+
+    'Slow salvo': {
+        aliases: ['ss'],
+        startObject: 'xs4_33',
+        gliderSpacing: 10,
+        period: 2,
+        intermediateObjects: ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
+        laneLimit: 128,
+        maxRecipes: 5,
+    },
+
+};
 
 
 // information about restricted-channel synthesis methods
@@ -71,11 +90,12 @@ interface ChannelInfo {
 // you name the construction types whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-    'Single-channel': {
-        aliases: ['sc', '0hd'],
+
+    'Single-channel (90)': {
+        aliases: ['sc90'],
         channels: [0],
-        minSpacings: [[43]],
-        minSpacing: 43,
+        minSpacings: [[90]],
+        minSpacing: 90,
         start: {
             apgcode: '33',
             lane: 9,
@@ -91,6 +111,71 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         minHandSpacing: 8,
     },
+
+    'Single-channel (syringe)': {
+        aliases: ['sc78'],
+        channels: [0],
+        minSpacings: [[74]],
+        minSpacing: 74,
+        excludeSpacings: [[[76, 77]]],
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
+    'Single-channel (61)': {
+        aliases: ['sc61'],
+        channels: [0],
+        minSpacings: [[61]],
+        minSpacing: 61,
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
+    'Single-channel (14)': {
+        aliases: ['sc14'],
+        channels: [0],
+        minSpacings: [[14]],
+        minSpacing: 14,
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
 };
 
 
@@ -198,11 +283,9 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
             },
         ],
     },
-}
-
-
+};
 
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, MAX_SS_RECIPES, LANE_LIMIT, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};

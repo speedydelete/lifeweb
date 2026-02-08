@@ -72,11 +72,21 @@ for (let i = 1; i < c.GLIDER_PERIOD; i++) {
     gliderPatterns.push(p.copy());
 }
 
-for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
-    c.CHANNEL_INFO[key.toLowerCase()] = value;
+
+export const INFO_ALIASES: {[key: string]: string} = {};
+
+for (let [key, value] of Object.entries(c.SALVO_INFO)) {
     if (value.aliases) {
         for (let alias of value.aliases) {
-            c.CHANNEL_INFO[alias.toLowerCase()] = value;
+            INFO_ALIASES[alias.toLowerCase()] = key;
+        }
+    }
+}
+
+for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
+    if (value.aliases) {
+        for (let alias of value.aliases) {
+            INFO_ALIASES[alias.toLowerCase()] = key;
         }
     }
 }
@@ -399,9 +409,12 @@ function parseRecipeSections(data: string[]): [string, string[]][] {
 
 function addSection(section: string, current: string[], recipeData: RecipeData): void {
     let type = '';
-    while (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO)) {
+    while (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO) && section.length > 0) {
         type += section[0];
-        section.slice(1);
+        section = section.slice(1);
+    }
+    if (section.length === 0) {
+        throw new Error(`Invalid section: '${section}'`);
     }
     section = section.slice(1);
     if (type in c.SALVO_INFO) {
@@ -458,31 +471,27 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let info = c.CHANNEL_INFO[type];
         let out = recipeData.channels[type];
         if (section === 'move recipes') {
-            let type = section.slice(0, section.indexOf(' '));
             for (let line of current) {
                 let [amount, recipeStr] = line.split(': ');
-                let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], recipeStr)
+                let [recipe, time] = parseChannelRecipe(info, recipeStr)
                 out.moveRecipes.push({recipe, time, move: parseInt(amount)});
             }
         } else if (section === '90-degree recipes') {
-            let type = section.slice(0, section.indexOf(' '));
             for (let line of current) {
                 let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], data.slice(4).join(' '));
+                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
                 out.recipes90Deg.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3]), move: parseInt(data[5])});
             }
         } else if (section === '0-degree recipes') {
-            let type = section.slice(0, section.indexOf(' '));
             for (let line of current) {
                 let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], data.slice(4).join(' '));
+                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
                 out.recipes0Deg.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3]), move: parseInt(data[5])});
             }
         } else if (section === 'hand creation recipes') {
-            let type = section.slice(0, section.indexOf(' '));
             for (let line of current) {
                 let [data, recipeStr] = line.split(': ');
-                let [recipe, time] = parseChannelRecipe(c.CHANNEL_INFO[type], recipeStr);
+                let [recipe, time] = parseChannelRecipe(info, recipeStr);
                 let index = data.indexOf(')');
                 let sl = stringToObjects(data.slice(0, index + 1))[0] as StillLife;
                 let move = parseInt(data.slice(index + 2 + 'move '.length));
