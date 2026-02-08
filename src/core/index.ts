@@ -257,7 +257,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
             if (line[0] !== 'x') {
                 data += line;
             } else {
-                let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))/);
+                let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))?/);
                 if (!match) {
                     throw new Error(`Invaid header line: '${line}'`);
                 }
