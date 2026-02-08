@@ -495,8 +495,8 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 let [recipe, time] = parseChannelRecipe(info, data.slice(6).join(' '));
                 out.recipes0Deg.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3]), move: parseInt(data[5])});
             }
-        } else if (section.startsWith('destroy recipe')) {
-            let [recipe, time] = parseChannelRecipe(info, section.slice('destroy recipe: '.length));
+        } else if (section === 'destroy recipe') {
+            let [recipe, time] = parseChannelRecipe(info, current[0]);
             out.destroyRecipe = {recipe, time};
         } else if (section === '90-degree and destroy recipes') {
             for (let line of current) {
@@ -627,7 +627,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         }
         out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         if (value.destroyRecipe) {
-            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
+            out += `\n${key} destroy recipe:\n${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
         }
         let groups3: {[key: string]: RecipeData['channels'][string]['recipes90DegDestroy']} = {};
         for (let recipe of value.recipes90DegDestroy) {
