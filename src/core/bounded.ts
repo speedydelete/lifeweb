@@ -116,6 +116,11 @@ export class FiniteDataPattern extends DataPattern {
         return new FiniteDataPattern(height, width, data, this.pattern, this.bbHeight, this.bbWidth);
     }
 
+    loadRLE(rle: string): FiniteDataPattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new FiniteDataPattern(height, width, data, this.pattern, this.bbHeight, this.bbWidth);
+    }
+
 }
 
 
@@ -186,6 +191,10 @@ export class FiniteCoordPattern extends CoordPattern {
 
     loadApgcode(code: string): FiniteCoordPattern {
         return new FiniteCoordPattern(this._loadApgcode(code), this.range, this.pattern, this.bbHeight, this.bbWidth);
+    }
+
+    loadRLE(code: string): FiniteCoordPattern {
+        return new FiniteCoordPattern(this._loadRLE(code), this.range, this.pattern, this.bbHeight, this.bbWidth);
     }
 
 }
@@ -283,6 +292,11 @@ export class TorusDataPattern extends DataPattern {
 
     loadApgcode(code: string): TorusDataPattern {
         let [height, width, data] = this._loadApgcode(code);
+        return new TorusDataPattern(height, width, data, this.pattern);
+    }
+
+    loadRLE(rle: string): TorusDataPattern {
+        let [height, width, data] = this._loadRLE(rle);
         return new TorusDataPattern(height, width, data, this.pattern);
     }
 
@@ -407,5 +421,10 @@ export class TorusCoordPattern extends CoordPattern {
     loadApgcode(code: string): TorusCoordPattern {
         return new TorusCoordPattern(this._loadApgcode(code), this.range, this.pattern, this.torusHeight, this.torusWidth);
     }
+
+    loadRLE(rle: string): TorusCoordPattern {
+        return new TorusCoordPattern(this._loadRLE(rle), this.range, this.pattern, this.torusHeight, this.torusWidth);
+    }
+
 
 }

@@ -455,6 +455,8 @@ export interface Pattern {
     toRLE(): string;
     /** Loads an apgcode and returns a new pattern running the same rule. */
     loadApgcode(code: string): Pattern;
+    /** Loads a RLE and returns a new pattern running the same rule. */
+    loadRLE(data: string): Pattern;
 }
 
 
@@ -1278,6 +1280,82 @@ export abstract class DataPattern implements Pattern {
 
     abstract loadApgcode(code: string): DataPattern;
 
+    _loadRLE(rle: string): [number, number, Uint8Array] {
+        let out: number[][] = [];
+        let currentLine: number[] = [];
+        let num = '';
+        let prefix = '';
+        for (let i = 0; i < rle.length; i++) {
+            let char = rle[i];
+            if (char === 'b' || char === 'o') {
+                let value = char === 'o' ? 1 : 0;
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('0123456789'.includes(char)) {
+                num += char;
+            } else if (char === '\u0024') {
+                out.push(currentLine);
+                currentLine = [];
+                if (num !== '') {
+                    let count = parseInt(num);
+                    for (let i = 1; i < count; i++) {
+                        out.push([]);
+                    }
+                    num = '';
+                }
+            } else if (char === '.') {
+                if (num === '') {
+                    currentLine.push(0);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(0);
+                    }
+                    num = '';
+                }
+            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
+                if (prefix) {
+                    char = prefix + char;
+                }
+                let value = RLE_CHARS.indexOf(char);
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('pqrstuvwxy'.includes(char)) {
+                prefix = char;
+            }
+        }
+        out.push(currentLine);
+        let height = out.length;
+        let width = Math.max(...out.map(x => x.length));
+        let data = new Uint8Array(height * width);
+        for (let y = 0; y < out.length; y++) {
+            let i = y * width;
+            let line = out[y];
+            for (let x = 0; x < line.length; x++) {
+                data[i] = line[x];
+                i++;
+            }
+        }
+        return [height, width, data];
+    }
+
+    abstract loadRLE(code: string): DataPattern;
+
+
 }
 
 
@@ -1949,5 +2027,80 @@ export abstract class CoordPattern implements Pattern {
     }
 
     abstract loadApgcode(code: string): CoordPattern;
+
+    _loadRLE(rle: string): Map<number, number> {
+        let out: number[][] = [];
+        let currentLine: number[] = [];
+        let num = '';
+        let prefix = '';
+        for (let i = 0; i < rle.length; i++) {
+            let char = rle[i];
+            if (char === 'b' || char === 'o') {
+                let value = char === 'o' ? 1 : 0;
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('0123456789'.includes(char)) {
+                num += char;
+            } else if (char === '\u0024') {
+                out.push(currentLine);
+                currentLine = [];
+                if (num !== '') {
+                    let count = parseInt(num);
+                    for (let i = 1; i < count; i++) {
+                        out.push([]);
+                    }
+                    num = '';
+                }
+            } else if (char === '.') {
+                if (num === '') {
+                    currentLine.push(0);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(0);
+                    }
+                    num = '';
+                }
+            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
+                if (prefix) {
+                    char = prefix + char;
+                }
+                let value = RLE_CHARS.indexOf(char);
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = parseInt(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('pqrstuvwxy'.includes(char)) {
+                prefix = char;
+            }
+        }
+        out.push(currentLine);
+        let height = out.length;
+        let width = Math.max(...out.map(x => x.length));
+        let coords = new Map<number, number>();
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let value = out[y][x];
+                if (value) {
+                    coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                }
+            }
+        }
+        return coords;
+    }
+
+    abstract loadRLE(code: string): CoordPattern;
 
 }

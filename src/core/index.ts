@@ -267,76 +267,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
             }
         }
     }
-    let raw: number[][] = [];
-    let currentLine: number[] = [];
-    let num = '';
-    let prefix = '';
-    for (let i = 0; i < data.length; i++) {
-        let char = data[i];
-        if (char === 'b' || char === 'o') {
-            let value = char === 'o' ? 1 : 0;
-            if (num === '') {
-                currentLine.push(value);
-            } else {
-                let count = parseInt(num);
-                for (let i = 0; i < count; i++) {
-                    currentLine.push(value);
-                }
-                num = '';
-            }
-        } else if ('0123456789'.includes(char)) {
-            num += char;
-        } else if (char === '\u0024') {
-            raw.push(currentLine);
-            currentLine = [];
-            if (num !== '') {
-                let count = parseInt(num);
-                for (let i = 1; i < count; i++) {
-                    raw.push([]);
-                }
-                num = '';
-            }
-        } else if (char === '.') {
-            if (num === '') {
-                currentLine.push(0);
-            } else {
-                let count = parseInt(num);
-                for (let i = 0; i < count; i++) {
-                    currentLine.push(0);
-                }
-                num = '';
-            }
-        } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
-            if (prefix) {
-                char = prefix + char;
-            }
-            let value = RLE_CHARS.indexOf(char);
-            if (num === '') {
-                currentLine.push(value);
-            } else {
-                let count = parseInt(num);
-                for (let i = 0; i < count; i++) {
-                    currentLine.push(value);
-                }
-                num = '';
-            }
-        } else if ('pqrstuvwxy'.includes(char)) {
-            prefix = char;
-        }
-    }
-    raw.push(currentLine);
-    let height = raw.length;
-    let width = Math.max(...raw.map(x => x.length));
-    let pData = new Uint8Array(height * width);
-    for (let y = 0; y < raw.length; y++) {
-        let i = y * width;
-        let line = raw[y];
-        for (let x = 0; x < line.length; x++) {
-            pData[i] = line[x];
-            i++;
-        }
-    }
-    let out = createPattern(rule, namedRules, height, width, pData, undefined);
+    let out = createPattern(rule, namedRules).loadRLE(data);
     if (xOffset !== null) {
         out.xOffset = xOffset;
     }

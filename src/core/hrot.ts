@@ -419,6 +419,10 @@ export class HROTPattern extends CoordPattern {
         return new HROTPattern(this._loadApgcode(code), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
+    loadRLE(rle: string): HROTPattern {
+        return new HROTPattern(this._loadRLE(rle), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
 }
 
 
@@ -548,6 +552,10 @@ export class HROTB0Pattern extends CoordPattern {
 
     loadApgcode(code: string): HROTB0Pattern {
         return new HROTB0Pattern(this._loadApgcode(code), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadRLE(rle: string): HROTB0Pattern {
+        return new HROTB0Pattern(this._loadRLE(rle), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
 }

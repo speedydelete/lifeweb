@@ -946,4 +946,8 @@ export class TreePattern extends CoordPattern {
         return new TreePattern(this._loadApgcode(code), this.nh, this.tree, this.states, this.ruleStr, this.rule);
     }
 
+    loadRLE(rle: string): TreePattern {
+        return new TreePattern(this._loadRLE(rle), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+    }
+
 }

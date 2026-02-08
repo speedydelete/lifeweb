@@ -909,6 +909,11 @@ export class MAPPattern extends DataPattern {
         return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
     }
 
+    loadRLE(rle: string): MAPPattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+    }
+
 }
 
 
@@ -1226,6 +1231,11 @@ export class MAPB0Pattern extends DataPattern {
 
     loadApgcode(code: string): MAPB0Pattern {
         let [height, width, data] = this._loadApgcode(code);
+        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadRLE(rle: string): MAPB0Pattern {
+        let [height, width, data] = this._loadRLE(rle);
         return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
     }
 
@@ -1610,6 +1620,11 @@ export class MAPGenPattern extends DataPattern {
 
     loadApgcode(code: string): MAPGenPattern {
         let [height, width, data] = this._loadApgcode(code);
+        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
+    loadRLE(rle: string): MAPGenPattern {
+        let [height, width, data] = this._loadRLE(rle);
         return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
@@ -2002,6 +2017,11 @@ export class MAPGenB0Pattern extends DataPattern {
 
     loadApgcode(code: string): MAPGenB0Pattern {
         let [height, width, data] = this._loadApgcode(code);
+        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+    
+    loadRLE(rle: string): MAPGenB0Pattern {
+        let [height, width, data] = this._loadRLE(rle);
         return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
     }
 

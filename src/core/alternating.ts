@@ -69,4 +69,9 @@ export class AlternatingPattern extends DataPattern {
         return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
     }
 
+    loadRLE(rle: string): AlternatingPattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+    }
+
 }

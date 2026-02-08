@@ -131,6 +131,11 @@ export class DataHistoryPattern extends DataPattern {
         return new DataHistoryPattern(height, width, data, this.pattern);
     }
 
+    loadRLE(rle: string): DataHistoryPattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new DataHistoryPattern(height, width, data, this.pattern);
+    }
+
 }
 
 
@@ -260,6 +265,10 @@ export class CoordHistoryPattern extends CoordPattern {
 
     loadApgcode(code: string): CoordHistoryPattern {
         return new CoordHistoryPattern(this._loadApgcode(code), this.range, this.pattern);
+    }
+
+    loadRLE(rle: string): CoordHistoryPattern {
+        return new CoordHistoryPattern(this._loadRLE(rle), this.range, this.pattern);
     }
 
 }
@@ -497,6 +506,11 @@ export class DataSuperPattern extends DataPattern {
         return new DataSuperPattern(height, width, data, this.pattern);
     }
 
+    loadRLE(rle: string): DataSuperPattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new DataSuperPattern(height, width, data, this.pattern);
+    }
+
 }
 
 
@@ -673,13 +687,13 @@ export class CoordSuperPattern extends CoordPattern {
         this.generation++;
     }
 
-    copy(): CoordHistoryPattern {
-        let out = new CoordHistoryPattern(new Map(this.coords), this.range, this.pattern);
+    copy(): CoordSuperPattern {
+        let out = new CoordSuperPattern(new Map(this.coords), this.range, this.pattern);
         out.generation = this.generation;
         return out;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): CoordHistoryPattern {
+    copyPart(x: number, y: number, height: number, width: number): CoordSuperPattern {
         let out = new Map<number, number>();
         for (let [key, value] of this.coords) {
             let px = Math.floor(key / WIDTH) - BIAS;
@@ -688,17 +702,21 @@ export class CoordSuperPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new CoordHistoryPattern(out, this.range, this.pattern);
+        let p = new CoordSuperPattern(out, this.range, this.pattern);
         p.generation = this.generation;
         return p;
     }
 
-    clearedCopy(): CoordHistoryPattern {
-        return new CoordHistoryPattern(new Map(), this.range, this.pattern);
+    clearedCopy(): CoordSuperPattern {
+        return new CoordSuperPattern(new Map(), this.range, this.pattern);
     }
 
-    loadApgcode(code: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadApgcode(code), this.range, this.pattern);
+    loadApgcode(code: string): CoordSuperPattern {
+        return new CoordSuperPattern(this._loadApgcode(code), this.range, this.pattern);
+    }
+
+    loadRLE(rle: string): CoordSuperPattern {
+        return new CoordSuperPattern(this._loadRLE(rle), this.range, this.pattern);
     }
 
 }
@@ -969,6 +987,11 @@ export class InvestigatorPattern extends DataPattern {
 
     loadApgcode(code: string): InvestigatorPattern {
         let [height, width, data] = this._loadApgcode(code);
+        return new InvestigatorPattern(height, width, data, this.pattern);
+    }
+
+    loadRLE(rle: string): InvestigatorPattern {
+        let [height, width, data] = this._loadRLE(rle);
         return new InvestigatorPattern(height, width, data, this.pattern);
     }
 
