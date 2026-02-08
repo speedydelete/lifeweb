@@ -108,7 +108,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                 }
                 if (move === null && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
                     move = spacing;
-                } else if (!hand && (lane > info.minHandSpacing || spacing > info.minHandSpacing)) {
+                } else if (!hand && (Math.abs(lane) > info.minHandSpacing || (move && (spacing - move) > info.minHandSpacing))) {
                     hand = obj;        
                 } else {
                     found = true;
