@@ -13,24 +13,13 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
                 return `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
             } else if (dir === 'down') {
                 let lane = ship.x - ship.y;
-                let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
-                if (entry === undefined) {
-                    out.recipes0DegDestroy.push({recipe, time, lane, timing});
-                } else if (entry.time > time) {
-                    entry.recipe = recipe;
-                    entry.time = time;
-                }
+                out.recipes0DegDestroy.push({recipe, time, lane, timing});
                 return `0 degree emit ${lane} destroy: ${strRecipe}\n`;
             } else {
                 let lane = ship.x + ship.y;
                 let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
                 let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
-                if (entry === undefined) {
-                    out.recipes90DegDestroy.push({recipe, time, lane, ix, timing});
-                } else if (entry.time > time) {
-                    entry.recipe = recipe;
-                    entry.time = time;
-                }
+                out.recipes90DegDestroy.push({recipe, time, lane, ix, timing});
                 return `90 degree emit ${lane}${ix} destroy: ${strRecipe}\n`;
             }
         } else {
@@ -44,46 +33,22 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
         }
         if (dir === 'down') {
             let lane = ship.x - ship.y;
-            let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
-            if (entry === undefined) {
-                out.recipes0Deg.push({recipe, time, lane, timing, move});
-            } else if (entry.time > time) {
-                entry.recipe = recipe;
-                entry.time = time;
-            }
+            out.recipes0Deg.push({recipe, time, lane, timing, move});
             return `0 degree emit ${lane} move ${move}: ${strRecipe}\n`;
         } else {
             let lane = ship.x + ship.y;
             let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
-            let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
-            if (entry === undefined) {
-                out.recipes90Deg.push({recipe, time, lane, ix, timing, move});
-            } else if (entry.time > time) {
-                entry.recipe = recipe;
-                entry.time = time;
-            }
+            out.recipes90Deg.push({recipe, time, lane, ix, timing, move});
             return `90 degree emit ${lane}${ix} move ${move}: ${strRecipe}\n`;
         }
     } else if (hand) {
-        let entry = out.createHandRecipes.find(x => x.obj.code === hand.code && x.obj.x === hand.x && x.obj.y === hand.y && x.move === move);
-        if (entry === undefined) {
-            out.createHandRecipes.push({recipe, time, obj: hand, move});
-        } else if (entry.time > time) {
-            entry.recipe = recipe;
-            entry.time = time;
-        }
+        out.createHandRecipes.push({recipe, time, obj: hand, move});
         return `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
     } else {
         if (move === 0) {
             return;
         }
-        let entry = out.moveRecipes.find(x => x.move === move);
-        if (entry === undefined) {
-            out.moveRecipes.push({recipe, time, move});
-        } else if (entry.time > time) {
-            entry.recipe = recipe;
-            entry.time = time;
-        }
+        out.moveRecipes.push({recipe, time, move});
         return `move ${move}: ${strRecipe}\n`;
     }
 }
@@ -111,7 +76,7 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             p = base.loadApgcode(p).shrinkToFit();
         }
         let strRecipe = unparseChannelRecipe(info, recipe);
-        let [result, stabilizeTime] = findOutcome(p, xPos, yPos, strRecipe, Math.max(total / c.GLIDER_DY, 0));
+        let result = findOutcome(p, xPos, yPos, strRecipe, Math.max(total / c.GLIDER_DY, 0));
         if (result === false) {
             continue;
         }
@@ -119,9 +84,6 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
             possibleUseful += `Linear growth: ${strRecipe}\n`;
             continue;
         }
-        recipe.push([stabilizeTime, -1]);
-        time += Math.max(stabilizeTime, info.minSpacing);
-        strRecipe += `, ${stabilizeTime}`;
         let move: number | null = null;
         let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null = null;
         let hand: StillLife | null = null;

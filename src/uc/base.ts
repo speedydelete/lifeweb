@@ -949,23 +949,16 @@ function stabilize(p: MAPPattern, minGens?: number): number | 'linear' | null {
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string, minGens?: number): [false | 'linear' | CAObject[], number] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string, minGens?: number): false | 'linear' | CAObject[] {
     p.generation = 0;
     let period = stabilize(p, minGens);
     if (period === 'linear') {
-        return ['linear', p.generation];
+        return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        return [false, p.generation];
+        return false;
     }
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
-    let stabilizeTime = p.generation - (period + 1) * c.PERIOD_SECURITY - 1;
-    if (minGens) {
-        stabilizeTime -= minGens;
-        if (stabilizeTime < 0) {
-            stabilizeTime = 0;
-        }
-    }
-    return [separateObjects(p, period * 8, period * 8, input), stabilizeTime];
+    return separateObjects(p, period * 8, period * 8, input);
 }
