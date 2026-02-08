@@ -637,7 +637,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         }
         out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : a.lane - b.lane) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         if (value.destroyRecipe) {
-            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}`;
+            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
         }
         let groups4: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
         for (let recipe of value.recipes0Deg) {
