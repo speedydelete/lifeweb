@@ -498,13 +498,13 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         } else if (section.startsWith('destroy recipe')) {
             let [recipe, time] = parseChannelRecipe(info, section.slice('destroy recipe: '.length));
             out.destroyRecipe = {recipe, time};
-        } else if (section === '90-degree destroy recipes') {
+        } else if (section === '90-degree and destroy recipes') {
             for (let line of current) {
                 let data = line.split(' ');
                 let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
                 out.recipes90DegDestroy.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3])});
             }
-        } else if (section === '0-degree destroy recipes') {
+        } else if (section === '0-degree and destroy recipes') {
             for (let line of current) {
                 let data = line.split(' ');
                 let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
