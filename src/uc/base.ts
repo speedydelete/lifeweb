@@ -639,15 +639,15 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             }
         }
         out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups3).sort(([a], [b]) => a.ix === b.ix ? a.lane - b.lane : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        let groups4: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
-        for (let recipe of value.recipes0Deg) {
+        let groups4: {[key: number]: RecipeData['channels'][string]['recipes0DegDestroy']} = {};
+        for (let recipe of value.recipes0DegDestroy) {
             if (recipe.lane in groups4) {
                 groups4[recipe.lane].push(recipe);
             } else {
                 groups4[recipe.lane] = [recipe];
             }
         }
-        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         let groups5: {[key: string]: RecipeData['channels'][string]['createHandRecipes']} = {};
         for (let recipe of value.createHandRecipes) {
             let key = objectsToString([recipe.obj]);
