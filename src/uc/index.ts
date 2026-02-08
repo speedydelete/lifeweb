@@ -29,25 +29,30 @@ Subcommands:
     search: Perform a search for recipes.
     merge: Merge two restricted-channel recipes.
 
-The type argument is the construction type. The 'ss' construction type is always supported.
+The type argument is the construction type, defined in src/uc/config.ts.
 
 Flags:
     -h, --help: Show this help message.
-    -m, --monochrome: Use monochrome slow salvos.
+    -p <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
 `;
 
 
-let posArgs: string[] = [];
-let monochrome = false;
+let argv = process.argv;
 
-for (let i = 2; i < process.argv.length; i++) {
-    let arg = process.argv[i];
+let posArgs: string[] = [];
+let threads = 1;
+
+for (let i = 2; i < argv.length; i++) {
+    let arg = argv[i];
     if (arg.startsWith('-')) {
         if (arg === '-h' || arg === '--help') {
             console.log(HELP);
             process.exit(0);
         } else if (arg === '-m' || arg === '--monochrome') {
-            monochrome = true;
+            threads = parseInt(argv[++i]);
+            if (Number.isNaN(threads)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
