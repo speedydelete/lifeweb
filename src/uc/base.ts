@@ -849,6 +849,7 @@ function stabilize(p: MAPPattern, minGens?: number): number | 'linear' | null {
     let pops: number[] = [p.population];
     for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
+        p.shrinkToFit();
         let pop = p.population;
         if (minGens && i < minGens) {
             pops.push(pop);

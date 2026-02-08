@@ -91,8 +91,72 @@ interface ChannelInfo {
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
-    'Single-channel': {
-        aliases: ['sc', '0hd'],
+    'Single-channel (90)': {
+        aliases: ['sc90'],
+        channels: [0],
+        minSpacings: [[90]],
+        minSpacing: 90,
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
+    'Single-channel (syringe)': {
+        aliases: ['sc78'],
+        channels: [0],
+        minSpacings: [[74]],
+        minSpacing: 74,
+        excludeSpacings: [[[76, 77]]],
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
+    'Single-channel (61)': {
+        aliases: ['sc61'],
+        channels: [0],
+        minSpacings: [[61]],
+        minSpacing: 61,
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 5,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 8,
+    },
+
+    'Single-channel (14)': {
+        aliases: ['sc14'],
         channels: [0],
         minSpacings: [[14]],
         minSpacing: 14,
