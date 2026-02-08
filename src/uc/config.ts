@@ -1,12 +1,10 @@
 
 // basic information
 
-const RULE = 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir';
+const RULE = 'B3/S23';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
-// this part is an array of [height, width, array of [x, y] coordinates] for each phase
-// should be facing southeast for diagonals or south for orthogonals
-const GLIDER_APGCODE = 'xq4_15';
+const GLIDER_APGCODE = 'xq4_153';
 const GLIDER_DX = 1;
 // this one should be greater than or equal to GLIDER_DX
 const GLIDER_DY = 1;
@@ -15,63 +13,11 @@ const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 1;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 6;
+const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
 const GLIDER_TARGET_SPACING = 5;
 
-// the ones with F after them are flipped, so you can e.g. have loafers of 2 different directions in a single-channel loafer synthesis recipe, this doesn't matter for symmetric ships
-// for diagonals, only use NW, NE, SW, and SE (with F perhaps at the end)
-// for orthogonals, only use N, E, S, and W (with F perhaps at the end)
-// for obliques, only use NW, NE, SW, SE, N, E, S, and W
-type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W' | 'NWF' | 'NEF' | 'SWF' | 'SEF' | 'NF' | 'EF' | 'SF' | 'WF';
-// // uncomment the right one
-// type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
-// // type GliderDirection = 'N' | 'E' | 'S' | 'W';
-// // type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
-// // type GliderDirection = 'N' | 'E' | 'S' | 'W' | 'N2' | 'E2' | 'S2' | 'W2';
-// // type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
-
-
-// // you now define a list of construction types
-// // you can name them whatever you want
-// // types can either be slow or fast
-
-// // these are shared by both slow and fast types
-// // the type argument is the valid directions a ship can come from
-// interface BaseInfo<T extends GliderDirection[] = []> {
-//     // aliases for it, can be used in the cli
-//     aliases?: string[];
-//     // the directions that gliders can come from
-//     directions: ShipDirection[];
-//     // the starting elbow object
-//     startObject: string;
-//     // the spacing (in cells) between the first glider and the target
-//     gliderTargetSpacing: number;
-//     // restrictions on usable lanes in different directions
-//     laneRestrictions?: {[K in ShipDirection]?: {
-//         // only these lanes are allowed
-//         only?: number[];
-//         // these lanes aren't allowed
-//         exclude?: number[];
-//     }};
-// }
-
-// // these are only for slow types
-// interface SlowInfo extends BaseInfo {
-//     slow: true;
-//     // the period that the timings can be controlled at (per-direction)
-//     period: {[K in ShipDirection]?: number};
-//     // the spacing between gliders (used during recipe pattern creation)
-//     gliderSpacing: number;
-// }
-
-// // these are only for fast types
-// interface FastInfo extends BaseInfo {
-//     slow: false;
-// }
-
-// type Info = SlowInfo | FastInfo;
 
 // information for slow salvo synthesis
 
@@ -98,17 +44,18 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
         aliases: ['ss'],
-        startObject: 'xs2_11',
+        startObject: 'xs4_33',
         gliderSpacing: 10,
-        period: 1,
-        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23', 'xs4_36', 'xs4_63', 'xs4_231', 'xs4_132', 'xs5_174', 'xs5_471', 'xs5_623', 'xs5_326', 'xs5_136', 'xs5_631', 'xs5_463', 'xs5_364', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs7_69a4', 'xs6_25a4', 'xs6_4a52'],
+        period: 2,
+        intermediateObjects: ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
         laneLimit: 128,
         maxRecipes: 5,
     },
 
 };
 
-// information for restricted-channel synthesis methods
+
+// information about restricted-channel synthesis methods
 
 interface ChannelInfo {
     // aliases for it, can be used in the cli
@@ -143,34 +90,35 @@ interface ChannelInfo {
 // you name the construction types whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-
     'Single-channel': {
         aliases: ['sc', '0hd'],
         channels: [0],
-        minSpacings: [[20]],
-        minSpacing: 20,
+        minSpacings: [[43]],
+        minSpacing: 43,
         start: {
-            apgcode: '11',
+            apgcode: '33',
             lane: 9,
             spacing: 5,
         },
         elbows: {
-            xs2_11: [0],
-            xs2_3: [-7],
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
         },
         minHandSpacing: 8,
-        possiblyUsefulFilter: ['xq4_152', 'xq4_259'],
     },
-
 };
 
 
 // information for how searches proceed
 
 // the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
-const WAIT_GENERATIONS = 20;
+const WAIT_GENERATIONS = 192;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 512;
+const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
@@ -181,6 +129,10 @@ const MAX_PSEUDO_DISTANCE = 6;
 
 
 // information for spaceship identification
+
+// don't change this
+// the ones with 2 after them are flipped
+type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W' | 'NW2' | 'NE2' | 'SW2' | 'SE2' | 'N2' | 'E2' | 'S2' | 'W2';
 
 /*
 ok this is how this part works:
@@ -235,44 +187,39 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_15: {
-        height: 2,
+    xq4_153: {
+        height: 3,
         width: 3,
-        cells: [2, 3, 4],
+        cells: [1, 5, 6, 7, 8],
         data: [
             {
                 height: 3,
-                width: 2,
-                population: 3,
-                data: [
-                    [[1, 2, 4], 'NW', 2],
-                    [[0, 1, 4], 'NW', 1],
-                    [[0, 3, 5], 'NE', 0],
-                    [[0, 1, 5], 'NE', 3],
-                    [[0, 2, 5], 'SW', 0],
-                    [[0, 4, 5], 'SW', 3],
-                    [[1, 3, 4], 'SE', 2],
-                    [[1, 4, 5], 'SE', 1],
-                ],
-            },
-            {
-                height: 2,
                 width: 3,
-                population: 3,
+                population: 5,
                 data: [
-                    [[1, 2, 3], 'NW', 0],
-                    [[0, 2, 3], 'NW', 3],
-                    [[0, 1, 5], 'NE', 2],
-                    [[0, 2, 5], 'NE', 1],
-                    [[0, 4, 5], 'SW', 2],
-                    [[0, 3, 5], 'SW', 1],
-                    [[2, 3, 4], 'SE', 0],
-                    [[2, 3, 5], 'SE', 3],
+                    [[0, 1, 2, 3, 7], 'NW', 0],
+                    [[1, 3, 4, 6, 8], 'NW', 3],
+                    [[0, 1, 3, 5, 6], 'NW', 2],
+                    [[1, 2, 3, 4, 8], 'NW', 1],
+                    [[1, 2, 3, 5, 8], 'NE', 0],
+                    [[0, 1, 4, 5, 6], 'NE', 3],
+                    [[0, 1, 2, 5, 7], 'NE', 2],
+                    [[1, 4, 5, 6, 8], 'NE', 1],
+                    [[0, 3, 5, 6, 7], 'SW', 0],
+                    [[2, 3, 4, 7, 8], 'SW', 3],
+                    [[1, 3, 6, 7, 8], 'SW', 2],
+                    [[0, 2, 3, 4, 7], 'SW', 1],
+                    [[1, 5, 6, 7, 8], 'SE', 0],
+                    [[0, 2, 4, 5, 7], 'SE', 3],
+                    [[2, 3, 5, 7, 8], 'SE', 2],
+                    [[0, 4, 5, 6, 7], 'SE', 1],
                 ],
             },
         ],
     },
 }
+
+
 
 
 // don't change this
