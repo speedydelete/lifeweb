@@ -94,8 +94,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel': {
         aliases: ['sc', '0hd'],
         channels: [0],
-        minSpacings: [[61]],
-        minSpacing: 61,
+        minSpacings: [[41]],
+        minSpacing: 41,
         start: {
             apgcode: '33',
             lane: 9,
