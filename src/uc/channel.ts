@@ -223,7 +223,8 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         }
         for (let data of finished) {
             for (let recipe of data.moveRecipes) {
-                let entry = out.moveRecipes.find(x => x.move === recipe.move);
+                let index = out.moveRecipes.findIndex(x => x.move === recipe.move);
+                let entry = out.moveRecipes[index];
                 if (entry === undefined) {
                     console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     out.moveRecipes.push(recipe);
@@ -231,10 +232,13 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
+                    out.moveRecipes.splice(index, 1);
+                    out.moveRecipes.push(recipe);
                 }
             }
             for (let recipe of data.recipes90Deg) {
-                let entry = out.recipes90Deg.find(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move);
+                let index = out.recipes90Deg.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move);
+                let entry = out.recipes90Deg[index];
                 if (entry === undefined) {
                     console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     out.recipes90Deg.push(recipe);
@@ -242,10 +246,13 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
+                    out.recipes90Deg.splice(index, 1);
+                    out.recipes90Deg.push(recipe);
                 }
             }
             for (let recipe of data.recipes0Deg) {
-                let entry = out.recipes0Deg.find(x => x.lane === recipe.lane && x.move === recipe.move);
+                let index = out.recipes0Deg.findIndex(x => x.lane === recipe.lane && x.move === recipe.move);
+                let entry = out.recipes0Deg[index];
                 if (entry === undefined) {
                     console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     out.recipes0Deg.push(recipe);
@@ -253,17 +260,8 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
-                }
-            }
-            for (let recipe of data.createHandRecipes) {
-                let entry = out.createHandRecipes.find(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
-                if (entry === undefined) {
-                    console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.createHandRecipes.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
+                    out.recipes0Deg.splice(index, 1);
+                    out.recipes0Deg.push(recipe);
                 }
             }
             if (data.destroyRecipe) {
@@ -276,7 +274,8 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                 }
             }
             for (let recipe of data.recipes90DegDestroy) {
-                let entry = out.recipes90DegDestroy.find(x => x.lane === recipe.lane && x.ix === recipe.ix);
+                let index = out.recipes90DegDestroy.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix);
+                let entry = out.recipes90DegDestroy[index];
                 if (entry === undefined) {
                     console.log(`\x1b[94mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     out.recipes90DegDestroy.push(recipe);
@@ -284,10 +283,13 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
+                    out.recipes90DegDestroy.splice(index, 1);
+                    out.recipes90DegDestroy.push(recipe);
                 }
             }
             for (let recipe of data.recipes0DegDestroy) {
-                let entry = out.recipes0DegDestroy.find(x => x.lane === recipe.lane);
+                let index = out.recipes0DegDestroy.findIndex(x => x.lane === recipe.lane);
+                let entry = out.recipes0DegDestroy[index];
                 if (entry === undefined) {
                     console.log(`\x1b[94mNew recipe: 0 degree emit ${recipe.lane} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     out.recipes0DegDestroy.push(recipe);
@@ -295,6 +297,22 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
+                    out.recipes0DegDestroy.splice(index, 1);
+                    out.recipes0DegDestroy.push(recipe);
+                }
+            }
+            for (let recipe of data.createHandRecipes) {
+                let index = out.createHandRecipes.findIndex(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
+                let entry = out.createHandRecipes[index];
+                if (entry === undefined) {
+                    console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.createHandRecipes.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
+                    out.createHandRecipes.splice(index, 1);
+                    out.createHandRecipes.push(recipe);
                 }
             }
         }

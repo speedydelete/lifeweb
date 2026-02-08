@@ -117,7 +117,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
         }
     } else {
-        await searchChannel(type, threads, parseInt(args[0]));
+        await searchChannel(type, threads, parseInt(args[0]), gliderDepth);
     }
 } else if (cmd === 'merge') {
     if (type in c.SALVO_INFO) {

@@ -380,10 +380,10 @@ export interface RecipeData {
         moveRecipes: {recipe: [number, number][], time: number, move: number}[];
         recipes90Deg: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number, move: number}[];
         recipes0Deg: {recipe: [number, number][], time: number, lane: number, timing: number, move: number}[];
-        createHandRecipes: {recipe: [number, number][], time: number, obj: StillLife, move: number}[];
         destroyRecipe?: {recipe: [number, number][], time: number};
         recipes90DegDestroy: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number}[];
         recipes0DegDestroy: {recipe: [number, number][], time: number, lane: number, timing: number}[];
+        createHandRecipes: {recipe: [number, number][], time: number, obj: StillLife, move: number}[];
     }};
 }
 
@@ -486,14 +486,29 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         } else if (section === '90-degree recipes') {
             for (let line of current) {
                 let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
+                let [recipe, time] = parseChannelRecipe(info, data.slice(6).join(' '));
                 out.recipes90Deg.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3]), move: parseInt(data[5])});
             }
         } else if (section === '0-degree recipes') {
             for (let line of current) {
                 let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
+                let [recipe, time] = parseChannelRecipe(info, data.slice(6).join(' '));
                 out.recipes0Deg.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3]), move: parseInt(data[5])});
+            }
+        } else if (section.startsWith('destroy recipe')) {
+            let [recipe, time] = parseChannelRecipe(info, section.slice('destroy recipe: '.length));
+            out.destroyRecipe = {recipe, time};
+        } else if (section === '90-degree destroy recipes') {
+            for (let line of current) {
+                let data = line.split(' ');
+                let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
+                out.recipes90DegDestroy.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3])});
+            }
+        } else if (section === '0-degree destroy recipes') {
+            for (let line of current) {
+                let data = line.split(' ');
+                let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
+                out.recipes0DegDestroy.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3])});
             }
         } else if (section === 'hand creation recipes') {
             for (let line of current) {
@@ -503,21 +518,6 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 let sl = stringToObjects(data.slice(0, index + 1))[0] as StillLife;
                 let move = parseInt(data.slice(index + 2 + 'move '.length));
                 out.createHandRecipes.push({recipe, time, obj: sl, move});
-            }
-        } else if (section.startsWith('destroy recipe')) {
-            let [recipe, time] = parseChannelRecipe(info, section.slice('destroy recipe: '.length));
-            out.destroyRecipe = {recipe, time};
-        } else if (section === '90-degree destroy recipes') {
-            for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
-                out.recipes90DegDestroy.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3])});
-            }
-        } else if (section === '0-degree destroy recipes') {
-            for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
-                out.recipes0DegDestroy.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3])});
             }
         } else {
             console.log(`\x1b[91mWarning: Unrecognized section: '${originalSection}'\x1b[0m`);
@@ -626,19 +626,19 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             }
         }
         out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        let groups3: {[key: string]: RecipeData['channels'][string]['createHandRecipes']} = {};
-        for (let recipe of value.createHandRecipes) {
-            let key = objectsToString([recipe.obj]);
+        if (value.destroyRecipe) {
+            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
+        }
+        let groups3: {[key: string]: RecipeData['channels'][string]['recipes90DegDestroy']} = {};
+        for (let recipe of value.recipes90DegDestroy) {
+            let key = recipe.lane + recipe.ix;
             if (key in groups3) {
                 groups3[key].push(recipe);
             } else {
                 groups3[key] = [recipe];
             }
         }
-        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : a.lane - b.lane) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        if (value.destroyRecipe) {
-            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
-        }
+        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups3).sort(([a], [b]) => a.ix === b.ix ? a.lane - b.lane : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         let groups4: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
         for (let recipe of value.recipes0Deg) {
             if (recipe.lane in groups4) {
