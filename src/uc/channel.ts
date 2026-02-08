@@ -322,7 +322,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
-        if (time > 1 && threads < maxThreads) {
+        if (time > (gliderDepth ? 1 : 3) && threads < maxThreads) {
             threads = Math.min(maxThreads, threads + Math.ceil(time) - 1);
             log(`\x1b[91mIncreasing to ${threads} threads\x1b[0m`);
         }
