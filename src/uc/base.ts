@@ -381,6 +381,9 @@ export interface RecipeData {
         recipes90Deg: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number, move: number}[];
         recipes0Deg: {recipe: [number, number][], time: number, lane: number, timing: number, move: number}[];
         createHandRecipes: {recipe: [number, number][], time: number, obj: StillLife, move: number}[];
+        destroyRecipe?: {recipe: [number, number][], time: number};
+        recipes90DegDestroy: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number}[];
+        recipes0DegDestroy: {recipe: [number, number][], time: number, lane: number, timing: number}[];
     }};
 }
 
@@ -409,12 +412,14 @@ function parseRecipeSections(data: string[]): [string, string[]][] {
 
 function addSection(section: string, current: string[], recipeData: RecipeData): void {
     let type = '';
+    let originalSection = section;
     while (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO) && section.length > 0) {
         type += section[0];
         section = section.slice(1);
     }
     if (section.length === 0) {
-        throw new Error(`Invalid section: '${section}'`);
+        console.log(`\x1b[91mWarning: Invalid section: '${originalSection}'\x1b[0m`);
+        return;
     }
     section = section.slice(1);
     if (type in c.SALVO_INFO) {
@@ -466,6 +471,8 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 let objs = stringToObjects(output);
                 out.elbowRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, objs[0] as StillLife, objs[1] as Spaceship, data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
+        } else {
+            console.log(`\x1b[91mWarning: Unrecognized section: '${originalSection}'\x1b[0m`);
         }
     } else {
         let info = c.CHANNEL_INFO[type];
@@ -497,17 +504,32 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 let move = parseInt(data.slice(index + 2 + 'move '.length));
                 out.createHandRecipes.push({recipe, time, obj: sl, move});
             }
+        } else if (section.startsWith('destroy recipe')) {
+            let [recipe, time] = parseChannelRecipe(info, section.slice('destroy recipe: '.length));
+            out.destroyRecipe = {recipe, time};
+        } else if (section === '90-degree destroy recipes') {
+            for (let line of current) {
+                let data = line.split(' ');
+                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
+                out.recipes90DegDestroy.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3])});
+            }
+        } else if (section === '0-degree destroy recipes') {
+            for (let line of current) {
+                let data = line.split(' ');
+                let [recipe, time] = parseChannelRecipe(info, data.slice(4).join(' '));
+                out.recipes0DegDestroy.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3])});
+            }
+        } else {
+            console.log(`\x1b[91mWarning: Unrecognized section: '${originalSection}'\x1b[0m`);
         }
     }
-
-    
 }
 
 /** Gets and parses the recipe file. */
 export async function loadRecipes(): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: [], recipes90DegDestroy: [], recipes0DegDestroy: []}])),
     };
     if (!exists(recipeFile)) {
         return out;
@@ -613,7 +635,29 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 groups3[key] = [recipe];
             }
         }
-        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups3).sort((a, b) => objectSorter(a[0].obj, b[0].obj)).map(recipes => recipes.map(x => `${objectsToString([x.obj])} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : a.lane - b.lane) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        if (value.destroyRecipe) {
+            out += `\n${key} destroy recipe: ${unparseChannelRecipe(info, value.destroyRecipe.recipe)}`;
+        }
+        let groups4: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
+        for (let recipe of value.recipes0Deg) {
+            if (recipe.lane in groups4) {
+                groups4[recipe.lane].push(recipe);
+            } else {
+                groups4[recipe.lane] = [recipe];
+            }
+        }
+        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        let groups5: {[key: string]: RecipeData['channels'][string]['createHandRecipes']} = {};
+        for (let recipe of value.createHandRecipes) {
+            let key = objectsToString([recipe.obj]);
+            if (key in groups5) {
+                groups5[key].push(recipe);
+            } else {
+                groups5[key] = [recipe];
+            }
+        }
+        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups5).sort((a, b) => objectSorter(a[0].obj, b[0].obj)).map(recipes => recipes.map(x => `${objectsToString([x.obj])} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
     }
     await fs.writeFile(recipeFile, out.slice(0, -1));
 }

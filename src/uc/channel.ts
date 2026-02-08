@@ -184,7 +184,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             }
         }
         let recipeCount = recipesToCheck.length;
-        log(`Checking ${recipeCount} recipes`);
+        log(`Got ${recipeCount} recipes (took ${((performance.now() - start) / 1000).toFixed(3)} seconds)`);
         let possibleUseful: string;
         let finished: RecipeData['channels'][string][] = [];
         if (threads === 1) {
@@ -262,6 +262,37 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     out.createHandRecipes.push(recipe);
                 } else if (entry.time > recipe.time) {
                     console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
+                }
+            }
+            if (data.destroyRecipe) {
+                if (!out.destroyRecipe) {
+                    out.destroyRecipe = data.destroyRecipe;
+                    console.log(`\x1b[94mNew recipe: destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
+                } else if (data.destroyRecipe.time < out.destroyRecipe.time) {
+                    out.destroyRecipe = data.destroyRecipe;
+                    console.log(`\x1b[94mImproved recipe (${out.destroyRecipe.time} to ${data.destroyRecipe.time}): destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
+                }
+            }
+            for (let recipe of data.recipes90DegDestroy) {
+                let entry = out.recipes90DegDestroy.find(x => x.lane === recipe.lane && x.ix === recipe.ix);
+                if (entry === undefined) {
+                    console.log(`\x1b[94mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.recipes90DegDestroy.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    entry.recipe = recipe.recipe;
+                    entry.time = recipe.time;
+                }
+            }
+            for (let recipe of data.recipes0DegDestroy) {
+                let entry = out.recipes0DegDestroy.find(x => x.lane === recipe.lane);
+                if (entry === undefined) {
+                    console.log(`\x1b[94mNew recipe: 0 degree emit ${recipe.lane} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+                    out.recipes0DegDestroy.push(recipe);
+                } else if (entry.time > recipe.time) {
+                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
                     entry.recipe = recipe.recipe;
                     entry.time = recipe.time;
                 }

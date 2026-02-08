@@ -7,23 +7,32 @@ export type ChannelRecipeData = {recipe: [number, number][], key: string, p: MAP
 
 function addObjects(recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, out: RecipeData['channels'][string]): string | undefined {
     if (move === null) {
-        if (shipData && (shipData[1] === 'up' || shipData[1] === 'down')) {
-            let ship = shipData[0];
-            if (shipData[1] === 'down') {
-                let p = base.loadApgcode(ship.code.slice(ship.code.indexOf('_') + 1));
-                let type = findType(p, parseInt(ship.code.slice(2)) + 1);
-                if (!type.disp) {
-                    return;
+        if (shipData) {
+            let [ship, dir, timing] = shipData;
+            if (dir === 'up') {
+                return `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
+            } else if (dir === 'down') {
+                let lane = ship.x - ship.y;
+                let entry = out.recipes0Deg.find(x => x.lane === lane && x.move === move);
+                if (entry === undefined) {
+                    out.recipes0DegDestroy.push({recipe, time, lane, timing});
+                } else if (entry.time > time) {
+                    entry.recipe = recipe;
+                    entry.time = time;
                 }
-                let slope = type.disp[1] / type.disp[0];
-                if (slope > 1) {
-                    slope = 1/slope;
+                return `0 degree emit ${lane} destroy: ${strRecipe}\n`;
+            } else {
+                let lane = ship.x + ship.y;
+                let ix: 'i' | 'x' = dir === 'right' ? 'x' : 'i';
+                let entry = out.recipes90Deg.find(x => x.lane === lane && x.ix === ix && x.move === move);
+                if (entry === undefined) {
+                    out.recipes90DegDestroy.push({recipe, time, lane, ix, timing});
+                } else if (entry.time > time) {
+                    entry.recipe = recipe;
+                    entry.time = time;
                 }
-                if (slope !== c.GLIDER_SLOPE || (type.disp[1] + type.disp[0]) / type.period > (c.GLIDER_DX + c.GLIDER_DY) / c.GLIDER_PERIOD) {
-                    return;
-                }
+                return `90 degree emit ${lane}${ix} destroy: ${strRecipe}\n`;
             }
-            return `${ship.code} ${ship.dir} lane ${ship.x - ship.y}: ${strRecipe}\n`;
         } else {
             return;
         }
@@ -80,7 +89,7 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
 }
 
 export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData, parentPort?: (typeof import('node:worker_threads'))['parentPort']): [RecipeData['channels'][string], string, string[]] {
-    let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: []};
+    let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let filter: string[] = [];
     let lastUpdate = performance.now();
@@ -118,8 +127,11 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
         let hand: StillLife | null = null;
         let found = false;
         if (result.length === 0) {
-            possibleUseful += `Destroy: ${strRecipe}\n`;
             filter.push(key + ' ');
+            if (!out.destroyRecipe || out.destroyRecipe.time > time) {
+                possibleUseful += `Destroy: ${strRecipe}\n`;
+                out.destroyRecipe = {recipe, time};
+            }
         }
         if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
             filter.push(key + ' ');
@@ -150,9 +162,6 @@ export function findChannelResults(info: ChannelInfo, recipes: ChannelRecipeData
                     dir = obj.dir.startsWith('W') ? 'left' : 'right';
                 }
                 shipData = [obj, dir, obj.timing/* % c.SLOW_SALVO_PERIOD*/];
-                if (result.length === 1) {
-                    possibleUseful += `Creates ${obj.dir} ${obj.code} (${obj.x}, ${obj.y}, lane ${obj.y - obj.x}) and 0 other objects: ${strRecipe}\n`;
-                }
             } else {
                 if (info.possiblyUsefulFilter && info.possiblyUsefulFilter.includes(obj.code)) {
                     continue;
