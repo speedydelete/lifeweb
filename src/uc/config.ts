@@ -90,6 +90,7 @@ interface ChannelInfo {
 // you name the construction types whatever you want
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
+
     'Single-channel': {
         aliases: ['sc', '0hd'],
         channels: [0],
@@ -110,6 +111,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         minHandSpacing: 8,
     },
+
 };
 
 
