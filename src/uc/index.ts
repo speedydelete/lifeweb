@@ -1,19 +1,14 @@
 
-import * as fs from 'node:fs/promises';
+import * as fs from 'node:fs';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, LETTERS, INFO_ALIASES, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe} from './base.js';
+import {c, LETTERS, INFO_ALIASES, parseSlowSalvo, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {createChannelPattern, searchChannel, mergeChannelRecipes} from './channel.js';
+import {createChannelPattern, searchChannel, mergeChannelRecipes, slowSalvoToChannel90Deg, slowSalvoToChannel0Deg} from './channel.js';
 
 
 function error(msg: string): never {
     console.error(msg);
     process.exit(1);
-}
-
-
-function normalizeArgs(args: string[]): string[] {
-    return args.join(' ').split(/[, ]/).map(x => x.trim()).filter(x => x);
 }
 
 
@@ -24,10 +19,12 @@ Usage: ./uc <command> <type> [command_options] [flags]
 Search program and utility for universal construction in cellular automata.
 
 Subcommands:
-    get: Turns a list of lanes/timing gaps into a RLE.
-    from: Turns a RLE into a list of lanes/timing gaps.
-    search: Perform a search for recipes.
-    merge: Merge two restricted-channel recipes.
+    get <type> <recipe>: Turns a list of lanes/timing gaps into a RLE.
+    from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
+    search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
+    convert_90 <type> <new_type> <ix> <depth> <recipe>: Convert a recipe using a 90-degree elbow.
+    convert_0 <type> <new_type> <recipe>: Convert a recipe using a 0-degree elbow.
+    merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -35,6 +32,10 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -g, --glider-depth: For channel searching, make it so it searches by number of gliders and not recipe length.
+    --force-end-elbow <pos>: For convert, force an ending elbow position.
+    --destroy-elbow: For convert, destroy the elbow.
+    --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
+    --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
 `;
 
 
@@ -44,6 +45,9 @@ let posArgs: string[] = [];
 
 let threads = 1;
 let gliderDepth = false;
+let forceEndElbow: number | false | undefined = undefined;
+let minElbow: number | undefined = undefined;
+let maxElbow: number | undefined = undefined;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -58,6 +62,23 @@ for (let i = 2; i < argv.length; i++) {
             }
         } else if (arg === '-g' || arg === '--glider-depth') {
             gliderDepth = true;
+        } else if (arg === '--force-end-elbow') {
+            forceEndElbow = parseInt(argv[++i]);
+            if (Number.isNaN(forceEndElbow)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
+        } else if (arg === '--destroy-elbow') {
+            forceEndElbow = false;
+        } else if (arg === '--min-elbow') {
+            minElbow = parseInt(argv[++i]);
+            if (Number.isNaN(minElbow)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
+        } else if (arg === '--max-elbow') {
+            maxElbow = parseInt(argv[++i]);
+            if (Number.isNaN(maxElbow)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -89,35 +110,61 @@ if (cmd === 'get') {
             args = args.slice(1);
         }
         start = start.slice(start.indexOf('_') + 1);
-        console.log(createSalvoPattern(info, start, args.map<[number, number]>(x => {
-            if (info.period === 1) {
-                return [parseInt(x), 0];
-            } else if (info.period === 2) {
-                return [parseInt(x.slice(0, -1)), x[x.length - 1] === 'o' ? 1 : 0];
-            } else {
-                return [parseInt(x.slice(0, -1)), LETTERS.indexOf(x[x.length - 1])];
-            }
-        }))[0].toRLE());
+        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' ')))[0].toRLE());
     } else {
         console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0])[0].toRLE());
     }
 } else if (cmd === 'from') {
+    let data = fs.readFileSync(args[0]).toString();
+    let p = parse(data) as MAPPattern;
     if (type in c.SALVO_INFO) {
-        let data = (await fs.readFile(process.argv.slice(4).join(' '))).toString();
-        let p = parse(data) as MAPPattern;
+        let [target, lanes] = patternToSalvo(p);
+        console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
+    } else {
         let [target, lanes] = patternToSalvo(p);
         console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
     }
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
-        args = normalizeArgs(args);
         if (args[0].startsWith('x')) {
-            await searchSalvos(type, args[0], parseInt(args[1]));
+            searchSalvos(type, args[0], parseInt(args[1]));
         } else {
-            await searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
+            searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
         }
     } else {
-        await searchChannel(type, threads, parseInt(args[0]), gliderDepth);
+        searchChannel(type, threads, parseInt(args[0]), gliderDepth);
+    }
+} else if (cmd === 'convert_90') {
+    if (type in c.CHANNEL_INFO) {
+        error(`Cannot convert from restricted-channel`);
+    }
+    let newType = args[0];
+    if (newType in c.SALVO_INFO) {
+        error(`Cannot convert to slow salvos`);
+    } else if (newType in c.CHANNEL_INFO) {
+        // @ts-ignore
+        let recipes = await loadRecipes();
+        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(3).join(' '));
+        let out = slowSalvoToChannel90Deg(newType, recipes, salvo, args[1] as 'i' | 'x', parseInt(args[2]), forceEndElbow);
+        console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
+    } else {
+        error(`Invalid construction type: '${newType}'`)
+    }
+} else if (cmd === 'convert_0') {
+    if (type in c.CHANNEL_INFO) {
+        error(`Cannot convert from restricted-channel`);
+    }
+    let newType = args[0];
+    if (newType in c.SALVO_INFO) {
+        error(`Cannot convert to slow salvos`);
+    } else if (newType in c.CHANNEL_INFO) {
+        // @ts-ignore
+        let recipes = await loadRecipes();
+        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(3).join(' '));
+        let out = slowSalvoToChannel0Deg(newType, recipes, salvo, minElbow, maxElbow, forceEndElbow);
+        console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
+    } else {
+        error(`Invalid construction type: '${newType}'`)
     }
 } else if (cmd === 'merge') {
     if (type in c.SALVO_INFO) {

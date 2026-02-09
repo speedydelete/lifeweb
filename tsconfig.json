@@ -10,5 +10,5 @@
         "sourceMap": true,
         "declaration": true
     },
-    "files": ["./src/index.ts", "./src/tflsearch.ts", "./src/apgweb.ts", "./src/syntheses.ts", "./src/uc/index.ts", "./src/uc/channel_worker.ts"]
+    "files": ["./src/index.ts", "./src/tflsearch.ts", "./src/apgweb.ts", "./src/syntheses.ts", "./src/uc/index.ts"]
 }

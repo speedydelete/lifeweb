@@ -92,19 +92,66 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
 }
 
 
-// type Edge = [Vertex, number];
-// type Vertex = true | Edge[];
+export type Edge<T extends any> = [number, number, T];
+export type Vertex<T extends any> = Edge<T>[];
 
-// /** Runs Dijkstra's algorithm. */
-// export function dijkstra(graph: Vertex[]): [number, number[]][] {
-//     let dists: number[] = [];
-//     let prevs: (undefined | Vertex)[] = [];
-//     for (let i = 0; i < graph.length; i++) {
-//         dists.push(Infinity);
-//         prevs.push(undefined)
-//     }
-//     let queue
-// }
+/** Runs Dijkstra's algorithm. */
+export function dijkstra<T extends any>(graph: Vertex<T>[], target: number): [number, number][] {
+    let dists: number[] = [];
+    let prevs: (undefined | [number, number])[] = [];
+    let queue: number[] = [];
+    for (let i = 0; i < graph.length; i++) {
+        dists.push(Infinity);
+        prevs.push(undefined);
+        if (graph[i].length > 0) {
+            queue.push(i);
+        }
+    }
+    dists[0] = 0;
+    let found = false;
+    while (queue.length > 0) {
+        let vertex = queue[0];
+        let dist = dists[0];
+        for (let i = 1; i < queue.length; i++) {
+            let newVertex = queue[i];
+            let newDist = dists[newVertex];
+            if (newDist < dist) {
+                vertex = newVertex;
+                dist = newDist;
+            }
+        }
+        queue.splice(vertex, 1);
+        if (vertex === target) {
+            found = true;
+            break;
+        }
+        for (let i = 0; i < graph[vertex].length; i++) {
+            let edge = graph[vertex][i];
+            let newDist = dist + edge[1];
+            if (newDist < dists[edge[0]]) {
+                dists[edge[0]] = newDist;
+                prevs[edge[0]] = [vertex, i];
+            }
+        }
+    }
+    if (found) {
+        let out: [number, number][] = [];
+        let prev = prevs[target];
+        if (!prev) {
+            throw new Error('Missing prev for vertex!');
+        }
+        while (prev[0] !== 0) {
+            out.push(prev);
+            prev = prevs[prev[0]];
+            if (!prev) {
+                throw new Error('Missing prev for vertex!');
+            }
+        }
+        return out.reverse();
+    } else {
+        throw new Error('Dijkstra failed!');
+    }
+}
 
 
 export const LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';

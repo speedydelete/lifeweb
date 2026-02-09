@@ -2,8 +2,8 @@
 import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, log, base, gliderPatterns, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
-import {ChannelRecipeData, findChannelResults} from './channel_searcher.js';
+import {c, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -38,115 +38,6 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
 }
 
-
-function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
-    let out: [[number, number][], number, string][] = [];
-    let limit = Math.max(maxSpacing, depth);
-    for (let spacing = info.minSpacing; spacing < limit; spacing++) {
-        if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
-            continue;
-        }
-        let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        if (filter.includes(key)) {
-            continue;
-        }
-        let elt: [number, number] = [spacing, 0];
-        if (spacing === depth) {
-            out.push([[elt], spacing, key]);
-        } else if (depth - spacing > info.minSpacing) {
-            for (let recipe of getRecipesForDepthSingleChannel(info, depth - spacing, maxSpacing, filter, key)) {
-                recipe[0].unshift(elt);
-                recipe[1] += spacing;
-                out.push(recipe);
-            }
-        }
-    }
-    return out;
-}
-
-function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
-    let out: [[number, number][], number, string][] = [];
-    for (let spacing = info.minSpacing; spacing < maxSpacing; spacing++) {
-        if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
-            continue;
-        }
-        let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        if (filter.includes(key)) {
-            continue;
-        }
-        let elt: [number, number] = [spacing, 0];
-        out.push([[elt], spacing, key]);
-        if (depth > 0) {
-            for (let recipe of getRecipesForDepthSingleChannelGliderDepth(info, depth - 1, maxSpacing, filter, key)) {
-                recipe[0].unshift(elt);
-                recipe[1] += spacing;
-                out.push(recipe);
-            }
-        }
-    }
-    return out;
-}
-
-function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev: number | undefined, prevKey: string | undefined, lastUses: number[]): [[number, number][], number, string][] {
-    let out: [[number, number][], number, string][] = [];
-    for (let channel = 0; channel < info.channels.length; channel++) {
-        let start: number;
-        if (prev === undefined) {
-            start = info.minSpacing;
-        } else {
-            start = info.minSpacings[prev][channel];
-        }
-        start = Math.max(start, info.minSpacings[channel][channel] - lastUses[channel]);
-        for (let spacing = start; spacing <= maxSpacing; spacing++) {
-            if (prev && info.excludeSpacings && info.excludeSpacings[prev][channel].includes(spacing)) {
-                continue;
-            }
-            let key = prevKey === undefined ? `${spacing}:${channel}` : prevKey + ` ${spacing}:${channel}`;
-            if (filter.includes(key)) {
-                continue;
-            }
-            let elt: [number, number] = [spacing, channel];
-            out.push([[elt], spacing, key]);
-            if (depth > 0) {
-                let newLastUses = lastUses.map(x => x + spacing);
-                newLastUses[channel] = 0;
-                for (let recipe of getRecipesForDepthMultiChannel(info, depth - 1, maxSpacing, filter, channel, key, newLastUses)) {
-                    if (recipe[1] + spacing === depth) {
-                        recipe[0].unshift(elt);
-                        recipe[1] += spacing;
-                        out.push(recipe);
-                    }
-                }
-            }
-        }
-    }
-    return out;
-}
-
-function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev?: [number, string], gliderDepth: boolean = false): [[number, number][], number, string][] {
-    if (info.channels.length === 1) {
-        if (gliderDepth) {
-            return getRecipesForDepthSingleChannelGliderDepth(info, depth, maxSpacing, filter, undefined);
-        } else {
-            return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
-        }
-    } else if (prev) {
-        return getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, prev[0], prev[1], (new Array(info.channels.length)).fill(Infinity));
-    } else {
-        let out: [[number, number][], number, string][] = [];
-        let lastUses = (new Array(info.channels.length)).fill(Infinity);
-        for (let channel = 0; channel < info.channels.length; channel++) {
-            let newLastUses = lastUses.slice();
-            newLastUses[channel] = 0;
-            for (let recipe of getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, channel, `${channel}:-1`, newLastUses)) {
-                recipe[0].unshift([-1, channel]);
-                out.push(recipe);
-            }
-        }
-        return out;
-    }
-}
-
 /** Performs a restricted-channel search. */
 export async function searchChannel(type: string, maxThreads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
     let info = c.CHANNEL_INFO[type];
@@ -164,64 +55,60 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
     while (true) {
         log(`Searching depth ${depth}`);
         let start = performance.now();
-        let recipesToCheck: ChannelRecipeData = [];
-        let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
-        let heap = process.memoryUsage().heapUsed / 1048576;
-        if (heap > 1024) {
-            log(`\x1b[91m${Math.round(heap)} MiB of memory currently in use\x1b[0m`);
-        }
-        for (let [recipe, time, key] of data) {
-            if (!done.has(key)) {
-                done.add(key);
-                if (info.forceStart) {
-                    recipe.unshift(...info.forceStart);
-                    time += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
-                }
-                let data = createChannelPattern(info, recipe);
-                if (data) {
-                    recipesToCheck.push({recipe, key, p: data[0], xPos: data[1], yPos: data[2], total: data[3], time});
+        let recipeCount = 0;
+        let finished: ReturnType<typeof findChannelResults>[] = [];
+        if (threads === 1 || depth < 2) {
+            let data = findChannelResults(info, depth, maxSpacing, filter, done, undefined, prev, gliderDepth);
+            finished.push(data);
+            recipeCount = data.recipeCount;
+        } else {
+            let starts: [number, number][] = [];
+            for (let a = info.minSpacing; a < maxSpacing; a++) {
+                for (let b = info.minSpacing; b < maxSpacing; b++) {
+                    starts.push([a, b]);
                 }
             }
-        }
-        let recipeCount = recipesToCheck.length;
-        log(`Got ${recipeCount} recipes (took ${((performance.now() - start) / 1000).toFixed(3)} seconds)`);
-        let possibleUseful: string;
-        let finished: RecipeData['channels'][string][] = [];
-        if (threads === 1) {
-            let data = findChannelResults(info, recipesToCheck);
-            finished.push(data[0]);
-            possibleUseful = data[1];
-            filter.push(...data[2]);
-        } else {
-            possibleUseful = '';
-            recipesToCheck.forEach(x => x.p = (x.p as MAPPattern).toApgcode());
             let workers: Worker[] = [];
+            let startedCount = 0;
             let finishedCount = 0;
             let checkedRecipes = 0;
             for (let i = 0; i < threads; i++) {
-                let recipes = recipesToCheck.filter((_, j) => j % threads === i);
-                let worker = new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: {info, recipes}});
-                worker.on('message', data => {
-                    if (typeof data === 'number') {
+                let starts2 = starts.filter((_, j) => j % threads === i);
+                // @ts-ignore
+                let worker = new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {info, depth, maxSpacing, filter, done, starts: starts2, prev, gliderDepth}});
+                worker.on('message', ([type, data]) => {
+                    if (type === 'starting') {
+                        recipeCount += data;
+                        startedCount++;
+                        if (startedCount === threads) {
+                            log(`Checking ${startedCount} recipes`);
+                        }
+                    } else if (type === 'update') {
                         checkedRecipes += data;
-                    } else {
-                        finished.push(data[0]);
-                        possibleUseful += data[1];
-                        filter.push(...data[2]);
+                    } else if (type === 'completed') {
+                        finished.push(data);
                         finishedCount++;
                         if (finishedCount === threads) {
                             clearInterval(interval);
                             resolve();
                         }
+                    } else {
+                        throw new Error(`Invalid Worker message type: '${type}'`);
                     }
                 });
                 workers.push(worker);
             }
             let {promise, resolve} = Promise.withResolvers<void>();
-            let interval = setInterval(() => log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`), 2200);
+            let interval = setInterval(() => {
+                if (startedCount === threads) {
+                    log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                }
+                }, 2200);
             await promise;
         }
-        for (let data of finished) {
+        let possibleUseful = '';
+        for (let result of finished) {
+            let data = result.data;
             for (let recipe of data.moveRecipes) {
                 let index = out.moveRecipes.findIndex(x => x.move === recipe.move);
                 let entry = out.moveRecipes[index];
@@ -315,6 +202,11 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                     out.createHandRecipes.push(recipe);
                 }
             }
+            possibleUseful += result.possibleUseful;
+            for (let value of result.newDone) {
+                done.add(value);
+            }
+            filter.push(...result.newFilter);
         }
         let time = (performance.now() - start) / 1000;
         log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
@@ -339,30 +231,267 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
     let prevChannel: number | null = null;
     for (let i = 0; i < recipe.length; i++) {
         let [spacing, channel] = recipe[i];
-        if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
-            throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
+        if (channel === -1) {
+            if (i !== recipe.length - 1) {
+                i++;
+                while (recipe[i][1] === -1 && i < recipe.length) {
+                    if (recipe[i][0] !== -1) {
+                        spacing += recipe[i][0];
+                    }
+                    i++;
+                }
+                if (i < recipe.length) {
+                    channel = recipe[i][1];
+                }
+            }
+        } else {
+            if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
+                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
+            }
+            if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
+                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
+            }
+            for (let j = 0; j < info.channels.length; j++) {
+                lastUses[channel] += spacing;
+            }
+            lastUses[channel] = 0;
         }
-        if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
-            throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
-        }
-        if (channel === -1 && i !== recipe.length - 1 && recipe[i + 1][0] === -1) {
-            i++;
-            channel = recipe[i][1];
-        }
-        for (let j = 0; j < info.channels.length; j++) {
-            lastUses[channel] += spacing;
-        }
-        lastUses[channel] = 0;
         out.push([spacing, channel]);
         prevChannel = channel;
     }
     return out;
 }
 
-// /** Turns a slow salvo into a restricted-channel synthesis. */
-// export function slowSalvoToChannel(info: c.ChannelInfo, salvo: [number, number][]): [number, number][] {
-//     let out: [number, number][] = [];
-//     for (let lane of salvo) {
-        
-//     }
-// }
+
+/** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow. */
+export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
+    let info = c.CHANNEL_INFO[type];
+    type T = [[number, number][], number];
+    let data = recipes.channels[type];
+    let startVertex: Vertex<T> = [];
+    let graph: Vertex<T>[] = [startVertex, []];
+    let prevLayer: {elbowPos: number, index: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, index: 0, currentTiming: 0, vertex: startVertex}];
+    for (let i = 0; i < depth; i++) {
+        for (let {elbowPos, index, currentTiming, vertex} of prevLayer) {
+            let [lane, timing] = salvo[index];
+            if (index === salvo.length - 1) {
+                if (forceEndElbow === false) {
+                    for (let recipe of data.recipes90DegDestroy) {
+                        if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
+                            continue;
+                        }
+                        let newTiming = (currentTiming + recipe.timing) % info.period;
+                        if (timing === newTiming) {
+                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                        } else {
+                            let adjust = timing - newTiming;
+                            if (adjust < 0) {
+                                adjust += info.period;
+                            }
+                            vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
+                        }
+                    }
+                } else {
+                    for (let recipe of data.recipes90Deg) {
+                        if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
+                            continue;
+                        }
+                        let newElbowPos = elbowPos + recipe.move;
+                        if (forceEndElbow !== undefined) {
+                            if (newElbowPos !== forceEndElbow) {
+                                let moveAmount = forceEndElbow - newElbowPos;
+                                let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
+                                if (moveRecipe) {
+                                let newTiming = (currentTiming + recipe.timing) % info.period;
+                                    if (timing === newTiming) {
+                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
+                                    } else {
+                                        let adjust = timing - newTiming;
+                                        if (adjust < 0) {
+                                            adjust += info.period;
+                                        }
+                                        vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
+                                    }
+                                }
+                            }
+                        } else {
+                            let newTiming = (currentTiming + recipe.timing) % info.period;
+                            if (timing === newTiming) {
+                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            } else {
+                                let adjust = timing - newTiming;
+                                if (adjust < 0) {
+                                    adjust += info.period;
+                                }
+                                vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                            }
+                            vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
+                        }
+                    }
+                }
+            } else {
+                for (let recipe of data.recipes90Deg) {
+                    if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
+                        continue;
+                    }
+                    let newVertex: Vertex<T> = [];
+                    let newElbowPos = elbowPos + recipe.move;
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                    graph.push(newVertex);
+                    let newTiming = (currentTiming + recipe.timing) % info.period;
+                    if (timing === newTiming) {
+                        vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: timing, vertex: newVertex});
+                    } else {
+                        let adjust = timing - newTiming;
+                        if (adjust < 0) {
+                            adjust += info.period;
+                        }
+                        vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: timing, vertex: newVertex});
+                    }
+                }
+                for (let recipe of data.moveRecipes) {
+                    let newVertex: Vertex<T> = [];
+                    let newElbowPos = elbowPos + recipe.move;
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                    graph.push(newVertex);
+                    prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
+                }
+            }
+        }
+    }
+    let path = dijkstra(graph, 1);
+    let out: [number, number][][] = [];
+    let move: number | undefined = undefined;
+    for (let i = 0; i < path.length; i++) {
+        let [vertex, edge] = path[i];
+        let data = graph[vertex][edge][2];
+        out.push(data[0]);
+        if (i === path.length - 1) {
+            move = data[1];
+        }
+    }
+    if (!move) {
+        throw new Error('Missing move (there is a bug)!');
+    }
+    let recipe = mergeChannelRecipes(info, ...out);
+    let time = 0;
+    for (let [spacing] of recipe) {
+        time += spacing;
+    }
+    return {recipe, time, move};
+}
+
+/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow. */
+export function slowSalvoToChannel0Deg(type: string, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
+    let info = c.CHANNEL_INFO[type];
+    type T = [[number, number][], number];
+    let data = recipes.channels[type];
+    let startVertex: Vertex<T> = [];
+    let graph: Vertex<T>[] = [startVertex, []];
+    let prevLayer: {elbowPos: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, currentTiming: 0, vertex: startVertex}];
+    for (let i = 0; i < salvo.length; i++) {
+        let [lane, timing] = salvo[i];
+        for (let {elbowPos, currentTiming, vertex} of prevLayer) {
+            if (i === salvo.length - 1) {
+                if (forceEndElbow === false) {
+                    for (let recipe of data.recipes0DegDestroy) {
+                        if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
+                            continue;
+                        }
+                        let newTiming = (currentTiming + recipe.timing) % info.period;
+                        if (timing === newTiming) {
+                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                        } else {
+                            let adjust = timing - newTiming;
+                            if (adjust < 0) {
+                                adjust += info.period;
+                            }
+                            vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
+                        }
+                    }
+                } else {
+                    for (let recipe of data.recipes0Deg) {
+                        if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
+                            continue;
+                        }
+                        let newElbowPos = elbowPos + recipe.move;
+                        if (forceEndElbow !== undefined) {
+                            if (newElbowPos !== forceEndElbow) {
+                                let moveAmount = forceEndElbow - newElbowPos;
+                                let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
+                                if (moveRecipe) {
+                                let newTiming = (currentTiming + recipe.timing) % info.period;
+                                    if (timing === newTiming) {
+                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
+                                    } else {
+                                        let adjust = timing - newTiming;
+                                        if (adjust < 0) {
+                                            adjust += info.period;
+                                        }
+                                        vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
+                                    }
+                                }
+                            }
+                        } else {
+                            let newTiming = (currentTiming + recipe.timing) % info.period;
+                            if (timing === newTiming) {
+                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            } else {
+                                let adjust = timing - newTiming;
+                                if (adjust < 0) {
+                                    adjust += info.period;
+                                }
+                                vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                            }
+                            vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
+                        }
+                    }
+                }
+            } else {
+                for (let recipe of data.recipes0Deg) {
+                    if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
+                        continue;
+                    }
+                    let newVertex: Vertex<T> = [];
+                    let newElbowPos = elbowPos + recipe.move;
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                    graph.push(newVertex);
+                    let newTiming = (currentTiming + recipe.timing) % info.period;
+                    if (timing === newTiming) {
+                        vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                        prevLayer.push({elbowPos: newElbowPos, currentTiming: timing, vertex: newVertex});
+                    } else {
+                        let adjust = timing - newTiming;
+                        if (adjust < 0) {
+                            adjust += info.period;
+                        }
+                        vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                        prevLayer.push({elbowPos: newElbowPos, currentTiming: timing, vertex: newVertex});
+                    }
+                }
+            }
+        }
+    }
+    let path = dijkstra(graph, 1);
+    let out: [number, number][][] = [];
+    let move: number | undefined = undefined;
+    for (let i = 0; i < path.length; i++) {
+        let [vertex, edge] = path[i];
+        let data = graph[vertex][edge][2];
+        out.push(data[0]);
+        if (i === path.length - 1) {
+            move = data[1];
+        }
+    }
+    if (!move) {
+        throw new Error('Missing move (there is a bug)!');
+    }
+    let recipe = mergeChannelRecipes(info, ...out);
+    let time = 0;
+    for (let [spacing] of recipe) {
+        time += spacing;
+    }
+    return {recipe, time, move};
+}
