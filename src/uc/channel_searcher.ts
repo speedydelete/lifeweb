@@ -166,7 +166,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     let newFilter = new Set<string>();
     let newDone = new Set<string>();
     let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
-    let recipes: {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[] = [];
+    let recipes: [[number, number][], number, string][] = [];
     if (starts) {
         for (let start of starts) {
             let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
@@ -174,35 +174,21 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 start.unshift(...info.forceStart);
                 startTime += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
             }
+            let startKey = start.map(x => `${x[0]}:${x[1]} `).join('');
             for (let [recipe, time, key] of data) {
-                if (!done.has(key)) {
-                    done.add(key);
-                    newDone.add(key);
-                    recipe.unshift(...start);
-                    time += startTime;
-                    let data = createChannelPattern(info, recipe);
-                    if (data) {
-                        recipes.push({recipe, key, p: data[0], xPos: data[1], yPos: data[2], total: data[3], time});
-                    }
+                if (done.has(key)) {
+                    continue;
                 }
+                done.add(key);
+                newDone.add(key);
+                recipe.unshift(...start);
+                time += startTime;
+                key = startKey + key;
+                recipes.push([recipe, time, key]);
             }
         }
     } else {
-        let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
-        for (let [recipe, time, key] of data) {
-            if (!done.has(key)) {
-                done.add(key);
-                newDone.add(key);
-                if (info.forceStart) {
-                    recipe.unshift(...info.forceStart);
-                    time += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
-                }
-                let data = createChannelPattern(info, recipe);
-                if (data) {
-                    recipes.push({recipe, key, p: data[0], xPos: data[1], yPos: data[2], total: data[3], time});
-                }
-            }
-        }
+        recipes = data;
     }
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
@@ -222,7 +208,8 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             }
         }
         count++;
-        let {recipe, key, p, xPos, yPos, total, time} = recipes[i];
+        let [recipe, time, key] = recipes[i];
+        let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
         let strRecipe = unparseChannelRecipe(info, recipe);
         let result = findOutcome(p, xPos, yPos, strRecipe, Math.max(total / c.GLIDER_DY, 0));
         if (result === false) {

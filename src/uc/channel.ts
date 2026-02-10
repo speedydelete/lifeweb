@@ -123,10 +123,10 @@ function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][st
         let index = out.createHandRecipes.findIndex(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
         let entry = out.createHandRecipes[index];
         if (entry === undefined) {
-            console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            console.log(`\x1b[95mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
             out.createHandRecipes.push(recipe);
         } else if (entry.time > recipe.time) {
-            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            console.log(`\x1b[95mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
             entry.recipe = recipe.recipe;
             entry.time = recipe.time;
             out.createHandRecipes.splice(index, 1);
