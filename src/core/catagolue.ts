@@ -337,7 +337,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
 }
 
 
-const HASHSOUP_LETTERS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+const HASHSOUP_LETTERS = 'abcdefghijkmnpqrstuvwxyzZ0123456789';
 
 /** Get a random apgsearch/Catagolue hashsoup. */
 export function randomHashsoup(): string {
@@ -488,6 +488,16 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
     } else if (ruleStr.startsWith('W')) {
         return 'xw' + ruleStr.slice(1);
     } else {
-        throw new Error(`Invalid rule string: '${ruleStr}' (there is probably a bug in lifeweb)`);
+        let out = 'x';
+        let end = ruleStr[0];
+        for (let i = 1; i < ruleStr.length; i++) {
+            let char = ruleStr[i];
+            if ('ABCDEFGHJKLMNPQRSTUVWXY'.includes(char)) {
+                char = char.toLowerCase();
+                out += i + 'x';
+            }
+            end += char;
+        }
+        return out + end;
     }
 }

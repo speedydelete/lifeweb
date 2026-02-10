@@ -203,7 +203,6 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             out.recipes[key] = [start, objs, [recipe]];
         }
         if (stable.every(x => info.intermediateObjects.includes(x.code))) {
-            let part: {[key: string]: {2: [number, number][][]}} | undefined = undefined;
             if (ships.length > 0) {
                 if (stable.length === 0) {
                     if (ships.length === 1) {
@@ -261,7 +260,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
 }
 
 /** Searches slow salvos. */
-export async function searchSalvos(type: string, start: string, limit: number): Promise<void> {
+export async function searchSalvos(type: string, start: string): Promise<void> {
     let info = c.SALVO_INFO[type];
     let recipes = await loadRecipes();
     let done = new Set<string>();
@@ -295,13 +294,13 @@ export async function searchSalvos(type: string, start: string, limit: number): 
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, limit - 1, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, i, recipes.salvos[type], start);
                 }
                 log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, limit - 1, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, i, recipes.salvos[type], obj);
         }
         log('Compiled all recipes');
         await saveRecipes(recipes);

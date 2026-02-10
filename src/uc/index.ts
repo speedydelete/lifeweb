@@ -126,10 +126,10 @@ if (cmd === 'get') {
     }
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
-        if (args[0].startsWith('x')) {
-            searchSalvos(type, args[0], parseInt(args[1]));
+        if (args[0] && args[0].startsWith('x')) {
+            searchSalvos(type, args[0]);
         } else {
-            searchSalvos(type, c.SALVO_INFO[type].startObject, parseInt(args[0]));
+            searchSalvos(type, c.SALVO_INFO[type].startObject);
         }
     } else {
         searchChannel(type, threads, parseInt(args[0]), gliderDepth);
