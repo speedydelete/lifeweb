@@ -238,7 +238,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         if (result.length === 0) {
             newFilter.add(key + ' ');
             if (!out.destroyRecipe || out.destroyRecipe.time > time) {
-                possibleUseful += `Destroy: ${strRecipe}\n`;
                 out.destroyRecipe = {recipe, time};
             }
         }
@@ -250,9 +249,9 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             if (obj.type === 'sl') {
                 let lane = obj.y - obj.x;
                 let spacing = obj.x + obj.y;
-                if (result.length === 1 && (c.RULE as string) === 'B2-ak3y4jn5jy78/S12-k3j4-akn5ir' && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
-                    possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
-                }
+                // if (result.length === 1 && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
+                //     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
+                // }
                 if (move === null && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
                     move = spacing;
                 } else if (!hand && (Math.abs(lane) > info.minHandSpacing || (move && (spacing - move) > info.minHandSpacing))) {
