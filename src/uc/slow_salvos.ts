@@ -180,7 +180,8 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
         if (!objs) {
             continue;
         }
-        let recipe = prefix.concat([lane + x - y, timing]);
+        let recipe = prefix.slice();
+        recipe.push([lane + x - y, timing]);
         objs = translateObjects(objs, x, y);
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];
