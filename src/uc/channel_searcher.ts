@@ -1,6 +1,6 @@
 
 import {MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
+import {c, log, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
 import {createChannelPattern} from './channel.js';
 
 
@@ -165,7 +165,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     let possibleUseful = '';
     let newFilter = new Set<string>();
     let newDone = new Set<string>();
-    let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
     let recipes: [[number, number][], number, string][] = [];
     if (starts) {
         for (let start of starts) {
@@ -174,8 +173,21 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 start.unshift(...info.forceStart);
                 startTime += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
             }
+            if (startTime > depth) {
+                continue;
+            }
             let startKey = start.map(x => `${x[0]}:${x[1]} `).join('');
-            for (let [recipe, time, key] of data) {
+            if (startTime === depth) {
+                let key = startKey.slice(0, -1);
+                if (!done.has(key)) {
+                    done.add(key);
+                    newDone.add(key);
+                    recipes.push([start, startTime, startKey.slice(0, -1)]);
+                }
+            }
+            let last = start[start.length - 1];
+            for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`], gliderDepth)) {
+                key = startKey + key;
                 if (done.has(key)) {
                     continue;
                 }
@@ -183,17 +195,16 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 newDone.add(key);
                 recipe.unshift(...start);
                 time += startTime;
-                key = startKey + key;
                 recipes.push([recipe, time, key]);
             }
         }
     } else {
-        recipes = data;
+        recipes = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
     }
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     } else {
-        console.log(`Checking ${recipes.length} recipes`);
+        log(`Checking ${recipes.length} recipes`);
     }
     let count = 0;
     let lastUpdate = performance.now();
@@ -206,7 +217,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 possibleUseful = '';
                 count = 0;
             } else {
-                console.log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
+                log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
             }
         }
         count++;
