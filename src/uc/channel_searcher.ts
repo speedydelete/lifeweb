@@ -214,7 +214,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             lastUpdate = now;
             if (parentPort) {
                 parentPort.postMessage(['update', {count, out}]);
-                possibleUseful = '';
                 count = 0;
             } else {
                 log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
