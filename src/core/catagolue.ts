@@ -489,7 +489,7 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         return 'xw' + ruleStr.slice(1);
     } else {
         let out = 'x';
-        let end = ruleStr[0];
+        let end = ruleStr[0].toLowerCase();
         for (let i = 1; i < ruleStr.length; i++) {
             let char = ruleStr[i];
             if ('ABCDEFGHJKLMNPQRSTUVWXY'.includes(char)) {
