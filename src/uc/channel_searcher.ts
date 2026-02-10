@@ -192,6 +192,8 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     }
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
+    } else {
+        console.log(`Checking ${recipes.length} recipes`);
     }
     let count = 0;
     let lastUpdate = performance.now();
