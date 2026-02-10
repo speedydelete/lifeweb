@@ -176,7 +176,6 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
 }
 
 function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
-    console.log(count, limit);
     for (let [lane, timing, objs] of data[code]) {
         if (!objs) {
             continue;
