@@ -176,6 +176,7 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
 }
 
 function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
+    console.log(count, limit);
     for (let [lane, timing, objs] of data[code]) {
         if (!objs) {
             continue;
@@ -267,9 +268,9 @@ export async function searchSalvos(type: string, start: string): Promise<void> {
     let done = new Set<string>();
     let forInput: {[key: string]: [number, number, false | null | CAObject[]][]} = {};
     let queue = [start];
-    let i = 0;
+    let depth = 0;
     while (true) {
-        log(`Searching depth ${i + 1} (${queue.length} objects)`);
+        log(`Searching depth ${depth + 1} (${queue.length} objects)`);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
             let code = queue[j];
@@ -286,25 +287,25 @@ export async function searchSalvos(type: string, start: string): Promise<void> {
                     newQueue.push(...newObjs);
                 }
             }
-            log(`Depth ${i + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
+            log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
         }
-        log(`Depth ${i + 1} 100.00% complete, compiling recipes`);
+        log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
         queue = newQueue;
         if (start === info.startObject) {
             for (let i = 0; i < info.intermediateObjects.length; i++) {
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, i, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, depth, recipes.salvos[type], start);
                 }
                 log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, i, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, depth, recipes.salvos[type], obj);
         }
         log('Compiled all recipes');
         await saveRecipes(recipes);
-        i++;
+        depth++;
     }
 }
