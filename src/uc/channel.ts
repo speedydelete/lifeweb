@@ -38,13 +38,110 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
 }
 
+
+function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][string], out: RecipeData['channels'][string]): void {
+    for (let recipe of data.moveRecipes) {
+        let index = out.moveRecipes.findIndex(x => x.move === recipe.move);
+        let entry = out.moveRecipes[index];
+        if (entry === undefined) {
+            console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.moveRecipes.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.moveRecipes.splice(index, 1);
+            out.moveRecipes.push(recipe);
+        }
+    }
+    for (let recipe of data.recipes90Deg) {
+        let index = out.recipes90Deg.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move && x.timing === recipe.timing);
+        let entry = out.recipes90Deg[index];
+        if (entry === undefined) {
+            console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.recipes90Deg.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix}  timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.recipes90Deg.splice(index, 1);
+            out.recipes90Deg.push(recipe);
+        }
+    }
+    for (let recipe of data.recipes0Deg) {
+        let index = out.recipes0Deg.findIndex(x => x.lane === recipe.lane && x.move === recipe.move && x.timing === recipe.timing);
+        let entry = out.recipes0Deg[index];
+        if (entry === undefined) {
+            console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.recipes0Deg.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.recipes0Deg.splice(index, 1);
+            out.recipes0Deg.push(recipe);
+        }
+    }
+    if (data.destroyRecipe) {
+        if (!out.destroyRecipe) {
+            out.destroyRecipe = data.destroyRecipe;
+            console.log(`\x1b[94mNew recipe: destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
+        } else if (out.destroyRecipe.time > data.destroyRecipe.time) {
+            out.destroyRecipe = data.destroyRecipe;
+            console.log(`\x1b[94mImproved recipe (${out.destroyRecipe.time} to ${data.destroyRecipe.time}): destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
+        }
+    }
+    for (let recipe of data.recipes90DegDestroy) {
+        let index = out.recipes90DegDestroy.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.timing === recipe.timing);
+        let entry = out.recipes90DegDestroy[index];
+        if (entry === undefined) {
+            console.log(`\x1b[94mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.recipes90DegDestroy.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.recipes90DegDestroy.splice(index, 1);
+            out.recipes90DegDestroy.push(recipe);
+        }
+    }
+    for (let recipe of data.recipes0DegDestroy) {
+        let index = out.recipes0DegDestroy.findIndex(x => x.lane === recipe.lane && x.timing === recipe.timing);
+        let entry = out.recipes0DegDestroy[index];
+        if (entry === undefined) {
+            console.log(`\x1b[94mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.recipes0DegDestroy.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.recipes0DegDestroy.splice(index, 1);
+            out.recipes0DegDestroy.push(recipe);
+        }
+    }
+    for (let recipe of data.createHandRecipes) {
+        let index = out.createHandRecipes.findIndex(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
+        let entry = out.createHandRecipes[index];
+        if (entry === undefined) {
+            console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            out.createHandRecipes.push(recipe);
+        } else if (entry.time > recipe.time) {
+            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
+            entry.recipe = recipe.recipe;
+            entry.time = recipe.time;
+            out.createHandRecipes.splice(index, 1);
+            out.createHandRecipes.push(recipe);
+        }
+    }
+}
+
 /** Performs a restricted-channel search. */
 export async function searchChannel(type: string, maxThreads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
     let done = new Set<string>();
-    let filter: string[] = [];
+    let filter = new Set<string>();
     let prev: [number, string] | undefined = undefined;
     if (info.forceStart) {
         let data = info.forceStart[info.forceStart.length - 1];
@@ -62,10 +159,14 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             finished.push(data);
             recipeCount = data.recipeCount;
         } else {
-            let starts: [number, number][] = [];
+            let starts: [number, number][][] = [];
             for (let a = info.minSpacing; a < maxSpacing; a++) {
-                for (let b = info.minSpacing; b < maxSpacing; b++) {
-                    starts.push([a, b]);
+                for (let b = 0; b < info.channels.length; b++) {
+                    for (let c = info.minSpacing; c < maxSpacing; c++) {
+                        for (let d = 0; d < info.channels.length; d++) {
+                            starts.push([[a, b], [c, d]]);
+                        }
+                    }
                 }
             }
             let workers: Worker[] = [];
@@ -81,10 +182,11 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                         recipeCount += data;
                         startedCount++;
                         if (startedCount === threads) {
-                            log(`Checking ${startedCount} recipes`);
+                            log(`Checking ${recipeCount} recipes`);
                         }
                     } else if (type === 'update') {
-                        checkedRecipes += data;
+                        checkedRecipes += data.count;
+                        addChannelSearchData(info, data.out, out);
                     } else if (type === 'completed') {
                         finished.push(data);
                         finishedCount++;
@@ -107,106 +209,15 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             await promise;
         }
         let possibleUseful = '';
-        for (let result of finished) {
-            let data = result.data;
-            for (let recipe of data.moveRecipes) {
-                let index = out.moveRecipes.findIndex(x => x.move === recipe.move);
-                let entry = out.moveRecipes[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.moveRecipes.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.moveRecipes.splice(index, 1);
-                    out.moveRecipes.push(recipe);
-                }
+        for (let data of finished) {
+            addChannelSearchData(info, data.data, out);
+            possibleUseful += data.possibleUseful;
+            for (let key of data.newDone) {
+                done.add(key);
             }
-            for (let recipe of data.recipes90Deg) {
-                let index = out.recipes90Deg.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move && x.timing === recipe.timing);
-                let entry = out.recipes90Deg[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.recipes90Deg.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix}  timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.recipes90Deg.splice(index, 1);
-                    out.recipes90Deg.push(recipe);
-                }
+            for (let key of data.newFilter) {
+                filter.add(key);
             }
-            for (let recipe of data.recipes0Deg) {
-                let index = out.recipes0Deg.findIndex(x => x.lane === recipe.lane && x.move === recipe.move && x.timing === recipe.timing);
-                let entry = out.recipes0Deg[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.recipes0Deg.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.recipes0Deg.splice(index, 1);
-                    out.recipes0Deg.push(recipe);
-                }
-            }
-            if (data.destroyRecipe) {
-                if (!out.destroyRecipe) {
-                    out.destroyRecipe = data.destroyRecipe;
-                    console.log(`\x1b[94mNew recipe: destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
-                } else if (out.destroyRecipe.time > data.destroyRecipe.time) {
-                    out.destroyRecipe = data.destroyRecipe;
-                    console.log(`\x1b[94mImproved recipe (${out.destroyRecipe.time} to ${data.destroyRecipe.time}): destroy: ${unparseChannelRecipe(info, out.destroyRecipe.recipe)}\x1b[0m`);
-                }
-            }
-            for (let recipe of data.recipes90DegDestroy) {
-                let index = out.recipes90DegDestroy.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.timing === recipe.timing);
-                let entry = out.recipes90DegDestroy[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[94mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.recipes90DegDestroy.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.recipes90DegDestroy.splice(index, 1);
-                    out.recipes90DegDestroy.push(recipe);
-                }
-            }
-            for (let recipe of data.recipes0DegDestroy) {
-                let index = out.recipes0DegDestroy.findIndex(x => x.lane === recipe.lane && x.timing === recipe.timing);
-                let entry = out.recipes0DegDestroy[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[94mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.recipes0DegDestroy.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.recipes0DegDestroy.splice(index, 1);
-                    out.recipes0DegDestroy.push(recipe);
-                }
-            }
-            for (let recipe of data.createHandRecipes) {
-                let index = out.createHandRecipes.findIndex(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
-                let entry = out.createHandRecipes[index];
-                if (entry === undefined) {
-                    console.log(`\x1b[92mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    out.createHandRecipes.push(recipe);
-                } else if (entry.time > recipe.time) {
-                    console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${unparseChannelRecipe(info, recipe.recipe)}\x1b[0m`);
-                    entry.recipe = recipe.recipe;
-                    entry.time = recipe.time;
-                    out.createHandRecipes.splice(index, 1);
-                    out.createHandRecipes.push(recipe);
-                }
-            }
-            possibleUseful += result.possibleUseful;
-            for (let value of result.newDone) {
-                done.add(value);
-            }
-            filter.push(...result.newFilter);
         }
         let time = (performance.now() - start) / 1000;
         log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
@@ -215,7 +226,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
         if (time > (gliderDepth ? 1 : 3) && threads < maxThreads) {
-            threads = Math.min(maxThreads, threads + Math.ceil(time) - 1);
+            threads = Math.min(maxThreads, threads + Math.ceil(time / (gliderDepth ? 1 : 3)) - 1);
             log(`\x1b[91mIncreasing to ${threads} threads\x1b[0m`);
         }
         depth++;

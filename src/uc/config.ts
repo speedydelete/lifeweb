@@ -102,7 +102,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         start: {
             apgcode: '33',
             lane: 9,
-            spacing: 5,
+            spacing: 7,
         },
         elbows: {
             xs4_33: [2, 9],
@@ -125,7 +125,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         start: {
             apgcode: '33',
             lane: 9,
-            spacing: 5,
+            spacing: 7,
         },
         elbows: {
             xs4_33: [2, 9],

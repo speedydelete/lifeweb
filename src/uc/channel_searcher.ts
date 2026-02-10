@@ -4,7 +4,7 @@ import {c, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, findOu
 import {createChannelPattern} from './channel.js';
 
 
-function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
+function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
     let limit = Math.max(maxSpacing, depth);
     for (let spacing = info.minSpacing; spacing < limit; spacing++) {
@@ -12,7 +12,7 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
             continue;
         }
         let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        if (filter.includes(key)) {
+        if (filter.has(key)) {
             continue;
         }
         let elt: [number, number] = [spacing, 0];
@@ -29,14 +29,14 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
     return out;
 }
 
-function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prevKey: string | undefined): [[number, number][], number, string][] {
+function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
     for (let spacing = info.minSpacing; spacing < maxSpacing; spacing++) {
         if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
             continue;
         }
         let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        if (filter.includes(key)) {
+        if (filter.has(key)) {
             continue;
         }
         let elt: [number, number] = [spacing, 0];
@@ -52,7 +52,7 @@ function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: nu
     return out;
 }
 
-function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev: number | undefined, prevKey: string | undefined, lastUses: number[]): [[number, number][], number, string][] {
+function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prev: number | undefined, prevKey: string | undefined, lastUses: number[]): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
     for (let channel = 0; channel < info.channels.length; channel++) {
         let start: number;
@@ -67,7 +67,7 @@ function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpa
                 continue;
             }
             let key = prevKey === undefined ? `${spacing}:${channel}` : prevKey + ` ${spacing}:${channel}`;
-            if (filter.includes(key)) {
+            if (filter.has(key)) {
                 continue;
             }
             let elt: [number, number] = [spacing, channel];
@@ -88,7 +88,7 @@ function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpa
     return out;
 }
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], prev?: [number, string], gliderDepth: boolean = false): [[number, number][], number, string][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prev?: [number, string], gliderDepth: boolean = false): [[number, number][], number, string][] {
     if (info.channels.length === 1) {
         if (gliderDepth) {
             return getRecipesForDepthSingleChannelGliderDepth(info, depth, maxSpacing, filter, undefined);
@@ -160,10 +160,10 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
     }
 }
 
-export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: string[], done: Set<string>, starts?: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: string[], newDone: Set<string>, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, done: Set<string>, starts?: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, newDone: Set<string>, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
-    let newFilter: string[] = [];
+    let newFilter = new Set<string>();
     let newDone = new Set<string>();
     let data = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
     let recipes: {recipe: [number, number][], key: string, p: MAPPattern, xPos: number, yPos: number, total: number, time: number}[] = [];
@@ -214,7 +214,8 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         if (now - lastUpdate > 1000) {
             lastUpdate = now;
             if (parentPort) {
-                parentPort.postMessage(['update', count]);
+                parentPort.postMessage(['update', {count, out}]);
+                possibleUseful = '';
                 count = 0;
             } else {
                 console.log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
@@ -236,14 +237,14 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         let hand: StillLife | null = null;
         let found = false;
         if (result.length === 0) {
-            newFilter.push(key + ' ');
+            newFilter.add(key + ' ');
             if (!out.destroyRecipe || out.destroyRecipe.time > time) {
                 possibleUseful += `Destroy: ${strRecipe}\n`;
                 out.destroyRecipe = {recipe, time};
             }
         }
         if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
-            newFilter.push(key + ' ');
+            newFilter.add(key + ' ');
             continue;
         }
         for (let obj of result) {
@@ -278,7 +279,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
                     possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                    newFilter.push(key + ' ');
+                    newFilter.add(key + ' ');
                     let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                     if (type.disp) {
                         let lane: number;
