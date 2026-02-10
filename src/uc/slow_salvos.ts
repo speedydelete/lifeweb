@@ -167,7 +167,7 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
 }
 
 function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in T]: [number, number][][]}, recipe: [number, number][]): void {
-    if (!entry[index].some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+    if (!entry[index].some(x => x.length === recipe.length && x.every((y, i) => y[0] === recipe[i][0] && y[1] === recipe[i][1]))) {
         entry[index].push(recipe);
         if (info.maxRecipes && entry[index].length > info.maxRecipes) {
             entry[index] = entry[index].sort((a, b) => a.length - b.length).slice(0, info.maxRecipes);
@@ -230,7 +230,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
                 if (stable.length === 0) {
                     if (key in out.destroyRecipes) {
                         let entry = out.destroyRecipes[key];
-                        if (!entry.some(x => x.length === recipe.length && x.every((y, i) => y === recipe[i]))) {
+                        if (!entry.some(x => x.length === recipe.length && x.every((y, i) => y[0] === recipe[i][0] && y[1] === recipe[i][1]))) {
                             entry.push(recipe);
                             if (info.maxRecipes && entry.length > info.maxRecipes) {
                                 out.destroyRecipes[key] = entry.sort((a, b) => a.length - b.length).slice(0, info.maxRecipes);
