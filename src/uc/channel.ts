@@ -205,7 +205,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             }
             let {promise, resolve} = Promise.withResolvers<void>();
             let interval = setInterval(() => {
-                if (startedCount === threads) {
+                if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
                     log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                 }
                 }, 3100);
