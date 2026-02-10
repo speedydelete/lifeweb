@@ -15,6 +15,9 @@ export function createSalvoPattern(info: SalvoInfo, target: string, lanes: [numb
     let p = base.copy();
     for (let i = 0; i < lanes.length; i++) {
         let [lane, timing] = lanes[i];
+        if (timing === -1) {
+            timing = 0;
+        }
         let y = i * info.gliderSpacing;
         let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
         if (timing === 0) {
@@ -278,12 +281,23 @@ export async function searchSalvos(type: string, start: string): Promise<void> {
             } else {
                 done.add(code);
             }
-            for (let timing = 0; timing < info.period; timing++) {
-                let data = get1GSalvos(info, code, timing);
+            if (code.startsWith('xs')) {
+                let data = get1GSalvos(info, code, -1);
                 if (data) {
                     let [newObjs, newOut] = data;
                     forInput[code] = newOut;
+                    recipes.salvos[type].searchResults[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                     newQueue.push(...newObjs);
+                }
+            } else {
+                for (let timing = 0; timing < info.period; timing++) {
+                    let data = get1GSalvos(info, code, timing);
+                    if (data) {
+                        let [newObjs, newOut] = data;
+                        forInput[code] = newOut;
+                        recipes.salvos[type].searchResults[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
+                        newQueue.push(...newObjs);
+                    }
                 }
             }
             log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);

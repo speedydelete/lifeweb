@@ -280,15 +280,19 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
                         if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
                             continue;
                         }
-                        let newTiming = (currentTiming + recipe.timing) % info.period;
-                        if (timing === newTiming) {
+                        if (timing === -1) {
                             vertex.push([1, recipe.time, [recipe.recipe, 0]]);
                         } else {
-                            let adjust = timing - newTiming;
-                            if (adjust < 0) {
-                                adjust += info.period;
+                            let newTiming = (currentTiming + recipe.timing) % info.period;
+                            if (timing === newTiming) {
+                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            } else {
+                                let adjust = timing - newTiming;
+                                if (adjust < 0) {
+                                    adjust += info.period;
+                                }
+                                vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
                             }
-                            vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
                         }
                     }
                 } else {
@@ -302,30 +306,37 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
                                 let moveAmount = forceEndElbow - newElbowPos;
                                 let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
                                 if (moveRecipe) {
-                                let newTiming = (currentTiming + recipe.timing) % info.period;
-                                    if (timing === newTiming) {
+                                    if (timing === -1) {
                                         vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
                                     } else {
-                                        let adjust = timing - newTiming;
-                                        if (adjust < 0) {
-                                            adjust += info.period;
+                                        let newTiming = (currentTiming + recipe.timing) % info.period;
+                                        if (timing === newTiming) {
+                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
+                                        } else {
+                                            let adjust = timing - newTiming;
+                                            if (adjust < 0) {
+                                                adjust += info.period;
+                                            }
+                                            vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
                                         }
-                                        vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
                                     }
                                 }
                             }
                         } else {
-                            let newTiming = (currentTiming + recipe.timing) % info.period;
-                            if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            if (timing === -1) {
+                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
                             } else {
-                                let adjust = timing - newTiming;
-                                if (adjust < 0) {
-                                    adjust += info.period;
+                                let newTiming = (currentTiming + recipe.timing) % info.period;
+                                if (timing === newTiming) {
+                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
+                                } else {
+                                    let adjust = timing - newTiming;
+                                    if (adjust < 0) {
+                                        adjust += info.period;
+                                    }
+                                    vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
                                 }
-                                vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
                             }
-                            vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
                         }
                     }
                 }
@@ -339,16 +350,21 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
                     vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
                     graph.push(newVertex);
                     let newTiming = (currentTiming + recipe.timing) % info.period;
-                    if (timing === newTiming) {
+                    if (timing === -1) {
                         vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: timing, vertex: newVertex});
+                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                     } else {
-                        let adjust = timing - newTiming;
-                        if (adjust < 0) {
-                            adjust += info.period;
+                        if (timing === newTiming) {
+                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
+                        } else {
+                            let adjust = timing - newTiming;
+                            if (adjust < 0) {
+                                adjust += info.period;
+                            }
+                            vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                            prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming + adjust, vertex: newVertex});
                         }
-                        vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
-                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: timing, vertex: newVertex});
                     }
                 }
                 for (let recipe of data.moveRecipes) {
@@ -400,15 +416,19 @@ export function slowSalvoToChannel0Deg(type: string, recipes: RecipeData, salvo:
                         if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
                             continue;
                         }
-                        let newTiming = (currentTiming + recipe.timing) % info.period;
-                        if (timing === newTiming) {
+                        if (timing === -1) {
                             vertex.push([1, recipe.time, [recipe.recipe, 0]]);
                         } else {
-                            let adjust = timing - newTiming;
-                            if (adjust < 0) {
-                                adjust += info.period;
+                            let newTiming = (currentTiming + recipe.timing) % info.period;
+                            if (timing === newTiming) {
+                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            } else {
+                                let adjust = timing - newTiming;
+                                if (adjust < 0) {
+                                    adjust += info.period;
+                                }
+                                vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
                             }
-                            vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
                         }
                     }
                 } else {
@@ -422,30 +442,37 @@ export function slowSalvoToChannel0Deg(type: string, recipes: RecipeData, salvo:
                                 let moveAmount = forceEndElbow - newElbowPos;
                                 let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
                                 if (moveRecipe) {
-                                let newTiming = (currentTiming + recipe.timing) % info.period;
-                                    if (timing === newTiming) {
+                                    if (timing === -1) {
                                         vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
                                     } else {
-                                        let adjust = timing - newTiming;
-                                        if (adjust < 0) {
-                                            adjust += info.period;
+                                        let newTiming = (currentTiming + recipe.timing) % info.period;
+                                        if (timing === newTiming) {
+                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
+                                        } else {
+                                            let adjust = timing - newTiming;
+                                            if (adjust < 0) {
+                                                adjust += info.period;
+                                            }
+                                            vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
                                         }
-                                        vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
                                     }
                                 }
                             }
                         } else {
-                            let newTiming = (currentTiming + recipe.timing) % info.period;
-                            if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            if (timing === -1) {
+                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
                             } else {
-                                let adjust = timing - newTiming;
-                                if (adjust < 0) {
-                                    adjust += info.period;
+                                let newTiming = (currentTiming + recipe.timing) % info.period;
+                                if (timing === newTiming) {
+                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
+                                } else {
+                                    let adjust = timing - newTiming;
+                                    if (adjust < 0) {
+                                        adjust += info.period;
+                                    }
+                                    vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
                                 }
-                                vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
                             }
-                            vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
                         }
                     }
                 }
@@ -459,16 +486,21 @@ export function slowSalvoToChannel0Deg(type: string, recipes: RecipeData, salvo:
                     vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
                     graph.push(newVertex);
                     let newTiming = (currentTiming + recipe.timing) % info.period;
-                    if (timing === newTiming) {
+                    if (timing === -1) {
                         vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                        prevLayer.push({elbowPos: newElbowPos, currentTiming: timing, vertex: newVertex});
+                        prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
                     } else {
-                        let adjust = timing - newTiming;
-                        if (adjust < 0) {
-                            adjust += info.period;
+                        if (timing === newTiming) {
+                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
+                        } else {
+                            let adjust = timing - newTiming;
+                            if (adjust < 0) {
+                                adjust += info.period;
+                            }
+                            vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                            prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming + adjust, vertex: newVertex});
                         }
-                        vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
-                        prevLayer.push({elbowPos: newElbowPos, currentTiming: timing, vertex: newVertex});
                     }
                 }
             }

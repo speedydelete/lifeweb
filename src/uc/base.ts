@@ -163,6 +163,8 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
         part = part.trim();
         if (info.period === 1) {
             out.push([parseInt(part), 0]);
+        } else if (!LETTERS.includes(part[part.length - 1])) {
+            out.push([parseInt(part), -1]);
         } else if (info.period === 2) {
             out.push([parseInt(part.slice(0, -1)), part[part.length - 1] === 'o' ? 1 : 0]);
         } else {
@@ -176,7 +178,7 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
 export function unparseSlowSalvo(info: c.SalvoInfo, data: [number, number][]): string {
     let out: string[] = [];
     for (let [lane, timing] of data) {
-        if (info.period === 1) {
+        if (timing === -1 || info.period === 1) {
             out.push(String(lane)); 
         } else if (info.period === 2) {
             out.push(lane + (timing === 1 ? 'o' : 'e'));
@@ -423,7 +425,7 @@ export function stringToObjects(data: string): CAObject[] {
 /** Represents a recipe file. */
 export interface RecipeData {
     salvos: {[key: string]: {
-        searchResults: {[key: string]: [number, CAObject[]][]};
+        searchResults: {[key: string]: [number, number, CAObject[]][]};
         recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
         moveRecipes: {[key: string]: [StableObject, StableObject, [number, number][][]]};
         splitRecipes: {[key: string]: [StableObject, StableObject[], [number, number][][]]};
@@ -483,7 +485,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let out = recipeData.salvos[type];
         if (section === 'search results') {
             for (let [apgcode, data] of parseRecipeSections(current)) {
-                out.searchResults[apgcode] = data.map(x => x.split(':')).map(x => [parseInt(x[0]), stringToObjects(x[1])]);
+                out.searchResults[apgcode] = data.map(x => x.split(':')).map(x => [...parseSlowSalvo(info, x[0])[0], stringToObjects(x[1])]);
             }
         } else if (section === 'recipes') {
             for (let line of current) {
@@ -650,7 +652,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         let info = c.SALVO_INFO[type];
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
-            out += `${key}:\n${value.map(([lane, data]) => lane + ': ' + objectsToString(data)).join('\n')}\n\n`;
+            out += `${key}:\n${value.map(([lane, timing, data]) => unparseSlowSalvo(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
