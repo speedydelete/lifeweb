@@ -208,7 +208,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
                 if (startedCount === threads) {
                     log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                 }
-                }, 2200);
+                }, 3100);
             await promise;
         }
         let possibleUseful = '';

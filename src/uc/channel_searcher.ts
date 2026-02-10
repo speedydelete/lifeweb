@@ -210,7 +210,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     let lastUpdate = performance.now();
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
-        if (now - lastUpdate > 1000) {
+        if (now - lastUpdate > 3000) {
             lastUpdate = now;
             if (parentPort) {
                 parentPort.postMessage(['update', {count, out}]);
