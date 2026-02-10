@@ -161,7 +161,9 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
     let out: [number, number][] = [];
     for (let part of data.split(/[, ]/)) {
         part = part.trim();
-        if (info.period === 1) {
+        if (part === '') {
+            continue;
+        } else if (info.period === 1) {
             out.push([parseInt(part), 0]);
         } else if (!LETTERS.includes(part[part.length - 1])) {
             out.push([parseInt(part), -1]);

@@ -136,7 +136,8 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
         if (data === 'linear') {
             out.push([lane, timing, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
             continue;
-        } else if (data && data.length === 1 && data[0].type === 'sl' && data[0].code === target && data[0].x === 0 && data[0].y === 0) {
+        } else if (data && data.length === 1 && (data[0].type === 'sl' || data[0].type === 'osc') && data[0].code === target && data[0].x === 0 && data[0].y === 0) {
+            out.push([lane, timing, [{type: 'other', code: 'eater', realCode: 'eater', x: 0, y: 0, at: 0, timing: 0}]]);
             continue;
         }
         out.push([lane, timing, data]);
@@ -157,7 +158,7 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
         failed = false;
         if (data) {
             for (let obj of data) {
-                if (obj.type === 'sl') {
+                if (obj.type === 'sl' || obj.type === 'osc') {
                     newObjs.add(obj.code);
                 }
             }
@@ -256,7 +257,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             }
         }
         if (count < limit) {
-            if (objs.length === 1 && objs[0].type === 'sl' && objs[0].code in data) {
+            if (objs.length === 1 && (objs[0].type === 'sl' || objs[0].type === 'osc') && objs[0].code in data) {
                 compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start);
             }
         }

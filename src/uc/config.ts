@@ -16,7 +16,7 @@ const GLIDER_POPULATION_PERIOD = 1;
 const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 5;
+const GLIDER_TARGET_SPACING = 7;
 
 
 // information for slow salvo synthesis
@@ -45,7 +45,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
     'Slow salvo': {
         aliases: ['ss'],
         startObject: 'xs4_33',
-        gliderSpacing: 10,
+        gliderSpacing: 20,
         period: 2,
         intermediateObjects: ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
         laneLimit: 128,
