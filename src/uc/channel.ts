@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
-import {findChannelResults} from './channel_searcher.js';
+import type {findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -136,7 +136,7 @@ function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][st
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, maxThreads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
+export async function searchChannel(type: string, threads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
@@ -147,69 +147,65 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         prev = [data[1], `${data[0]}:${data[1]}`];
     }
     let depth = 0;
-    let threads = 1;
+    let workers: Worker[] = [];
+    for (let i = 0; i < threads; i++) {
+        workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`));
+    }
     while (true) {
         log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipeCount = 0;
         let finished: ReturnType<typeof findChannelResults>[] = [];
-        if (threads === 1 || depth < 2) {
-            let data = findChannelResults(info, depth, maxSpacing, filter, undefined, prev, gliderDepth);
-            finished.push(data);
-            recipeCount = data.recipeCount;
-        } else {
-            let starts: [number, number][][] = [];
-            for (let a = info.minSpacing; a < maxSpacing; a++) {
-                for (let b = 0; b < info.channels.length; b++) {
-                    for (let c = info.minSpacing; c < maxSpacing; c++) {
-                        for (let d = 0; d < info.channels.length; d++) {
-                            if (a + c > depth || c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c)) || filter.has(`${a}:${b} ${c}:${d}`)) {
-                                continue;
-                            }
-                            starts.push([[a, b], [c, d]]);
+        let starts: [number, number][][] = [];
+        for (let a = info.minSpacing; a < maxSpacing; a++) {
+            for (let b = 0; b < info.channels.length; b++) {
+                for (let c = info.minSpacing; c < maxSpacing; c++) {
+                    for (let d = 0; d < info.channels.length; d++) {
+                        if (a + c > depth || c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c)) || filter.has(`${a}:${b} ${c}:${d}`)) {
+                            continue;
                         }
+                        starts.push([[a, b], [c, d]]);
                     }
                 }
             }
-            let workers: Worker[] = [];
-            let startedCount = 0;
-            let finishedCount = 0;
-            let checkedRecipes = 0;
-            for (let i = 0; i < threads; i++) {
-                let starts2 = starts.filter((_, j) => j % threads === i);
-                // @ts-ignore
-                let worker = new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {info, depth, maxSpacing, filter, starts: starts2, prev, gliderDepth}});
-                worker.on('message', ([type, data]) => {
-                    if (type === 'starting') {
-                        recipeCount += data;
-                        startedCount++;
-                        if (startedCount === threads) {
-                            log(`Checking ${recipeCount} recipes`);
-                        }
-                    } else if (type === 'update') {
-                        checkedRecipes += data.count;
-                        addChannelSearchData(info, data.out, out);
-                    } else if (type === 'completed') {
-                        finished.push(data);
-                        finishedCount++;
-                        if (finishedCount === threads) {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    } else {
-                        throw new Error(`Invalid Worker message type: '${type}'`);
-                    }
-                });
-                workers.push(worker);
-            }
-            let {promise, resolve} = Promise.withResolvers<void>();
-            let interval = setInterval(() => {
-                if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                    log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
-                }
-                }, 3100);
-            await promise;
         }
+        let startedCount = 0;
+        let finishedCount = 0;
+        let checkedRecipes = 0;
+        for (let i = 0; i < threads; i++) {
+            let starts2 = starts.filter((_, j) => j % threads === i);
+            let worker = workers[i];
+            worker.removeAllListeners('message');
+            worker.on('message', ([type, data]) => {
+                if (type === 'starting') {
+                    recipeCount += data;
+                    startedCount++;
+                    if (startedCount === threads) {
+                        log(`Checking ${recipeCount} recipes`);
+                    }
+                } else if (type === 'update') {
+                    checkedRecipes += data.count;
+                    addChannelSearchData(info, data.out, out);
+                } else if (type === 'completed') {
+                    finished.push(data);
+                    finishedCount++;
+                    if (finishedCount === threads) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                } else {
+                    throw new Error(`Invalid Worker message type: '${type}'`);
+                }
+            });
+            worker.postMessage({info, depth, maxSpacing, filter, starts: starts2, prev, gliderDepth});
+        }
+        let {promise, resolve} = Promise.withResolvers<void>();
+        let interval = setInterval(() => {
+            if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
+                log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+            }
+            }, 3100);
+        await promise;
         let possibleUseful = '';
         for (let data of finished) {
             addChannelSearchData(info, data.data, out);
@@ -223,10 +219,6 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
-        }
-        if (time > (gliderDepth ? 1 : 3) && threads < maxThreads) {
-            threads = Math.min(maxThreads, threads + Math.ceil(time / (gliderDepth ? 1 : 3)) - 1);
-            log(`\x1b[91mIncreasing to ${threads} threads\x1b[0m`);
         }
         depth++;
     }

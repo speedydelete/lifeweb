@@ -1,5 +1,6 @@
 
-import {MAPPattern, findType} from '../core/index.js';
+import {parentPort} from 'node:worker_threads';
+import {findType} from '../core/index.js';
 import {c, log, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
 import {createChannelPattern} from './channel.js';
 
@@ -160,36 +161,31 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
     }
 }
 
-export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts?: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let newFilter = new Set<string>();
     let recipes: [[number, number][], number, string][] = [];
-    if (starts) {
-        for (let start of starts) {
-            let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
-            if (info.forceStart) {
-                start.unshift(...info.forceStart);
-                startTime += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
-            }
-            if (startTime > depth) {
-                continue;
-            }
-            let startKey = start.map(x => `${x[0]}:${x[1]} `).join('');
-            if (startTime === depth) {
-                let key = startKey.slice(0, -1);
-                recipes.push([start, startTime, startKey.slice(0, -1)]);
-            }
-            let last = start[start.length - 1];
-            for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`], gliderDepth)) {
-                key = startKey + key;
-                recipe.unshift(...start);
-                time += startTime;
-                recipes.push([recipe, time, key]);
-            }
+    for (let start of starts) {
+        let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
+        if (info.forceStart) {
+            start.unshift(...info.forceStart);
+            startTime += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
         }
-    } else {
-        recipes = getRecipesForDepth(info, depth, maxSpacing, filter, prev, gliderDepth);
+        if (startTime > depth) {
+            continue;
+        }
+        let startKey = start.map(x => `${x[0]}:${x[1]} `).join('');
+        if (startTime === depth) {
+            recipes.push([start, startTime, startKey.slice(0, -1)]);
+        }
+        let last = start[start.length - 1];
+        for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`], gliderDepth)) {
+            key = startKey + key;
+            recipe.unshift(...start);
+            time += startTime;
+            recipes.push([recipe, time, key]);
+        }
     }
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
@@ -298,13 +294,14 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
 }
 
 
-// @ts-ignore
-if (import.meta.main) {
-    // @ts-ignore
-    let {parentPort, workerData} = await import('node:worker_threads');
+if (!parentPort) {
+    throw new Error('No parent port!');
+}
+
+parentPort.on('message', data => {
     if (!parentPort) {
         throw new Error('No parent port!');
     }
-    let data = findChannelResults(workerData.info, workerData.depth, workerData.maxSpacing, workerData.filter, workerData.starts, workerData.prev, workerData.gliderDepth, parentPort);
-    parentPort.postMessage(['completed', data]);
-}
+    let out = findChannelResults(data.info, data.depth, data.maxSpacing, data.filter, data.starts, data.prev, data.gliderDepth, parentPort);
+    parentPort.postMessage(['completed', out]);
+});
