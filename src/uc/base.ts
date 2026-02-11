@@ -601,7 +601,7 @@ export async function loadRecipes(): Promise<RecipeData> {
         line = line.trim();
         if (line.length === 0 || line.startsWith('#')) {
             continue;
-        } else if (line.endsWith(':')) {
+        } else if (line.endsWith(':') && line.includes(' ')) {
             if (section !== undefined) {
                 addSection(section, current, out);
             }

@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import {MAPPattern, parse} from '../core/index.js';
 import {c, LETTERS, INFO_ALIASES, parseSlowSalvo, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {createChannelPattern, searchChannel, mergeChannelRecipes, slowSalvoToChannel90Deg, slowSalvoToChannel0Deg} from './channel.js';
+import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel90DegDijkstra, salvoToChannel0DegDijkstra} from './channel.js';
 
 
 function error(msg: string): never {
@@ -32,6 +32,8 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -g, --glider-depth: For channel searching, make it so it searches by number of gliders and not recipe length.
+    -d, --dijkstra: For convert_0, use Dijkstra instead of the naive method.
+    --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
     --force-end-elbow <pos>: For convert, force an ending elbow position.
     --destroy-elbow: For convert, destroy the elbow.
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
@@ -48,10 +50,12 @@ let gliderDepth = false;
 let forceEndElbow: number | false | undefined = undefined;
 let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
+let dijkstra: boolean | undefined = undefined;
+let depth: number | undefined = undefined;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
-    if (arg.startsWith('-')) {
+    if (arg.match(/^-[a-zA-Z]/)) {
         if (arg === '-h' || arg === '--help') {
             console.log(HELP);
             process.exit(0);
@@ -62,6 +66,13 @@ for (let i = 2; i < argv.length; i++) {
             }
         } else if (arg === '-g' || arg === '--glider-depth') {
             gliderDepth = true;
+        } else if (arg === '-d' || arg === '--dijkstra') {
+            gliderDepth = true;
+        } else if (arg === '--depth') {
+            depth = parseInt(argv[++i]);
+            if (Number.isNaN(depth)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
         } else if (arg === '--force-end-elbow') {
             forceEndElbow = parseInt(argv[++i]);
             if (Number.isNaN(forceEndElbow)) {
@@ -134,34 +145,26 @@ if (cmd === 'get') {
     } else {
         searchChannel(type, threads, parseInt(args[0]), gliderDepth);
     }
-} else if (cmd === 'convert_90') {
+} else if (cmd === 'convert_90' || cmd === 'convert_0') {
     if (type in c.CHANNEL_INFO) {
         error(`Cannot convert from restricted-channel`);
     }
     let newType = args[0];
+    if (newType in INFO_ALIASES) {
+        newType = INFO_ALIASES[newType];
+    }
     if (newType in c.SALVO_INFO) {
         error(`Cannot convert to slow salvos`);
     } else if (newType in c.CHANNEL_INFO) {
-        // @ts-ignore
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(3).join(' '));
-        let out = slowSalvoToChannel90Deg(newType, recipes, salvo, args[1] as 'i' | 'x', parseInt(args[2]), forceEndElbow);
-        console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
-    } else {
-        error(`Invalid construction type: '${newType}'`)
-    }
-} else if (cmd === 'convert_0') {
-    if (type in c.CHANNEL_INFO) {
-        error(`Cannot convert from restricted-channel`);
-    }
-    let newType = args[0];
-    if (newType in c.SALVO_INFO) {
-        error(`Cannot convert to slow salvos`);
-    } else if (newType in c.CHANNEL_INFO) {
-        // @ts-ignore
-        let recipes = await loadRecipes();
-        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(3).join(' '));
-        let out = slowSalvoToChannel0Deg(newType, recipes, salvo, minElbow, maxElbow, forceEndElbow);
+        let out: {recipe: [number, number][], time: number, move: number};
+        if (cmd === 'convert_90') {
+            out = salvoToChannel90DegDijkstra(newType, recipes, salvo, args[1] as 'i' | 'x', depth ?? 0, forceEndElbow)
+        } else {
+            out = salvoToChannel0DegDijkstra(newType, recipes, salvo, minElbow, maxElbow, forceEndElbow);
+
+        }
         console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
     } else {
         error(`Invalid construction type: '${newType}'`)

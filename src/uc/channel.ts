@@ -278,7 +278,11 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
 
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow. */
-export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
+/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow. */
+
+
+/** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow and Dijkstra's algorithm. */
+export function salvoToChannel90DegDijkstra(type: string, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
     let info = c.CHANNEL_INFO[type];
     type T = [[number, number][], number];
     let data = recipes.channels[type];
@@ -355,10 +359,12 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
                     }
                 }
             } else {
+                console.log('hi', data.recipes90Deg.length);
                 for (let recipe of data.recipes90Deg) {
                     if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
                         continue;
                     }
+                    console.log(recipe);
                     let newVertex: Vertex<T> = [];
                     let newElbowPos = elbowPos + recipe.move;
                     vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
@@ -391,6 +397,11 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
             }
         }
     }
+    let edges = 0;
+    for (let vertex of graph) {
+        edges += vertex.length;
+    }
+    console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
     let path = dijkstra(graph, 1);
     let out: [number, number][][] = [];
     let move: number | undefined = undefined;
@@ -413,8 +424,8 @@ export function slowSalvoToChannel90Deg(type: string, recipes: RecipeData, salvo
     return {recipe, time, move};
 }
 
-/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow. */
-export function slowSalvoToChannel0Deg(type: string, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
+/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow and Dijkstra's algorithm. */
+export function salvoToChannel0DegDijkstra(type: string, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
     let info = c.CHANNEL_INFO[type];
     type T = [[number, number][], number];
     let data = recipes.channels[type];
