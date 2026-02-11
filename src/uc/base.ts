@@ -958,13 +958,13 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     return out;
 }
 
-function stabilize(p: MAPPattern, minGens?: number): number | 'linear' | null {
+function stabilize(p: MAPPattern, minGens: number = 0): number | 'linear' | null {
     let pops: number[] = [p.population];
-    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
+    for (let i = 0; i < minGens + c.MAX_GENERATIONS; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
-        if (minGens && i < minGens) {
+        if (i < minGens) {
             pops.push(pop);
             continue;
         }
