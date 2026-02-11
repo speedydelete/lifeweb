@@ -78,7 +78,7 @@ function findSalvoResult(info: SalvoInfo, target: string, lanes: [number, number
     let [p, xPos, yPos] = createSalvoPattern(info, target.slice(target.indexOf('_') + 1), lanes);
     let found = false;
     let prevPop = p.population;
-    for (let i = 0; i < lanes.length * c.WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
+    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
         p.run(c.GLIDER_POPULATION_PERIOD);
         let pop = p.population;
         if (pop !== prevPop) {

@@ -77,8 +77,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {};
 
 // information for how searches proceed
 
-// the number of generations it should take a glider to get to the object, dependant on GLIDER_SPACING
-const WAIT_GENERATIONS = 40;
+// the number of generations it should take a glider to get to the object (dependant on GLIDER_TARGET_SPACING)
+const MAX_WAIT_GENERATIONS = 20;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
 const MAX_GENERATIONS = 256;
 // the number of population periods to repeat to make sure it's stable
@@ -191,4 +191,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, MAX_SS_RECIPES, LANE_LIMIT, ChannelInfo, CHANNEL_INFO, WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, MAX_SS_RECIPES, LANE_LIMIT, ChannelInfo, CHANNEL_INFO, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
