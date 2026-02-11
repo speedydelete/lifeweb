@@ -986,9 +986,6 @@ function stabilize(p: MAPPattern, minGens?: number): number | 'linear' | null {
                         p.generation--;
                         j--;
                     }
-                    if (p.generation === 0) {
-                        console.log('\x1b[96mbruh\b1b[0m');
-                    }
                 }
                 return period;
             }

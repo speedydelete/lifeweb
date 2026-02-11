@@ -8,7 +8,7 @@ import {createChannelPattern} from './channel.js';
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
     let limit = Math.max(maxSpacing, depth);
-    for (let spacing = info.minSpacing; spacing < limit; spacing++) {
+    for (let spacing = info.minSpacing; spacing <= limit; spacing++) {
         if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
             continue;
         }
@@ -19,7 +19,7 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
         let elt: [number, number] = [spacing, 0];
         if (spacing === depth) {
             out.push([[elt], spacing, key]);
-        } else if (depth - spacing > info.minSpacing) {
+        } else if (depth - spacing >= info.minSpacing) {
             for (let recipe of getRecipesForDepthSingleChannel(info, depth - spacing, maxSpacing, filter, key)) {
                 recipe[0].unshift(elt);
                 recipe[1] += spacing;
@@ -32,7 +32,7 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
 
 function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
-    for (let spacing = info.minSpacing; spacing < maxSpacing; spacing++) {
+    for (let spacing = info.minSpacing; spacing <= maxSpacing; spacing++) {
         if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
             continue;
         }
@@ -233,7 +233,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         }
         for (let obj of result) {
             if (obj.type === 'sl') {
-                let lane = obj.y - obj.x;
+                let lane = obj.y - obj.x + info.start.lane;
                 let spacing = obj.x + obj.y;
                 // if (result.length === 1 && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
                 //     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
