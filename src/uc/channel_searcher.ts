@@ -160,11 +160,10 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
     }
 }
 
-export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, done: Set<string>, starts?: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, newDone: Set<string>, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts?: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let newFilter = new Set<string>();
-    let newDone = new Set<string>();
     let recipes: [[number, number][], number, string][] = [];
     if (starts) {
         for (let start of starts) {
@@ -179,20 +178,11 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             let startKey = start.map(x => `${x[0]}:${x[1]} `).join('');
             if (startTime === depth) {
                 let key = startKey.slice(0, -1);
-                if (!done.has(key)) {
-                    done.add(key);
-                    newDone.add(key);
-                    recipes.push([start, startTime, startKey.slice(0, -1)]);
-                }
+                recipes.push([start, startTime, startKey.slice(0, -1)]);
             }
             let last = start[start.length - 1];
             for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`], gliderDepth)) {
                 key = startKey + key;
-                if (done.has(key)) {
-                    continue;
-                }
-                done.add(key);
-                newDone.add(key);
                 recipe.unshift(...start);
                 time += startTime;
                 recipes.push([recipe, time, key]);
@@ -304,7 +294,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         }
         addObjects(recipe, strRecipe, time, move, shipData, hand, out);
     }
-    return {data: out, possibleUseful, newFilter, newDone, recipeCount: recipes.length};
+    return {data: out, possibleUseful, newFilter, recipeCount: recipes.length};
 }
 
 
@@ -315,6 +305,6 @@ if (import.meta.main) {
     if (!parentPort) {
         throw new Error('No parent port!');
     }
-    let data = findChannelResults(workerData.info, workerData.depth, workerData.maxSpacing, workerData.filter, workerData.done, workerData.starts, workerData.prev, workerData.gliderDepth, parentPort);
+    let data = findChannelResults(workerData.info, workerData.depth, workerData.maxSpacing, workerData.filter, workerData.starts, workerData.prev, workerData.gliderDepth, parentPort);
     parentPort.postMessage(['completed', data]);
 }

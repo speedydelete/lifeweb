@@ -140,7 +140,6 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
-    let done = new Set<string>();
     let filter = new Set<string>();
     let prev: [number, string] | undefined = undefined;
     if (info.forceStart) {
@@ -155,7 +154,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         let recipeCount = 0;
         let finished: ReturnType<typeof findChannelResults>[] = [];
         if (threads === 1 || depth < 2) {
-            let data = findChannelResults(info, depth, maxSpacing, filter, done, undefined, prev, gliderDepth);
+            let data = findChannelResults(info, depth, maxSpacing, filter, undefined, prev, gliderDepth);
             finished.push(data);
             recipeCount = data.recipeCount;
         } else {
@@ -179,7 +178,7 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
             for (let i = 0; i < threads; i++) {
                 let starts2 = starts.filter((_, j) => j % threads === i);
                 // @ts-ignore
-                let worker = new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {info, depth, maxSpacing, filter, done, starts: starts2, prev, gliderDepth}});
+                let worker = new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {info, depth, maxSpacing, filter, starts: starts2, prev, gliderDepth}});
                 worker.on('message', ([type, data]) => {
                     if (type === 'starting') {
                         recipeCount += data;
@@ -215,9 +214,6 @@ export async function searchChannel(type: string, maxThreads: number, maxSpacing
         for (let data of finished) {
             addChannelSearchData(info, data.data, out);
             possibleUseful += data.possibleUseful;
-            for (let key of data.newDone) {
-                done.add(key);
-            }
             for (let key of data.newFilter) {
                 filter.add(key);
             }
