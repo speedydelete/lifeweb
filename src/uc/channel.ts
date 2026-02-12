@@ -136,16 +136,11 @@ function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][st
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, maxSpacing: number, gliderDepth?: boolean): Promise<void> {
+export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
     let filter = new Set<string>();
-    let prev: [number, string] | undefined = undefined;
-    if (info.forceStart) {
-        let data = info.forceStart[info.forceStart.length - 1];
-        prev = [data[1], `${data[0]}:${data[1]}`];
-    }
     let depth = 0;
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
@@ -197,7 +192,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                     throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({info, depth, maxSpacing, filter, starts: starts2, prev, gliderDepth});
+            worker.postMessage({info, depth, maxSpacing, filter, starts: starts2});
         }
         let {promise, resolve} = Promise.withResolvers<void>();
         let interval = setInterval(() => {

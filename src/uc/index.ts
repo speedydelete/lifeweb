@@ -31,7 +31,6 @@ The type argument is the construction type, defined in src/uc/config.ts.
 Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
-    -g, --glider-depth: For channel searching, make it so it searches by number of gliders and not recipe length.
     -d, --dijkstra: For convert_0, use Dijkstra instead of the naive method.
     --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
     --force-end-elbow <pos>: For convert, force an ending elbow position.
@@ -46,7 +45,6 @@ let argv = process.argv;
 let posArgs: string[] = [];
 
 let threads = 1;
-let gliderDepth = false;
 let forceEndElbow: number | false | undefined = undefined;
 let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
@@ -64,8 +62,6 @@ for (let i = 2; i < argv.length; i++) {
             if (Number.isNaN(threads)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
-        } else if (arg === '-g' || arg === '--glider-depth') {
-            gliderDepth = true;
         } else if (arg === '-d' || arg === '--dijkstra') {
             dijkstra = true;
         } else if (arg === '--depth') {
@@ -143,7 +139,7 @@ if (cmd === 'get') {
             searchSalvos(type, c.SALVO_INFO[type].startObject);
         }
     } else {
-        searchChannel(type, threads, parseInt(args[0]), gliderDepth);
+        searchChannel(type, threads, parseInt(args[0]));
     }
 } else if (cmd === 'convert_90' || cmd === 'convert_0') {
     if (type in c.CHANNEL_INFO) {

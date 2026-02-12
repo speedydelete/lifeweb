@@ -30,29 +30,6 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
     return out;
 }
 
-function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
-    let out: [[number, number][], number, string][] = [];
-    for (let spacing = info.minSpacing; spacing <= maxSpacing; spacing++) {
-        if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
-            continue;
-        }
-        let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        if (filter.has(key)) {
-            continue;
-        }
-        let elt: [number, number] = [spacing, 0];
-        out.push([[elt], spacing, key]);
-        if (depth > 0) {
-            for (let recipe of getRecipesForDepthSingleChannelGliderDepth(info, depth - 1, maxSpacing, filter, key)) {
-                recipe[0].unshift(elt);
-                recipe[1] += spacing;
-                out.push(recipe);
-            }
-        }
-    }
-    return out;
-}
-
 function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prev: number | undefined, prevKey: string | undefined, lastUses: number[]): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
     for (let channel = 0; channel < info.channels.length; channel++) {
@@ -89,13 +66,9 @@ function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpa
     return out;
 }
 
-function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prev?: [number, string], gliderDepth: boolean = false): [[number, number][], number, string][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prev?: [number, string]): [[number, number][], number, string][] {
     if (info.channels.length === 1) {
-        if (gliderDepth) {
-            return getRecipesForDepthSingleChannelGliderDepth(info, depth, maxSpacing, filter, undefined);
-        } else {
-            return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
-        }
+        return getRecipesForDepthSingleChannel(info, depth, maxSpacing, filter, undefined);
     } else if (prev) {
         return getRecipesForDepthMultiChannel(info, depth, maxSpacing, filter, prev[0], prev[1], (new Array(info.channels.length)).fill(Infinity));
     } else {
@@ -161,7 +134,7 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
     }
 }
 
-export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts: [number, number][][], prev?: [number, string], gliderDepth?: boolean, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts: [number, number][][], parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let newFilter = new Set<string>();
@@ -180,7 +153,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             recipes.push([start, startTime, startKey.slice(0, -1)]);
         }
         let last = start[start.length - 1];
-        for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`], gliderDepth)) {
+        for (let [recipe, time, key] of getRecipesForDepth(info, depth - startTime, maxSpacing, filter, [last[1], `${last[0]}:${last[1]}`])) {
             key = startKey + key;
             recipe.unshift(...start);
             time += startTime;
@@ -302,6 +275,6 @@ parentPort.on('message', data => {
     if (!parentPort) {
         throw new Error('No parent port!');
     }
-    let out = findChannelResults(data.info, data.depth, data.maxSpacing, data.filter, data.starts, data.prev, data.gliderDepth, parentPort);
+    let out = findChannelResults(data.info, data.depth, data.maxSpacing, data.filter, data.starts, parentPort);
     parentPort.postMessage(['completed', out]);
 });
