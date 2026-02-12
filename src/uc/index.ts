@@ -67,7 +67,7 @@ for (let i = 2; i < argv.length; i++) {
         } else if (arg === '-g' || arg === '--glider-depth') {
             gliderDepth = true;
         } else if (arg === '-d' || arg === '--dijkstra') {
-            gliderDepth = true;
+            dijkstra = true;
         } else if (arg === '--depth') {
             depth = parseInt(argv[++i]);
             if (Number.isNaN(depth)) {
