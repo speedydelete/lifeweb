@@ -136,9 +136,22 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
         if (data === 'linear') {
             out.push([lane, timing, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
             continue;
-        } else if (data && data.length === 1 && (data[0].type === 'sl' || data[0].type === 'osc') && data[0].code === target && data[0].x === 0 && data[0].y === 0) {
-            out.push([lane, timing, [{type: 'other', code: 'eater', realCode: 'eater', x: 0, y: 0, at: 0, timing: 0}]]);
-            continue;
+        } else if (data) {
+            let obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target && x.x === 0 && x.y === 0);
+            if (obj) {
+                if (data.length === 1) {
+                    out.push([lane, timing, [{type: 'other', code: 'eater', realCode: 'eater', x: 0, y: 0, at: 0, timing: 0}]]);
+                    continue;
+                } else if (data.every(x => x === obj || x.type === 'ship')) {
+                    if (data.length === 2) {
+                        out.push([lane, timing, [{type: 'other', code: 'stable reflector', realCode: 'stable reflector', x: 0, y: 0, at: 0, timing: 0}]]);
+                    } else {
+                        out.push([lane, timing, [{type: 'other', code: 'stable splitter', realCode: 'stable splitter', x: 0, y: 0, at: 0, timing: 0}]]);
+                    }
+                } else {
+                        out.push([lane, timing, [{type: 'other', code: 'factory', realCode: 'factory', x: 0, y: 0, at: 0, timing: 0}]]);
+                }
+            }
         }
         out.push([lane, timing, data]);
         if (data === null) {
@@ -265,7 +278,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
 }
 
 /** Searches slow salvos. */
-export async function searchSalvos(type: string, start: string): Promise<void> {
+export async function searchSalvos(type: string, start: string, noCompile?: boolean): Promise<void> {
     let info = c.SALVO_INFO[type];
     let recipes = await loadRecipes();
     let done = new Set<string>();
@@ -302,6 +315,11 @@ export async function searchSalvos(type: string, start: string): Promise<void> {
                 }
             }
             log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
+        }
+        if (noCompile) {
+            await saveRecipes(recipes);
+            depth++;
+            continue;
         }
         log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
         queue = newQueue;

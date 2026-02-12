@@ -17,34 +17,55 @@ const GLIDER_POPULATION_PERIOD = 1;
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 6;
 
+// the spacing (in cells) between a glider and the target
+const GLIDER_TARGET_SPACING = 7;
+
 
 // information for slow salvo synthesis
 
-// the starting object for slow-salvo syntheses
-const START_OBJECT = 'xs2_11';
-// the spacing (in cells) between 2 gliders in a multi-glider slow salvo
-const GLIDER_SPACING = 10;
-// the spacing (in cells) between the glider and the target
-const GLIDER_TARGET_SPACING = 5;
+interface SalvoInfo {
+    // aliases for it, can be used in the cli
+    aliases?: string[];
+    // the starting elbow object
+    startObject: string;
+    // the spacing (in cells) between 2 gliders in a multi-glider salvo
+    gliderSpacing: number;
+    // the period, as in p2 slow salvo
+    period: number;
+    // the valid intermediate objects
+    intermediateObjects: string[];
+    // the limit for the number of lanes to search (during searching)
+    laneLimit: number;
+    // the maximum number of recipes to store for each outcome
+    maxRecipes?: number;
+}
 
-// the period of slow salvos
-const SLOW_SALVO_PERIOD = 1;
-// the valid intermediate objects in slow salvos
-const INTERMEDIATE_OBJECTS = ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'];
+// you name the construction types whatever you want
 
-// the maximum number of slow salvo recipes to store for each outcome
-const MAX_SS_RECIPES = 5;
-// the limit for the number of lanes to search, if anything gets to this it assumes there was a problem and drops the object
-const LANE_LIMIT = 128;
+const SALVO_INFO: {[key: string]: SalvoInfo} = {
+
+    'Slow salvo': {
+        aliases: ['ss'],
+        startObject: 'xs2_11',
+        gliderSpacing: 10,
+        period: 1,
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
+        laneLimit: 128,
+        maxRecipes: 5,
+    },
+
+};
 
 
-// information for restricted-channel synthesis methods
+// information about restricted-channel synthesis methods
 
 interface ChannelInfo {
     // aliases for it, can be used in the cli
     aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
+    // the period for output gliders (so it can be used to implement period n synthesis)
+    period: number;
     // the minimum spacing between gliders on every combination of channels
     // format is a square 2D array for each channel, it should be mirrored across the diagonal
     // for 0hd, you can just do [[spacing]]
@@ -191,4 +212,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, START_OBJECT, GLIDER_SPACING, GLIDER_TARGET_SPACING, SLOW_SALVO_PERIOD, INTERMEDIATE_OBJECTS, MAX_SS_RECIPES, LANE_LIMIT, ChannelInfo, CHANNEL_INFO, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};

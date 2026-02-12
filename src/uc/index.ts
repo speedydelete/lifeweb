@@ -37,6 +37,7 @@ Flags:
     --destroy-elbow: For convert, destroy the elbow.
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
+    --no-compile: For slow salvo searching, disables compilation of recipes.
 `;
 
 
@@ -51,10 +52,11 @@ let maxElbow: number | undefined = undefined;
 let dijkstra: boolean | undefined = undefined;
 let depth: number | undefined = undefined;
 let dvgrn = false;
+let noCompile = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
-    if (arg.match(/^-[a-zA-Z]/)) {
+    if (arg.match(/^-[-a-zA-Z]/)) {
         if (arg === '-h' || arg === '--help') {
             console.log(HELP);
             process.exit(0);
@@ -89,6 +91,8 @@ for (let i = 2; i < argv.length; i++) {
             }
         } else if (arg === '--dvgrn') {
             dvgrn = true;
+        } else if (arg === '--no-compile') {
+            noCompile = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -144,9 +148,9 @@ if (cmd === 'get') {
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
         if (args[0] && args[0].startsWith('x')) {
-            searchSalvos(type, args[0]);
+            searchSalvos(type, args[0], noCompile);
         } else {
-            searchSalvos(type, c.SALVO_INFO[type].startObject);
+            searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
         }
     } else {
         searchChannel(type, threads, parseInt(args[0]));
