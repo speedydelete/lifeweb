@@ -180,9 +180,9 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         }
         count++;
         let [recipe, time, key] = recipes[i];
-        let [p, xPos, yPos, total] = createChannelPattern(info, recipe);
+        let {p, xPos, yPos} = createChannelPattern(info, recipe);
         let strRecipe = unparseChannelRecipe(info, recipe);
-        let result = findOutcome(p, xPos, yPos, strRecipe, Math.max(total / c.GLIDER_DY, 0));
+        let result = findOutcome(p, xPos, yPos, strRecipe);
         if (result === false) {
             continue;
         }

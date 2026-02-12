@@ -1006,9 +1006,9 @@ function stabilize(p: MAPPattern, minGens: number = 0): number | 'linear' | null
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string, minGens?: number): false | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | 'linear' | CAObject[] {
     p.generation = 0;
-    let period = stabilize(p, minGens);
+    let period = stabilize(p);
     if (period === 'linear') {
         return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {

@@ -7,7 +7,7 @@ import type {findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
-export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): [MAPPattern, number, number, number] {
+export function createChannelPattern(info: ChannelInfo, recipe: [number, number][]): {p: MAPPattern, xPos: number, yPos: number, total: number} {
     let p = base.copy();
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
@@ -35,7 +35,8 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
-    return [p, xPos, yPos, total + c.GLIDER_TARGET_SPACING];
+    total += c.GLIDER_TARGET_SPACING;
+    return {p, xPos, yPos, total};
 }
 
 

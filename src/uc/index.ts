@@ -122,7 +122,7 @@ if (cmd === 'get') {
         start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
         console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' ')))[0].toRLE());
     } else {
-        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0])[0].toRLE());
+        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0]).p.toRLE());
     }
 } else if (cmd === 'from') {
     let data = fs.readFileSync(args[0]).toString();
