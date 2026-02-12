@@ -182,7 +182,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         let [recipe, time, key] = recipes[i];
         let {p, xPos, yPos} = createChannelPattern(info, recipe);
         let strRecipe = unparseChannelRecipe(info, recipe);
-        let result = findOutcome(p, xPos, yPos, strRecipe);
+        let result = findOutcome(p, xPos, yPos);
         if (result === false) {
             continue;
         }

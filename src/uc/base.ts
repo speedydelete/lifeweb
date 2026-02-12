@@ -723,8 +723,10 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
 }
 
 
-function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]})[]): false | CAObject[] {
-    let out: CAObject[] = [];
+type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
+
+function combineStillLifes(objs: ForCombining[]): false | ForCombining[] {
+    let out: ForCombining[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
         let obj = objs[i];
@@ -758,21 +760,7 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
             }
         }
         if (data.length === 0) {
-            if (obj.type === 'sl') {
-                out.push({
-                    type: 'sl',
-                    code: obj.code,
-                    x: obj.x,
-                    y: obj.y,
-                });
-            } else {
-                out.push({
-                    type: 'osc',
-                    code: obj.code,
-                    x: obj.x,
-                    y: obj.y,
-                })
-            }
+            out.push(obj);
             continue;
         }
         let [minX, minY, maxX, maxY] = obj.bb;
@@ -806,6 +794,7 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
         if (type.period !== 1 || !type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
+        let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
         if (isOsc) {
             let period = obj.type === 'osc' ? parseInt(obj.code.slice(2)) : 1;
             for (let obj of objs) {
@@ -827,6 +816,8 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                 code: p.run(period - obj.p.generation % period).toApgcode('xp' + period),
                 x: minX,
                 y: minY,
+                p,
+                bb,
             });
         } else {
             out.push({
@@ -834,6 +825,8 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
                 code: p.toApgcode('xs' + p.population),
                 x: minX,
                 y: minY,
+                p,
+                bb,
             });
         }
     }
@@ -842,7 +835,7 @@ function combineStillLifes(objs: ((StillLife | Oscillator) & {p: MAPPattern, bb:
 
 let knots = getKnots(base.trs);
 
-export function separateObjects(p: MAPPattern, sepGens: number, limit: number, input?: string): false | CAObject[] {
+export function separateObjects(p: MAPPattern, sepGens: number, limit: number): false | CAObject[] {
     if (p.isEmpty()) {
         return [];
     }
@@ -954,7 +947,20 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, i
     if (!data) {
         return false;
     }
-    out.push(...data);
+    if (data.length > 1) {
+        data = combineStillLifes(data);
+        if (!data) {
+            return false;
+        }
+    }
+    for (let obj of data) {
+        out.push({
+            type: obj.type,
+            code: obj.code,
+            x: obj.x,
+            y: obj.y,
+        })
+    }
     return out;
 }
 
@@ -1006,7 +1012,7 @@ function stabilize(p: MAPPattern, minGens: number = 0): number | 'linear' | null
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: string): false | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 'linear' | CAObject[] {
     p.generation = 0;
     let period = stabilize(p);
     if (period === 'linear') {
@@ -1017,5 +1023,5 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number, input?: s
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
-    return separateObjects(p, period * 8, period * 8, input);
+    return separateObjects(p, period * 8, period * 8);
 }
