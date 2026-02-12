@@ -161,7 +161,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             for (let b = 0; b < info.channels.length; b++) {
                 for (let c = info.minSpacing; c < maxSpacing; c++) {
                     for (let d = 0; d < info.channels.length; d++) {
-                        if (a + c > depth || c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c)) || filter.has(`${a}:${b} ${c}:${d}`)) {
+                        if (a + c > depth || c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))/* || filter.has(`${a}:${b} ${c}:${d}`)*/) {
                             continue;
                         }
                         starts.push([[a, b], [c, d]]);
