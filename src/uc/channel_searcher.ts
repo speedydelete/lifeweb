@@ -7,7 +7,7 @@ import {createChannelPattern} from './channel.js';
 
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, prevKey: string | undefined): [[number, number][], number, string][] {
     let out: [[number, number][], number, string][] = [];
-    let limit = Math.max(maxSpacing, depth);
+    let limit = Math.min(maxSpacing, depth);
     for (let spacing = info.minSpacing; spacing <= limit; spacing++) {
         if (info.excludeSpacings && info.excludeSpacings[0][0].includes(spacing)) {
             continue;
