@@ -50,6 +50,7 @@ let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
 let dijkstra: boolean | undefined = undefined;
 let depth: number | undefined = undefined;
+let dvgrn = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -86,6 +87,8 @@ for (let i = 2; i < argv.length; i++) {
             if (Number.isNaN(maxElbow)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
+        } else if (arg === '--dvgrn') {
+            dvgrn = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -125,11 +128,18 @@ if (cmd === 'get') {
     let data = fs.readFileSync(args[0]).toString();
     let p = parse(data) as MAPPattern;
     if (type in c.SALVO_INFO) {
-        let [target, lanes] = patternToSalvo(p);
-        console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
+        if (dvgrn) {
+            let out: string[] = [];
+            for (let [lane, timing] of patternToSalvo(p)[1]) {
+                out.push((timing ? 'O' : 'E') + (lane - 2));
+            }
+            console.log(out.join(' '));
+        } else {
+            let [target, lanes] = patternToSalvo(p);
+            console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
+        }
     } else {
-        let [target, lanes] = patternToSalvo(p);
-        console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
+        error(`Cannot use 'from' with restricted-channel (will hopefully be supported soon!)`);
     }
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
