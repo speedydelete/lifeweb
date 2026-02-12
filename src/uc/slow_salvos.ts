@@ -316,13 +316,13 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             }
             log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
         }
+        queue = newQueue;
         if (noCompile) {
             await saveRecipes(recipes);
             depth++;
             continue;
         }
         log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
-        queue = newQueue;
         if (start === info.startObject) {
             for (let i = 0; i < info.intermediateObjects.length; i++) {
                 let obj = info.intermediateObjects[i];
