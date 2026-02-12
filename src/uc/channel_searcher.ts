@@ -13,9 +13,9 @@ function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSp
             continue;
         }
         let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        // if (filter.has(key)) {
-        //     continue;
-        // }
+        if (filter.has(key)) {
+            continue;
+        }
         let elt: [number, number] = [spacing, 0];
         if (spacing === depth) {
             out.push([[elt], spacing, key]);
@@ -37,9 +37,9 @@ function getRecipesForDepthSingleChannelGliderDepth(info: ChannelInfo, depth: nu
             continue;
         }
         let key = prevKey === undefined ? `${spacing}:0` : prevKey + ` ${spacing}:0`;
-        // if (filter.has(key)) {
-        //     continue;
-        // }
+        if (filter.has(key)) {
+            continue;
+        }
         let elt: [number, number] = [spacing, 0];
         out.push([[elt], spacing, key]);
         if (depth > 0) {
@@ -68,9 +68,9 @@ function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpa
                 continue;
             }
             let key = prevKey === undefined ? `${spacing}:${channel}` : prevKey + ` ${spacing}:${channel}`;
-            // if (filter.has(key)) {
-            //     continue;
-            // }
+            if (filter.has(key)) {
+                continue;
+            }
             let elt: [number, number] = [spacing, channel];
             out.push([[elt], spacing, key]);
             if (depth > 0) {
