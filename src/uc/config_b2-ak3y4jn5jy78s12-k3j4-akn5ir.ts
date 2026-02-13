@@ -115,6 +115,8 @@ interface ChannelInfo {
     aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
+    // the period for output gliders (so it can be used to implement period n synthesis)
+    period: number;
     // the minimum spacing between gliders on every combination of channels
     // format is a square 2D array for each channel, it should be mirrored across the diagonal
     // for 0hd, you can just do [[spacing]]
@@ -147,6 +149,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     'Single-channel': {
         aliases: ['sc', '0hd'],
         channels: [0],
+        period: 1,
         minSpacings: [[20]],
         minSpacing: 20,
         start: {

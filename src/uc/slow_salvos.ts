@@ -281,6 +281,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
 export async function searchSalvos(type: string, start: string, noCompile?: boolean): Promise<void> {
     let info = c.SALVO_INFO[type];
     let recipes = await loadRecipes();
+    let results = recipes.salvos[type].searchResults;
     let done = new Set<string>();
     let forInput: {[key: string]: [number, number, false | null | CAObject[]][]} = {};
     let queue = [start];
@@ -300,7 +301,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 if (data) {
                     let [newObjs, newOut] = data;
                     forInput[code] = newOut;
-                    recipes.salvos[type].searchResults[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
+                    results[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                     newQueue.push(...newObjs);
                 }
             } else {
@@ -309,8 +310,13 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     if (data) {
                         let [newObjs, newOut] = data;
                         forInput[code] = newOut;
-                        recipes.salvos[type].searchResults[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
+                        let toAdd = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                         newQueue.push(...newObjs);
+                        if (results[code]) {
+                            results[code].push(...toAdd);
+                        } else {
+                            results[code] = toAdd;
+                        }
                     }
                 }
             }
