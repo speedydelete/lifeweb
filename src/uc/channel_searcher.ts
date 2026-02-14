@@ -339,7 +339,10 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         if (found || (shipData && hand)) {
             continue;
         }
-        addObjects(recipe, strRecipe, time, move, shipData, hand, out);
+        let value = addObjects(recipe, strRecipe, time, move, shipData, hand, out);
+        if (value) {
+            possibleUseful += value;
+        }
     }
     return {data: out, possibleUseful, newFilter, recipeCount: recipes.length};
 }
