@@ -199,6 +199,9 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 
+// for channel searching, at what spacing to inject the gliders at (the default should be fine)
+const INJECTION_SPACING = 2;
+
 
 // information for spaceship identification
 
@@ -294,4 +297,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, ShipDirection, SHIP_IDENTIFICATION};

@@ -565,21 +565,23 @@ export abstract class DataPattern implements Pattern {
     }
 
     offsetBy(x: number, y: number): this {
-        let newSize = (this.height + y) * (this.width + x);
+        let newHeight = this.height + y;
+        let newWidth = this.width + x;
+        let newSize = newHeight * newWidth;
         let out = new Uint8Array(newSize);
         let i = 0;
-        let loc = y * (this.width + x) + x;
+        let loc = y * newWidth + x;
         for (let row = 0; row < this.height; row++) {
             out.set(this.data.slice(i, i + this.width), loc);
-            loc += this.width + x;
+            loc += newWidth;
             i += this.width;
         }
-        this.height += x;
-        this.width += y;
+        this.height = newHeight;
+        this.width = newWidth;
         this.size = newSize;
         this.data = out;
-        this.xOffset += x;
-        this.yOffset += y;
+        this.xOffset -= x;
+        this.yOffset -= y;
         return this;
     }
 

@@ -320,7 +320,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     }
                 }
             }
-            log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(2)}% complete`, true);
+            log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(3)}% complete`, true);
         }
         queue = newQueue;
         if (noCompile) {

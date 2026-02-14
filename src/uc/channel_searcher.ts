@@ -1,7 +1,7 @@
 
 import {parentPort} from 'node:worker_threads';
-import {findType} from '../core/index.js';
-import {c, log, ChannelInfo, base, StillLife, Spaceship, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
+import {findType, MAPPattern} from '../core/index.js';
+import {c, ChannelInfo, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
 import {createChannelPattern} from './channel.js';
 
 
@@ -180,9 +180,87 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         }
         count++;
         let [recipe, time, key] = recipes[i];
-        let {p, xPos, yPos} = createChannelPattern(info, recipe);
+        let result: false | 'linear' | CAObject[];
         let strRecipe = unparseChannelRecipe(info, recipe);
-        let result = findOutcome(p, xPos, yPos);
+        if (recipe.length < 2) {
+            let {p, xPos, yPos} = createChannelPattern(info, recipe);
+            result = findOutcome(p, xPos, yPos);
+        } else {
+            let gliders: MAPPattern[] = [];
+            let total = 0;
+            for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
+                let [timing, channel] = recipe[i];
+                if (channel === -1) {
+                    continue;
+                }
+                let y = Math.floor(total / c.GLIDER_PERIOD);
+                let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
+                let p = gliderPatterns[total % c.GLIDER_PERIOD].copy();
+                p.xOffset += x;
+                p.yOffset += y;
+                gliders.push(p);
+                total += timing;
+            }
+            // console.log(`\x1b[91mtotal = ${total} (div = ${total / c.GLIDER_PERIOD})\x1b[0m`);
+            // for (let glider of gliders) {
+            //     console.log(glider.xOffset, glider.yOffset);
+            // }
+            let y = Math.floor(total / c.GLIDER_PERIOD);
+            let x = Math.floor(y * c.GLIDER_SLOPE);
+            if (info.channels.length > 1) {
+                x += info.channels[recipe[0][1]];
+            }
+            let p = gliderPatterns[total % c.GLIDER_PERIOD].copy();
+            p.xOffset += x;
+            p.yOffset += y;
+            let target = base.loadApgcode(info.start.apgcode).shrinkToFit();
+            let yPos = info.start.spacing;
+            let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
+            p.ensure(target.width + xPos, target.height + yPos);
+            p.insert(target, xPos, yPos);
+            total += c.GLIDER_TARGET_SPACING;
+            // console.log(p.toRLE());
+            let i = 0;
+            while (gliders.length > 0) {
+                for (let g of gliders) {
+                    g.runGeneration();
+                    g.shrinkToFit();
+                }
+                p.runGeneration();
+                p.shrinkToFit();
+                while (gliders.length > 0) {
+                    let last = gliders[gliders.length - 1];
+                    let xDiff = p.xOffset - last.xOffset;
+                    let yDiff = p.yOffset - last.yOffset;
+                    // console.log(`\x1b[92m${strRecipe}\x1b[0m: gliders.length = ${gliders.length}, xDiff = ${xDiff}, yDiff = ${yDiff}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, last.xOffset = ${last.xOffset}, last.yOffset = ${last.yOffset}, p.generation = ${p.generation}\n${p.toRLE()}`);
+                    if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
+                        // console.log(`\x1b[94minserting\x1b[0m`);
+                        p.offsetBy(xDiff, yDiff);
+                        p.insert(last, 0, 0);
+                        gliders.pop();
+                    } else {
+                        break;
+                    }
+                }
+                i++;
+                if (i > total + c.MAX_GENERATIONS) {
+                    while (gliders.length > 0) {
+                        let last = gliders[gliders.length - 1];
+                        let xDiff = p.xOffset - last.xOffset;
+                        let yDiff = p.yOffset - last.yOffset;
+                        p.offsetBy(xDiff, yDiff);
+                        p.insert(last, 0, 0);
+                        gliders.pop();
+                    }
+                    break;
+                }
+            }
+            // console.log('\x1b[92mfinding outcome\x1b[0m');
+            // console.log(p.toRLE());
+            yPos = Math.floor(total / c.GLIDER_PERIOD) + info.start.spacing;
+            xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
+            result = findOutcome(p, xPos, yPos);
+        }
         if (result === false) {
             continue;
         }

@@ -217,6 +217,9 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
         depth++;
+        if (depth === 81) {
+            return;
+        }
     }
 }
 
