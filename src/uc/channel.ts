@@ -12,7 +12,7 @@ export function createChannelPattern(info: ChannelInfo, recipe: [number, number]
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
-        if (channel === -1) {
+        if (channel < 0) {
             continue;
         }
         let y = Math.floor(total / c.GLIDER_PERIOD);
