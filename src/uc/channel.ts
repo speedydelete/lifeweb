@@ -217,6 +217,9 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
         }
         depth++;
+        if (depth === 81) {
+            process.exit(0);
+        }
     }
 }
 
@@ -232,7 +235,7 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
         if (channel === -1) {
             if (i !== recipe.length - 1) {
                 i++;
-                while (recipe[i][1] === -1 && i < recipe.length) {
+                while (recipe[i][1] < 0 && i < recipe.length) {
                     if (recipe[i][0] !== -1) {
                         spacing += recipe[i][0];
                     }

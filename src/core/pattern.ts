@@ -402,13 +402,13 @@ export interface Pattern {
     /** Clears part of the pattern. */
     clearPart(x: number, y: number, height: number, width: number): this;
     /** Inserts a different pattern using OR insertion. */
-    insert(p: Pattern, x?: number, y?: number): this;
+    insert(p: Pattern, x: number, y: number): this;
     /** Inserts a different pattern, clearing all dead cells in the pattern. */
-    insertCopy(p: Pattern, x?: number, y?: number): this;
+    insertCopy(p: Pattern, x: number, y: number): this;
     /** Inserts a different pattern using AND insertion. */
-    insertAnd(p: Pattern, x?: number, y?: number): this;
+    insertAnd(p: Pattern, x: number, y: number): this;
     /** Inserts a different pattern using XOR insertion. */
-    insertXor(p: Pattern, x?: number, y?: number): this;
+    insertXor(p: Pattern, x: number, y: number): this;
     /** Extracts part of the pattern into a new one. */
     copyPart(x: number, y: number, height: number, width: number): Pattern;
     /** Gets the pattern data as an array. */
@@ -614,7 +614,7 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number = 0, y: number = 0): this {
+    insert(p: Pattern, x: number, y: number): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             for (let x2 = 0; x2 < p.width; x2++) {
                 let value = p.get(x2, y2);
@@ -626,7 +626,7 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insertCopy(p: Pattern, x: number = 0, y: number = 0): this {
+    insertCopy(p: Pattern, x: number, y: number): this {
         let index = 0;
         let pData = p.getData();
         for (let i = 0; i < p.height; i++) {
@@ -636,7 +636,7 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insertAnd(p: Pattern, x: number = 0, y: number = 0): this {
+    insertAnd(p: Pattern, x: number, y: number): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             for (let x2 = 0; x2 < p.width; x2++) {
                 let value = p.get(x2, y2);
@@ -648,7 +648,7 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insertXor(p: Pattern, x: number = 0, y: number = 0): this {
+    insertXor(p: Pattern, x: number, y: number): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             for (let x2 = 0; x2 < p.width; x2++) {
                 let value = p.get(x2, y2);
@@ -1490,7 +1490,7 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number = 0, y: number = 0): this {
+    insert(p: Pattern, x: number, y: number): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, value] of p.getCoords()) {
             this.coords.set(key + offset, value);
@@ -1498,13 +1498,13 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    insertCopy(p: Pattern, x: number = 0, y: number = 0): this {
+    insertCopy(p: Pattern, x: number, y: number): this {
         this.clearPart(x, y, p.height, p.width);
         this.insert(p, x, y);
         return this;
     }
 
-    insertAnd(p: Pattern, x: number = 0, y: number = 0): this {
+    insertAnd(p: Pattern, x: number, y: number): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, value] of p.getCoords()) {
             this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) & value);
@@ -1512,7 +1512,7 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    insertXor(p: Pattern, x: number = 0, y: number = 0): this {
+    insertXor(p: Pattern, x: number, y: number): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, value] of p.getCoords()) {
             this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) ^ value);

@@ -99,7 +99,10 @@ function findSalvoResult(info: SalvoInfo, target: string, lanes: [number, number
     if (!found) {
         return null;
     }
-    return findOutcome(p, xPos, yPos);
+    p.xOffset -= xPos;
+    p.yOffset -= yPos;
+    p.generation = 0;
+    return findOutcome(p);
 }
 
 function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {

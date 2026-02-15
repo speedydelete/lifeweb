@@ -202,6 +202,8 @@ export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number,
         }
         if (part.startsWith('(')) {
             out.push([parseInt(part.slice(1)), -1]);
+        } else if (part.startsWith('+')) {
+            out.push([parseInt(part.slice(1)), -2]);
         } else if (part.length === 1 && LETTERS.includes(part[0])) {
             out.push([-1, LETTERS.indexOf(part[0])]);
         } else {
@@ -230,9 +232,29 @@ export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number,
 /** Turns a restricted-channel recipe into a string */
 export function unparseChannelRecipe(info: c.ChannelInfo, data: [number, number][]): string {
     if (info.channels.length === 1) {
-        return data.map(x => x[1] === -1 ? `(${x[0]})` : x[0]).join(', ');
+        return data.map(x => {
+            if (x[1] >= 0) {
+                return x[0];
+            } else if (x[1] === -1) {
+                return `(${x[0]})`;
+            } else if (x[1] === -2) {
+                return `+${x[0]}`;
+            }
+        }).join(', ');
     } else {
-        return data.map(x => x[1] === -1 ? `(${x[0]})` : (x[0] === -1 ? LETTERS[x[1]] : x[0] + LETTERS[x[1]])).join(', ');
+        return data.map(x => {
+            if (x[1] >= 0) {
+                if (x[0] === -1) {
+                    return LETTERS[x[1]];
+                } else {
+                    return x[0] + LETTERS[x[1]];
+                }
+            } else if (x[1] === -1) {
+                return `(${x[0]})`;
+            } else if (x[1] === -2) {
+                return `+${x[0]}`;
+            }
+        }).join(', ');
     }
 }
 
@@ -676,7 +698,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 groups[key] = [recipe];
             }
         }
-        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : a.lane - b.lane) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         let groups2: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
         for (let recipe of value.recipes0Deg) {
             if (recipe.lane in groups2) {
@@ -685,7 +707,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 groups2[recipe.lane] = [recipe];
             }
         }
-        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         if (value.destroyRecipe) {
             out += `\n${key} destroy recipe:\n${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
         }
@@ -698,7 +720,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 groups3[key] = [recipe];
             }
         }
-        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups3).sort(([a], [b]) => a.ix === b.ix ? a.lane - b.lane : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups3).sort(([a], [b]) => a.ix === b.ix ? a.lane - b.lane : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         let groups4: {[key: number]: RecipeData['channels'][string]['recipes0DegDestroy']} = {};
         for (let recipe of value.recipes0DegDestroy) {
             if (recipe.lane in groups4) {
@@ -707,7 +729,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 groups4[recipe.lane] = [recipe];
             }
         }
-        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
+        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
         let groups5: {[key: string]: RecipeData['channels'][string]['createHandRecipes']} = {};
         for (let recipe of value.createHandRecipes) {
             let key = objectsToString([recipe.obj]);
@@ -1012,8 +1034,7 @@ function stabilize(p: MAPPattern, minGens: number = 0): number | 'linear' | null
     return null;
 }
 
-export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 'linear' | CAObject[] {
-    p.generation = 0;
+export function findOutcome(p: MAPPattern): false | 'linear' | CAObject[] {
     let period = stabilize(p);
     if (period === 'linear') {
         return 'linear';
@@ -1021,7 +1042,5 @@ export function findOutcome(p: MAPPattern, xPos: number, yPos: number): false | 
         return false;
     }
     p.shrinkToFit();
-    p.xOffset -= xPos;
-    p.yOffset -= yPos;
     return separateObjects(p, period * 8, period * 8);
 }
