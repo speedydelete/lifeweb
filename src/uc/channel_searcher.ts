@@ -188,8 +188,8 @@ function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], exp
     }
 }
 
-function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, elbow: [StillLife, number] | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: string, out: RecipeData['channels'][string]): string | undefined {
-    if (elbow === null) {
+function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: string, out: RecipeData['channels'][string]): string | undefined {
+    if (move === null) {
         if (shipData) {
             let [ship, dir, timing] = shipData;
             if (dir === 'up') {
@@ -218,7 +218,6 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
             return;
         }
     }
-    let [elbowObj, move] = elbow;
     recipe = findNextWorkingInput(info, recipe, expectedAsh);
     strRecipe = unparseChannelRecipe(info, recipe);
     if (shipData) {
@@ -322,7 +321,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             possibleUseful += `Linear growth: ${strRecipe}\n`;
             continue;
         }
-        let elbow: [StillLife, number] | null = null;
+        let move: number | null = null;
         let shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null = null;
         let hand: StillLife | null = null;
         let found = false;
@@ -343,9 +342,9 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 // if (result.length === 1 && ((obj.code === 'xs2_11' && lane === -4) || (obj.code === 'xs2_3' && lane === -3))) {
                 //     possibleUseful += `Snarkmaker (${obj.code === 'xs2_11' ? 'left' : 'right'}): ${strRecipe}\n`;
                 // }
-                if (elbow === null && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
-                    elbow = [obj, spacing];
-                } else if (!hand && (Math.abs(lane) > info.minHandSpacing || (elbow && (spacing - elbow[1]) > info.minHandSpacing))) {
+                if (move === null && obj.code in info.elbows && info.elbows[obj.code].includes(lane)) {
+                    move = spacing;
+                } else if (!hand && (Math.abs(lane) > info.minHandSpacing || (move !== null && (spacing - move) > info.minHandSpacing))) {
                     hand = obj;        
                 } else {
                     found = true;
@@ -393,7 +392,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         if (found || (shipData && hand)) {
             continue;
         }
-        let value = addObjects(info, recipe, strRecipe, time, elbow, shipData, hand, expectedAsh, out);
+        let value = addObjects(info, recipe, strRecipe, time, move, shipData, hand, expectedAsh, out);
         if (value) {
             possibleUseful += value;
         }
