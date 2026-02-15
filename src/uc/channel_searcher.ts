@@ -1,5 +1,5 @@
 
-import {parentPort} from 'node:worker_threads';
+import {parentPort, workerData} from 'node:worker_threads';
 import {findType, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, findOutcome, RecipeData} from './base.js';
 import {createChannelPattern} from './channel.js';
@@ -154,10 +154,13 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
     }
 }
 
-export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, filter: Set<string>, starts: [number, number][][], parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, newFilter: Set<string>, recipeCount: number} {
+let starts: [number, number][][] = workerData.starts;
+
+let filter = new Set<string>();
+
+export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing: number, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
-    let newFilter = new Set<string>();
     let recipes: [[number, number][], number, string][] = [];
     for (let start of starts) {
         let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
@@ -285,13 +288,13 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         let hand: StillLife | null = null;
         let found = false;
         if (result.length === 0) {
-            newFilter.add(key + ' ');
+            filter.add(key + ' ');
             if (!out.destroyRecipe || out.destroyRecipe.time > time) {
                 out.destroyRecipe = {recipe, time};
             }
         }
         if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
-            newFilter.add(key + ' ');
+            filter.add(key + ' ');
             continue;
         }
         for (let obj of result) {
@@ -326,7 +329,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
                     possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                    newFilter.add(key + ' ');
+                    filter.add(key + ' ');
                     let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                     if (type.disp) {
                         let lane: number;
@@ -356,7 +359,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             possibleUseful += value;
         }
     }
-    return {data: out, possibleUseful, newFilter, recipeCount: recipes.length};
+    return {data: out, possibleUseful, recipeCount: recipes.length};
 }
 
 
@@ -368,6 +371,6 @@ parentPort.on('message', data => {
     if (!parentPort) {
         throw new Error('No parent port!');
     }
-    let out = findChannelResults(data.info, data.depth, data.maxSpacing, data.filter, data.starts, parentPort);
+    let out = findChannelResults(data.info, data.depth, data.maxSpacing, parentPort);
     parentPort.postMessage(['completed', out]);
 });
