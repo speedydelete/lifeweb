@@ -986,16 +986,12 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
     return out;
 }
 
-function stabilize(p: MAPPattern, minGens: number = 0): number | 'linear' | null {
+function stabilize(p: MAPPattern): number | 'linear' | null {
     let pops: number[] = [p.population];
-    for (let i = 0; i < minGens + c.MAX_GENERATIONS; i++) {
+    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
-        if (i < minGens) {
-            pops.push(pop);
-            continue;
-        }
         for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
             let found = true;
             for (let j = 1; j < c.PERIOD_SECURITY; j++) {

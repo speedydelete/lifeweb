@@ -93,12 +93,34 @@ interface ChannelInfo {
 
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
-    'Single-channel (90)': {
-        aliases: ['sc90'],
+    'Single-channel (14)': {
+        aliases: ['sc14', 'sc'],
         channels: [0],
         period: 2,
-        minSpacings: [[90]],
-        minSpacing: 90,
+        minSpacings: [[14]],
+        minSpacing: 14,
+        start: {
+            apgcode: '33',
+            lane: 9,
+            spacing: 7,
+        },
+        elbows: {
+            xs4_33: [2, 9],
+            xs5_253: [10],
+            xs5_652: [1],
+            xs6_2552: [10],
+            xs6_696: [1],
+            xs8_6996: [1, 10],
+        },
+        minHandSpacing: 16,
+    },
+
+    'Single-channel (61)': {
+        aliases: ['sc61'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[61]],
+        minSpacing: 61,
         start: {
             apgcode: '33',
             lane: 9,
@@ -138,34 +160,12 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minHandSpacing: 16,
     },
 
-    'Single-channel (61)': {
-        aliases: ['sc61'],
+    'Single-channel (90)': {
+        aliases: ['sc90'],
         channels: [0],
         period: 2,
-        minSpacings: [[61]],
-        minSpacing: 61,
-        start: {
-            apgcode: '33',
-            lane: 9,
-            spacing: 7,
-        },
-        elbows: {
-            xs4_33: [2, 9],
-            xs5_253: [10],
-            xs5_652: [1],
-            xs6_2552: [10],
-            xs6_696: [1],
-            xs8_6996: [1, 10],
-        },
-        minHandSpacing: 16,
-    },
-
-    'Single-channel (14)': {
-        aliases: ['sc14'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[14]],
-        minSpacing: 14,
+        minSpacings: [[90]],
+        minSpacing: 90,
         start: {
             apgcode: '33',
             lane: 9,
@@ -190,7 +190,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 // the maximum number of generations it should take a glider to get to the object (dependant on GLIDER_TARGET_SPACING)
 const MAX_WAIT_GENERATIONS = 60;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 256;
+const MAX_GENERATIONS = 512;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable

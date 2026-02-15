@@ -202,7 +202,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
         let [recipe, time, key] = recipes[i];
         let result: false | 'linear' | CAObject[];
         let strRecipe = unparseChannelRecipe(info, recipe);
-        let timingOffset = 0;
         if (recipe.length < 2) {
             let {p, xPos, yPos} = createChannelPattern(info, recipe);
             p.xOffset -= xPos;
@@ -224,10 +223,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 gliders.push(p);
                 total += timing;
             }
-            // console.log(`\x1b[91mtotal = ${total} (div = ${total / c.GLIDER_PERIOD})\x1b[0m`);
-            // for (let glider of gliders) {
-            //     console.log(glider.xOffset, glider.yOffset);
-            // }
             let y = Math.floor(total / c.GLIDER_PERIOD) + info.start.spacing;
             let x = Math.floor(y * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
             if (info.channels.length > 1) {
@@ -236,7 +231,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             gliders.forEach(g => {
                 g.xOffset -= x;
                 g.yOffset -= y;
-                // console.log(g.xOffset, g.yOffset);
             });
             let p = base.loadApgcode(info.start.apgcode).shrinkToFit();
             let yPos = info.start.spacing;
@@ -244,10 +238,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             p.offsetBy(xPos, yPos);
             p.insert(gliderPatterns[total % c.GLIDER_PERIOD], 0, 0);
             total += c.GLIDER_TARGET_SPACING;
-            // console.log(p.toRLE());
-            // if (strRecipe === '33, 17, 15, 15') {
-            //     console.log(p.toRLE(), xPos, yPos);
-            // }
             let i = 0;
             while (gliders.length > 0) {
                 for (let g of gliders) {
@@ -260,11 +250,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                     let last = gliders[gliders.length - 1];
                     let xDiff = p.xOffset - last.xOffset;
                     let yDiff = p.yOffset - last.yOffset;
-                    // if (strRecipe === '33, 17, 15, 15') {
-                    //     console.log(`\x1b[92m${strRecipe}\x1b[0m: gliders.length = ${gliders.length}, xDiff = ${xDiff}, yDiff = ${yDiff}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, last.xOffset = ${last.xOffset}, last.yOffset = ${last.yOffset}, p.generation = ${p.generation}\n${p.toRLE()}`);
-                    // }
                     if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
-                        // console.log(`\x1b[94minserting\x1b[0m`);
                         p.offsetBy(xDiff, yDiff);
                         p.insert(last, 0, 0);
                         gliders.pop();
@@ -278,7 +264,6 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                         let last = gliders[gliders.length - 1];
                         let xDiff = p.xOffset - last.xOffset;
                         let yDiff = p.yOffset - last.yOffset;
-                        // console.log(`\x1b[91minserting (forced)\x1b[0m`);
                         p.offsetBy(xDiff, yDiff);
                         p.insert(last, 0, 0);
                         gliders.pop();
@@ -286,21 +271,8 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                     break;
                 }
             }
-            // console.log('\x1b[92mfinding outcome\x1b[0m');
-            // console.log(p.toRLE());
-            // yPos = Math.floor(total / c.GLIDER_PERIOD) + info.start.spacing;
-            // xPos = Math.floor(yPos * c.GLIDER_SLOPE) - info.start.lane + c.LANE_OFFSET;
-            // if (strRecipe === '33, 17, 15, 15') {
-            //     console.log('haiiii');
-            //     console.log(p.toRLE());
-            //     throw new Error('hi');
-            // }
             result = findOutcome(p);
         }
-        // if (strRecipe === '22, 15, 14, 21') {
-        //     console.log(result);
-        //     throw new Error('hi');
-        // }
         if (result === false) {
             continue;
         }
