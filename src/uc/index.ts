@@ -132,14 +132,15 @@ if (cmd === 'get') {
     let data = fs.readFileSync(args[0]).toString();
     let p = parse(data) as MAPPattern;
     if (type in c.SALVO_INFO) {
+        let info = c.SALVO_INFO[type];
         if (dvgrn) {
             let out: string[] = [];
-            for (let [lane, timing] of patternToSalvo(p)[1]) {
+            for (let [lane, timing] of patternToSalvo(info, p)[1]) {
                 out.push((timing ? 'O' : 'E') + (lane - 2));
             }
             console.log(out.join(' '));
         } else {
-            let [target, lanes] = patternToSalvo(p);
+            let [target, lanes] = patternToSalvo(info, p);
             console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
         }
     } else {

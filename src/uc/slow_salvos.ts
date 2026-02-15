@@ -45,16 +45,16 @@ export function createSalvoPattern(info: SalvoInfo, target: string, lanes: [numb
 }
 
 /** Reads a slow salvo from a `Pattern`. */
-export function patternToSalvo(p: MAPPattern): [string, [number, number][]] {
+export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [number, number][]] {
     let objs = separateObjects(p, 1, 256);
     if (objs === false) {
         throw new Error('Object separation failed!');
     }
     let target: StableObject | null = null;
-    let ships: {lane: number, timing: number}[] = [];
+    let ships: Spaceship[] = [];
     for (let obj of objs) {
         if (obj.type === 'ship') {
-            ships.push({lane: obj.x - obj.y, timing: obj.x + obj.y});
+            ships.push(obj);
         } else if (obj.type === 'sl' || obj.type === 'osc') {
             if (target !== null) {
                 throw new Error('More than 1 target!');
@@ -67,10 +67,16 @@ export function patternToSalvo(p: MAPPattern): [string, [number, number][]] {
     if (!target) {
         throw new Error('No target!');
     }
-    let lanes = ships.sort((a, b) => b.timing - a.timing).map<[number, number]>(x => [x.lane, x.timing]);
-    let laneOffset = target.y - target.x;
-    lanes = lanes.map(x => [x[0] + laneOffset + c.LANE_OFFSET, x[1] % c.GLIDER_PERIOD]);
-    return [target.code, lanes];
+    let lanes: [number, number, number][] = [];
+    for (let ship of ships) {
+        let x = target.x - ship.x;
+        let y = target.y - ship.y;
+        let lane = y - x + c.LANE_OFFSET;
+        let timing = x + y;
+        lanes.push([lane, ship.timing, timing]);
+    }
+    lanes = lanes.sort((a, b) => a[2] - b[2]);
+    return [target.code, lanes.map(x => [x[0], x[1] % info.period])];
 }
 
 
