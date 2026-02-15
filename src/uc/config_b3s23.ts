@@ -87,6 +87,8 @@ interface ChannelInfo {
     minHandSpacing: number;
     // a filter for possibly useful recipes
     possiblyUsefulFilter?: string[];
+    // the maximum possible next glider spacing (after a recipe)
+    maxNextSpacing: number;
 }
 
 // you name the construction types whatever you want
@@ -113,6 +115,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         minHandSpacing: 16,
+        maxNextSpacing: 512,
     },
 
     'Single-channel (61)': {
@@ -135,6 +138,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         minHandSpacing: 16,
+        maxNextSpacing: 512,
     },
 
     'Single-channel (syringe)': {
@@ -158,6 +162,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         minHandSpacing: 16,
+        maxNextSpacing: 512,
     },
 
     'Single-channel (90)': {
@@ -180,6 +185,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         minHandSpacing: 16,
+        maxNextSpacing: 512,
     },
 
 };
@@ -200,8 +206,7 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 const MAX_PSEUDO_DISTANCE = 6;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
-const INJECTION_SPACING = 2;
-
+const INJECTION_SPACING = 3;
 
 // information for spaceship identification
 
