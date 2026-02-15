@@ -813,7 +813,7 @@ function combineStillLifes(objs: ForCombining[]): false | ForCombining[] {
         }
         p.shrinkToFit();
         let type = findType(p, 2, false);
-        if (type.period !== 1 || !type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
+        if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
         let bb = [minX, minY, maxX, maxY] as [number, number, number, number];

@@ -150,6 +150,7 @@ function runInjection(info: ChannelInfo, recipe: [number, number][]): MAPPattern
             break;
         }
     }
+    // console.log(p.toRLE());
     return p;
 }
 
@@ -164,22 +165,42 @@ function findChannelOutcome(info: ChannelInfo, recipe: [number, number][]): fals
     }
 }
 
-function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string): [number, number][] {
+function isNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string, next: number): boolean {
+    let test = recipe.slice();
+    test.push([next, 0]);
+    let result = findChannelOutcome(info, test);
+    if (typeof result !== 'object') {
+        return false;
+    }
+    let key = result.map(x => x.code).sort().join(' ');
+    if (key == expectedAsh) {
+        return true;
+    }
+    // hotfix
+    if (result.length === 3 && key.startsWith('xq4_153 xq4_153 xs')) {
+        return true;
+    }
+    return false;
+}
+
+function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string/*, low: number, high: number*/): [number, number][] {
+    // console.log(`\x1b[91m${unparseChannelRecipe(info, recipe)}\x1b[0m`);
+    // console.log(expectedAsh);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
+        // let oldLow = low;
+        // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        let test = recipe.slice();
-        test.push([mid, 0]);
-        let result = findChannelOutcome(info, test);
-        if (typeof result === 'object' && expectedAsh === result.map(x => x.code).sort().join(' ')) {
+        if (isNextWorkingInput(info, recipe, expectedAsh, mid) && isNextWorkingInput(info, recipe, expectedAsh, mid + 1) && isNextWorkingInput(info, recipe, expectedAsh, mid + 2)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        console.log(mid, low, high, result);
+        // console.log(`old: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}`);
     }
     if (low === info.maxNextSpacing) {
+        // throw new Error('bruh');
         return recipe;
     } else {
         recipe = recipe.slice();
@@ -188,7 +209,17 @@ function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], exp
     }
 }
 
-function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: string, out: RecipeData['channels'][string]): string | undefined {
+// function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string): [number, number][] {
+//     for (let spacing = info.minSpacing; spacing < info.maxNextSpacing; spacing += 32) {
+//         if (isNextWorkingInput(info, recipe, expectedAsh, spacing + 32) && isNextWorkingInput(info, recipe, expectedAsh, spacing + 33) && isNextWorkingInput(info, recipe, expectedAsh, spacing + 34)) {
+//             return findNextWorkingInputBinarySearch(info, recipe, expectedAsh, spacing, spacing + 32);
+//         }
+//     }
+//     throw new Error('bruh');
+//     return recipe;
+// }
+
+function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: string[], out: RecipeData['channels'][string]): string | undefined {
     if (move === null) {
         if (shipData) {
             let [ship, dir, timing] = shipData;
@@ -218,9 +249,9 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
             return;
         }
     }
-    recipe = findNextWorkingInput(info, recipe, expectedAsh);
-    strRecipe = unparseChannelRecipe(info, recipe);
     if (shipData) {
+        recipe = findNextWorkingInput(info, recipe, expectedAsh.concat(c.GLIDER_APGCODE).sort().join(' '));
+        strRecipe = unparseChannelRecipe(info, recipe);
         let [ship, dir, timing] = shipData;
         if (dir === 'up') {
             return;
@@ -246,9 +277,13 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
             return `90 degree emit ${lane}${ix} timing ${timing} move ${move}: ${strRecipe}\n`;
         }
     } else if (hand) {
+        recipe = findNextWorkingInput(info, recipe, expectedAsh.concat(hand.code).sort().join(' '));
+        strRecipe = unparseChannelRecipe(info, recipe);
         out.createHandRecipes.push({recipe, time, obj: hand, move});
         return `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
     } else {
+        recipe = findNextWorkingInput(info, recipe, expectedAsh.join(' '));
+        strRecipe = unparseChannelRecipe(info, recipe);
         if (move === 0) {
             return;
         }
@@ -266,7 +301,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     if (typeof expectedAshResult !== 'object') {
         throw new Error(`Bad expected ash result: ${expectedAshResult}`);
     }
-    let expectedAsh = expectedAshResult.map(x => x.code).sort().join(' ');
+    let expectedAsh = expectedAshResult.map(x => x.code).sort();
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let recipes: [[number, number][], number, string][] = [];
@@ -365,7 +400,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                     continue;
                 }
                 if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
-                    possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${unparseChannelRecipe(info, findNextWorkingInput(info, recipe, expectedAsh))}\n`;
+                    possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
                     filter.add(key + ' ');
                     let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
@@ -380,9 +415,9 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                         } else {
                             lane = obj.x + obj.y;
                         }
-                        possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${unparseChannelRecipe(info, findNextWorkingInput(info, recipe, expectedAsh))}\n`;
+                        possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
                     } else {
-                        possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${unparseChannelRecipe(info, findNextWorkingInput(info, recipe, expectedAsh))}\n`;
+                        possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
                     }
                 }
                 found = true;
