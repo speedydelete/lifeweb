@@ -206,7 +206,7 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 const MAX_PSEUDO_DISTANCE = 6;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
-const INJECTION_SPACING = 3;
+const INJECTION_SPACING = 2;
 
 // information for spaceship identification
 
