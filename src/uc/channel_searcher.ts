@@ -129,7 +129,8 @@ function runInjection(info: ChannelInfo, recipe: [number, number][]): MAPPattern
             let last = gliders[gliders.length - 1];
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
-            if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
+            // if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
+            if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
