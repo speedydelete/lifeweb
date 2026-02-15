@@ -141,7 +141,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
-    let depth = 348;
+    let depth = 0;
     let starts: [number, number][][] = [];
     for (let a = info.minSpacing; a < maxSpacing; a++) {
         for (let b = 0; b < info.channels.length; b++) {
