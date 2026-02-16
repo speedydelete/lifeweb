@@ -1077,13 +1077,26 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, m
     return out;
 }
 
+// let maxPeriodTable: number[] = [];
+// for (let i = 0; i < 1024; i++) {
+//     let out = Math.floor(i / c.PERIOD_SECURITY);
+//     if (c.MAX_POPULATION_PERIOD !== null) {
+//         out = Math.min(out, c.MAX_POPULATION_PERIOD as number);
+//     }
+//     maxPeriodTable.push(out);
+// }
+
 export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): number | 'linear' | null {
     let pops: number[] = [p.population];
     for (let i = 0; i < maxGens; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
-        for (let period = 1; period < Math.floor(pops.length / c.PERIOD_SECURITY); period++) {
+        // let limit = maxPeriodTable[i];
+        // if (limit === undefined) {
+        //     limit = Math.floor(maxGens / c.PERIOD_SECURITY);
+        // }
+        for (let period = 1; period < Math.floor(maxGens / c.PERIOD_SECURITY); period++) {
             let found = true;
             for (let j = 1; j < c.PERIOD_SECURITY; j++) {
                 if (pop !== pops[pops.length - period * j]) {
@@ -1092,28 +1105,20 @@ export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): numb
                 }
             }
             if (found) {
-                if (period === 1) {
-                    let j = pops.length - c.PERIOD_SECURITY;
-                    while (p.generation > 0) {
-                        if (pop !== pops[j]) {
-                            break;
-                        }
-                        p.generation--;
-                        j--;
-                    }
-                }
                 return period;
             }
-            let diff = pop - pops[pops.length - period];
-            found = true;
-            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
-                if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
-                    found = false;
-                    break;
+            if (c.CHECK_LINEAR_GROWTH) {
+                let diff = pop - pops[pops.length - period];
+                found = true;
+                for (let j = 1; j < c.PERIOD_SECURITY; j++) {
+                    if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
+                        found = false;
+                        break;
+                    }
                 }
-            }
-            if (found) {
-                return 'linear';
+                if (found) {
+                    return 'linear';
+                }
             }
         }
         pops.push(pop);

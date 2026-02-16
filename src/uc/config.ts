@@ -83,12 +83,12 @@ interface ChannelInfo {
     elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
+    // the maximum possible next glider spacing (after a recipe)
+    maxNextSpacing: number;
     // the minimum spacing in full diagonals between a hand object and the construction lane(s)
     minHandSpacing: number;
     // a filter for possibly useful recipes
-    possiblyUsefulFilter?: string[];
-    // the maximum possible next glider spacing (after a recipe)
-    maxNextSpacing: number;
+    possiblyUsefulFilter: string[];
 }
 
 // you name the construction types whatever you want
@@ -114,8 +114,9 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs6_696: [1],
             xs8_6996: [1, 10],
         },
-        minHandSpacing: 16,
         maxNextSpacing: 512,
+        minHandSpacing: 16,
+        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
     },
 
     'Single-channel (61)': {
@@ -137,8 +138,9 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs6_696: [1],
             xs8_6996: [1, 10],
         },
-        minHandSpacing: 16,
         maxNextSpacing: 512,
+        minHandSpacing: 16,
+        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
     },
 
     'Single-channel (syringe)': {
@@ -161,8 +163,9 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs6_696: [1],
             xs8_6996: [1, 10],
         },
-        minHandSpacing: 16,
         maxNextSpacing: 512,
+        minHandSpacing: 16,
+        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
     },
 
     'Single-channel (90)': {
@@ -184,8 +187,9 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs6_696: [1],
             xs8_6996: [1, 10],
         },
-        minHandSpacing: 16,
         maxNextSpacing: 512,
+        minHandSpacing: 16,
+        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
     },
 
 };
@@ -197,6 +201,10 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 const MAX_WAIT_GENERATIONS = 60;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
 const MAX_GENERATIONS = 384;
+// the maximum population period, optional
+const MAX_POPULATION_PERIOD: null | number = 2;
+// whether to do linear growth checking
+const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
 const PERIOD_SECURITY = 16;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
@@ -302,4 +310,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, PERIOD_SECURITY, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, ShipDirection, SHIP_IDENTIFICATION};

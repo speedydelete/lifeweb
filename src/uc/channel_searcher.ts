@@ -418,10 +418,12 @@ export function findChannelResults(depth: number, maxSpacing: number, parentPort
                 }
                 shipData = [obj, dir, obj.timing % info.period];
             } else {
-                if (info.possiblyUsefulFilter && info.possiblyUsefulFilter.includes(obj.code)) {
+                if (info.possiblyUsefulFilter.includes(obj.code)) {
                     continue;
                 }
-                if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
+                if (obj.type === 'osc' && !obj.code.startsWith('xp2')) {
+                    possibleUseful += `Creates ${obj.code}: ${strRecipe}\n`;
+                } else if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
                     possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
                     filter.add(key + ' ');
