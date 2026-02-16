@@ -143,9 +143,9 @@ function getExpectedAsh(info: ChannelInfo): [string[][], number] {
     let period = 1;
     for (let code in info.elbows) {
         for (let lane of info.elbows[code]) {
-            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true, 1024);
+            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true/*, 1024*/);
             if (!Array.isArray(result)) {
-                throw new Error(`Invalid expected ash result: '${result}'`);
+                throw new Error(`Invalid expected ash result: '${result}' (max generations might be too low!)`);
             }
             let codes = result.map(x => x.code);
             let key = codes.sort().join(' ');
