@@ -120,7 +120,7 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
     while (queue.length > 0) {
         let vertex = queue[0];
         let vertexIndex = 0;
-        let dist = dists[0];
+        let dist = dists[vertex];
         for (let i = 1; i < queue.length; i++) {
             let newVertex = queue[i];
             let newDist = dists[newVertex];
@@ -132,6 +132,9 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
         }
         queue.splice(vertexIndex, 1);
         if (vertex === target) {
+            if (dist === Infinity) {
+                throw new Error('Target unreachable!');
+            }
             found = true;
             break;
         }
@@ -145,22 +148,44 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
         }
     }
     if (found) {
-        let out: [number, number][] = [];
         let prev = prevs[target];
         if (!prev) {
-            throw new Error('Missing prev for vertex!');
+            throw new Error('Missing prev for vertex! (there is probably a bug)');
         }
+        if (prev[0] === 0) {
+            return [prev];
+        }
+        let out: [number, number][] = [];
         while (prev[0] !== 0) {
             out.push(prev);
             prev = prevs[prev[0]];
             if (!prev) {
-                throw new Error('Missing prev for vertex!');
+                throw new Error('Missing prev for vertex! (there is probably a bug)');
             }
         }
+        out.push(prev);
         return out.reverse();
     } else {
         throw new Error('Dijkstra failed!');
     }
+}
+
+export function graphToDOT<T extends [any, any, string]>(graph: Vertex<T>[]): string {
+    let out: string[] = [];
+    out.push('digraph G {');
+    out.push('    node [shape=circle];');
+    for (let from = 0; from < graph.length; from++) {
+        let edges = graph[from];
+        if (edges.length === 0) {
+            out.push(`  ${from};`);
+            continue;
+        }
+        for (let [to, weight, payload] of edges) {
+            out.push(`    ${from} -> ${to} [label="${payload[2]} (${weight})"];`);
+        }
+    }
+    out.push('}');
+    return out.join('\n');
 }
 
 

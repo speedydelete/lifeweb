@@ -1,8 +1,9 @@
 
 import * as fs from 'node:fs/promises';
+import {writeFileSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {gcd, MAPPattern} from '../core/index.js';
-import {c, maxGenerations, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, maxGenerations, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, graphToDOT, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findSalvoResult} from './slow_salvos.js';
 import type {findChannelResults} from './channel_searcher.js';
 
@@ -296,15 +297,25 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
                     channel = recipe[i][1];
                 }
             }
-        } else {
-            if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
-                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
-            }
-            if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
-                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]}`);
-            }
+        } else if (channel === -2) {
             for (let j = 0; j < info.channels.length; j++) {
                 lastUses[channel] += spacing;
+            }
+            if (out.length === 0) {
+                out.push([channel, spacing]);
+            } else {
+                out[out.length - 1][0] += spacing;
+            }
+            continue;
+        } else {
+            for (let j = 0; j < info.channels.length; j++) {
+                lastUses[channel] += spacing;
+            }
+            if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
+                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]} generations`);
+            }
+            if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
+                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]} generations`);
             }
             lastUses[channel] = 0;
         }
@@ -325,7 +336,7 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow and Dijkstra's algorithm. */
 export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    type T = [[number, number][], number];
+    type T = [[number, number][], number, string];
     let data = recipes.channels[type];
     let startVertex: Vertex<T> = [];
     let graph: Vertex<T>[] = [startVertex, []];
@@ -340,17 +351,11 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                             continue;
                         }
                         if (timing === -1) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            vertex.push([1, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`]]);
                         } else {
                             let newTiming = (currentTiming + recipe.timing) % info.period;
                             if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                            } else {
-                                let adjust = timing - newTiming;
-                                if (adjust < 0) {
-                                    adjust += info.period;
-                                }
-                                vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
+                                vertex.push([1, recipe.time, [recipe.recipe, 0, `0 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`]]);
                             }
                         }
                     }
@@ -366,72 +371,52 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                                 let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
                                 if (moveRecipe) {
                                     if (timing === -1) {
-                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
+                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                                     } else {
                                         let newTiming = (currentTiming + recipe.timing) % info.period;
                                         if (timing === newTiming) {
-                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
-                                        } else {
-                                            let adjust = timing - newTiming;
-                                            if (adjust < 0) {
-                                                adjust += info.period;
-                                            }
-                                            vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
+                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                                         }
                                     }
                                 }
                             }
                         } else {
                             if (timing === -1) {
-                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
+                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                             } else {
                                 let newTiming = (currentTiming + recipe.timing) % info.period;
                                 if (timing === newTiming) {
-                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
-                                } else {
-                                    let adjust = timing - newTiming;
-                                    if (adjust < 0) {
-                                        adjust += info.period;
-                                    }
-                                    vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
+                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                                 }
                             }
                         }
                     }
                 }
             } else {
-                console.log('hi', data.recipes90Deg.length);
                 for (let recipe of data.recipes90Deg) {
                     if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
                         continue;
                     }
-                    console.log(recipe);
                     let newVertex: Vertex<T> = [];
+                    let newIndex = graph.length;
                     let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                     graph.push(newVertex);
                     let newTiming = (currentTiming + recipe.timing) % info.period;
                     if (timing === -1) {
-                        vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                        vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                         prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                     } else {
                         if (timing === newTiming) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
+                            vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
                             prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
-                        } else {
-                            let adjust = timing - newTiming;
-                            if (adjust < 0) {
-                                adjust += info.period;
-                            }
-                            vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
-                            prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming + adjust, vertex: newVertex});
                         }
                     }
                 }
                 for (let recipe of data.moveRecipes) {
                     let newVertex: Vertex<T> = [];
                     let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `move ${recipe.move}`]]);
                     graph.push(newVertex);
                     prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
                 }
@@ -442,8 +427,13 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
     for (let vertex of graph) {
         edges += vertex.length;
     }
+    if (edges === 0) {
+        throw new Error('Problem unsolvable!');
+    }
     console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
+    writeFileSync('graph.dot', graphToDOT(graph));
     let path = dijkstra(graph, 1);
+    console.log(path);
     let out: [number, number][][] = [];
     let move: number | undefined = undefined;
     for (let i = 0; i < path.length; i++) {
@@ -454,9 +444,10 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
             move = data[1];
         }
     }
-    if (!move) {
-        throw new Error('Missing move (there is a bug)!');
+    if (move === undefined) {
+        throw new Error('Missing move! (there is a bug)');
     }
+    console.log(out);
     let recipe = mergeChannelRecipes(info, ...out);
     let time = 0;
     for (let [spacing] of recipe) {
@@ -487,12 +478,6 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                             let newTiming = (currentTiming + recipe.timing) % info.period;
                             if (timing === newTiming) {
                                 vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                            } else {
-                                let adjust = timing - newTiming;
-                                if (adjust < 0) {
-                                    adjust += info.period;
-                                }
-                                vertex.push([1, recipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), 0]]);
                             }
                         }
                     }
@@ -516,12 +501,6 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                                         let newTiming = (currentTiming + recipe.timing) % info.period;
                                         if (timing === newTiming) {
                                             vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
-                                        } else {
-                                            let adjust = timing - newTiming;
-                                            if (adjust < 0) {
-                                                adjust += info.period;
-                                            }
-                                            vertex.push([1, recipe.time + adjust + moveRecipe.time, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe, moveRecipe.recipe), forceEndElbow]]);
                                         }
                                     }
                                 }
@@ -533,12 +512,6 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                                 let newTiming = (currentTiming + recipe.timing) % info.period;
                                 if (timing === newTiming) {
                                     vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
-                                } else {
-                                    let adjust = timing - newTiming;
-                                    if (adjust < 0) {
-                                        adjust += info.period;
-                                    }
-                                    vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
                                 }
                             }
                         }
@@ -564,19 +537,20 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                         if (timing === newTiming) {
                             vertex.push([1, recipe.time, [recipe.recipe, 0]]);
                             prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
-                        } else {
-                            let adjust = timing - newTiming;
-                            if (adjust < 0) {
-                                adjust += info.period;
-                            }
-                            vertex.push([1, recipe.time + adjust, [([[adjust, -1]] as [number, number][]).concat(recipe.recipe), newElbowPos]]);
-                            prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming + adjust, vertex: newVertex});
                         }
                     }
                 }
             }
         }
     }
+    let edges = 0;
+    for (let vertex of graph) {
+        edges += vertex.length;
+    }
+    if (edges === 0) {
+        throw new Error('Problem unsolvable!');
+    }
+    console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
     let path = dijkstra(graph, 1);
     let out: [number, number][][] = [];
     let move: number | undefined = undefined;
@@ -589,7 +563,7 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
         }
     }
     if (!move) {
-        throw new Error('Missing move (there is a bug)!');
+        throw new Error('Missing move! (there is a bug)');
     }
     let recipe = mergeChannelRecipes(info, ...out);
     let time = 0;

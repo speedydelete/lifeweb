@@ -141,8 +141,8 @@ function runInjection(recipe: [number, number][]/*, debug: boolean = false*/): M
             let last = gliders[gliders.length - 1];
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
-            // if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
-            if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
+            if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
+            // if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
@@ -196,6 +196,7 @@ function isNextWorkingInput(recipe: [number, number][], expectedAsh: string[], e
     } else {
         p = runInjection(test);
     }
+    // console.log(p.toRLE());
     let period = stabilize(p);
     // console.log(p.toRLE());
     if (typeof period !== 'number') {
@@ -235,13 +236,12 @@ function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[],
         // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low === info.maxNextSpacing) {
+        console.log(`\x1b[91mUnable to find next possible glider spacing for ${unparseChannelRecipe(info, recipe)}\x1b[0m`);
         // throw new Error('hi');
-        return recipe;
-    } else {
-        recipe = recipe.slice();
-        recipe.push([low, -1]);
-        return recipe;
     }
+    recipe = recipe.slice();
+    recipe.push([low, -1]);
+    return recipe;
 }
 
 // function findNextWorkingInput(recipe: [number, number][], expectedAsh: string): [number, number][] {
@@ -388,10 +388,10 @@ export function findChannelResults(depth: number, maxSpacing: number, parentPort
                 out.destroyRecipe = {recipe, time};
             }
         }
-        if (result.some(x => x.type === 'other') || (result.every(x => x.type === 'ship') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE))) {
-            filter.add(key + ' ');
-            continue;
-        }
+        // if (result.some(x => x.type === 'other') || (result.every(x => x.type === 'ship') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE))) {
+        //     filter.add(key + ' ');
+        //     continue;
+        // }
         for (let obj of result) {
             if (obj.type === 'sl') {
                 let lane = obj.y - obj.x + info.start.lane;

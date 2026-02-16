@@ -22,8 +22,8 @@ Subcommands:
     get <type> <recipe>: Turns a list of lanes/timing gaps into a RLE.
     from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
-    convert90i <type> <new_type> <depth> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
-    convert90x <type> <new_type> <depth> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
+    convert90i <type> <new_type> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
+    convert90x <type> <new_type> <recipe>: Convert a recipe using a 90-degree elbow and external lanes.
     convert0 <type> <new_type> <recipe>: Convert a recipe using a 0-degree elbow.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
 
@@ -153,6 +153,7 @@ if (cmd === 'get') {
             console.log(out.join(' '));
         } else {
             let [target, lanes] = patternToSalvo(info, p);
+            lanes = lanes.map(x => [x[0] + 6, x[1]]);
             console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
         }
     } else {
@@ -181,15 +182,16 @@ if (cmd === 'get') {
     } else if (newType in c.CHANNEL_INFO) {
         let info = c.CHANNEL_INFO[newType];
         let recipes = await loadRecipes();
-        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
+        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(1).join(' '));
         let out: {recipe: [number, number][], time: number, move: number};
         if (cmd === 'convert90i' || cmd === 'convert90x') {
-            out = salvoToChannel90DegDijkstra(newType, info, recipes, salvo, cmd[cmd.length - 1] as 'i' | 'x', depth ?? 0, forceEndElbow)
+            out = salvoToChannel90DegDijkstra(newType, info, recipes, salvo, cmd[cmd.length - 1] as 'i' | 'x', depth ?? salvo.length, forceEndElbow)
         } else {
             out = salvoToChannel0DegDijkstra(newType, info, recipes, salvo, minElbow, maxElbow, forceEndElbow);
 
         }
         console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
+        console.log(`Moves elbow by ${out.move}, ${out.time} generations long`);
     } else {
         error(`Invalid construction type: '${newType}'`)
     }
