@@ -140,6 +140,7 @@ function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][st
 export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let recipes = await loadRecipes();
+    let anyPossibleUseful = false;
     let out = recipes.channels[type];
     let depth = 0;
     let starts: [number, number][][] = [];
@@ -210,7 +211,12 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
         log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
-            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n` + possibleUseful);
+            possibleUseful = `\nDepth ${depth}:\n${possibleUseful}`;
+            if (!anyPossibleUseful) {
+                possibleUseful = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing}:\n${possibleUseful}`;
+                anyPossibleUseful = true;
+            }
+            await fs.appendFile('possible_useful.txt', possibleUseful);
         }
         depth++;
     }
