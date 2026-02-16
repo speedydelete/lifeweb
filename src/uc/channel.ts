@@ -182,6 +182,14 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                         continue;
                     }
                     starts.push([[a, b], [c, d]]);
+                    for (let e = info.minSpacing; e < maxSpacing; e++) {
+                        for (let f = 0; f < info.channels.length; f++) {
+                            if (e < info.minSpacings[d][f] || (info.excludeSpacings && info.excludeSpacings[d][f].includes(e))) {
+                                continue;
+                            }
+                            starts.push([[a, b], [c, d], [e, f]]);
+                        }
+                    }
                 }
             }
         }
@@ -204,6 +212,8 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
         let startedCount = 0;
         let finishedCount = 0;
         let checkedRecipes = 0;
+        let timeout: NodeJS.Timeout | null = null;
+        let interval: NodeJS.Timeout | null = null;
         for (let worker of workers) {
             worker.removeAllListeners('message');
             worker.on('message', ([type, data]) => {
@@ -212,6 +222,13 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                     startedCount++;
                     if (startedCount === threads) {
                         log(`Checking ${recipeCount} recipes`);
+                        timeout = setTimeout(() => {
+                            interval = setInterval(() => {
+                                if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
+                                    log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                                }
+                            }, 5000);
+                        }, 2500);
                     }
                 } else if (type === 'update') {
                     checkedRecipes += data.count;
@@ -220,7 +237,12 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                     finished.push(data);
                     finishedCount++;
                     if (finishedCount === threads) {
-                        clearInterval(interval);
+                        if (timeout !== null) {
+                            clearTimeout(timeout);
+                        }
+                        if (interval !== null) {
+                            clearInterval(interval);
+                        }
                         resolve();
                     }
                 } else {
@@ -230,11 +252,6 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             worker.postMessage({info, depth, maxSpacing});
         }
         let {promise, resolve} = Promise.withResolvers<void>();
-        let interval = setInterval(() => {
-            if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
-            }
-            }, 3100);
         await promise;
         let possibleUseful = '';
         for (let data of finished) {

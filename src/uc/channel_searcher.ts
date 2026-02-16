@@ -341,7 +341,7 @@ export function findChannelResults(depth: number, maxSpacing: number, parentPort
         if (startTime === depth) {
             recipes.push([start, startTime, startKey.slice(0, -1)]);
         }
-        if (start.length === 1) {
+        if (start.length < 3) {
             continue;
         }
         let last = start[start.length - 1];
@@ -362,7 +362,7 @@ export function findChannelResults(depth: number, maxSpacing: number, parentPort
     let lastUpdate = performance.now();
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
-        if (now - lastUpdate > 3000) {
+        if (now - lastUpdate > 5000) {
             lastUpdate = now;
             if (parentPort) {
                 parentPort.postMessage(['update', {count, out}]);
