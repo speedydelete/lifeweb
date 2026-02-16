@@ -1,6 +1,6 @@
 
 import * as fs from 'node:fs/promises';
-import {writeFileSync} from 'node:fs';
+import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {gcd, MAPPattern} from '../core/index.js';
 import {c, maxGenerations, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, graphToDOT, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
@@ -170,11 +170,13 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
     let info = c.CHANNEL_INFO[type];
     let [expectedAsh, expectedAshPeriod] = getExpectedAsh(info);
     let msg = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n`;
-    let stat = await fs.stat('possible_useful.txt');
-    if (stat.size > 0) {
-        msg = '\n' + msg;
+    if (existsSync('possible_useful.txt')) {
+        let stat = await fs.stat('possible_useful.txt');
+        if (stat.size > 0) {
+            msg = '\n' + msg;
+        }
+        await fs.appendFile('possible_useful.txt', msg);
     }
-    await fs.appendFile('possible_useful.txt', msg);
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
     let depth = 0;
