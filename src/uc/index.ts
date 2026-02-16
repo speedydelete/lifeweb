@@ -33,8 +33,7 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
-    -d, --dijkstra: For convert_0, use Dijkstra instead of the naive method.
-    --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
+    -d <depth>, --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
     --force-end-elbow <pos>: For convert, force an ending elbow position.
     --destroy-elbow: For convert, destroy the elbow.
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
@@ -52,7 +51,6 @@ let maxGens: number | undefined = undefined;
 let forceEndElbow: number | false | undefined = undefined;
 let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
-let dijkstra: boolean | undefined = undefined;
 let depth: number | undefined = undefined;
 let dvgrn = false;
 let noCompile = false;
@@ -73,9 +71,7 @@ for (let i = 2; i < argv.length; i++) {
             if (Number.isNaN(maxGens)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
-        } else if (arg === '-d' || arg === '--dijkstra') {
-            dijkstra = true;
-        } else if (arg === '--depth') {
+        } else if (arg === '-d' || arg === '--depth') {
             depth = parseInt(argv[++i]);
             if (Number.isNaN(depth)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);

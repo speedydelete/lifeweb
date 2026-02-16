@@ -107,6 +107,21 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
     if (target === 0) {
         return [];
     }
+    let targetFound = false;
+    for (let vertex of graph) {
+        for (let edge of vertex) {
+            if (edge[0] === target) {
+                targetFound = true;
+                break;
+            }
+        }
+        if (targetFound) {
+            break;
+        }
+    }
+    if (!targetFound) {
+        throw new Error('Target unreachable!');
+    }
     let dists: number[] = [];
     let prevs: (undefined | [number, number])[] = [];
     let queue: number[] = [];
@@ -166,7 +181,7 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
         out.push(prev);
         return out.reverse();
     } else {
-        throw new Error('Dijkstra failed!');
+        throw new Error('Target unreachable!');
     }
 }
 

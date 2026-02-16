@@ -286,15 +286,11 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
         let [spacing, channel] = recipe[i];
         if (channel === -1) {
             if (i !== recipe.length - 1) {
-                i++;
-                while (recipe[i][1] < 0 && i < recipe.length) {
-                    if (recipe[i][0] !== -1) {
-                        spacing += recipe[i][0];
-                    }
+                if (recipe[i + 1][0] === -1) {
                     i++;
-                }
-                if (i < recipe.length) {
                     channel = recipe[i][1];
+                } else {
+                    channel = 0;
                 }
             }
         } else if (channel === -2) {
@@ -342,6 +338,7 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
     let graph: Vertex<T>[] = [startVertex, []];
     let prevLayer: {elbowPos: number, index: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, index: 0, currentTiming: 0, vertex: startVertex}];
     for (let i = 0; i < depth; i++) {
+        let newPrevLayer: typeof prevLayer = [];
         for (let {elbowPos, index, currentTiming, vertex} of prevLayer) {
             let [lane, timing] = salvo[index];
             if (index === salvo.length - 1) {
@@ -405,35 +402,39 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                     let newTiming = (currentTiming + recipe.timing) % info.period;
                     if (timing === -1) {
                         vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
-                        prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
+                        newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                     } else {
                         if (timing === newTiming) {
                             vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
-                            prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
+                            newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                         }
                     }
                 }
-                for (let recipe of data.moveRecipes) {
-                    let newVertex: Vertex<T> = [];
-                    let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `move ${recipe.move}`]]);
-                    graph.push(newVertex);
-                    prevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
+                if (i !== depth - 1) {
+                    for (let recipe of data.moveRecipes) {
+                        let newVertex: Vertex<T> = [];
+                        let newElbowPos = elbowPos + recipe.move;
+                        vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `move ${recipe.move}`]]);
+                        graph.push(newVertex);
+                        newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
+                    }
                 }
             }
         }
+        prevLayer = newPrevLayer;
     }
     let edges = 0;
     for (let vertex of graph) {
         edges += vertex.length;
     }
     if (edges === 0) {
-        throw new Error('Problem unsolvable!');
+        throw new Error('No edges!');
     }
     console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
-    writeFileSync('graph.dot', graphToDOT(graph));
+    // writeFileSync('graph.dot', graphToDOT(graph));
+    let start = performance.now();
     let path = dijkstra(graph, 1);
-    console.log(path);
+    console.log(`Dijkstra complete, took ${((performance.now() - start) / 1000).toFixed(3)} seconds`);
     let out: [number, number][][] = [];
     let move: number | undefined = undefined;
     for (let i = 0; i < path.length; i++) {
@@ -464,6 +465,7 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
     let prevLayer: {elbowPos: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, currentTiming: 0, vertex: startVertex}];
     for (let i = 0; i < salvo.length; i++) {
         let [lane, timing] = salvo[i];
+        let newPrevLayer: typeof prevLayer = [];
         for (let {elbowPos, currentTiming, vertex} of prevLayer) {
             if (i === salvo.length - 1) {
                 if (forceEndElbow === false) {
@@ -531,16 +533,17 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                     let newTiming = (currentTiming + recipe.timing) % info.period;
                     if (timing === -1) {
                         vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                        prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
+                        newPrevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
                     } else {
                         if (timing === newTiming) {
                             vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                            prevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
+                            newPrevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
                         }
                     }
                 }
             }
         }
+        prevLayer = newPrevLayer;
     }
     let edges = 0;
     for (let vertex of graph) {
