@@ -1,11 +1,14 @@
 
-import {parentPort, workerData} from 'node:worker_threads';
+import {MessagePort, parentPort, workerData} from 'node:worker_threads';
 import {findType, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, RecipeData, separateObjects, stabilize, findOutcome} from './base.js';
+import {c, ChannelInfo, maxGenerations, setMaxGenerations, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, RecipeData, separateObjects, stabilize, findOutcome} from './base.js';
 import {createChannelPattern} from './channel.js';
 
 
 let info: ChannelInfo = workerData.info;
+
+setMaxGenerations(workerData.maxGenerations);
+
 let starts: [number, number][][] = workerData.starts;
 
 let expectedAsh: string[][] = workerData.expectedAsh;
@@ -151,7 +154,7 @@ function runInjection(recipe: [number, number][]/*, debug: boolean = false*/): M
             }
         }
         i++;
-        if (i > total + c.MAX_GENERATIONS) {
+        if (i > total + maxGenerations) {
             // if (debug) {
             //     console.log(`\x1b[91mforced\x1b[0m\n${p.toRLE()}`);
             // }
@@ -324,7 +327,7 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
     }
 }
 
-export function findChannelResults(depth: number, maxSpacing: number, parentPort?: (typeof import('node:worker_threads'))['parentPort']): {data: RecipeData['channels'][string], possibleUseful: string, recipeCount: number} {
+export function findChannelResults(depth: number, maxSpacing: number, parentPort: MessagePort): {data: RecipeData['channels'][string], possibleUseful: string, recipeCount: number} {
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let recipes: [[number, number][], number, string][] = [];
@@ -353,23 +356,15 @@ export function findChannelResults(depth: number, maxSpacing: number, parentPort
         }
     }
     // recipes = [[[[75, 0], [73, 0], [72, 0], [67, 0], [61, 0]], 348, '75:0 73:0 72:0 67:0 61:0']];
-    if (parentPort) {
-        parentPort.postMessage(['starting', recipes.length]);
-    } else {
-        log(`Checking ${recipes.length} recipes`);
-    }
+    parentPort.postMessage(['starting', recipes.length]);
     let count = 0;
     let lastUpdate = performance.now();
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
         if (now - lastUpdate > 5000) {
             lastUpdate = now;
-            if (parentPort) {
-                parentPort.postMessage(['update', {count, out}]);
-                count = 0;
-            } else {
-                log(`${i - 1}/${recipes.length} (${((i - 1) / recipes.length * 100).toFixed(3)}%) recipes checked`);
-            }
+            parentPort.postMessage(['update', {count, out}]);
+            count = 0;
         }
         count++;
         let [recipe, time, key] = recipes[i];

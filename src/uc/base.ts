@@ -8,6 +8,13 @@ export * from './config.js';
 export * as c from './config.js';
 
 
+export let maxGenerations = c.MAX_GENERATIONS;
+
+export function setMaxGenerations(value: number): void {
+    maxGenerations = value;
+}
+
+
 let prevUpdateTime = performance.now();
 
 export function log(msg: string, notImportant?: boolean): void {
@@ -1070,9 +1077,9 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, m
     return out;
 }
 
-export function stabilize(p: MAPPattern): number | 'linear' | null {
+export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): number | 'linear' | null {
     let pops: number[] = [p.population];
-    for (let i = 0; i < c.MAX_GENERATIONS; i++) {
+    for (let i = 0; i < maxGens; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
@@ -1114,8 +1121,8 @@ export function stabilize(p: MAPPattern): number | 'linear' | null {
     return null;
 }
 
-export function findOutcome(p: MAPPattern, mergeAll: boolean = false): false | 'linear' | CAObject[] {
-    let period = stabilize(p);
+export function findOutcome(p: MAPPattern, mergeAll: boolean = false, maxGens?: number): false | 'linear' | CAObject[] {
+    let period = stabilize(p, maxGens);
     if (period === 'linear') {
         return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {

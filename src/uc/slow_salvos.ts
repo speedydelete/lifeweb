@@ -79,7 +79,7 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
     return [target.code, lanes.map(x => [x[0], x[1] % info.period])];
 }
 
-export function findSalvoResult(info: {gliderSpacing: number}, target: string, lanes: [number, number][], mergeAll: boolean = false): 'no' | null | false | 'linear' | CAObject[] {
+export function findSalvoResult(info: {gliderSpacing: number}, target: string, lanes: [number, number][], mergeAll: boolean = false, maxGens?: number): 'no' | null | false | 'linear' | CAObject[] {
     let [p, xPos, yPos] = createSalvoPattern(info, target.slice(target.indexOf('_') + 1), lanes);
     let found = false;
     let prevPop = p.population;
@@ -101,7 +101,7 @@ export function findSalvoResult(info: {gliderSpacing: number}, target: string, l
     p.xOffset -= xPos;
     p.yOffset -= yPos;
     p.generation = 0;
-    return findOutcome(p, mergeAll);
+    return findOutcome(p, mergeAll, maxGens);
 }
 
 

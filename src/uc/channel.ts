@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
 import {gcd, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, maxGenerations, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findSalvoResult} from './slow_salvos.js';
 import type {findChannelResults} from './channel_searcher.js';
 
@@ -143,7 +143,7 @@ function getExpectedAsh(info: ChannelInfo): [string[][], number] {
     let period = 1;
     for (let code in info.elbows) {
         for (let lane of info.elbows[code]) {
-            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true);
+            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true, 1024);
             if (!Array.isArray(result)) {
                 throw new Error(`Invalid expected ash result: '${result}'`);
             }
@@ -199,6 +199,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
     for (let i = 0; i < threads; i++) {
         workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
             info,
+            maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
             expectedAsh,
             expectedAshPeriod,
@@ -264,7 +265,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
         if (possibleUseful.length > 0) {
             possibleUseful = `\nDepth ${depth}:\n${possibleUseful}`;
             if (!anyPossibleUseful) {
-                possibleUseful = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing}:\n${possibleUseful}`;
+                possibleUseful = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n${possibleUseful}`;
                 anyPossibleUseful = true;
             }
             await fs.appendFile('possible_useful.txt', possibleUseful);

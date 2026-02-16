@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, LETTERS, INFO_ALIASES, parseSlowSalvo, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe, loadRecipes} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel90DegDijkstra, salvoToChannel0DegDijkstra} from './channel.js';
 
@@ -31,6 +31,7 @@ The type argument is the construction type, defined in src/uc/config.ts.
 Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
+    -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
     -d, --dijkstra: For convert_0, use Dijkstra instead of the naive method.
     --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
     --force-end-elbow <pos>: For convert, force an ending elbow position.
@@ -46,6 +47,7 @@ let argv = process.argv;
 let posArgs: string[] = [];
 
 let threads = 1;
+let maxGens: number | undefined = undefined;
 let forceEndElbow: number | false | undefined = undefined;
 let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
@@ -63,6 +65,11 @@ for (let i = 2; i < argv.length; i++) {
         } else if (arg === '-t' || arg === '--threads') {
             threads = parseInt(argv[++i]);
             if (Number.isNaN(threads)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
+        } else if (arg === '-m' || arg === '--max-gens') {
+            maxGens = parseInt(argv[++i]);
+            if (Number.isNaN(maxGens)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
         } else if (arg === '-d' || arg === '--dijkstra') {
@@ -103,6 +110,10 @@ for (let i = 2; i < argv.length; i++) {
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
+}
+
+if (maxGens !== undefined) {
+    setMaxGenerations(maxGens);
 }
 
 let cmd = posArgs[0];
