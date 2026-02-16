@@ -235,7 +235,7 @@ function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[],
         // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low === info.maxNextSpacing) {
-        // throw new Error('bruh');
+        // throw new Error('hi');
         return recipe;
     } else {
         recipe = recipe.slice();
@@ -250,7 +250,7 @@ function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[],
 //             return findNextWorkingInputBinarySearch(recipe, expectedAsh, spacing, spacing + 32);
 //         }
 //     }
-//     throw new Error('bruh');
+//     throw new Error('hi');
 //     return recipe;
 // }
 
