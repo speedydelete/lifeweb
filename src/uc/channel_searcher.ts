@@ -367,7 +367,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 out.destroyRecipe = {recipe, time};
             }
         }
-        if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE && !(x.dir.startsWith('N') && !x.dir.startsWith('NE')))) {
+        if (result.every(x => x.type === 'ship' || x.type === 'other') && !result.some(x => x.type === 'ship' && x.code === c.GLIDER_APGCODE)) {
             filter.add(key + ' ');
             continue;
         }
@@ -400,7 +400,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
                 if (info.possiblyUsefulFilter && info.possiblyUsefulFilter.includes(obj.code)) {
                     continue;
                 }
-                if (obj.type === 'ship'  && obj.code !== c.GLIDER_APGCODE) {
+                if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
                     possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
                     filter.add(key + ' ');
