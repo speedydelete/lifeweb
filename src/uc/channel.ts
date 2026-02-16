@@ -316,12 +316,15 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
 
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow. */
+// export function salvoToChannel90Deg(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
+    
+// }
+
 /** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow. */
 
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow and Dijkstra's algorithm. */
-export function salvoToChannel90DegDijkstra(type: string, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    let info = c.CHANNEL_INFO[type];
+export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
     type T = [[number, number][], number];
     let data = recipes.channels[type];
     let startVertex: Vertex<T> = [];
@@ -463,8 +466,7 @@ export function salvoToChannel90DegDijkstra(type: string, recipes: RecipeData, s
 }
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow and Dijkstra's algorithm. */
-export function salvoToChannel0DegDijkstra(type: string, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    let info = c.CHANNEL_INFO[type];
+export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
     type T = [[number, number][], number];
     let data = recipes.channels[type];
     let startVertex: Vertex<T> = [];
@@ -500,6 +502,9 @@ export function salvoToChannel0DegDijkstra(type: string, recipes: RecipeData, sa
                             continue;
                         }
                         let newElbowPos = elbowPos + recipe.move;
+                        if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
+                            continue;
+                        }
                         if (forceEndElbow !== undefined) {
                             if (newElbowPos !== forceEndElbow) {
                                 let moveAmount = forceEndElbow - newElbowPos;
@@ -546,6 +551,9 @@ export function salvoToChannel0DegDijkstra(type: string, recipes: RecipeData, sa
                     }
                     let newVertex: Vertex<T> = [];
                     let newElbowPos = elbowPos + recipe.move;
+                    if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
+                        continue;
+                    }
                     vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
                     graph.push(newVertex);
                     let newTiming = (currentTiming + recipe.timing) % info.period;

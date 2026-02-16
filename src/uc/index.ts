@@ -22,8 +22,9 @@ Subcommands:
     get <type> <recipe>: Turns a list of lanes/timing gaps into a RLE.
     from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
-    convert_90 <type> <new_type> <ix> <depth> <recipe>: Convert a recipe using a 90-degree elbow.
-    convert_0 <type> <new_type> <recipe>: Convert a recipe using a 0-degree elbow.
+    convert90i <type> <new_type> <depth> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
+    convert90x <type> <new_type> <depth> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
+    convert0 <type> <new_type> <recipe>: Convert a recipe using a 0-degree elbow.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
 
 The type argument is the construction type, defined in src/uc/config.ts.
@@ -167,7 +168,7 @@ if (cmd === 'get') {
     } else {
         searchChannel(type, threads, parseInt(args[0]));
     }
-} else if (cmd === 'convert_90' || cmd === 'convert_0') {
+} else if (cmd === 'convert90i' || cmd === 'convert90x' || cmd === 'convert0') {
     if (type in c.CHANNEL_INFO) {
         error(`Cannot convert from restricted-channel`);
     }
@@ -178,13 +179,14 @@ if (cmd === 'get') {
     if (newType in c.SALVO_INFO) {
         error(`Cannot convert to slow salvos`);
     } else if (newType in c.CHANNEL_INFO) {
+        let info = c.CHANNEL_INFO[newType];
         let recipes = await loadRecipes();
-        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(3).join(' '));
+        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
         let out: {recipe: [number, number][], time: number, move: number};
-        if (cmd === 'convert_90') {
-            out = salvoToChannel90DegDijkstra(newType, recipes, salvo, args[1] as 'i' | 'x', depth ?? 0, forceEndElbow)
+        if (cmd === 'convert90i' || cmd === 'convert90x') {
+            out = salvoToChannel90DegDijkstra(newType, info, recipes, salvo, cmd[cmd.length - 1] as 'i' | 'x', depth ?? 0, forceEndElbow)
         } else {
-            out = salvoToChannel0DegDijkstra(newType, recipes, salvo, minElbow, maxElbow, forceEndElbow);
+            out = salvoToChannel0DegDijkstra(newType, info, recipes, salvo, minElbow, maxElbow, forceEndElbow);
 
         }
         console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));

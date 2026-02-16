@@ -99,35 +99,38 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
 }
 
 
-export type Edge<T extends any> = [number, number, T];
-export type Vertex<T extends any> = Edge<T>[];
+export type Edge<T> = [number, number, T];
+export type Vertex<T> = Edge<T>[];
 
 /** Runs Dijkstra's algorithm. */
-export function dijkstra<T extends any>(graph: Vertex<T>[], target: number): [number, number][] {
+export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number][] {
+    if (target === 0) {
+        return [];
+    }
     let dists: number[] = [];
     let prevs: (undefined | [number, number])[] = [];
     let queue: number[] = [];
     for (let i = 0; i < graph.length; i++) {
         dists.push(Infinity);
         prevs.push(undefined);
-        if (graph[i].length > 0) {
-            queue.push(i);
-        }
+        queue.push(i);
     }
     dists[0] = 0;
     let found = false;
     while (queue.length > 0) {
         let vertex = queue[0];
+        let vertexIndex = 0;
         let dist = dists[0];
         for (let i = 1; i < queue.length; i++) {
             let newVertex = queue[i];
             let newDist = dists[newVertex];
             if (newDist < dist) {
                 vertex = newVertex;
+                vertexIndex = i;
                 dist = newDist;
             }
         }
-        queue.splice(vertex, 1);
+        queue.splice(vertexIndex, 1);
         if (vertex === target) {
             found = true;
             break;
