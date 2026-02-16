@@ -332,7 +332,7 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
 
 /** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow and Dijkstra's algorithm. */
 export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    type T = [[number, number][], number, string];
+    type T = [[number, number][], number/*, string*/];
     let data = recipes.channels[type];
     let startVertex: Vertex<T> = [];
     let graph: Vertex<T>[] = [startVertex, []];
@@ -348,11 +348,11 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                             continue;
                         }
                         if (timing === -1) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`]]);
+                            vertex.push([1, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`*/]]);
                         } else {
                             let newTiming = (currentTiming + recipe.timing) % info.period;
                             if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0, `0 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`]]);
+                                vertex.push([1, recipe.time, [recipe.recipe, 0/*, `0 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`*/]]);
                             }
                         }
                     }
@@ -368,22 +368,22 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                                 let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
                                 if (moveRecipe) {
                                     if (timing === -1) {
-                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                                     } else {
                                         let newTiming = (currentTiming + recipe.timing) % info.period;
                                         if (timing === newTiming) {
-                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                                         }
                                     }
                                 }
                             }
                         } else {
                             if (timing === -1) {
-                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                             } else {
                                 let newTiming = (currentTiming + recipe.timing) % info.period;
                                 if (timing === newTiming) {
-                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                                 }
                             }
                         }
@@ -397,27 +397,25 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
                     let newVertex: Vertex<T> = [];
                     let newIndex = graph.length;
                     let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                     graph.push(newVertex);
                     let newTiming = (currentTiming + recipe.timing) % info.period;
                     if (timing === -1) {
-                        vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                        vertex.push([newIndex, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                         newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                     } else {
                         if (timing === newTiming) {
-                            vertex.push([newIndex, recipe.time, [recipe.recipe, 0, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`]]);
+                            vertex.push([newIndex, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
                             newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
                         }
                     }
                 }
-                if (i !== depth - 1) {
-                    for (let recipe of data.moveRecipes) {
-                        let newVertex: Vertex<T> = [];
-                        let newElbowPos = elbowPos + recipe.move;
-                        vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos, `move ${recipe.move}`]]);
-                        graph.push(newVertex);
-                        newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
-                    }
+                for (let recipe of data.moveRecipes) {
+                    let newVertex: Vertex<T> = [];
+                    let newElbowPos = elbowPos + recipe.move;
+                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos/*, `move ${recipe.move}`*/]]);
+                    graph.push(newVertex);
+                    newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
                 }
             }
         }
@@ -541,6 +539,15 @@ export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, reci
                         }
                     }
                 }
+                // if (i !== depth - 1) {
+                //     for (let recipe of data.moveRecipes) {
+                //         let newVertex: Vertex<T> = [];
+                //         let newElbowPos = elbowPos + recipe.move;
+                //         vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
+                //         graph.push(newVertex);
+                //         newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
+                //     }
+                // }
             }
         }
         prevLayer = newPrevLayer;
