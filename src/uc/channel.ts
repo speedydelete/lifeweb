@@ -219,6 +219,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             await fs.appendFile('possible_useful.txt', possibleUseful);
         }
         depth++;
+        throw new Error('complete!');
     }
 }
 

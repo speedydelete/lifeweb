@@ -1,7 +1,7 @@
 
 import {parentPort, workerData} from 'node:worker_threads';
 import {gcd, findType, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, RecipeData, separateObjects, findOutcome} from './base.js';
+import {c, ChannelInfo, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, RecipeData, separateObjects, stabilize, findOutcome} from './base.js';
 import {createChannelPattern} from './channel.js';
 
 
@@ -155,7 +155,7 @@ function runInjection(info: ChannelInfo, recipe: [number, number][]): MAPPattern
     return p;
 }
 
-function findChannelOutcome(info: ChannelInfo, recipe: [number, number][]): false | 'linear' | CAObject[] {
+function findChannelOutcome(info: ChannelInfo, recipe: [number, number][], extra?: number): false | 'linear' | CAObject[] {
     if (recipe.length < 2) {
         let {p, xPos, yPos} = createChannelPattern(info, recipe);
         p.xOffset -= xPos;
@@ -166,42 +166,55 @@ function findChannelOutcome(info: ChannelInfo, recipe: [number, number][]): fals
     }
 }
 
-function isNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string, next: number): boolean {
+function isNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: [string, number], next: number): boolean {
     let test = recipe.slice();
     test.push([next, 0]);
-    let result = findChannelOutcome(info, test);
-    if (typeof result !== 'object') {
+    let p: MAPPattern;
+    if (recipe.length < 2) {
+        let data = createChannelPattern(info, recipe);
+        p = data.p;
+        p.xOffset -= data.xPos;
+        p.yOffset -= data.yPos;
+    } else {
+        p = runInjection(info, recipe);
+    }
+    let period = stabilize(p);
+    if (typeof period !== 'number') {
         return false;
     }
-    let key = result.map(x => x.code).sort().join(' ');
-    if (key == expectedAsh) {
-        return true;
-    }
-    // hotfix
-    if (result.length === 3 && key.startsWith('xq4_153 xq4_153 xs')) {
-        return true;
+    for (let i = 0; i < expectedAsh[1]; i++) {
+        let result = separateObjects(p, period * 8, period * 8);
+        if (result) {
+            let key = result.map(x => x.code).sort().join(' ');
+            if (key == expectedAsh[0]) {
+                return true;
+            }
+            // hotfix
+            if (result.length === 3 && key.startsWith('xq4_153 xq4_153 xs')) {
+                return true;
+            }
+        }
+        p.runGeneration();
     }
     return false;
 }
 
-function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: string/*, low: number, high: number*/): [number, number][] {
-    // console.log(`\x1b[91m${unparseChannelRecipe(info, recipe)}\x1b[0m`);
-    // console.log(expectedAsh);
+function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], expectedAsh: [string, number]/*, low: number, high: number*/): [number, number][] {
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
-        // let oldLow = low;
-        // let oldHigh = high;
+        let oldLow = low;
+        let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
         if (isNextWorkingInput(info, recipe, expectedAsh, mid) && isNextWorkingInput(info, recipe, expectedAsh, mid + 1) && isNextWorkingInput(info, recipe, expectedAsh, mid + 2)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        // console.log(`old: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}`);
+        console.log(`old: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}`);
     }
     if (low === info.maxNextSpacing) {
-        // throw new Error('bruh');
+        throw new Error('bruh');
         return recipe;
     } else {
         recipe = recipe.slice();
@@ -220,7 +233,7 @@ function findNextWorkingInput(info: ChannelInfo, recipe: [number, number][], exp
 //     return recipe;
 // }
 
-function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: string[], out: RecipeData['channels'][string]): string | undefined {
+function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: string, time: number, move: number | null, shipData: [Spaceship, 'up' | 'down' | 'left' | 'right', number] | null, hand: StillLife | null, expectedAsh: [string[], number], out: RecipeData['channels'][string]): string | undefined {
     if (move === null) {
         if (shipData) {
             let [ship, dir, timing] = shipData;
@@ -251,7 +264,7 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
         }
     }
     if (shipData) {
-        recipe = findNextWorkingInput(info, recipe, expectedAsh.concat(c.GLIDER_APGCODE).sort().join(' '));
+        recipe = findNextWorkingInput(info, recipe, [expectedAsh[0].concat(c.GLIDER_APGCODE).sort().join(' '), expectedAsh[1]]);
         strRecipe = unparseChannelRecipe(info, recipe);
         let [ship, dir, timing] = shipData;
         if (dir === 'up') {
@@ -278,12 +291,12 @@ function addObjects(info: ChannelInfo, recipe: [number, number][], strRecipe: st
             return `90 degree emit ${lane}${ix} timing ${timing} move ${move}: ${strRecipe}\n`;
         }
     } else if (hand) {
-        recipe = findNextWorkingInput(info, recipe, expectedAsh.concat(hand.code).sort().join(' '));
+        recipe = findNextWorkingInput(info, recipe, [expectedAsh[0].concat(hand.code).sort().join(' '), expectedAsh[1]]);
         strRecipe = unparseChannelRecipe(info, recipe);
         out.createHandRecipes.push({recipe, time, obj: hand, move});
         return `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
     } else {
-        recipe = findNextWorkingInput(info, recipe, expectedAsh.join(' '));
+        recipe = findNextWorkingInput(info, recipe, [expectedAsh[0].join(' '), expectedAsh[1]]);
         strRecipe = unparseChannelRecipe(info, recipe);
         if (move === 0) {
             return;
@@ -302,7 +315,17 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
     if (typeof expectedAshResult !== 'object') {
         throw new Error(`Bad expected ash result: ${expectedAshResult}`);
     }
-    let expectedAsh = expectedAshResult.map(x => x.code).sort();
+    let period = 1;
+    let oscs = expectedAshResult.filter(x => x.type === 'osc').map(x => parseInt(x.code.slice(2)));
+    if (oscs.length > 0) {
+        period = oscs[0];
+        if (oscs.length > 1) {
+            for (let osc of oscs) {
+                period = period * osc / gcd(period, osc);
+            }
+        }
+    }
+    let expectedAsh: [string[], number] = [expectedAshResult.map(x => x.code).sort(), period];
     let out: RecipeData['channels'][string] = {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], recipes0DegDestroy: [], recipes90DegDestroy: [], createHandRecipes: []};
     let possibleUseful = '';
     let recipes: [[number, number][], number, string][] = [];
@@ -327,6 +350,7 @@ export function findChannelResults(info: ChannelInfo, depth: number, maxSpacing:
             recipes.push([recipe, time, key]);
         }
     }
+    recipes = [[[[75, 0], [73, 0], [72, 0], [67, 0], [61, 0]], 348, '75:0 73:0 72:0 67:0 61:0']];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     } else {

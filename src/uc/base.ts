@@ -986,7 +986,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
     return out;
 }
 
-function stabilize(p: MAPPattern): number | 'linear' | null {
+export function stabilize(p: MAPPattern): number | 'linear' | null {
     let pops: number[] = [p.population];
     for (let i = 0; i < c.MAX_GENERATIONS; i++) {
         p.runGeneration();
@@ -1030,12 +1030,15 @@ function stabilize(p: MAPPattern): number | 'linear' | null {
     return null;
 }
 
-export function findOutcome(p: MAPPattern): false | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, extra?: number): false | 'linear' | CAObject[] {
     let period = stabilize(p);
     if (period === 'linear') {
         return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
         return false;
+    }
+    if (extra !== undefined) {
+        p.run(extra);
     }
     p.shrinkToFit();
     return separateObjects(p, period * 8, period * 8);
