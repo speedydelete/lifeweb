@@ -1,8 +1,9 @@
 
 import * as fs from 'node:fs/promises';
 import {Worker} from 'node:worker_threads';
-import {MAPPattern} from '../core/index.js';
+import {gcd, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, unparseChannelRecipe, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {findSalvoResult} from './slow_salvos.js';
 import type {findChannelResults} from './channel_searcher.js';
 
 
@@ -136,9 +137,37 @@ function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][st
     }
 }
 
+function getExpectedAsh(info: ChannelInfo): [string[][], number] {
+    let done = new Set<string>();
+    let data: string[][] = [];
+    let period = 1;
+    for (let code in info.elbows) {
+        for (let lane of info.elbows[code]) {
+            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true);
+            if (!Array.isArray(result)) {
+                throw new Error(`Invalid expected ash result: '${result}'`);
+            }
+            let codes = result.map(x => x.code);
+            let key = codes.sort().join(' ');
+            if (!done.has(key)) {
+                done.add(key);
+                data.push(codes);
+                for (let code of codes) {
+                    if (code.startsWith('xp')) {
+                        let p = parseInt(code.slice(2));
+                        period = period * p / gcd(period, p);
+                    }
+                }
+            }
+        }
+    }
+    return [data, period];
+}
+
 /** Performs a restricted-channel search. */
 export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
+    let [expectedAsh, expectedAshPeriod] = getExpectedAsh(info);
     let recipes = await loadRecipes();
     let anyPossibleUseful = false;
     let out = recipes.channels[type];
@@ -146,6 +175,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
     let starts: [number, number][][] = [];
     for (let a = info.minSpacing; a < maxSpacing; a++) {
         for (let b = 0; b < info.channels.length; b++) {
+            starts.push([[a, b]]);
             for (let c = info.minSpacing; c < maxSpacing; c++) {
                 for (let d = 0; d < info.channels.length; d++) {
                     if (c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))) {
@@ -156,10 +186,14 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             }
         }
     }
+    console.log(`Compiled ${starts.length} starts`);
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
         workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
+            info,
             starts: starts.filter((_, j) => j % threads === i),
+            expectedAsh,
+            expectedAshPeriod,
         }}));
     }
     while (true) {
@@ -219,7 +253,6 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             await fs.appendFile('possible_useful.txt', possibleUseful);
         }
         depth++;
-        throw new Error('complete!');
     }
 }
 

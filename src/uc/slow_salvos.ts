@@ -4,7 +4,7 @@ import {c, SalvoInfo, log, Spaceship, StableObject, CAObject, base, gliderPatter
 
 
 /** Turns a salvo into a `Pattern`. */
-export function createSalvoPattern(info: SalvoInfo, target: string, lanes: [number, number][]): [MAPPattern, number, number] {
+export function createSalvoPattern(info: {gliderSpacing: number}, target: string, lanes: [number, number][]): [MAPPattern, number, number] {
     lanes = lanes.reverse();
     let minLane = 0;
     for (let [lane] of lanes) {
@@ -79,8 +79,7 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
     return [target.code, lanes.map(x => [x[0], x[1] % info.period])];
 }
 
-
-function findSalvoResult(info: SalvoInfo, target: string, lanes: [number, number][]): 'no' | null | false | 'linear' | CAObject[] {
+export function findSalvoResult(info: {gliderSpacing: number}, target: string, lanes: [number, number][], mergeAll: boolean = false): 'no' | null | false | 'linear' | CAObject[] {
     let [p, xPos, yPos] = createSalvoPattern(info, target.slice(target.indexOf('_') + 1), lanes);
     let found = false;
     let prevPop = p.population;
@@ -102,8 +101,9 @@ function findSalvoResult(info: SalvoInfo, target: string, lanes: [number, number
     p.xOffset -= xPos;
     p.yOffset -= yPos;
     p.generation = 0;
-    return findOutcome(p);
+    return findOutcome(p, mergeAll);
 }
+
 
 function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
