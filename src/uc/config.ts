@@ -115,7 +115,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         maxNextSpacing: 512,
-        minHandSpacing: 16,
+        minHandSpacing: 32,
         possiblyUsefulFilter: [],
     },
 
@@ -139,7 +139,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         maxNextSpacing: 512,
-        minHandSpacing: 16,
+        minHandSpacing: 32,
         possiblyUsefulFilter: [],
     },
 
@@ -164,7 +164,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         maxNextSpacing: 512,
-        minHandSpacing: 16,
+        minHandSpacing: 32,
         possiblyUsefulFilter: [],
     },
 
@@ -188,7 +188,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
             xs8_6996: [1, 10],
         },
         maxNextSpacing: 512,
-        minHandSpacing: 16,
+        minHandSpacing: 32,
         possiblyUsefulFilter: [],
     },
 

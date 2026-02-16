@@ -447,7 +447,6 @@ export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, rec
     if (move === undefined) {
         throw new Error('Missing move! (there is a bug)');
     }
-    console.log(out);
     let recipe = mergeChannelRecipes(info, ...out);
     let time = 0;
     for (let [spacing] of recipe) {

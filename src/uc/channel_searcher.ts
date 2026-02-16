@@ -220,7 +220,7 @@ function isNextWorkingInput(recipe: [number, number][], expectedAsh: string[], e
     return false;
 }
 
-function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[], expectedAshPeriod: number/*, low: number, high: number*/): [number, number][] {
+function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[], expectedAshPeriod: number/*, low: number, high: number*/): false | [number, number][] {
     // console.log(`\x1b[92mexpected: ${expectedAsh[0]} (period: ${expectedAsh[1]})\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
@@ -236,7 +236,8 @@ function findNextWorkingInput(recipe: [number, number][], expectedAsh: string[],
         // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low === info.maxNextSpacing) {
-        console.log(`\x1b[91mUnable to find next possible glider spacing for ${unparseChannelRecipe(info, recipe)}\x1b[0m`);
+        console.log(`\x1b[93mUnable to find next possible glider spacing: ${unparseChannelRecipe(info, recipe)}\x1b[0m`);
+        return false;
         // throw new Error('hi');
     }
     recipe = recipe.slice();
@@ -285,14 +286,24 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
         }
     }
     if (shipData) {
-        recipe = findNextWorkingInput(recipe, expectedAsh.map(x => x.concat(c.GLIDER_APGCODE).sort().join(' ')), expectedAshPeriod);
-        strRecipe = unparseChannelRecipe(info, recipe);
         let [ship, dir, timing] = shipData;
         if (dir === 'up') {
             return;
         }
+        let recipe2 = findNextWorkingInput(recipe, expectedAsh.map(x => x.concat(c.GLIDER_APGCODE).sort().join(' ')), expectedAshPeriod);
+        if (!recipe2) {
+            if (dir === 'down') {
+                return `possibly broken 0 degree emit ${ship.x - ship.y + info.start.lane - 4} timing ${timing} move ${move}: ${strRecipe}\n`;
+            } else {
+                return `possibly broken 90 degree emit ${ship.x + ship.y}${dir === 'right' ? 'x' : 'i'} timing ${timing} move ${move}: ${strRecipe}\n`
+            }
+        }
+        recipe = recipe2;
+        strRecipe = unparseChannelRecipe(info, recipe);
         if (dir === 'down') {
-            let lane = ship.x - ship.y;
+            let lane = ship.x - ship.y + info.start.lane;
+            // magic
+            lane -= 4;
             out.recipes0Deg.push({recipe, time, lane, timing, move});
             for (let i = 1; i < info.period; i++) {
                 let newRecipe = recipe.slice();
@@ -312,12 +323,20 @@ function addObjects(recipe: [number, number][], strRecipe: string, time: number,
             return `90 degree emit ${lane}${ix} timing ${timing} move ${move}: ${strRecipe}\n`;
         }
     } else if (hand) {
-        recipe = findNextWorkingInput(recipe, expectedAsh.map(x => x.concat(hand.code).sort().join(' ')), expectedAshPeriod);
+        let recipe2 = findNextWorkingInput(recipe, expectedAsh.map(x => x.concat(hand.code).sort().join(' ')), expectedAshPeriod);
+        if (!recipe2) {
+            return `possibly broken create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
+        }
+        recipe = recipe2;
         strRecipe = unparseChannelRecipe(info, recipe);
         out.createHandRecipes.push({recipe, time, obj: hand, move});
         return `create hand ${hand.code} (${hand.x}, ${hand.y}) move ${move}: ${strRecipe}\n`;
     } else {
-        recipe = findNextWorkingInput(recipe, expectedAsh.map(x => x.sort().join(' ')), expectedAshPeriod);
+        let recipe2 = findNextWorkingInput(recipe, expectedAsh.map(x => x.sort().join(' ')), expectedAshPeriod);
+        if (!recipe2) {
+            return `possibly broken move ${move}: ${strRecipe}\n`;
+        }
+        recipe = recipe2;
         strRecipe = unparseChannelRecipe(info, recipe);
         if (move === 0) {
             return;
