@@ -116,7 +116,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         maxNextSpacing: 512,
         minHandSpacing: 16,
-        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
+        possiblyUsefulFilter: [],
     },
 
     'Single-channel (61)': {
@@ -140,7 +140,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         maxNextSpacing: 512,
         minHandSpacing: 16,
-        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
+        possiblyUsefulFilter: [],
     },
 
     'Single-channel (syringe)': {
@@ -165,7 +165,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         maxNextSpacing: 512,
         minHandSpacing: 16,
-        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
+        possiblyUsefulFilter: [],
     },
 
     'Single-channel (90)': {
@@ -189,7 +189,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         },
         maxNextSpacing: 512,
         minHandSpacing: 16,
-        possiblyUsefulFilter: [/*'xp3_co9nas0san9oczgoldlo0oldlogz1047210127401', 'xp3_s0111s0s1110szo0555o0o5550oz1044410144401', 'xp3_ggg07kg0gk70gggzwh0rah0har0hz1110s51015s0111'*/],
+        possiblyUsefulFilter: [],
     },
 
 };
