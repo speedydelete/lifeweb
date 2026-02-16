@@ -168,8 +168,13 @@ function getExpectedAsh(info: ChannelInfo): [string[][], number] {
 export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let [expectedAsh, expectedAshPeriod] = getExpectedAsh(info);
+    let msg = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n`;
+    let stat = await fs.stat('possible_useful.txt');
+    if (stat.size > 0) {
+        msg = '\n' + msg;
+    }
+    await fs.appendFile('possible_useful.txt', msg);
     let recipes = await loadRecipes();
-    let anyPossibleUseful = false;
     let out = recipes.channels[type];
     let depth = 0;
     let starts: [number, number][][] = [];
@@ -263,12 +268,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
         log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
-            possibleUseful = `\nDepth ${depth}:\n${possibleUseful}`;
-            if (!anyPossibleUseful) {
-                possibleUseful = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n${possibleUseful}`;
-                anyPossibleUseful = true;
-            }
-            await fs.appendFile('possible_useful.txt', possibleUseful);
+            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
     }
