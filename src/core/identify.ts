@@ -59,8 +59,8 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                         };
                     }
                 }
-                for (let period = 1; period < Math.floor(diffs.length / 8); period++) {
-                    if ((diffs.length - j) / period < 8) {
+                for (let period = 1; period < Math.floor(diffs.length / 16); period++) {
+                    if ((diffs.length - j) / period < 16) {
                         continue;
                     }
                     let startDiff = diffs[j];
