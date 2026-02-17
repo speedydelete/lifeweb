@@ -4,6 +4,12 @@ import {findType, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, setMaxGenerations, log, StillLife, Spaceship, CAObject, base, gliderPatterns, unparseChannelRecipe, RecipeData, separateObjects, stabilize, findOutcome} from './base.js';
 import {createChannelPattern} from './channel.js';
 
+/* TODO:
+make it record 180deg recipes and xWSS recipes that leave behind elbows (as unlikely as these are they could exist...)
+generalize object-creation recipes a bit
+catalog multi-output-glider recipes...
+*/
+
 
 let info: ChannelInfo = workerData.info;
 
