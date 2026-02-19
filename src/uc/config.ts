@@ -72,21 +72,12 @@ interface ChannelInfo {
     minSpacing: number;
     // exclude these spacings, this makes it so you can do overclocking, same format as minSpacings except you provide an array
     excludeSpacings?: number[][][];
-    // the starting elbow
-    start: {
-        apgcode: string;
-        lane: number;
-        spacing: number;
-    };
-    // the valid elbow objects, should be a list of lane differences from starting elbow where it produces the reaction
-    // for non-single-channel, use the lower-numbered lane, so the higher-numbered one is (hd number) + (the lane value)
-    elbows: {[key: string]: number[]};
     // force a start sequence
     forceStart?: [number, number][];
     // the maximum possible next glider spacing (after a recipe)
     maxNextSpacing: number;
-    // the minimum spacing in full diagonals between a hand object and the construction lane(s)
-    minHandSpacing: number;
+    // the maximum number of cells in an elbow
+    maxElbowCells: number;
     // a filter for possibly useful recipes
     possiblyUsefulFilter: string[];
 }
@@ -101,21 +92,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         period: 2,
         minSpacings: [[14]],
         minSpacing: 14,
-        start: {
-            apgcode: '33',
-            lane: 9,
-            spacing: 7,
-        },
-        elbows: {
-            xs4_33: [2, 9],
-            xs5_253: [10],
-            xs5_652: [1],
-            xs6_2552: [10],
-            xs6_696: [1],
-            xs8_6996: [1, 10],
-        },
         maxNextSpacing: 512,
-        minHandSpacing: 24,
+        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -125,21 +103,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         period: 2,
         minSpacings: [[61]],
         minSpacing: 61,
-        start: {
-            apgcode: '33',
-            lane: 9,
-            spacing: 7,
-        },
-        elbows: {
-            xs4_33: [2, 9],
-            xs5_253: [10],
-            xs5_652: [1],
-            xs6_2552: [10],
-            xs6_696: [1],
-            xs8_6996: [1, 10],
-        },
         maxNextSpacing: 512,
-        minHandSpacing: 24,
+        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -150,21 +115,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[74]],
         minSpacing: 74,
         excludeSpacings: [[[76, 77]]],
-        start: {
-            apgcode: '33',
-            lane: 9,
-            spacing: 7,
-        },
-        elbows: {
-            xs4_33: [2, 9],
-            xs5_253: [10],
-            xs5_652: [1],
-            xs6_2552: [10],
-            xs6_696: [1],
-            xs8_6996: [1, 10],
-        },
         maxNextSpacing: 512,
-        minHandSpacing: 24,
+        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -174,21 +126,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         period: 2,
         minSpacings: [[90]],
         minSpacing: 90,
-        start: {
-            apgcode: '33',
-            lane: 9,
-            spacing: 7,
-        },
-        elbows: {
-            xs4_33: [2, 9],
-            xs5_253: [10],
-            xs5_652: [1],
-            xs6_2552: [10],
-            xs6_696: [1],
-            xs8_6996: [1, 10],
-        },
         maxNextSpacing: 512,
-        minHandSpacing: 24,
+        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -219,8 +158,7 @@ const INJECTION_SPACING = 2;
 // information for spaceship identification
 
 // don't change this
-// the ones with 2 after them are flipped
-type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W' | 'NW2' | 'NE2' | 'SW2' | 'SE2' | 'N2' | 'E2' | 'S2' | 'W2';
+type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 
 /*
 ok this is how this part works:

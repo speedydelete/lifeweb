@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator, toCatagolueRule, createPattern} from '../core/index.js';
+import {MAPPattern, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
@@ -227,7 +227,7 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
 }
 
 /** Turns a slow salvo into a string. */
-export function unparseSlowSalvo(info: c.SalvoInfo, data: [number, number][]): string {
+export function slowSalvoToString(info: c.SalvoInfo, data: [number, number][]): string {
     let out: string[] = [];
     for (let [lane, timing] of data) {
         if (timing === -1 || info.period === 1) {
@@ -280,7 +280,7 @@ export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number,
 }
 
 /** Turns a restricted-channel recipe into a string */
-export function unparseChannelRecipe(info: c.ChannelInfo, data: [number, number][]): string {
+export function channelRecipeToString(info: c.ChannelInfo, data: [number, number][]): string {
     if (info.channels.length === 1) {
         return data.map(x => {
             if (x[1] >= 0) {
@@ -496,6 +496,8 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
+export type ChannelRecipe = {start: string, end?: [string, number], recipe: [number, number][], time: number, emit?: {dir: 'up' | 'down' | 'left' | 'right', lane: number, timing: number}, create?: StillLife};
+
 /** Represents a recipe file. */
 export interface RecipeData {
     salvos: {[key: string]: {
@@ -509,13 +511,8 @@ export interface RecipeData {
         elbowRecipes: {[key: string]: [StableObject, StableObject, Spaceship, [number, number][][]]};
     }};
     channels: {[key: string]: {
-        moveRecipes: {recipe: [number, number][], time: number, move: number}[];
-        recipes90Deg: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number, move: number}[];
-        recipes0Deg: {recipe: [number, number][], time: number, lane: number, timing: number, move: number}[];
-        destroyRecipe?: {recipe: [number, number][], time: number};
-        recipes90DegDestroy: {recipe: [number, number][], time: number, lane: number, ix: 'i' | 'x', timing: number}[];
-        recipes0DegDestroy: {recipe: [number, number][], time: number, lane: number, timing: number}[];
-        createHandRecipes: {recipe: [number, number][], time: number, obj: StillLife, move: number}[];
+        elbows: {[key: string]: [string, boolean] | [string, string]};
+        recipes: ChannelRecipe[];
     }};
 }
 
@@ -609,47 +606,45 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
     } else {
         let info = c.CHANNEL_INFO[type];
         let out = recipeData.channels[type];
-        if (section === 'move recipes') {
+        if (section === 'elbows') {
             for (let line of current) {
-                let [amount, recipeStr] = line.split(': ');
-                let [recipe, time] = parseChannelRecipe(info, recipeStr)
-                out.moveRecipes.push({recipe, time, move: parseInt(amount)});
+                if (line.includes(' -> ')) {
+                    let [elbow, data] = line.split(' -> ');
+                    let flipped = false;
+                    if (data.endsWith(' (flipped)')) {
+                        flipped = true;
+                        data = data.slice(0, ' (flipped)'.length);
+                    }
+                    out.elbows[elbow] = [data, flipped];
+                } else {
+                    let [elbow, data] = line.split(': ');
+                    out.elbows[elbow] = data.split(' / ') as [string, string];
+                }
             }
-        } else if (section === '90-degree recipes') {
+        } else if (section.includes('recipes')) {
             for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(6).join(' '));
-                out.recipes90Deg.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3]), move: parseInt(data[5])});
-            }
-        } else if (section === '0-degree recipes') {
-            for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(6).join(' '));
-                out.recipes0Deg.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3]), move: parseInt(data[5])});
-            }
-        } else if (section === 'destroy recipe') {
-            let [recipe, time] = parseChannelRecipe(info, current[0]);
-            out.destroyRecipe = {recipe, time};
-        } else if (section === '90-degree and destroy recipes') {
-            for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
-                out.recipes90DegDestroy.push({recipe, time, lane: parseInt(data[1].slice(0, -1)), ix: data[1][data[1].length - 1] as 'i' | 'x', timing: parseInt(data[3])});
-            }
-        } else if (section === '0-degree and destroy recipes') {
-            for (let line of current) {
-                let data = line.split(' ');
-                let [recipe, time] = parseChannelRecipe(info, data.slice(5).join(' '));
-                out.recipes0DegDestroy.push({recipe, time, lane: parseInt(data[1]), timing: parseInt(data[3])});
-            }
-        } else if (section === 'hand creation recipes') {
-            for (let line of current) {
-                let [data, recipeStr] = line.split(': ');
-                let [recipe, time] = parseChannelRecipe(info, recipeStr);
-                let index = data.indexOf(')');
-                let sl = stringToObjects(data.slice(0, index + 1))[0] as StillLife;
-                let move = parseInt(data.slice(index + 2 + 'move '.length));
-                out.createHandRecipes.push({recipe, time, obj: sl, move});
+                let [desc, recipeStr] = line.split(': ');
+                let data = desc.split(' ');
+                let start = data[0];
+                let [actualRecipe, time] = parseChannelRecipe(info, recipeStr);
+                let recipe: ChannelRecipe = {start, recipe: actualRecipe, time};
+                if (data[1] === 'destroy') {
+                    data = data.slice(2);
+                } else {
+                    recipe.end = [data[2], parseInt(data[4])];
+                    data = data.slice(5);
+                }
+                if (data[0] === 'emit') {
+                    let dir = data[1] as 'up' | 'down' | 'left' | 'right';
+                    let lane = parseInt(data[3]);
+                    let timing = parseInt(data[5]);
+                    recipe.emit = {dir, lane, timing};
+                    data = data.slice(5);
+                }
+                if (data[0] === 'create') {
+                    recipe.create = stringToObjects(data.slice(1).join(' '))[0] as StillLife;
+                }
+                out.recipes.push(recipe);
             }
         } else {
             console.log(`\x1b[91mWarning: Unrecognized section: '${originalSection}'\x1b[0m`);
@@ -661,7 +656,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
 export async function loadRecipes(): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {moveRecipes: [], recipes90Deg: [], recipes0Deg: [], createHandRecipes: [], recipes90DegDestroy: [], recipes0DegDestroy: []}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: []}])),
     };
     if (!exists(recipeFile)) {
         return out;
@@ -695,7 +690,7 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
     for (let [key, data] of recipes) {
         let keyStart = key.split(' ').slice(0, 3).join(' ');
         data = data.sort((a, b) => a.length - b.length);
-        let line = `${key}: ${data.sort((a, b) => a.length - b.length).map(x => unparseSlowSalvo(info, x)).join(' / ')}`;
+        let line = `${key}: ${data.sort((a, b) => a.length - b.length).map(x => slowSalvoToString(info, x)).join(' / ')}`;
         if (keyStart in groups) {
             groups[keyStart].push(line);
         } else {
@@ -719,6 +714,24 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
     return out;
 }
 
+const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create', '90-degree and create and destroy', '0-degree and create and destroy', '180-degree and create and destroy'];
+
+export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
+    let out = recipe.start;
+    if (recipe.end) {
+        out += ` to ${recipe.end[0]} move ${recipe.end[1]}`;
+    } else {
+        out += ` destroy`;
+    }
+    if (recipe.emit) {
+        out += ` emit ${recipe.emit.dir} lane ${recipe.emit.lane} timing ${recipe.emit.timing}`;
+    }
+    if (recipe.create) {
+        out += ` create ${objectsToString([recipe.create])}`;
+    }
+    return out;
+}
+
 /** Saves to the recipe file. */
 export async function saveRecipes(recipeData: RecipeData): Promise<void> {
     let out = '';
@@ -726,7 +739,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         let info = c.SALVO_INFO[type];
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
-            out += `${key}:\n${value.map(([lane, timing, data]) => unparseSlowSalvo(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
+            out += `${key}:\n${value.map(([lane, timing, data]) => slowSalvoToString(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
@@ -736,446 +749,85 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         out += `\n${type} one-time splitters:\n\n` + salvoRecipesToString(info, Object.entries(data.oneTimeSplitters).map(x => [x[0], x[1][2]]));
         out += `\n${type} elbow recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.elbowRecipes).map(x => [x[0], x[1][3]]));
     }
-    for (let [key, value] of Object.entries(recipeData.channels)) {
-        let info = c.CHANNEL_INFO[key];
-        out += `\n${key} move recipes:\n` + value.moveRecipes.sort((a, b) => a.move - b.move).map(x => `${x.move}: ${unparseChannelRecipe(info, x.recipe)}\n`).join('') + '\n';
-        let groups: {[key: string]: RecipeData['channels'][string]['recipes90Deg']} = {};
-        for (let recipe of value.recipes90Deg) {
-            let key = recipe.lane + recipe.ix;
-            if (key in groups) {
-                groups[key].push(recipe);
+    for (let [type, value] of Object.entries(recipeData.channels)) {
+        let info = c.CHANNEL_INFO[type];
+        out += `\n${type} elbows:\n\n`;
+        let elbowGroups: {[key: string]: [string, number, RecipeData['channels'][string]['elbows'][string]][]} = {};
+        for (let [obj, data] of Object.entries(value.elbows)) {
+            let [code, lane] = obj.split('/');
+            if (code in elbowGroups) {
+                elbowGroups[code].push([obj, parseInt(lane), data]);
             } else {
-                groups[key] = [recipe];
+                elbowGroups[code] = [[obj, parseInt(lane), data]];
             }
         }
-        out += `\n${key} 90-degree recipes:\n\n` + Object.values(groups).sort(([a], [b]) => a.ix === b.ix ? (a.lane === b.lane ? a.move - b.move : (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)) : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => a.lane - b.lane).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        let groups2: {[key: number]: RecipeData['channels'][string]['recipes0Deg']} = {};
-        for (let recipe of value.recipes0Deg) {
-            if (recipe.lane in groups2) {
-                groups2[recipe.lane].push(recipe);
+        for (let data of Object.values(elbowGroups)) {
+            data = data.sort((a, b) => a[1] - b[1]);
+            for (let elbow of data) {
+                let str: string;
+                if (typeof elbow[2][1] === 'boolean') {
+                    str = `${elbow[0]} -> ${elbow[2][0]}`;
+                    if (elbow[2][1]) {
+                        str += ' (flipped)';
+                    }
+                } else {
+                    str = `${elbow[0]}: ${elbow[2][0]} / ${elbow[2][1]}`;
+                }
+                out += str + '\n';
+            }
+            out += '\n';
+        }
+        let sections: {[key: string]: ChannelRecipe[]} = {};
+        for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
+            sections[key] = [];
+        }
+        for (let recipe of value.recipes) {
+            let key: string;
+            if (!recipe.emit && !recipe.create) {
+                if (recipe.end) {
+                    key = 'move';
+                } else {
+                    key = 'destroy';
+                }
             } else {
-                groups2[recipe.lane] = [recipe];
+                if (recipe.emit) {
+                    let dir = recipe.emit.dir;
+                    if (dir === 'up') {
+                        key = '180-degree';
+                    } else if (dir === 'down') {
+                        key = '0-degree';
+                    } else {
+                        key = '90-degree';
+                    }
+                    if (recipe.create) {
+                        key += ' and create';
+                    }
+                } else {
+                    key = 'create';
+                }
+                if (!recipe.end) {
+                    key += ' and destroy';
+                }
+            }
+            sections[key].push(recipe);
+        }
+        for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
+            out += `\n${type} ${key} recipes:\n\n`;
+            let groups: {[key: string]: ChannelRecipe[]} = {};
+            for (let recipe of sections[key]) {
+                if (recipe.start in groups) {
+                    groups[recipe.start].push(recipe);
+                } else {
+                    groups[recipe.start] = [recipe];
+                }
+            }
+            for (let recipes of Object.values(groups)) {
+                for (let recipe of recipes) {
+                    out += channelRecipeInfoToString(recipe) + '\n';
+                }
+                out += '\n';
             }
         }
-        out += `\n${key} 0-degree recipes:\n\n` + Object.entries(groups2).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => a.lane === b.lane ? a.move - b.move : (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane} timing ${x.timing} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        if (value.destroyRecipe) {
-            out += `\n${key} destroy recipe:\n${unparseChannelRecipe(info, value.destroyRecipe.recipe)}\n\n`;
-        }
-        let groups3: {[key: string]: RecipeData['channels'][string]['recipes90DegDestroy']} = {};
-        for (let recipe of value.recipes90DegDestroy) {
-            let key = recipe.lane + recipe.ix;
-            if (key in groups3) {
-                groups3[key].push(recipe);
-            } else {
-                groups3[key] = [recipe];
-            }
-        }
-        out += `\n${key} 90-degree and destroy recipes:\n\n` + Object.values(groups3).sort(([a], [b]) => a.ix === b.ix ? a.lane - b.lane : a.ix.charCodeAt(0) - b.ix.charCodeAt(0)).map(recipes => recipes.sort((a, b) => (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane}${x.ix} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        let groups4: {[key: number]: RecipeData['channels'][string]['recipes0DegDestroy']} = {};
-        for (let recipe of value.recipes0DegDestroy) {
-            if (recipe.lane in groups4) {
-                groups4[recipe.lane].push(recipe);
-            } else {
-                groups4[recipe.lane] = [recipe];
-            }
-        }
-        out += `\n${key} 0-degree and destroy recipes:\n\n` + Object.entries(groups4).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([_, x]) => x.sort((a, b) => (a.lane === b.lane ? a.timing - b.timing : a.lane - b.lane)).map(x => `emit ${x.lane} timing ${x.timing} destroy: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
-        let groups5: {[key: string]: RecipeData['channels'][string]['createHandRecipes']} = {};
-        for (let recipe of value.createHandRecipes) {
-            let key = objectsToString([recipe.obj]);
-            if (key in groups5) {
-                groups5[key].push(recipe);
-            } else {
-                groups5[key] = [recipe];
-            }
-        }
-        out += `\n${key} hand creation recipes:\n\n` + Object.values(groups5).sort((a, b) => objectSorter(a[0].obj, b[0].obj)).map(recipes => recipes.map(x => `${objectsToString([x.obj])} move ${x.move}: ${unparseChannelRecipe(info, x.recipe)}`).join('\n') + '\n\n').join('');
     }
     await fs.writeFile(recipeFile, out.slice(0, -1));
-}
-
-
-type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
-
-function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
-    let out: ForCombining[] = [];
-    let used = new Uint8Array(objs.length);
-    for (let i = 0; i < objs.length; i++) {
-        let obj = objs[i];
-        if (used[i]) {
-            continue;
-        }
-        used[i] = 1;
-        let isOsc = obj.type === 'osc';
-        let data = [];
-        for (let j = 0; j < objs.length; j++) {
-            if (used[j]) {
-                continue;
-            }
-            let a = obj;
-            let b = objs[j];
-            let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
-            if (dist <= c.MAX_PSEUDO_DISTANCE) {
-                used[j] = 1;
-                data.push(objs[j]);
-                isOsc ||= objs[j].type === 'osc';
-                continue;
-            }
-            for (let a of data) {
-                let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
-                if (dist <= c.MAX_PSEUDO_DISTANCE) {
-                    used[j] = 1;
-                    data.push(objs[j]);
-                    isOsc ||= objs[j].type === 'osc';
-                    break;
-                }
-            }
-        }
-        if (data.length === 0) {
-            out.push(obj);
-            continue;
-        }
-        let [minX, minY, maxX, maxY] = obj.bb;
-        for (let obj of data) {
-            if (obj.bb[0] < minX) {
-                minX = obj.bb[0];
-            }
-            if (obj.bb[1] < minY) {
-                minY = obj.bb[1];
-            }
-            if (obj.bb[2] > maxX) {
-                maxX = obj.bb[2];
-            }
-            if (obj.bb[3] > maxY) {
-                maxY = obj.bb[3];
-            }
-        }
-        maxX++;
-        maxY++;
-        let p = base.copy();
-        p.height = maxY - minY;
-        p.width = maxX - minX;
-        p.size = p.height * p.width;
-        p.data = new Uint8Array(p.size);
-        p.insert(obj.p, obj.x - minX, obj.y - minY);
-        for (let obj of data) {
-            p.insert(obj.p, obj.x - minX, obj.y - minY);
-        }
-        p.shrinkToFit();
-        let type = findType(p, 2, false);
-        if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
-            return false;
-        }
-        let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
-        if (isOsc) {
-            let period = obj.type === 'osc' ? parseInt(obj.code.slice(2)) : 1;
-            for (let obj of objs) {
-                if (obj.type === 'sl') {
-                    continue;
-                }
-                let objPeriod = parseInt(obj.code.slice(2));
-                let gcd = period;
-                let b = objPeriod;
-                while (b > 0) {
-                    let temp = b;
-                    b = gcd % b;
-                    gcd = temp;
-                }
-                period = (period * objPeriod) / gcd;
-            }
-            out.push({
-                type: 'osc',
-                code: p.run(period - obj.p.generation % period).toApgcode('xp' + period),
-                x: minX,
-                y: minY,
-                p,
-                bb,
-            });
-        } else {
-            out.push({
-                type: 'sl',
-                code: p.toApgcode('xs' + p.population),
-                x: minX,
-                y: minY,
-                p,
-                bb,
-            });
-        }
-    }
-    return out;
-}
-
-function combineAllStableObjects(objs: ForCombining[]): false | ForCombining {
-    let obj = objs[0];
-    let isOsc = obj.type === 'osc';
-    let [minX, minY, maxX, maxY] = obj.bb;
-    for (let obj of objs.slice(1)) {
-        if (obj.bb[0] < minX) {
-            minX = obj.bb[0];
-        }
-        if (obj.bb[1] < minY) {
-            minY = obj.bb[1];
-        }
-        if (obj.bb[2] > maxX) {
-            maxX = obj.bb[2];
-        }
-        if (obj.bb[3] > maxY) {
-            maxY = obj.bb[3];
-        }
-        if (obj.type === 'osc') {
-            isOsc = true;
-        }
-    }
-    maxX++;
-    maxY++;
-    let p = base.copy();
-    p.height = maxY - minY;
-    p.width = maxX - minX;
-    p.size = p.height * p.width;
-    p.data = new Uint8Array(p.size);
-    p.insert(obj.p, obj.x - minX, obj.y - minY);
-    for (let obj of objs.slice(1)) {
-        p.insert(obj.p, obj.x - minX, obj.y - minY);
-    }
-    p.shrinkToFit();
-    let type = findType(p, 2, false);
-    if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
-        return false;
-    }
-    let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
-    if (isOsc) {
-        let period = obj.type === 'osc' ? parseInt(obj.code.slice(2)) : 1;
-        for (let obj of objs) {
-            if (obj.type === 'sl') {
-                continue;
-            }
-            let objPeriod = parseInt(obj.code.slice(2));
-            let gcd = period;
-            let b = objPeriod;
-            while (b > 0) {
-                let temp = b;
-                b = gcd % b;
-                gcd = temp;
-            }
-            period = (period * objPeriod) / gcd;
-        }
-        return {
-            type: 'osc',
-            code: p.run(period - obj.p.generation % period).toApgcode('xp' + period),
-            x: minX,
-            y: minY,
-            p,
-            bb,
-        };
-    } else {
-        return {
-            type: 'sl',
-            code: p.toApgcode('xs' + p.population),
-            x: minX,
-            y: minY,
-            p,
-            bb,
-        };
-    }
-}
-
-let knots = getKnots(base.trs);
-
-export function separateObjects(p: MAPPattern, sepGens: number, limit: number, mergeAll: boolean = false): false | CAObject[] {
-    if (p.isEmpty()) {
-        return [];
-    }
-    let sep = new INTSeparator(p, knots);
-    sep.generation = p.generation;
-    let objs: [MAPPattern, PatternType][] = [];
-    let found = false;
-    for (let i = 0; i < sepGens; i++) {
-        let reassigned = sep.runGeneration();
-        let reassigned2 = sep.resolveKnots();
-        if (reassigned || reassigned2) {
-            continue;
-        }
-        objs = sep.getObjects().map(x => [x, findType(x, limit)]);
-        if (objs.every(([_, x]) => x.stabilizedAt === 0 && x.pops[x.pops.length - 1] !== 0)) {
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        // if (input) {
-        //     console.log(`Unable to separate objects for ${input}!`);
-        // } else {
-        //     console.log(`Unable to separate objects!`);
-        // }
-        return false;
-    }
-    let out: CAObject[] = [];
-    let stableObjects: ((StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]})[] = [];
-    for (let [p, type] of objs) {
-        if (p.isEmpty()) {
-            return false;
-        }
-        p.shrinkToFit();
-        p.generation = sep.generation;
-        let apgcode = getApgcode(type);
-        if (apgcode.startsWith('xs')) {
-            if (apgcode.startsWith('xs0')) {
-                return false;
-            }
-            stableObjects.push({
-                type: 'sl',
-                code: p.toApgcode('xs' + p.population),
-                x: p.xOffset,
-                y: p.yOffset,
-                p,
-                bb: [p.xOffset, p.yOffset, p.xOffset + p.width - 1, p.yOffset + p.height - 1],
-            });
-        } else if (apgcode.startsWith('xp')) {
-            let q = p.copy().run(type.period);
-            stableObjects.push({
-                type: 'osc',
-                code: p.toApgcode('xp' + type.period),
-                x: p.xOffset,
-                y: p.yOffset,
-                p,
-                bb: [q.xOffset, q.yOffset, q.xOffset + q.width - 1, q.yOffset + q.height - 1],
-            });
-        } else if (apgcode in c.SHIP_IDENTIFICATION) {
-            let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
-            let found = false;
-            for (let {height, width, population, data} of info) {
-                if (p.height === height && p.width === width && p.population === population) {
-                    for (let [cells, dir, timing] of data) {
-                        found = true;
-                        for (let i of cells) {
-                            if (!p.data[i]) {
-                                found = false;
-                                break;
-                            }
-                        }
-                        if (found) {
-                            p.run(timing).shrinkToFit();
-                            out.push({
-                                type: 'ship',
-                                code: apgcode,
-                                x: p.xOffset,
-                                y: p.yOffset,
-                                dir,
-                                at: 0,
-                                timing: p.generation,
-                            })
-                            break;
-                        }
-                    }
-                }
-                if (found) {
-                    break;
-                }
-            }
-            if (!found) {
-                throw new Error(`Invalid spaceship: ${p.toRLE()}`);
-            }
-        } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
-            return false;
-        } else {
-            out.push({
-                type: 'other',
-                code: apgcode,
-                x: p.xOffset,
-                y: p.yOffset,
-                realCode: p.toApgcode(),
-                at: 0,
-                timing: p.generation,
-            });
-        }
-    }
-    if (stableObjects.length > 0) {
-        if (mergeAll) {
-            let data = combineAllStableObjects(stableObjects);
-            if (!data) {
-                return false;
-            }
-            out.push(data);
-        } else {
-            let data = combineStableObjects(stableObjects);
-            if (!data) {
-                return false;
-            }
-            if (data.length > 1) {
-                data = combineStableObjects(data);
-                if (!data) {
-                    return false;
-                }
-            }
-            for (let obj of data) {
-                out.push({
-                    type: obj.type,
-                    code: obj.code,
-                    x: obj.x,
-                    y: obj.y,
-                })
-            }
-        }
-    }
-    return out;
-}
-
-// let maxPeriodTable: number[] = [];
-// for (let i = 0; i < 1024; i++) {
-//     let out = Math.floor(i / c.PERIOD_SECURITY);
-//     if (c.MAX_POPULATION_PERIOD !== null) {
-//         out = Math.min(out, c.MAX_POPULATION_PERIOD as number);
-//     }
-//     maxPeriodTable.push(out);
-// }
-
-export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): number | 'linear' | null {
-    let pops: number[] = [p.population];
-    for (let i = 0; i < maxGens; i++) {
-        p.runGeneration();
-        p.shrinkToFit();
-        let pop = p.population;
-        // let limit = maxPeriodTable[i];
-        // if (limit === undefined) {
-        //     limit = Math.floor(maxGens / c.PERIOD_SECURITY);
-        // }
-        for (let period = 1; period < Math.floor(maxGens / c.PERIOD_SECURITY); period++) {
-            let found = true;
-            for (let j = 1; j < c.PERIOD_SECURITY; j++) {
-                if (pop !== pops[pops.length - period * j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return period;
-            }
-            if (c.CHECK_LINEAR_GROWTH) {
-                let diff = pop - pops[pops.length - period];
-                found = true;
-                for (let j = 1; j < c.PERIOD_SECURITY; j++) {
-                    if (diff !== pops[pops.length - period * j] - pops[pops.length - period * (j + 1)]) {
-                        found = false;
-                        break;
-                    }
-                }
-                if (found) {
-                    return 'linear';
-                }
-            }
-        }
-        pops.push(pop);
-    }
-    return null;
-}
-
-export function findOutcome(p: MAPPattern, mergeAll: boolean = false, maxGens?: number): false | 'linear' | CAObject[] {
-    let period = stabilize(p, maxGens);
-    if (period === 'linear') {
-        return 'linear';
-    } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        return false;
-    }
-    p.shrinkToFit();
-    return separateObjects(p, period * 4, period * 4, mergeAll);
 }

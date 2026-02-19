@@ -1,6 +1,7 @@
 
 import {MAPPattern} from '../core/index.js';
-import {c, SalvoInfo, log, Spaceship, StableObject, CAObject, base, gliderPattern, gliderPatterns, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes, separateObjects, findOutcome} from './base.js';
+import {c, SalvoInfo, log, Spaceship, StableObject, CAObject, base, gliderPattern, gliderPatterns, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {separateObjects, findOutcome} from './runner.js';
 
 
 /** Turns a salvo into a `Pattern`. */
