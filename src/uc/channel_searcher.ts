@@ -1,16 +1,10 @@
 
 import {MessagePort, parentPort, workerData} from 'node:worker_threads';
-import {gcd, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, setMaxGenerations, StillLife, Spaceship, CAObject, base, gliderPatterns, channelRecipeToString, objectsToString, RecipeData, ChannelRecipe, channelRecipeInfoToString, stringToObjects} from './base.js';
-import {separateObjects, stabilize, findOutcome} from './runner.js';
-import {createSalvoPattern} from './slow_salvos.js';
+import {MAPPattern, findType} from '../core/index.js';
+import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {findOutcome} from './runner.js';
+import {getCollision} from './slow_salvos.js';
 import {createChannelPattern} from './channel.js';
-
-/* TODO:
-make it record 180deg recipes and xWSS recipes that leave behind elbows (as unlikely as these are they could exist...)
-generalize object-creation recipes a bit
-catalog multi-output-glider recipes...
-*/
 
 
 let info: ChannelInfo = workerData.info;
@@ -94,7 +88,12 @@ function getRecipesForDepth(depth: number, maxSpacing: number, prev?: number): [
 }
 
 
-function runInjection(elbow: [string, number], recipe: [number, number][]/*, debug: boolean = false*/): MAPPattern {
+function runInjection(elbow: [string, number], recipe: [number, number][]): MAPPattern {
+    let phaseOffset = 0;
+    for (let [spacing] of recipe) {
+        phaseOffset += spacing;
+    }
+    phaseOffset = 4 - (phaseOffset % 4);
     let gliders: MAPPattern[] = [];
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
@@ -104,7 +103,7 @@ function runInjection(elbow: [string, number], recipe: [number, number][]/*, deb
         }
         let y = Math.floor(total / c.GLIDER_PERIOD);
         let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
-        let p = gliderPatterns[total % c.GLIDER_PERIOD].copy();
+        let p = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD].copy();
         p.xOffset += x;
         p.yOffset += y;
         gliders.push(p);
@@ -123,7 +122,7 @@ function runInjection(elbow: [string, number], recipe: [number, number][]/*, deb
     let yPos = c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     p.offsetBy(xPos, yPos);
-    p.insert(gliderPatterns[total % c.GLIDER_PERIOD], 0, 0);
+    p.insert(gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD], 0, 0);
     total += c.GLIDER_TARGET_SPACING;
     let i = 0;
     while (gliders.length > 0) {
@@ -180,52 +179,115 @@ function findChannelOutcome(elbow: [string, number], recipe: [number, number][],
 }
 
 
-function isNextWorkingInput(elbow: [string, number], recipe: [number, number][], expectedAsh: string[], expectedAshPeriod: number, next: number): boolean {
-    let test = recipe.slice();
-    test.push([next, 0]);
-    // console.log(`\x1b[95m${channelRecipeToString(info, test)}\x1b[0m`);
-    let p: MAPPattern;
-    if (recipe.length < 2) {
-        let data = createChannelPattern(info, elbow, test);
-        p = data.p;
-        p.xOffset -= data.xPos;
-        p.yOffset -= data.yPos;
-    } else {
-        p = runInjection(elbow, test);
-    }
-    // console.log(p.toRLE());
-    let period = stabilize(p);
-    // console.log(p.toRLE());
-    if (typeof period !== 'number') {
-        return false;
-    }
-    for (let i = 0; i < expectedAshPeriod; i++) {
-        let result = separateObjects(p, period * 4, period * 4, true);
-        if (result) {
-            let key = result.map(x => x.code).sort().join(' ');
-            // console.log(key);
-            if (expectedAsh.includes(key)) {
-                return true;
-            }
-            // hotfix
-            if (result.length === 3 && key.startsWith('xq4_153 xq4_153 xs')) {
-                return true;
-            }
-        }
-        p.runGeneration();
-    }
-    return false;
+export interface ShipInfo {
+    dir: 'up' | 'down' | 'left' | 'right';
+    lane: number;
+    timing: number;
 }
 
-function findNextWorkingInput(elbow: [string, number], recipe: [number, number][], expectedAsh: string[], expectedAshPeriod: number/*, low: number, high: number*/): false | [number, number][] {
-    // console.log(`\x1b[92mexpected: ${expectedAsh[0]} (period: ${expectedAsh[1]})\x1b[0m`);
+export function getShipInfo(obj: Spaceship): ShipInfo {
+    let dir: 'up' | 'down' | 'left' | 'right';
+    let lane: number;
+    if (obj.dir === 'N' || obj.dir === 'NE') {
+        dir = 'up';
+        lane = obj.x - (obj.y * c.GLIDER_SLOPE);
+    } else if (obj.dir === 'W' || obj.dir === 'SW') {
+        dir = 'left';
+        lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
+    } else if (obj.dir === 'S' || obj.dir === 'SE') {
+        dir = 'down';
+        lane = obj.x - (obj.y * c.GLIDER_SLOPE);
+    } else {
+        dir = 'right';
+        lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
+    }
+    return {dir, lane, timing: obj.timing % info.period};
+}
+
+
+function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next: number, expected: [StableObject[], ShipInfo[], string[]]): boolean {
+    let test = recipe.recipe.slice();
+    test.push([next, 0]);
+    let objs = findChannelOutcome(elbow, test);
+    if (typeof objs !== 'object') {
+        return false;
+    }
+    let expectedShips = expected[1];
+    if (!recipe.end) {
+        expectedShips = expectedShips.slice();
+        expectedShips.push({dir: 'down', lane: elbow[1], timing: 0});
+    }
+    let stables: StableObject[] = [];
+    let ships: ShipInfo[] = [];
+    let others: string[] = [];
+    for (let obj of objs) {
+        if (obj.type === 'sl') {
+            stables.push(obj);
+        } else if (obj.type === 'osc') {
+            stables.push(normalizeOscillator(obj));
+        } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+            ships.push(getShipInfo(obj));
+        } else {
+            others.push(obj.code);
+        }
+    }
+    if (stables.length !== expected[0].length || ships.length !== expected[1].length || others.length !== expected[2].length) {
+        return false;
+    }
+    for (let a of expected[0]) {
+        if (!stables.some(b => a.code === b.code && a.x === b.x && a.y === b.y)) {
+            return false;
+        }
+    }
+    for (let a of expected[1]) {
+        if (!ships.some(b => a.dir === b.dir && a.lane === b.lane && a.timing === b.timing)) {
+            return false;
+        }
+    }
+    for (let a of expected[2]) {
+        if (!others.some(b => a === b)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, result: CAObject[] | undefined): false | number {
+    let expected: [StableObject[], ShipInfo[], string[]] = [[], [], []];
+    if (recipe.end) {
+        if (!result) {
+            throw new Error('No result! (there is a bug)');
+        }
+        for (let obj of result) {
+            if (obj.type === 'sl') {
+                expected[0].push(obj);
+            } else if (obj.type === 'osc') {
+                expected[0].push(normalizeOscillator(obj));
+            } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+                expected[1].push(getShipInfo(obj));
+            } else {
+                expected[2].push(obj.code);
+            }
+        }
+    }
+    if (recipe.create) {
+        if (recipe.create.type === 'sl') {
+            expected[0].push(recipe.create);
+        } else {
+            expected[0].push(normalizeOscillator(recipe.create));
+        }
+    }
+    if (recipe.emit) {
+        expected[1].push(recipe.emit);
+    }
+    // console.log(`\x1b[92mexpected: ${objectsToString(expected)}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(elbow, recipe, expectedAsh, expectedAshPeriod, mid) && isNextWorkingInput(elbow, recipe, expectedAsh, expectedAshPeriod, mid + 1) && isNextWorkingInput(elbow, recipe, expectedAsh, expectedAshPeriod, mid + 2)) {
+        if (isNextWorkingInput(elbow, recipe, mid, expected) && isNextWorkingInput(elbow, recipe, mid + 1, expected) && isNextWorkingInput(elbow, recipe, mid + 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
@@ -233,44 +295,15 @@ function findNextWorkingInput(elbow: [string, number], recipe: [number, number][
         // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low === info.maxNextSpacing) {
-        console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe)}\x1b[0m`);
+        console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         return false;
         // throw new Error('hi');
     }
-    recipe = recipe.slice();
-    recipe.push([low, -1]);
-    return recipe;
+    return low;
 }
 
 
-const SALVO_INFO = {gliderSpacing: 0};
-
-function getCollision(code: string, lane: number): false | string {
-    let inc = c.GLIDER_POPULATION_PERIOD;
-    if (code.startsWith('xp')) {
-        let period = parseInt(code.slice(2));
-        inc = inc * period / gcd(inc, period);
-    }
-    let p = createSalvoPattern(SALVO_INFO, code.slice(code.indexOf('_') + 1), [[lane, 0]])[0];
-    let prevPop = p.population;
-    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
-        p.run(c.GLIDER_POPULATION_PERIOD);
-        let pop = p.population;
-        if (pop !== prevPop) {
-            let out = findOutcome(p, true);
-            if (typeof out === 'object') {
-                return objectsToString(out);
-            } else {
-                return false;
-            }
-        }
-        prevPop = pop;
-    }
-    return false;
-}
-
-
-export function findChannelResults(elbows: RecipeData['channels'][string]['elbows'], elbow: string, depth: number, maxSpacing: number, parentPort: MessagePort): void {
+function findChannelResults(elbows: ElbowData, elbow: string, depth: number, maxSpacing: number, parentPort: MessagePort): void {
     let elbowParts = elbow.split('/');
     let elbowLane = parseInt(elbowParts[1]);
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), elbowLane];
@@ -322,12 +355,12 @@ export function findChannelResults(elbows: RecipeData['channels'][string]['elbow
             possibleUseful += `Linear growth: ${strRecipe}\n`;
             continue;
         }
-        let sl1: {obj: StillLife, lane: number, spacing: number} | undefined = undefined;
-        let sl2: {obj: StillLife, lane: number, spacing: number} | undefined = undefined;
+        let sl1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+        let sl2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
         let emit: ChannelRecipe['emit'] | undefined = undefined;
         let found = false;
         for (let obj of result) {
-            if (obj.type === 'sl') {
+            if (obj.type === 'sl' || obj.type === 'osc') {
                 if (sl1 && sl2) {
                     found = true;
                     break;
@@ -341,35 +374,13 @@ export function findChannelResults(elbows: RecipeData['channels'][string]['elbow
                     sl2 = value;
                 }
             } else if (!emit && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-                let dir: 'up' | 'down' | 'left' | 'right';
-                let lane: number;
-                if (obj.dir === 'N' || obj.dir === 'NE') {
-                    dir = 'up';
-                    lane = obj.x - (obj.y * c.GLIDER_SLOPE);
-                } else if (obj.dir === 'W' || obj.dir === 'SW') {
-                    dir = 'left';
-                    lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
-                } else if (obj.dir === 'S' || obj.dir === 'SE') {
-                    dir = 'down';
-                    lane = obj.x - (obj.y * c.GLIDER_SLOPE);
-                } else {
-                    dir = 'right';
-                    lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
-                }
-                let timing = obj.timing - (time % c.GLIDER_PERIOD);
-                if (timing < 0) {
-                    timing += c.GLIDER_PERIOD;
-                }
-                timing %= info.period;
-                emit = {dir, lane, timing};
+                emit = getShipInfo(obj);
             } else {
                 found = true;
                 if (info.possiblyUsefulFilter.includes(obj.code)) {
                     break;
                 }
-                if (obj.type === 'osc' && !obj.code.startsWith('xp2')) {
-                    possibleUseful += `Creates ${obj.code}: ${strRecipe}\n`;
-                } else if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
+                if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
                     possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
                 } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
                     let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
@@ -395,61 +406,53 @@ export function findChannelResults(elbows: RecipeData['channels'][string]['elbow
         if (found) {
             continue;
         }
-        let create: StillLife | undefined = undefined;
-        let elbow: {obj: StillLife, lane: number, spacing: number} | undefined = undefined;
-        let elbowResult: string | false | undefined = undefined;
+        let create: StableObject | undefined = undefined;
+        let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
         if (sl1) {
             if (sl2) {
                 let sl1Result = getCollision(sl1.obj.code, sl1.lane);
                 let sl2Result = getCollision(sl2.obj.code, sl2.lane);
-                if (sl1Result) {
-                    if (sl2Result) {
+                if (typeof sl1Result === 'object') {
+                    if (typeof sl2Result === 'object') {
                         continue;
                     } else {
+                        endElbowData = [sl1, sl1Result];
                         create = sl2.obj;
-                        elbow = sl1;
-                        elbowResult = sl1Result;
                     }
                 } else {
-                    if (sl2Result) {
+                    if (typeof sl2Result === 'object') {
+                        endElbowData = [sl2, sl2Result];
                         create = sl1.obj;
-                        elbow = sl2;
-                        elbowResult = sl2Result;
                     } else {
                         continue;
                     }
                 }
             } else {
-                elbow = sl1;
+                let result = getCollision(sl1.obj.code, sl1.lane);
+                if (typeof result === 'object') {
+                    endElbowData = [sl1, result];
+                } else {
+                    create = sl1.obj;
+                }
             }
         }
         let end: [string, number] | undefined = undefined;
-        if (elbow) {
-            let elbowStr = `${elbow.obj.code}/${elbow.lane}`;;
-            if (elbowStr in elbows) {
-                end = [elbowStr, elbow.spacing];
-                let value = elbows[elbowStr];
-                if (typeof value === 'string') {
-                } else {
-                    let [newStr, flipped] = elbows[elbowStr];
-                }
-            } else {
-                let cells = parseInt(elbow.obj.code.slice(2));
-                if (cells > info.maxElbowCells) {
-                    continue;
-                }
-                if (!elbowResult) {
-                    elbowResult = getCollision(elbow.obj.code, elbow.lane);
-                }
-                if (!elbowResult) {
-                    continue;
-                }
-                elbowResult = objectsToString(stringToObjects(elbowResult).map(obj => {
-                    obj.x -= elbow.obj.x;
-                    obj.y -= elbow.obj.y;
-                    return obj;
-                }));
+        let endResult: CAObject[] | undefined = undefined;
+        if (endElbowData) {
+            let [elbow, result] = endElbowData;
+            endResult = result;
+            let str = `${elbow.obj.code}/${elbow.lane}`;
+            end = [str, elbow.spacing];
+            if (!(str in elbows) && !newElbows.includes(str)) {
+                newElbows.push(str);
             }
+        }
+        let value: ChannelRecipe = {start: elbow, recipe, time, end, create, emit};
+        let next = findNextWorkingInput(elbowData, value, endResult);
+        if (next !== false) {
+            value.recipe.push([next, -1]);
+            value.time += next;
+            newRecipes.push(value);
         }
         possibleUseful += channelRecipeInfoToString(value) + '\n';
     }

@@ -2,10 +2,9 @@
 import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
-import {gcd, MAPPattern} from '../core/index.js';
-import {c, maxGenerations, ChannelInfo, log, base, gliderPatterns, Vertex, dijkstra, graphToDOT, channelRecipeToString, objectsToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
-import {findSalvoResult} from './slow_salvos.js';
-import type {findChannelResults} from './channel_searcher.js';
+import {MAPPattern} from '../core/index.js';
+import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import type {ShipInfo} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -37,7 +36,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
     let target = base.loadApgcode(elbow[0]).shrinkToFit();
-    let yPos = Math.floor(total / c.GLIDER_PERIOD) + info.startSpacing;
+    let yPos = Math.floor(total / c.GLIDER_PERIOD) + elbow[1];
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
@@ -46,133 +45,34 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
-function addChannelSearchData(info: ChannelInfo, data: RecipeData['channels'][string], out: RecipeData['channels'][string]): void {
-    for (let recipe of data.moveRecipes) {
-        let index = out.moveRecipes.findIndex(x => x.move === recipe.move);
-        let entry = out.moveRecipes[index];
-        if (entry === undefined) {
-            console.log(`\x1b[92mNew recipe: move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.moveRecipes.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.moveRecipes.splice(index, 1);
-            out.moveRecipes.push(recipe);
+function addNewRecipes(info: ChannelInfo, data: ChannelRecipe[], out: {[key: string]: ChannelRecipe}): void {
+    for (let recipe of data) {
+        let key = channelRecipeInfoToString(recipe);
+        if (key in out && out[key].time < recipe.time) {
+            continue;
         }
-    }
-    for (let recipe of data.recipes90Deg) {
-        let index = out.recipes90Deg.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.move === recipe.move && x.timing === recipe.timing);
-        let entry = out.recipes90Deg[index];
-        if (entry === undefined) {
-            console.log(`\x1b[92mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.recipes90Deg.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix}  timing ${recipe.timing} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.recipes90Deg.splice(index, 1);
-            out.recipes90Deg.push(recipe);
-        }
-    }
-    for (let recipe of data.recipes0Deg) {
-        let index = out.recipes0Deg.findIndex(x => x.lane === recipe.lane && x.move === recipe.move && x.timing === recipe.timing);
-        let entry = out.recipes0Deg[index];
-        if (entry === undefined) {
-            console.log(`\x1b[92mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.recipes0Deg.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[92mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.recipes0Deg.splice(index, 1);
-            out.recipes0Deg.push(recipe);
-        }
-    }
-    if (data.destroyRecipe) {
-        if (!out.destroyRecipe) {
-            out.destroyRecipe = data.destroyRecipe;
-            console.log(`\x1b[94mNew recipe: destroy: ${channelRecipeToString(info, out.destroyRecipe.recipe)}\x1b[0m`);
-        } else if (out.destroyRecipe.time > data.destroyRecipe.time) {
-            out.destroyRecipe = data.destroyRecipe;
-            console.log(`\x1b[94mImproved recipe (${out.destroyRecipe.time} to ${data.destroyRecipe.time}): destroy: ${channelRecipeToString(info, out.destroyRecipe.recipe)}\x1b[0m`);
-        }
-    }
-    for (let recipe of data.recipes90DegDestroy) {
-        let index = out.recipes90DegDestroy.findIndex(x => x.lane === recipe.lane && x.ix === recipe.ix && x.timing === recipe.timing);
-        let entry = out.recipes90DegDestroy[index];
-        if (entry === undefined) {
-            console.log(`\x1b[94mNew recipe: 90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.recipes90DegDestroy.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 90 degree emit ${recipe.lane}${recipe.ix} destroy: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.recipes90DegDestroy.splice(index, 1);
-            out.recipes90DegDestroy.push(recipe);
-        }
-    }
-    for (let recipe of data.recipes0DegDestroy) {
-        let index = out.recipes0DegDestroy.findIndex(x => x.lane === recipe.lane && x.timing === recipe.timing);
-        let entry = out.recipes0DegDestroy[index];
-        if (entry === undefined) {
-            console.log(`\x1b[94mNew recipe: 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.recipes0DegDestroy.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[94mImproved recipe (${entry.time} to ${recipe.time}): 0 degree emit ${recipe.lane} timing ${recipe.timing} destroy: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.recipes0DegDestroy.splice(index, 1);
-            out.recipes0DegDestroy.push(recipe);
-        }
-    }
-    for (let recipe of data.createHandRecipes) {
-        let index = out.createHandRecipes.findIndex(x => x.obj.code === recipe.obj.code && x.obj.x === recipe.obj.x && x.obj.y === recipe.obj.y && x.move === recipe.move);
-        let entry = out.createHandRecipes[index];
-        if (entry === undefined) {
-            console.log(`\x1b[95mNew recipe: create ${objectsToString([recipe.obj])} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            out.createHandRecipes.push(recipe);
-        } else if (entry.time > recipe.time) {
-            console.log(`\x1b[95mImproved recipe (${entry.time} to ${recipe.time}): create ${objectsToString([recipe.obj])} move ${recipe.move}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-            entry.recipe = recipe.recipe;
-            entry.time = recipe.time;
-            out.createHandRecipes.splice(index, 1);
-            out.createHandRecipes.push(recipe);
-        }
-    }
-}
-
-function getExpectedAsh(info: ChannelInfo): [string[][], number] {
-    let done = new Set<string>();
-    let data: string[][] = [];
-    let period = 1;
-    for (let code in info.elbows) {
-        for (let lane of info.elbows[code]) {
-            let result = findSalvoResult({gliderSpacing: 0}, code, [[lane, 0]], true/*, 1024*/);
-            if (!Array.isArray(result)) {
-                throw new Error(`Invalid expected ash result: '${result}' (max generations might be too low!)`);
-            }
-            let codes = result.map(x => x.code);
-            let key = codes.sort().join(' ');
-            if (!done.has(key)) {
-                done.add(key);
-                data.push(codes);
-                for (let code of codes) {
-                    if (code.startsWith('xp')) {
-                        let p = parseInt(code.slice(2));
-                        period = period * p / gcd(period, p);
-                    }
+        let color: string;
+        if (out.end) {
+            if (out.create) {
+                if (out.emit) {
+                    color = '96';
+                } else {
+                    color = '95';
                 }
+            } else {
+                color = '92';
             }
+        } else {
+            color = '94';
         }
+        console.log(`\x1b[${color}m${key in out ? 'Improved' : 'New'} recipe: ${key}: ${channelRecipeToString(info, recipe.recipe)}`);
+        out[key] = recipe;
     }
-    return [data, period];
 }
 
 /** Performs a restricted-channel search. */
 export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
-    let [expectedAsh, expectedAshPeriod] = getExpectedAsh(info);
     let msg = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
@@ -214,15 +114,13 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
             info,
             maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
-            expectedAsh,
-            expectedAshPeriod,
         }}));
     }
     while (true) {
         log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipeCount = 0;
-        let finished: ReturnType<typeof findChannelResults>[] = [];
+        let finished: {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number}[] = [];
         let startedCount = 0;
         let finishedCount = 0;
         let checkedRecipes = 0;
@@ -246,7 +144,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                     }
                 } else if (type === 'update') {
                     checkedRecipes += data.count;
-                    addChannelSearchData(info, data.out, out);
+                    addNewRecipes(info, data.recipes, out.recipes);
                 } else if (type === 'completed') {
                     finished.push(data);
                     finishedCount++;
@@ -269,7 +167,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
         await promise;
         let possibleUseful = '';
         for (let data of finished) {
-            addChannelSearchData(info, data.data, out);
+            addNewRecipes(info, data.recipes, out.recipes);
             possibleUseful += data.possibleUseful;
         }
         let time = (performance.now() - start) / 1000;
@@ -329,262 +227,151 @@ export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, nu
 }
 
 
-/** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow. */
-// export function salvoToChannel90Deg(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    
-// }
-
-/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow. */
-
-
-/** Turns a slow salvo into a restricted-channel synthesis using a 90-degree elbow and Dijkstra's algorithm. */
-export function salvoToChannel90DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], ix: 'i' | 'x', depth: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    type T = [[number, number][], number/*, string*/];
-    let data = recipes.channels[type];
-    let startVertex: Vertex<T> = [];
-    let graph: Vertex<T>[] = [startVertex, []];
-    let prevLayer: {elbowPos: number, index: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, index: 0, currentTiming: 0, vertex: startVertex}];
-    for (let i = 0; i < depth; i++) {
-        let newPrevLayer: typeof prevLayer = [];
-        for (let {elbowPos, index, currentTiming, vertex} of prevLayer) {
-            let [lane, timing] = salvo[index];
-            if (index === salvo.length - 1) {
-                if (forceEndElbow === false) {
-                    for (let recipe of data.recipes90DegDestroy) {
-                        if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
-                            continue;
-                        }
-                        if (timing === -1) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`*/]]);
-                        } else {
-                            let newTiming = (currentTiming + recipe.timing) % info.period;
-                            if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0/*, `0 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} destroy`*/]]);
-                            }
-                        }
-                    }
-                } else {
-                    for (let recipe of data.recipes90Deg) {
-                        if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
-                            continue;
-                        }
-                        let newElbowPos = elbowPos + recipe.move;
-                        if (forceEndElbow !== undefined) {
-                            if (newElbowPos !== forceEndElbow) {
-                                let moveAmount = forceEndElbow - newElbowPos;
-                                let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
-                                if (moveRecipe) {
-                                    if (timing === -1) {
-                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                                    } else {
-                                        let newTiming = (currentTiming + recipe.timing) % info.period;
-                                        if (timing === newTiming) {
-                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            if (timing === -1) {
-                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                            } else {
-                                let newTiming = (currentTiming + recipe.timing) % info.period;
-                                if (timing === newTiming) {
-                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                for (let recipe of data.recipes90Deg) {
-                    if (elbowPos + recipe.lane !== lane || (c.GLIDER_SLOPE !== 0 && (elbowPos % 2 ? recipe.ix === ix : recipe.ix !== ix))) {
-                        continue;
-                    }
-                    let newVertex: Vertex<T> = [];
-                    let newIndex = graph.length;
-                    let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                    graph.push(newVertex);
-                    let newTiming = (currentTiming + recipe.timing) % info.period;
-                    if (timing === -1) {
-                        vertex.push([newIndex, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                        newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
-                    } else {
-                        if (timing === newTiming) {
-                            vertex.push([newIndex, recipe.time, [recipe.recipe, 0/*, `90 degree emit ${recipe.lane}${recipe.ix} timing ${recipe.timing} move ${recipe.move}`*/]]);
-                            newPrevLayer.push({elbowPos: newElbowPos, index: index + 1, currentTiming: newTiming, vertex: newVertex});
-                        }
-                    }
-                }
-                for (let recipe of data.moveRecipes) {
-                    let newVertex: Vertex<T> = [];
-                    let newElbowPos = elbowPos + recipe.move;
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos/*, `move ${recipe.move}`*/]]);
-                    graph.push(newVertex);
-                    newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
-                }
-            }
-        }
-        prevLayer = newPrevLayer;
-    }
-    let edges = 0;
-    for (let vertex of graph) {
-        edges += vertex.length;
-    }
-    if (edges === 0) {
-        throw new Error('No edges!');
-    }
-    console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
-    // writeFileSync('graph.dot', graphToDOT(graph));
-    let start = performance.now();
-    let path = dijkstra(graph, 1);
-    console.log(`Dijkstra complete, took ${((performance.now() - start) / 1000).toFixed(3)} seconds`);
-    let out: [number, number][][] = [];
-    let move: number | undefined = undefined;
-    for (let i = 0; i < path.length; i++) {
-        let [vertex, edge] = path[i];
-        let data = graph[vertex][edge][2];
-        out.push(data[0]);
-        if (i === path.length - 1) {
-            move = data[1];
-        }
-    }
-    if (move === undefined) {
-        throw new Error('Missing move! (there is a bug)');
-    }
-    let recipe = mergeChannelRecipes(info, ...out);
-    let time = 0;
-    for (let [spacing] of recipe) {
-        time += spacing;
-    }
-    return {recipe, time, move};
+interface RecipeProgress {
+    recipes: [number, number][][];
+    time: number;
+    index: number;
+    elbow: string;
+    elbowPos: number;
 }
 
-/** Turns a slow salvo into a restricted-channel synthesis using a 0-degree elbow and Dijkstra's algorithm. */
-export function salvoToChannel0DegDijkstra(type: string, info: ChannelInfo, recipes: RecipeData, salvo: [number, number][], minElbow?: number, maxElbow?: number, forceEndElbow?: false | number): {recipe: [number, number][], time: number, move: number} {
-    type T = [[number, number][], number];
-    let data = recipes.channels[type];
-    let startVertex: Vertex<T> = [];
-    let graph: Vertex<T>[] = [startVertex, []];
-    let prevLayer: {elbowPos: number, currentTiming: number, vertex: Vertex<T>}[] = [{elbowPos: 0, currentTiming: 0, vertex: startVertex}];
-    for (let i = 0; i < salvo.length; i++) {
-        let [lane, timing] = salvo[i];
-        let newPrevLayer: typeof prevLayer = [];
-        for (let {elbowPos, currentTiming, vertex} of prevLayer) {
-            if (i === salvo.length - 1) {
-                if (forceEndElbow === false) {
-                    for (let recipe of data.recipes0DegDestroy) {
-                        if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
-                            continue;
-                        }
-                        if (timing === -1) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                        } else {
-                            let newTiming = (currentTiming + recipe.timing) % info.period;
-                            if (timing === newTiming) {
-                                vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                            }
-                        }
-                    }
-                } else {
-                    for (let recipe of data.recipes0Deg) {
-                        if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
-                            continue;
-                        }
-                        let newElbowPos = elbowPos + recipe.move;
+/** Converts a slow salvo to a restricted-channel recipe. */
+export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: 'up' | 'down' | 'left' | 'right', depth?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
+    let prevLayer: RecipeProgress[] = [{recipes: [], time: 0, index: 0, elbow: startElbow, elbowPos: 0}];
+    let moveRecipes: (ChannelRecipe & {end: [string, number]})[] = [];
+    let emitRecipes: (ChannelRecipe & {end: [string, number], emit: ShipInfo})[] = [];
+    let emitDestroyRecipes: (ChannelRecipe & {emit: ShipInfo})[] = [];
+    let destroyRecipes: ChannelRecipe[] = [];
+    for (let recipe of Object.values(recipeData.recipes)) {
+        if (recipe.create) {
+            continue;
+        }
+        if (recipe.end) {
+            if (recipe.emit) {
+                if (recipe.emit.dir === dir) {
+                    // @ts-ignore
+                    emitRecipes.push(recipe);   
+                }
+            } else {
+                // @ts-ignore
+                moveRecipes.push(recipe);
+            }
+        } else if (recipe.emit) {
+            if (recipe.emit.dir === dir) {
+                // @ts-ignore
+                emitDestroyRecipes.push(recipe);
+            }
+        } else {
+            destroyRecipes.push(recipe);
+        }
+    }
+    depth ??= salvo.length;
+    let out: {recipes: [number, number][][], time: number, elbow: false | [string, number]}[] = [];
+    for (let i = 0; i < depth; i++) {
+        let nextLayer: RecipeProgress[] = [];
+        for (let {recipes, time, index, elbow, elbowPos} of prevLayer) {
+            if (index < salvo.length) {
+                for (let recipe of emitRecipes) {
+                    if (recipe.start === elbow && recipe.emit.lane === salvo[index][0] && recipe.emit.timing === salvo[index][1]) {
+                        let recipes2 = recipes.slice();
+                        recipes2.push(recipe.recipe);
+                        let newElbowPos = elbowPos + recipe.end[1];
                         if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
                             continue;
                         }
-                        if (forceEndElbow !== undefined) {
-                            if (newElbowPos !== forceEndElbow) {
-                                let moveAmount = forceEndElbow - newElbowPos;
-                                let moveRecipe = data.moveRecipes.find(x => x.move === moveAmount);
-                                if (moveRecipe) {
-                                    if (timing === -1) {
-                                        vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
-                                    } else {
-                                        let newTiming = (currentTiming + recipe.timing) % info.period;
-                                        if (timing === newTiming) {
-                                            vertex.push([1, recipe.time + moveRecipe.time, [recipe.recipe.concat(moveRecipe.recipe), forceEndElbow]]);
-                                        }
-                                    }
-                                }
-                            }
+                        if (index + 1 === salvo.length && (typeof forceEndElbow !== 'number' || forceEndElbow === newElbowPos)) {
+                            out.push({
+                                recipes: recipes2,
+                                time: time + recipe.time,
+                                elbow: recipe.end,
+                            })
                         } else {
-                            if (timing === -1) {
-                                vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
-                            } else {
-                                let newTiming = (currentTiming + recipe.timing) % info.period;
-                                if (timing === newTiming) {
-                                    vertex.push([1, recipe.time, [recipe.recipe, newElbowPos]]);
-                                }
-                            }
+                            let recipes2 = recipes.slice();
+                            recipes2.push(recipe.recipe);
+                            nextLayer.push({
+                                recipes: recipes2,
+                                time: time + recipe.time,
+                                index: index + 1,
+                                elbow: recipe.end[0],
+                                elbowPos: elbowPos + recipe.end[1],
+                            })
                         }
                     }
                 }
-            } else {
-                for (let recipe of data.recipes0Deg) {
-                    if (lane !== ((c.GLIDER_SLOPE !== 0 && elbowPos % 2 === 1) ? -recipe.lane : recipe.lane)) {
-                        continue;
-                    }
-                    let newVertex: Vertex<T> = [];
-                    let newElbowPos = elbowPos + recipe.move;
+            }
+            for (let recipe of moveRecipes) {
+                if (recipe.start === elbow) {
+                    let recipes2 = recipes.slice();
+                    recipes2.push(recipe.recipe);
+                    let newElbowPos = elbowPos + recipe.end[1];
                     if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
                         continue;
                     }
-                    vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
-                    graph.push(newVertex);
-                    let newTiming = (currentTiming + recipe.timing) % info.period;
-                    if (timing === -1) {
-                        vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                        newPrevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
+                    if (index === salvo.length && (typeof forceEndElbow !== 'number' || forceEndElbow === newElbowPos)) {
+                        out.push({
+                            recipes: recipes2,
+                            time: time + recipe.time,
+                            elbow: recipe.end,
+                        })
                     } else {
-                        if (timing === newTiming) {
-                            vertex.push([1, recipe.time, [recipe.recipe, 0]]);
-                            newPrevLayer.push({elbowPos: newElbowPos, currentTiming: newTiming, vertex: newVertex});
-                        }
+                        let recipes2 = recipes.slice();
+                        recipes2.push(recipe.recipe);
+                        nextLayer.push({
+                            recipes: recipes2,
+                            time: time + recipe.time,
+                            index,
+                            elbow: recipe.end[0],
+                            elbowPos: elbowPos + recipe.end[1],
+                        })
                     }
                 }
-                // if (i !== depth - 1) {
-                //     for (let recipe of data.moveRecipes) {
-                //         let newVertex: Vertex<T> = [];
-                //         let newElbowPos = elbowPos + recipe.move;
-                //         vertex.push([graph.length, recipe.time, [recipe.recipe, newElbowPos]]);
-                //         graph.push(newVertex);
-                //         newPrevLayer.push({elbowPos: newElbowPos, index, currentTiming: (currentTiming + recipe.time) % info.period, vertex: newVertex});
-                //     }
-                // }
+            }
+            if (index === salvo.length - 1 && forceEndElbow === false) {
+                for (let recipe of emitDestroyRecipes) {
+                    if (recipe.start === elbow && recipe.emit.lane === salvo[index][0] && recipe.emit.timing === salvo[index][1]) {
+                        let recipes2 = recipes.slice();
+                        recipes2.push(recipe.recipe);
+                        out.push({
+                            recipes: recipes2,
+                            time: time + recipe.time,
+                            elbow: false,
+                        });
+                    }
+                }
+            }
+            if (index === salvo.length && forceEndElbow === false) {
+                for (let recipe of destroyRecipes) {
+                    if (recipe.start === elbow) {
+                        let recipes2 = recipes.slice();
+                        recipes2.push(recipe.recipe);
+                        out.push({
+                            recipes: recipes2,
+                            time: time + recipe.time,
+                            elbow: false,
+                        });
+                    }
+                }
             }
         }
-        prevLayer = newPrevLayer;
+        prevLayer = nextLayer;
     }
-    let edges = 0;
-    for (let vertex of graph) {
-        edges += vertex.length;
+    if (out.length === 0) {
+        throw new Error('No recipes found!');
     }
-    if (edges === 0) {
-        throw new Error('Problem unsolvable!');
-    }
-    console.log(`Got problem, ${graph.length} vertices, ${edges} edges`);
-    let path = dijkstra(graph, 1);
-    let out: [number, number][][] = [];
-    let move: number | undefined = undefined;
-    for (let i = 0; i < path.length; i++) {
-        let [vertex, edge] = path[i];
-        let data = graph[vertex][edge][2];
-        out.push(data[0]);
-        if (i === path.length - 1) {
-            move = data[1];
+    let best = out[0];
+    for (let recipe of out.slice(1)) {
+        if (recipe.time < best.time) {
+            best = recipe;
         }
     }
-    if (!move) {
-        throw new Error('Missing move! (there is a bug)');
-    }
-    let recipe = mergeChannelRecipes(info, ...out);
+    let recipe = mergeChannelRecipes(info, ...best.recipes);
     let time = 0;
     for (let [spacing] of recipe) {
         time += spacing;
     }
-    return {recipe, time, move};
+    return {
+        recipe,
+        time,
+        elbow: best.elbow,
+    };
 }

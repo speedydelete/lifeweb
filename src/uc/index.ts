@@ -1,16 +1,15 @@
 
 import * as fs from 'node:fs';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, unparseSlowSalvo, parseChannelRecipe, unparseChannelRecipe, loadRecipes} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel90DegDijkstra, salvoToChannel0DegDijkstra} from './channel.js';
+import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
 
 
 function error(msg: string): never {
     console.error(msg);
     process.exit(1);
 }
-
 
 
 const HELP = `
@@ -22,9 +21,7 @@ Subcommands:
     get <type> <recipe>: Turns a list of lanes/timing gaps into a RLE.
     from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
-    convert90i <type> <new_type> <recipe>: Convert a recipe using a 90-degree elbow and internal lanes.
-    convert90x <type> <new_type> <recipe>: Convert a recipe using a 90-degree elbow and external lanes.
-    convert0 <type> <new_type> <recipe>: Convert a recipe using a 0-degree elbow.
+    convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
 
 The type argument is the construction type, defined in src/uc/config.ts.
@@ -33,13 +30,20 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
-    -d <depth>, --depth <depth>: For convert_90, the depth to use for searching. Using this enables the usage of Dijkstra instead of the naive method.
-    --force-end-elbow <pos>: For convert, force an ending elbow position.
+    -d <depth>, --depth <depth>: For convert_90, the depth to use for searching.
+    --force-end-elbow <elbow>[/pos]: For convert, force an ending elbow.
     --destroy-elbow: For convert, destroy the elbow.
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
     --no-compile: For slow salvo searching, disables compilation of recipes.
 `;
+
+const DIR_ALIASES: {[key: string]: string} = {
+    '180': 'up',
+    '0': 'down',
+    '90i': 'right',
+    '90x': 'left',
+};
 
 
 let argv = process.argv;
@@ -132,9 +136,9 @@ if (cmd === 'get') {
             args = args.slice(1);
         }
         start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
-        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' ')))[0].toRLE());
+        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).toRLE());
     } else {
-        console.log(createChannelPattern(c.CHANNEL_INFO[type], parseChannelRecipe(c.CHANNEL_INFO[type], args.join(' '))[0]).p.toRLE());
+        console.log(createChannelPattern(c.CHANNEL_INFO[type], args[0], parseChannelRecipe(c.CHANNEL_INFO[type], args.slice(1).join(' '))[0]).p.toRLE());
     }
 } else if (cmd === 'from') {
     let data = fs.readFileSync(args[0]).toString();
@@ -150,7 +154,7 @@ if (cmd === 'get') {
         } else {
             let [target, lanes] = patternToSalvo(info, p);
             lanes = lanes.map(x => [x[0] + 6, x[1]]);
-            console.log(target + ', ' + unparseSlowSalvo(c.SALVO_INFO[type], lanes));
+            console.log(target + ', ' + salvoToString(c.SALVO_INFO[type], lanes));
         }
     } else {
         error(`Cannot use 'from' with restricted-channel (will hopefully be supported soon!)`);
@@ -165,7 +169,7 @@ if (cmd === 'get') {
     } else {
         searchChannel(type, threads, parseInt(args[0]));
     }
-} else if (cmd === 'convert90i' || cmd === 'convert90x' || cmd === 'convert0') {
+} else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
         error(`Cannot convert from restricted-channel`);
     }
@@ -173,21 +177,24 @@ if (cmd === 'get') {
     if (newType in INFO_ALIASES) {
         newType = INFO_ALIASES[newType];
     }
+    let dir = args[1];
+    if (dir in DIR_ALIASES) {
+        dir = DIR_ALIASES[dir];
+    }
     if (newType in c.SALVO_INFO) {
         error(`Cannot convert to slow salvos`);
     } else if (newType in c.CHANNEL_INFO) {
         let info = c.CHANNEL_INFO[newType];
+        let elbow = args[2];
+        // @ts-ignore
         let recipes = await loadRecipes();
-        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(1).join(' '));
-        let out: {recipe: [number, number][], time: number, move: number};
-        if (cmd === 'convert90i' || cmd === 'convert90x') {
-            out = salvoToChannel90DegDijkstra(newType, info, recipes, salvo, cmd[cmd.length - 1] as 'i' | 'x', depth ?? salvo.length, forceEndElbow)
-        } else {
-            out = salvoToChannel0DegDijkstra(newType, info, recipes, salvo, minElbow, maxElbow, forceEndElbow);
-
+        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
+        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[type], elbow, salvo, dir as 'up' | 'down' | 'left' | 'right', depth, forceEndElbow, minElbow, maxElbow);
+        console.log(channelRecipeToString(info, recipe));
+        console.log(`${recipe.length} gliders, ${time} generations long`);
+        if (newElbow !== false) {
+            console.log(`End elbow is ${newElbow[0]}, moved by ${newElbow[1]}`);
         }
-        console.log(unparseChannelRecipe(c.CHANNEL_INFO[newType], out.recipe));
-        console.log(`Moves elbow by ${out.move}, ${out.time} generations long`);
     } else {
         error(`Invalid construction type: '${newType}'`)
     }
@@ -197,7 +204,7 @@ if (cmd === 'get') {
     }
     let info = c.CHANNEL_INFO[type];
     let recipes = args.map(x => parseChannelRecipe(info, x)[0]);
-    console.log(unparseChannelRecipe(info, mergeChannelRecipes(info, ...recipes)));
+    console.log(channelRecipeToString(info, mergeChannelRecipes(info, ...recipes)));
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
 }

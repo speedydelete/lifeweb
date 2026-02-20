@@ -1,11 +1,11 @@
 
-import {MAPPattern} from '../core/index.js';
-import {c, SalvoInfo, log, Spaceship, StableObject, CAObject, base, gliderPattern, gliderPatterns, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {gcd, MAPPattern} from '../core/index.js';
+import {c, SalvoInfo, log, base, gliderPattern, gliderPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
 
 /** Turns a salvo into a `Pattern`. */
-export function createSalvoPattern(info: {gliderSpacing: number}, target: string, lanes: [number, number][]): [MAPPattern, number, number] {
+export function createSalvoPattern(info: {gliderSpacing: number}, target: string, lanes: [number, number][]): MAPPattern {
     lanes = lanes.reverse();
     let minLane = 0;
     for (let [lane] of lanes) {
@@ -42,7 +42,9 @@ export function createSalvoPattern(info: {gliderSpacing: number}, target: string
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
     p.shrinkToFit();
-    return [p, xPos, yPos];
+    p.xOffset -= xPos;
+    p.yOffset -= yPos;
+    return p;
 }
 
 /** Reads a slow salvo from a `Pattern`. */
@@ -80,9 +82,16 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
     return [target.code, lanes.map(x => [x[0], x[1] % info.period])];
 }
 
-export function findSalvoResult(info: {gliderSpacing: number}, target: string, lanes: [number, number][], mergeAll: boolean = false, maxGens?: number): 'no' | null | false | 'linear' | CAObject[] {
-    let [p, xPos, yPos] = createSalvoPattern(info, target.slice(target.indexOf('_') + 1), lanes);
-    let found = false;
+
+const SALVO_INFO = {gliderSpacing: 0};
+
+export function getCollision(code: string, lane: number): false | 'no' | 'linear' | CAObject[] {
+    let inc = c.GLIDER_POPULATION_PERIOD;
+    if (code.startsWith('xp')) {
+        let period = parseInt(code.slice(2));
+        inc = inc * period / gcd(inc, period);
+    }
+    let p = createSalvoPattern(SALVO_INFO, code.slice(code.indexOf('_') + 1), [[lane, 0]]);
     let prevPop = p.population;
     for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
         p.run(c.GLIDER_POPULATION_PERIOD);
@@ -91,30 +100,24 @@ export function findSalvoResult(info: {gliderSpacing: number}, target: string, l
             if (i === 0) {
                 return 'no';
             }
-            found = true;
-            break;
+            p.generation = 0;
+            return findOutcome(p, true);
         }
         prevPop = pop;
     }
-    if (!found) {
-        return null;
-    }
-    p.xOffset -= xPos;
-    p.yOffset -= yPos;
-    p.generation = 0;
-    return findOutcome(p, mergeAll, maxGens);
+    return false;
 }
 
 
 function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
-    let data = findSalvoResult(info, target, [[lane, timing]]);
+    let data = getCollision(target, lane);
     if (data === 'no') {
         return false;
     }
     while (data !== null) {
         lane--;
-        data = findSalvoResult(info, target, [[lane, timing]]);
+        data = getCollision(target, lane);
         if (data === 'no') {
             return false;
         }
@@ -122,10 +125,10 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
             return false;
         }
     }
-    data = findSalvoResult(info, target, [[lane, timing]]);
+    data = getCollision(target, lane);
     while (data !== null) {
         lane--;
-        data = findSalvoResult(info, target, [[lane, timing]]);
+        data = getCollision(target, lane);
         if (data === 'no') {
             return false;
         }
@@ -139,7 +142,7 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
     let out: [number, number, false | null | CAObject[]][] = [];
     let hadCollision = false;
     for (; lane < info.laneLimit; lane++) {
-        let data = findSalvoResult(info, target, [[lane, timing]]);
+        let data = getCollision(target, lane);
         if (data === 'no') {
             return false;
         }

@@ -76,8 +76,6 @@ interface ChannelInfo {
     forceStart?: [number, number][];
     // the maximum possible next glider spacing (after a recipe)
     maxNextSpacing: number;
-    // the maximum number of cells in an elbow
-    maxElbowCells: number;
     // a filter for possibly useful recipes
     possiblyUsefulFilter: string[];
 }
@@ -93,7 +91,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[14]],
         minSpacing: 14,
         maxNextSpacing: 512,
-        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -104,7 +101,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[61]],
         minSpacing: 61,
         maxNextSpacing: 512,
-        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -116,7 +112,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 74,
         excludeSpacings: [[[76, 77]]],
         maxNextSpacing: 512,
-        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 
@@ -127,7 +122,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[90]],
         minSpacing: 90,
         maxNextSpacing: 512,
-        maxElbowCells: 12,
         possiblyUsefulFilter: [],
     },
 

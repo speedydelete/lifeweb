@@ -26,41 +26,6 @@ export function log(msg: string, notImportant?: boolean): void {
 }
 
 
-export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
-
-export interface BaseObject {
-    code: string;
-    x: number;
-    y: number;
-}
-
-export interface StillLife extends BaseObject {
-    type: 'sl';
-}
-
-export interface Oscillator extends BaseObject {
-    type: 'osc';
-}
-
-export interface Spaceship extends BaseObject {
-    type: 'ship';
-    dir: c.ShipDirection;
-    at: number;
-    timing: number;
-}
-
-export interface OtherObject extends BaseObject {
-    type: 'other';
-    realCode: string;
-    at: number;
-    timing: number;
-}
-
-export type StableObject = StillLife | Oscillator;
-
-export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
-
-
 export let base = createPattern(c.RULE) as MAPPattern;
 
 let data = c.SHIP_IDENTIFICATION[c.GLIDER_APGCODE];
@@ -227,7 +192,7 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
 }
 
 /** Turns a slow salvo into a string. */
-export function slowSalvoToString(info: c.SalvoInfo, data: [number, number][]): string {
+export function salvoToString(info: c.SalvoInfo, data: [number, number][]): string {
     let out: string[] = [];
     for (let [lane, timing] of data) {
         if (timing === -1 || info.period === 1) {
@@ -241,7 +206,7 @@ export function slowSalvoToString(info: c.SalvoInfo, data: [number, number][]): 
     return out.join(', ');
 }
 
-/** Parses a restricted-cihannel recipe string. */
+/** Parses a restricted-channel recipe string. */
 export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number, number][], number] {
     let out: [number, number][] = [];
     let time = 0;
@@ -306,6 +271,69 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
             }
         }).join(', ');
     }
+}
+
+
+export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
+
+export interface BaseObject {
+    code: string;
+    x: number;
+    y: number;
+}
+
+export interface StillLife extends BaseObject {
+    type: 'sl';
+}
+
+export interface Oscillator extends BaseObject {
+    type: 'osc';
+}
+
+export type StableObject = StillLife | Oscillator;
+
+export interface Spaceship extends BaseObject {
+    type: 'ship';
+    dir: c.ShipDirection;
+    at: number;
+    timing: number;
+}
+
+export interface OtherObject extends BaseObject {
+    type: 'other';
+    realCode: string;
+    at: number;
+    timing: number;
+}
+
+export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
+
+
+/** Normalizes an oscillator to its canonical apgcode (but without rotation or reflection). */
+export function normalizeOscillator(obj: Oscillator): Oscillator {
+    let period = parseInt(obj.code.slice(2));
+    let newCode = obj.code.slice(obj.code.indexOf('_') + 1);
+    let p = base.loadApgcode(newCode).shrinkToFit();
+    p.xOffset = 0;
+    p.yOffset = 0;
+    let xOffset = 0;
+    let yOffset = 0;
+    for (let i = 0; i < period; i++) {
+        p.runGeneration();
+        p.shrinkToFit();
+        let code = p.toApgcode();
+        if (code.length < newCode.length || code < newCode) {
+            newCode = code;
+            xOffset = p.xOffset;
+            yOffset = p.yOffset;
+        }
+    }
+    return {
+        type: 'osc',
+        code: `xp${period}_${newCode}`,
+        x: obj.x + xOffset,
+        y: obj.y + yOffset,
+    };
 }
 
 
@@ -496,23 +524,47 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
-export type ChannelRecipe = {start: string, end?: [string, number], recipe: [number, number][], time: number, emit?: {dir: 'up' | 'down' | 'left' | 'right', lane: number, timing: number}, create?: StillLife};
+export interface SalvoRecipes {
+    searchResults: {[key: string]: [number, number, CAObject[]][]};
+    recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
+    moveRecipes: {[key: string]: [StableObject, StableObject, [number, number][][]]};
+    splitRecipes: {[key: string]: [StableObject, StableObject[], [number, number][][]]};
+    destroyRecipes: {[key: string]: [number, number][][]};
+    oneTimeTurners: {[key: string]: [StableObject, Spaceship, [number, number][][]]};
+    oneTimeSplitters: {[key: string]: [StableObject, Spaceship[], [number, number][][]]};
+    elbowRecipes: {[key: string]: [StableObject, StableObject, Spaceship, [number, number][][]]};
+};
+
+
+export type ElbowData = {[key: string]: CAObject[] | {elbow: string, flipped: boolean}};
+
+export type ChannelRecipe = {start: string, recipe: [number, number][], time: number, end?: [string, number], emit?: {dir: 'up' | 'down' | 'left' | 'right', lane: number, timing: number}, create?: StableObject};
+
+const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create', '90-degree and create and destroy', '0-degree and create and destroy', '180-degree and create and destroy'];
+
+export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
+    let out = recipe.start;
+    if (recipe.end) {
+        out += ` to ${recipe.end[0]} move ${recipe.end[1]}`;
+    } else {
+        out += ` destroy`;
+    }
+    if (recipe.emit) {
+        out += ` emit ${recipe.emit.dir} lane ${recipe.emit.lane} timing ${recipe.emit.timing}`;
+    }
+    if (recipe.create) {
+        out += ` create ${objectsToString([recipe.create])}`;
+    }
+    return out;
+}
+
 
 /** Represents a recipe file. */
 export interface RecipeData {
-    salvos: {[key: string]: {
-        searchResults: {[key: string]: [number, number, CAObject[]][]};
-        recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
-        moveRecipes: {[key: string]: [StableObject, StableObject, [number, number][][]]};
-        splitRecipes: {[key: string]: [StableObject, StableObject[], [number, number][][]]};
-        destroyRecipes: {[key: string]: [number, number][][]};
-        oneTimeTurners: {[key: string]: [StableObject, Spaceship, [number, number][][]]};
-        oneTimeSplitters: {[key: string]: [StableObject, Spaceship[], [number, number][][]]};
-        elbowRecipes: {[key: string]: [StableObject, StableObject, Spaceship, [number, number][][]]};
-    }};
+    salvos: {[key: string]: SalvoRecipes};
     channels: {[key: string]: {
-        elbows: {[key: string]: [string, boolean] | [string, string]};
-        recipes: ChannelRecipe[];
+        elbows: ElbowData;
+        recipes: {[key: string]: ChannelRecipe};
     }};
 }
 
@@ -615,10 +667,10 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         flipped = true;
                         data = data.slice(0, ' (flipped)'.length);
                     }
-                    out.elbows[elbow] = [data, flipped];
+                    out.elbows[elbow] = {elbow: data, flipped};
                 } else {
                     let [elbow, data] = line.split(': ');
-                    out.elbows[elbow] = data.split(' / ') as [string, string];
+                    out.elbows[elbow] = stringToObjects(data);
                 }
             }
         } else if (section.includes('recipes')) {
@@ -644,7 +696,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 if (data[0] === 'create') {
                     recipe.create = stringToObjects(data.slice(1).join(' '))[0] as StillLife;
                 }
-                out.recipes.push(recipe);
+                out.recipes[desc] = recipe;
             }
         } else {
             console.log(`\x1b[91mWarning: Unrecognized section: '${originalSection}'\x1b[0m`);
@@ -656,7 +708,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
 export async function loadRecipes(): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: []}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: {}}])),
     };
     if (!exists(recipeFile)) {
         return out;
@@ -690,7 +742,7 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
     for (let [key, data] of recipes) {
         let keyStart = key.split(' ').slice(0, 3).join(' ');
         data = data.sort((a, b) => a.length - b.length);
-        let line = `${key}: ${data.sort((a, b) => a.length - b.length).map(x => slowSalvoToString(info, x)).join(' / ')}`;
+        let line = `${key}: ${data.sort((a, b) => a.length - b.length).map(x => salvoToString(info, x)).join(' / ')}`;
         if (keyStart in groups) {
             groups[keyStart].push(line);
         } else {
@@ -714,24 +766,6 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
     return out;
 }
 
-const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create', '90-degree and create and destroy', '0-degree and create and destroy', '180-degree and create and destroy'];
-
-export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
-    let out = recipe.start;
-    if (recipe.end) {
-        out += ` to ${recipe.end[0]} move ${recipe.end[1]}`;
-    } else {
-        out += ` destroy`;
-    }
-    if (recipe.emit) {
-        out += ` emit ${recipe.emit.dir} lane ${recipe.emit.lane} timing ${recipe.emit.timing}`;
-    }
-    if (recipe.create) {
-        out += ` create ${objectsToString([recipe.create])}`;
-    }
-    return out;
-}
-
 /** Saves to the recipe file. */
 export async function saveRecipes(recipeData: RecipeData): Promise<void> {
     let out = '';
@@ -739,7 +773,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         let info = c.SALVO_INFO[type];
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
-            out += `${key}:\n${value.map(([lane, timing, data]) => slowSalvoToString(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
+            out += `${key}:\n${value.map(([lane, timing, data]) => salvoToString(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
@@ -763,15 +797,15 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         }
         for (let data of Object.values(elbowGroups)) {
             data = data.sort((a, b) => a[1] - b[1]);
-            for (let elbow of data) {
+            for (let [key, _, value] of data) {
                 let str: string;
-                if (typeof elbow[2][1] === 'boolean') {
-                    str = `${elbow[0]} -> ${elbow[2][0]}`;
-                    if (elbow[2][1]) {
+                if (Array.isArray(value)) {
+                    str = `${key}: ${objectsToString(value)}`;
+                } else {
+                    str = `${key} -> ${value.elbow}`;
+                    if (value.flipped) {
                         str += ' (flipped)';
                     }
-                } else {
-                    str = `${elbow[0]}: ${elbow[2][0]} / ${elbow[2][1]}`;
                 }
                 out += str + '\n';
             }
@@ -781,7 +815,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
             sections[key] = [];
         }
-        for (let recipe of value.recipes) {
+        for (let recipe of Object.values(value.recipes)) {
             let key: string;
             if (!recipe.emit && !recipe.create) {
                 if (recipe.end) {
