@@ -25,7 +25,7 @@ export interface PatternType extends PhaseData {
  * @param limit The maximum number of generations to run for.
  * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
  */
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true): PatternType {
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true, checkLinear: boolean = false): PatternType {
     p = p.copy().shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -59,23 +59,25 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                         };
                     }
                 }
-                for (let period = 1; period < Math.floor(diffs.length / 16); period++) {
-                    if ((diffs.length - j) / period < 16) {
-                        continue;
-                    }
-                    let startDiff = diffs[j];
-                    if (startDiff === 0) {
-                        continue;
-                    }
-                    let found = true;
-                    for (let k = j + period; k < diffs.length; k += period) {
-                        if (diffs[k] !== startDiff) {
-                            found = false;
-                            break;
+                if (checkLinear) {
+                    for (let period = 1; period < Math.floor(diffs.length / 16); period++) {
+                        if ((diffs.length - j) / period < 16) {
+                            continue;
                         }
-                    }
-                    if (found) {
-                        return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
+                        let startDiff = diffs[j];
+                        if (startDiff === 0) {
+                            continue;
+                        }
+                        let found = true;
+                        for (let k = j + period; k < diffs.length; k += period) {
+                            if (diffs[k] !== startDiff) {
+                                found = false;
+                                break;
+                            }
+                        }
+                        if (found) {
+                            return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
+                        }
                     }
                 }
             }
