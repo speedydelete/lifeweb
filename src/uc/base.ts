@@ -312,8 +312,8 @@ export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 /** Normalizes an oscillator to its canonical apgcode (but without rotation or reflection). */
 export function normalizeOscillator(obj: Oscillator): Oscillator {
     let period = parseInt(obj.code.slice(2));
-    let newCode = obj.code.slice(obj.code.indexOf('_') + 1);
-    let p = base.loadApgcode(newCode).shrinkToFit();
+    let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
+    let newCode = p.toApgcode();
     p.xOffset = 0;
     p.yOffset = 0;
     let xOffset = 0;
@@ -322,7 +322,7 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
         p.runGeneration();
         p.shrinkToFit();
         let code = p.toApgcode();
-        if (code.length < newCode.length || code < newCode) {
+        if (code.length < newCode.length || (code.length === newCode.length && code < newCode)) {
             newCode = code;
             xOffset = p.xOffset;
             yOffset = p.yOffset;

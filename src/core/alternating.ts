@@ -1,7 +1,7 @@
 
 /* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
 
-import {gcd, RuleSymmetry, Pattern, DataPattern} from './pattern.js';
+import {lcm, RuleSymmetry, Pattern, DataPattern} from './pattern.js';
 
 
 /** Implements alternating-time rules. */
@@ -23,7 +23,7 @@ export class AlternatingPattern extends DataPattern {
         let rulePeriod = patterns.length;
         for (let p of patterns.slice(1)) {
             if (p.rulePeriod > 1) {
-                rulePeriod = (rulePeriod * p.rulePeriod) / gcd(rulePeriod, p.rulePeriod);
+                rulePeriod = lcm(rulePeriod, p.rulePeriod);
             }
         }
         this.rulePeriod = rulePeriod;

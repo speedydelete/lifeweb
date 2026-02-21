@@ -101,7 +101,7 @@ export function getCollision(code: string, lane: number): false | 'no' | 'linear
                 return 'no';
             }
             p.generation = 0;
-            return findOutcome(p, true);
+            return findOutcome(p);
         }
         prevPop = pop;
     }

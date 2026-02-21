@@ -71,9 +71,9 @@ function addNewRecipes(info: ChannelInfo, data: ChannelRecipe[], out: {[key: str
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, maxSpacing: number): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
-    let msg = `\n${type} search in ${base.ruleStr} with max spacing ${maxSpacing} and max generations ${maxGenerations}:\n`;
+    let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
         if (stat.size > 0) {
@@ -161,7 +161,7 @@ export async function searchChannel(type: string, threads: number, maxSpacing: n
                     throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({info, depth, maxSpacing});
+            worker.postMessage({elbows: out.elbows, elbow, depth, maxSpacing});
         }
         let {promise, resolve} = Promise.withResolvers<void>();
         await promise;

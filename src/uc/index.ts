@@ -167,7 +167,7 @@ if (cmd === 'get') {
             searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
         }
     } else {
-        searchChannel(type, threads, parseInt(args[0]));
+        searchChannel(type, threads, args[0], parseInt(args[1]));
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {

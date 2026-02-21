@@ -1,10 +1,9 @@
 
 import {MessagePort, parentPort, workerData} from 'node:worker_threads';
-import {MAPPattern, findType} from '../core/index.js';
+import {APGCODE_CHARS, lcm, MAPPattern, findType} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
-import {createChannelPattern} from './channel.js';
 
 
 let info: ChannelInfo = workerData.info;
@@ -119,7 +118,7 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
         g.yOffset -= y;
     });
     let p = base.loadApgcode(elbow[0]).shrinkToFit();
-    let yPos = c.GLIDER_TARGET_SPACING;
+    let yPos = c.GLIDER_TARGET_SPACING - 1;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     p.offsetBy(xPos, yPos);
     p.insert(gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD], 0, 0);
@@ -136,23 +135,19 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
             let last = gliders[gliders.length - 1];
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
+            // console.log(`\x1b[92mxDiff = ${xDiff}, yDiff = ${yDiff}\x1b[0m`);
             if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
-            // if ((xDiff < last.width + c.INJECTION_SPACING) || (yDiff < last.height + c.INJECTION_SPACING)) {
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
-                // if (debug) {
-                //     console.log(`\x1b[94minjecting (${gliders.length} gliders remaining)\x1b[0m\n${p.toRLE()}`);
-                // }
+                // console.log(`\x1b[94minjecting (${gliders.length} gliders remaining)\x1b[0m\n${p.toRLE()}`);
             } else {
                 break;
             }
         }
         i++;
         if (i > total + maxGenerations) {
-            // if (debug) {
-            //     console.log(`\x1b[91mforced\x1b[0m\n${p.toRLE()}`);
-            // }
+            // console.log(`\x1b[91mforced\x1b[0m\n${p.toRLE()}`);
             while (gliders.length > 0) {
                 let last = gliders[gliders.length - 1];
                 let xDiff = p.xOffset - last.xOffset;
@@ -165,17 +160,6 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
         }
     }
     return p;
-}
-
-function findChannelOutcome(elbow: [string, number], recipe: [number, number][], mergeAll: boolean = false): false | 'linear' | CAObject[] {
-    if (recipe.length < 2) {
-        let {p, xPos, yPos} = createChannelPattern(info, elbow, recipe);
-        p.xOffset -= xPos;
-        p.yOffset -= yPos;
-        return findOutcome(p, mergeAll);
-    } else {
-        return findOutcome(runInjection(elbow, recipe), mergeAll);
-    }
 }
 
 
@@ -205,10 +189,22 @@ export function getShipInfo(obj: Spaceship): ShipInfo {
 }
 
 
-function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next: number, expected: [StableObject[], ShipInfo[], string[]]): boolean {
+function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next: number, expected: [StableObject[], ShipInfo[], string[], number | null]): boolean {
     let test = recipe.recipe.slice();
     test.push([next, 0]);
-    let objs = findChannelOutcome(elbow, test);
+    let p = runInjection(elbow, test);
+    if (expected[3] !== null) {
+        let prevPop = p.population;
+        for (let i = 0; i < 256; i++) {
+            p.run(expected[3]);
+            let pop = p.population;
+            if (pop !== prevPop) {
+                break;
+            }
+            prevPop = pop;
+        }
+    }
+    let objs = findOutcome(p);
     if (typeof objs !== 'object') {
         return false;
     }
@@ -231,6 +227,7 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
             others.push(obj.code);
         }
     }
+    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
     if (stables.length !== expected[0].length || ships.length !== expected[1].length || others.length !== expected[2].length) {
         return false;
     }
@@ -253,7 +250,7 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
 }
 
 function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, result: CAObject[] | undefined): false | number {
-    let expected: [StableObject[], ShipInfo[], string[]] = [[], [], []];
+    let expected: [StableObject[], ShipInfo[], string[], number | null] = [[], [], [], 1];
     if (recipe.end) {
         if (!result) {
             throw new Error('No result! (there is a bug)');
@@ -262,10 +259,17 @@ function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, re
             if (obj.type === 'sl') {
                 expected[0].push(obj);
             } else if (obj.type === 'osc') {
+                if (expected[3] !== null) {
+                    expected[3] = lcm(expected[3], parseInt(obj.code.slice(2)));
+                }
                 expected[0].push(normalizeOscillator(obj));
             } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+                if (expected[3] !== null) {
+                    expected[3] = lcm(expected[3], c.GLIDER_POPULATION_PERIOD);
+                }
                 expected[1].push(getShipInfo(obj));
             } else {
+                expected[3] = null;
                 expected[2].push(obj.code);
             }
         }
@@ -280,7 +284,7 @@ function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, re
     if (recipe.emit) {
         expected[1].push(recipe.emit);
     }
-    // console.log(`\x1b[92mexpected: ${objectsToString(expected)}\x1b[0m`);
+    // console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
@@ -296,12 +300,34 @@ function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, re
     }
     if (low === info.maxNextSpacing) {
         console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-        return false;
         // throw new Error('hi');
+        return false;
     }
     return low;
 }
 
+
+const APGCODE_POP_MAP: {[key: string]: number} = {};
+for (let i = 0; i < 32; i++) {
+    let char = APGCODE_CHARS[i];
+    APGCODE_POP_MAP[char] = Array.from(i.toString(2)).filter(x => x === '1').length;
+}
+
+function isTooBig(code: string): boolean {
+    if (code.startsWith('xs')) {
+        return parseInt(code.slice(2)) > 12;
+    } else {
+        let pop = 0;
+        for (let i = code.indexOf('_') + 1; i < code.length; i++) {
+            let char = code[i];
+            if (char >= 'w') {
+                continue;
+            }
+            pop += APGCODE_POP_MAP[char];
+        }
+        return pop > 12;
+    }
+}
 
 function findChannelResults(elbows: ElbowData, elbow: string, depth: number, maxSpacing: number, parentPort: MessagePort): void {
     let elbowParts = elbow.split('/');
@@ -347,7 +373,7 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
         let [recipe, time] = recipes[i];
         let result: false | 'linear' | CAObject[];
         let strRecipe = channelRecipeToString(info, recipe);
-        result = findChannelOutcome(elbowData, recipe);
+        result = findOutcome(runInjection(elbowData, recipe));
         if (result === false) {
             continue;
         }
@@ -409,7 +435,13 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
         let create: StableObject | undefined = undefined;
         let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
         if (sl1) {
+            if (isTooBig(sl1.obj.code)) {
+                continue;
+            }
             if (sl2) {
+                if (isTooBig(sl2.obj.code)) {
+                    continue;
+                }
                 let sl1Result = getCollision(sl1.obj.code, sl1.lane);
                 let sl2Result = getCollision(sl2.obj.code, sl2.lane);
                 if (typeof sl1Result === 'object') {
@@ -436,6 +468,9 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
                 }
             }
         }
+        if (create && emit) {
+            continue;
+        }
         let end: [string, number] | undefined = undefined;
         let endResult: CAObject[] | undefined = undefined;
         if (endElbowData) {
@@ -453,8 +488,10 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
             value.recipe.push([next, -1]);
             value.time += next;
             newRecipes.push(value);
+            possibleUseful += `${channelRecipeInfoToString(value)}: ${channelRecipeToString(info, value.recipe)}\n`;
+        } else {
+            possibleUseful += `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
         }
-        possibleUseful += channelRecipeInfoToString(value) + '\n';
     }
     parentPort.postMessage(['completed', {recipes: newRecipes, newElbows, possibleUseful, recipeCount: recipes.length}]);
 }
