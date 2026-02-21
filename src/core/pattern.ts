@@ -983,7 +983,7 @@ export abstract class DataPattern implements Pattern {
                             out += 'x';
                         } else {
                             while (zeros > 39) {
-                                zeros -= 40;
+                                zeros -= 39;
                                 out += 'yz';
                             }
                             if (zeros > 0) {
