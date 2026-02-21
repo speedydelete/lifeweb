@@ -65,7 +65,7 @@ function addNewRecipes(info: ChannelInfo, data: ChannelRecipe[], out: {[key: str
         } else {
             color = '94';
         }
-        console.log(`\x1b[${color}m${key in out ? 'Improved' : 'New'} recipe: ${key}: ${channelRecipeToString(info, recipe.recipe)}`);
+        console.log(`\x1b[${color}m${key in out ? 'Improved' : 'New'} recipe: ${key}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         out[key] = recipe;
     }
 }

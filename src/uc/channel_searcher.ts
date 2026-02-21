@@ -92,7 +92,7 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
     }
-    phaseOffset = 4 - (phaseOffset % 4);
+    phaseOffset = (c.GLIDER_PERIOD - (phaseOffset % c.GLIDER_PERIOD)) % c.GLIDER_PERIOD;
     let gliders: MAPPattern[] = [];
     let total = 0;
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
@@ -118,7 +118,10 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
         g.yOffset -= y;
     });
     let p = base.loadApgcode(elbow[0]).shrinkToFit();
-    let yPos = c.GLIDER_TARGET_SPACING - 1;
+    let yPos = c.GLIDER_TARGET_SPACING;
+    if (phaseOffset !== 0) {
+        yPos--;
+    }
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     p.offsetBy(xPos, yPos);
     p.insert(gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD], 0, 0);
@@ -189,6 +192,8 @@ export function getShipInfo(obj: Spaceship): ShipInfo {
 }
 
 
+import {objectsToString} from './base.js';
+
 function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next: number, expected: [StableObject[], ShipInfo[], string[], number | null]): boolean {
     let test = recipe.recipe.slice();
     test.push([next, 0]);
@@ -227,7 +232,7 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
             others.push(obj.code);
         }
     }
-    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
+    console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
     if (stables.length !== expected[0].length || ships.length !== expected[1].length || others.length !== expected[2].length) {
         return false;
     }
@@ -284,33 +289,32 @@ function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, re
     if (recipe.emit) {
         expected[1].push(recipe.emit);
     }
-    // console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
+    console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
-        // let oldLow = low;
-        // let oldHigh = high;
+        let oldLow = low;
+        let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
         if (isNextWorkingInput(elbow, recipe, mid, expected) && isNextWorkingInput(elbow, recipe, mid + 1, expected) && isNextWorkingInput(elbow, recipe, mid + 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
+        console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
-    if (low === info.maxNextSpacing) {
+    // if (low === info.maxNextSpacing) {
         console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         // throw new Error('hi');
         return false;
-    }
+    // }
     return low;
 }
 
 
 const APGCODE_POP_MAP: {[key: string]: number} = {};
 for (let i = 0; i < 32; i++) {
-    let char = APGCODE_CHARS[i];
-    APGCODE_POP_MAP[char] = Array.from(i.toString(2)).filter(x => x === '1').length;
+    APGCODE_POP_MAP[APGCODE_CHARS[i]] = Array.from(i.toString(2)).filter(x => x === '1').length;
 }
 
 function isTooBig(code: string): boolean {
@@ -497,14 +501,6 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
 }
 
 
-if (!parentPort) {
-    throw new Error('No parent port!');
-}
-
-parentPort.on('message', data => {
-    if (!parentPort) {
-        throw new Error('No parent port!');
-    }
-    let out = findChannelResults(data.elbows, data.elbow, data.depth, data.maxSpacing, parentPort);
-    parentPort.postMessage(['completed', out]);
+(parentPort as MessagePort).on('message', data => {
+    findChannelResults(data.elbows, data.elbow, data.depth, data.maxSpacing, parentPort as MessagePort);
 });
