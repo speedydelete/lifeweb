@@ -354,23 +354,23 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
     if (result === 'linear') {
         return {possibleUseful: `Linear growth: ${strRecipe}\n`};
     }
-    let sl1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
-    let sl2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+    let so1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+    let so2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
     let emit: ChannelRecipe['emit'] | undefined = undefined;
     let found = false;
     for (let obj of result) {
         if (obj.type === 'sl' || obj.type === 'osc') {
-            if (sl1 && sl2) {
+            if (so1 && so2) {
                 found = true;
                 break;
             }
             let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
             let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
             let value = {obj, lane, spacing};
-            if (sl1 === undefined) {
-                sl1 = value;
+            if (so1 === undefined) {
+                so1 = value;
             } else {
-                sl2 = value;
+                so2 = value;
             }
         } else if (!emit && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
             emit = getShipInfo(info, obj);
@@ -407,37 +407,37 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
     }
     let create: StableObject | undefined = undefined;
     let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
-    if (sl1) {
-        if (isTooBig(sl1.obj.code)) {
+    if (so1) {
+        if (isTooBig(so1.obj.code)) {
             return;
         }
-        if (sl2) {
-            if (isTooBig(sl2.obj.code)) {
+        if (so2) {
+            if (isTooBig(so2.obj.code)) {
                 return;
             }
-            let sl1Result = getCollision(sl1.obj.code, sl1.lane);
-            let sl2Result = getCollision(sl2.obj.code, sl2.lane);
-            if (typeof sl1Result === 'object') {
-                if (typeof sl2Result === 'object') {
+            let so1Result = getCollision(so1.obj.code, so1.lane);
+            let so2Result = getCollision(so2.obj.code, so2.lane);
+            if (typeof so1Result === 'object') {
+                if (typeof so2Result === 'object') {
                     return;
                 } else {
-                    endElbowData = [sl1, sl1Result];
-                    create = sl2.obj;
+                    endElbowData = [so1, so1Result];
+                    create = so2.obj;
                 }
             } else {
-                if (typeof sl2Result === 'object') {
-                    endElbowData = [sl2, sl2Result];
-                    create = sl1.obj;
+                if (typeof so2Result === 'object') {
+                    endElbowData = [so2, so2Result];
+                    create = so1.obj;
                 } else {
                     return;
                 }
             }
         } else {
-            let result = getCollision(sl1.obj.code, sl1.lane);
+            let result = getCollision(so1.obj.code, so1.lane);
             if (typeof result === 'object') {
-                endElbowData = [sl1, result];
+                endElbowData = [so1, result];
             } else {
-                create = sl1.obj;
+                create = so1.obj;
             }
         }
     }
