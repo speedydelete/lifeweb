@@ -380,7 +380,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
                 break;
             }
             if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
-                possibleUseful = `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+                possibleUseful = `creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
             } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
                 let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                 if (type.disp) {
@@ -394,9 +394,9 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
                     } else {
                         lane = obj.x + obj.y;
                     }
-                    possibleUseful = `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                    possibleUseful = `creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
                 } else {
-                    possibleUseful = `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                    possibleUseful = `creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
                 }
             }
             break;
