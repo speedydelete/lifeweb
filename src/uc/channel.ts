@@ -3,8 +3,10 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
-import type {ShipInfo} from './channel_searcher.js';
+import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes, CAObject} from './base.js';
+import {findOutcome} from './runner.js';
+import {getCollision} from './slow_salvos.js';
+import {ShipInfo, runInjection, findNextWorkingInput, findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -45,16 +47,130 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
-function addNewRecipes(info: ChannelInfo, data: ChannelRecipe[], out: {[key: string]: ChannelRecipe}): void {
-    for (let recipe of data) {
+function checkElbow(info: ChannelInfo, elbow: string, elbowData: [string, number], elbows: ElbowData): undefined | ElbowData['string'] {
+    let period = 1;
+    if (elbowData[0].startsWith('xp')) {
+        period = parseInt(elbowData[0].slice(2));
+    }
+    let result1 = findOutcome(runInjection(info, elbowData, [[info.minSpacing, 0]]));
+    if (typeof result1 !== 'object') {
+        return;
+    }
+    let result2 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + period, 0]]));
+    if (typeof result2 !== 'object') {
+        return;
+    }
+    let result3 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + period, 0]]));
+    if (typeof result3 !== 'object') {
+        return;
+    }
+}
+
+function addElbow(info: ChannelInfo, elbow: string, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): [string, false | ElbowData['string']] {
+    let possibleUseful = '';
+    if (out.badElbows.has(elbow)) {
+        return [possibleUseful, false];
+    }
+    let [obj, laneStr] = elbow.split('/');
+    let elbowData: [string, number] = [obj, parseInt(laneStr)];
+    let value: ElbowData['string'];
+    if (!(elbow in out.elbows)) {
+        let result = checkElbow(info, elbow, elbowData, out.elbows);
+        if (!result) {
+            out.badElbows.add(elbow);
+            return [possibleUseful, false];
+        } else {
+            out.elbows[elbow] = result;
+            value = result;
+        }
+    } else {
+        value = out.elbows[elbow];
+    }
+    if (value.type === 'destroy') {
+        for (let i = 0; i < data.recipes.length; i++) {
+            let recipe = data.recipes[i];
+            if (recipe.end && recipe.end.elbow === elbow) {
+                recipe.recipe[recipe.recipe.length - 1][1] = 0;
+                let next = findNextWorkingInput(info, elbowData, recipe, undefined);
+                if (next) {
+                    recipe.recipe.push([next, -1]);
+                    recipe.time += next;
+                } else {
+                    possibleUseful += `probably broken ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
+                    data.recipes.splice(i, 1);
+                }
+            }
+        }
+    } else if (value.type === 'alias') {
+        for (let i = 0; i < data.recipes.length; i++) {
+            let recipe = data.recipes[i];
+            if (recipe.end && recipe.end.elbow === elbow) {
+                recipe.end.elbow = value.elbow;
+                recipe.end.flipped = recipe.end.flipped !== value.flipped;
+            }
+        }
+    } else if (value.type === 'convert') {
+        let value2: ElbowData['string'] = value;
+        let flipped = value.flipped;
+        let extraGliders = 1;
+        while ((value2.type === 'alias' || value2.type === 'convert') && !(value2.elbow in out.elbows)) {
+            let result = addElbow(info, value2.elbow, data, out);
+            possibleUseful += result[0];
+            if (!result[1]) {
+                return [possibleUseful, false];
+            }
+            value2 = result[1];
+            if (result[1].type === 'convert') {
+                extraGliders++;
+            }
+            if ('flipped' in result[1]) {
+                flipped = flipped !== result[1].flipped;
+            }
+        }
+        let result: CAObject[] | undefined;
+        if (value2.type === 'normal') {
+            result = flipped ? value2.flippedResult : value2.result;
+        } else {
+            result = undefined;
+        }
+        for (let i = 0; i < data.recipes.length; i++) {
+            let recipe = data.recipes[i];
+            if (recipe.end && recipe.end.elbow === elbow) {
+                for (let j = 0; j < extraGliders; j++) {
+                    recipe.recipe[recipe.recipe.length - 1][1] = 0;
+                    let next = findNextWorkingInput(info, elbowData, recipe, result);
+                    if (next) {
+                        recipe.recipe.push([next, -1]);
+                        recipe.time += next;
+                    } else {
+                        possibleUseful += `probably broken ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
+                        data.recipes.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return [possibleUseful, value];
+}
+
+function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): string {
+    let possibleUseful = '';
+    for (let elbow of data.newElbows) {
+        addElbow(info, elbow, data, out);
+    }
+    for (let recipe of data.recipes) {
+        if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
+            continue;
+        }
         let key = channelRecipeInfoToString(recipe);
-        if (key in out && out[key].time < recipe.time) {
+        if (key in out && out.recipes[key].time < recipe.time) {
             continue;
         }
         let color: string;
-        if (out.end) {
-            if (out.create) {
-                if (out.emit) {
+        if (recipe.end) {
+            if (recipe.create) {
+                if (recipe.emit) {
                     color = '96';
                 } else {
                     color = '95';
@@ -65,9 +181,10 @@ function addNewRecipes(info: ChannelInfo, data: ChannelRecipe[], out: {[key: str
         } else {
             color = '94';
         }
-        console.log(`\x1b[${color}m${key in out ? 'Improved' : 'New'} recipe: ${key}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-        out[key] = recipe;
+        console.log(`\x1b[${color}m${key in out.recipes ? 'Improved' : 'New'} recipe: ${key}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
+        out.recipes[key] = recipe;
     }
+    return possibleUseful;
 }
 
 /** Performs a restricted-channel search. */
@@ -81,9 +198,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         }
         await fs.appendFile('possible_useful.txt', msg);
     }
-    let recipes = await loadRecipes();
-    let out = recipes.channels[type];
-    let depth = 0;
     let starts: [number, number][][] = [];
     for (let a = info.minSpacing; a < maxSpacing; a++) {
         for (let b = 0; b < info.channels.length; b++) {
@@ -106,21 +220,29 @@ export async function searchChannel(type: string, threads: number, elbow: string
             }
         }
     }
+    if (info.forceStart) {
+        for (let start of starts) {
+            start.unshift(...info.forceStart);
+        }
+    }
     console.log(`Compiled ${starts.length} starts`);
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
         // @ts-ignore
-        workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
+        workers.push(new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: {
             info,
             maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
         }}));
     }
+    let recipes = await loadRecipes();
+    let out = recipes.channels[type];
+    let depth = info.minSpacing;
     while (true) {
         log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipeCount = 0;
-        let finished: {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number}[] = [];
+        let finished: ReturnType<typeof findChannelResults>[] = [];
         let startedCount = 0;
         let finishedCount = 0;
         let checkedRecipes = 0;
@@ -144,7 +266,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     }
                 } else if (type === 'update') {
                     checkedRecipes += data.count;
-                    addNewRecipes(info, data.recipes, out.recipes);
+                    possibleUseful += addNewRecipes(info, data, out);
                 } else if (type === 'completed') {
                     finished.push(data);
                     finishedCount++;
@@ -161,14 +283,14 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({elbows: out.elbows, elbow, depth, maxSpacing});
+            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, depth, maxSpacing});
         }
         let {promise, resolve} = Promise.withResolvers<void>();
         await promise;
         let possibleUseful = '';
         for (let data of finished) {
-            addNewRecipes(info, data.recipes, out.recipes);
             possibleUseful += data.possibleUseful;
+            possibleUseful += addNewRecipes(info, data, out);
         }
         let time = (performance.now() - start) / 1000;
         log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);

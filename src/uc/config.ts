@@ -149,9 +149,9 @@ const MAX_PSEUDO_DISTANCE = 6;
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
 const INJECTION_SPACING = 2;
 // for channel searching, the maximum elbow population
-const MAX_ELBOW_POPULATION = 12;
+const MAX_ELBOW_POPULATION = 18;
 // for channel searching, the maximum created object population
-const MAX_CREATE_POPULATION = 12;
+const MAX_CREATE_POPULATION = 18;
 
 
 // information for spaceship identification

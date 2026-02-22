@@ -157,7 +157,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
                 bb: [p.xOffset, p.yOffset, p.xOffset + p.width - 1, p.yOffset + p.height - 1],
             });
         } else if (apgcode.startsWith('xp')) {
-            let q = p.copy().run(type.period);
+            let q = p.copy().run(type.period + (type.period - p.generation) % type.period);
             stableObjects.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + type.period),

@@ -533,19 +533,37 @@ export interface SalvoRecipes {
     oneTimeTurners: {[key: string]: [StableObject, Spaceship, [number, number][][]]};
     oneTimeSplitters: {[key: string]: [StableObject, Spaceship[], [number, number][][]]};
     elbowRecipes: {[key: string]: [StableObject, StableObject, Spaceship, [number, number][][]]};
-};
+}
 
 
-export type ElbowData = {[key: string]: CAObject[] | {elbow: string, flipped: boolean}};
+export type ElbowData = {[key: string]: {type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} | {type: 'alias', elbow: string, flipped: boolean} | {type: 'destroy'} | {type: 'convert', elbow: string, flipped: boolean}};
 
-export type ChannelRecipe = {start: string, recipe: [number, number][], time: number, end?: [string, number], emit?: {dir: 'up' | 'down' | 'left' | 'right', lane: number, timing: number}, create?: StableObject};
+export interface ChannelRecipe {
+    start: string;
+    recipe: [number, number][];
+    time: number;
+    end?: {
+        elbow: string;
+        move: number;
+        flipped: boolean;
+    };
+    emit?: {
+        dir: 'up' | 'down' | 'left' | 'right';
+        lane: number;
+        timing: number;
+    };
+    create?: StableObject;
+}
 
 const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create', '90-degree and create and destroy', '0-degree and create and destroy', '180-degree and create and destroy'];
 
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
     if (recipe.end) {
-        out += ` to ${recipe.end[0]} move ${recipe.end[1]}`;
+        out += ` to ${recipe.end.elbow} move ${recipe.end.move}`;
+        if (recipe.end.flipped) {
+            out += ' flip';
+        }
     } else {
         out += ` destroy`;
     }
@@ -564,6 +582,7 @@ export interface RecipeData {
     salvos: {[key: string]: SalvoRecipes};
     channels: {[key: string]: {
         elbows: ElbowData;
+        badElbows: Set<string>;
         recipes: {[key: string]: ChannelRecipe};
     }};
 }
@@ -660,17 +679,41 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let out = recipeData.channels[type];
         if (section === 'elbows') {
             for (let line of current) {
-                if (line.includes(' -> ')) {
-                    let [elbow, data] = line.split(' -> ');
+                if (line.includes(' = ')) {
+                    let [elbow, data] = line.split(' = ');
                     let flipped = false;
                     if (data.endsWith(' (flipped)')) {
                         flipped = true;
                         data = data.slice(0, ' (flipped)'.length);
                     }
-                    out.elbows[elbow] = {elbow: data, flipped};
+                    out.elbows[elbow] = {type: 'alias', elbow: data, flipped};
+                } else if (line.includes(' -> ')) {
+                    let [elbow, data] = line.split(' -> ');
+                    if (data === 'destroy') {
+                        out.elbows[elbow] = {type: 'destroy'};
+                    } else {
+                        let flipped = false;
+                        if (data.endsWith(' (flipped)')) {
+                            flipped = true;
+                            data = data.slice(0, ' (flipped)'.length);
+                        }
+                        out.elbows[elbow] = {type: 'convert', elbow: data, flipped};
+                    }
                 } else {
                     let [elbow, data] = line.split(': ');
-                    out.elbows[elbow] = stringToObjects(data);
+                    let index = data.lastIndexOf(' ');
+                    let time = parseInt(data.slice(index + 1));
+                    data = data.slice(0, index);
+                    let [resultStr, flippedStr] = data.split(' / ');
+                    let result = stringToObjects(resultStr);
+                    let flippedResult = stringToObjects(flippedStr);
+                    out.elbows[elbow] = {type: 'normal', time, result, flippedResult};
+                }
+            }
+        } else if (section === 'bad elbows') {
+            for (let line of current) {
+                for (let elbow of line.split(', ')) {
+                    out.badElbows.add(elbow);
                 }
             }
         } else if (section.includes('recipes')) {
@@ -683,8 +726,15 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 if (data[1] === 'destroy') {
                     data = data.slice(2);
                 } else {
-                    recipe.end = [data[2], parseInt(data[4])];
+                    let elbow = data[2];
+                    let move = parseInt(data[4]);
                     data = data.slice(5);
+                    let flipped = false;
+                    if (data[0] === 'flip') {
+                        flipped = true;
+                        data = data.slice(1);
+                    }
+                    recipe.end = {elbow, move, flipped};
                 }
                 if (data[0] === 'emit') {
                     let dir = data[1] as 'up' | 'down' | 'left' | 'right';
@@ -708,7 +758,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
 export async function loadRecipes(): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: {}}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, badElbows: new Set(), recipes: {}}])),
     };
     if (!exists(recipeFile)) {
         return out;
@@ -799,13 +849,20 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             data = data.sort((a, b) => a[1] - b[1]);
             for (let [key, _, value] of data) {
                 let str: string;
-                if (Array.isArray(value)) {
-                    str = `${key}: ${objectsToString(value)}`;
-                } else {
+                if (value.type === 'normal') {
+                    str = `${key}: ${objectsToString(value.result)} (${value.time})`;
+                } else if (value.type === 'alias') {
+                    str = `${key} = ${value.elbow}`;
+                    if (value.flipped) {
+                        str += ' (flipped)';
+                    }
+                } else if (value.type === 'convert') {
                     str = `${key} -> ${value.elbow}`;
                     if (value.flipped) {
                         str += ' (flipped)';
                     }
+                } else {
+                    str = `${key} -> destroy`;
                 }
                 out += str + '\n';
             }

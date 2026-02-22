@@ -1,19 +1,12 @@
 
-import {MessagePort, parentPort, workerData} from 'node:worker_threads';
+import {MessagePort} from 'node:worker_threads';
 import {APGCODE_CHARS, lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, maxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
 
-let info: ChannelInfo = workerData.info;
-
-setMaxGenerations(workerData.maxGenerations);
-
-let starts: [number, number][][] = workerData.starts;
-
-
-function getRecipesForDepthSingleChannel(depth: number, maxSpacing: number): [[number, number][], number][] {
+function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number): [[number, number][], number][] {
     let out: [[number, number][], number][] = [];
     let limit = Math.min(maxSpacing, depth);
     for (let spacing = info.minSpacing; spacing <= limit; spacing++) {
@@ -24,7 +17,7 @@ function getRecipesForDepthSingleChannel(depth: number, maxSpacing: number): [[n
         if (spacing === depth) {
             out.push([[elt], spacing]);
         } else if (depth - spacing >= info.minSpacing) {
-            for (let recipe of getRecipesForDepthSingleChannel(depth - spacing, maxSpacing)) {
+            for (let recipe of getRecipesForDepthSingleChannel(info, depth - spacing, maxSpacing)) {
                 recipe[0].unshift(elt);
                 recipe[1] += spacing;
                 out.push(recipe);
@@ -34,7 +27,7 @@ function getRecipesForDepthSingleChannel(depth: number, maxSpacing: number): [[n
     return out;
 }
 
-function getRecipesForDepthMultiChannel(depth: number, maxSpacing: number, prev: number | undefined, lastUses: number[]): [[number, number][], number][] {
+function getRecipesForDepthMultiChannel(info: ChannelInfo, depth: number, maxSpacing: number, prev: number | undefined, lastUses: number[]): [[number, number][], number][] {
     let out: [[number, number][], number][] = [];
     for (let channel = 0; channel < info.channels.length; channel++) {
         let start: number;
@@ -53,7 +46,7 @@ function getRecipesForDepthMultiChannel(depth: number, maxSpacing: number, prev:
             if (depth > 0) {
                 let newLastUses = lastUses.map(x => x + spacing);
                 newLastUses[channel] = 0;
-                for (let recipe of getRecipesForDepthMultiChannel(depth - 1, maxSpacing, channel, newLastUses)) {
+                for (let recipe of getRecipesForDepthMultiChannel(info, depth - 1, maxSpacing, channel, newLastUses)) {
                     if (recipe[1] + spacing === depth) {
                         recipe[0].unshift(elt);
                         recipe[1] += spacing;
@@ -66,18 +59,18 @@ function getRecipesForDepthMultiChannel(depth: number, maxSpacing: number, prev:
     return out;
 }
 
-function getRecipesForDepth(depth: number, maxSpacing: number, prev?: number): [[number, number][], number][] {
+function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number, prev?: number): [[number, number][], number][] {
     if (info.channels.length === 1) {
-        return getRecipesForDepthSingleChannel(depth, maxSpacing);
+        return getRecipesForDepthSingleChannel(info, depth, maxSpacing);
     } else if (prev) {
-        return getRecipesForDepthMultiChannel(depth, maxSpacing, prev, (new Array(info.channels.length)).fill(Infinity));
+        return getRecipesForDepthMultiChannel(info, depth, maxSpacing, prev, (new Array(info.channels.length)).fill(Infinity));
     } else {
         let out: [[number, number][], number][] = [];
         let lastUses = (new Array(info.channels.length)).fill(Infinity);
         for (let channel = 0; channel < info.channels.length; channel++) {
             let newLastUses = lastUses.slice();
             newLastUses[channel] = 0;
-            for (let recipe of getRecipesForDepthMultiChannel(depth, maxSpacing, channel, newLastUses)) {
+            for (let recipe of getRecipesForDepthMultiChannel(info, depth, maxSpacing, channel, newLastUses)) {
                 recipe[0].unshift([-1, channel]);
                 out.push(recipe);
             }
@@ -87,7 +80,7 @@ function getRecipesForDepth(depth: number, maxSpacing: number, prev?: number): [
 }
 
 
-function runInjection(elbow: [string, number], recipe: [number, number][]): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][]): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -101,6 +94,9 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
             continue;
         }
         let y = Math.floor(total / c.GLIDER_PERIOD);
+        if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
+            y++;
+        }
         let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
         let p = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD].copy();
         p.xOffset += x;
@@ -119,7 +115,7 @@ function runInjection(elbow: [string, number], recipe: [number, number][]): MAPP
     });
     let p = base.loadApgcode(elbow[0]).shrinkToFit();
     let yPos = c.GLIDER_TARGET_SPACING;
-    if (phaseOffset !== 0) {
+    if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
         yPos--;
     }
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
@@ -172,7 +168,7 @@ export interface ShipInfo {
     timing: number;
 }
 
-export function getShipInfo(obj: Spaceship): ShipInfo {
+export function getShipInfo(info: ChannelInfo, obj: Spaceship): ShipInfo {
     let dir: 'up' | 'down' | 'left' | 'right';
     let lane: number;
     if (obj.dir === 'N' || obj.dir === 'NE') {
@@ -192,16 +188,23 @@ export function getShipInfo(obj: Spaceship): ShipInfo {
 }
 
 
-import {objectsToString} from './base.js';
+// import {objectsToString} from './base.js';
 
-function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next: number, expected: [StableObject[], ShipInfo[], string[], number | null]): boolean {
+interface ExpectedResult {
+    stables: StableObject[];
+    ships: ShipInfo[];
+    others: string[];
+    period: number;
+}
+
+function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
     let test = recipe.recipe.slice();
     test.push([next, 0]);
-    let p = runInjection(elbow, test);
-    if (expected[3] !== null) {
+    let p = runInjection(info, elbow, test);
+    if (expected.period > 1) {
         let prevPop = p.population;
         for (let i = 0; i < 256; i++) {
-            p.run(expected[3]);
+            p.run(expected.period);
             let pop = p.population;
             if (pop !== prevPop) {
                 break;
@@ -213,7 +216,7 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
     if (typeof objs !== 'object') {
         return false;
     }
-    let expectedShips = expected[1];
+    let expectedShips = expected.ships;
     if (!recipe.end) {
         expectedShips = expectedShips.slice();
         expectedShips.push({dir: 'down', lane: elbow[1], timing: 0});
@@ -227,26 +230,26 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
         } else if (obj.type === 'osc') {
             stables.push(normalizeOscillator(obj));
         } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-            ships.push(getShipInfo(obj));
+            ships.push(getShipInfo(info, obj));
         } else {
             others.push(obj.code);
         }
     }
-    console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
-    if (stables.length !== expected[0].length || ships.length !== expected[1].length || others.length !== expected[2].length) {
+    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
+    if (stables.length !== expected.stables.length || ships.length !== expected.ships.length || others.length !== expected.others.length) {
         return false;
     }
-    for (let a of expected[0]) {
+    for (let a of expected.stables) {
         if (!stables.some(b => a.code === b.code && a.x === b.x && a.y === b.y)) {
             return false;
         }
     }
-    for (let a of expected[1]) {
+    for (let a of expected.ships) {
         if (!ships.some(b => a.dir === b.dir && a.lane === b.lane && a.timing === b.timing)) {
             return false;
         }
     }
-    for (let a of expected[2]) {
+    for (let a of expected.others) {
         if (!others.some(b => a === b)) {
             return false;
         }
@@ -254,60 +257,66 @@ function isNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, next
     return true;
 }
 
-function findNextWorkingInput(elbow: [string, number], recipe: ChannelRecipe, result: CAObject[] | undefined): false | number {
-    let expected: [StableObject[], ShipInfo[], string[], number | null] = [[], [], [], 1];
+export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, result: CAObject[] | undefined): false | number {
+    let expected: ExpectedResult = {stables: [], ships: [], others: [], period: 1};
     if (recipe.end) {
         if (!result) {
             throw new Error('No result! (there is a bug)');
         }
         for (let obj of result) {
             if (obj.type === 'sl') {
-                expected[0].push(obj);
+                expected.stables.push(obj);
             } else if (obj.type === 'osc') {
-                if (expected[3] !== null) {
-                    expected[3] = lcm(expected[3], parseInt(obj.code.slice(2)));
+                if (expected.period !== 0) {
+                    expected.period = lcm(expected.period, parseInt(obj.code.slice(2)));
                 }
-                expected[0].push(normalizeOscillator(obj));
+                expected.stables.push(normalizeOscillator(obj));
             } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-                if (expected[3] !== null) {
-                    expected[3] = lcm(expected[3], c.GLIDER_POPULATION_PERIOD);
+                if (expected.period !== 0) {
+                    expected.period = lcm(expected.period, c.GLIDER_POPULATION_PERIOD);
                 }
-                expected[1].push(getShipInfo(obj));
+                expected.ships.push(getShipInfo(info, obj));
             } else {
-                expected[3] = null;
-                expected[2].push(obj.code);
+                expected.period = 0;
+                expected.others.push(obj.code);
             }
         }
     }
     if (recipe.create) {
         if (recipe.create.type === 'sl') {
-            expected[0].push(recipe.create);
+            expected.stables.push(recipe.create);
         } else {
-            expected[0].push(normalizeOscillator(recipe.create));
+            if (expected.period !== 0) {
+                expected.period = lcm(expected.period, parseInt(recipe.create.code.slice(2)));
+            }
+            expected.stables.push(normalizeOscillator(recipe.create));
         }
     }
     if (recipe.emit) {
-        expected[1].push(recipe.emit);
+        if (expected.period !== 0) {
+            expected.period = lcm(expected.period, c.GLIDER_POPULATION_PERIOD);
+        }
+        expected.ships.push(recipe.emit);
     }
-    console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
+    // console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
-        let oldLow = low;
-        let oldHigh = high;
+        // let oldLow = low;
+        // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(elbow, recipe, mid, expected) && isNextWorkingInput(elbow, recipe, mid + 1, expected) && isNextWorkingInput(elbow, recipe, mid + 2, expected)) {
+        if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period * 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
+        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
-    // if (low === info.maxNextSpacing) {
+    if (low === info.maxNextSpacing) {
         console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         // throw new Error('hi');
         return false;
-    // }
+    }
     return low;
 }
 
@@ -333,7 +342,183 @@ function isTooBig(code: string): boolean {
     }
 }
 
-function findChannelResults(elbows: ElbowData, elbow: string, depth: number, maxSpacing: number, parentPort: MessagePort): void {
+
+export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipe?: ChannelRecipe, possibleUseful?: string} {
+    let possibleUseful: string | undefined = undefined;
+    let result: false | 'linear' | CAObject[];
+    let strRecipe = channelRecipeToString(info, recipe);
+    result = findOutcome(runInjection(info, elbowData, recipe));
+    if (result === false) {
+        return;
+    }
+    if (result === 'linear') {
+        return {possibleUseful: `Linear growth: ${strRecipe}\n`};
+    }
+    let sl1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+    let sl2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+    let emit: ChannelRecipe['emit'] | undefined = undefined;
+    let found = false;
+    for (let obj of result) {
+        if (obj.type === 'sl' || obj.type === 'osc') {
+            if (sl1 && sl2) {
+                found = true;
+                break;
+            }
+            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
+            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
+            let value = {obj, lane, spacing};
+            if (sl1 === undefined) {
+                sl1 = value;
+            } else {
+                sl2 = value;
+            }
+        } else if (!emit && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+            emit = getShipInfo(info, obj);
+        } else {
+            found = true;
+            if (info.possiblyUsefulFilter.includes(obj.code)) {
+                break;
+            }
+            if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
+                possibleUseful = `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
+            } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
+                let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
+                if (type.disp) {
+                    let lane: number;
+                    if (type.disp[0] === 0) {
+                        lane = obj.y;
+                    } else if (type.disp[1] === 0) {
+                        lane = obj.x;
+                    } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
+                        lane = obj.x - obj.y;
+                    } else {
+                        lane = obj.x + obj.y;
+                    }
+                    possibleUseful = `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                } else {
+                    possibleUseful = `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
+                }
+            }
+            break;
+        }
+    }
+    if (found) {
+        return {possibleUseful};
+    }
+    let create: StableObject | undefined = undefined;
+    let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
+    if (sl1) {
+        if (isTooBig(sl1.obj.code)) {
+            return;
+        }
+        if (sl2) {
+            if (isTooBig(sl2.obj.code)) {
+                return;
+            }
+            let sl1Result = getCollision(sl1.obj.code, sl1.lane);
+            let sl2Result = getCollision(sl2.obj.code, sl2.lane);
+            if (typeof sl1Result === 'object') {
+                if (typeof sl2Result === 'object') {
+                    return;
+                } else {
+                    endElbowData = [sl1, sl1Result];
+                    create = sl2.obj;
+                }
+            } else {
+                if (typeof sl2Result === 'object') {
+                    endElbowData = [sl2, sl2Result];
+                    create = sl1.obj;
+                } else {
+                    return;
+                }
+            }
+        } else {
+            let result = getCollision(sl1.obj.code, sl1.lane);
+            if (typeof result === 'object') {
+                endElbowData = [sl1, result];
+            } else {
+                create = sl1.obj;
+            }
+        }
+    }
+    if (create && emit) {
+        return;
+    }
+    let end: ChannelRecipe['end'] | undefined = undefined;
+    let endResult: CAObject[] | undefined = undefined;
+    let addGliders = 0;
+    if (endElbowData) {
+        let [elbow, result] = endElbowData;
+        endResult = result;
+        let str = `${elbow.obj.code}/${elbow.lane}`;
+        if (badElbows.has(str)) {
+            return;
+        }
+        let move = elbow.spacing;
+        if (str in elbows) {
+            let data = elbows[str];
+            let flipped = false;
+            while (data.type === 'convert' || data.type === 'alias') {
+                if (data.type === 'convert') {
+                    addGliders++;
+                }
+                flipped = flipped !== data.flipped;
+                str = data.elbow;
+            }
+            if (data.type === 'normal') {
+                end = {elbow: str, move, flipped};
+            } else {
+                addGliders++;
+            }
+        } else {
+            end = {elbow: str, move, flipped: false};
+            if (newElbows && !newElbows.includes(str)) {
+                newElbows.push(str);
+            }
+        }
+    }
+    let value: ChannelRecipe = {start: elbowStr, recipe, time, end, create, emit};
+    let outputValue = false;
+    let next = findNextWorkingInput(info, elbowData, value, endResult);
+    if (next !== false) {
+        let found = false;
+        for (let i = 0; i < addGliders; i++) {
+            value.recipe.push([next, 0]);
+            value.time += next;
+            let result = findNextWorkingInput(info, elbowData, value, endResult);
+            if (result !== false) {
+                next = result;
+            } else {
+                possibleUseful = `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            value.recipe.push([next, -1]);
+            value.time += next;
+            outputValue = true;
+            possibleUseful = `${channelRecipeInfoToString(value)}: ${channelRecipeToString(info, value.recipe)}\n`;
+        }
+    } else {
+        for (let i = 0; i < addGliders; i++) {
+            value.recipe.push([info.maxNextSpacing, 0]);
+            value.time += info.maxNextSpacing;
+        }
+        possibleUseful = `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
+    }
+    if (outputValue) {
+        if (possibleUseful) {
+            return {recipe: value, possibleUseful};
+        } else {
+            return {recipe: value};
+        }
+    } else if (possibleUseful) {
+        return {possibleUseful};
+    }
+}
+
+export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, depth: number, maxSpacing: number, starts?: [number, number][][], parentPort?: MessagePort | null): {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number} {
     let elbowParts = elbow.split('/');
     let elbowLane = parseInt(elbowParts[1]);
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), elbowLane];
@@ -341,166 +526,53 @@ function findChannelResults(elbows: ElbowData, elbow: string, depth: number, max
     let newElbows: string[] = [];
     let possibleUseful = '';
     let recipes: [[number, number][], number][] = [];
-    for (let start of starts) {
-        let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
-        if (info.forceStart) {
-            start.unshift(...info.forceStart);
-            startTime += info.forceStart.map(x => x[0]).reduce((x, y) => x + y);
-        }
-        if (startTime > depth) {
-            continue;
-        }
-        if (startTime === depth) {
-            recipes.push([start, startTime]);
-        }
-        if (start.length < 3) {
-            continue;
-        }
-        let last = start[start.length - 1];
-        for (let [recipe, time] of getRecipesForDepth(depth - startTime, maxSpacing, last[1])) {
-            recipe.unshift(...start);
-            time += startTime;
-            recipes.push([recipe, time]);
+    if (starts) {
+        for (let start of starts) {
+            let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
+            if (startTime > depth) {
+                continue;
+            }
+            if (startTime === depth) {
+                recipes.push([start.slice(), startTime]);
+            }
+            if (start.length < 3) {
+                continue;
+            }
+            let last = start[start.length - 1];
+            for (let [recipe, time] of getRecipesForDepth(info, depth - startTime, maxSpacing, last[1])) {
+                recipe.unshift(...start);
+                time += startTime;
+                recipes.push([recipe, time]);
+            }
         }
     }
-    parentPort.postMessage(['starting', recipes.length]);
+    if (parentPort) {
+        parentPort.postMessage(['starting', recipes.length]);
+    }
     let count = 0;
     let lastUpdate = performance.now();
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
         if (now - lastUpdate > 5000) {
             lastUpdate = now;
-            parentPort.postMessage(['update', {count, recipes: newRecipes}]);
+            if (parentPort) {
+                parentPort.postMessage(['update', {count, recipes: newRecipes, newElbows: newElbows}]);
+                newRecipes = [];
+                newElbows = [];
+            }
             count = 0;
         }
         count++;
         let [recipe, time] = recipes[i];
-        let result: false | 'linear' | CAObject[];
-        let strRecipe = channelRecipeToString(info, recipe);
-        result = findOutcome(runInjection(elbowData, recipe));
-        if (result === false) {
-            continue;
-        }
-        if (result === 'linear') {
-            possibleUseful += `Linear growth: ${strRecipe}\n`;
-            continue;
-        }
-        let sl1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
-        let sl2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
-        let emit: ChannelRecipe['emit'] | undefined = undefined;
-        let found = false;
-        for (let obj of result) {
-            if (obj.type === 'sl' || obj.type === 'osc') {
-                if (sl1 && sl2) {
-                    found = true;
-                    break;
-                }
-                let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowLane;
-                let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
-                let value = {obj, lane, spacing};
-                if (sl1 === undefined) {
-                    sl1 = value;
-                } else {
-                    sl2 = value;
-                }
-            } else if (!emit && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-                emit = getShipInfo(obj);
-            } else {
-                found = true;
-                if (info.possiblyUsefulFilter.includes(obj.code)) {
-                    break;
-                }
-                if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
-                    possibleUseful += `Creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
-                } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                    let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
-                    if (type.disp) {
-                        let lane: number;
-                        if (type.disp[0] === 0) {
-                            lane = obj.y;
-                        } else if (type.disp[1] === 0) {
-                            lane = obj.x;
-                        } else if (Math.sign(type.disp[0]) === Math.sign(type.disp[1])) {
-                            lane = obj.x - obj.y;
-                        } else {
-                            lane = obj.x + obj.y;
-                        }
-                        possibleUseful += `Creates ${obj.code} (${type.disp[0]}, ${type.disp[1]}, lane ${lane}) and ${result.length - 1} other objects: ${strRecipe}\n`;
-                    } else {
-                        possibleUseful += `Creates ${obj.code} (no found displacement) and ${result.length - 1} other objects: ${strRecipe}\n`;
-                    }
-                }
-                break;
+        let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, badElbows, newElbows);
+        if (value) {
+            if (value.recipe) {
+                newRecipes.push(value.recipe);
             }
-        }
-        if (found) {
-            continue;
-        }
-        let create: StableObject | undefined = undefined;
-        let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
-        if (sl1) {
-            if (isTooBig(sl1.obj.code)) {
-                continue;
+            if (value.possibleUseful) {
+                possibleUseful += value.possibleUseful;
             }
-            if (sl2) {
-                if (isTooBig(sl2.obj.code)) {
-                    continue;
-                }
-                let sl1Result = getCollision(sl1.obj.code, sl1.lane);
-                let sl2Result = getCollision(sl2.obj.code, sl2.lane);
-                if (typeof sl1Result === 'object') {
-                    if (typeof sl2Result === 'object') {
-                        continue;
-                    } else {
-                        endElbowData = [sl1, sl1Result];
-                        create = sl2.obj;
-                    }
-                } else {
-                    if (typeof sl2Result === 'object') {
-                        endElbowData = [sl2, sl2Result];
-                        create = sl1.obj;
-                    } else {
-                        continue;
-                    }
-                }
-            } else {
-                let result = getCollision(sl1.obj.code, sl1.lane);
-                if (typeof result === 'object') {
-                    endElbowData = [sl1, result];
-                } else {
-                    create = sl1.obj;
-                }
-            }
-        }
-        if (create && emit) {
-            continue;
-        }
-        let end: [string, number] | undefined = undefined;
-        let endResult: CAObject[] | undefined = undefined;
-        if (endElbowData) {
-            let [elbow, result] = endElbowData;
-            endResult = result;
-            let str = `${elbow.obj.code}/${elbow.lane}`;
-            end = [str, elbow.spacing];
-            if (!(str in elbows) && !newElbows.includes(str)) {
-                newElbows.push(str);
-            }
-        }
-        let value: ChannelRecipe = {start: elbow, recipe, time, end, create, emit};
-        let next = findNextWorkingInput(elbowData, value, endResult);
-        if (next !== false) {
-            value.recipe.push([next, -1]);
-            value.time += next;
-            newRecipes.push(value);
-            possibleUseful += `${channelRecipeInfoToString(value)}: ${channelRecipeToString(info, value.recipe)}\n`;
-        } else {
-            possibleUseful += `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
         }
     }
-    parentPort.postMessage(['completed', {recipes: newRecipes, newElbows, possibleUseful, recipeCount: recipes.length}]);
+    return {recipes: newRecipes, newElbows, possibleUseful, recipeCount: recipes.length};
 }
-
-
-(parentPort as MessagePort).on('message', data => {
-    findChannelResults(data.elbows, data.elbow, data.depth, data.maxSpacing, parentPort as MessagePort);
-});
