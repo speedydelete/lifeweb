@@ -242,6 +242,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipeCount = 0;
+        let possibleUseful = '';
         let finished: ReturnType<typeof findChannelResults>[] = [];
         let startedCount = 0;
         let finishedCount = 0;
@@ -287,7 +288,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         }
         let {promise, resolve} = Promise.withResolvers<void>();
         await promise;
-        let possibleUseful = '';
         for (let data of finished) {
             possibleUseful += data.possibleUseful;
             possibleUseful += addNewRecipes(info, data, out);
