@@ -6,6 +6,9 @@ import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
 
+// REMBMBER TO ADD MOVE VALUES TOGETHER WHILE COMBINING ELBOWS
+
+
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number): [[number, number][], number][] {
     let out: [[number, number][], number][] = [];
     let limit = Math.min(maxSpacing, depth);
