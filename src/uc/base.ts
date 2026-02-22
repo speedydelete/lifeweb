@@ -914,7 +914,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             }
             for (let recipes of Object.values(groups)) {
                 for (let recipe of recipes) {
-                    out += channelRecipeInfoToString(recipe) + '\n';
+                    out += channelRecipeInfoToString(recipe) + ': ' + channelRecipeToString(info, recipe.recipe) + '\n';
                 }
                 out += '\n';
             }
