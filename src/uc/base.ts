@@ -288,6 +288,7 @@ export interface StillLife extends BaseObject {
 
 export interface Oscillator extends BaseObject {
     type: 'osc';
+    timing: number;
 }
 
 export type StableObject = StillLife | Oscillator;
@@ -314,6 +315,7 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
     let period = parseInt(obj.code.slice(2));
     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
     let newCode = p.toApgcode();
+    let timing = 0;
     p.xOffset = 0;
     p.yOffset = 0;
     let xOffset = 0;
@@ -326,6 +328,7 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
             newCode = code;
             xOffset = p.xOffset;
             yOffset = p.yOffset;
+            timing = i;
         }
     }
     return {
@@ -333,6 +336,7 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
         code: `xp${period}_${newCode}`,
         x: obj.x + xOffset,
         y: obj.y + yOffset,
+        timing: obj.timing + timing,
     };
 }
 
@@ -347,7 +351,7 @@ export function translateObjects<T extends CAObject>(objs: T[], x: number, y: nu
     });
 }
 
-function xyCompare(a: CAObject, b: CAObject): number {
+export function xyCompare(a: CAObject, b: CAObject): number {
     if (a.y === b.y) {
         return a.x - b.x;
     } else {
@@ -443,7 +447,7 @@ export function objectsToString(objs: CAObject[]): string {
         if (obj.type === 'sl') {
             out.push(`${obj.code} (${obj.x}, ${obj.y})`);
         } else if (obj.type === 'osc') {
-            out.push(`${obj.code} (${obj.x}, ${obj.y})`);
+            out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.timing})`);
         } else if (obj.type === 'ship') {
             out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
         } else {
@@ -497,6 +501,7 @@ export function stringToObjects(data: string): CAObject[] {
                 code,
                 x: parseInt(args[0]),
                 y: parseInt(args[1]),
+                timing: parseInt(args[2]),
             });
         } else if (code.startsWith('xq') && SHIP_DIRECTIONS.includes(args[0])) {
             out.push({
@@ -536,7 +541,7 @@ export interface SalvoRecipes {
 }
 
 
-export type ElbowData = {[key: string]: {type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} | {type: 'alias', elbow: string, flipped: boolean} | {type: 'destroy'} | {type: 'convert', elbow: string, flipped: boolean, move: number}};
+export type ElbowData = {[key: string]: ({type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} | {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} | {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number} | {type: 'destroy'} | {type: 'bad'})[]};
 
 export interface ChannelRecipe {
     start: string;
@@ -546,6 +551,7 @@ export interface ChannelRecipe {
         elbow: string;
         move: number;
         flipped: boolean;
+        timing: number;
     };
     emit?: {
         dir: 'up' | 'down' | 'left' | 'right';
@@ -560,7 +566,7 @@ const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degre
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
     if (recipe.end) {
-        out += ` to ${recipe.end.elbow} move ${recipe.end.move}`;
+        out += ` to ${recipe.end.elbow} move ${recipe.end.move} timing ${recipe.end.timing}`;
         if (recipe.end.flipped) {
             out += ' flip';
         }
@@ -679,37 +685,37 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let out = recipeData.channels[type];
         if (section === 'elbows') {
             for (let line of current) {
-                if (line.includes(' = ')) {
-                    let [elbow, data] = line.split(' = ');
-                    let flipped = false;
-                    if (data.endsWith(' (flipped)')) {
-                        flipped = true;
-                        data = data.slice(0, ' (flipped)'.length);
-                    }
-                    out.elbows[elbow] = {type: 'alias', elbow: data, flipped};
-                } else if (line.includes(' -> ')) {
-                    let [elbow, data] = line.split(' -> ');
+                let [elbow, fullData] = line.split(': ');
+                let value: ElbowData[string] = [];
+                for (let data of fullData.split(' | ')) {
                     if (data === 'destroy') {
-                        out.elbows[elbow] = {type: 'destroy'};
-                    } else {
+                        value.push({type: 'destroy'});
+                    } else if (data === 'bad') {
+                        value.push({type: 'bad'});
+                    } else if (data.startsWith('-> ')) {
+                        let parts = data.split(' ');
+                        let type = parts[0];
+                        let elbow = parts[1];
+                        parts = parts.slice(2);
                         let flipped = false;
-                        if (data.endsWith(' (flipped)')) {
+                        if (parts[0] === 'flip') {
                             flipped = true;
-                            data = data.slice(0, ' (flipped)'.length);
+                            parts = parts.slice(1);
                         }
-                        let [elbow, moveStr] = data.split(' move ');
-                        out.elbows[elbow] = {type: 'convert', elbow, flipped, move: parseInt(moveStr)};
+                        let move = parseInt(parts[1]);
+                        let timing = parseInt(parts[3]);
+                        value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing});
+                    } else {
+                        let index = data.lastIndexOf(' ');
+                        let time = parseInt(data.slice(index + 1));
+                        data = data.slice(0, index);
+                        let [resultStr, flippedStr] = data.split(' / ');
+                        let result = stringToObjects(resultStr);
+                        let flippedResult = stringToObjects(flippedStr);
+                        value.push({type: 'normal', time, result, flippedResult});
                     }
-                } else {
-                    let [elbow, data] = line.split(': ');
-                    let index = data.lastIndexOf(' ');
-                    let time = parseInt(data.slice(index + 1));
-                    data = data.slice(0, index);
-                    let [resultStr, flippedStr] = data.split(' / ');
-                    let result = stringToObjects(resultStr);
-                    let flippedResult = stringToObjects(flippedStr);
-                    out.elbows[elbow] = {type: 'normal', time, result, flippedResult};
                 }
+                out.elbows[elbow] = value;
             }
         } else if (section === 'bad elbows') {
             for (let line of current) {
@@ -729,13 +735,14 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 } else {
                     let elbow = data[2];
                     let move = parseInt(data[4]);
-                    data = data.slice(5);
+                    let timing = parseInt(data[6]);
+                    data = data.slice(7);
                     let flipped = false;
                     if (data[0] === 'flip') {
                         flipped = true;
                         data = data.slice(1);
                     }
-                    recipe.end = {elbow, move, flipped};
+                    recipe.end = {elbow, move, flipped, timing};
                 }
                 if (data[0] === 'emit') {
                     let dir = data[1] as 'up' | 'down' | 'left' | 'right';
@@ -849,23 +856,19 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         for (let data of Object.values(elbowGroups)) {
             data = data.sort((a, b) => a[1] - b[1]);
             for (let [key, _, value] of data) {
-                let str: string;
-                if (value.type === 'normal') {
-                    str = `${key}: ${objectsToString(value.result)} (${value.time})`;
-                } else if (value.type === 'alias') {
-                    str = `${key} = ${value.elbow}`;
-                    if (value.flipped) {
-                        str += ' (flipped)';
+                let strs: string[] = [];
+                for (let x of value) {
+                    if (x.type === 'normal') {
+                        strs.push(`${objectsToString(x.result)} / ${objectsToString(x.flippedResult)} (${x.time})`);
+                    } else if (x.type === 'alias' || x.type === 'convert') {
+                        strs.push(`${x.type === 'alias' ? '=' : '->'} ${x.elbow}${x.flipped ? ' flip' : ''} move ${x.move} timing ${x.timing}`);
+                    } else if (x.type === 'destroy') {
+                        strs.push('destroy');
+                    } else {
+                        strs.push('bad');
                     }
-                } else if (value.type === 'convert') {
-                    str = `${key} -> ${value.elbow} move ${value.move}`;
-                    if (value.flipped) {
-                        str += ' (flipped)';
-                    }
-                } else {
-                    str = `${key} -> destroy`;
                 }
-                out += str + '\n';
+                out += `${key}: ${strs.join(' | ')}\n`;
             }
             out += '\n';
         }

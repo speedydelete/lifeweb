@@ -264,6 +264,9 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
             throw new Error('No result! (there is a bug)');
         }
         for (let obj of result) {
+            obj = structuredClone(obj);
+            obj.y += recipe.end.move;
+            obj.x += recipe.end.move * c.GLIDER_SLOPE;
             if (obj.type === 'sl') {
                 expected.stables.push(obj);
             } else if (obj.type === 'osc') {
@@ -313,7 +316,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low === info.maxNextSpacing) {
-        console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
+        // console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         // throw new Error('hi');
         return false;
     }
@@ -343,19 +346,75 @@ function isTooBig(code: string): boolean {
 }
 
 
-export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipe?: ChannelRecipe, possibleUseful?: string} {
+function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
+    return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
+}
+
+export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe): {recipes: ChannelRecipe[], possibleUseful: string} {
+    if (!recipe.end) {
+        return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
+    }
+    if (badElbows.has(recipe.end.elbow)) {
+        return {recipes: [], possibleUseful: ''};
+    }
+    if (!(recipe.end.elbow in elbows)) {
+        return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
+    }
+    let outcomes = elbows[recipe.end.elbow];
+    let out: ChannelRecipe[] = [];
+    let possibleUseful = '';
+    for (let i = 0; i < outcomes.length; i++) {
+        let elbow = outcomes[i];
+        if (elbow.type === 'bad') {
+            continue;
+        }
+        if (elbow.type === 'normal') {
+            out.push(recipe);
+            possibleUseful += getStringRecipe(info, recipe);
+            continue;
+        }
+        let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {elbow: string, move: number, flipped: boolean, timing: number}};
+        if (elbow.type !== 'alias') {
+            recipe2.recipe[recipe2.recipe.length - 1][1] = 1;
+            recipe2.recipe.push([info.minSpacing + (i + recipe.end.timing) % outcomes.length, 0]);
+            recipe2.time += info.minSpacing;
+        }
+        if (elbow.type === 'destroy') {
+            out.push(recipe2);
+            possibleUseful += getStringRecipe(info, recipe);
+        } else {
+            recipe2.end.elbow = elbow.elbow;
+            recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
+            recipe2.end.timing += elbow.timing;
+            recipe2.end.move += elbow.move;
+            let value = resolveElbow(info, elbows, badElbows, recipe2);
+            out.push(...value.recipes);
+            possibleUseful += value.possibleUseful;
+        }
+    }
+    console.log('RETURNING', out);
+    return {recipes: out, possibleUseful};
+}
+
+interface CheckerObjectData {
+    obj: StableObject;
+    lane: number;
+    spacing: number;
+}
+
+export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
     let possibleUseful: string | undefined = undefined;
     let result: false | 'linear' | CAObject[];
     let strRecipe = channelRecipeToString(info, recipe);
-    result = findOutcome(runInjection(info, elbowData, recipe));
+    result = findOutcome(runInjection(info, elbowData, recipe), undefined);
     if (result === false) {
         return;
     }
     if (result === 'linear') {
         return {possibleUseful: `Linear growth: ${strRecipe}\n`};
     }
-    let so1: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
-    let so2: {obj: StableObject, lane: number, spacing: number} | undefined = undefined;
+    let so1: CheckerObjectData | undefined = undefined;
+    let so2: CheckerObjectData | undefined = undefined;
     let emit: ChannelRecipe['emit'] | undefined = undefined;
     let found = false;
     for (let obj of result) {
@@ -366,6 +425,9 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             }
             let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
             let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
+            if (obj.type === 'osc') {
+                obj = normalizeOscillator(obj);
+            }
             let value = {obj, lane, spacing};
             if (so1 === undefined) {
                 so1 = value;
@@ -406,7 +468,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         return {possibleUseful};
     }
     let create: StableObject | undefined = undefined;
-    let endElbowData: [{obj: StableObject, lane: number, spacing: number}, CAObject[]] | undefined = undefined;
+    let endElbowData: [CheckerObjectData, CAObject[]] | undefined = undefined;
     if (so1) {
         if (isTooBig(so1.obj.code)) {
             return;
@@ -446,7 +508,6 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
     }
     let end: ChannelRecipe['end'] | undefined = undefined;
     let endResult: CAObject[] | undefined = undefined;
-    let addGliders = 0;
     if (endElbowData) {
         let [elbow, result] = endElbowData;
         endResult = result;
@@ -455,67 +516,22 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             return;
         }
         let move = elbow.spacing;
-        if (str in elbows) {
-            let data = elbows[str];
-            let flipped = false;
-            while (data.type === 'convert' || data.type === 'alias') {
-                if (data.type === 'convert') {
-                    addGliders++;
-                    move += data.move;
-                }
-                flipped = flipped !== data.flipped;
-                str = data.elbow;
-            }
-            if (data.type === 'normal') {
-                end = {elbow: str, move, flipped};
-            } else {
-                addGliders++;
-            }
-        } else {
-            end = {elbow: str, move, flipped: false};
-            if (newElbows && !newElbows.includes(str)) {
-                newElbows.push(str);
-            }
+        end = {elbow: str, move, flipped: false, timing: elbow.obj.type === 'sl' ? 0 : elbow.obj.timing};
+        if (!(str in elbows) && newElbows && !newElbows.includes(str)) {
+            newElbows.push(str);
         }
     }
-    let value: ChannelRecipe = {start: elbowStr, recipe, time, end, create, emit};
-    let outputValue = false;
-    let next = findNextWorkingInput(info, elbowData, value, endResult);
+    let out: ChannelRecipe = {start: elbowStr, recipe, time, end, create, emit};
+    let next = findNextWorkingInput(info, elbowData, out, endResult);
     if (next !== false) {
-        let found = false;
-        for (let i = 0; i < addGliders; i++) {
-            value.recipe.push([next, 0]);
-            value.time += next;
-            let result = findNextWorkingInput(info, elbowData, value, endResult);
-            if (result !== false) {
-                next = result;
-            } else {
-                possibleUseful = `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
-                found = true;
-                break;
-            }
+        out.recipe.push([next, -1]);
+        out.time += next;
+        if (out.end && out.end.elbow.startsWith('xp')) {
+            out.end.timing = (out.end.timing + out.time) % parseInt(out.end.elbow.slice(2));
         }
-        if (!found) {
-            value.recipe.push([next, -1]);
-            value.time += next;
-            outputValue = true;
-            possibleUseful = `${channelRecipeInfoToString(value)}: ${channelRecipeToString(info, value.recipe)}\n`;
-        }
+        return resolveElbow(info, elbows, badElbows, out);
     } else {
-        for (let i = 0; i < addGliders; i++) {
-            value.recipe.push([info.maxNextSpacing, 0]);
-            value.time += info.maxNextSpacing;
-        }
-        possibleUseful = `probably broken ${channelRecipeInfoToString(value)}: ${strRecipe}\n`;
-    }
-    if (outputValue) {
-        if (possibleUseful) {
-            return {recipe: value, possibleUseful};
-        } else {
-            return {recipe: value};
-        }
-    } else if (possibleUseful) {
-        return {possibleUseful};
+        return {possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${strRecipe}\n`};
     }
 }
 
@@ -567,8 +583,8 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
         let [recipe, time] = recipes[i];
         let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, badElbows, newElbows);
         if (value) {
-            if (value.recipe) {
-                newRecipes.push(value.recipe);
+            if (value.recipes) {
+                newRecipes.push(...value.recipes);
             }
             if (value.possibleUseful) {
                 possibleUseful += value.possibleUseful;

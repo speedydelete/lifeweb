@@ -3,10 +3,10 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes, CAObject} from './base.js';
+import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
-import {ShipInfo, runInjection, findNextWorkingInput, findChannelResults} from './channel_searcher.js';
+import {ShipInfo, runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -47,7 +47,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
-function checkElbow(info: ChannelInfo, elbow: string, elbowData: [string, number], elbows: ElbowData): undefined | ElbowData['string'] {
+function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
     let period = 1;
     if (elbowData[0].startsWith('xp')) {
         period = parseInt(elbowData[0].slice(2));
@@ -60,109 +60,164 @@ function checkElbow(info: ChannelInfo, elbow: string, elbowData: [string, number
     if (typeof result2 !== 'object') {
         return;
     }
-    let result3 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + period, 0]]));
+    let result3 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + 2 * period, 0]]));
     if (typeof result3 !== 'object') {
         return;
     }
-}
-
-function addElbow(info: ChannelInfo, elbow: string, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): [string, false | ElbowData['string']] {
-    let possibleUseful = '';
-    if (out.badElbows.has(elbow)) {
-        return [possibleUseful, false];
-    }
-    let [obj, laneStr] = elbow.split('/');
-    let elbowData: [string, number] = [obj, parseInt(laneStr)];
-    let value: ElbowData['string'];
-    if (!(elbow in out.elbows)) {
-        let result = checkElbow(info, elbow, elbowData, out.elbows);
-        if (!result) {
-            out.badElbows.add(elbow);
-            return [possibleUseful, false];
-        } else {
-            out.elbows[elbow] = result;
-            value = result;
+    let result1Objs = objectsToString(result1);
+    let result2Objs = objectsToString(result2);
+    let result3Objs = objectsToString(result3);
+    if (!(result1Objs === result2Objs && result2Objs === result3Objs)) {
+        let out: ElbowData['string'] = [];
+        for (let i = 0; i < period; i++) {
+            let result = getCollision(elbowData[0], elbowData[1], i);
+            if (typeof result !== 'object') {
+                return;
+            }
+            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true);
+            if (typeof flippedResult !== 'object') {
+                return;
+            }
+            out.push({type: 'normal', time: 0, result, flippedResult});
         }
-    } else {
-        value = out.elbows[elbow];
+        return out;
     }
-    if (value.type === 'destroy') {
-        for (let i = 0; i < data.recipes.length; i++) {
-            let recipe = data.recipes[i];
-            if (recipe.end && recipe.end.elbow === elbow) {
-                recipe.recipe[recipe.recipe.length - 1][1] = 0;
-                let next = findNextWorkingInput(info, elbowData, recipe, undefined);
-                if (next) {
-                    recipe.recipe.push([next, -1]);
-                    recipe.time += next;
-                } else {
-                    possibleUseful += `probably broken ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
-                    data.recipes.splice(i, 1);
+    let out: ElbowData['string'] = [];
+    for (let i = 0; i < period; i++) {
+        let result = getCollision(elbowData[0], elbowData[1], i);
+        if (typeof result !== 'object') {
+            return;
+        }
+        if (result.length === 0) {
+            out.push({type: 'destroy'});
+        } else if (result.length === 1) {
+            let obj = result[0];
+            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
+            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
+            if (obj.type === 'osc') {
+                obj = normalizeOscillator(obj);
+            }
+            let str = `${obj.code}/${lane}`;
+            let flippedStr = `${obj.code}/${Infinity}`;
+            if (badElbows.has(str)) {
+                if (!badElbows.has(flippedStr)) {
+                    badElbows.add(flippedStr);
                 }
+                out.push({type: 'bad'});
+                continue;
             }
-        }
-    } else if (value.type === 'alias') {
-        for (let i = 0; i < data.recipes.length; i++) {
-            let recipe = data.recipes[i];
-            if (recipe.end && recipe.end.elbow === elbow) {
-                recipe.end.elbow = value.elbow;
-                recipe.end.flipped = recipe.end.flipped !== value.flipped;
+            if (badElbows.has(flippedStr)) {
+                if (!badElbows.has(str)) {
+                    badElbows.add(str);
+                }
+                out.push({type: 'bad'});
+                continue;
             }
-        }
-    } else if (value.type === 'convert') {
-        let value2: ElbowData['string'] = value;
-        let flipped = value.flipped;
-        let extraGliders = 1;
-        let move = 0;
-        while ((value2.type === 'alias' || value2.type === 'convert') && !(value2.elbow in out.elbows)) {
-            let result = addElbow(info, value2.elbow, data, out);
-            possibleUseful += result[0];
-            if (!result[1]) {
-                return [possibleUseful, false];
+            if (flippedStr in elbows) {
+                out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+            } else {
+                out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
             }
-            value2 = result[1];
-            if (result[1].type === 'convert') {
-                extraGliders++;
-                move += result[1].move;
-            }
-            if ('flipped' in result[1]) {
-                flipped = flipped !== result[1].flipped;
-            }
-        }
-        let result: CAObject[] | undefined;
-        if (value2.type === 'normal') {
-            result = flipped ? value2.flippedResult : value2.result;
         } else {
-            result = undefined;
-        }
-        for (let i = 0; i < data.recipes.length; i++) {
-            let recipe = data.recipes[i];
-            if (recipe.end && recipe.end.elbow === elbow) {
-                for (let j = 0; j < extraGliders; j++) {
-                    recipe.recipe[recipe.recipe.length - 1][1] = 0;
-                    let next = findNextWorkingInput(info, elbowData, recipe, result);
-                    if (next) {
-                        recipe.recipe.push([next, -1]);
-                        recipe.time += next;
-                    } else {
-                        possibleUseful += `probably broken ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
-                        data.recipes.splice(i, 1);
-                        break;
+            let codeStr = result1.map(x => x.code).sort().join(' ');
+            for (let value of Object.values(elbows)) {
+                for (let data of value) {
+                    if (data.type === 'normal') {
+                        if (result.length !== data.result.length) {
+                            continue;
+                        }
+                        let result2: CAObject[] = [];
+                        let flipped = false;
+                        if (codeStr === data.result.map(x => x.code).sort().join(' ')) {
+                            result2 = data.result;
+                        } else if (codeStr === data.flippedResult.map(x => x.code).sort().join(' ')) {
+                            result2 = data.flippedResult;
+                            flipped = true;
+                        } else {
+                            continue;
+                        }
+                        result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
+                        if (result[0].code !== result2[0].code) {
+                            continue;
+                        }
+                        let xDiff = result[0].x - result2[0].x;
+                        let yDiff = result[0].x - result2[0].x;
+                        if (xDiff !== yDiff * c.GLIDER_SLOPE) {
+                            continue;
+                        }
+                        let found2 = false;
+                        for (let i = 1; i < result.length; i++) {
+                            let obj = result[i];
+                            let obj2 = result2[i];
+                            if (obj.code !== obj2.code || obj.x - obj2.x !== xDiff || obj.y - obj2.y !== yDiff) {
+                                found2 = true;
+                                break;
+                            }
+                        }
+                        if (!found2) {
+                            let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
+                            out.push({type: 'alias', elbow: elbow, flipped, move: yDiff, timing});
+                        }
                     }
                 }
-                recipe.end.move += move;
             }
         }
     }
-    return [possibleUseful, value];
+}
+
+function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | false | ElbowData {
+    if (elbow in data.elbows || data.badElbows.has(elbow)) {
+        return;
+    }
+    let elbowParts = elbow.split('/');
+    let elbowData: [string, number] = [elbowParts[0], parseInt(elbowParts[1])];
+    let result = checkElbow(info, data.elbows, data.badElbows, elbow, elbowData);
+    if (!result) {
+        data.badElbows.add(elbow);
+        return;
+    }
+    let out: ElbowData = {elbow: result};
+    for (let value of result) {
+        if ((value.type === 'alias' || value.type === 'convert') && !(value.elbow in data.elbows)) {
+            if (depth === 16) {
+                return false;
+            }
+            let newOut = addElbow(info, elbow, data, depth + 1);
+            if (newOut === false) {
+                data.badElbows.add(elbow);
+                return false;
+            } else if (newOut) {
+                Object.assign(out, newOut);
+            } 
+        }
+    }
+    return out;
 }
 
 function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): string {
-    let possibleUseful = '';
     for (let elbow of data.newElbows) {
-        addElbow(info, elbow, data, out);
+        let value = addElbow(info, elbow, out);
+        if (value) {
+            for (let key in value) {
+                if (key in out.elbows) {
+                    throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
+                }
+                out.elbows[key] = value[key];
+            }
+        }
     }
+    let possibleUseful = '';
+    let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
+        if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
+            let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
+            recipes.push(...value.recipes);
+            possibleUseful += value.possibleUseful;
+        } else {
+            recipes.push(recipe);
+        }
+    }
+    for (let recipe of recipes) {
         if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
             continue;
         }

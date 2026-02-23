@@ -85,13 +85,19 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
 
 const SALVO_INFO = {gliderSpacing: 0};
 
-export function getCollision(code: string, lane: number): false | 'no' | 'linear' | CAObject[] {
+export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
     let inc = c.GLIDER_POPULATION_PERIOD;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
         inc = inc * period / gcd(inc, period);
     }
-    let p = createSalvoPattern(SALVO_INFO, code.slice(code.indexOf('_') + 1), [[lane, 0]]);
+    let p = createSalvoPattern(SALVO_INFO, code.slice(code.indexOf('_') + 1), [[lane, timing]]);
+    if (flip) {
+        p.flipDiagonal();
+        let temp = p.xOffset;
+        p.xOffset = p.yOffset;
+        p.yOffset = temp;
+    }
     let prevPop = p.population;
     for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
         p.run(c.GLIDER_POPULATION_PERIOD);
@@ -105,19 +111,19 @@ export function getCollision(code: string, lane: number): false | 'no' | 'linear
         }
         prevPop = pop;
     }
-    return false;
+    return 'no collision';
 }
 
 
 function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
-    let data = getCollision(target, lane);
+    let data = getCollision(target, lane, timing);
     if (data === 'no') {
         return false;
     }
-    while (data !== null) {
+    while (data !== 'no collision') {
         lane--;
-        data = getCollision(target, lane);
+        data = getCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -125,10 +131,10 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
             return false;
         }
     }
-    data = getCollision(target, lane);
-    while (data !== null) {
+    data = getCollision(target, lane, timing);
+    while (data !== 'no collision') {
         lane--;
-        data = getCollision(target, lane);
+        data = getCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -142,13 +148,23 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
     let out: [number, number, false | null | CAObject[]][] = [];
     let hadCollision = false;
     for (; lane < info.laneLimit; lane++) {
-        let data = getCollision(target, lane);
+        let data = getCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
         if (data === 'linear') {
             out.push([lane, timing, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
             continue;
+        } else if (data === 'no collision') {
+            if (!hadCollision) {
+                continue;
+            }
+            if (failed) {
+                break;
+            } else {
+                failed = true;
+                continue;
+            }
         } else if (data) {
             let obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target && x.x === 0 && x.y === 0);
             if (obj) {
@@ -167,17 +183,6 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
             }
         }
         out.push([lane, timing, data]);
-        if (data === null) {
-            if (!hadCollision) {
-                continue;
-            }
-            if (failed) {
-                break;
-            } else {
-                failed = true;
-                continue;
-            }
-        }
         if (!hadCollision) {
             hadCollision = true;
         }
@@ -300,6 +305,10 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
     let queue = [start];
     let depth = 0;
     while (true) {
+        if (queue.length === 0) {
+            log(`No objects to search!`);
+            process.exit(0);
+        }
         log(`Searching depth ${depth + 1} (${queue.length} objects)`);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
@@ -310,7 +319,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 done.add(code);
             }
             if (code.startsWith('xs')) {
-                let data = get1GSalvos(info, code, -1);
+                let data = get1GSalvos(info, code, 0);
                 if (data) {
                     let [newObjs, newOut] = data;
                     forInput[code] = newOut;

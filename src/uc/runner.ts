@@ -2,6 +2,7 @@
 import {lcm, MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator} from '../core/index.js';
 import {c, base, maxGenerations, StillLife, Oscillator, CAObject} from './base.js';
 
+
 type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
 
 function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
@@ -85,11 +86,12 @@ function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
             }
             out.push({
                 type: 'osc',
-                code: p.run(period - obj.p.generation % period).toApgcode('xp' + period),
+                code: p.toApgcode('xp' + period),
                 x: minX,
                 y: minY,
                 p,
                 bb,
+                timing: obj.p.generation,
             });
         } else {
             out.push({
@@ -163,6 +165,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
                 code: p.toApgcode('xp' + type.period),
                 x: p.xOffset,
                 y: p.yOffset,
+                timing: p.generation,
                 p,
                 bb: [q.xOffset, q.yOffset, q.xOffset + q.width - 1, q.yOffset + q.height - 1],
             });
@@ -227,12 +230,22 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
             }
         }
         for (let obj of data) {
-            out.push({
-                type: obj.type,
-                code: obj.code,
-                x: obj.x,
-                y: obj.y,
-            })
+            if (obj.type === 'sl') {
+                out.push({
+                    type: obj.type,
+                    code: obj.code,
+                    x: obj.x,
+                    y: obj.y,
+                });
+            } else {
+                out.push({
+                    type: obj.type,
+                    code: obj.code,
+                    x: obj.x,
+                    y: obj.y,
+                    timing: obj.timing,
+                });
+            }
         }
     }
     return out;

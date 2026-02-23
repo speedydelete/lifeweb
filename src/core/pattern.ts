@@ -447,9 +447,9 @@ export interface Pattern {
     rotateLeft(): this;
     /** Flips the pattern by 180 degrees. */
     rotate180(): this;
-    /** Flips the pattern along the line x = -y, alias for `transpose`. */
+    /** Flips the pattern along the line y = -x, alias for `transpose`. */
     flipDiagonal(): this;
-    /** Flips the pattern along the line x = y. */
+    /** Flips the pattern along the line y = x. */
     flipAntiDiagonal(): this;
     /** Gets the apgcode of the pattern. */
     toApgcode(prefix?: string): string;
