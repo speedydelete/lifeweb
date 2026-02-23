@@ -25,7 +25,7 @@ export interface PatternType extends PhaseData {
  * @param limit The maximum number of generations to run for.
  * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
  */
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true, checkLinear: boolean = false): PatternType {
+export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true, checkLinear: boolean = true): PatternType {
     p = p.copy().shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
