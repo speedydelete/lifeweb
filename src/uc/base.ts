@@ -536,7 +536,7 @@ export interface SalvoRecipes {
 }
 
 
-export type ElbowData = {[key: string]: {type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} | {type: 'alias', elbow: string, flipped: boolean} | {type: 'destroy'} | {type: 'convert', elbow: string, flipped: boolean}};
+export type ElbowData = {[key: string]: {type: 'normal', time: number, results: [CAObject[], CAObject[]][]} | {type: 'alias', elbow: string, flipped: boolean} | {type: 'destroy'} | {type: 'convert', elbow: string, flipped: boolean, move: number}};
 
 export interface ChannelRecipe {
     start: string;
@@ -697,17 +697,20 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                             flipped = true;
                             data = data.slice(0, ' (flipped)'.length);
                         }
-                        out.elbows[elbow] = {type: 'convert', elbow: data, flipped};
+                        let [elbow, moveStr] = data.split(' move ');
+                        out.elbows[elbow] = {type: 'convert', elbow, flipped, move: parseInt(moveStr)};
                     }
                 } else {
                     let [elbow, data] = line.split(': ');
                     let index = data.lastIndexOf(' ');
                     let time = parseInt(data.slice(index + 1));
                     data = data.slice(0, index);
-                    let [resultStr, flippedStr] = data.split(' / ');
-                    let result = stringToObjects(resultStr);
-                    let flippedResult = stringToObjects(flippedStr);
-                    out.elbows[elbow] = {type: 'normal', time, result, flippedResult};
+                    let results: [CAObject[], CAObject[]][] = [];
+                    for (let entry of data.split(' / ')) {
+                        let [normal, flipped] = entry.split('; ');
+                        results.push([stringToObjects(normal), stringToObjects(flipped)]);
+                    }
+                    out.elbows[elbow] = {type: 'normal', time, results};
                 }
             }
         } else if (section === 'bad elbows') {
@@ -850,7 +853,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             for (let [key, _, value] of data) {
                 let str: string;
                 if (value.type === 'normal') {
-                    str = `${key}: ${objectsToString(value.result)} (${value.time})`;
+                    str = `${key}: ${value.results.map(x => `${objectsToString(x[0])}; ${objectsToString(x[1])}`).join(' / ')} (${value.time})`;
                 } else if (value.type === 'alias') {
                     str = `${key} = ${value.elbow}`;
                     if (value.flipped) {

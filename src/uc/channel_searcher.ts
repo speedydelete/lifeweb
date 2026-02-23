@@ -6,9 +6,6 @@ import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
 
-// REMBMBER TO ADD MOVE VALUES TOGETHER WHILE COMBINING ELBOWS
-
-
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number): [[number, number][], number][] {
     let out: [[number, number][], number][] = [];
     let limit = Math.min(maxSpacing, depth);
@@ -464,6 +461,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             while (data.type === 'convert' || data.type === 'alias') {
                 if (data.type === 'convert') {
                     addGliders++;
+                    move += data.move;
                 }
                 flipped = flipped !== data.flipped;
                 str = data.elbow;

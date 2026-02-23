@@ -113,6 +113,7 @@ function addElbow(info: ChannelInfo, elbow: string, data: {recipes: ChannelRecip
         let value2: ElbowData['string'] = value;
         let flipped = value.flipped;
         let extraGliders = 1;
+        let move = 0;
         while ((value2.type === 'alias' || value2.type === 'convert') && !(value2.elbow in out.elbows)) {
             let result = addElbow(info, value2.elbow, data, out);
             possibleUseful += result[0];
@@ -122,6 +123,7 @@ function addElbow(info: ChannelInfo, elbow: string, data: {recipes: ChannelRecip
             value2 = result[1];
             if (result[1].type === 'convert') {
                 extraGliders++;
+                move += result[1].move;
             }
             if ('flipped' in result[1]) {
                 flipped = flipped !== result[1].flipped;
@@ -148,6 +150,7 @@ function addElbow(info: ChannelInfo, elbow: string, data: {recipes: ChannelRecip
                         break;
                     }
                 }
+                recipe.end.move += move;
             }
         }
     }
