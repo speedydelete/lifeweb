@@ -340,16 +340,16 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
             cellHistories[j][i] = phases[i][j];
         }
     }
-    let activeCells = 0;
-    let statorCells = 0;
-    let strictCells = 0;
     let factors: number[] = [];
-    for (let i = 2; i < Math.ceil(Math.sqrt(period)); i++) {
+    for (let i = 1; i < Math.ceil(Math.sqrt(period)); i++) {
         if (period % i === 0) {
             factors.push(i);
             factors.push(period / i);
         }
     }
+    let activeCells = 0;
+    let statorCells = 0;
+    let strictCells = 0;
     for (let i = 0; i < size; i++) {
         let data = cellHistories[i];
         if (data.every(x => x === 0)) {
@@ -379,7 +379,7 @@ export function findOscillatorInfo(type: PatternType): undefined | {heat: number
     }
     let temperature = heat / activeCells;
     let volatility = (activeCells - statorCells) / activeCells;
-    let strictVolatility = strictCells / activeCells;
+    let strictVolatility = strictCells / (activeCells + statorCells);
     return {heat, temperature, volatility, strictVolatility};
 }
 
