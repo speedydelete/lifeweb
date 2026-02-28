@@ -1,7 +1,7 @@
 
 import {MessagePort} from 'node:worker_threads';
 import {APGCODE_CHARS, lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -592,4 +592,16 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
         }
     }
     return {recipes: newRecipes, newElbows, possibleUseful, recipeCount: recipes.length};
+}
+
+
+
+if (import.meta.main) {
+    const {parentPort, workerData} = await import('node:worker_threads');
+    let info: ChannelInfo = workerData.info;
+    setMaxGenerations(workerData.maxGenerations);
+    let starts: [number, number][][] = workerData.starts;
+    (parentPort as MessagePort).on('message', data => {
+        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.depth, data.maxSpacing, starts, parentPort)]);
+    });
 }
