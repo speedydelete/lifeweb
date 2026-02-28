@@ -393,7 +393,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
             possibleUseful += value.possibleUseful;
         }
     }
-    console.log('RETURNING', out);
+    // console.log('RETURNING', out);
     return {recipes: out, possibleUseful};
 }
 
