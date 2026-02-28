@@ -184,15 +184,111 @@ export function getApgcode(type: PatternType): string {
     }
 }
 
-/** Gets a human-readable description of a pattern, such as "(1, 1)c/4 spaceship". */
-export function getDescription(type: PatternType): string {
+
+/** Parses a 5S-style speed format. */
+export function parseSpeed(speed: string): {dx: number, dy: number, period: number} {
+    speed = speed.toLowerCase();
+    let disp: string;
+    let period: string;
+    if (speed.includes('c')) {
+        [disp, period] = speed.split('c');
+        if (period.startsWith('/')) {
+            period = period.slice(1);
+        }
+    } else if (speed.includes('/')) {
+        [disp, period] = speed.split('/');
+    } else if (speed.startsWith('p')) {
+        return {dx: 0, dy: 0, period: parseInt(speed.slice(1))};
+    } else {
+        throw new Error('Invalid speed!');
+    }
+    let p = parseInt(period);
+    let x: number;
+    let y: number;
+    let num = parseInt(disp);
+    if (!Number.isNaN(num)) {
+        x = num;
+        if (period.endsWith('d')) {
+            y = num;
+        } else {
+            y = 0;
+        }
+    } else if (disp.startsWith('(')) {
+        let parts = disp.slice(1, -1).split(',');
+        x = parseInt(parts[0]);
+        y = parseInt(parts[1]);
+        if (Number.isNaN(x) || Number.isNaN(y) || parts.length !== 2) {
+            throw new Error('Invalid speed!');
+        }
+    } else if (disp === '') {
+        x = 1;
+        if (period.endsWith('d')) {
+            y = 1;
+        } else {
+            y = 0;
+        }
+    } else {
+        throw new Error('Invalid speed!');
+    }
+    return {dx: x, dy: y, period: p};
+}
+
+/** The reverse of `parseSpeed`, unparses into a normalized 5S-style format. */
+export function speedToString(dx: number, dy: number, period: number): string {
+    dx = Math.abs(dx);
+    dy = Math.abs(dy);
+    if (dy > dx) {
+        let temp = dx;
+        dx = dy;
+        dy = temp;
+    }
+    if (dy === 0) {
+        if (dx === 0) {
+            return `p${period}`;
+        } else if (dx === 1) {
+            return `c/${period}o`;
+        } else {
+            return `${dx}c/${period}o`;
+        }
+    } else if (dx === dy) {
+        if (dx === 1) {
+            return `c/${period}d`;
+        } else {
+            return `${dx}c/${period}d`;
+        }
+    } else {
+        return `(${dx}, ${dy})c/${period}`;
+    }
+}
+
+/** Gets a human-readable description of a pattern, such as "c/4d spaceship". */
+export function getDescription(type: PatternType | Identified): string {
     let out: string;
     if (type.linear) {
         if (type.disp) {
-            if (type.disp[0] === 0 && type.disp[1] === 0) {
-                out = `p${type.period} gun`;
+            let isStable = type.disp[0] === 0 && type.disp[1] === 0;
+            out = speedToString(type.disp[0], type.disp[1], type.period) + ' ';
+            if ('output' in type && type.output) {
+                if (type.output.linear) {
+                    if (type.output.disp) {
+                        let outputIsStable = type.output.disp[0] === 0 && type.output.disp[1] === 0;
+                        if ('output' in type.output && type.output.output) {
+                            if (type.output.output.disp) {
+                                out += `${isStable ? 'S' : 'M'}${outputIsStable ? 'S' : 'M'}${type.output.disp[0] === 0 && type.output.disp[1] === 0 ? 'S' : 'M'} breeder`;
+                            } else {
+                                out += `${isStable ? 'S' : 'M'}${outputIsStable ? 'S' : 'M'} breeder`;
+                            }
+                        }
+                    } else {
+                        out += `${isStable ? 'S' : 'M'} breeder`;
+                    }
+                } else if (type.output.disp && (type.disp[0] !== 0 || type.disp[1] !== 0)) {
+                    out += isStable ? 'gun' : 'rake';
+                } else {
+                    out += isStable ? 'factory' : 'puffer';
+                }
             } else {
-                out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} puffer`;
+                out += isStable ? 'factory' : 'puffer';
             }
         } else {
             out = `p${type.period} linear growth`;
@@ -210,14 +306,20 @@ export function getDescription(type: PatternType): string {
     } else {
         out = 'cannot identify';
     }
+    if (type.stabilizedAt > 0) {
+        out = 'stabilizes into ' + out;
+    }
     return out;
 }
 
 
 /** Contains information about linear-growth patterns. */
 export interface LinearInfo {
+    /** The period. */
     period: number;
+    /** The (x, y) displacement. */
     disp: [number, number];
+    /** The ash created by it. */
     ash: Pattern;
 }
 

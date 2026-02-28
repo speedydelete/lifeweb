@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Identify</title>
+        <meta charset="utf-8" />
+        <script>
+
+'use strict';
+const CONSTANTS=[3614090360,3905402710,606105819,3250441966,4118548399,1200080426,2821735955,4249261313,1770035416,2336552879,4294925233,2304563134,1804603682,4254626195,2792965006,1236535329,4129170786,3225465664,643717713,3921069994,3593408605,38016083,3634488961,3889429448,568446438,3275163606,4107603335,1163531501,2850285829,4243563512,1735328473,2368359562,4294588738,2272392833,1839030562,4259657740,2763975236,1272893353,4139469664,3200236656,681279174,3936430074,3572445317,76029189,3654602809,3873151461,530742520,3299628645,4096336452,1126891415,2878612391,4237533241,1700485571,2399980690,4293915773,2240044497,1873313359,4264355552,2734768916,1309151649,4149444226,3174756917,718787259,3951481745],SHIFTS=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21],BLOCKS=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1,6,11,0,5,10,15,4,9,14,3,8,13,2,7,12,5,8,11,14,1,4,7,10,13,0,3,6,9,12,15,2,0,7,14,5,12,3,10,1,8,15,6,13,4,11,2,9]
+function md5(t){let e=new Uint32Array(4)
+e[0]=1732584193,e[1]=4023233417,e[2]=2562383102,e[3]=271733878
+let r=Math.ceil(t.length/64)
+0===r&&(r=1),t.length%64>=56&&r++
+let s=new Uint8Array(64*r)
+s.set(t),s[t.length]=128
+let i=new DataView(s.buffer)
+i.setBigUint64(s.length-8,BigInt(8*t.length),!0)
+for(let t=0;t<r;t++){let r=e[0],s=e[1],n=e[2],l=e[3]
+for(let e=0;e<64;e++){let h
+h=e<16?s&n|~s&l:e<32?s&l|n&~l:e<48?s^n^l:n^(s|~l),h=h+r+CONSTANTS[e]+i.getUint32(4*(4*t+BLOCKS[e]),!0)|0,r=l,l=n,n=s,s=s+(h<<SHIFTS[e]|h>>>32-SHIFTS[e])|0}e[0]+=r,e[1]+=s,e[2]+=n,e[3]+=l}let n=new Uint8Array(16),l=new DataView(n.buffer)
+for(let t=0;t<4;t++)l.setUint32(4*t,e[t],!0)
+return n}function stringMD5(t){let e=new Uint8Array(t.length)
+for(let r=0;r<t.length;r++)e[r]=t.charCodeAt(r)
+return Array.from(md5(e)).map(t=>t.toString(16).padStart(2,"0")).join("")}
+class RuleError extends Error{constructor(){super(...arguments),this.name="RuleError"}}const RLE_LETTERS="ABCDEFGHIJKLMNOPQRSTUVWXYZ",RLE_PREFIXES="pqrstuvwxyz",RLE_CHARS=["."]
+RLE_CHARS.push(...RLE_LETTERS)
+for(let t of RLE_PREFIXES)for(let e of RLE_LETTERS)if(RLE_CHARS.push(t+e),256===RLE_CHARS.length)break
+const APGCODE_CHARS="0123456789abcdefghijklmnopqrstuvwxyz",COORD_BIAS=1<<25,COORD_WIDTH=1<<26,BIAS=33554432,WIDTH=67108864,SYMMETRY_JOIN={C1:{C1:"C1",C2:"C2",C4:"C4","D2-":"D2-","D2|":"D2|","D2/":"D2/","D2\\":"D2\\","D4+":"D4+",D4x:"D4x",D8:"D8"},C2:{C1:"C2",C2:"C2",C4:"C4","D2-":"D4+","D2|":"D4+","D2/":"D4x","D2\\":"D4x","D4+":"D4+",D4x:"D4x",D8:"D8"},C4:{C1:"C4",C2:"C4",C4:"C4","D2-":"D8","D2|":"D8","D2/":"D8","D2\\":"D8","D4+":"D8",D4x:"D8",D8:"D8"},"D2-":{C1:"D2-",C2:"D4+",C4:"D8","D2-":"D2-","D2|":"D4+","D2/":"D8","D2\\":"D8","D4+":"D4+",D4x:"D8",D8:"D8"},"D2|":{C1:"D2|",C2:"D4+",C4:"D8","D2-":"D4+","D2|":"D2|","D2/":"D8","D2\\":"D8","D4+":"D4+",D4x:"D8",D8:"D8"},"D2/":{C1:"D2/",C2:"D4x",C4:"D8","D2-":"D8","D2|":"D8","D2/":"D2/","D2\\":"D4x","D4+":"D8",D4x:"D4x",D8:"D8"},"D2\\":{C1:"D2\\",C2:"D4x",C4:"D8","D2-":"D8","D2|":"D8","D2/":"D4x","D2\\":"D2\\","D4+":"D8",D4x:"D4x",D8:"D8"},"D4+":{C1:"D4+",C2:"D4+",C4:"D8","D2-":"D4+","D2|":"D4+","D2/":"D8","D2\\":"D8","D4+":"D4+",D4x:"D8",D8:"D8"},D4x:{C1:"D4x",C2:"D4x",C4:"D8","D2-":"D8","D2|":"D8","D2/":"D4x","D2\\":"D4x","D4+":"D8",D4x:"D8",D8:"D8"},D8:{C1:"D8",C2:"D8",C4:"D8","D2-":"D8","D2|":"D8","D2/":"D8","D2\\":"D8","D4+":"D8",D4x:"D8",D8:"D8"}},SYMMETRY_MEET={C1:{C1:"C1",C2:"C1",C4:"C4","D2-":"C1","D2|":"C1","D2/":"C1","D2\\":"C1","D4+":"C1",D4x:"C1",D8:"C1"},C2:{C1:"C1",C2:"C2",C4:"C2","D2-":"C1","D2|":"C1","D2/":"C1","D2\\":"C1","D4+":"C2",D4x:"C2",D8:"C2"},C4:{C1:"C1",C2:"C2",C4:"C4","D2-":"C1","D2|":"C1","D2/":"C1","D2\\":"C1","D4+":"C1",D4x:"C1",D8:"C4"},"D2-":{C1:"C1",C2:"C1",C4:"C1","D2-":"D2-","D2|":"C1","D2/":"C1","D2\\":"C1","D4+":"D2-",D4x:"C1",D8:"D2-"},"D2|":{C1:"C1",C2:"C1",C4:"C1","D2-":"C1","D2|":"D2|","D2/":"C1","D2\\":"C1","D4+":"D2|",D4x:"C1",D8:"D2|"},"D2/":{C1:"C1",C2:"C1",C4:"C1","D2-":"C1","D2|":"C1","D2/":"D2/","D2\\":"C1","D4+":"C1",D4x:"D2/",D8:"D2/"},"D2\\":{C1:"C1",C2:"C1",C4:"C1","D2-":"C1","D2|":"C1","D2/":"C1","D2\\":"D2\\","D4+":"C1",D4x:"D2\\",D8:"D2\\"},"D4+":{C1:"C1",C2:"C2",C4:"C2","D2-":"D2-","D2|":"D2|","D2/":"C1","D2\\":"C1","D4+":"D4+",D4x:"C2",D8:"D4+"},D4x:{C1:"C1",C2:"C2",C4:"C2","D2-":"C1","D2|":"C1","D2/":"D2/","D2\\":"D2\\","D4+":"C2",D4x:"D4x",D8:"D4x"},D8:{C1:"C1",C2:"C2",C4:"C4","D2-":"D2-","D2|":"D2|","D2/":"D2/","D2\\":"D2\\","D4+":"D4+",D4x:"D4x",D8:"D8"}}
+function getRuleSymmetryFromBases(t,e,r,s,i,n){return e?r||s||i||r?"D8":"C4":t?r||s?i||n?"D8":"D4+":i||n?"D4x":"C2":r||s||i||n?i||n?r||s?"D8":i&&n?"D4x":i?"D2/":"D2\\":r&&s?"D4+":r?"D2-":"D2|":"C1"}
+function gcd(t,e){for(;e>0;){let r=e
+e=t%e,t=r}return t}
+function lcm(t,e){return t*e/gcd(t,e)}
+class DataPattern{constructor(t,e,r){this.xOffset=0,this.yOffset=0,this.generation=0,this.height=t,this.width=e,this.size=this.height*this.width,this.data=r}
+run(t){for(let e=0;e<t;e++)this.runGeneration()
+return this}get population(){let t=0
+for(let e=0;e<this.size;e++)this.data[e]&&t++
+return t}
+getRect(){return{height:this.height,width:this.width,xOffset:this.xOffset,yOffset:this.yOffset}}
+getFullOffset(){return[this.xOffset,this.yOffset]}
+isEmpty(){for(let t=0;t<this.data.length;t++)if(this.data[t])return!1
+return!0}
+ensure(t,e){if(t<0||e<0||t>this.width||e>this.height){let r=this.height,s=this.width,i=-e
+i<0&&(i=0)
+let n=e-this.height
+n<0&&(n=0)
+let l=-t
+l<0&&(l=0)
+let h=t-this.width
+h<0&&(h=0)
+let o=s+(l+h),a=r+i+n,f=o*a,u=new Uint8Array(f),d=o*i+l,p=0
+for(let t=0;t<r;t++)u.set(this.data.slice(p,p+s),d),d+=o,p+=s
+this.width=o,this.height=a,this.size=f,this.xOffset-=l,this.yOffset-=i,this.data=u}return this}
+offsetBy(t,e){let r=this.height+e,s=this.width+t,i=r*s,n=new Uint8Array(i),l=0,h=e*s+t
+for(let t=0;t<this.height;t++)n.set(this.data.slice(l,l+this.width),h),h+=s,l+=this.width
+return this.height=r,this.width=s,this.size=i,this.data=n,this.xOffset-=t,this.yOffset-=e,this}
+get(t,e){return t<0||e<0||t>=this.width||e>=this.height?0:this.data[e*this.width+t]}
+set(t,e,r=1){return this.data[e*this.width+t]=r,this}
+clear(){return this.height=0,this.width=0,this.size=0,this.data=new Uint8Array(0),this}
+clearPart(t,e,r,s){let i=e*this.width+t
+for(let t=0;t<r;t++)this.data.fill(0,i,i+s),i+=this.width
+return this}
+insert(t,e,r){for(let s=0;s<t.height;s++)for(let i=0;i<t.width;i++){let n=t.get(i,s)
+n&&(this.data[(r+s)*this.width+e+i]=n)}return this}
+insertCopy(t,e,r){let s=0,i=t.getData()
+for(let n=0;n<t.height;n++)this.data.set(i.slice(s,s+t.width),(r+n)*this.width+e),s+=t.width
+return this}
+insertAnd(t,e,r){for(let s=0;s<t.height;s++)for(let i=0;i<t.width;i++){let n=t.get(i,s)
+n&&(this.data[(r+s)*this.width+e+i]&=n)}return this}
+insertXor(t,e,r){for(let s=0;s<t.height;s++)for(let i=0;i<t.width;i++){let n=t.get(i,s)
+n&&(this.data[(r+s)*this.width+e+i]^=n)}return this}
+getData(){return this.data}
+setData(t,e,r){return this.data=r,this.height=t,this.width=e,this.size=t*e,this}
+getCoords(){let t=new Map
+for(let e=0;e<this.height;e++)for(let r=0;r<this.width;r++){let s=this.data[e*this.width+r]
+s&&t.set((r+BIAS)*WIDTH+(e+BIAS),s)}return t}
+setCoords(t){if(0===t.size)return this.height=0,this.width=0,this.size=0,this.data=new Uint8Array,this
+let e=1/0,r=-1/0,s=1/0,i=-1/0
+for(let n of t.keys()){let t=Math.floor(n/WIDTH)-BIAS,l=(n&WIDTH-1)-BIAS
+t<e&&(e=t),t>r&&(r=t),l<s&&(s=l),l>i&&(i=l)}this.height=r-e,this.width=i-s,this.size=this.height*this.width,this.data=new Uint8Array(this.size)
+for(let[e,r] of t){let t=Math.floor(e/WIDTH)-BIAS,s=(e&WIDTH-1)-BIAS
+this.data[s*this.width+t]=r}return this}
+isEqual(t){let e=t.getData()
+return this.height===t.height&&this.width===t.width&&this.xOffset===t.xOffset&&this.yOffset===t.yOffset&&this.data.every((t,r)=>t===e[r])}
+isEqualWithTranslate(t){let e=t.getData()
+if(this.height===t.height&&this.width===t.width&&this.data.every((t,r)=>t===e[r])){let[e,r]=t.getFullOffset()
+return[this.xOffset-e,this.yOffset-r]}return!1}
+hash32(){let t=2166136261
+if(2===this.states)for(let e=0;e<this.data.length;e+=8)t^=this.data[e]|this.data[e+1]<<1|this.data[e+2]<<2|this.data[e+3]<<3|this.data[e+4]<<4|this.data[e+5]<<5|this.data[e+6]<<5|this.data[e+7]<<5,t*=16777619
+else for(let e=0;e<this.data.length;e++)t^=this.data[e],t*=16777619
+return t}
+hash64(){let t=0xcbf29ce484222325n
+if(2===this.states)for(let e=0;e<this.data.length;e+=8)t^=BigInt(this.data[e]|this.data[e+1]<<1|this.data[e+2]<<2|this.data[e+3]<<3|this.data[e+4]<<4|this.data[e+5]<<5|this.data[e+6]<<5|this.data[e+7]<<5),t=(t+0x00000100000001b3n)%2n**64n
+else for(let e=0;e<this.data.length;e++)t^=BigInt(this.data[e]),t=(t+0x00000100000001b3n)%2n**64n
+return t}
+shrinkToFit(){let t=this.height,e=this.width,r=this.size,s=this.data
+if(s.every(t=>0===t))return this.height=0,this.width=0,this.size=0,this.data=new Uint8Array(0),this
+let i=0,n=0,l=0
+for(let t=0;t<r&&(i===l||n===l);t+=e)i===l&&s.slice(t,t+e).every(t=>0===t)&&i++,n===l&&s.slice(r-t-e,r-t).every(t=>0===t)&&n++,l++
+let h=0,o=0
+for(let t=0;t<e;t++){if(h===t){let i=!0
+for(let n=t;n<r;n+=e)if(s[n]){i=!1
+break}i&&h++}if(o===t){let i=!0
+for(let n=e-t-1;n<r;n+=e)if(s[n]){i=!1
+break}i&&o++}if(h!==t+1&&o!==t+1)break}if(0===i&&0===n&&0===h&&0===o)return this
+let a=i*e+h,f=0
+t-=i+n,e-=h+o,r=t*e
+let u=new Uint8Array(r)
+for(let r=0;r<t;r++){for(let t=0;t<e;t++)u[f++]=this.data[a++]
+a+=h+o}return this.height=t,this.width=e,this.size=t*e,this.xOffset+=h,this.yOffset+=i,this.data=u,this}
+expand(t,e,r,s){let i=this.width,n=this.height,l=i+(r+s),h=n+t+e,o=l*h,a=new Uint8Array(o),f=l*t+r,u=0
+for(let t=0;t<n;t++)a.set(this.data.slice(u,u+i),f),f+=l,u+=i
+return this.width=l,this.height=h,this.size=o,this.xOffset-=r,this.yOffset-=t,this.data=a,this}
+flipHorizontal(){let t=this.height,e=this.width,r=new Uint8Array(this.size),s=0,i=e-1
+for(let n=0;n<t;n++){for(let t=0;t<e;t++)r[i--]=this.data[s++]
+i+=2*e}return this.data=r,this}
+flipVertical(){let t=this.height,e=this.width,r=new Uint8Array(this.size),s=0,i=this.size-e
+for(let n=0;n<t;n++){for(let t=0;t<e;t++)r[i++]=this.data[s++]
+i-=2*e}return this.data=r,this}
+transpose(){let t=this.height,e=this.width,r=new Uint8Array(this.size),s=0
+for(let i=0;i<t;i++){let n=i
+for(let i=0;i<e;i++)r[n]=this.data[s++],n+=t}return this.data=r,this.height=e,this.width=t,this}
+rotateRight(){return this.transpose().flipHorizontal()}
+rotateLeft(){return this.transpose().flipVertical()}
+rotate180(){let t=this.height,e=this.width,r=new Uint8Array(t*e),s=0,i=this.size-1
+for(let n=0;n<t;n++)for(let t=0;t<e;t++)r[i--]=this.data[s++]
+return this.data=r,this}
+flipDiagonal(){return this.transpose()}
+flipAntiDiagonal(){return this.transpose().rotate180()}_toApgcode(t){let e=this.height,r=this.width,s=""
+for(let i=0;i<Math.ceil(e/5);i++){let e=0,n=i*r*5
+for(let i=0;i<r;i++){let l=APGCODE_CHARS[t[n+i]|t[n+r+i]<<1|t[n+2*r+i]<<2|t[n+3*r+i]<<3|t[n+4*r+i]<<4]
+if("0"===l)e++
+else{if(e>0){if(1===e)s+="0"
+else if(2===e)s+="w"
+else if(3===e)s+="x"
+else{for(;e>39;)e-=39,s+="yz"
+e>0&&(s+=1===e?"0":2===e?"w":3===e?"x":"y"+APGCODE_CHARS[e-4])}e=0}s+=l}}s+="z"}return s.slice(0,-1)}
+toApgcode(t){if(void 0===t?t="":t+="_",this.states<3)return t+this._toApgcode(this.data)
+{let e=t+this._toApgcode(this.data.map(t=>1===t?1:0))
+e+="_"+this._toApgcode(this.data.map(t=>t>1?1:0))
+let r=Math.ceil(Math.log2(this.states-2))
+if(r>0){let t=this.data.map(t=>t<2?0:4*(this.states-t)-2)
+for(let s=0;s<r;s++)e+="_"+this._toApgcode(t.map(t=>t&1<<s))}return e}}
+toCanonicalApgcode(t=1,e){let r=this.copy()
+r.shrinkToFit()
+let s=[]
+for(let e=0;e<t;e++)if(e>0&&(r.runGeneration(),r.shrinkToFit()),s.push(r.toApgcode()),"C1"!==this.ruleSymmetry){let t=r.copy()
+if("D8"===this.ruleSymmetry){s.push(t.rotateLeft().toApgcode())
+for(let e=0;e<2;e++){for(let e=0;e<4;e++)s.push(t.rotateLeft().toApgcode())
+t.flipHorizontal()}}else if("C2"===this.ruleSymmetry)s.push(t.rotate180().toApgcode())
+else if("C4"===this.ruleSymmetry)for(let e=0;e<4;e++)s.push(t.rotateLeft().toApgcode())
+else"D2-"===this.ruleSymmetry?s.push(t.flipHorizontal().toApgcode()):"D2|"===this.ruleSymmetry?s.push(t.flipVertical().toApgcode()):"D2/"===this.ruleSymmetry?s.push(t.flipDiagonal().toApgcode()):"D2\\"===this.ruleSymmetry?s.push(t.transpose().toApgcode()):"D4+"===this.ruleSymmetry?(s.push(t.flipHorizontal().toApgcode()),s.push(t.flipVertical().toApgcode()),s.push(t.flipHorizontal().toApgcode())):(s.push(t.flipDiagonal().toApgcode()),s.push(t.transpose().toApgcode()),s.push(t.flipDiagonal().toApgcode()))}let i=s[0]
+for(let t of s.slice(1))(t.length<i.length||t.length===i.length&&t<i)&&(i=t)
+return void 0===e?e="":e+="_",e+i}
+toRLE(){let t=`x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`,e="",r=0,s=0,i="",n=0,l=!0
+for(let h=0;h<this.height;h++)if(this.data.slice(s,s+this.width).every(t=>0===t))n++,s+=this.width
+else{if(l){if(n>0){let e=i.length
+i+=n+"$",n=0,i.length>69&&(t+=i.slice(0,e)+"\n",i=i.slice(e))}}else{let e=i.length
+n>0&&(i+=n+1,n=0),i+="$",i.length>69&&(t+=i.slice(0,e)+"\n",i=i.slice(e))}l=!1
+for(let n=0;n<this.width;n++){let n
+if(n=this.states>2?RLE_CHARS[this.data[s]]:this.data[s]?"o":"b",n===e)r++
+else{let s=i.length
+r>1&&(i+=r),i+=e,i.length>69&&(t+=i.slice(0,s)+"\n",i=i.slice(s)),e=n,r=1}s++}if("b"!==e&&"."!==e){let s=i.length
+r>1&&(i+=r),i+=e,i.length>69&&(t+=i.slice(0,s)+"\n",i=i.slice(s))}e="",r=1}return t+=i+"!",t}_loadApgcode(t){let e=[],r=0,s=0
+for(let i of t.split("_")){let t=[]
+for(let e of i.split("z")){let s=[]
+for(let t=0;t<e.length;t++){let r=e[t],i=APGCODE_CHARS.indexOf(r)
+if(i>=32)if("w"===r)s.push(0,0)
+else if("x"===r)s.push(0,0,0)
+else{let r=APGCODE_CHARS.indexOf(e[t+1])+4
+for(let t=0;t<r;t++)s.push(0)
+t++}else s.push(i)}s.length>r&&(r=s.length),t.push(s)}let n=5*t.length
+n>s&&(s=n),e.push(t)}let i=new Uint8Array(s*r)
+for(let t=0;t<e[0].length;t++){let s=r*t*5
+for(let n of e[0][t])i[s]=1&n,i[s+r]=n>>1&1,i[s+2*r]=n>>2&1,i[s+3*r]=n>>3&1,i[s+4*r]=n>>4&1,s++}if(2===e.length)for(let t=0;t<e[1].length;t++){let s=r*t*5
+for(let n of e[1][t])1&n&&(i[s]=2),n>>1&1&&(i[s+r]=2),n>>2&1&&(i[s+2*r]=2),n>>3&1&&(i[s+3*r]=2),n>>4&1&&(i[s+4*r]=2),s++}else if(e.length>2){for(let t=2;t<e.length;t++)for(let s=0;s<e[t].length;s++){let n=r*s*5
+for(let l of e[t][s])i[n]|=(1&l)<<t-2,i[n+r]|=(l>>1&1)<<t-2,i[n+2*r]|=(l>>2&1)<<t-2,i[n+3*r]|=(l>>3&1)<<t-2,i[n+4*r]|=(l>>4&1)<<t-2,n++}let t=Math.max(...i)
+for(let s=0;s<e[1].length;s++){let n=r*s*5
+for(let l of e[1][s])1&l&&(i[n]=t-i[n]+2),l>>1&1&&(i[n+r]=t-i[n+r]+2),l>>2&1&&(i[n+2*r]=t-i[n+2*r]+2),l>>3&1&&(i[n+3*r]=t-i[n+3*r]+2),l>>4&1&&(i[n+4*r]=t-i[n+4*r]+2),n++}}return[s,r,i]}_loadRLE(t){let e=[],r=[],s="",i=""
+for(let n=0;n<t.length;n++){let l=t[n]
+if("b"===l||"o"===l){let t="o"===l?1:0
+if(""===s)r.push(t)
+else{let e=parseInt(s)
+for(let s=0;s<e;s++)r.push(t)
+s=""}}else if("0123456789".includes(l))s+=l
+else if("$"===l){if(e.push(r),r=[],""!==s){let t=parseInt(s)
+for(let r=1;r<t;r++)e.push([])
+s=""}}else if("."===l)if(""===s)r.push(0)
+else{let t=parseInt(s)
+for(let e=0;e<t;e++)r.push(0)
+s=""}else if("ABCDEFGHIJKLMNOPQRSTUVWX".includes(l)){i&&(l=i+l)
+let t=RLE_CHARS.indexOf(l)
+if(""===s)r.push(t)
+else{let e=parseInt(s)
+for(let s=0;s<e;s++)r.push(t)
+s=""}}else"pqrstuvwxy".includes(l)&&(i=l)}e.push(r)
+let n=e.length,l=Math.max(...e.map(t=>t.length)),h=new Uint8Array(n*l)
+for(let t=0;t<e.length;t++){let r=t*l,s=e[t]
+for(let t=0;t<s.length;t++)h[r]=s[t],r++}return[n,l,h]}}
+const TRANSITIONS={"0c":[0],"1c":[4,256,1,64],"1e":[2,128,8,32],"2c":[5,320,65,260],"2e":[34,160,10,136],"2k":[66,129,258,264,12,96,132,33],"2a":[6,384,3,9,72,36,192,288],"2i":[130,40],"2n":[68,257],"3c":[69,321,261,324],"3e":[42,168,138,162],"3k":[98,161,266,140],"3a":[38,416,11,200],"3i":[292,73,7,448],"3n":[37,352,13,67,193,262,328,388],"3y":[133,322,97,268],"3q":[100,289,265,259,196,70,76,385],"3j":[137,74,164,224,35,392,290,14],"3r":[131,194,134,104,41,296,386,44],"4c":[325],"4e":[170],"4k":[99,225,270,330,141,354,396,165],"4a":[420,294,201,39,480,15,75,456],"4i":[45,360,195,390],"4n":[356,293,329,263,452,71,77,449],"4y":[389,326,197,101,353,269,323,332],"4q":[102,417,267,204],"4j":[169,106,172,226,163,394,298,142],"4r":[139,202,166,232,43,424,418,46],"4t":[135,450,105,300],"4w":[228,291,393,78],"4z":[198,387,297,108],"5c":[426,174,234,171],"5e":[453,327,357,333],"5k":[397,334,229,355],"5a":[457,79,484,295],"5i":[203,422,488,47],"5n":[458,143,482,428,302,233,167,107],"5y":[362,173,398,227],"5q":[395,206,230,236,299,425,419,110],"5j":[358,421,331,271,460,103,205,481],"5r":[364,301,361,391,454,199,109,451],"6c":[490,175,430,235],"6e":[461,335,485,359],"6k":[429,366,237,231,483,399,363,462],"6a":[489,111,492,486,423,459,303,207],"6i":[365,455],"6n":[427,238],"7c":[491,239,494,431],"7e":[493,367,487,463],"8c":[495]},VALID_TRANSITIONS=["c","ce","aceikn","aceijknqry","aceijknqrtwyz","aceijknqry","aceikn","ce","c"],HEX_TRANSITIONS={"0o":[0,4,64,68],"1o":[32,36,96,100,2,6,66,70,1,5,65,69,8,12,72,76,128,132,192,196,256,260,320,324],"2o":[34,38,98,102,3,7,67,71,9,13,73,77,136,140,200,204,384,388,448,452,288,292,352,356],"2m":[33,37,97,101,10,14,74,78,129,133,193,197,264,268,328,332,160,164,224,228,258,262,322,326],"2p":[40,44,104,108,130,134,194,198,257,261,321,325],"3o":[35,39,99,103,11,15,75,79,137,141,201,205,392,396,456,460,416,420,480,484,290,294,354,358],"3m":[42,46,106,110,41,45,105,109,162,166,226,230,131,135,195,199,168,172,232,236,138,142,202,206,289,293,353,357,259,263,323,327,296,300,360,364,265,269,329,333,386,390,450,454,385,389,449,453],"3p":[161,165,225,229,266,270,330,334],"4o":[393,397,457,461,424,428,488,492,418,422,482,486,291,295,355,359,43,47,107,111,139,143,203,207],"4m":[394,398,458,462,417,421,481,485,298,302,362,366,163,167,227,231,267,271,331,335,169,173,233,237],"4p":[387,391,451,455,297,301,361,365,170,174,234,238],"5o":[395,399,459,463,425,429,489,493,426,430,490,494,419,423,483,487,299,303,363,367,171,175,235,239],"6o":[427,431,491,495]},VALID_HEX_TRANSITIONS=["o","o","omp","omp","omp","o","o"],DIGITS="0123456789",LETTERS="abcdefghijklmnopqrstuvwxyz"
+function parseTransitions(t,e){if(0===t.length)return[]
+let r=new Set
+if(!DIGITS.includes(t[0]))throw new RuleError(`Expected digit, got '${t[0]}'`)
+let s=parseInt(t[0])
+if(s>=e.length)throw new RuleError(`No transitions with ${s} neighbors`)
+let i="",n=!1
+for(let l of t.slice(1))if(DIGITS.includes(l)){if(0===i.length)for(let t of e[s])r.add(s+t)
+else for(let t of i)n?r.delete(s+t):r.add(s+t)
+if(n=!1,i="",s=parseInt(l),s>=e.length)throw new RuleError(`No transitions with ${s} neighbors`)}else if("-"===l){if(i.length>0)throw new RuleError("Expected letter, got '-'")
+n=!0
+for(let t of e[s])r.add(s+t)}else{if(!LETTERS.includes(l))throw new RuleError(`Invalid character in isotropic rulestring: '${l}'`)
+if(!e[s].includes(l))throw new RuleError(`Invalid transition: '${s}${l}'`)
+i+=l}if(0===i.length)for(let t of e[s])r.add(s+t)
+else for(let t of i)n?r.delete(s+t):r.add(s+t)
+return Array.from(r)}function unparseTransitions(t,e,r){let s=[]
+for(let t=0;t<e.length;t++)s.push("")
+for(let e of t)s[parseInt(e[0])]+=e[1]
+let i=""
+for(let t=0;t<e.length;t++)if(""!==s[t])if(s[t].length===e[t].length)i+=t
+else{i+=t
+let n=Array.from(s[t]).sort().join(""),l="-"
+for(let r of e[t])n.includes(r)||(l+=r)
+n.length>l.length||n.length===l.length&&r?i+=l:i+=n}return i}function transitionsToArray(t,e,r){let s=new Uint8Array(512)
+for(let e of t)for(let t of r[e])s[t]=1
+for(let t of e)for(let e of r[t])s[16|e]=1
+return s}function arrayToTransitions(t,e){let r=[],s=[]
+for(let i in e){let n=0,l=0
+for(let r of e[i])t[r]&&n++,t[16|r]&&l++
+n>=Math.ceil(e[i].length/2)&&r.push(i),l>=Math.ceil(e[i].length/2)&&s.push(i)}return[r,s]}function parseIsotropic(t,e,r,s,i){let n=parseTransitions(t,s),l=parseTransitions(e,s)
+return{b:unparseTransitions(n,s,i),s:unparseTransitions(l,s,i),data:transitionsToArray(n,l,r)}}const BASE64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+function parseMAP(t){let e=new Uint8Array(64),r=0
+for(let s=0;s<t.length;s+=4){let i=BASE64.indexOf(t[s]),n=BASE64.indexOf(t[s+1]),l=BASE64.indexOf(t[s+2]),h=BASE64.indexOf(t[s+3])
+if(-1===l){e[r++]=i<<2|n>>4
+break}if(-1===h){if(e[r++]=i<<2|n>>4,r===e.length)break
+e[r++]=(15&n)<<4|l>>2
+break}if(e[r++]=i<<2|n>>4,r===e.length)break
+if(e[r++]=(15&n)<<4|l>>2,r===e.length)break
+if(e[r++]=(3&l)<<6|h,r===e.length)break}let s=new Uint8Array(512)
+for(let t=0;t<512;t++)e[Math.floor(t/8)]&1<<7-t%8&&(s[273&t|t>>2&34|t>>4&4|t<<2&136|t<<4&64]=1)
+return s}function unparseMAP(t){let e=new Uint8Array(64)
+for(let r=0;r<512;r++)t[273&r|r>>2&34|r>>4&4|r<<2&136|r<<4&64]&&(e[Math.floor(r/8)]|=1<<7-r%8)
+return btoa(String.fromCharCode(...e))}function findTransitionsSymmetry(t){let e=!0,r=!0,s=!0,i=!0,n=!0,l=!0
+for(let s=0;s<512;s++){let i=s<<6&448|56&s|s>>6
+if(i=(73&i)<<2|146&i|(292&i)>>2,t[s]!==t[i]){e=!1,r=!1
+break}}if(e)for(let e=0;e<512;e++)if(t[e]!==t[e>>2&66|e>>4&8|e>>6&1|e<<2&132|e<<6&256|e<<4&32|16&e]){r=!1
+break}for(let e=0;e<512;e++)if(t[e]!==t[(73&e)<<2|146&e|(292&e)>>2]){s=!1
+break}for(let e=0;e<512;e++)if(t[e]!==t[e<<6&448|56&e|e>>6]){i=!1
+break}for(let e=0;e<512;e++)if(t[e]!==t[273&e|e>>2&34|e>>4&4|e<<2&136|e<<4&64]){n=!1
+break}for(let e=0;e<512;e++)if(t[e]!==t[341&e|e>>2&136|e<<2&34]){l=!1
+break}return getRuleSymmetryFromBases(e,r,s,i,n,l)}function create16Trs(t){let e=new Uint8Array(65536)
+for(let r=0;r<65536;r++)e[r]|=t[r>>5&7|r>>6&56|r>>7&448]<<7,e[r]|=t[r>>4&7|r>>5&56|r>>6&448]<<6,e[r]|=t[r>>1&7|r>>2&56|r>>3&448]<<2,e[r]|=t[7&r|r>>1&56|r>>2&448]<<1
+return e}const POPCOUNT_TABLE=new Uint8Array(256)
+for(let t=0;t<256;t++)POPCOUNT_TABLE[t]=(1&t)+(t>>1&1)+(t>>2&1)+(t>>3&1)+(t>>4&1)+(t>>5&1)+(t>>6&1)+(t>>7&1)
+function runChunk(t,e){t.b||(t.b=new Uint32Array(256))
+for(let r=0;r<8;r+=2){let s=e[(13107&t.a[r])<<2|(52428&t.a[r+1])>>>2]|e[(t.a[r]>>>8&13107)<<2|(t.a[r+1]>>>8&52428)>>>2]<<8|e[t.a[r]>>>6&52428|t.a[r+1]>>>10&13107]<<16
+t.b[r]=e[65535&t.a[r]]|e[t.a[r]>>>8&65535]<<8|e[t.a[r]>>>16]<<16|(17476&s)>>>2,t.b[r+1]=e[65535&t.a[r+1]]|e[t.a[r+1]>>>8&65535]<<8|e[t.a[r+1]>>>16]<<16|(8738&s)<<2}e[(255&t.a[0])<<8|t.a[4]>>>24],e[(51&t.a[0])<<12|t.a[4]>>>26&204|t.a[1]>>2&13056|t.a[5]>>28&51],e[(255&t.a[1])<<8|t.a[5]>>>24]
+let r=t.b
+t.b=t.a,t.a=r}
+class MAPPattern extends DataPattern{constructor(t,e,r,s,i,n){super(t,e,r),this.states=2,this.rulePeriod=1,this.trs=s,this.ruleStr=i,this.ruleSymmetry=n}
+runGeneration(){let t=this.width,e=this.height,r=this.size,s=this.data,i=this.trs,n=t<<1,l=r-t,h=r-n,o=0,a=0,f=new Uint8Array(t),u=new Uint8Array(t),d=1,p=l+1,c=s[0]<<3|s[1],g=s[l]<<5|s[l+1]<<2
+t>1?(i[c]&&(o=1,f[0]=1),i[g]&&(a=1,u[0]=1)):(i[504&c]&&(o=1,f[0]=1),i[504&g]&&(a=1,u[0]=1))
+for(let e=1;e<t-1;e++)d++,p++,c=c<<3&511|s[d],g=g<<3&511|s[p]<<2,i[c]&&(o=1,f[e]=1),i[g]&&(a=1,u[e]=1)
+t>1?(i[c<<3&511]&&(o=1,f[t-1]=1),i[g<<3&511]&&(a=1,u[t-1]=1)):(i[c<<3&63]&&(o=1,f[t-1]=1),i[g<<3&63]&&(a=1,u[t-1]=1))
+let y=0,D=0,w=new Uint8Array(e),m=new Uint8Array(e)
+c=s[0]<<1|s[t],g=s[t-1]<<7|s[n-1]<<6,e>1?(i[c]&&(y=1,w[0]=1),i[g]&&(D=1,m[0]=1)):(i[438&c]&&(y=1,w[0]=1),i[438&g]&&(D=1,m[0]=1))
+let A=0
+for(d=n;d<r;d+=t)A++,c=c<<1&7|s[d],g=g<<1&511|s[d+t-1]<<6,i[c]&&(y=1,w[A]=1),i[g]&&(D=1,m[A]=1)
+d-=t,e>1?(i[c<<1&7]&&(y=1,w[e-1]=1),i[g<<1&511]&&(D=1,m[e-1]=1)):(i[c<<1&219]&&(y=1,w[e-1]=1),i[g<<1&219]&&(D=1,m[e-1]=1))
+let S=i[1]&&s[0]?1:0,T=i[64]&&s[t-1]?1:0,I=i[4]&&s[l]?1:0,C=i[256]&&s[r-1]?1:0;(S||T)&&(o=1),(I||C)&&(a=1),(S||I)&&(y=1),(T||C)&&(D=1)
+let x=y+D,O=(o?t+x:0)+y,P=O+x*e,R=t+x,E=e+o+a,H=R*E,_=new Uint8Array(H)
+if(_[0]=S,_[R-1]=T,_[H-R]=I,_[H-1]=C,o&&_.set(f,y),a&&_.set(u,r+P),y){let r=O-t-x-1
+for(d=0;d<e;d++)r+=t+x,_[r]=w[d]}if(D){let r=O-x
+for(d=0;d<e;d++)r+=t+x,_[r]=m[d]}if(t<=1){if(1===t){let t=s[0]<<4|s[1]<<3,r=O
+for(i[t]&&(_[r]=1),r+=x+1,d=2;d<e;d++)t=t<<1&63|s[d]<<3,i[t]&&(_[r]=1),r+=x+1
+i[t<<1&63]&&(_[r]=1)}}else{let r=O,n=l+P-x
+for(p=l+1,c=s[0]<<4|s[t]<<3|s[1]<<1|s[t+1],g=s[h]<<5|s[l]<<4|s[h+1]<<2|s[l+1]<<1,i[c]&&(_[r]=1),i[g]&&(_[n]=1),d=2;d<t;d++)p++,r++,n++,c=c<<3&511|s[d]<<1|s[d+t],i[c]&&(_[r]=1),g=g<<3&511|s[p-t]<<2|s[p]<<1,i[g]&&(_[n]=1)
+i[c<<3&511]&&(_[r+1]=1),i[g<<3&511]&&(_[n+1]=1),d=t+1,A=O+t
+for(let r=1;r<e-1;r++){A+=x
+let e=s[d-t-1]<<5|s[d-1]<<4|s[d+t-1]<<3|s[d-t]<<2|s[d]<<1|s[d+t]
+i[e]&&(_[A]=1),d++,A++
+for(let r=1;r<t-1;r++)e=e<<3&511|s[d-t]<<2|s[d]<<1|s[d+t],i[e]&&(_[A]=1),d++,A++
+i[e<<3&511]&&(_[A]=1),d++,A++}}this.height=E,this.width=R,this.size=H,this.data=_,this.xOffset-=y,this.yOffset-=o,this.generation++}
+copy(){let t=new MAPPattern(this.height,this.width,this.data.slice(),this.trs,this.ruleStr,this.ruleSymmetry)
+return t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t}
+clearedCopy(){return new MAPPattern(0,0,new Uint8Array(0),this.trs,this.ruleStr,this.ruleSymmetry)}
+copyPart(t,e,r,s){let i=new Uint8Array(s*r),n=0
+for(let l=e;l<e+r;l++)i.set(this.data.slice(l*this.width+t,l*this.width+t+s),n),n+=s
+return new MAPPattern(r,s,i,this.trs,this.ruleStr,this.ruleSymmetry)}
+loadApgcode(t){let[e,r,s]=this._loadApgcode(t)
+return new MAPPattern(e,r,s,this.trs,this.ruleStr,this.ruleSymmetry)}
+loadRLE(t){let[e,r,s]=this._loadRLE(t)
+return new MAPPattern(e,r,s,this.trs,this.ruleStr,this.ruleSymmetry)}}
+class MAPB0Pattern extends DataPattern{constructor(t,e,r,s,i,n,l){super(t,e,r),this.states=2,this.rulePeriod=2,this.evenTrs=s,this.oddTrs=i,this.ruleStr=n,this.ruleSymmetry=l}
+runGeneration(){let t=this.width,e=this.height,r=this.size,s=this.data,i=this.generation%2==0?this.evenTrs:this.oddTrs,n=t<<1,l=r-t,h=r-n,o=0,a=0,f=new Uint8Array(t),u=new Uint8Array(t),d=1,p=l+1,c=s[0]<<3|s[1],g=s[l]<<5|s[l+1]<<2
+t>1?(i[c]&&(o=1,f[0]=1),i[g]&&(a=1,u[0]=1)):(i[504&c]&&(o=1,f[0]=1),i[504&g]&&(a=1,u[0]=1))
+for(let e=1;e<t-1;e++)d++,p++,c=c<<3&511|s[d],g=g<<3&511|s[p]<<2,i[c]&&(o=1,f[e]=1),i[g]&&(a=1,u[e]=1)
+t>1?(i[c<<3&511]&&(o=1,f[t-1]=1),i[g<<3&511]&&(a=1,u[t-1]=1)):(i[c<<3&63]&&(o=1,f[t-1]=1),i[g<<3&63]&&(a=1,u[t-1]=1))
+let y=0,D=0,w=new Uint8Array(e),m=new Uint8Array(e)
+c=s[0]<<1|s[t],g=s[t-1]<<7|s[n-1]<<6,e>1?(i[c]&&(y=1,w[0]=1),i[g]&&(D=1,m[0]=1)):(i[438&c]&&(y=1,w[0]=1),i[438&g]&&(D=1,m[0]=1))
+let A=0
+for(d=n;d<r;d+=t)A++,c=c<<1&7|s[d],g=g<<1&511|s[d+t-1]<<6,i[c]&&(y=1,w[A]=1),i[g]&&(D=1,m[A]=1)
+d-=t,e>1?(i[c<<1&7]&&(y=1,w[e-1]=1),i[g<<1&511]&&(D=1,m[e-1]=1)):(i[c<<1&219]&&(y=1,w[e-1]=1),i[g<<1&219]&&(D=1,m[e-1]=1))
+let S=i[1]&&s[0]?1:0,T=i[64]&&s[t-1]?1:0,I=i[4]&&s[l]?1:0,C=i[256]&&s[r-1]?1:0;(S||T)&&(o=1),(I||C)&&(a=1),(S||I)&&(y=1),(T||C)&&(D=1)
+let x=y+D,O=(o?t+x:0)+y,P=O+x*e,R=t+x,E=e+o+a,H=R*E,_=new Uint8Array(H)
+if(_[0]=S,_[R-1]=T,_[H-R]=I,_[H-1]=C,o&&_.set(f,y),a&&_.set(u,r+P),y){let r=O-t-x-1
+for(d=0;d<e;d++)r+=t+x,_[r]=w[d]}if(D){let r=O-x
+for(d=0;d<e;d++)r+=t+x,_[r]=m[d]}if(t<=1){if(1===t){let t=s[0]<<4|s[1]<<3,r=O
+for(i[t]&&(_[r]=1),r+=x+1,d=2;d<e;d++)t=t<<1&63|s[d]<<3,i[t]&&(_[r]=1),r+=x+1
+i[t<<1&63]&&(_[r]=1)}}else{let r=O,n=l+P-x
+for(p=l+1,c=s[0]<<4|s[t]<<3|s[1]<<1|s[t+1],g=s[h]<<5|s[l]<<4|s[h+1]<<2|s[l+1]<<1,i[c]&&(_[r]=1),i[g]&&(_[n]=1),d=2;d<t;d++)p++,r++,n++,c=c<<3&511|s[d]<<1|s[d+t],i[c]&&(_[r]=1),g=g<<3&511|s[p-t]<<2|s[p]<<1,i[g]&&(_[n]=1)
+i[c<<3&511]&&(_[r+1]=1),i[g<<3&511]&&(_[n+1]=1),d=t+1,A=O+t
+for(let r=1;r<e-1;r++){A+=x
+let e=s[d-t-1]<<5|s[d-1]<<4|s[d+t-1]<<3|s[d-t]<<2|s[d]<<1|s[d+t]
+i[e]&&(_[A]=1),d++,A++
+for(let r=1;r<t-1;r++)e=e<<3&511|s[d-t]<<2|s[d]<<1|s[d+t],i[e]&&(_[A]=1),d++,A++
+i[e<<3&511]&&(_[A]=1),d++,A++}}this.height=E,this.width=R,this.size=H,this.data=_,this.xOffset-=y,this.yOffset-=o,this.generation++}
+copy(){let t=new MAPB0Pattern(this.height,this.width,this.data.slice(),this.evenTrs,this.oddTrs,this.ruleStr,this.ruleSymmetry)
+return t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t}
+clearedCopy(){return new MAPB0Pattern(0,0,new Uint8Array(0),this.evenTrs,this.oddTrs,this.ruleStr,this.ruleSymmetry)}
+copyPart(t,e,r,s){let i=new Uint8Array(s*r),n=0
+for(let l=e;l<e+r;l++)i.set(this.data.slice(l*this.width+t,l*this.width+t+s),n),n+=s
+return new MAPB0Pattern(r,s,i,this.evenTrs,this.oddTrs,this.ruleStr,this.ruleSymmetry)}
+loadApgcode(t){let[e,r,s]=this._loadApgcode(t)
+return new MAPB0Pattern(e,r,s,this.evenTrs,this.oddTrs,this.ruleStr,this.ruleSymmetry)}
+loadRLE(t){let[e,r,s]=this._loadRLE(t)
+return new MAPB0Pattern(e,r,s,this.evenTrs,this.oddTrs,this.ruleStr,this.ruleSymmetry)}}
+class MAPGenPattern extends DataPattern{constructor(t,e,r,s,i,n,l){super(t,e,r),this.rulePeriod=1,this.trs=s,this.states=i,this.ruleStr=n,this.ruleSymmetry=l}
+runGeneration(){let t=this.width,e=this.height,r=this.size,s=this.states,i=this.data,n=this.data.map(t=>1===t?1:0),l=this.trs,h=t<<1,o=r-t,a=r-h,f=0,u=0,d=new Uint8Array(t),p=new Uint8Array(t),c=1,g=o+1,y=n[0]<<3|n[1],D=n[o]<<5|n[o+1]<<2
+t>1?(l[y]&&(f=1,d[0]=1),l[D]&&(u=1,p[0]=1)):(l[504&y]&&(f=1,d[0]=1),l[504&D]&&(u=1,p[0]=1))
+for(let e=1;e<t-1;e++)c++,g++,y=y<<3&511|n[c],D=D<<3&511|n[g]<<2,l[y]&&(f=1,d[e]=1),l[D]&&(u=1,p[e]=1)
+t>1?(l[y<<3&511]&&(f=1,d[t-1]=1),l[D<<3&511]&&(u=1,p[t-1]=1)):(l[y<<3&63]&&(f=1,d[t-1]=1),l[D<<3&63]&&(u=1,p[t-1]=1))
+let w=0,m=0,A=new Uint8Array(e),S=new Uint8Array(e)
+y=n[0]<<1|n[t],D=n[t-1]<<7|n[h-1]<<6,e>1?(l[y]&&(w=1,A[0]=1),l[D]&&(m=1,S[0]=1)):(l[438&y]&&(w=1,A[0]=1),l[438&D]&&(m=1,S[0]=1))
+let T=0
+for(c=h;c<r;c+=t)T++,y=y<<1&7|n[c],D=D<<1&511|n[c+t-1]<<6,l[y]&&(w=1,A[T]=1),l[D]&&(m=1,S[T]=1)
+c-=t,e>1?(l[y<<1&7]&&(w=1,A[e-1]=1),l[D<<1&511]&&(m=1,S[e-1]=1)):(l[y<<1&219]&&(w=1,A[e-1]=1),l[D<<1&219]&&(m=1,S[e-1]=1))
+let I=l[1]&&n[0]?1:0,C=l[64]&&n[t-1]?1:0,x=l[4]&&n[o]?1:0,O=l[256]&&n[r-1]?1:0;(I||C)&&(f=1),(x||O)&&(u=1),(I||x)&&(w=1),(C||O)&&(m=1)
+let P=w+m,R=(f?t+P:0)+w,E=R+P*e,H=t+P,_=e+f+u,M=H*_,b=new Uint8Array(M)
+if(b[0]=I,b[H-1]=C,b[M-H]=x,b[M-1]=O,f&&b.set(d,w),u&&b.set(p,r+E),w){let r=R-t-P-1
+for(c=0;c<e;c++)r+=t+P,b[r]=A[c]}if(m){let r=R-P
+for(c=0;c<e;c++)r+=t+P,b[r]=S[c]}if(t<=1){if(1===t){let t=i[0]<<4|i[1]<<3,r=R
+for(i[0]<2?l[t]?b[r]=1:i[0]&&(b[r]=2):b[r]=(i[0]+1)%s,r+=P+1,c=2;c<e;c++)t=t<<1&63|i[c]<<3,i[c-1]<2?l[t]?b[r]=1:i[c-1]&&(b[r]=2):b[r]=(i[c-1]+1)%s,r+=P+1
+l[t<<1&63]&&(b[r]=1)}}else{let r=R,h=o+E-P
+for(g=o+1,y=n[0]<<4|n[t]<<3|n[1]<<1|n[t+1],D=n[a]<<5|n[o]<<4|n[a+1]<<2|n[o+1]<<1,i[0]<2?l[y]?b[r]=1:i[0]&&(b[r]=2):b[r]=(i[0]+1)%s,i[o]<2?l[D]?b[h]=1:i[o]&&(b[h]=2):b[h]=(i[o]+1)%s,c=2;c<t;c++)g++,r++,h++,y=y<<3&511|n[c]<<1|n[c+t],i[c-1]<2?l[y]?b[r]=1:i[c-1]&&(b[r]=2):b[r]=(i[c-1]+1)%s,D=D<<3&511|n[g-t]<<2|n[g]<<1,i[g-1]<2?l[D]?b[h]=1:i[g-1]&&(b[h]=2):b[h]=(i[g-1]+1)%s
+c--,r++,h++,i[c]<2?l[y<<3&511]?b[r]=1:i[c]&&(b[r]=2):b[r]=(i[c]+1)%s,i[g]<2?l[D<<3&511]?b[h]=1:i[g]&&(b[h]=2):b[h]=(i[g]+1)%s,c=t+1,T=R+t
+for(let r=1;r<e-1;r++){T+=P
+let e=n[c-t-1]<<5|n[c-1]<<4|n[c+t-1]<<3|n[c-t]<<2|n[c]<<1|n[c+t]
+i[c-1]<2?l[e]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++
+for(let r=1;r<t-1;r++)e=e<<3&511|n[c-t]<<2|n[c]<<1|n[c+t],i[c-1]<2?l[e]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++
+i[c-1]<2?l[e<<3&511]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++}}this.height=_,this.width=H,this.size=M,this.data=b,this.xOffset-=w,this.yOffset-=f,this.generation++}
+copy(){let t=new MAPGenPattern(this.height,this.width,this.data.slice(),this.trs,this.states,this.ruleStr,this.ruleSymmetry)
+return t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t}
+clearedCopy(){return new MAPGenPattern(0,0,new Uint8Array(0),this.trs,this.states,this.ruleStr,this.ruleSymmetry)}
+copyPart(t,e,r,s){let i=new Uint8Array(s*r),n=0
+for(let l=e;l<e+r;l++)i.set(this.data.slice(l*this.width+t,l*this.width+t+s),n),n+=s
+return new MAPGenPattern(r,s,i,this.trs,this.states,this.ruleStr,this.ruleSymmetry)}
+loadApgcode(t){let[e,r,s]=this._loadApgcode(t)
+return new MAPGenPattern(e,r,s,this.trs,this.states,this.ruleStr,this.ruleSymmetry)}
+loadRLE(t){let[e,r,s]=this._loadRLE(t)
+return new MAPGenPattern(e,r,s,this.trs,this.states,this.ruleStr,this.ruleSymmetry)}}
+class MAPGenB0Pattern extends DataPattern{constructor(t,e,r,s,i,n,l,h){super(t,e,r),this.rulePeriod=2,this.evenTrs=s,this.oddTrs=i,this.states=n,this.ruleStr=l,this.ruleSymmetry=h}
+runGeneration(){let t=this.width,e=this.height,r=this.size,s=this.states,i=this.data,n=this.data.map(t=>1===t?1:0),l=this.generation%2==0?this.evenTrs:this.oddTrs,h=t<<1,o=r-t,a=r-h,f=0,u=0,d=new Uint8Array(t),p=new Uint8Array(t),c=1,g=o+1,y=n[0]<<3|n[1],D=n[o]<<5|n[o+1]<<2
+t>1?(l[y]&&(f=1,d[0]=1),l[D]&&(u=1,p[0]=1)):(l[504&y]&&(f=1,d[0]=1),l[504&D]&&(u=1,p[0]=1))
+for(let e=1;e<t-1;e++)c++,g++,y=y<<3&511|n[c],D=D<<3&511|n[g]<<2,l[y]&&(f=1,d[e]=1),l[D]&&(u=1,p[e]=1)
+t>1?(l[y<<3&511]&&(f=1,d[t-1]=1),l[D<<3&511]&&(u=1,p[t-1]=1)):(l[y<<3&63]&&(f=1,d[t-1]=1),l[D<<3&63]&&(u=1,p[t-1]=1))
+let w=0,m=0,A=new Uint8Array(e),S=new Uint8Array(e)
+y=n[0]<<1|n[t],D=n[t-1]<<7|n[h-1]<<6,e>1?(l[y]&&(w=1,A[0]=1),l[D]&&(m=1,S[0]=1)):(l[438&y]&&(w=1,A[0]=1),l[438&D]&&(m=1,S[0]=1))
+let T=0
+for(c=h;c<r;c+=t)T++,y=y<<1&7|n[c],D=D<<1&511|n[c+t-1]<<6,l[y]&&(w=1,A[T]=1),l[D]&&(m=1,S[T]=1)
+c-=t,e>1?(l[y<<1&7]&&(w=1,A[e-1]=1),l[D<<1&511]&&(m=1,S[e-1]=1)):(l[y<<1&219]&&(w=1,A[e-1]=1),l[D<<1&219]&&(m=1,S[e-1]=1))
+let I=l[1]&&n[0]?1:0,C=l[64]&&n[t-1]?1:0,x=l[4]&&n[o]?1:0,O=l[256]&&n[r-1]?1:0;(I||C)&&(f=1),(x||O)&&(u=1),(I||x)&&(w=1),(C||O)&&(m=1)
+let P=w+m,R=(f?t+P:0)+w,E=R+P*e,H=t+P,_=e+f+u,M=H*_,b=new Uint8Array(M)
+if(b[0]=I,b[H-1]=C,b[M-H]=x,b[M-1]=O,f&&b.set(d,w),u&&b.set(p,r+E),w){let r=R-t-P-1
+for(c=0;c<e;c++)r+=t+P,b[r]=A[c]}if(m){let r=R-P
+for(c=0;c<e;c++)r+=t+P,b[r]=S[c]}if(t<=1){if(1===t){let t=i[0]<<4|i[1]<<3,r=R
+for(i[0]<2?l[t]?b[r]=1:i[0]&&(b[r]=2):b[r]=(i[0]+1)%s,r+=P+1,c=2;c<e;c++)t=t<<1&63|i[c]<<3,i[c-1]<2?l[t]?b[r]=1:i[c-1]&&(b[r]=2):b[r]=(i[c-1]+1)%s,r+=P+1
+l[t<<1&63]&&(b[r]=1)}}else{let r=R,h=o+E-P
+for(g=o+1,y=n[0]<<4|n[t]<<3|n[1]<<1|n[t+1],D=n[a]<<5|n[o]<<4|n[a+1]<<2|n[o+1]<<1,i[0]<2?l[y]?b[r]=1:i[0]&&(b[r]=2):b[r]=(i[0]+1)%s,i[o]<2?l[D]?b[h]=1:i[o]&&(b[h]=2):b[h]=(i[o]+1)%s,c=2;c<t;c++)g++,r++,h++,y=y<<3&511|n[c]<<1|n[c+t],i[c-1]<2?l[y]?b[r]=1:i[c-1]&&(b[r]=2):b[r]=(i[c-1]+1)%s,D=D<<3&511|n[g-t]<<2|n[g]<<1,i[g-1]<2?l[D]?b[h]=1:i[g-1]&&(b[h]=2):b[h]=(i[g-1]+1)%s
+c--,r++,h++,i[c]<2?l[y<<3&511]?b[r]=1:i[c]&&(b[r]=2):b[r]=(i[c]+1)%s,i[g]<2?l[D<<3&511]?b[h]=1:i[g]&&(b[h]=2):b[h]=(i[g]+1)%s,c=t+1,T=R+t
+for(let r=1;r<e-1;r++){T+=P
+let e=n[c-t-1]<<5|n[c-1]<<4|n[c+t-1]<<3|n[c-t]<<2|n[c]<<1|n[c+t]
+i[c-1]<2?l[e]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++
+for(let r=1;r<t-1;r++)e=e<<3&511|n[c-t]<<2|n[c]<<1|n[c+t],i[c-1]<2?l[e]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++
+i[c-1]<2?l[e<<3&511]?b[T]=1:i[c-1]&&(b[T]=2):b[T]=(i[c-1]+1)%s,c++,T++}}this.height=_,this.width=H,this.size=M,this.data=b,this.xOffset-=w,this.yOffset-=f,this.generation++}
+copy(){let t=new MAPGenB0Pattern(this.height,this.width,this.data.slice(),this.evenTrs,this.oddTrs,this.states,this.ruleStr,this.ruleSymmetry)
+return t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t}
+clearedCopy(){return new MAPGenB0Pattern(0,0,new Uint8Array(0),this.evenTrs,this.oddTrs,this.states,this.ruleStr,this.ruleSymmetry)}
+copyPart(t,e,r,s){let i=new Uint8Array(s*r),n=0
+for(let l=e;l<e+r;l++)i.set(this.data.slice(l*this.width+t,l*this.width+t+s),n),n+=s
+return new MAPGenB0Pattern(r,s,i,this.evenTrs,this.oddTrs,this.states,this.ruleStr,this.ruleSymmetry)}
+loadApgcode(t){let[e,r,s]=this._loadApgcode(t)
+return new MAPGenB0Pattern(e,r,s,this.evenTrs,this.oddTrs,this.states,this.ruleStr,this.ruleSymmetry)}
+loadRLE(t){let[e,r,s]=this._loadRLE(t)
+return new MAPGenB0Pattern(e,r,s,this.evenTrs,this.oddTrs,this.states,this.ruleStr,this.ruleSymmetry)}}const VON_NEUMANN=[["0c","1c","2c","2n","3c","4c"],["1e","2a","2k","3i","3n","3y","3q","4n","4y","5e"],["2e","2i","3k","3a","3j","3r","4k","4a","4i","4q","4t","4w","4z","5k","5a","5j","5r","6e","6i"],["3e","4j","4r","5i","5n","5y","5q","6k","6a","7e"],["4e","5c","6c","6n","7c","8c"]]
+function createMAPPattern(t,e,r,s){let i,n,l=new Uint8Array(512),h="M",o=2,a=t[t.length-1]
+if("V"===a||"H"===a?(h=a,t=t.slice(0,-1)):"v"===a?(h="V",t=t.slice(0,-1)):"h"===a&&(h="H",t=t.slice(0,-1)),(n=t.match(/^[gG]([0-9]+)/))&&(o=parseInt(n[1]),t=t.slice(n[0].length)),(n=t.match(/\/[GgCc]?(\d+)$/))&&(o=parseInt(n[1]),t=t.slice(0,-n[0].length)),a=t[t.length-1],"V"===a||"H"===a?(h=a,t=t.slice(0,-1)):"v"===a?(h="V",t=t.slice(0,-1)):"h"===a&&(h="H",t=t.slice(0,-1)),t.startsWith("MAP"))l=parseMAP(t.slice(3)),i="MAP"+unparseMAP(l)
+else if(t.startsWith("W")){if(!t.match(/^W\d+$/))throw new RuleError("Invalid W rule")
+let e=parseInt(t.slice(1))
+if(Number.isNaN(e))throw new RuleError("Invalid W rule")
+for(let t=0;t<512;t++)l[16|t]=1
+for(let t=0;t<8;t++)e&1<<t&&(l[(4&t)<<6|(2&t)<<4|(1&t)<<2]=1)
+i="W"+e}else{let e,r,s="",n="",a=!1
+if(t.includes("/")){if(e=t.split("/"),e.length>2)throw new RuleError("More than 1 slash provided")}else if(t.includes("_")){if(e=t.split("_"),e.length>2)throw new RuleError("More than 1 underscore provided")}else if(t.includes("S")||t.includes("s")){let r=t.indexOf("s");-1===r&&(r=t.indexOf("S")),e=[t.slice(0,r),t.slice(r)],a=!0}else e=[t]
+for(let t=0;t<e.length;t++){let r=e[t]
+if("B"===r[0]||"b"===r[0])a=!0,s=r.slice(1)
+else if("S"===r[0]||"s"===r[0])a=!0,n=r.slice(1)
+else{if(a)throw new RuleError("Expected 'B', 'b', 'S', or 's'")
+if(0===t)n=r
+else{if(1!==t)throw new RuleError("Expected 'B', 'b', 'S', or 's'")
+s=r}}}if("V"===h){let t=""
+for(let e of s){let r=parseInt(e)
+if(!(r>=0&&r<VON_NEUMANN.length))throw new RuleError(`Invalid character in von Neumann rule: '${e}'`)
+t+=VON_NEUMANN[r].join("")}s=t
+let e=""
+for(let t of n){let r=parseInt(t)
+if(!(r>=0&&r<VON_NEUMANN.length))throw new RuleError(`Invalid character in von Neumann rule: '${t}'`)
+e+=VON_NEUMANN[r].join("")}n=e,h="M"}if("M"===h)r=parseIsotropic(s,n,TRANSITIONS,VALID_TRANSITIONS)
+else{if("H"!==h)return`R1,C${o},B${s},S${n},NL`
+r=parseIsotropic(s,n,HEX_TRANSITIONS,VALID_HEX_TRANSITIONS,!0)}s=r.b,n=r.s,l=r.data,i=o>2?`${n}/${s}/${o}`:`B${s}/S${n}`,"H"===h&&(i+="H")}if(l[0]){if(!l[511]){let t=new Uint8Array(512),n=new Uint8Array(512)
+for(let e=0;e<512;e++)t[e]=1-l[e],n[e]=l[511-e]
+let h=SYMMETRY_MEET[findTransitionsSymmetry(t)][findTransitionsSymmetry(n)]
+return o>2?new MAPGenB0Pattern(e,r,s,t,n,o,i,h):new MAPB0Pattern(e,r,s,t,n,i,h)}{let t=new Uint8Array(512)
+for(let e=0;e<512;e++)t[e]=1-l[511-e]
+if(l=t,i.startsWith("MAP"))i="MAP"+unparseMAP(l)
+else{let t=i.endsWith("H"),e=t?HEX_TRANSITIONS:TRANSITIONS,r=t?VALID_HEX_TRANSITIONS:VALID_TRANSITIONS,[s,n]=arrayToTransitions(l,e),h=unparseTransitions(s,r,t),a=unparseTransitions(n,r,t)
+i=o>2?`${a}/${h}/${o}`:`B${h}/S${a}`,t&&(i+="H")}}}let f=findTransitionsSymmetry(l)
+return o>2?new MAPGenPattern(e,r,s,l,o,i,f):new MAPPattern(e,r,s,l,i,f)}
+class AlternatingPattern extends DataPattern{constructor(t,e,r,s,i,n,l){super(t,e,r),this.patterns=s,this.states=i,this.ruleStr=n,this.ruleSymmetry=l
+let h=s.length
+for(let t of s.slice(1))t.rulePeriod>1&&(h=lcm(h,t.rulePeriod))
+this.rulePeriod=h}
+runGeneration(){let t=this.patterns[this.generation%this.patterns.length]
+t.setData(this.height,this.width,this.data),t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t.runGeneration(),this.setData(t.height,t.width,t.getData()),this.generation=t.generation,this.xOffset=t.xOffset,this.yOffset=t.yOffset}
+copy(){let t=new AlternatingPattern(this.height,this.width,this.data,this.patterns,this.states,this.ruleStr,this.ruleSymmetry)
+return t.generation=this.generation,t.xOffset=this.xOffset,t.yOffset=this.yOffset,t}
+clearedCopy(){return new AlternatingPattern(0,0,new Uint8Array(0),this.patterns,this.states,this.ruleStr,this.ruleSymmetry)}
+copyPart(t,e,r,s){let i=new Uint8Array(s*r),n=0
+for(let l=e;l<e+r;l++)i.set(this.data.slice(l*this.width+t,l*this.width+t+s),n),n+=s
+return new AlternatingPattern(r,s,i,this.patterns,this.states,this.ruleStr,this.ruleSymmetry)}
+loadApgcode(t){let[e,r,s]=this._loadApgcode(t)
+return new AlternatingPattern(e,r,s,this.patterns,this.states,this.ruleStr,this.ruleSymmetry)}
+loadRLE(t){let[e,r,s]=this._loadRLE(t)
+return new AlternatingPattern(e,r,s,this.patterns,this.states,this.ruleStr,this.ruleSymmetry)}}
+function verifyType(t,e,r,s){for(let i=0;i<=r;i++){if(t.hash32()!==e.hashes[i]||t.population!==e.pops[i])return!1
+if(!t.isEqual(e.phases[i]))return!1
+t.run(s),t.shrinkToFit()}return!0}function isotropicMinmax(t,e,r,s,i){let[n,l]=arrayToTransitions(t.trs,i),h=new Set(n),o=new Set(l),a=new Set(n),f=new Set(l)
+for(let n in i){let l=t.copy()
+if(l.trs=l.trs.slice(),"0c"!==n){if(h.has(n)){for(let t of i[n])l.trs[t]=0
+verifyType(l,e,r,s)&&h.delete(n)}else{for(let t of i[n])l.trs[t]=1
+verifyType(l,e,r,s)&&a.add(n)}l=t.copy(),l.trs=l.trs.slice()}if(o.has(n)){for(let t of i[n])l.trs[16|t]=0
+verifyType(l,e,r,s)&&o.delete(n)}else{for(let t of i[n])l.trs[16|t]=1
+verifyType(l,e,r,s)&&f.add(n)}}return{minB:Array.from(h),minS:Array.from(o),maxB:Array.from(a),maxS:Array.from(f)}}function isotropicB0Minmax(t,e,r,s,i){let[n,l]=arrayToTransitions(t.evenTrs.map(t=>1-t),i)
+n.push("0c")
+let h=new Set(n),o=new Set(l),a=new Set(n),f=new Set(l)
+for(let n in i){if("0c"!==n){let l=t.copy()
+if(l.evenTrs=l.evenTrs.slice(),l.oddTrs=l.oddTrs.slice(),h.has(n)){for(let t of i[n])l.evenTrs[t]=1,l.oddTrs[511-t]=0
+verifyType(l,e,r,s)&&h.delete(n)}else{for(let t of i[n])l.evenTrs[t]=0,l.oddTrs[511-t]=1
+verifyType(l,e,r,s)&&a.add(n)}}if("8c"!==n){let l=t.copy()
+if(l.evenTrs=l.evenTrs.slice(),l.oddTrs=l.oddTrs.slice(),o.has(n)){for(let t of i[n])l.evenTrs[16|t]=1,l.oddTrs[511-(16|t)]=0
+verifyType(l,e,r,s)&&o.delete(n)}else{for(let t of i[n])l.evenTrs[16|t]=0,l.oddTrs[511-(16|t)]=1
+verifyType(l,e,r,s)&&f.add(n)}}}return{minB:Array.from(h),minS:Array.from(o),maxB:Array.from(a),maxS:Array.from(f)}}function mapStringMinmax(t,e,r,s){let i=t.trs.slice(),n=t.trs.slice()
+for(let l=0;l<512;l++){let h=t.copy()
+h.trs[l]=1-h.trs[l],verifyType(h,e,r,s)&&(h.trs[l]?i[l]=0:n[l]=1),h.trs[l]=1-h.trs[l]}return[unparseMAP(i),unparseMAP(n)]}function mapB0StringMinmax(t,e,r,s){let i=t.evenTrs.map(t=>1-t),n=t.evenTrs.map(t=>1-t)
+for(let l=0;l<512;l++){let h=t.copy()
+h.evenTrs[l]=1-h.evenTrs[l],h.oddTrs[511-l]=1-h.oddTrs[511-l],verifyType(h,e,r,s)&&(h.evenTrs[l]?i[l]=1:n[l]=0),h.evenTrs[l]=1-h.evenTrs[l],h.oddTrs[511-l]=1-h.oddTrs[511-l]}return[unparseMAP(i),unparseMAP(n)]}function mapMinmax(t,e,r,s){let i,n,l,h,o,a,f
+if(t.shrinkToFit(),t.ruleStr.endsWith("H"))o=t instanceof MAPPattern||t instanceof MAPGenPattern?isotropicMinmax(t,e,r,s,HEX_TRANSITIONS):isotropicB0Minmax(t,e,r,s,HEX_TRANSITIONS),i=unparseTransitions(o.minB,VALID_HEX_TRANSITIONS,!0),n=unparseTransitions(o.minS,VALID_HEX_TRANSITIONS,!0),l=unparseTransitions(o.maxB,VALID_HEX_TRANSITIONS,!0),h=unparseTransitions(o.maxS,VALID_HEX_TRANSITIONS,!0)
+else{if(t.ruleStr.startsWith("MAP")){let i,n
+return[i,n]=t instanceof MAPPattern||t instanceof MAPGenPattern?mapStringMinmax(t,e,r,s):mapB0StringMinmax(t,e,r,s),t instanceof MAPGenPattern&&(i+="/"+t.states,n+="/"+t.states),[i,n]}o=t instanceof MAPPattern||t instanceof MAPGenPattern?isotropicMinmax(t,e,r,s,TRANSITIONS):isotropicB0Minmax(t,e,r,s,TRANSITIONS),i=unparseTransitions(o.minB,VALID_TRANSITIONS),n=unparseTransitions(o.minS,VALID_TRANSITIONS),l=unparseTransitions(o.maxB,VALID_TRANSITIONS),h=unparseTransitions(o.maxS,VALID_TRANSITIONS)}return t instanceof MAPPattern||t instanceof MAPB0Pattern?(a=`B${i}/S${n}`,f=`B${l}/S${h}`):(a=`${n}/${i}/${t.states}`,f=`${h}/${l}/${t.states}`),t.ruleStr.endsWith("H")&&(a+="H",f+="H"),[a,f]}function otMinmax(t,e,r,s,i,n,l,h){let o=e.slice(),a=r.slice()
+for(let f=0;f<h.length;f++){let u=t.copy()
+if(u.trs=u.trs.slice(),0!==f){if(e.includes(f)){for(let t of h[f])for(let e of l[f+t])u.trs[e]=0
+verifyType(u,s,i,n)&&e.splice(e.indexOf(f),1)}else{for(let t of h[f])for(let e of l[f+t])u.trs[e]=1
+verifyType(u,s,i,n)&&o.push(f)}u=t.copy(),u.trs=u.trs.slice()}if(r.includes(f)){for(let t of h[f])for(let e of l[f+t])u.trs[16|e]=0
+verifyType(u,s,i,n)&&r.splice(r.indexOf(f),1)}else{for(let t of h[f])for(let e of l[f+t])u.trs[16|e]=1
+verifyType(u,s,i,n)&&a.push(f)}}return[e,r,o,a]}function otB0Minmax(t,e,r,s,i,n,l,h){let o=e.slice(),a=r.slice()
+for(let f=0;f<h.length;f++){if(0!==f){let r=t.copy()
+if(r.evenTrs=r.evenTrs.slice(),r.oddTrs=r.oddTrs.slice(),e.includes(f)){for(let t of h[f])for(let e of l[f+t])r.evenTrs[e]=1,r.oddTrs[511-e]=0
+verifyType(r,s,i,n)&&e.splice(e.indexOf(f),1)}else{for(let t of h[f])for(let e of l[f+t])r.evenTrs[e]=0,r.oddTrs[511-e]=1
+verifyType(r,s,i,n)&&o.push(f)}}if(8!==f){let e=t.copy()
+if(e.evenTrs=e.evenTrs.slice(),e.oddTrs=e.oddTrs.slice(),r.includes(f)){for(let t of h[f])for(let r of l[f+t])e.evenTrs[16|r]=1,e.oddTrs[511-(16|r)]=0
+verifyType(e,s,i,n)&&r.splice(r.indexOf(f),1)}else{for(let t of h[f])for(let r of l[f+t])e.evenTrs[16|r]=0,e.oddTrs[511-(16|r)]=1
+verifyType(e,s,i,n)&&a.push(f)}}}return[e,r,o,a]}function fullOTMinmax(t,e,r,s){let i=t.ruleStr.endsWith("H"),n=i?HEX_TRANSITIONS:TRANSITIONS,l=i?VALID_HEX_TRANSITIONS:VALID_TRANSITIONS
+if(i?"D4x"===t.ruleSymmetry:"D8"!==t.ruleSymmetry)throw new Error("Pattern must be in [Hexagonal] [Generations] [B0] INT for outer-totalistic minmax")
+let h=[],o=[],a="trs"in t?t.trs:t.evenTrs.map(t=>1-t)
+for(let t=0;t<=(i?6:8);t++){let e=!0,r=!0
+for(let s of l[t])a[n[t+s][0]]||(e=!1),a[16|n[t+s][0]]||(r=!1)
+e&&h.push(t),r&&o.push(t)}let f=[]
+f=t instanceof MAPPattern||t instanceof MAPGenPattern?otMinmax(t,h,o,e,r,s,n,l):otB0Minmax(t,h,o,e,r,s,n,l)
+let[u,d,p,c]=f.map(t=>t.sort((t,e)=>t-e).join(""))
+return t instanceof MAPPattern||t instanceof MAPB0Pattern?[`B${u}/S${d}`,`B${p}/S${c}`]:[`${d}/${u}/${t.states}`,`${c}/${p}/${t.states}`]}function alternatingMinmax(t,e,r,s,i){let n=[],l=[],h=t.patterns.length*s
+for(let o=0;o<h;o+=s){let s=t.patterns[o%t.patterns.length].copy(),a=e.phases[o]
+s.setData(a.height,a.width,a.data)
+let f={pops:[],hashes:[],phases:[]}
+for(let t=o;t<r;t+=h)f.pops.push(e.pops[t]),f.hashes.push(e.hashes[t]),f.phases.push(e.phases[t])
+let u=findMinmax(s,Math.floor((r-o)/h),f,h,i)
+n.push(u[0]),l.push(u[1])}return[n.join("|"),l.join("|")]}function findMinmax(t,e,r,s=1,i){if(t=t.copy().shrinkToFit(),void 0===r){let i=[t.population],n=[t.hash32()],l=[t.copy()],h=t.copy()
+for(let t=0;t<e+1;t++)h.run(s),h.shrinkToFit(),i.push(h.population),n.push(h.hash32()),l.push(h.copy())
+r={pops:i,hashes:n,phases:l}}else{let t=r.phases[r.phases.length-1].copy()
+t.run(s),t.shrinkToFit(),r.pops.push(t.population),r.hashes.push(t.hash32()),r.phases.push(t)}if(t instanceof MAPPattern||t instanceof MAPGenPattern||t instanceof MAPB0Pattern||t instanceof MAPGenB0Pattern)return i&&"D8"===t.ruleSymmetry?fullOTMinmax(t,r,e,s):mapMinmax(t,r,e,s)
+if(t instanceof AlternatingPattern)return alternatingMinmax(t,r,e,s,i)
+throw new RuleError(`Unknown pattern: ${t.constructor.name}`)}function findType(t,e,r=!0,s=!0){let i=[(t=t.copy().shrinkToFit()).copy()],n=[t.population],l=null,h=[],o=[t.hash32()]
+for(let a=0;a<e;a++){t.runGeneration(),t.shrinkToFit()
+let e=t.population,f=t.hash32()
+if(0===e){for(let e=0;e<t.rulePeriod;e++)i.push(t.copy())
+return{period:t.rulePeriod,stabilizedAt:a,disp:[0,0],pops:[0],hashes:[f],phases:i}}if((a+1)%t.rulePeriod===0)for(let l=0;l<=(r?a:0);l+=t.rulePeriod){if(f===o[l]&&e===n[l]){let e=i[l],r=t.isEqualWithTranslate(e)
+if(r)return{period:a-l+1,stabilizedAt:l,disp:r,pops:n,hashes:o,phases:i}}if(s)for(let t=1;t<Math.floor(h.length/16);t++){if((h.length-l)/t<16)continue
+let e=h[l]
+if(0===e)continue
+let r=!0
+for(let s=l+t;s<h.length;s+=t)if(h[s]!==e){r=!1
+break}if(r)return{linear:!0,period:t,stabilizedAt:l,pops:n,hashes:o,phases:i}}}i.push(t.copy()),n.push(e),o.push(f),null!==l&&h.push(e-l),l=e}return{stabilizedAt:-1,period:-1,pops:n,hashes:o,phases:i}}function getApgcode(t){if(t.linear){let e=t.pops.slice(t.stabilizedAt,-t.period).map((e,r)=>t.pops[t.stabilizedAt+r+t.period]-e),r=null
+for(let s=1;s<t.period;s++){let t=!0
+for(let r=0;r<e.length-s-1;r++)if(e[r]!==e[r+s]){t=!1
+break}if(t){r=s
+break}}if(null===r)return"PATHOLOGICAL"
+{let e=0,s=0,i=0
+for(let n=0;n<t.period;n++){let l=t.pops[n+r]-t.pops[n]
+e+=l,s+=l**2,i+=l**3}let n=s+"#"+i,l=new Uint8Array(n.length)
+for(let t=0;t<n.length;t++)l[t]=n.charCodeAt(t)
+return`yl${t.period}_${r}_${e}_${stringMD5(s+"#"+i)}`}}if(t.disp){let e
+if(0===t.disp[0]&&0===t.disp[1]){let r=t.pops[t.pops.length-1]
+if(1===t.period){if(0===r)return"xs0_0"
+e="xs"+r}else{if(0===r)return`xp${t.period}_0`
+e="xp"+t.period}}else e="xq"+t.period
+return t.phases[t.stabilizedAt].shrinkToFit().toCanonicalApgcode(t.period,e)}{let e=[],r=0,s=0
+for(let i=0;i<t.pops.length;i++){let n=Math.log(i+1)
+r+=n,s+=t.pops[i],e.push([n,Math.log(s)])}let i=r/e.length,n=s/t.pops.length,l=0,h=0
+for(let[t,r] of e)l+=(t-i)*(r-n),h+=(t-i)**2
+let o=l/h
+return t.power=o,o<1.15?"PATHOLOGICAL":o<1.65?"zz_REPLICATOR":o<2.1?"zz_LINEAR":o<2.9?"zz_EXPLOSIVE":"zz_QUADRATIC"}}function getDescription(t){let e
+return e=t.linear?t.disp?0===t.disp[0]&&0===t.disp[1]?`p${t.period} gun`:`(${t.disp[0]}, ${t.disp[1]})c/${t.period} puffer`:`p${t.period} linear growth`:t.disp?0===t.disp[0]&&0===t.disp[1]?1===t.period?`${t.pops[t.pops.length-1]}-cell still life`:`p${t.period} oscillator`:`(${t.disp[0]}, ${t.disp[1]})c/${t.period} spaceship`:"cannot identify",e}function classifyLinear(t,e,r){(t=t.copy().run(e.stabilizedAt).shrinkToFit()).xOffset=0,t.yOffset=0
+let s=t.copy(),i=s.getData(),n=s.width,l=s.height
+for(let s=0;s<r;s++){t.run(e.period).shrinkToFit()
+let r=t.getData()
+for(let h=0;h<t.height;h++)for(let o=0;o<t.width;o++){let a=0,f=h*t.width+o,u=!0
+for(let e=0;e<l;e++){let e=i.slice(a,a+n),s=r.slice(f,f+n)
+if(!e.every((t,e)=>!t||t===s[e])){u=!1
+break}a+=n,f+=t.width}if(u){let r=o+t.xOffset,a=h+t.yOffset,f=t.copy(),u=f.getData()
+for(let t=0;t<l;t++)for(let e=0;e<n;e++)i[t*n+e]&&(u[(t+h)*f.width+(e+o)]=0)
+return f.setData(f.height,f.width,u),f.shrinkToFit(),{period:(s+1)*e.period,disp:[r,a],ash:f}}}}return null}function findOscillatorInfo(t){let e=t.period
+if(-1===e||1===e&&t.disp&&0===t.disp[0]&&0===t.disp[1])return
+let r=t.phases.slice(t.stabilizedAt,t.stabilizedAt+e),s=[],i=Math.min(...r.map(t=>t.xOffset)),n=Math.min(...r.map(t=>t.yOffset)),l=Math.max(...r.map(t=>t.xOffset+t.width)),h=Math.max(...r.map(t=>t.yOffset+t.height))-n+1,o=l-i+1,a=h*o
+for(let t of r){let e=t.copy(),r=e.yOffset-n,l=h-e.height-r
+l<0&&(l=0)
+let a=e.xOffset-i,f=o-e.width-a
+f<0&&(f=0),e.expand(r,l,a,f),s.push(e.getData())}let f=0
+for(let t=0;t<e;t++){let r=s[t],i=s[(t+1)%e],n=0
+for(let t=0;t<r.length;t++)r[t]!==i[t]&&n++
+f+=n}let u=f/t.period
+if(!t.disp||0!==t.disp[0]||0!==t.disp[1])return{heat:u}
+let d=[]
+for(let t=0;t<a;t++)d.push(new Uint8Array(e))
+for(let e=0;e<t.period;e++)for(let t=0;t<a;t++)d[t][e]=s[e][t]
+let p=0,c=0,g=0,y=[]
+for(let t=1;t<Math.ceil(Math.sqrt(e));t++)e%t===0&&(y.push(t),y.push(e/t))
+for(let t=0;t<a;t++){let e=d[t]
+if(!e.every(t=>0===t))if(e.slice(1).every(t=>t===e[0]))c++
+else{p++
+let t=!0
+for(let r of y){let s=!1
+for(let t=0;t<e.length-r;t++)if(e[t]!==e[t+r]){s=!0
+break}if(!s){t=!1
+break}}t&&g++}}return{heat:u,temperature:u/p,volatility:(p-c)/p,strictVolatility:g/p}}const ALTERNATE_SYMMETRIES={n:"C1",".c":"C2_1",".-e":"C2_-2",".|e":"C2_|2",".k":"C2_4",rc:"C4_1",rk:"C4_4","-c":"D2_-1","-e":"D2_-2","|c":"D2_|1","|e":"D2_|2","/":"D2_/","\\":"D2_\\","+c":"D4_+1","+-e":"D4_-2","+|e":"D4_|2","+k":"D4_+4",xc:"D4_x1",xk:"D4_x4","*c":"D8_1","*k":"D8_4","n.c":"C1 C2_1","n.-e":"C1 C2_-","n.|e":"C1 C2_|","n.k":"C1 C2_4",nrc:"C1 C4_1",nrk:"C1 C4_4","n-c":"C1 D2_-1","n-e":"C1 D2_-2","n|c":"C1 D2_|1","n|e":"C1 D2_|2","n/":"C1 D2_/","n\\":"C1 D2_\\",".crc":"C2_1 C4_1",".c+c":"C2_1 D4_+1",".cxc":"C2_1 D4_x1",".-e+-e":"C2_- D4_-2",".|e+|e":"C2_| D4_|2",".krk":"C2_4 C4_4",".k+k":"C2_4 D4_+4",".kxk":"C2_4 D4_x4","rc*c":"C4_1 D8_1","rk*k":"C4_4 D8_4","-c+c":"D2_-1 D4_+1","-c+-e":"D2_-1 D4_-2","-e+-e":"D2_-2 D4_+2","-e+k":"D2_-2 D4_+4","|c+c":"D2_|1 D4_+1","|c+|e":"D2_|1 D4_|2","|e+|e":"D2_|2 D4_|2","|e+k":"D2_|2 D4_+4","/xc":"D2_/ D4_x1","/xk":"D2_/ D4_x4","\\xc":"D2_\\ D4_x1","\\xk":"D2_\\ D4_x4","+c*c":"D4_+1 D8_1","+k*k":"D4_+4 D8_4","xc*c":"D4_x1 D8_1","xk*k":"D4_x4 D8_4"}
+function findStaticSymmetry(t){return t.copy().rotate180().isEqual(t)?t.copy().rotateRight().isEqual(t)?t.copy().flipHorizontal().isEqual(t)?t.width%2==1?"*c":"*k":t.width%2==1?"rc":"rk":t.copy().flipHorizontal().isEqual(t)||t.copy().flipVertical().isEqual(t)?t.height%2==1?t.width%2==1?"+c":"+|e":t.width%2==1?"+-e":"+k":t.height%2==1?t.width%2==1?".c":".|e":t.width%2==1?".-e":".k":t.copy().flipVertical().isEqual(t)?t.copy().flipHorizontal().isEqual(t)?t.height%2==1?t.width%2==1?"+c":"+|e":t.width%2==1?"+-e":"+k":t.height%2==1?"-c":"-e":t.copy().flipHorizontal().isEqual(t)?t.width%2==1?"|c":"|e":t.copy().flipAntiDiagonal().isEqual(t)?t.copy().flipDiagonal().isEqual(t)?t.width%2==1?"xc":"xk":"/":t.copy().flipDiagonal().isEqual(t)?"\\":"n"}function findPatternSymmetry(t){let e=t.phases[0].run(t.stabilizedAt).shrinkToFit()
+if(e.isEmpty())return"n"
+let r=findStaticSymmetry(e)
+if(-1===t.period||1===t.period||t.period%2==1)return r
+let s=e.copy().run(t.period/2).shrinkToFit()
+return e.xOffset=0,e.yOffset=0,s.xOffset=0,s.yOffset=0,"n"===r?e.copy().rotate180().isEqual(s)?e.copy().run(t.period/4).rotateRight().isEqual(e)?e.width%2==1?"nrc":"nrk":e.width%2==1?e.height%2==1?"n.c":"n.|e":e.height%2==1?"n.-e":"n.k":e.copy().flipVertical().isEqual(s)?e.width%2==1?"n-c":"n-e":e.copy().flipHorizontal().isEqual(s)?e.height%2==1?"n|c":"n|e":e.copy().flipAntiDiagonal().isEqual(s)?"n/":e.copy().flipDiagonal().isEqual(s)?"n\\":"n":".c"===r?e.copy().rotateRight().isEqual(s)?".crc":e.copy().flipHorizontal().isEqual(s)?".c+c":e.copy().flipDiagonal().isEqual(s)?".cxc":".c":".-e"===r?e.copy().flipHorizontal().isEqual(s)?".-e+-e":".-e":".|e"===r?e.copy().flipVertical().isEqual(s)?".|e+|e":".|e":".k"===r?e.copy().rotateRight().isEqual(s)?".krk":e.copy().flipHorizontal().isEqual(s)?".k+k":e.copy().flipDiagonal().isEqual(s)?".kxk":".k":"rc"===r?e.copy().flipHorizontal().isEqual(s)?"rc*c":"rc":"rk"===r?e.copy().flipHorizontal().isEqual(s)?"rk*k":"rk":"-c"===r?e.copy().flipHorizontal().isEqual(s)?e.height%2==1?"-c+c":"-c+-e":"-c":"-e"===r?e.copy().flipHorizontal().isEqual(s)?e.height%2==1?"-e+-e":"-e+k":"-e":"|c"===r?e.copy().flipVertical().isEqual(s)?e.height%2==1?"|c+c":"|c+|e":"|c":"|e"===r?e.copy().flipVertical().isEqual(s)?e.height%2==1?"|e+|e":"|e+k":"|e":"/"===r?e.copy().flipDiagonal().isEqual(s)?e.height%2==1?"/xc":"/xk":"/":"\\"===r?e.copy().flipAntiDiagonal().isEqual(s)?e.height%2==1?"\\xc":"\\xk":"\\":"+c"===r?e.copy().flipDiagonal().isEqual(s)?"+c*c":"+c":"+k"===r?e.copy().flipDiagonal().isEqual(s)?"+k*k":"+k":"xc"===r?e.copy().flipHorizontal().isEqual(s)?"xc*c":"xc":"xk"===r?e.copy().flipHorizontal().isEqual(s)?"xk*k":"xk":r}function identify(t,e,r,s=8){let i,n=findType(t=t.copy().shrinkToFit(),e,r)
+try{i=findMinmax(t,-1===n.period?e:n.period,n)}catch(t){if(!(t instanceof RuleError))throw t}let l,h={}
+if(n.disp){let t=findOscillatorInfo(n)
+void 0!==t&&(h=t)}if(n.linear){let i=classifyLinear(t,n,s)
+i&&(n.period=i.period,n.disp=i.disp,l=identify(i.ash,e,r,s))}return{...n,output:l,desc:getDescription(n),...h,minmax:i,symmetry:findPatternSymmetry(n)}}
+function toCatagolueRule(t,e){if(t.includes("|"))return"xalternating_"+t.split("|").map(t=>toCatagolueRule(t,e)).join("_")
+let r=createPattern(t,e).ruleStr
+if(r.includes("/")){let t=r.split("/")
+if(t[0]=t[0],t[1]=t[1],2===t.length)return t[1].endsWith("H")?`b${t[0].slice(1)}s${t[1].slice(1,-1)}h`:`b${t[0].slice(1)}s${t[1].slice(1)}`
+{let e=!1
+t[2].endsWith("H")&&(e=!0,t[2]=t[2].slice(-1))
+let r=`g${t[2]}b${t[1]}s${t[0]}`
+return e?r+"h":r}}if(r.startsWith("R")){let t=r.split(","),e=parseInt(t[0].slice(1)),s=parseInt(t[1].slice(1))
+if(t[2].startsWith("W")){let r=t[2].slice(1)
+return s>2?`xg${s}r${e}w${r}`:`xr${e}w${r}`}let i=[],n=[],l=!1
+t[2]=t[2].slice(1)
+let h=null
+for(let e of t.slice(2))if(0!==e.length){if(e.startsWith("B"))l=!0,e=e.slice(1)
+else if(e.startsWith("N")){h=e.slice(1)
+continue}l?n.push(parseInt(e)):i.push(parseInt(e))}let o="r"+e+"b"
+s>2&&(o="g"+s+o)
+for(let t of [n,i]){for(let t=(2*e+1)**2-1;t>0;t-=4){let e=0
+n.includes(t)&&(e|=8),n.includes(t-1)&&(e|=4),n.includes(t-2)&&(e|=2),n.includes(t-3)&&(e|=1),o+=HEX_CHARS[e]}t===n&&(o+="s")}return null!==h&&(o="x"+o+"n","*"===h?o+="star":"+"===h?o+="plus":"#"===h?o+="hash":h.startsWith("@")?o+="at"+h.slice(1):o+=h.toLowerCase()),o.endsWith("h")&&(o+="x"),o}if(r.startsWith("MAP")){if(r.length<89)throw"function"==typeof alert&&alert("bruh"),new RuleError("bruh")
+let t="map"+r.slice(3,88)
+return r.length>89&&"/"===r[89]&&(t="g"+parseInt(r.slice(90))+t),t.endsWith("h")&&(t+="x"),"x"+t}if(r.startsWith("W"))return"xw"+r.slice(1)
+{let t="x",e=r[0].toLowerCase()
+for(let s=1;s<r.length;s++){let i=r[s]
+"ABCDEFGHJKLMNPQRSTUVWXY".includes(i)&&(i=i.toLowerCase(),t+=s+"x"),e+=i}return t+e}}
+function createPattern(t,e,r=0,s=0,i=new Uint8Array(0),n){t=t.trim()
+let l=[]
+try{let e=createMAPPattern(t,r,s,i)
+if("object"==typeof e)return e
+t=e}catch(t){if(!(t instanceof RuleError))throw t
+l.push(t.message)}
+if(t.includes("|")){let n=t.split("|").map(t=>createPattern(t,e,r,s,i,void 0)),l=Math.max(...n.map(t=>t.states)),h=n.map(t=>t.ruleStr).join("|"),o=n[0].ruleSymmetry
+for(let t of n.slice(1))if(o=SYMMETRY_MEET[o][t.ruleSymmetry],"C1"===o)break
+return new AlternatingPattern(r,s,i,n,l,h,o)}let h=t.toLowerCase()
+if(e&&h in e)return createPattern(e[h],e,r,s,i,t)
+throw new RuleError(l.join(", "))}function parse(t,e){let r="B3/S23",s=null,i=null,n=0,l="",h=!1
+for(let e of t.trim().split("\n"))if(e=e.trim(),0!==e.length)if(h)l+=e
+else if(e.startsWith("#")){let t=e[1]
+if("C"===t||"c"===t){if(e.startsWith("#CXRLE")){e=e.slice(3)
+let t=e.indexOf("Pos=")
+if(-1!==t){let r=e.slice(t+4),[n,l]=r.split(",")
+s=parseInt(n),i=parseInt(l)}t=e.indexOf("Gen="),-1!==t&&(n=parseInt(e.slice(t+4)))}}else if("P"===t||"p"===t){let[t,r]=e.slice(2).split(" ").filter(t=>""!==t)
+s=parseInt(t),i=parseInt(r)}else"r"===t&&(r=e.slice(2))}else if(h=!0,e=e.trim(),"x"!==e[0])l+=e
+else{let t=e.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))?/)
+if(!t)throw new Error(`Invaid header line: '${e}'`)
+t[1]&&(r=t[1])}let o=createPattern(r,e).loadRLE(l)
+return null!==s&&(o.xOffset=s),null!==i&&(o.yOffset=i),o.generation=n,o}function parseSpeed(t){let e,r
+if((t=t.toLowerCase()).includes("c"))[e,r]=t.split("c"),r.startsWith("/")&&(r=r.slice(1))
+else{if(!t.includes("/")){if(t.startsWith("p"))return{dx:0,dy:0,period:parseInt(t.slice(1))}
+throw new Error("Invalid speed!")}[e,r]=t.split("/")}let s,i,n=parseInt(r),l=parseInt(e)
+if(Number.isNaN(l))if(e.startsWith("(")){let t=e.slice(1,-1).split(",")
+if(s=parseInt(t[0]),i=parseInt(t[1]),Number.isNaN(s)||Number.isNaN(i)||2!==t.length)throw new Error("Invalid speed!")}else{if(""!==e)throw new Error("Invalid speed!")
+s=1,i=r.endsWith("d")?1:0}else s=l,i=r.endsWith("d")?l:0
+return{dx:s,dy:i,period:n}}function speedToString({dx:t,dy:e,period:r}){e=Math.abs(e);t=Math.abs(t);if(e>t){let x=e;e=t;t=x;}return 0===e?0===t?`p${r}`:1===t?`c/${r}o`:`${t}c/${r}o`:t===e?1===t?`c/${r}d`:`${t}c/${r}d`:`(${t}, ${e})c/${r}`}function getBlackWhiteReversal(t){let e=createPattern(t)
+if(e instanceof MAPPattern||e instanceof MAPGenPattern||e instanceof MAPB0Pattern||e instanceof MAPGenB0Pattern){let r
+if(r="trs"in e?e.trs.map(t=>1-t).reverse():e.evenTrs.reverse(),"D8"===e.ruleSymmetry){let s,i
+if(t.endsWith("H")){let[t,e]=arrayToTransitions(r,HEX_TRANSITIONS)
+s=unparseTransitions(t,VALID_HEX_TRANSITIONS,!0),i=unparseTransitions(e,VALID_HEX_TRANSITIONS,!0)}else{let[t,e]=arrayToTransitions(r,TRANSITIONS)
+s=unparseTransitions(t,VALID_TRANSITIONS,!0),i=unparseTransitions(e,VALID_TRANSITIONS,!0)}return e instanceof MAPGenPattern||e instanceof MAPGenB0Pattern?`${i}/${s}/${e.states}`:`B${s}/S${i}`}return"MAP"+unparseMAP(r)}
+if(e instanceof AlternatingPattern)return e.ruleStr.split("|").map(getBlackWhiteReversal).join("|")
+throw new Error(`Unknown pattern: '${e.constructor.name}'`)}
+        </script>
+        <style>
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+    padding: 0;
+    margin: 0;
+}
+
+h1, noscript {
+    align-self: stretch;
+    text-align: center;
+}
+
+textarea {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8em;
+    resize: none;
+    border: 1px solid gray;
+}
+
+textarea:hover, textarea:focus {
+    outline: none;
+    border: 1px solid gray;
+}
+
+button, input:not([type=checkbox]) {
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid black;
+}
+
+input:focus {
+    outline: none;
+}
+
+input[type=number] {
+    appearance: textfield;
+}
+
+input::-webkit-inner-spin-button, input::-webkit-outer-spin-button {
+    display: none;
+}
+
+input[type=checkbox] {
+    height: 1.25em;
+    width: 1.25em;
+}
+
+html {
+    overflow-y: unset;
+}
+
+html, body {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: row;
+}
+
+#left, #right {
+    padding: 1.25em;
+}
+
+#left {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 1.25em;
+    border-right: 1px solid black;
+}
+
+#add-wrapper {
+    margin-bottom: 1.25em;
+    display: flex;
+    flex-direction: row;
+    gap: 1.25em;
+}
+
+#max-gens {
+    width: 10ch;
+}
+
+#minmax {
+    margin-bottom: 1.25em;
+    white-space: pre-wrap;
+}
+
+#patterns {
+    flex: 1 0 auto;
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25em;
+}
+
+.pattern {
+    min-width: 50ch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    border: 1px solid black;
+}
+
+.pattern-top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.pattern-top-left {
+    padding-top: 0.3em;
+    padding-left: 0.3em;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6em;
+}
+
+.pattern-checkbox {
+    box-sizing: content-box;
+    padding-bottom: 0;
+    height: 1.3em;
+    width: 1em;
+}
+
+.pattern-name {
+    font-size: 1.5em;
+}
+
+.pattern-arrow {
+    margin-top: 0.3em;
+    padding: 0.3em;
+    margin-left: auto;
+    margin-right: 0.25em;
+    width: 1.6em;
+    height: 1.6em;
+    background-size: 1em;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.pattern-arrow.closed {
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><polygon points='0,0 0,16 16,8' fill='black' stroke='none' /></svg>");
+}
+
+.pattern-arrow.open {
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><polygon points='0,0 16,0 8,16' fill='black' stroke='none' /></svg>");
+}
+
+.pattern-text {
+    padding: 0.3em;
+    padding-top: 0;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+}
+
+.pattern-apgcode {
+    text-decoration: none;
+    color: blue;
+}
+
+.pattern-apgcode:visited {
+    color: blue;
+}
+
+.pattern .pattern {
+    min-width: unset;
+    margin: 0.5em;
+    margin-top: 0;
+    margin-bottom: 0.6em;
+}
+
+        </style>
+    </head>
+    <body>
+        <div id="left">
+            <h1>Identify</h1>
+            <noscript>Please enable JavaScript to use this!</noscript>
+            <textarea id="rle" rows="6" cols="55" placeholder="Enter RLE..."></textarea>
+            <div id="add-wrapper">
+                <button id="add">Add</button>
+                <div>Max generations: <input type="number" id="max-gens" value="4096" /></div>
+            </div>
+            <div id="minmax">No patterns selected.</div>
+            <button id="view-archive">View archive</button>
+            <button id="archive">Archive selected</button>
+            <div id="combine-out"></div>
+        </div>
+        <div id="right">
+            <div id="patterns"></div>
+        </div>
+        <script>'use strict';function printError(e,c='red'){let x=String(e instanceof Error?('stack' in e?e.stack:e):e);if(!(document.readyState==='complete')){alert(x);return;}document.querySelectorAll('body > *').forEach(x=>x.remove());let t=document.createElement('pre');t.style.color=c;t.style.paddingLeft='15px';t.style.fontFamily='\'Courier New\',Courier,monospace';t.style.fontSize='14px';t.style.overflowX='wrap';t.textContent=x.replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');document.body.appendChild(t);let l=setInterval(()=>{},0);for(let j=1;j<=l;j++){clearInterval(j);}window.onkeydown=()=>{};}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
+        <script>
+
+// import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, parseTransitions, unparseTransitions, getApgcode, ALTERNATE_SYMMETRIES, identify, parse} from './lib/index.js';
+
+
+let patterns = [];
+
+let selectedPatterns = new Set();
+
+let rleTextarea = document.getElementById('rle');
+let addButton = document.getElementById('add');
+let minmaxElt = document.getElementById('minmax');
+let maxGensInput = document.getElementById('max-gens');
+let patternsDiv = document.getElementById('patterns');
+
+function create(type, className, text) {
+    let elt = document.createElement(type);
+    if (className) {
+        elt.className = className;
+    }
+    if (text) {
+        elt.textContent = text;
+    }
+    return elt;
+}
+
+function getMAPRuleTrs(rule, validTrs) {
+    if (rule.endsWith('H')) {
+        rule = rule.slice(0, -1);
+    }
+    let parts = rule.split('/');
+    if (parts.length === 2) {
+        return [parseTransitions(parts[0].slice(1), validTrs), parseTransitions(parts[1].slice(1), validTrs)];
+    } else {
+        return [parseTransitions(parts[1], validTrs), parseTransitions(parts[0], validTrs)];
+    }
+}
+
+function computeCombinedMinmax() {
+    if (selectedPatterns.size === 0) {
+        minmaxElt.textContent = 'No patterns selected.';
+        return;
+    }
+    let patterns = Array.from(selectedPatterns);
+    let p = patterns[0].p;
+    for (let type of patterns.slice(1)) {
+        if (type.p.constructor !== p.constructor) {
+            minmaxElt.textContent = 'Patterns of different rulespaces are selected.';
+            return;
+        }
+    }
+    if (p instanceof MAPPattern || p instanceof MAPB0Pattern || p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
+        let isHex = p.ruleStr.endsWith('H');
+        let allTrs;
+        let validTrs;
+        if (isHex && patterns.every(type => isHex === type.p.ruleStr.endsWith('H'))) {
+            allTrs = Object.keys(HEX_TRANSITIONS);
+            validTrs = VALID_HEX_TRANSITIONS;
+        } else {
+            isHex = false;
+            allTrs = Object.keys(TRANSITIONS);
+            validTrs = VALID_TRANSITIONS;
+        }
+        let minB = new Set();
+        let minS = new Set();
+        let maxB = new Set(allTrs);
+        let maxS = new Set(allTrs);
+        if ('evenTrs' in p) {
+            minB.add('0c');
+            maxS.delete('8c');
+        } else {
+            maxB.delete('0c');
+        }
+        for (let type of patterns) {
+            let [newMinB, newMinS] = getMAPRuleTrs(type.minmax[0], validTrs);
+            let [newMaxB, newMaxS] = getMAPRuleTrs(type.minmax[1], validTrs);
+            for (let tr of newMinB) {
+                if (!maxB.has(tr)) {
+                    minmaxElt.textContent = 'Patterns are incompatible.';
+                    return;
+                }
+                minB.add(tr);
+            }
+            for (let tr of newMinS) {
+                if (!maxS.has(tr)) {
+                    minmaxElt.textContent = 'Patterns are incompatible.';
+                    return;
+                }
+                minS.add(tr);
+            }
+            for (let tr of maxB) {
+                if (!newMaxB.includes(tr)) {
+                    maxB.delete(tr);
+                }
+            }
+            for (let tr of maxS) {
+                if (!newMaxS.includes(tr)) {
+                    maxS.delete(tr);
+                }
+            }
+        }
+        minB = unparseTransitions(minB, validTrs, isHex);
+        minS = unparseTransitions(minS, validTrs, isHex);
+        maxB = unparseTransitions(maxB, validTrs, isHex);
+        maxS = unparseTransitions(maxS, validTrs, isHex);
+        let min;
+        let max;
+        if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
+            min = `${minS}/${minB}/${p.states}`;
+            max = `${maxS}/${maxB}/${p.states}`;
+        } else {
+            min = `B${minB}/S${minS}`;
+            max = `B${maxB}/S${maxS}`;
+        }
+        if (isHex) {
+            min += 'H';
+            max += 'H';
+        }
+        minmaxElt.textContent = `Min: ${min}\nMax: ${max}`;
+        return;
+    } else {
+        minmaxElt.textContent = 'Unsupported rulespace for minmax.';
+        return;
+    }
+}
+
+function createPatternElt(type, output = false) {
+    if (!type.apgcode) {
+        type.apgcode = getApgcode(type);
+    }
+    let elt = create('div', 'pattern');
+    let top = create('div', 'pattern-top');
+    let topLeft = create('div', 'pattern-top-left');
+    if (type.minmax) {
+        let checkbox = create('input', 'pattern-checkbox');
+        checkbox.type = 'checkbox';
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                selectedPatterns.add(type);
+            } else {
+                selectedPatterns.delete(type);
+            }
+            computeCombinedMinmax();
+        });
+        topLeft.appendChild(checkbox);
+    }
+    let name = type.name ? `${type.name} (${type.desc})` : type.desc;
+    if (output) {
+        name = 'Output: ' + name;
+    }
+    topLeft.appendChild(create('div', 'pattern-name', name));
+    top.appendChild(topLeft);
+    let arrow = create('div', 'pattern-arrow closed');
+    top.appendChild(arrow);
+    elt.appendChild(top);
+    let basicText = type.minmax ? `Min: ${type.minmax[0]}\nMax: ${type.minmax[1]}\n` : '';
+    let text = basicText;
+    if (type.power !== undefined) {
+        text += `Power: ${type.power}\n`;
+    }
+    text += `Symmetry: ${type.symmetry} (${ALTERNATE_SYMMETRIES[type.symmetry]})\n`;
+    if (type.heat !== undefined) {
+        text += `Heat: ${type.heat.toFixed(3).replace(/(\.?)0+$/, '')}\n`;
+    }
+    if (type.temperature !== undefined) {
+        text += `Temperature: ${type.temperature.toFixed(3).replace(/(\.?)0+$/, '')}\n`;
+    }
+    if (type.volatility !== undefined) {
+        text += `Volatility: ${type.volatility.toFixed(3).replace(/(\.?)0+$/, '')}\n`;
+    }
+    if (type.strictVolatility !== undefined) {
+        text += `Strict volatility: ${type.strictVolatility.toFixed(3).replace(/(\.?)0+$/, '')}\n`;
+    }
+    text = text.slice(0, -1);
+    let textElt = create('div', undefined, basicText);
+    let textWrapperElt = create('div', 'pattern-text');
+    textWrapperElt.appendChild(textElt);
+    let apgcodeText = type.apgcode;
+    let apgcodeElt = create('a', 'pattern-apgcode', type.apgcode.length > 50 ? `${type.apgcode.slice(0, 24)}...${type.apgcode.slice(-24)}` : type.apgcode);
+    apgcodeElt.href = `https://catagolue.hatsya.com/object/${type.apgcode}/${toCatagolueRule(type.p.ruleStr)}`;
+    apgcodeElt.style.display = 'none';
+    textWrapperElt.appendChild(apgcodeElt);
+    elt.appendChild(textWrapperElt);
+    let outputElt = undefined;
+    if (type.output) {
+        outputElt = createPatternElt(type.output, true);
+        outputElt.style.display = 'none';
+        elt.appendChild(outputElt);
+    }
+    let open = false;
+    arrow.addEventListener('click', () => {
+        open = !open;
+        if (open) {
+            arrow.className = 'pattern-arrow open';
+            textElt.textContent = text;
+            apgcodeElt.style.display = 'block';
+            if (outputElt) {
+                outputElt.style.display = 'block';
+            }
+        } else {
+            arrow.className = 'pattern-arrow closed';
+            textElt.textContent = basicText;
+            apgcodeElt.style.display = 'none';
+            if (outputElt) {
+                outputElt.style.display = 'none';
+            }
+        }
+    });
+    return elt;
+}
+
+function savePatterns(x, ps) {
+    if (x.p) {
+        ps.push([x, x.p]);
+        delete x.p;
+    }
+    if (x.output) {
+        savePatterns(x.output, ps);
+    }
+}
+
+function restorePatterns(x) {
+    if (!x.p) {
+        x.p = parse(x.rle);
+    }
+    if (x.output) {
+        restorePatterns(x.output);
+    }
+}
+
+function addPattern(type, save = true) {
+    patterns.push(type);
+    if (save) {
+        let ps = [];
+        for (let type of patterns) {
+            savePatterns(type, ps);
+        }
+        localStorage.identifyPatterns = JSON.stringify(patterns);
+        for (let [x, p] of ps) {
+            x.p = p;
+        }
+    }
+    restorePatterns(type);
+    let elt = createPatternElt(type);
+    if (patternsDiv.children.length === 0) {
+        patternsDiv.appendChild(elt);
+    } else {
+        patternsDiv.insertBefore(elt, patternsDiv.children[0]);
+    }
+}
+
+
+if (localStorage.identifyPatterns) {
+    for (let type of JSON.parse(localStorage.identifyPatterns)) {
+        addPattern(type, false);
+    }
+}
+
+if (localStorage.identifyMaxGens) {
+    maxGensInput.value = localStorage.identifyMaxGens;
+}
+
+maxGensInput.addEventListener('change', () => {
+    localStorage.identifyMaxGens = maxGensInput.value;
+});
+
+if (localStorage.identifyRLE) {
+    rleTextarea.value = localStorage.identifyRLE;
+}
+
+rleTextarea.addEventListener('change', () => {
+    localStorage.identifyRLE = rleTextarea.value;
+});
+
+function normalizeType(type) {
+    type.apgcode = getApgcode(type);
+    if (type.disp && (type.disp[0] !== 0 || type.disp[1] !== 0)) {
+        type.desc = `${speedToString({dx: type.disp[0], dy: type.disp[1], period: type.period})} ${type.linear ? 'puffer' : 'spaceship'}`;
+        if (type.stabilizedAt > 0) {
+            type.desc = 'Stabilizes into ' + type.desc;
+        }
+    }
+    type.p = type.phases[type.stabilizedAt];
+    type.rle = type.p.toRLE();
+    delete type.phases;
+    delete type.hashes;
+    if (type.output) {
+        type.output = normalizeType(type.output);
+    }
+    return type;
+}
+
+addButton.addEventListener('click', () => {
+    let type = identify(parse(rleTextarea.value), maxGensInput.value);
+    type = normalizeType(type);
+    addPattern(type);
+});
+
+        </script>
+    </body>
+</html>
