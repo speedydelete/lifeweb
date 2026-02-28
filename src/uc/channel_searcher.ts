@@ -80,7 +80,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number
 }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][]): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][], debug?: boolean): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -350,7 +350,7 @@ function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
     return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
 }
 
-export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe): {recipes: ChannelRecipe[], possibleUseful: string} {
+export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe, debug?: boolean): {recipes: ChannelRecipe[], possibleUseful: string} {
     if (!recipe.end) {
         return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
     }
@@ -358,7 +358,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
         return {recipes: [], possibleUseful: ''};
     }
     if (!(recipe.end.elbow in elbows)) {
-        return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
+        return {recipes: [recipe], possibleUseful: ''};
     }
     let outcomes = elbows[recipe.end.elbow];
     let out: ChannelRecipe[] = [];
@@ -375,11 +375,12 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
         }
         let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {elbow: string, move: number, flipped: boolean, timing: number}};
         if (elbow.type !== 'alias') {
-            recipe2.recipe[recipe2.recipe.length - 1][1] = 1;
-            recipe2.recipe.push([info.minSpacing + (i + recipe.end.timing) % outcomes.length, 0]);
+            recipe2.recipe[recipe2.recipe.length - 1][1] = 0;
+            recipe2.recipe.push([info.minSpacing + (i + recipe.end.timing) % outcomes.length, -1]);
             recipe2.time += info.minSpacing;
         }
         if (elbow.type === 'destroy') {
+            (recipe2 as ChannelRecipe).end = undefined;
             out.push(recipe2);
             possibleUseful += getStringRecipe(info, recipe);
         } else {

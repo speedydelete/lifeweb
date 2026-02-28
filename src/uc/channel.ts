@@ -52,40 +52,61 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     if (elbowData[0].startsWith('xp')) {
         period = parseInt(elbowData[0].slice(2));
     }
-    let result1 = findOutcome(runInjection(info, elbowData, [[info.minSpacing, 0]]));
+    let p = runInjection(info, elbowData, [[info.minSpacing, 0]], true);
+    // console.log(p.toRLE());
+    let result1 = findOutcome(p);
     if (typeof result1 !== 'object') {
+        // console.log('result1 is', result1);
         return;
     }
     let result2 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + period, 0]]));
     if (typeof result2 !== 'object') {
+        // console.log('result2 is', result2);
         return;
     }
     let result3 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + 2 * period, 0]]));
     if (typeof result3 !== 'object') {
+        // console.log('result3 is', result3);
         return;
+    }
+    for (let result of [result1, result2, result3]) {
+        for (let obj of result) {
+            if (obj.type === 'ship') {
+                obj.timing = 0;
+            }
+        }
     }
     let result1Objs = objectsToString(result1);
     let result2Objs = objectsToString(result2);
     let result3Objs = objectsToString(result3);
+    // console.log('result1:', result1Objs);
+    // console.log('result2:', result2Objs);
+    // console.log('result3:', result3Objs);
     if (!(result1Objs === result2Objs && result2Objs === result3Objs)) {
+        // console.log('results are not the same');
         let out: ElbowData['string'] = [];
         for (let i = 0; i < period; i++) {
             let result = getCollision(elbowData[0], elbowData[1], i);
             if (typeof result !== 'object') {
+                // console.log('result is', result1);
                 return;
             }
             let flippedResult = getCollision(elbowData[0], elbowData[1], i, true);
             if (typeof flippedResult !== 'object') {
+                // console.log('flippedResult is', result1);
                 return;
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         }
+        // console.log(out);
         return out;
     }
+    // console.log('running normal checks');
     let out: ElbowData['string'] = [];
     for (let i = 0; i < period; i++) {
         let result = getCollision(elbowData[0], elbowData[1], i);
         if (typeof result !== 'object') {
+            // console.log('result is', result1);
             return;
         }
         if (result.length === 0) {
@@ -101,6 +122,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             let flippedStr = `${obj.code}/${Infinity}`;
             if (badElbows.has(str)) {
                 if (!badElbows.has(flippedStr)) {
+                    // console.log('adding flipped');
                     badElbows.add(flippedStr);
                 }
                 out.push({type: 'bad'});
@@ -108,6 +130,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
             if (badElbows.has(flippedStr)) {
                 if (!badElbows.has(str)) {
+                    // console.log('adding flipped');
                     badElbows.add(str);
                 }
                 out.push({type: 'bad'});
@@ -163,6 +186,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
         }
     }
+    return out;
 }
 
 function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | false | ElbowData {
@@ -170,13 +194,13 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
         return;
     }
     let elbowParts = elbow.split('/');
-    let elbowData: [string, number] = [elbowParts[0], parseInt(elbowParts[1])];
+    let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), parseInt(elbowParts[1])];
     let result = checkElbow(info, data.elbows, data.badElbows, elbow, elbowData);
     if (!result) {
         data.badElbows.add(elbow);
         return;
     }
-    let out: ElbowData = {elbow: result};
+    let out: ElbowData = {[elbow]: result};
     for (let value of result) {
         if ((value.type === 'alias' || value.type === 'convert') && !(value.elbow in data.elbows)) {
             if (depth === 16) {
@@ -210,13 +234,17 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
-            let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
+            let value = resolveElbow(info, out.elbows, out.badElbows, recipe, true);
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         } else {
             recipes.push(recipe);
         }
     }
+    // if (data.recipes.length > 0) {
+    //     console.log(recipes);
+    //     throw new Error('hi');
+    // }
     for (let recipe of recipes) {
         if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
             continue;
@@ -287,7 +315,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
         // @ts-ignore
-        workers.push(new Worker(`${import.meta.dirname}/channel_worker.js`, {workerData: {
+        workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
             info,
             maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
