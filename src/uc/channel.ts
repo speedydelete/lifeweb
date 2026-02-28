@@ -250,7 +250,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
             continue;
         }
         let key = channelRecipeInfoToString(recipe);
-        if (key in out && out.recipes[key].time < recipe.time) {
+        if (key in out.recipes && out.recipes[key].time < recipe.time) {
             continue;
         }
         let color: string;
@@ -323,6 +323,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     }
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
+    if (!(elbow in out.elbows)) {
+        addElbow(info, elbow, out);
+    }
     let depth = info.minSpacing;
     while (true) {
         log(`Searching depth ${depth}`);
