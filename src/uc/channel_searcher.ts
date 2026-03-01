@@ -123,7 +123,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     let toInsert = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD];
     p.ensure(toInsert.width, toInsert.height);
     p.insert(toInsert, 0, 0);
-    // console.log(p.toRLE());
+    console.log(p.toRLE());
     total += c.GLIDER_TARGET_SPACING;
     let i = 0;
     while (gliders.length > 0) {
@@ -584,6 +584,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             }
         }
     }
+    recipes = [[[[98, 0]], 98]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }

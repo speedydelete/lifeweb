@@ -316,7 +316,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
     console.log(`Compiled ${starts.length} starts`);
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
-        // @ts-ignore
         workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
             info,
             maxGenerations,
@@ -398,6 +397,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
+        process.exit(0);
     }
 }
 

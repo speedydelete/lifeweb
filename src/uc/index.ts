@@ -186,7 +186,6 @@ if (cmd === 'get') {
     } else if (newType in c.CHANNEL_INFO) {
         let info = c.CHANNEL_INFO[newType];
         let elbow = args[2];
-        // @ts-ignore
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
         let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[type], elbow, salvo, dir as 'up' | 'down' | 'left' | 'right', depth, forceEndElbow, minElbow, maxElbow);
