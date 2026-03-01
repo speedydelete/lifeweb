@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
-import {MAPPattern} from '../core/index.js';
+import {MAPPattern, findStaticSymmetry} from '../core/index.js';
 import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
@@ -37,21 +37,52 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
         patterns.push(base.loadRLE(currentRLE));
     }
     let out = new Set<string>();
+    let done = new Set<string>();
     for (let p of patterns) {
         p.shrinkToFit();
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
+        let key = p.toCanonicalApgcode();
+        if (done.has(key)) {
+            continue;
+        }
+        done.add(key);
         let prefix = `xs${p.population}`;
+        let s = findStaticSymmetry(p);
+        let C2 = s[0] === '.' || s[0] === 'r' || s[0] === '+' || s[0] === '*';
+        let C4 = s[0] === 'r' || s[0] === '*';
+        let D2s = s[0] === '/' || s[0] === 'x' || s[0] === '*';
+        let D2b = s[0] === '\\' || s[0] === 'x' || s[0] === '*';
         out.add(p.toApgcode(prefix));
-        out.add(p.rotateLeft().toApgcode(prefix));
-        out.add(p.rotate180().toApgcode(prefix));
-        out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
-        if (!c.GLIDER_IS_GLIDE_SYMMETRIC) {
-            out.add(p.flipDiagonal().toApgcode(prefix));
+        if (!C4) {
             out.add(p.rotateLeft().toApgcode(prefix));
-            out.add(p.rotate180().toApgcode(prefix));
-            out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
+            if (!C2) {
+                out.add(p.rotate180().toApgcode(prefix));
+                if (!D2s) {
+                    out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
+                }
+            } else if (!D2s) {
+                out.add(p.rotateRight().flipAntiDiagonal().toApgcode(prefix));
+            }
+        } else if (!D2s) {
+            out.add(p.flipAntiDiagonal().toApgcode(prefix));
+        }
+        if (!c.GLIDER_IS_GLIDE_SYMMETRIC && !D2b) {
+            out.add(p.flipDiagonal().toApgcode(prefix));
+            if (!C4) {
+                out.add(p.rotateLeft().toApgcode(prefix));
+                if (!C2) {
+                    out.add(p.rotate180().toApgcode(prefix));
+                    if (!D2s) {
+                        out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
+                    }
+                } else if (!D2s) {
+                    out.add(p.rotateRight().flipAntiDiagonal().toApgcode(prefix));
+                }
+            } else if (!D2s) {
+                out.add(p.flipAntiDiagonal().toApgcode(prefix));
+            }
         }
     }
     return Array.from(out);
