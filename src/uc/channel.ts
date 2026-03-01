@@ -66,6 +66,8 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 obj.x = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x;
                 obj.y = 0;
                 obj.timing = 0;
+            } else if (obj.type === 'osc') {
+                obj.timing = 0;
             }
         }
         let result = objectsToString(objs);
@@ -91,16 +93,8 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         }
-        // if (elbow === 'xs4_33/9') {
-        //     console.log(out);
-        //     throw new Error('hi');
-        // }
         return out;
     }
-    // if (elbow === 'xs4_33/9') {
-    //     console.log(startObjs);
-    //     throw new Error('haiiii');
-    // }
     // console.log('running normal checks');
     let out: ElbowData['string'] = [];
     for (let i = 0; i < period; i++) {
