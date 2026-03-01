@@ -55,8 +55,8 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     let isSame = true;
     let prevResult: string | null = null;
     let startObjs: CAObject[] | undefined = undefined;
-    for (let i = 0; i < 5; i++) {
-        let objs = findOutcome(runInjection(info, elbowData, [[info.minSpacing + i * period, 0]], true));
+    for (let i = 0; i < 3; i++) {
+        let objs = findOutcome(runInjection(info, elbowData, [[info.minSpacing + i * period, 0]]), true);
         if (typeof objs !== 'object') {
             return;
         }
@@ -79,28 +79,32 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         // console.log('results are not the same');
         let out: ElbowData['string'] = [];
         for (let i = 0; i < period; i++) {
-            let result = getCollision(elbowData[0], elbowData[1], i);
+            let result = getCollision(elbowData[0], elbowData[1], i, undefined, true);
             if (typeof result !== 'object') {
                 // console.log('result is', result1);
                 return;
             }
-            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true);
+            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true, true);
             if (typeof flippedResult !== 'object') {
                 // console.log('flippedResult is', result1);
                 return;
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         }
-        // if (elbow === 'xs4_33/7') {
+        // if (elbow === 'xs4_33/9') {
         //     console.log(out);
-        //     throw new Error('haiiii');
+        //     throw new Error('hi');
         // }
         return out;
     }
+    // if (elbow === 'xs4_33/9') {
+    //     console.log(startObjs);
+    //     throw new Error('haiiii');
+    // }
     // console.log('running normal checks');
     let out: ElbowData['string'] = [];
     for (let i = 0; i < period; i++) {
-        let result = getCollision(elbowData[0], elbowData[1], i);
+        let result = getCollision(elbowData[0], elbowData[1], i, undefined, true);
         if (typeof result !== 'object') {
             // console.log('result is', result1);
             return;
@@ -183,7 +187,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     }
                 }
             }
-            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true);
+            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true, true);
             if (typeof flippedResult !== 'object') {
                 return;
             }
@@ -332,7 +336,15 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
     if (!(elbow in out.elbows)) {
-        addElbow(info, elbow, out);
+        let value = addElbow(info, elbow, out);
+        if (value) {
+            for (let key in value) {
+                if (key in out.elbows) {
+                    throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
+                }
+                out.elbows[key] = value[key];
+            }
+        }
     }
     let depth = info.minSpacing;
     while (true) {

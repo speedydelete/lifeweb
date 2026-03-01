@@ -260,7 +260,8 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
 //     maxPeriodTable.push(out);
 // }
 
-export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): number | 'linear' | null {
+export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' | null {
+    let maxGens = isElbow ? Math.max(maxGenerations, c.ELBOW_MAX_GENERATIONS) : maxGenerations;
     let pops: number[] = [p.population];
     for (let i = 0; i < maxGens; i++) {
         p.runGeneration();
@@ -300,8 +301,8 @@ export function stabilize(p: MAPPattern, maxGens: number = maxGenerations): numb
     return null;
 }
 
-export function findOutcome(p: MAPPattern, maxGens?: number): false | 'linear' | CAObject[] {
-    let period = stabilize(p, maxGens);
+export function findOutcome(p: MAPPattern, isElbow?: boolean): false | 'linear' | CAObject[] {
+    let period = stabilize(p, isElbow);
     if (period === 'linear') {
         return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {

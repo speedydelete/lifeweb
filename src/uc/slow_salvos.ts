@@ -85,7 +85,7 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
 
 const SALVO_INFO = {gliderSpacing: 0};
 
-export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
+export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
     let inc = c.GLIDER_POPULATION_PERIOD;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
@@ -107,7 +107,7 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
                 return 'no';
             }
             p.generation = 0;
-            return findOutcome(p);
+            return findOutcome(p, isElbow);
         }
         prevPop = pop;
     }
