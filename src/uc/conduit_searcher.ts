@@ -20,18 +20,22 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
     let data = (await fs.readFile('temp.txt')).toString();
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
+    let all: string[] = [];
     for (let line of data.split('\n')) {
         if ('bo0123456789$!'.includes(line[0])) {
             currentRLE += line;
         } else if (line.startsWith('x')) {
             if (currentRLE.length > 0) {
-                patterns.push(base.loadRLE(currentRLE).shrinkToFit());
+                let p = base.loadRLE(currentRLE).shrinkToFit();
+                patterns.push(p);
+                all.push(p.toApgcode());
                 currentRLE = '';
             }
         } else {
             continue;
         }
     }
+    // await fs.writeFile(extraArgs?.[0] + '.txt', all.sort().join('\n'));
     await fs.rm('temp.txt');
     if (currentRLE.length > 0) {
         patterns.push(base.loadRLE(currentRLE));
