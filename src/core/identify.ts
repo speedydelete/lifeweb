@@ -60,6 +60,9 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                 if (checkLinear) {
                     for (let period = 1; period < Math.floor((i - j) / 16); period++) {
                         let diff = pop - pops[pops.length - period];
+                        if (diff === 0) {
+                            continue;
+                        }
                         let found = true;
                         for (let k = 1; k < 16; k++) {
                             if (diff !== pops[pops.length - period * k] - pops[pops.length - period * (k + 1)]) {
@@ -68,7 +71,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                             }
                         }
                         if (found) {
-                            return {linear: true, period: diff, stabilizedAt: j, pops, hashes, phases};
+                            return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
                         }
                     }
                 }
