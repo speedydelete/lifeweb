@@ -68,7 +68,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                             }
                         }
                         if (found) {
-                            return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
+                            return {linear: true, period: diff, stabilizedAt: j, pops, hashes, phases};
                         }
                     }
                 }
