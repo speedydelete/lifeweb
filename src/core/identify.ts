@@ -282,7 +282,7 @@ export function getDescription(type: PatternType | Identified): string {
                     } else {
                         out += `${isStable ? 'S' : 'M'} breeder`;
                     }
-                } else if (type.output.disp && (type.disp[0] !== 0 || type.disp[1] !== 0)) {
+                } else if (type.output.disp && (type.output.disp[0] !== 0 || type.output.disp[1] !== 0)) {
                     out += isStable ? 'gun' : 'rake';
                 } else {
                     out += isStable ? 'factory' : 'puffer';
