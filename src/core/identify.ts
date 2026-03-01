@@ -76,7 +76,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                             }
                         }
                         if (found) {
-                            throw new Error(diffs.length + ' ' + diffs.filter((_, i) => i % period === j).join(', '));
+                            throw new Error(diffs.length + ' ' + diffs.filter((_, i) => i % period === j % period).slice(-j).join(', '));
                             return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
                         }
                     }
