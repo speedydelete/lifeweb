@@ -52,37 +52,30 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     if (elbowData[0].startsWith('xp')) {
         period = parseInt(elbowData[0].slice(2));
     }
-    let p = runInjection(info, elbowData, [[info.minSpacing, 0]], true);
-    // console.log(p.toRLE());
-    let result1 = findOutcome(p);
-    if (typeof result1 !== 'object') {
-        // console.log('result1 is', result1);
-        return;
-    }
-    let result2 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + period, 0]]));
-    if (typeof result2 !== 'object') {
-        // console.log('result2 is', result2);
-        return;
-    }
-    let result3 = findOutcome(runInjection(info, elbowData, [[info.minSpacing + 2 * period, 0]]));
-    if (typeof result3 !== 'object') {
-        // console.log('result3 is', result3);
-        return;
-    }
-    for (let result of [result1, result2, result3]) {
-        for (let obj of result) {
+    let isSame = true;
+    let prevResult: string | null = null;
+    let startObjs: CAObject[] | undefined = undefined;
+    for (let i = 0; i < 5; i++) {
+        let objs = findOutcome(runInjection(info, elbowData, [[info.minSpacing + i * period, 0]], true));
+        if (typeof objs !== 'object') {
+            return;
+        }
+        startObjs = objs;
+        for (let obj of objs) {
             if (obj.type === 'ship') {
+                obj.x = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x;
+                obj.y = 0;
                 obj.timing = 0;
             }
         }
+        let result = objectsToString(objs);
+        if (prevResult && result !== prevResult) {
+            isSame = false;
+            break;
+        }
+        prevResult = result;
     }
-    let result1Objs = objectsToString(result1);
-    let result2Objs = objectsToString(result2);
-    let result3Objs = objectsToString(result3);
-    // console.log('result1:', result1Objs);
-    // console.log('result2:', result2Objs);
-    // console.log('result3:', result3Objs);
-    if (!(result1Objs === result2Objs && result2Objs === result3Objs)) {
+    if (!isSame) {
         // console.log('results are not the same');
         let out: ElbowData['string'] = [];
         for (let i = 0; i < period; i++) {
@@ -98,7 +91,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         }
-        // console.log(out);
+        // if (elbow === 'xs4_33/7') {
+        //     console.log(out);
+        //     throw new Error('haiiii');
+        // }
         return out;
     }
     // console.log('running normal checks');
@@ -142,7 +138,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
             }
         } else {
-            let codeStr = result1.map(x => x.code).sort().join(' ');
+            if (!startObjs) {
+                throw new Error('startObjs is null (report this to speedydelete)');
+            }
+            let codeStr = startObjs.map(x => x.code).sort().join(' ');
             for (let value of Object.values(elbows)) {
                 for (let data of value) {
                     if (data.type === 'normal') {
@@ -184,8 +183,17 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     }
                 }
             }
+            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true);
+            if (typeof flippedResult !== 'object') {
+                return;
+            }
+            out.push({type: 'normal', time: 0, result, flippedResult});
         }
     }
+    // if (elbow === 'xs4_33/7') {
+    //     console.log(out);
+    //     throw new Error('haiiii');
+    // }
     return out;
 }
 

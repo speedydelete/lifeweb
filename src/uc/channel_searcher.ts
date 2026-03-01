@@ -158,6 +158,19 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             break;
         }
     }
+    let period = c.GLIDER_POPULATION_PERIOD;
+    if (elbow[0].startsWith('xp')) {
+        period = lcm(period, parseInt(elbow[0].slice(2)));
+    }
+    let prevPop = p.population;
+    for (let i = 0; i < 64; i++) {
+        p.run(period);
+        let pop = p.population;
+        if (pop !== prevPop) {
+            return p;
+        }
+        prevPop = pop;
+    }
     return p;
 }
 
