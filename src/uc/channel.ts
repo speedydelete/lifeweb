@@ -84,13 +84,55 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         for (let i = 0; i < period; i++) {
             let result = getCollision(elbowData[0], elbowData[1], i, undefined, true);
             if (typeof result !== 'object') {
-                // console.log('result is', result1);
-                return;
+                out.push({type: 'bad'});
+                continue;
+            }
+            let codeStr = result.map(x => x.code).sort().join(' ');
+            for (let value of Object.values(elbows)) {
+                for (let data of value) {
+                    if (data.type === 'normal') {
+                        if (result.length !== data.result.length) {
+                            continue;
+                        }
+                        let result2: CAObject[] = [];
+                        let flipped = false;
+                        if (codeStr === data.result.map(x => x.code).sort().join(' ')) {
+                            result2 = data.result;
+                        } else if (codeStr === data.flippedResult.map(x => x.code).sort().join(' ')) {
+                            result2 = data.flippedResult;
+                            flipped = true;
+                        } else {
+                            continue;
+                        }
+                        result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
+                        if (result[0].code !== result2[0].code) {
+                            continue;
+                        }
+                        let xDiff = result[0].x - result2[0].x;
+                        let yDiff = result[0].x - result2[0].x;
+                        if (xDiff !== yDiff * c.GLIDER_SLOPE) {
+                            continue;
+                        }
+                        let found2 = false;
+                        for (let i = 1; i < result.length; i++) {
+                            let obj = result[i];
+                            let obj2 = result2[i];
+                            if (obj.code !== obj2.code || obj.x - obj2.x !== xDiff || obj.y - obj2.y !== yDiff) {
+                                found2 = true;
+                                break;
+                            }
+                        }
+                        if (!found2) {
+                            let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
+                            out.push({type: 'alias', elbow: elbow, flipped, move: yDiff, timing});
+                        }
+                    }
+                }
             }
             let flippedResult = getCollision(elbowData[0], elbowData[1], i, true, true);
             if (typeof flippedResult !== 'object') {
-                // console.log('flippedResult is', result1);
-                return;
+                out.push({type: 'bad'});
+                continue;
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         }
@@ -137,53 +179,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
             }
         } else {
-            let codeStr = result.map(x => x.code).sort().join(' ');
-            for (let value of Object.values(elbows)) {
-                for (let data of value) {
-                    if (data.type === 'normal') {
-                        if (result.length !== data.result.length) {
-                            continue;
-                        }
-                        let result2: CAObject[] = [];
-                        let flipped = false;
-                        if (codeStr === data.result.map(x => x.code).sort().join(' ')) {
-                            result2 = data.result;
-                        } else if (codeStr === data.flippedResult.map(x => x.code).sort().join(' ')) {
-                            result2 = data.flippedResult;
-                            flipped = true;
-                        } else {
-                            continue;
-                        }
-                        result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
-                        if (result[0].code !== result2[0].code) {
-                            continue;
-                        }
-                        let xDiff = result[0].x - result2[0].x;
-                        let yDiff = result[0].x - result2[0].x;
-                        if (xDiff !== yDiff * c.GLIDER_SLOPE) {
-                            continue;
-                        }
-                        let found2 = false;
-                        for (let i = 1; i < result.length; i++) {
-                            let obj = result[i];
-                            let obj2 = result2[i];
-                            if (obj.code !== obj2.code || obj.x - obj2.x !== xDiff || obj.y - obj2.y !== yDiff) {
-                                found2 = true;
-                                break;
-                            }
-                        }
-                        if (!found2) {
-                            let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
-                            out.push({type: 'alias', elbow: elbow, flipped, move: yDiff, timing});
-                        }
-                    }
-                }
-            }
-            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true, true);
-            if (typeof flippedResult !== 'object') {
-                return;
-            }
-            out.push({type: 'normal', time: 0, result, flippedResult});
+            out.push({type: 'bad'});
         }
     }
     // if (elbow === 'xs4_33/7') {
