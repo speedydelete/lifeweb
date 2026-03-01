@@ -324,6 +324,9 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
+        if (mid % expected.period !== 0) {
+            mid += (expected.period - mid % expected.period) % expected.period;
+        }
         if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period * 2, expected)) {
             high = mid;
         } else {
