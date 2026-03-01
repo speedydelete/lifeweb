@@ -25,7 +25,7 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
             currentRLE += line;
         } else if (line.startsWith('x')) {
             if (currentRLE.length > 0) {
-                patterns.push(base.loadRLE(currentRLE));
+                patterns.push(base.loadRLE(currentRLE).shrinkToFit());
                 currentRLE = '';
             }
         } else {
@@ -39,7 +39,6 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
     let out = new Set<string>();
     let done = new Set<string>();
     for (let p of patterns) {
-        p.shrinkToFit();
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
