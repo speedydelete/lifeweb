@@ -76,6 +76,7 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                             }
                         }
                         if (found) {
+                            throw new Error(String(startDiff));
                             return {linear: true, period, stabilizedAt: j, pops, hashes, phases};
                         }
                     }
