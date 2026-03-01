@@ -49,8 +49,8 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 
 function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
     let period = 1;
-    if (elbowData[0].startsWith('xp')) {
-        period = parseInt(elbowData[0].slice(2));
+    if (elbow.startsWith('xp')) {
+        period = parseInt(elbow.slice(2));
     }
     let isSame = true;
     let prevResult: string | null = null;
