@@ -874,7 +874,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         }
         out += `\n${type} bad elbows:\n\n`;
         if (value.badElbows.size > 0) {
-            out += Array.from(value.badElbows).sort().join(', ') + '\n';
+            out += Array.from(value.badElbows).sort().join(', ') + '\n\n';
         }
         let sections: {[key: string]: ChannelRecipe[]} = {};
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
