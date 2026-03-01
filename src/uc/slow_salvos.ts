@@ -115,7 +115,7 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
 }
 
 
-function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
+export function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
     let data = getCollision(target, lane, timing);
     if (data === 'no') {
@@ -131,7 +131,11 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
             return false;
         }
     }
+    lane--;
     data = getCollision(target, lane, timing);
+    if (data === 'no') {
+        return false;
+    }
     while (data !== 'no collision') {
         lane--;
         data = getCollision(target, lane, timing);
@@ -178,7 +182,7 @@ function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [
                         out.push([lane, timing, [{type: 'other', code: 'stable splitter', realCode: 'stable splitter', x: 0, y: 0, at: 0, timing: 0}]]);
                     }
                 } else {
-                        out.push([lane, timing, [{type: 'other', code: 'factory', realCode: 'factory', x: 0, y: 0, at: 0, timing: 0}]]);
+                    out.push([lane, timing, [{type: 'other', code: 'factory', realCode: 'factory', x: 0, y: 0, at: 0, timing: 0}]]);
                 }
             }
         }

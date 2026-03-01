@@ -4,6 +4,7 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
+import {searchConduits} from './conduit_searcher.js';
 
 
 function error(msg: string): never {
@@ -47,6 +48,12 @@ const DIR_ALIASES: {[key: string]: string} = {
 
 
 let argv = process.argv;
+
+if (argv[2] === 'search_conduits') {
+    await searchConduits(argv[3], parseInt(argv[4]), parseInt(argv[5]), argv.slice(6));
+    process.exit(0);
+}
+
 
 let posArgs: string[] = [];
 
