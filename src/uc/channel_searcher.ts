@@ -120,7 +120,10 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     }
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     p.offsetBy(xPos, yPos);
-    p.insert(gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD], 0, 0);
+    let toInsert = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD];
+    p.ensure(toInsert.width, toInsert.height);
+    p.insert(toInsert, 0, 0);
+    // console.log(p.toRLE());
     total += c.GLIDER_TARGET_SPACING;
     let i = 0;
     while (gliders.length > 0) {

@@ -54,13 +54,13 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     }
     let isSame = true;
     let prevResult: string | null = null;
-    let startObjs: CAObject[] | undefined = undefined;
     for (let i = 0; i < 3; i++) {
-        let objs = findOutcome(runInjection(info, elbowData, [[info.minSpacing + i * period, 0]]), true);
+        let p = runInjection(info, elbowData, [[info.minSpacing + i * period, 0]]);
+        // console.log(p.toRLE());
+        let objs = findOutcome(p, true);
         if (typeof objs !== 'object') {
             return;
         }
-        startObjs = objs;
         for (let obj of objs) {
             if (obj.type === 'ship') {
                 obj.x = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x;
@@ -71,6 +71,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
         }
         let result = objectsToString(objs);
+        // throw new Error(result);
         if (prevResult && result !== prevResult) {
             isSame = false;
             break;
@@ -136,10 +137,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
             }
         } else {
-            if (!startObjs) {
-                throw new Error('startObjs is null (report this to speedydelete)');
-            }
-            let codeStr = startObjs.map(x => x.code).sort().join(' ');
+            let codeStr = result.map(x => x.code).sort().join(' ');
             for (let value of Object.values(elbows)) {
                 for (let data of value) {
                     if (data.type === 'normal') {
@@ -206,15 +204,17 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
         data.badElbows.add(elbow);
         return;
     }
+    // console.log(result);
     let out: ElbowData = {[elbow]: result};
     for (let value of result) {
         if ((value.type === 'alias' || value.type === 'convert') && !(value.elbow in data.elbows)) {
             if (depth === 16) {
-                return false;
+                return;
             }
-            let newOut = addElbow(info, elbow, data, depth + 1);
+            let newOut = addElbow(info, value.elbow, data, depth + 1);
             if (newOut === false) {
                 data.badElbows.add(elbow);
+                data.badElbows.add(value.elbow);
                 return false;
             } else if (newOut) {
                 Object.assign(out, newOut);
