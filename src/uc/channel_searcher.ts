@@ -1,7 +1,7 @@
 
 import {MessagePort} from 'node:worker_threads';
 import {APGCODE_CHARS, lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -251,7 +251,7 @@ function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: 
             others.push(obj.code);
         }
     }
-    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
+    console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${others.join(', ')}\x1b[0m`);
     if (stables.length !== expected.stables.length || ships.length !== expected.ships.length || others.length !== expected.others.length) {
         return false;
     }
@@ -317,26 +317,27 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         }
         expected.ships.push(recipe.emit);
     }
-    // console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected[0])}\n    ships: ${expected[1].map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected[2].join(', ')}\x1b[0m`);
+    console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected.stables)}\n    ships: ${expected.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected.others.join(', ')}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     while (low < high) {
-        // let oldLow = low;
-        // let oldHigh = high;
+        let oldLow = low;
+        let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
         if (mid % expected.period !== 0) {
             mid += (expected.period - mid % expected.period) % expected.period;
+            console.log(mid, expected.period);
         }
         if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period * 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
+        console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
-    if (low === info.maxNextSpacing) {
+    if (low >= info.maxNextSpacing) {
         // console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-        // throw new Error('hi');
+        throw new Error('hi');
         return false;
     }
     return low;

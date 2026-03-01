@@ -29,8 +29,6 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
     p = p.copy().shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
-    let prevPop: number | null = null;
-    let diffs: number[] = [];
     let hashes: number[] = [p.hash32()];
     for (let i = 0; i < limit; i++) {
         p.runGeneration();
@@ -60,17 +58,11 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
                     }
                 }
                 if (checkLinear) {
-                    for (let period = 1; period < Math.floor(diffs.length / 16); period++) {
-                        if ((diffs.length - j) / period < 16) {
-                            continue;
-                        }
-                        let startDiff = diffs[j];
-                        if (startDiff === 0) {
-                            continue;
-                        }
+                    for (let period = 1; period < Math.floor((i - j) / 16); period++) {
+                        let diff = pop - pops[pops.length - period];
                         let found = true;
-                        for (let k = j + period; k < diffs.length; k += period) {
-                            if (diffs[k] !== startDiff) {
+                        for (let k = 1; k < 16; k++) {
+                            if (diff !== pops[pops.length - period * k] - pops[pops.length - period * (k + 1)]) {
                                 found = false;
                                 break;
                             }
@@ -85,10 +77,6 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
         phases.push(p.copy());
         pops.push(pop);
         hashes.push(hash);
-        if (prevPop !== null) {
-            diffs.push(pop - prevPop);
-        }
-        prevPop = pop;
     }
     return {stabilizedAt: -1, period: -1, pops, hashes, phases};
 }
