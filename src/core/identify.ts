@@ -309,6 +309,9 @@ export function getDescription(type: PatternType | Identified): string {
     if (type.stabilizedAt > 0) {
         out = 'stabilizes into ' + out;
     }
+    if ('strictVolatility' in type && type.strictVolatility === 0) {
+        out += ' (trivial)';
+    }
     return out;
 }
 
@@ -750,7 +753,7 @@ export function findPatternSymmetry(type: PatternType): PatternSymmetry {
 
 /** An expanded version of `PatternType` containing more information. */
 export interface Identified extends PatternType {
-    /** A human-readable description, such as "(1, 1)c/4 spaceship". */
+    /** A human-readable description, such as "c/4d spaceship". */
     desc: string;
     /** If it is infinite growth, this may contain the output of each stage. */
     output?: Identified;
@@ -800,5 +803,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
             output = identify(data.ash, limit, acceptStabilized, maxPeriodMul);
         }
     }
-    return {...type, output, desc: getDescription(type), ...oscInfo, minmax, symmetry: findPatternSymmetry(type)};
+    let out = {...type, output, desc: '', oscInfo, minmax, symmetry: findPatternSymmetry(type)};
+    out.desc = getDescription(out);
+    return out;
 }
