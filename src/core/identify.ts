@@ -301,7 +301,7 @@ export function getDescription(type: PatternType | Identified): string {
                 out = `p${type.period} oscillator`;
             }
         } else {
-            out = `(${type.disp[0]}, ${type.disp[1]})c/${type.period} spaceship`;
+            out = `${speedToString(type.disp[0], type.disp[1], type.period)} spaceship`;
         }
     } else {
         out = 'cannot identify';
