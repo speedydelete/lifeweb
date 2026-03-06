@@ -14,15 +14,13 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
     console.log(`LSS complete in ${((performance.now() - start) / 1000).toFixed(3)} seconds!`);
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
-    let all: string[] = [];
     for (let line of data.split('\n')) {
         if ('bo0123456789$!'.includes(line[0])) {
             currentRLE += line;
         } else if (line.startsWith('x')) {
             if (currentRLE.length > 0) {
-                let p = base.loadRLE(currentRLE).shrinkToFit();
+                let p = base.loadRLE(currentRLE);
                 patterns.push(p);
-                all.push(p.toApgcode());
                 currentRLE = '';
             }
         } else {
@@ -37,6 +35,7 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
     let lastUpdate = performance.now();
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
+        p.shrinkToFit();
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
