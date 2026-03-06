@@ -7,7 +7,7 @@ import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
-async function getStillLifes(lssPath: string, width: number, height: number, strictBB?: boolean): Promise<string[]> {
+async function getStillLifes(lssPath: string, height: number, width: number, strictHeight?: boolean, strictWidth?: boolean): Promise<string[]> {
     let start = performance.now();
     let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${width} ${height}`;
     let data = execSync(cmd, {maxBuffer: 2**31}).toString();
@@ -36,7 +36,7 @@ async function getStillLifes(lssPath: string, width: number, height: number, str
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
         p.shrinkToFit();
-        if (strictBB && (p.height !== height || p.width !== width)) {
+        if ((strictHeight && p.height !== height) || (strictWidth && p.width !== width)) {
             continue;
         }
         let prefix = `xs${p.population}`;
@@ -67,10 +67,10 @@ async function getStillLifes(lssPath: string, width: number, height: number, str
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-export async function searchConduits(lssPath: string, width: number, height: number, noEater?: boolean, strictBB?: boolean): Promise<void> {
+export async function searchConduits(lssPath: string, height: number, width: number, noEater?: boolean, strictHeight?: boolean, strictWidth?: boolean): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
-    let sls = await getStillLifes(lssPath, width, height, strictBB);
+    let sls = await getStillLifes(lssPath, width, height, strictHeight, strictWidth);
     console.log(`Checking ${sls.length} objects (took ${(performance.now() / 1000 - start).toFixed(3)} seconds to get objects)`);
     start = performance.now() / 1000;
     let lastUpdate = start;
@@ -81,7 +81,7 @@ export async function searchConduits(lssPath: string, width: number, height: num
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile('out.txt', `${!wasEmpty ? '\n' : ''}\n${width}x${height} search in ${c.RULE}:\n`);
+    await fs.appendFile('out.txt', `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0);

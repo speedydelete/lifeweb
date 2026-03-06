@@ -24,7 +24,7 @@ Subcommands:
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
-    search_conduits <lss-path> <width> <height>: Search for width by height stable reflectors, conduits, and eaters.
+    search_conduits <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -39,7 +39,9 @@ Flags:
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
     --no-compile: For slow salvo searching, disables compilation of recipes.
     --no-eater: For conduit searching, do not report eaters.
-    --strict-bb: For conduit searching, only search objects that fill the whole bounding box.
+    --strict-height: For conduit searching, only search objects that fill the whole height.
+    --strict-width: For conduit searching, only search objects that fill the whole width.
+    --strict-bb: Combination of --strict-height and --strict-width.
 `;
 
 const DIR_ALIASES: {[key: string]: string} = {
@@ -63,7 +65,8 @@ let depth: number | undefined = undefined;
 let dvgrn = false;
 let noCompile = false;
 let noEater = false;
-let strictBB = false;
+let strictHeight = false;
+let strictWidth = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -109,8 +112,13 @@ for (let i = 2; i < argv.length; i++) {
             noCompile = true;
         } else if (arg === '--no-eater') {
             noEater = true;
+        } else if (arg === '--strict-height') {
+            strictHeight = true;
+        } else if (arg === '--strict-width') {
+            strictWidth = true;
         } else if (arg === '--strict-bb') {
-            strictBB = true;
+            strictHeight = true;
+            strictWidth = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -125,7 +133,7 @@ if (maxGens !== undefined) {
 }
 
 if (posArgs[0] === 'search_conduits') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater, strictBB);
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater, strictHeight, strictWidth);
     process.exit(0);
 }
 
