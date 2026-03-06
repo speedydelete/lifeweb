@@ -58,7 +58,7 @@ export async function searchConduits(lssPath: string, width: number, height: num
     console.log('Getting objects');
     let start = performance.now() / 1000;
     let sls = await getStillLifes(lssPath, width, height);
-    console.log(`Checking ${sls.length} objects (took ${((performance.now() - start) / 1000).toFixed(3)} seconds to get objects)`);
+    console.log(`Checking ${sls.length} objects (took ${(performance.now() / 1000 - start).toFixed(3)} seconds to get objects)`);
     start = performance.now() / 1000;
     let lastUpdate = start;
     let prevCount = 0;
