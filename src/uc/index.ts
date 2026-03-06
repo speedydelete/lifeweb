@@ -24,6 +24,7 @@ Subcommands:
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
+    search_conduits <lss-path> <width> <height>: Search for width by height stable reflectors, conduits, and eaters.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -37,6 +38,7 @@ Flags:
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
     --no-compile: For slow salvo searching, disables compilation of recipes.
+    --no-eater: For conduit searching, do not report eaters.
 `;
 
 const DIR_ALIASES: {[key: string]: string} = {
@@ -49,12 +51,6 @@ const DIR_ALIASES: {[key: string]: string} = {
 
 let argv = process.argv;
 
-if (argv[2] === 'search_conduits') {
-    await searchConduits(argv[3], parseInt(argv[4]), parseInt(argv[5]));
-    process.exit(0);
-}
-
-
 let posArgs: string[] = [];
 
 let threads = 1;
@@ -65,6 +61,7 @@ let maxElbow: number | undefined = undefined;
 let depth: number | undefined = undefined;
 let dvgrn = false;
 let noCompile = false;
+let noEater = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -108,12 +105,19 @@ for (let i = 2; i < argv.length; i++) {
             dvgrn = true;
         } else if (arg === '--no-compile') {
             noCompile = true;
+        } else if (arg === '--no-eater') {
+            noEater = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
     } else {
         posArgs.push(arg);
     }
+}
+
+if (posArgs[0] === 'search_conduits') {
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater);
+    process.exit(0);
 }
 
 if (posArgs.length < 2) {

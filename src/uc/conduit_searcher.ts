@@ -55,7 +55,7 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-export async function searchConduits(lssPath: string, width: number, height: number): Promise<void> {
+export async function searchConduits(lssPath: string, width: number, height: number, noEater?: boolean): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
     let sls = await getStillLifes(lssPath, width, height);
@@ -78,7 +78,7 @@ export async function searchConduits(lssPath: string, width: number, height: num
                 if (Array.isArray(result)) {
                     let report: string | undefined = undefined;
                     for (let obj of result) {
-                        if (obj.type === 'other' && (obj.code === 'eater' || obj.code === 'stable reflector' || obj.code === 'stable splitter' || obj.code === 'factory')) {
+                        if (obj.type === 'other' && ((!noEater && obj.code === 'eater') || obj.code === 'stable reflector' || obj.code === 'stable splitter' || obj.code === 'factory')) {
                             if (!report) {
                                 report = obj.code;
                             } else {
