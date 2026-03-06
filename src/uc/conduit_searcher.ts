@@ -62,13 +62,13 @@ export async function searchConduits(lssPath: string, width: number, height: num
     start = performance.now() / 1000;
     let lastUpdate = start;
     let prevCount = 0;
-    let written = false;
     let wasEmpty: boolean;
     if (existsSync('out.txt')) {
         wasEmpty = (await fs.readFile('out.txt')).toString().trim().length === 0;
     } else {
         wasEmpty = true;
     }
+    await fs.appendFile('out.txt', `${!wasEmpty ? '\n' : ''}\n${width}x${height} search in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0);
@@ -89,10 +89,6 @@ export async function searchConduits(lssPath: string, width: number, height: num
                         let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
                         report = report[0].toUpperCase() + report.slice(1);
                         let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
-                        if (!written) {
-                            msg = `${!wasEmpty ? '\n' : ''}\n${width}x${height} search in ${c.RULE}:\n` + msg;
-                            written = true;
-                        }
                         await fs.appendFile('out.txt', msg);
                         if (!report.startsWith('Eater')) {
                             console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
