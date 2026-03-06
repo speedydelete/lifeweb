@@ -10,6 +10,7 @@ import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 async function getStillLifes(lssPath: string, width: number, height: number): Promise<string[]> {
     let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${height} ${width}`;
     let data = execSync(cmd, {maxBuffer: 2**31}).toString();
+    console.log('LSS complete!');
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
     let all: string[] = [];
@@ -30,11 +31,14 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
     if (currentRLE.length > 0) {
         patterns.push(base.loadRLE(currentRLE));
     }
+    console.log(`${patterns.length} RLEs loaded, normalizing patterns`);
     let out = new Set<string>();
-    for (let p of patterns) {
-        // if (p.height !== height || p.width !== width) {
-        //     continue;
-        // }
+    let lastUpdate = performance.now();
+    for (let i = 0; i < patterns.length; i++) {
+        let p = patterns[i];
+        if (p.height !== height || p.width !== width) {
+            continue;
+        }
         let prefix = `xs${p.population}`;
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 4; j++) {
@@ -50,6 +54,11 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
                 }
             }
             p.flipHorizontal();
+        }
+        let now = performance.now() / 1000;
+        if (now - lastUpdate > 5) {
+            console.log(`${i}/${patterns.length} (${((i) / patterns.length * 100).toFixed(3)}%) patterns normalized`);
+            lastUpdate = now;
         }
     }
     return Array.from(out);
