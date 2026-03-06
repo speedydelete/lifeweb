@@ -50,7 +50,7 @@ const DIR_ALIASES: {[key: string]: string} = {
 let argv = process.argv;
 
 if (argv[2] === 'search_conduits') {
-    await searchConduits(argv[3], parseInt(argv[4]), parseInt(argv[5]), argv.slice(6));
+    await searchConduits(argv[3], parseInt(argv[4]), parseInt(argv[5]));
     process.exit(0);
 }
 

@@ -6,18 +6,9 @@ import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
-async function getStillLifes(llsPath: string, height: number, width: number, extraArgs?: string[]): Promise<string[]> {
-    let cmd = `${llsPath}/lls -r '${c.RULE}' -s p1 x0 y0 -b ${width} ${height} -n -o temp.txt `;
-    if (extraArgs) {
-        for (let arg of extraArgs) {
-            cmd += `'${arg}' `;
-        }
-        if (!extraArgs.includes('-p')) {
-            cmd += `-p '>0' `;
-        }
-    }
-    execSync(cmd + '> /dev/null');
-    let data = (await fs.readFile('temp.txt')).toString();
+async function getStillLifes(lssPath: string, height: number, width: number): Promise<string[]> {
+    let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${width} ${height}`;
+    let data = execSync(cmd).toString();
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
     let all: string[] = [];
@@ -35,8 +26,6 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
             continue;
         }
     }
-    // await fs.writeFile(extraArgs?.[0] + '.txt', all.sort().join('\n'));
-    await fs.rm('temp.txt');
     if (currentRLE.length > 0) {
         patterns.push(base.loadRLE(currentRLE));
     }
@@ -94,10 +83,10 @@ async function getStillLifes(llsPath: string, height: number, width: number, ext
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-export async function searchConduits(llsPath: string, height: number, width: number, extraArgs?: string[]): Promise<void> {
+export async function searchConduits(lssPath: string, height: number, width: number): Promise<void> {
     console.log('Getting still lifes');
     let start = performance.now()
-    let sls = await getStillLifes(llsPath, height, width, extraArgs);
+    let sls = await getStillLifes(lssPath, height, width);
     console.log(`Checking ${sls.length} still lifes (took ${((performance.now() - start) / 1000).toFixed(3)} seconds to get still lifes)`);
     let lastUpdate = performance.now();
     let written = false;
