@@ -1,7 +1,8 @@
 
 import * as fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {MAPPattern, findStaticSymmetry} from '../core/index.js';
+import {MAPPattern} from '../core/index.js';
 import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
@@ -63,6 +64,12 @@ export async function searchConduits(lssPath: string, width: number, height: num
     let lastUpdate = start;
     let prevCount = 0;
     let written = false;
+    let wasEmpty: boolean;
+    if (existsSync('out.txt')) {
+        wasEmpty = (await fs.readFile('out.txt')).toString().trim().length === 0;
+    } else {
+        wasEmpty = true;
+    }
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0);
@@ -82,9 +89,9 @@ export async function searchConduits(lssPath: string, width: number, height: num
                     if (report) {
                         let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
                         report = report[0].toUpperCase() + report.slice(1);
-                        let msg = `${report} (${code}, ${lane}):\n${rle}\n\n`;
+                        let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
                         if (!written) {
-                            msg = '\n' + msg;
+                            msg = `${!wasEmpty ? '\n' : ''}\n${width}x${height} search in ${c.RULE}:\n` + msg;
                             written = true;
                         }
                         await fs.appendFile('out.txt', msg);
