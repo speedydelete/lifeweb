@@ -30,13 +30,14 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
         patterns.push(base.loadRLE(currentRLE));
     }
     let out = new Set<string>();
-    for (let p of patterns) {
+    for (let i = 0; i < patterns.length; i++) {
+        let p = patterns[i];
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
         let prefix = `xs${p.population}`;
         for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 4; i++) {
+            for (let j = 0; j < 4; j++) {
                 p.rotateLeft();
                 let value = p.toApgcode(prefix);
                 let flipped = p.copy().flipDiagonal().toApgcode(prefix);
