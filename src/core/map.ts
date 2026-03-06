@@ -2039,7 +2039,6 @@ export const VON_NEUMANN: string[][] = [
 
 /** Parses the rulestring format for MAP rules and their subsets. */
 export function createMAPPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pattern {
-    let raw = rule;
     let ruleStr: string;
     let trs = new Uint8Array(512);
     let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
