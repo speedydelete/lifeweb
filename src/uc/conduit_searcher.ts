@@ -36,7 +36,7 @@ async function getStillLifes(lssPath: string, width: number, height: number, str
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
         p.shrinkToFit();
-        if (strictBB && p.height !== height || p.width !== width) {
+        if (strictBB && (p.height !== height || p.width !== width)) {
             continue;
         }
         let prefix = `xs${p.population}`;
