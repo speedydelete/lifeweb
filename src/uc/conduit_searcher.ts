@@ -103,7 +103,7 @@ export async function searchConduits(lssPath: string, width: number, height: num
         }
         let now = performance.now() / 1000;
         if (now - lastUpdate > 5) {
-            console.log(`${i}/${sls.length} (${((i) / sls.length * 100).toFixed(3)}%) objects checked (${((i - prevCount) / (now - lastUpdate)).toFixed(3)} objects/second, ${(i / (now - start)).toFixed(3)} overall)`);
+            console.log(`${i}/${sls.length} (${((i) / sls.length * 100).toFixed(3)}%) complete (${((i - prevCount) / (now - lastUpdate)).toFixed(3)} objects/second current, ${(i / (now - start)).toFixed(3)} overall)`);
             lastUpdate = now;
             prevCount = i;
         }
