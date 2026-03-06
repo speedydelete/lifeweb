@@ -8,7 +8,7 @@ import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 async function getStillLifes(lssPath: string, height: number, width: number): Promise<string[]> {
     let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${width} ${height}`;
-    let data = execSync(cmd).toString();
+    let data = execSync(cmd, {maxBuffer: 2**31}).toString();
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
     let all: string[] = [];
@@ -84,13 +84,13 @@ async function getStillLifes(lssPath: string, height: number, width: number): Pr
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
 export async function searchConduits(lssPath: string, height: number, width: number): Promise<void> {
-    console.log('Getting still lifes');
-    let start = performance.now()
+    console.log('Getting objects');
+    let start = performance.now() / 1000;
     let sls = await getStillLifes(lssPath, height, width);
-    console.log(`Checking ${sls.length} still lifes (took ${((performance.now() - start) / 1000).toFixed(3)} seconds to get still lifes)`);
-    let lastUpdate = performance.now();
+    console.log(`Checking ${sls.length} objects (took ${((performance.now() - start) / 1000).toFixed(3)} seconds to get objects)`);
+    let lastUpdate = start;
+    let prevCount = 0;
     let written = false;
-    let found = false;
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0);
@@ -108,7 +108,6 @@ export async function searchConduits(lssPath: string, height: number, width: num
                         } 
                     }
                     if (report) {
-                        found = true;
                         let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
                         report = report[0].toUpperCase() + report.slice(1);
                         let msg = `${report} (${code}, ${lane}):\n${rle}\n\n`;
@@ -124,10 +123,11 @@ export async function searchConduits(lssPath: string, height: number, width: num
                  }
             }
         }
-        let now = performance.now();
-        if (now - lastUpdate > 5000) {
-            console.log(`${i}/${sls.length} (${((i) / sls.length * 100).toFixed(3)}%) still lifes checked`);
+        let now = performance.now() / 1000;
+        if (now - lastUpdate > 5) {
+            console.log(`${i}/${sls.length} (${((i) / sls.length * 100).toFixed(3)}%) objects checked (${((i - prevCount) / (now - lastUpdate)).toFixed(3)} objects/second, ${(i / (now - start)).toFixed(3)} overall)`);
             lastUpdate = now;
+            prevCount = i;
         }
     }
     console.log(`Search complete in ${((performance.now() - start) / 1000).toFixed(3)} seconds`);
