@@ -39,6 +39,7 @@ Flags:
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
     --no-compile: For slow salvo searching, disables compilation of recipes.
     --no-eater: For conduit searching, do not report eaters.
+    --strict-bb: For conduit searching, only search objects that fill the whole bounding box.
 `;
 
 const DIR_ALIASES: {[key: string]: string} = {
@@ -62,6 +63,7 @@ let depth: number | undefined = undefined;
 let dvgrn = false;
 let noCompile = false;
 let noEater = false;
+let strictBB = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -107,6 +109,8 @@ for (let i = 2; i < argv.length; i++) {
             noCompile = true;
         } else if (arg === '--no-eater') {
             noEater = true;
+        } else if (arg === '--strict-bb') {
+            strictBB = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -115,17 +119,18 @@ for (let i = 2; i < argv.length; i++) {
     }
 }
 
+
+if (maxGens !== undefined) {
+    setMaxGenerations(maxGens);
+}
+
 if (posArgs[0] === 'search_conduits') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater);
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater, strictBB);
     process.exit(0);
 }
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
-}
-
-if (maxGens !== undefined) {
-    setMaxGenerations(maxGens);
 }
 
 let cmd = posArgs[0];

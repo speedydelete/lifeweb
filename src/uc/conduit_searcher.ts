@@ -7,9 +7,9 @@ import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
-async function getStillLifes(lssPath: string, width: number, height: number): Promise<string[]> {
+async function getStillLifes(lssPath: string, width: number, height: number, strictBB?: boolean): Promise<string[]> {
     let start = performance.now();
-    let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${height} ${width}`;
+    let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${width} ${height}`;
     let data = execSync(cmd, {maxBuffer: 2**31}).toString();
     console.log(`LSS complete in ${((performance.now() - start) / 1000).toFixed(3)} seconds!`);
     let patterns: MAPPattern[] = [];
@@ -36,9 +36,9 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
         p.shrinkToFit();
-        // if (p.height !== height || p.width !== width) {
-        //     continue;
-        // }
+        if (strictBB && p.height !== height || p.width !== width) {
+            continue;
+        }
         let prefix = `xs${p.population}`;
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 4; j++) {
@@ -67,10 +67,10 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-export async function searchConduits(lssPath: string, width: number, height: number, noEater?: boolean): Promise<void> {
+export async function searchConduits(lssPath: string, width: number, height: number, noEater?: boolean, strictBB?: boolean): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
-    let sls = await getStillLifes(lssPath, width, height);
+    let sls = await getStillLifes(lssPath, width, height, strictBB);
     console.log(`Checking ${sls.length} objects (took ${(performance.now() / 1000 - start).toFixed(3)} seconds to get objects)`);
     start = performance.now() / 1000;
     let lastUpdate = start;
@@ -117,5 +117,5 @@ export async function searchConduits(lssPath: string, width: number, height: num
             prevCount = i;
         }
     }
-    console.log(`Search complete in ${((performance.now() - start) / 1000).toFixed(3)} seconds`);
+    console.log(`Search complete in ${(performance.now() / 1000 - start).toFixed(3)} seconds`);
 }
