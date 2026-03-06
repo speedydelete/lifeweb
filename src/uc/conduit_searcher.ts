@@ -42,7 +42,11 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
                 let value = p.toApgcode(prefix);
                 let flipped = p.copy().flipDiagonal().toApgcode(prefix);
                 if (!(out.has(value) || out.has(flipped))) {
-                    out.add(value);
+                    if (p.height > p.width) {
+                        out.add(flipped);
+                    } else {
+                        out.add(value);
+                    }
                 }
             }
             p.flipHorizontal();
