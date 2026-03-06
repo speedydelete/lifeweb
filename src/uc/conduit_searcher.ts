@@ -31,8 +31,7 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
         patterns.push(base.loadRLE(currentRLE));
     }
     let out = new Set<string>();
-    for (let i = 0; i < patterns.length; i++) {
-        let p = patterns[i];
+    for (let p of patterns) {
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
