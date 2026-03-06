@@ -32,7 +32,7 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
     }
     console.log(`${patterns.length} RLEs loaded, normalizing patterns`);
     let out = new Set<string>();
-    let lastUpdate = performance.now();
+    let lastUpdate = performance.now() / 1000;
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
         p.shrinkToFit();
