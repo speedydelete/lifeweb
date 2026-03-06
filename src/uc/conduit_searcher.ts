@@ -8,9 +8,10 @@ import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
 async function getStillLifes(lssPath: string, width: number, height: number): Promise<string[]> {
+    let start = performance.now();
     let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${height} ${width}`;
     let data = execSync(cmd, {maxBuffer: 2**31}).toString();
-    console.log('LSS complete!');
+    console.log(`LSS complete, took ${((performance.now() - start) / 1000).toFixed(3)} seconds`);
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
     let all: string[] = [];
