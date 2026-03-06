@@ -6,8 +6,8 @@ import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
-async function getStillLifes(lssPath: string, height: number, width: number): Promise<string[]> {
-    let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${width} ${height}`;
+async function getStillLifes(lssPath: string, width: number, height: number): Promise<string[]> {
+    let cmd = `${lssPath}/venv/bin/python3 ${lssPath}/lss.py -r '${c.RULE}' slenum ${height} ${width}`;
     let data = execSync(cmd, {maxBuffer: 2**31}).toString();
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
@@ -30,51 +30,21 @@ async function getStillLifes(lssPath: string, height: number, width: number): Pr
         patterns.push(base.loadRLE(currentRLE));
     }
     let out = new Set<string>();
-    let done = new Set<string>();
     for (let p of patterns) {
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
-        let key = p.toCanonicalApgcode();
-        if (done.has(key)) {
-            continue;
-        }
-        done.add(key);
         let prefix = `xs${p.population}`;
-        let s = findStaticSymmetry(p);
-        let C2 = s[0] === '.' || s[0] === 'r' || s[0] === '+' || s[0] === '*';
-        let C4 = s[0] === 'r' || s[0] === '*';
-        let D2s = s[0] === '/' || s[0] === 'x' || s[0] === '*';
-        let D2b = s[0] === '\\' || s[0] === 'x' || s[0] === '*';
-        out.add(p.toApgcode(prefix));
-        if (!C4) {
-            out.add(p.rotateLeft().toApgcode(prefix));
-            if (!C2) {
-                out.add(p.rotate180().toApgcode(prefix));
-                if (!D2s) {
-                    out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 4; i++) {
+                p.rotateLeft();
+                let value = p.toApgcode(prefix);
+                let flipped = p.copy().flipDiagonal().toApgcode(prefix);
+                if (!(out.has(value) || out.has(flipped))) {
+                    out.add(value);
                 }
-            } else if (!D2s) {
-                out.add(p.rotateRight().flipAntiDiagonal().toApgcode(prefix));
             }
-        } else if (!D2s) {
-            out.add(p.flipAntiDiagonal().toApgcode(prefix));
-        }
-        if (!c.GLIDER_IS_GLIDE_SYMMETRIC && !D2b) {
-            out.add(p.flipDiagonal().toApgcode(prefix));
-            if (!C4) {
-                out.add(p.rotateLeft().toApgcode(prefix));
-                if (!C2) {
-                    out.add(p.rotate180().toApgcode(prefix));
-                    if (!D2s) {
-                        out.add(p.rotateLeft().flipAntiDiagonal().toApgcode(prefix));
-                    }
-                } else if (!D2s) {
-                    out.add(p.rotateRight().flipAntiDiagonal().toApgcode(prefix));
-                }
-            } else if (!D2s) {
-                out.add(p.flipAntiDiagonal().toApgcode(prefix));
-            }
+            p.flipHorizontal();
         }
     }
     return Array.from(out);
@@ -83,11 +53,12 @@ async function getStillLifes(lssPath: string, height: number, width: number): Pr
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-export async function searchConduits(lssPath: string, height: number, width: number): Promise<void> {
+export async function searchConduits(lssPath: string, width: number, height: number): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
-    let sls = await getStillLifes(lssPath, height, width);
+    let sls = await getStillLifes(lssPath, width, height);
     console.log(`Checking ${sls.length} objects (took ${((performance.now() - start) / 1000).toFixed(3)} seconds to get objects)`);
+    start = performance.now() / 1000;
     let lastUpdate = start;
     let prevCount = 0;
     let written = false;
@@ -117,7 +88,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
                         }
                         await fs.appendFile('out.txt', msg);
                         if (!report.startsWith('Eater')) {
-                            console.log(`${report} detected (${code}, ${lane}):\n${rle}`);
+                            console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                         }
                     }
                  }
