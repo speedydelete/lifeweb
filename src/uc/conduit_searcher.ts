@@ -31,10 +31,16 @@ async function getStillLifes(lssPath: string, width: number, height: number): Pr
         patterns.push(base.loadRLE(currentRLE));
     }
     let out = new Set<string>();
+    let done = new Set<string>();
     for (let p of patterns) {
         // if (p.height !== height || p.width !== width) {
         //     continue;
         // }
+        let key = p.toCanonicalApgcode();
+        if (done.has(key)) {
+            continue;
+        }
+        done.add(key);
         let prefix = `xs${p.population}`;
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 4; j++) {
