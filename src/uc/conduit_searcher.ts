@@ -98,7 +98,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
                     let msg = `\n${result} (${code}, ${lane}):\n${rle}\n`;
                     await fs.appendFile(FILE, msg);
                     if (!result.startsWith('Eater')) {
-                        console.log(`\x1b[92m${result} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
+                        console.log(`\x1b[${result.toLowerCase().includes('failed') ? '94' : '92'}m${result} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                     }
                  }
             }
