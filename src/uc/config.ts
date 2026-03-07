@@ -147,7 +147,7 @@ const PERIOD_SECURITY = 16;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 1000 // 6;
+const MAX_PSEUDO_DISTANCE = 10;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
 const INJECTION_SPACING = 2;
