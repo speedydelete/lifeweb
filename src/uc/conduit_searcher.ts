@@ -204,7 +204,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with up to ${objects[1]} objects picked from '${objects[0].join(', ')}` : 'search'}' in ${c.RULE}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with up to ${objects[1]} objects picked from '${objects[0].join(', ')}` : 'search'} in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0, true);
