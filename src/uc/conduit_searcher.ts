@@ -90,16 +90,15 @@ export async function searchConduits(lssPath: string, height: number, width: num
         if (data) {
             for (let [lane, timing, result] of data[1]) {
                 if (typeof result === 'string') {
-                    let report: string | undefined;
                     if (noEater && result === 'eater') {
                         continue;
                     }
                     let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
                     result = result[0].toUpperCase() + result.slice(1);
-                    let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
+                    let msg = `\n${result} (${code}, ${lane}):\n${rle}\n`;
                     await fs.appendFile(FILE, msg);
                     if (!result.startsWith('Eater')) {
-                        console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
+                        console.log(`\x1b[92m${result} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                     }
                  }
             }
