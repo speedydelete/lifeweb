@@ -31,10 +31,10 @@ function testObject(p: MAPPattern, obj: MAPPattern, x: number, y: number): false
     p = p.copy();
     let oldPop = p.population;
     p.insert(obj, x, y);
-    let q = p.copy();
     if (p.population !== oldPop + obj.population) {
         return false;
     }
+    let q = p.copy();
     q.runGeneration();
     if (p.isEqual(q)) {
         return p;
@@ -43,7 +43,7 @@ function testObject(p: MAPPattern, obj: MAPPattern, x: number, y: number): false
     }
 }
 
-function getRandomObject(height: number, width: number, objects: MAPPattern[], count: number): string[] {
+function getRandomObject(height: number, width: number, objects: MAPPattern[], count: number, retries: number = 0): false | string[] {
     let p = base.copy();
     p.height = height;
     p.width = width;
@@ -51,27 +51,27 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
     p.data = new Uint8Array(p.size);
     for (let i = 0; i < count; i++) {
         let found = false;
-        for (let j = 0; j < 1000; j++) {
+        for (let j = 0; j < 1024; j++) {
             let obj = objects[Math.floor(Math.random() * objects.length)];
-            let x = Math.floor(Math.random() * objects.length);
-            let y = Math.floor(Math.random() * objects.length);
-            if (x + obj.width > width || y + obj.height > height) {
-                continue;
-            }
+            let x = Math.floor(Math.random() * (width - obj.width + 1));
+            let y = Math.floor(Math.random() * (height - obj.height + 1));
             let q = testObject(p, obj, x, y);
             if (q) {
-                q.shrinkToFit();
-                q.xOffset = 0;
-                q.yOffset = 0;
                 p = q;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            return getRandomObject(height, width, objects, count);
+            if (retries === 512) {
+                return false;
+            }
+            return getRandomObject(height, width, objects, count, retries + 1);
         }
     }
+    p.shrinkToFit();
+    p.xOffset = 0;
+    p.yOffset = 0;
     return Array.from(expandObjects(p));
 }
 
@@ -248,7 +248,12 @@ export async function searchConduitsRandom(height: number, width: number, object
     await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} random search with up to ${count} objects picked from '${objects.join(', ')}' in ${c.RULE}:\n`);
     let totalSearched = 0;
     while (true) {
-        for (let code of getRandomObject(height, width, sls, count)) {
+        let data = getRandomObject(height, width, sls, count);
+        if (!data) {
+            console.log('\x1b[91mSkipped\x1b[0m');
+            continue;
+        }
+        for (let code of data) {
             let data = get1GSalvos(info, code, 0, true);
             if (data) {
                 for (let [lane, timing, result] of data[1]) {
