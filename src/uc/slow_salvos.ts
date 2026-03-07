@@ -338,12 +338,12 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                         let [newObjs, newOut] = data;
                         out.push(...newOut);
                         let toAdd = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
-                        newQueue.push(...newObjs);
                         if (results[code]) {
                             results[code].push(...toAdd);
                         } else {
                             results[code] = toAdd;
                         }
+                        newQueue.push(...newObjs);
                     }
                 }
                 if (out.length > 0) {
