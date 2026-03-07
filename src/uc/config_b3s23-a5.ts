@@ -122,7 +122,7 @@ type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 /*
 ok this is how this part works:
 the stuff that's not in the data property is simple, just provide the canonical phase you would like!
-now for the stuff in the data property 
+now for the stuff in the data property
 for each ship
 determine the canonical phase, this should head southwest for diagonals or south for orthogonals
 put that canonical phase in the height, width, and cells options, those are described below

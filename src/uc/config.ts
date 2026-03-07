@@ -104,7 +104,7 @@ const PERIOD_SECURITY = 16;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 1000 // 6;
+const MAX_PSEUDO_DISTANCE = 6;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
 const INJECTION_SPACING = 2;
@@ -122,7 +122,7 @@ type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 /*
 ok this is how this part works:
 the stuff that's not in the data property is simple, just provide the canonical phase you would like!
-now for the stuff in the data property 
+now for the stuff in the data property
 for each ship
 determine the canonical phase, this should head southwest for diagonals or south for orthogonals
 put that canonical phase in the height, width, and cells options, those are described below

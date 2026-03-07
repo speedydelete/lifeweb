@@ -120,6 +120,7 @@ const MAX_CREATE_POPULATION = 18;
 type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 
 /*
+ok this is how this part works:
 the stuff that's not in the data property is simple, just provide the canonical phase you would like!
 now for the stuff in the data property
 for each ship
