@@ -127,7 +127,10 @@ function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?
 }
 
 
-export function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
+export function get1GSalvos(info: SalvoInfo, target: string, timing: number, reflectorSearch?: boolean): false | [Set<string>, [number, number, false | null | CAObject[] | string][]] {
+    let index = target.indexOf('_');
+    let prefix = target.slice(0, index);
+    let canonicalTarget = base.loadApgcode(target.slice(index + 1)).toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
     let lane = 0;
     let data = getSalvoCollision(target, lane, timing);
     if (data === 'no') {
@@ -161,7 +164,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number): fa
     lane++;
     let failed = false;
     let newObjs = new Set<string>();
-    let out: [number, number, false | null | CAObject[]][] = [];
+    let out: [number, number, false | null | CAObject[] | string][] = [];
     let hadCollision = false;
     for (; lane < info.laneLimit; lane++) {
         let data = getSalvoCollision(target, lane, timing);
@@ -169,7 +172,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number): fa
             return false;
         }
         if (data === 'linear') {
-            out.push([lane, timing, [{type: 'other', code: 'linear growth', realCode: 'linear growth', x: 0, y: 0, at: 0, timing: 0}]]);
+            out.push([lane, timing, 'linear']);
             continue;
         } else if (data === 'no collision') {
             if (!hadCollision) {
@@ -182,19 +185,49 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number): fa
                 continue;
             }
         } else if (data) {
-            let obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target && x.x === 0 && x.y === 0);
+            let obj: CAObject | undefined;
+            if (reflectorSearch) {
+                for (let testObj of data) {
+                    let index = testObj.code.indexOf('_');
+                    let prefix = testObj.code.slice(0, index);
+                    let data = testObj.code.slice(index + 1);
+                    let period: number;
+                    if (testObj.type === 'sl') {
+                        period = 1;
+                    } else if (testObj.type === 'osc') {
+                        period = parseInt(prefix.slice(2));
+                    } else {
+                        continue;
+                    }
+                    let code = base.loadApgcode(data).toCanonicalApgcode(period, prefix);
+                    if (code === canonicalTarget) {
+                        obj = testObj;
+                        break;
+                    }
+                }
+            } else {
+                obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target);
+            }
             if (obj) {
-                if (data.length === 1) {
-                    out.push([lane, timing, [{type: 'other', code: 'eater', realCode: 'eater', x: 0, y: 0, at: 0, timing: 0}]]);
-                    continue;
+                if (obj.code === 'target' && obj.x === 0 && obj.y === 0) {
+                    if (data.length === 1) {
+                        out.push([lane, timing, 'eater']);
+                        continue;
+                    } else if (data.every(x => x === obj || x.type === 'ship')) {
+                        if (data.length === 2) {
+                            out.push([lane, timing, 'reflector']);
+                        } else {
+                            out.push([lane, timing, 'splitter']);
+                        }
+                    } else {
+                        out.push([lane, timing, 'factory']);
+                    }
                 } else if (data.every(x => x === obj || x.type === 'ship')) {
                     if (data.length === 2) {
-                        out.push([lane, timing, [{type: 'other', code: 'stable reflector', realCode: 'stable reflector', x: 0, y: 0, at: 0, timing: 0}]]);
+                        out.push([lane, timing, 'failed reflector']);
                     } else {
-                        out.push([lane, timing, [{type: 'other', code: 'stable splitter', realCode: 'stable splitter', x: 0, y: 0, at: 0, timing: 0}]]);
+                        out.push([lane, timing, 'failed splitter']);
                     }
-                } else {
-                    out.push([lane, timing, [{type: 'other', code: 'factory', realCode: 'factory', x: 0, y: 0, at: 0, timing: 0}]]);
                 }
             }
         }
@@ -226,10 +259,10 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
     }
 }
 
-function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
+function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[] | string][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
     for (let [lane, timing, objs] of data[code]) {
         timing = (timing + totalTiming) % info.period;
-        if (!objs) {
+        if (!objs || typeof objs === 'string') {
             continue;
         }
         let recipe = prefix.slice();
@@ -329,7 +362,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
     let recipes = await loadRecipes();
     let results = recipes.salvos[type].searchResults;
     let done = new Set<string>();
-    let forInput: {[key: string]: [number, number, false | null | CAObject[]][]} = {};
+    let forInput: {[key: string]: [number, number, false | null | CAObject[] | string][]} = {};
     let queue = [start];
     let depth = 0;
     while (true) {

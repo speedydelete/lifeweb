@@ -86,28 +86,20 @@ export async function searchConduits(lssPath: string, height: number, width: num
     await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
-        let data = get1GSalvos(info, code, 0);
+        let data = get1GSalvos(info, code, 0, true);
         if (data) {
             for (let [lane, timing, result] of data[1]) {
-                if (Array.isArray(result)) {
-                    let report: string | undefined = undefined;
-                    for (let obj of result) {
-                        if (obj.type === 'other' && ((!noEater && obj.code === 'eater') || obj.code === 'stable reflector' || obj.code === 'stable splitter' || obj.code === 'factory')) {
-                            if (!report) {
-                                report = obj.code;
-                            } else {
-                                report += ' and ' + obj.code;
-                            }
-                        } 
+                if (typeof result === 'string') {
+                    let report: string | undefined;
+                    if (noEater && result === 'eater') {
+                        continue;
                     }
-                    if (report) {
-                        let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
-                        report = report[0].toUpperCase() + report.slice(1);
-                        let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
-                        await fs.appendFile(FILE, msg);
-                        if (!report.startsWith('Eater')) {
-                            console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
-                        }
+                    let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
+                    result = result[0].toUpperCase() + result.slice(1);
+                    let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
+                    await fs.appendFile(FILE, msg);
+                    if (!result.startsWith('Eater')) {
+                        console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                     }
                  }
             }

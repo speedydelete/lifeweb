@@ -530,7 +530,7 @@ export function stringToObjects(data: string): CAObject[] {
 
 
 export interface SalvoRecipes {
-    searchResults: {[key: string]: [number, number, CAObject[]][]};
+    searchResults: {[key: string]: [number, number, CAObject[] | string][]};
     recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
     moveRecipes: {[key: string]: [StableObject, StableObject, [number, number][][]]};
     splitRecipes: {[key: string]: [StableObject, StableObject[], [number, number][][]]};
@@ -633,7 +633,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let out = recipeData.salvos[type];
         if (section === 'search results') {
             for (let [apgcode, data] of parseRecipeSections(current)) {
-                out.searchResults[apgcode] = data.map(x => x.split(':')).map(x => [...parseSlowSalvo(info, x[0])[0], stringToObjects(x[1])]);
+                out.searchResults[apgcode] = data.map(x => x.split(':')).map(x => [...parseSlowSalvo(info, x[0])[0], x[1] === 'linear' || x[1] === 'eater' || x[1].includes('reflector') || x[1].includes('splitter') || x[1] === 'factory' ? x[1] : stringToObjects(x[1])]);
             }
         } else if (section === 'recipes') {
             for (let line of current) {
@@ -831,7 +831,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         let info = c.SALVO_INFO[type];
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
-            out += `${key}:\n${value.map(([lane, timing, data]) => salvoToString(info, [[lane, timing]]) + ': ' + objectsToString(data)).join('\n')}\n\n`;
+            out += `${key}:\n${value.map(([lane, timing, data]) => salvoToString(info, [[lane, timing]]) + ': ' + (typeof data === 'object' ? objectsToString(data) : data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
