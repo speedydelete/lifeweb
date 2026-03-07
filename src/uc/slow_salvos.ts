@@ -209,7 +209,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                 obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target);
             }
             if (obj) {
-                if (obj.code === 'target' && obj.x === 0 && obj.y === 0) {
+                if (obj.code === target && obj.x === 0 && obj.y === 0) {
                     if (data.length === 1) {
                         out.push([lane, timing, 'eater']);
                         continue;
@@ -225,7 +225,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                 } else if (data.every(x => x === obj || x.type === 'ship')) {
                     if (data.length === 2) {
                         out.push([lane, timing, 'failed reflector']);
-                    } else {
+                    } else if (data.length > 2) {
                         out.push([lane, timing, 'failed splitter']);
                     }
                 }
