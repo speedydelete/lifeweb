@@ -335,7 +335,11 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     let data = get1GSalvos(info, code, timing);
                     if (data) {
                         let [newObjs, newOut] = data;
-                        forInput[code] = newOut;
+                        if (forInput[code]) {
+                            forInput[code].push(...newOut);
+                        } else {
+                            forInput[code] = newOut;
+                        }
                         let toAdd = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                         newQueue.push(...newObjs);
                         if (results[code]) {
@@ -371,5 +375,8 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
         log('Compiled all recipes');
         await saveRecipes(recipes);
         depth++;
+        if (depth === 5) {
+            process.exit(0);
+        }
     }
 }

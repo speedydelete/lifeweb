@@ -14,7 +14,7 @@ const GLIDER_POPULATION_PERIOD = 4;
 const GLIDER_IS_GLIDE_SYMMETRIC = true;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 0;
+const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
 const GLIDER_TARGET_SPACING = 7;
