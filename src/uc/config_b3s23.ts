@@ -138,7 +138,7 @@ const MAX_GENERATIONS = 384;
 // MAX_GENERATIONS but for elbow checking, this should be pretty high
 const ELBOW_MAX_GENERATIONS = 4096;
 // the maximum population period, optional
-const MAX_POPULATION_PERIOD: null | number = 2;
+const MAX_POPULATION_PERIOD: null | number = null;
 // whether to do linear growth checking
 const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
