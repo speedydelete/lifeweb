@@ -30,6 +30,9 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
             let obj = objects[Math.floor(Math.random() * objects.length)];
             let x = Math.floor(Math.random() * objects.length);
             let y = Math.floor(Math.random() * objects.length);
+            if (x + obj.width > width || y + obj.height > height) {
+                continue;
+            }
             let q = testObject(p, obj, x, y);
             if (q) {
                 p = q;
@@ -54,7 +57,13 @@ function getAllObjects(height: number, width: number, objects: MAPPattern[], cou
     let out: string[] = [];
     for (let obj of objects) {
         for (let y = 0; y < height; y++) {
+            if (y + obj.height > height) {
+                break;
+            }
             for (let x = 0; x < width; x++) {
+                if (x + obj.width > width) {
+                    break;
+                }
                 let q = testObject(p, obj, x, y);
                 if (q) {
                     if (count === 1) {
