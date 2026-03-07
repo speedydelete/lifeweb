@@ -67,7 +67,7 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
-const FILE = 'out.txt';
+const FILE = 'out2.txt';
 
 export async function searchConduits(lssPath: string, height: number, width: number, noEater?: boolean, strictHeight?: boolean, strictWidth?: boolean): Promise<void> {
     console.log('Getting objects');
