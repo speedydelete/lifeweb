@@ -174,7 +174,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with ${objects.join(', ')}` : 'search'} in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0, true);
@@ -215,7 +215,7 @@ export async function searchConduitsRandom(height: number, width: number, object
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} random search with ${objects.join(', ')} in ${c.RULE}:\n`);
     let totalSearched = 0;
     while (true) {
         for (let code of getRandomObject(height, width, sls, count)) {

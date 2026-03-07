@@ -25,8 +25,8 @@ Subcommands:
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
     search_conduits <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters.
-    search_conduits_objects <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects.
-    search_conduits_random <lss-path> <height> <width> <count> <objects>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects placed randomly.
+    search_conduits_objects <height> <width>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects.
+    search_conduits_random <height> <width> <count> <objects>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects placed randomly.
 
 
 The type argument is the construction type, defined in src/uc/config.ts.
@@ -139,7 +139,7 @@ if (posArgs[0] === 'search_conduits') {
     await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
     process.exit(0);
 } else if (posArgs[0] === 'search_conduits_objects') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs.slice(5).join(' ').split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
+    await searchConduits('', parseInt(posArgs[1]), parseInt(posArgs[2]), [posArgs.slice(4).join(' ').split(/[ ,]+/), parseInt(posArgs[3])], noEater, strictHeight, strictWidth);
     process.exit(0);
 } else if (posArgs[0] === 'search_conduits_random') {
     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs.slice(5).join(' ').split(/[ ,]+/), parseInt(posArgs[4]), noEater);
