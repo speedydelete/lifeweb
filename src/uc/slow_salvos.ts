@@ -375,8 +375,5 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
         log('Compiled all recipes');
         await saveRecipes(recipes);
         depth++;
-        if (depth === 5) {
-            process.exit(0);
-        }
     }
 }
