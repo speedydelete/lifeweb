@@ -219,7 +219,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                         } else {
                             out.push([lane, timing, 'splitter']);
                         }
-                    } else if (data.length === 2) {
+                    } else if (data.length < 4) {
                         out.push([lane, timing, 'factory']);
                     }
                 } else if (data.every(x => x === obj || x.type === 'ship')) {
@@ -228,7 +228,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                     } else if (data.length > 2) {
                         out.push([lane, timing, 'failed splitter']);
                     }
-                } else if (data.length === 2) {
+                } else if (data.length < 4) {
                     out.push([lane, timing, 'failed factory']);
                 }
             }
