@@ -36,6 +36,8 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
     for (let i = 0; i < patterns.length; i++) {
         let p = patterns[i];
         p.shrinkToFit();
+        p.xOffset = 0;
+        p.yOffset = 0;
         if ((strictHeight && p.height !== height) || (strictWidth && p.width !== width)) {
             continue;
         }
@@ -72,7 +74,7 @@ const FILE = 'out2.txt';
 export async function searchConduits(lssPath: string, height: number, width: number, noEater?: boolean, strictHeight?: boolean, strictWidth?: boolean): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
-    let sls = await getStillLifes(lssPath, width, height, strictHeight, strictWidth);
+    let sls = await getStillLifes(lssPath, height, width, strictHeight, strictWidth);
     console.log(`Checking ${sls.length} objects (took ${(performance.now() / 1000 - start).toFixed(3)} seconds to get objects)`);
     start = performance.now() / 1000;
     let lastUpdate = start;

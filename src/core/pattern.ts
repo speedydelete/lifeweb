@@ -1049,7 +1049,7 @@ export abstract class DataPattern implements Pattern {
                 if (this.ruleSymmetry === 'D8') {
                     codes.push(q.rotateLeft().toApgcode());
                     for (let i = 0; i < 2; i++) {
-                        for (let i = 0; i < 4; i++) {
+                        for (let j = 0; j < 4; j++) {
                             codes.push(q.rotateLeft().toApgcode());
                         }
                         q.flipHorizontal();
@@ -1785,7 +1785,7 @@ export abstract class CoordPattern implements Pattern {
                 if (this.ruleSymmetry === 'D8') {
                     codes.push(q.rotateLeft().toApgcode());
                     for (let i = 0; i < 2; i++) {
-                        for (let i = 0; i < 4; i++) {
+                        for (let j = 0; j < 4; j++) {
                             codes.push(q.rotateLeft().toApgcode());
                         }
                         q.flipHorizontal();
