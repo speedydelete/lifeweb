@@ -7,6 +7,26 @@ import {c, SalvoInfo, base} from './base.js';
 import {createSalvoPattern, get1GSalvos} from './slow_salvos.js';
 
 
+function expandObjects(p: MAPPattern, out: Set<string> = new Set()): Set<string> {
+    let prefix = `xs${p.population}`;
+    for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 4; j++) {
+            p.rotateLeft();
+            let value = p.toApgcode(prefix);
+            let flipped = p.copy().flipDiagonal().toApgcode(prefix);
+            if (!(out.has(value) || out.has(flipped))) {
+                if (p.height > p.width) {
+                    out.add(flipped);
+                } else {
+                    out.add(value);
+                }
+            }
+        }
+        p.flipHorizontal();
+    }
+    return out;
+}
+
 function testObject(p: MAPPattern, obj: MAPPattern, x: number, y: number): false | MAPPattern {
     p = p.copy();
     p.insert(obj, x, y);
@@ -19,11 +39,12 @@ function testObject(p: MAPPattern, obj: MAPPattern, x: number, y: number): false
     }
 }
 
-function getRandomObject(height: number, width: number, objects: MAPPattern[], count: number): string {
+function getRandomObject(height: number, width: number, objects: MAPPattern[], count: number): string[] {
     let p = base.copy();
     p.height = height;
     p.width = width;
     p.size = height * width;
+    p.data = new Uint8Array(p.size);
     for (let i = 0; i < count; i++) {
         let found = false;
         for (let j = 0; j < 1000; j++) {
@@ -44,17 +65,18 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
             return getRandomObject(height, width, objects, count);
         }
     }
-    return 'x_' + p.toApgcode();
+    return Array.from(expandObjects(p));
 }
 
-function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, recursive: boolean = false, p?: MAPPattern): string[] {
+function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, recursive: boolean = false, p?: MAPPattern): MAPPattern[] {
     if (!p) {
         p = base.copy();
         p.height = height;
         p.width = width;
         p.size = height * width;
+        p.data = new Uint8Array(p.size);
     }
-    let out: string[] = [];
+    let out: MAPPattern[] = [];
     for (let obj of objects) {
         for (let y = 0; y < height; y++) {
             if (y + obj.height > height) {
@@ -67,7 +89,7 @@ function getAllObjects(height: number, width: number, objects: MAPPattern[], cou
                 let q = testObject(p, obj, x, y);
                 if (q) {
                     if (count === 1) {
-                        out.push('x_' + q.toApgcode());
+                        out.push(q);
                     } else {
                         out.push(...getAllObjects(height, width, objects, count - 1, true, q));
                     }
@@ -82,11 +104,10 @@ function normalizeObjects(objs: string[]): MAPPattern[] {
     let out = new Set<string>();
     for (let obj of objs) {
         let p = base.loadApgcode(obj.slice(obj.indexOf('_') + 1));
-        let prefix = 'xs' + p.population;
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 5; j++) {
                 p.rotateLeft();
-                out.add(p.toApgcode(prefix));
+                out.add(p.toApgcode());
             }
             p.flipHorizontal();
         }
@@ -134,22 +155,7 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
         if ((strictHeight && p.height !== height) || (strictWidth && p.width !== width)) {
             continue;
         }
-        let prefix = `xs${p.population}`;
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 4; j++) {
-                p.rotateLeft();
-                let value = p.toApgcode(prefix);
-                let flipped = p.copy().flipDiagonal().toApgcode(prefix);
-                if (!(out.has(value) || out.has(flipped))) {
-                    if (p.height > p.width) {
-                        out.add(flipped);
-                    } else {
-                        out.add(value);
-                    }
-                }
-            }
-            p.flipHorizontal();
-        }
+        expandObjects(p, out);
         let now = performance.now() / 1000;
         if (now - lastUpdate > 5) {
             console.log(`${i}/${patterns.length} (${((i) / patterns.length * 100).toFixed(3)}%) patterns normalized`);
@@ -169,7 +175,11 @@ export async function searchConduits(lssPath: string, height: number, width: num
     let start = performance.now() / 1000;
     let sls: string[];
     if (objects) {
-        sls = getAllObjects(height, width, normalizeObjects(objects[0]), objects[1]);
+        let set = new Set<string>();
+        for (let p of getAllObjects(height, width, normalizeObjects(objects[0]), objects[1])) {
+            expandObjects(p, set);
+        }
+        sls = Array.from(set);
     } else {
         sls = await getStillLifes(lssPath, height, width, strictHeight, strictWidth);
     }
