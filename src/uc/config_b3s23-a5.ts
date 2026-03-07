@@ -5,16 +5,16 @@ const RULE = 'B3/S23-a5';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
 const GLIDER_APGCODE = 'xq4_27';
-const GLIDER_DX = 1;
+const GLIDER_DX = 0;
 // this one should be greater than or equal to GLIDER_DX
-const GLIDER_DY = 0;
+const GLIDER_DY = 1;
 const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
 const GLIDER_POPULATION_PERIOD = 4;
 const GLIDER_IS_GLIDE_SYMMETRIC = true;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 5;
+const LANE_OFFSET = 0;
 
 // the spacing (in cells) between a glider and the target
 const GLIDER_TARGET_SPACING = 7;
@@ -50,7 +50,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         period: 2,
         intermediateObjects: ['xp2_7', 'xp2_111', 'xp2_f', 'xp2_333', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs8_6996', 'xs6_696', 'xs6_2552', 'xs4_252', 'xs6_356', 'xs6_653', 'xp2_ff', 'xp2_3333', 'xs20_g8861688gz01168611'],
         laneLimit: 128,
-        maxRecipes: 5,
+        maxRecipes: 8,
     },
 
 };
@@ -209,22 +209,22 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
                 ],
             },
             {
-                height: 3,
-                width: 4,
-                population: 5,
-                data: [
-                    [[0, 1, 2, 7, 10], 'N', 2],
-                    [[1, 4, 9, 10, 11], 'S', 2],
-                ]
-            },
-            {
                 height: 4,
                 width: 3,
                 population: 5,
                 data: [
+                    [[0, 1, 2, 7, 10], 'N', 2],
+                    [[1, 4, 9, 10, 11], 'S', 2],
+                ],
+            },
+            {
+                height: 3,
+                width: 4,
+                population: 5,
+                data: [
                     [[0, 4, 6, 7, 8], 'W', 0],
                     [[3, 4, 5, 7, 11], 'E', 0],
-                ],
+                ]
             },
             {
                 height: 3,
