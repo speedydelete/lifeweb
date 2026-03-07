@@ -333,6 +333,16 @@ export function getKnots(trs: Uint8Array): Uint8Array {
         out[0b101100010] = 1;
         out[0b010100101] = 1;
     }
+    if (!B4n && B3i) {
+        out[0b111000100] = 1;
+        out[0b111000001] = 1;
+        out[0b101100100] = 1;
+        out[0b100100101] = 1;
+        out[0b100000111] = 1;
+        out[0b001000111] = 1;
+        out[0b101001001] = 1;
+        out[0b001001101] = 1;
+    }
     if (!B4q && B3a) {
         out[0b110100001] = 1;
         out[0b011001100] = 1;
