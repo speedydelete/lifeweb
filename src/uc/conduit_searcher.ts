@@ -29,8 +29,12 @@ function expandObjects(p: MAPPattern, out: Set<string> = new Set()): Set<string>
 
 function testObject(p: MAPPattern, obj: MAPPattern, x: number, y: number): false | MAPPattern {
     p = p.copy();
+    let oldPop = p.population;
     p.insert(obj, x, y);
     let q = p.copy();
+    if (p.population !== oldPop + obj.population) {
+        return false;
+    }
     q.runGeneration();
     if (p.isEqual(q)) {
         return p;
@@ -56,6 +60,9 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
             }
             let q = testObject(p, obj, x, y);
             if (q) {
+                q.shrinkToFit();
+                q.xOffset = 0;
+                q.yOffset = 0;
                 p = q;
                 found = true;
                 break;
@@ -68,7 +75,7 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
     return Array.from(expandObjects(p));
 }
 
-function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, recursive: boolean = false, p?: MAPPattern): MAPPattern[] {
+function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, p?: MAPPattern): MAPPattern[] {
     if (!p) {
         p = base.copy();
         p.height = height;
@@ -88,9 +95,13 @@ function getAllObjects(height: number, width: number, objects: MAPPattern[], cou
                 }
                 let q = testObject(p, obj, x, y);
                 if (q) {
-                    out.push(q);
+                    let r = q.copy();
+                    r.shrinkToFit();
+                    r.xOffset = 0;
+                    r.yOffset = 0;
+                    out.push(r);
                     if (count > 1) {
-                        out.push(...getAllObjects(height, width, objects, count - 1, true, q));
+                        out.push(...getAllObjects(height, width, objects, count - 1, q));
                     }
                 }
             }
@@ -103,6 +114,7 @@ function normalizeObjects(objs: string[]): MAPPattern[] {
     let out = new Set<string>();
     for (let obj of objs) {
         let p = base.loadApgcode(obj.slice(obj.indexOf('_') + 1));
+        p.shrinkToFit();
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 5; j++) {
                 p.rotateLeft();
