@@ -74,7 +74,7 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
     for (let ship of ships) {
         let x = target.x - ship.x;
         let y = target.y - ship.y;
-        let lane = y - x + c.LANE_OFFSET;
+        let lane = (y * c.GLIDER_SLOPE) - x + c.LANE_OFFSET;
         let timing = x + y;
         lanes.push([lane, ship.timing, timing]);
     }
@@ -114,16 +114,28 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
     return 'no collision';
 }
 
+function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
+    let out = getCollision(code, lane, timing, flip, isElbow);
+    if (typeof out === 'object') {
+        for (let obj of out) {
+            if (obj.type === 'osc') {
+                obj.timing %= parseInt(obj.code.slice(2));
+            }
+        }
+    }
+    return out;
+}
+
 
 export function get1GSalvos(info: SalvoInfo, target: string, timing: number): false | [Set<string>, [number, number, false | null | CAObject[]][]] {
     let lane = 0;
-    let data = getCollision(target, lane, timing);
+    let data = getSalvoCollision(target, lane, timing);
     if (data === 'no') {
         return false;
     }
     while (data !== 'no collision') {
         lane--;
-        data = getCollision(target, lane, timing);
+        data = getSalvoCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -132,13 +144,13 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number): fa
         }
     }
     lane--;
-    data = getCollision(target, lane, timing);
+    data = getSalvoCollision(target, lane, timing);
     if (data === 'no') {
         return false;
     }
     while (data !== 'no collision') {
         lane--;
-        data = getCollision(target, lane, timing);
+        data = getSalvoCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -152,7 +164,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number): fa
     let out: [number, number, false | null | CAObject[]][] = [];
     let hadCollision = false;
     for (; lane < info.laneLimit; lane++) {
-        let data = getCollision(target, lane, timing);
+        let data = getSalvoCollision(target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -214,13 +226,14 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
     }
 }
 
-function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
+function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[]][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
     for (let [lane, timing, objs] of data[code]) {
+        timing = (timing + totalTiming) % info.period;
         if (!objs) {
             continue;
         }
         let recipe = prefix.slice();
-        recipe.push([lane + x - y, timing]);
+        recipe.push([lane + x - y * c.GLIDER_SLOPE, timing]);
         objs = translateObjects(objs, x, y);
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];
@@ -293,7 +306,11 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
         }
         if (count < limit) {
             if (objs.length === 1 && (objs[0].type === 'sl' || objs[0].type === 'osc') && objs[0].code in data) {
-                compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, count + 1, limit, out, start);
+                let newTiming = totalTiming;
+                if (objs[0].type === 'osc') {
+                    newTiming = (newTiming + objs[0].timing) % info.period;
+                }
+                compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, newTiming, count + 1, limit, out, start);
             }
         }
     }
@@ -364,16 +381,19 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, depth, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth, recipes.salvos[type], start);
                 }
                 log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, depth, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth, recipes.salvos[type], obj);
         }
         log('Compiled all recipes');
         await saveRecipes(recipes);
         depth++;
+        if (depth === 4) {
+            process.exit(0);
+        }
     }
 }

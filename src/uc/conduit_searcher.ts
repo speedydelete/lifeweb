@@ -67,6 +67,8 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
+const FILE = 'out2.txt';
+
 export async function searchConduits(lssPath: string, height: number, width: number, noEater?: boolean, strictHeight?: boolean, strictWidth?: boolean): Promise<void> {
     console.log('Getting objects');
     let start = performance.now() / 1000;
@@ -76,12 +78,12 @@ export async function searchConduits(lssPath: string, height: number, width: num
     let lastUpdate = start;
     let prevCount = 0;
     let wasEmpty: boolean;
-    if (existsSync('out.txt')) {
-        wasEmpty = (await fs.readFile('out.txt')).toString().trim().length === 0;
+    if (existsSync(FILE)) {
+        wasEmpty = (await fs.readFile(FILE)).toString().trim().length === 0;
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile('out.txt', `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} search in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = get1GSalvos(info, code, 0);
@@ -102,7 +104,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
                         let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, timing]]).toRLE();
                         report = report[0].toUpperCase() + report.slice(1);
                         let msg = `\n${report} (${code}, ${lane}):\n${rle}\n`;
-                        await fs.appendFile('out.txt', msg);
+                        await fs.appendFile(FILE, msg);
                         if (!report.startsWith('Eater')) {
                             console.log(`\x1b[92m${report} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                         }
