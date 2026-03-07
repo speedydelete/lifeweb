@@ -4,7 +4,7 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
-import {searchConduits} from './conduit_searcher.js';
+import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 
 
 function error(msg: string): never {
@@ -25,6 +25,9 @@ Subcommands:
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
     search_conduits <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters.
+    search_conduits_objects <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects.
+    search_conduits_random <lss-path> <height> <width> <count> <objects>: Search for width by height stable reflectors, conduits, and eaters that are made up of <count> of the given objects placed randomly.
+
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -133,7 +136,13 @@ if (maxGens !== undefined) {
 }
 
 if (posArgs[0] === 'search_conduits') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), noEater, strictHeight, strictWidth);
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_objects') {
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs.slice(5).join(' ').split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_random') {
+    await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs.slice(5).join(' ').split(/[ ,]+/), parseInt(posArgs[4]), noEater);
     process.exit(0);
 }
 
