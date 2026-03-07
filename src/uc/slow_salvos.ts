@@ -331,15 +331,12 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     newQueue.push(...newObjs);
                 }
             } else {
+                let out: (typeof forInput)[string] = [];
                 for (let timing = 0; timing < info.period; timing++) {
                     let data = get1GSalvos(info, code, timing);
                     if (data) {
                         let [newObjs, newOut] = data;
-                        if (forInput[code]) {
-                            forInput[code].push(...newOut);
-                        } else {
-                            forInput[code] = newOut;
-                        }
+                        out.push(...newOut);
                         let toAdd = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                         newQueue.push(...newObjs);
                         if (results[code]) {
@@ -348,6 +345,9 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                             results[code] = toAdd;
                         }
                     }
+                }
+                if (out.length > 0) {
+                    forInput[code] = out;
                 }
             }
             log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(3)}% complete`, true);
