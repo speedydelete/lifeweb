@@ -238,12 +238,19 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];
         let ships: Spaceship[] = [];
+        let found = false;
         for (let obj of objs) {
             if (obj.type === 'sl' || obj.type === 'osc') {
                 stable.push(obj);
             } else if (obj.type === 'ship') {
                 ships.push(obj);
+            } else {
+                found = true;
+                break;
             }
+        }
+        if (found) {
+            break;
         }
         if (stable.length > 0 && ships.length > 0) {
             if (!(stable.length === 1 && ships.length === 1)) {
