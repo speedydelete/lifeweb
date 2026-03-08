@@ -1,26 +1,26 @@
 
 // basic information
 
-const RULE = 'B2-ak5j/S12-k';
+const RULE = 'B3/S23-a5';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
-const GLIDER_APGCODE = 'xq4_15';
-const GLIDER_DX = 1;
+const GLIDER_APGCODE = 'xq4_27';
+const GLIDER_DX = 0;
 // this one should be greater than or equal to GLIDER_DX
 const GLIDER_DY = 1;
 const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
-const GLIDER_POPULATION_PERIOD = 1;
+const GLIDER_POPULATION_PERIOD = 4;
 const GLIDER_IS_GLIDE_SYMMETRIC = true;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 6;
+const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 5;
+const GLIDER_TARGET_SPACING = 7;
 
 
-// information for slow salvo synthesis
+// information about slow salvo synthesis methods
 
 interface SalvoInfo {
     // aliases for it, can be used in the cli
@@ -45,18 +45,18 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
         aliases: ['ss'],
-        startObject: 'xs2_11',
-        gliderSpacing: 10,
-        period: 1,
-        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
+        startObject: 'xp2_7',
+        gliderSpacing: 20,
+        period: 2,
+        intermediateObjects: ['xp2_7', 'xp2_111', 'xp2_f', 'xp2_333', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs8_6996', 'xs6_696', 'xs6_2552', 'xs4_252', 'xs6_356', 'xs6_653', 'xp2_ff', 'xp2_3333', 'xs20_g8861688gz01168611'],
         laneLimit: 128,
-        maxRecipes: 5,
+        maxRecipes: 8,
     },
 
 };
 
 
-// information about restricted-channel synthesis methods
+// information for restricted-channel synthesis methods
 
 interface ChannelInfo {
     // aliases for it, can be used in the cli
@@ -174,44 +174,102 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_15: {
+    xq4_27: {
         height: 2,
         width: 3,
-        cells: [2, 3, 4],
+        cells: [1, 3, 4, 5],
         data: [
-            {
-                height: 3,
-                width: 2,
-                population: 3,
-                data: [
-                    [[1, 2, 4], 'NW', 2],
-                    [[0, 1, 4], 'NW', 1],
-                    [[0, 3, 5], 'NE', 0],
-                    [[0, 1, 5], 'NE', 3],
-                    [[0, 2, 5], 'SW', 0],
-                    [[0, 4, 5], 'SW', 3],
-                    [[1, 3, 4], 'SE', 2],
-                    [[1, 4, 5], 'SE', 1],
-                ],
-            },
             {
                 height: 2,
                 width: 3,
-                population: 3,
+                population: 4,
                 data: [
-                    [[1, 2, 3], 'NW', 0],
-                    [[0, 2, 3], 'NW', 3],
-                    [[0, 1, 5], 'NE', 2],
-                    [[0, 2, 5], 'NE', 1],
-                    [[0, 4, 5], 'SW', 2],
-                    [[0, 3, 5], 'SW', 1],
-                    [[2, 3, 4], 'SE', 0],
-                    [[2, 3, 5], 'SE', 3],
+                    [[0, 1, 2, 4], 'N', 0],
+                    [[1, 3, 4, 5], 'S', 0],
+                ],
+            },
+            {
+                height: 3,
+                width: 2,
+                population: 4,
+                data: [
+                    [[0, 2, 3, 4], 'W', 0],
+                    [[1, 2, 3, 5], 'E', 0],
+                ],
+            },
+            {
+                height: 3,
+                width: 3,
+                population: 7,
+                data: [
+                    [[1, 3, 4, 5, 6, 7, 8], 'N', 3],
+                    [[0, 1, 2, 3, 4, 5, 7], 'S', 3],
+                    [[0, 1, 3, 4, 5, 6, 7], 'W', 3],
+                    [[1, 2, 3, 4, 5, 7, 8], 'E', 3],
+                ],
+            },
+            {
+                height: 4,
+                width: 3,
+                population: 5,
+                data: [
+                    [[0, 1, 2, 7, 10], 'N', 2],
+                    [[1, 4, 9, 10, 11], 'S', 2],
+                ],
+            },
+            {
+                height: 3,
+                width: 4,
+                population: 5,
+                data: [
+                    [[0, 4, 6, 7, 8], 'W', 0],
+                    [[3, 4, 5, 7, 11], 'E', 0],
+                ]
+            },
+            {
+                height: 3,
+                width: 3,
+                population: 4,
+                data: [
+                    [[1, 4, 6, 8], 'N', 0],
+                    [[0, 2, 4, 7], 'S', 0],
+                    [[2, 3, 4, 8], 'W', 0],
+                    [[0, 4, 5, 6], 'E', 0],
                 ],
             },
         ],
     },
-}
+    xq4_153: {
+        height: 3,
+        width: 3,
+        cells: [1, 5, 6, 7, 8],
+        data: [
+            {
+                height: 3,
+                width: 3,
+                population: 5,
+                data: [
+                    [[0, 1, 2, 3, 7], 'NW', 0],
+                    [[1, 3, 4, 6, 8], 'NW', 3],
+                    [[0, 1, 3, 5, 6], 'NW', 2],
+                    [[1, 2, 3, 4, 8], 'NW', 1],
+                    [[1, 2, 3, 5, 8], 'NE', 0],
+                    [[0, 1, 4, 5, 6], 'NE', 3],
+                    [[0, 1, 2, 5, 7], 'NE', 2],
+                    [[1, 4, 5, 6, 8], 'NE', 1],
+                    [[0, 3, 5, 6, 7], 'SW', 0],
+                    [[2, 3, 4, 7, 8], 'SW', 3],
+                    [[1, 3, 6, 7, 8], 'SW', 2],
+                    [[0, 2, 3, 4, 7], 'SW', 1],
+                    [[1, 5, 6, 7, 8], 'SE', 0],
+                    [[0, 2, 4, 5, 7], 'SE', 3],
+                    [[2, 3, 5, 7, 8], 'SE', 2],
+                    [[0, 4, 5, 6, 7], 'SE', 1],
+                ],
+            },
+        ],
+    },
+};
 
 
 // don't change this

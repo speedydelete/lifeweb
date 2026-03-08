@@ -177,7 +177,7 @@ function checkObject(code: string): false | [number, string][] {
                 } else if (combined.length === 2 && ships.length === 0) {
                     out.push([lane, 'failed factory']);
                 }
-            } else if (stables.length > codeObjs.length) {
+            } else if (stables.length > codeObjs.length + 1) {
                 let found = true;
                 for (let obj of codeObjs) {
                     if (!stables.some(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y)) {
