@@ -67,9 +67,9 @@ function checkObject(code: string): false | [number, string][] {
     let prefix = code.slice(0, index);
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let codeObjs = separateObjects(codePattern, 2, 2, false);
-    if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
-        console.log(`Not a still life: '${code}'`);
-        return false;
+//  if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
+    if (codeObjs && !codeObjs.every(x => x.type === 'sl')) {
+        throw new Error(`Not a still life: '${code}'`);
     }
     let canonical = codePattern.toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
     let lane = 0;
@@ -178,12 +178,21 @@ function checkObject(code: string): false | [number, string][] {
                 } else if (combined.length === 2 && ships.length === 0) {
                     out.push([lane, 'failed factory']);
                 }
-            } else if (stables.length > codeObjs.length) {
+            } else if (codeObjs && stables.length > codeObjs.length) {
                 let found = true;
                 for (let obj of codeObjs) {
                     if (!stables.some(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y)) {
                         found = false;
                         break;
+                    }
+                }
+                if (stables.length - codeObjs.length === 1) {
+                    for (let obj of codeObjs) {
+                        let index = stables.findIndex(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y);
+                        stables.splice(index, 1);
+                    }
+                    if (['xs5_253', 'xs5_256', 'xs5_652', 'xs5_352'].includes(stables[0].code)) {
+                        continue;
                     }
                 }
                 if (found) {

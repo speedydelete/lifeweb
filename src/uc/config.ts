@@ -1,16 +1,16 @@
 
 // basic information
 
-const RULE = 'B3/S23-a5';
+const RULE = 'B3/S23';
 
 // the glider is the spaceship used for slow salvos and single channel recipes
-const GLIDER_APGCODE = 'xq4_27';
-const GLIDER_DX = 0;
+const GLIDER_APGCODE = 'xq4_153';
+const GLIDER_DX = 1;
 // this one should be greater than or equal to GLIDER_DX
 const GLIDER_DY = 1;
 const GLIDER_PERIOD = 4;
 const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
-const GLIDER_POPULATION_PERIOD = 4;
+const GLIDER_POPULATION_PERIOD = 1;
 const GLIDER_IS_GLIDE_SYMMETRIC = true;
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
@@ -45,12 +45,12 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
         aliases: ['ss'],
-        startObject: 'xp2_7',
+        startObject: 'xs4_33',
         gliderSpacing: 20,
         period: 2,
-        intermediateObjects: ['xp2_7', 'xp2_111', 'xp2_f', 'xp2_333', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs8_6996', 'xs6_696', 'xs6_2552', 'xs4_252', 'xs6_356', 'xs6_653', 'xp2_ff', 'xp2_3333', 'xs20_g8861688gz01168611'],
+        intermediateObjects: ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
         laneLimit: 128,
-        maxRecipes: 8,
+        maxRecipes: 5,
     },
 
 };
@@ -83,7 +83,50 @@ interface ChannelInfo {
 
 // you name the construction types whatever you want
 
-const CHANNEL_INFO: {[key: string]: ChannelInfo} = {};
+const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
+
+    'Single-channel (14)': {
+        aliases: ['sc14', 'sc'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[14]],
+        minSpacing: 14,
+        maxNextSpacing: 512,
+        possiblyUsefulFilter: [],
+    },
+
+    'Single-channel (61)': {
+        aliases: ['sc61'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[61]],
+        minSpacing: 61,
+        maxNextSpacing: 512,
+        possiblyUsefulFilter: [],
+    },
+
+    'Single-channel (syringe)': {
+        aliases: ['sc78'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[74]],
+        minSpacing: 74,
+        excludeSpacings: [[[76, 77]]],
+        maxNextSpacing: 512,
+        possiblyUsefulFilter: [],
+    },
+
+    'Single-channel (90)': {
+        aliases: ['sc90'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[90]],
+        minSpacing: 90,
+        maxNextSpacing: 512,
+        possiblyUsefulFilter: [],
+    },
+
+};
 
 
 // information for how searches proceed
@@ -122,7 +165,7 @@ type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
 /*
 ok this is how this part works:
 the stuff that's not in the data property is simple, just provide the canonical phase you would like!
-now for the stuff in the data property
+now for the stuff in the data property 
 for each ship
 determine the canonical phase, this should head southwest for diagonals or south for orthogonals
 put that canonical phase in the height, width, and cells options, those are described below
@@ -174,71 +217,6 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_27: {
-        height: 2,
-        width: 3,
-        cells: [1, 3, 4, 5],
-        data: [
-            {
-                height: 2,
-                width: 3,
-                population: 4,
-                data: [
-                    [[0, 1, 2, 4], 'N', 0],
-                    [[1, 3, 4, 5], 'S', 0],
-                ],
-            },
-            {
-                height: 3,
-                width: 2,
-                population: 4,
-                data: [
-                    [[0, 2, 3, 4], 'W', 0],
-                    [[1, 2, 3, 5], 'E', 0],
-                ],
-            },
-            {
-                height: 3,
-                width: 3,
-                population: 7,
-                data: [
-                    [[1, 3, 4, 5, 6, 7, 8], 'N', 3],
-                    [[0, 1, 2, 3, 4, 5, 7], 'S', 3],
-                    [[0, 1, 3, 4, 5, 6, 7], 'W', 3],
-                    [[1, 2, 3, 4, 5, 7, 8], 'E', 3],
-                ],
-            },
-            {
-                height: 4,
-                width: 3,
-                population: 5,
-                data: [
-                    [[0, 1, 2, 7, 10], 'N', 2],
-                    [[1, 4, 9, 10, 11], 'S', 2],
-                ],
-            },
-            {
-                height: 3,
-                width: 4,
-                population: 5,
-                data: [
-                    [[0, 4, 6, 7, 8], 'W', 0],
-                    [[3, 4, 5, 7, 11], 'E', 0],
-                ]
-            },
-            {
-                height: 3,
-                width: 3,
-                population: 4,
-                data: [
-                    [[1, 4, 6, 8], 'N', 0],
-                    [[0, 2, 4, 7], 'S', 0],
-                    [[2, 3, 4, 8], 'W', 0],
-                    [[0, 4, 5, 6], 'E', 0],
-                ],
-            },
-        ],
-    },
     xq4_153: {
         height: 3,
         width: 3,
