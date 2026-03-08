@@ -68,7 +68,8 @@ function checkObject(code: string): false | [number, string][] {
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let codeObjs = separateObjects(codePattern, 2, 2, false);
     if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
-        throw new Error(`Not a still life: '${code}'`);
+        console.log(`Not a still life: '${code}'`);
+        return false;
     }
     let canonical = codePattern.toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
     let lane = 0;
