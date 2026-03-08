@@ -10,6 +10,22 @@ import {createSalvoPattern} from './slow_salvos.js';
 
 let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
+function apgcodeSorter(a: string, b: string) {
+    let x = a.slice(0, a.indexOf('_'));
+    let y = b.slice(0, b.indexOf('_'));
+    if (x === y) {
+        x = a;
+        y = b;
+    }
+    if (x < y) {
+        return -1;
+    } else if (x > y) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 
 function getCollision(code: string, lane: number): false | 'no collision' | 'no' | 'linear' | [CAObject[], ForCombining[]] {
     let inc = c.GLIDER_POPULATION_PERIOD;
@@ -71,7 +87,7 @@ function checkObject(code: string): false | [number, string][] {
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let pop = codePattern.population;
     if (pop > prevPop) {
-        console.log(`\x1b[95mMoving to population ${pop}/${maxPop}`);
+        console.log(`\x1b[95mMoving to population ${pop}/${maxPop}\x1b[0m`);
         prevPop = pop;
     }
     let codeObjs = separateObjects(codePattern, 2, 2, false);
@@ -270,7 +286,7 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
     p.shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
-    return Array.from(expandObjects(p)).sort();
+    return Array.from(expandObjects(p)).sort(apgcodeSorter);
 }
 
 function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, p?: MAPPattern): MAPPattern[] {
@@ -395,7 +411,7 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
             lastUpdate = now;
         }
     }
-    return Array.from(out).sort();
+    return Array.from(out).sort(apgcodeSorter);
 }
 
 
@@ -410,7 +426,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
         for (let p of getAllObjects(height, width, normalizeObjects(objects[0]), objects[1])) {
             expandObjects(p, set);
         }
-        sls = Array.from(set).sort();
+        sls = Array.from(set).sort(apgcodeSorter);
     } else {
         sls = await getStillLifes(lssPath, height, width, strictHeight, strictWidth);
     }
