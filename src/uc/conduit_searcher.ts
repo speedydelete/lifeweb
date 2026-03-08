@@ -382,12 +382,11 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
     let patterns: MAPPattern[] = [];
     let currentRLE = '';
     for (let line of data.split('\n')) {
-        if ('bo0123456789$!'.includes(line[0])) {
+        if ('bo.0123456789$!'.includes(line[0])) {
             currentRLE += line;
         } else if (line.startsWith('x')) {
             if (currentRLE.length > 0) {
-                let p = base.loadRLE(currentRLE);
-                patterns.push(p);
+                patterns.push(base.loadRLE(currentRLE));
                 currentRLE = '';
             }
         } else {
@@ -405,6 +404,9 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
         p.shrinkToFit();
         p.xOffset = 0;
         p.yOffset = 0;
+        if (p.population !== 14) {
+            continue;
+        }
         if ((strictHeight && p.height !== height) || (strictWidth && p.width !== width)) {
             continue;
         }
