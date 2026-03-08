@@ -13,13 +13,17 @@ function expandObjects(p: MAPPattern, out: Set<string> = new Set()): Set<string>
         for (let j = 0; j < 4; j++) {
             p.rotateLeft();
             let value = p.toApgcode(prefix);
-            let flipped = p.copy().flipDiagonal().toApgcode(prefix);
-            if (!(out.has(value) || out.has(flipped))) {
-                if (p.height > p.width) {
-                    out.add(flipped);
-                } else {
-                    out.add(value);
+            if (c.GLIDER_IS_GLIDE_SYMMETRIC) {
+                let flipped = c.GLIDER_SLOPE === 1 ? p.copy().flipDiagonal().toApgcode(prefix) : p.copy().flipHorizontal().toApgcode(prefix);
+                if (!(out.has(value) || out.has(flipped))) {
+                    if (c.GLIDER_SLOPE === 1 && p.height > p.width) {
+                        out.add(flipped);
+                    } else {
+                        out.add(value);
+                    }
                 }
+            } else {
+                out.add(value);
             }
         }
         p.flipHorizontal();
