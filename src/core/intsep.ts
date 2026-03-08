@@ -1176,7 +1176,6 @@ export class INTSeparator extends MAPPattern {
                         let b = groups[i - width];
                         let c = groups[i + width - 2];
                         let d = groups[i + width];
-                        console.log(a, b, c, d);
                         if (value & A4C_MERGE_ALL) {
                             reassignments.push([b, a]);
                             reassignments.push([c, a]);

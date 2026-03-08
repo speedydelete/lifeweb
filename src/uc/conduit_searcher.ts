@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {gcd, MAPPattern, getKnots, INTSeparator, PatternType, findType} from '../core/index.js';
+import {gcd, MAPPattern} from '../core/index.js';
 import {c, SalvoInfo, maxGenerations, base, CAObject, gliderPattern} from './base.js';
 import {ForCombining, combineStableObjects, separateObjectsPartial, separateObjects, stabilize} from './runner.js';
 import {createSalvoPattern} from './slow_salvos.js';
@@ -108,7 +108,7 @@ function checkObject(code: string): false | [number, string][] {
     for (; lane < info.laneLimit; lane++) {
         let data = getCollision(code, lane);
         if (data === 'no') {
-            return false;
+            return out;
         }
         if (data === 'linear') {
             out.push([lane, 'linear']);
@@ -124,7 +124,10 @@ function checkObject(code: string): false | [number, string][] {
                 continue;
             }
         } else if (data) {
-            let [objs, stables] = data;
+            let [ships, stables] = data;
+            if (!ships.every(x => x.type === 'ship')) {
+                continue;
+            }
             let combined = combineStableObjects(stables);
             if (!combined) {
                 continue;
@@ -150,38 +153,41 @@ function checkObject(code: string): false | [number, string][] {
             }
             if (obj) {
                 if (obj.code === code && obj.x === 0 && obj.y === 0) {
-                    if (objs.length === 1) {
-                        out.push([lane, 'eater']);
-                        continue;
-                    } else if (objs.every(x => x === obj || x.type === 'ship')) {
-                        if (objs.length === 2) {
+                    if (combined.length === 1) {
+                        if (ships.length === 0) {
+                            out.push([lane, 'eater']);
+                        } else if (ships.length === 1) {
                             out.push([lane, 'reflector']);
                         } else {
                             out.push([lane, 'splitter']);
-                        }
-                    } else if (objs.length === 2) {
+                        }        
+                    } else if (combined.length === 2 && ships.length === 0) {
                         out.push([lane, 'factory']);
                     }
-                } else if (objs.every(x => x === obj || x.type === 'ship')) {
+                } else if (combined.length === 1 && ships.length > 0) {
                     if (obj.code === code) {
                         out.push([lane, 'possible crawler']);
                     } else {
-                        if (objs.length === 2) {
+                        if (ships.length === 1) {
                             out.push([lane, 'failed reflector']);
-                        } else if (objs.length > 2) {
+                        } else {
                             out.push([lane, 'failed splitter']);
                         }
                     }
-                } else if (objs.length === 2) {
+                } else if (combined.length === 2 && ships.length === 0) {
                     out.push([lane, 'failed factory']);
                 }
             } else if (stables.length > codeObjs.length) {
+                let found = true;
                 for (let obj of codeObjs) {
-                    if (!stables.some(x => x.code === obj.code && x.x === obj.x && x.y === obj.y)) {
+                    if (!stables.some(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y)) {
+                        found = false;
                         break;
                     }
                 }
-                out.push([lane, 'factory']);
+                if (found) {
+                    out.push([lane, 'factory']);
+                }
             }
         }
         if (!hadCollision) {

@@ -17,7 +17,7 @@ const GLIDER_IS_GLIDE_SYMMETRIC = true;
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 4;
+const GLIDER_TARGET_SPACING = 5;
 
 
 // information for slow salvo synthesis
