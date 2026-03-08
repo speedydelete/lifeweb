@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {gcd, MAPPattern} from '../core/index.js';
+import {gcd, MAPPattern, MAPGenPattern, findType, getKnots, INTSeparator} from '../core/index.js';
 import {c, SalvoInfo, maxGenerations, base, CAObject, gliderPattern} from './base.js';
 import {ForCombining, combineStableObjects, separateObjectsPartial, separateObjects, stabilize} from './runner.js';
 import {createSalvoPattern} from './slow_salvos.js';
@@ -31,7 +31,7 @@ function apgcodeSorter(a: string, b: string) {
 }
 
 
-function getCollision(code: string, lane: number): false | 'no collision' | 'no' | 'linear' | [CAObject[], ForCombining[]] {
+function getCollision(code: string, lane: number): false | 'no collision' | 'no stabilize' | 'no' | 'linear' | [CAObject[], ForCombining[]] {
     let inc = c.GLIDER_POPULATION_PERIOD;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
@@ -59,7 +59,7 @@ function getCollision(code: string, lane: number): false | 'no collision' | 'no'
             if (period === 'linear') {
                 return 'linear';
             } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-                return false;
+                return 'no stabilize';
             }
             p.shrinkToFit();
             let out = separateObjectsPartial(p, period * 4, period * 4);
@@ -95,8 +95,16 @@ function checkObject(code: string): false | [number, string][] {
         prevPop = pop;
     }
     let codeObjs = separateObjects(codePattern, 2, 2, false);
-//  if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
-    if (codeObjs && !codeObjs.every(x => x.type === 'sl')) {
+    if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
+        let sep = new INTSeparator(codePattern, getKnots(codePattern.trs));
+        for (let i = 0; i < 2; i++) {
+            sep.runGeneration();
+            sep.resolveKnots();
+            let q = new MAPGenPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 256, 'B3/S23-a5Super', 'D8');
+            console.log(q.toRLE());
+            console.log(sep.getObjects().map(x => findType(x, 2)));
+        }
+        console.log(codeObjs);
         throw new Error(`Not a still life: '${code}'`);
     }
     let canonical = codePattern.toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
@@ -152,6 +160,8 @@ function checkObject(code: string): false | [number, string][] {
                 failed = true;
                 continue;
             }
+        } else if (data === 'no stabilize') {
+            continue;
         } else if (data) {
             let [ships, stables] = data;
             if (!ships.every(x => x.type === 'ship')) {
@@ -456,12 +466,14 @@ export async function searchConduits(lssPath: string, height: number, width: num
                 }
                 let rle = createSalvoPattern(info, code.slice(code.indexOf('_') + 1), [[lane, 0]]).toRLE();
                 result = result[0].toUpperCase() + result.slice(1);
-                let msg = `\n${result} (${code}, ${lane}):\n${rle}\n`;
-                await fs.appendFile(FILE, msg);
+                await fs.appendFile(FILE, `\n${result} (${code}, ${lane}):\n${rle}\n`);
                 if (!result.startsWith('Eater')) {
                     console.log(`\x1b[${result.toLowerCase().includes('failed') ? '94' : '92'}m${result} detected (${code}, ${lane}):\n${rle}\x1b[0m`);
                 }
             }
+        } else {
+            await fs.appendFile(FILE, `\nError detected in ${code}\n`);
+            console.log(`\x1b[91mError detected in ${code}\x1b[0m`);
         }
         let now = performance.now() / 1000;
         if (now - lastUpdate > 5) {

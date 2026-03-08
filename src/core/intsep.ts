@@ -379,7 +379,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
             }
             if (B2c) {
                 value |= A4Y_B2C;
-            } else if (B3q && B2n) {
+            } else if (B3q && B3n) {
                 value = A4Y_MERGE_ALL;
             }
         }

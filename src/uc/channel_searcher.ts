@@ -425,10 +425,10 @@ interface CheckerObjectData {
 
 export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
     let possibleUseful: string | undefined = undefined;
-    let result: false | 'linear' | CAObject[];
+    let result: false | 'no stabilize' | 'linear' | CAObject[];
     let strRecipe = channelRecipeToString(info, recipe);
     result = findOutcome(runInjection(info, elbowData, recipe), undefined);
-    if (result === false) {
+    if (result === false || result === 'no stabilize') {
         return;
     }
     if (result === 'linear') {

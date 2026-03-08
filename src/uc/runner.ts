@@ -316,12 +316,12 @@ export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' |
     return null;
 }
 
-export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean = true): false | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean = true): false | 'no stabilize' | 'linear' | CAObject[] {
     let period = stabilize(p, isElbow);
     if (period === 'linear') {
         return 'linear';
     } else if (period === null || (c.VALID_POPULATION_PERIODS && !(c.VALID_POPULATION_PERIODS as number[]).includes(period))) {
-        return false;
+        return 'no stabilize';
     }
     p.shrinkToFit();
     return separateObjects(p, period * 4, period * 4, combine);

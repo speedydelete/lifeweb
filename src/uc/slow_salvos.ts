@@ -85,7 +85,7 @@ export function patternToSalvo(info: c.SalvoInfo, p: MAPPattern): [string, [numb
 
 const SALVO_INFO = {gliderSpacing: 0};
 
-export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
+export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
     let inc = c.GLIDER_POPULATION_PERIOD;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
@@ -114,7 +114,7 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
     return 'no collision';
 }
 
-export function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
+export function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no stabilize' | 'no collision' | 'no' | 'linear' | CAObject[] {
     let out = getCollision(code, lane, timing, flip, isElbow);
     if (typeof out === 'object') {
         for (let obj of out) {
@@ -184,6 +184,8 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                 failed = true;
                 continue;
             }
+        } else if (data === 'no stabilize') {
+            continue;
         } else if (data) {
             let obj: CAObject | undefined;
             if (reflectorSearch) {
