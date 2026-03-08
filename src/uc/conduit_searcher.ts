@@ -13,13 +13,17 @@ let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediat
 function apgcodeSorter(a: string, b: string) {
     let x = a.slice(0, a.indexOf('_'));
     let y = b.slice(0, b.indexOf('_'));
-    if (x === y) {
-        x = a;
-        y = b;
-    }
-    if (x < y) {
+    if (x.length < y.length) {
+        return -1;
+    } else if (x.length > y.length) {
+        return 1;
+    } else if (x < y) {
         return -1;
     } else if (x > y) {
+        return 1;
+    } else if (a < b) {
+        return -1;
+    } else if (a > b) {
         return 1;
     } else {
         return 0;
