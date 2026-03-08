@@ -404,9 +404,6 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
         p.shrinkToFit();
         p.xOffset = 0;
         p.yOffset = 0;
-        if (p.population !== 14) {
-            continue;
-        }
         if ((strictHeight && p.height !== height) || (strictWidth && p.width !== width)) {
             continue;
         }
