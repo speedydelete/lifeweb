@@ -248,7 +248,7 @@ function getRandomObject(height: number, width: number, objects: MAPPattern[], c
     p.shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
-    return Array.from(expandObjects(p));
+    return Array.from(expandObjects(p)).sort();
 }
 
 function getAllObjects(height: number, width: number, objects: MAPPattern[], count: number, p?: MAPPattern): MAPPattern[] {
@@ -373,7 +373,7 @@ async function getStillLifes(lssPath: string, height: number, width: number, str
             lastUpdate = now;
         }
     }
-    return Array.from(out);
+    return Array.from(out).sort();
 }
 
 
@@ -388,7 +388,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
         for (let p of getAllObjects(height, width, normalizeObjects(objects[0]), objects[1])) {
             expandObjects(p, set);
         }
-        sls = Array.from(set);
+        sls = Array.from(set).sort();
     } else {
         sls = await getStillLifes(lssPath, height, width, strictHeight, strictWidth);
     }
