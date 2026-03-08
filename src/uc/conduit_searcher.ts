@@ -163,6 +163,9 @@ function checkObject(code: string): false | [number, string][] {
                             out.push([lane, 'splitter']);
                         }        
                     } else if (combined.length === 2 && ships.length === 0) {
+                        if (combined.every(x => x === obj || ['xs5_253', 'xs5_256', 'xs5_652', 'xs5_352'].includes(x.code))) {
+                            continue;
+                        }
                         out.push([lane, 'factory']);
                     }
                 } else if (combined.length === 1 && ships.length > 0) {
@@ -186,16 +189,18 @@ function checkObject(code: string): false | [number, string][] {
                         break;
                     }
                 }
-                if (stables.length - codeObjs.length === 1) {
-                    for (let obj of codeObjs) {
-                        let index = stables.findIndex(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y);
-                        stables.splice(index, 1);
-                    }
-                    if (['xs5_253', 'xs5_256', 'xs5_652', 'xs5_352'].includes(stables[0].code)) {
-                        continue;
-                    }
-                }
                 if (found) {
+                    if (stables.length - codeObjs.length === 1) {
+                        for (let obj of codeObjs) {
+                            let index = stables.findIndex(x => x.type === obj.type && x.code === obj.code && x.x === obj.x && x.y === obj.y);
+                            if (index !== -1) {
+                                stables.splice(index, 1);
+                            }
+                        }
+                        if (stables.every(x => ['xs5_253', 'xs5_256', 'xs5_652', 'xs5_352'].includes(x.code))) {
+                            continue;
+                        }
+                    }
                     out.push([lane, 'factory']);
                 }
             }
