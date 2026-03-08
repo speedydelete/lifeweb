@@ -445,6 +445,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
         wasEmpty = true;
     }
     await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with up to ${objects[1]} objects picked from '${objects[0].join(', ')} and` : 'search with'} max generations ${maxGenerations} in ${c.RULE}:\n`);
+    prevPop = parseInt(sls[0].slice(2));
     maxPop = parseInt(sls[sls.length - 1].slice(2));
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
