@@ -100,7 +100,7 @@ function checkObject(code: string): false | [number, string][] {
         for (let i = 0; i < 2; i++) {
             sep.runGeneration();
             sep.resolveKnots();
-            let q = new MAPGenPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 256, 'B3/S23-a5Super', 'D8');
+            let q = new MAPGenPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 256, sep.ruleStr + 'Super', 'D8');
             console.log(q.toRLE());
             console.log(sep.getObjects().map(x => findType(x, 2)));
         }
@@ -147,7 +147,9 @@ function checkObject(code: string): false | [number, string][] {
         if (data === 'no') {
             return out;
         }
-        if (data === 'linear') {
+        if (!data) {
+            return false;
+        } else if (data === 'linear') {
             out.push([lane, 'linear']);
             continue;
         } else if (data === 'no collision') {
@@ -162,7 +164,7 @@ function checkObject(code: string): false | [number, string][] {
             }
         } else if (data === 'no stabilize') {
             continue;
-        } else if (data) {
+        } else {
             let [ships, stables] = data;
             if (!ships.every(x => x.type === 'ship')) {
                 continue;

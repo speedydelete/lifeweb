@@ -1302,7 +1302,7 @@ export class INTSeparator extends MAPPattern {
     /** Gets all the groups as individual objects. Does not set the generation property, so if you want that, you should set it yourself. */
     getObjects(): MAPPattern[] {
         let groups = this.groups;
-        let data: {[key: number]: [number, number][]} = [];
+        let data: {[key: number]: [number, number][]} = {};
         let i = 0;
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
