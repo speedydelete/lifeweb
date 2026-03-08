@@ -91,7 +91,7 @@ function checkObject(code: string): false | [number, string][] {
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let pop = codePattern.population;
     if (pop > prevPop) {
-        console.log(`\x1b[95mMoving to population ${pop}/${maxPop}\x1b[0m`);
+        console.log(`\x1b[95mMoving to objects with ${pop} cells (maximum is ${maxPop} cells)\x1b[0m`);
         prevPop = pop;
     }
     let codeObjs = separateObjects(codePattern, 2, 2, false);
