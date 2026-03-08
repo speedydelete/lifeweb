@@ -162,12 +162,12 @@ const A3C_MERGE_ALL = 8;
 const A3Y = 0x20;
 const A3Y_B2C = 1;
 const A3Y_B2K = 2;
-const A3Y_MERGE_ALL = 8;
+const A3Y_MERGE_ALL = 0x28;
 
 const A4C = 0x30;
 const A4C_B2N = 1;
 const A4C_B2C = 2;
-const A4C_MERGE_ALL = 8;
+const A4C_MERGE_ALL = 0x28;
 
 const A4Y = 0x40;
 const A4Y_B2A = 1;
@@ -179,7 +179,7 @@ const A4Y_MERGE_ALL = 0x47;
 const A5E = 0x50;
 const A5E_B2C = 1;
 const A5E_B4N = 2;
-const A5E_MERGE_ALL = 8;
+const A5E_MERGE_ALL = 0x58;
 
 /** Gets a precomputed 512-bit array of knots for `INTSeparator`. */
 export function getKnots(trs: Uint8Array): Uint8Array {
@@ -1176,6 +1176,7 @@ export class INTSeparator extends MAPPattern {
                         let b = groups[i - width];
                         let c = groups[i + width - 2];
                         let d = groups[i + width];
+                        console.log(a, b, c, d);
                         if (value & A4C_MERGE_ALL) {
                             reassignments.push([b, a]);
                             reassignments.push([c, a]);

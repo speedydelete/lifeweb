@@ -2,8 +2,8 @@
 import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {gcd, MAPPattern} from '../core/index.js';
-import {c, SalvoInfo, maxGenerations, base, CAObject, gliderPattern, StillLife, StableObject} from './base.js';
+import {gcd, MAPPattern, getKnots, INTSeparator, PatternType, findType} from '../core/index.js';
+import {c, SalvoInfo, maxGenerations, base, CAObject, gliderPattern} from './base.js';
 import {ForCombining, combineStableObjects, separateObjectsPartial, separateObjects, stabilize} from './runner.js';
 import {createSalvoPattern} from './slow_salvos.js';
 
@@ -68,6 +68,37 @@ function checkObject(code: string): false | [number, string][] {
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let codeObjs = separateObjects(codePattern, 2, 2, false);
     if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
+        let knots = getKnots(base.trs);
+        let sep = new INTSeparator(codePattern, knots);
+        sep.ruleStr = 'B2-ak5j/S12-kSuper';
+        // @ts-ignore
+        sep.states = 256;
+        sep.generation = codePattern.generation;
+        let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 'B2-ak5j/S12-kSuper', 'D8');
+        // @ts-ignore
+        q.states = 256;
+        console.log(q.toRLE());
+        let objs: [MAPPattern, PatternType][] = [];
+        let found = false;
+        for (let i = 0; i < 2; i++) {
+            let reassigned = sep.runGeneration();
+            let reassigned2 = sep.resolveKnots();
+            console.log(reassigned, reassigned2);
+            let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 'B2-ak5j/S12-kSuper', 'D8');
+            // @ts-ignore
+            q.states = 256;
+            console.log(q.toRLE());
+            if (reassigned || reassigned2) {
+                continue;
+            }
+            objs = sep.getObjects().map(x => [x, findType(x, 2)]);
+            if (objs.every(([_, x]) => x.stabilizedAt === 0 && x.pops[x.pops.length - 1] !== 0)) {
+                found = true;
+                break;
+            }
+        }
+        console.log(objs);
+        console.log(knots[0b101000101]);
         throw new Error(`Not a still life: '${code}'`);
     }
     let canonical = codePattern.toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
@@ -395,7 +426,7 @@ export async function searchConduits(lssPath: string, height: number, width: num
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with up to ${objects[1]} objects picked from '${objects[0].join(', ')}` : 'search'} in ${c.RULE} and max generations ${maxGenerations}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} ${objects ? `objects search with up to ${objects[1]} objects picked from '${objects[0].join(', ')} and` : 'search with'} max generations ${maxGenerations} in ${c.RULE}:\n`);
     for (let i = 0; i < sls.length; i++) {
         let code = sls[i];
         let data = checkObject(code);
@@ -434,7 +465,7 @@ export async function searchConduitsRandom(height: number, width: number, object
     } else {
         wasEmpty = true;
     }
-    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} random search with up to ${count} objects picked from '${objects.join(', ')}' in ${c.RULE} and max generations ${maxGenerations}:\n`);
+    await fs.appendFile(FILE, `${!wasEmpty ? '\n' : ''}\n${height}x${width} random search with up to ${count} objects picked from '${objects.join(', ')} and max generations ${maxGenerations} in ${c.RULE}:\n`);
     let totalSearched = 0;
     while (true) {
         let data = getRandomObject(height, width, sls, count);
