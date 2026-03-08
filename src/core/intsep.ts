@@ -167,7 +167,7 @@ const A3Y_MERGE_ALL = 0x28;
 const A4C = 0x30;
 const A4C_B2N = 1;
 const A4C_B2C = 2;
-const A4C_MERGE_ALL = 0x28;
+const A4C_MERGE_ALL = 0x38;
 
 const A4Y = 0x40;
 const A4Y_B2A = 1;

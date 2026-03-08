@@ -68,37 +68,6 @@ function checkObject(code: string): false | [number, string][] {
     let codePattern = base.loadApgcode(code.slice(index + 1));
     let codeObjs = separateObjects(codePattern, 2, 2, false);
     if (!codeObjs || !codeObjs.every(x => x.type === 'sl')) {
-        let knots = getKnots(base.trs);
-        let sep = new INTSeparator(codePattern, knots);
-        sep.ruleStr = 'B2-ak5j/S12-kSuper';
-        // @ts-ignore
-        sep.states = 256;
-        sep.generation = codePattern.generation;
-        let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 'B2-ak5j/S12-kSuper', 'D8');
-        // @ts-ignore
-        q.states = 256;
-        console.log(q.toRLE());
-        let objs: [MAPPattern, PatternType][] = [];
-        let found = false;
-        for (let i = 0; i < 2; i++) {
-            let reassigned = sep.runGeneration();
-            let reassigned2 = sep.resolveKnots();
-            console.log(reassigned, reassigned2);
-            let q = new MAPPattern(sep.height, sep.width, new Uint8Array(sep.groups), sep.trs, 'B2-ak5j/S12-kSuper', 'D8');
-            // @ts-ignore
-            q.states = 256;
-            console.log(q.toRLE());
-            if (reassigned || reassigned2) {
-                continue;
-            }
-            objs = sep.getObjects().map(x => [x, findType(x, 2)]);
-            if (objs.every(([_, x]) => x.stabilizedAt === 0 && x.pops[x.pops.length - 1] !== 0)) {
-                found = true;
-                break;
-            }
-        }
-        console.log(objs);
-        console.log(knots[0b101000101]);
         throw new Error(`Not a still life: '${code}'`);
     }
     let canonical = codePattern.toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
