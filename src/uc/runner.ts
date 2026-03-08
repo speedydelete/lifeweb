@@ -3,9 +3,9 @@ import {lcm, MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparat
 import {c, base, maxGenerations, StillLife, Oscillator, CAObject} from './base.js';
 
 
-type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
+export type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
 
-function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
+export function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
     let out: ForCombining[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
@@ -109,9 +109,9 @@ function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
 
 let knots = getKnots(base.trs);
 
-export function separateObjects(p: MAPPattern, sepGens: number, limit: number): false | CAObject[] {
+export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: number): false | [CAObject[], ForCombining[]] {
     if (p.isEmpty()) {
-        return [];
+        return [[], []];
     }
     let sep = new INTSeparator(p, knots);
     sep.generation = p.generation;
@@ -218,18 +218,33 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number): 
             });
         }
     }
+    return [out, stableObjects];
+}
+
+export function separateObjects(p: MAPPattern, sepGens: number, limit: number, combine: boolean = true): false | CAObject[] {
+    let value = separateObjectsPartial(p, sepGens, limit);
+    if (!value) {
+        return false;
+    }
+    let [out, stableObjects] = value;
     if (stableObjects.length > 0) {
-        let data = combineStableObjects(stableObjects);
-        if (!data) {
-            return false;
-        }
-        if (data.length > 1) {
-            data = combineStableObjects(data);
+        let objs: false | ForCombining[] = [];
+        if (combine) {
+            let data = combineStableObjects(stableObjects);
             if (!data) {
                 return false;
             }
+            if (data.length > 1) {
+                data = combineStableObjects(data);
+                if (!data) {
+                    return false;
+                }
+            }
+            objs = data;
+        } else {
+            objs = stableObjects;
         }
-        for (let obj of data) {
+        for (let obj of objs) {
             if (obj.type === 'sl') {
                 out.push({
                     type: obj.type,
@@ -301,7 +316,7 @@ export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' |
     return null;
 }
 
-export function findOutcome(p: MAPPattern, isElbow?: boolean): false | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean = true): false | 'linear' | CAObject[] {
     let period = stabilize(p, isElbow);
     if (period === 'linear') {
         return 'linear';
@@ -309,5 +324,5 @@ export function findOutcome(p: MAPPattern, isElbow?: boolean): false | 'linear' 
         return false;
     }
     p.shrinkToFit();
-    return separateObjects(p, period * 4, period * 4);
+    return separateObjects(p, period * 4, period * 4, combine);
 }

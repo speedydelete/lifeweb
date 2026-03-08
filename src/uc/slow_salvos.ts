@@ -114,7 +114,7 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
     return 'no collision';
 }
 
-function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
+export function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no' | 'linear' | CAObject[] {
     let out = getCollision(code, lane, timing, flip, isElbow);
     if (typeof out === 'object') {
         for (let obj of out) {
