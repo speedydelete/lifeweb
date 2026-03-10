@@ -121,18 +121,9 @@ For optimization, we don't implement B1c.
 
 */
 
+import {gcd} from './pattern.js';
 import {MAPPattern, TRANSITIONS} from './map.js';
 import {findType, PatternType} from './identify.js';
-
-
-function gcd(a: number, b: number): number {
-    while (b > 0) {
-        let temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
 
 
 /** The list of two-island knots */
