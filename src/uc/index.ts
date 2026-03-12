@@ -4,7 +4,7 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
-// import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
+import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 
 
 export async function run(): Promise<void> {
@@ -137,16 +137,16 @@ if (maxGens !== undefined) {
     setMaxGenerations(maxGens);
 }
 
-// if (posArgs[0] === 'search_conduits') {
-//     await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
-//     process.exit(0);
-// } else if (posArgs[0] === 'search_conduits_objects') {
-//     await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
-//     process.exit(0);
-// } else if (posArgs[0] === 'search_conduits_random') {
-//     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
-//     process.exit(0);
-// }
+if (posArgs[0] === 'search_conduits') {
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_objects') {
+    await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_random') {
+    await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
+    process.exit(0);
+}
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
