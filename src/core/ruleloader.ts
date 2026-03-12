@@ -1,7 +1,8 @@
 
 /* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
 
-import {RuleError, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
+import {RuleError} from './util.js';
+import {CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
 
 
 /** Stores a compiled rule tree data. */

@@ -4,14 +4,16 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
-import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
+// import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
+
+
+export async function run(): Promise<void> {
 
 
 function error(msg: string): never {
-    console.error(msg);
+    console.error('Error:', msg);
     process.exit(1);
 }
-
 
 const HELP = `
 Usage: ./uc <command> <type> [command_options] [flags]
@@ -58,7 +60,6 @@ const DIR_ALIASES: {[key: string]: string} = {
 let argv = process.argv;
 
 let posArgs: string[] = [];
-
 let threads = 1;
 let maxGens: number | undefined = undefined;
 let forceEndElbow: number | false | undefined = undefined;
@@ -131,20 +132,21 @@ for (let i = 2; i < argv.length; i++) {
 }
 
 
+
 if (maxGens !== undefined) {
     setMaxGenerations(maxGens);
 }
 
-if (posArgs[0] === 'search_conduits') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
-    process.exit(0);
-} else if (posArgs[0] === 'search_conduits_objects') {
-    await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
-    process.exit(0);
-} else if (posArgs[0] === 'search_conduits_random') {
-    await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
-    process.exit(0);
-}
+// if (posArgs[0] === 'search_conduits') {
+//     await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
+//     process.exit(0);
+// } else if (posArgs[0] === 'search_conduits_objects') {
+//     await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
+//     process.exit(0);
+// } else if (posArgs[0] === 'search_conduits_random') {
+//     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
+//     process.exit(0);
+// }
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
@@ -195,12 +197,12 @@ if (cmd === 'get') {
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
         if (args[0] && args[0].startsWith('x')) {
-            searchSalvos(type, args[0], noCompile);
+            await searchSalvos(type, args[0], noCompile);
         } else {
-            searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
+            await searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
         }
     } else {
-        searchChannel(type, threads, args[0], parseInt(args[1]));
+        await searchChannel(type, threads, args[0], parseInt(args[1]));
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
@@ -239,4 +241,11 @@ if (cmd === 'get') {
     console.log(channelRecipeToString(info, mergeChannelRecipes(info, ...recipes)));
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
+}
+
+
+}
+
+if (import.meta.main) {
+    run();
 }

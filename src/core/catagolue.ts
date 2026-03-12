@@ -1,7 +1,8 @@
 
 /** Implements an apgsearch-style soup searcher. */
 
-import {RuleError, RLE_CHARS} from './pattern.js';
+import {RuleError} from './util.js';
+import {RLE_CHARS} from './pattern.js';
 import {createPattern} from './index.js';
 
 
@@ -368,7 +369,11 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
     if (rule.includes('|')) {
         return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
     }
-    let ruleStr = createPattern(rule, customRules).ruleStr;
+    // let ruleStr = createPattern(rule, customRules).ruleStr;
+    if (typeof process === 'object' && typeof process.versions === 'object') {
+        throw new Error('uncomment ruleStr line in toCatagolueRule and uncomment conduit_searcher code in src/uc/index.ts');
+    }
+    let ruleStr = 'B3/S23';
     if (ruleStr.includes('/')) {
         let parts = ruleStr.split('/');
         parts[0] = parts[0];
@@ -500,4 +505,5 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         }
         return out + end;
     }
+    return '';
 }

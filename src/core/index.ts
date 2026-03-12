@@ -1,7 +1,8 @@
 
 /* The main file, exporting everything and also implementing many utility functions. */
 
-import {RuleError, RLE_CHARS, SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {RuleError} from './util.js';
+import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
@@ -9,6 +10,7 @@ import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPatte
 import {AlternatingPattern} from './alternating.js';
 import {parseAtRule, TreePattern} from './ruleloader.js';
 
+export * from './util.js';
 export * from './pattern.js';
 export * from './map.js';
 export * from './hrot.js';
@@ -19,6 +21,7 @@ export * from './bounded.js';
 export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';
+export * from './sep.js';
 export * from './catagolue.js';
 
 
@@ -41,6 +44,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
         } else {
             throw error;
         }
+    }
+    if (rule === 'Life') {
+        return createPattern('B3/S23', namedRules, height, width, data, prevName);
     }
     if (rule.startsWith('R') || rule.startsWith('r')) {
         try {
@@ -164,21 +170,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                 }
             } else if (type === 'T') {
                 if (p instanceof CoordPattern) {
-                    return new TorusCoordPattern(p.coords, p.range, p, x, y);;
+                    return new TorusCoordPattern(p.coords, p.range, p, x, y);
                 } else {
-                    let height = y;
-                    let width = x;
-                    let minX = -Math.floor(width / 2);
-                    let maxX = x + minX - 1;
-                    let minY = -Math.floor(height / 2);
-                    let maxY = y + minY - 1;
-                    let out = new TorusDataPattern(height, width, data, p);
-                    out.offsetBy(Math.max(0, -(minX + Math.max(0, width - maxX))), Math.max(0, -(minY + Math.max(0, height - maxY))));
-                    out.ensure(height, width);
-                    out.xOffset = 0;
-                    out.yOffset = 0;
-                    out.ruleStr = p.ruleStr + ':T' + width + ',' + height;
-                    return out;
+                    return new TorusDataPattern(y, x, height, width, p.getData(), p);
                 }
             } else {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);

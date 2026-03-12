@@ -15,14 +15,23 @@ export function setMaxGenerations(value: number): void {
 }
 
 
+export async function redraw(): Promise<void> {
+    if (typeof requestAnimationFrame === 'function') {
+        await new Promise(resolve => {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+    }
+}
+
 let prevUpdateTime = performance.now();
 
-export function log(msg: string, notImportant?: boolean): void {
+export async function log(msg: string, notImportant?: boolean): Promise<void> {
     let now = performance.now();
     if (!notImportant || now - prevUpdateTime > 2000) {
         console.log(msg);
         prevUpdateTime = now;
     }
+    await redraw();
 }
 
 
@@ -316,10 +325,8 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
     let newCode = p.toApgcode();
     let timing = 0;
-    p.xOffset = 0;
-    p.yOffset = 0;
-    let xOffset = 0;
-    let yOffset = 0;
+    let xOffset = p.xOffset;
+    let yOffset = p.yOffset;
     for (let i = 0; i < period; i++) {
         p.runGeneration();
         p.shrinkToFit();
@@ -768,7 +775,7 @@ export async function loadRecipes(): Promise<RecipeData> {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
         channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, badElbows: new Set(), recipes: {}}])),
     };
-    if (!exists(recipeFile)) {
+    if ((typeof window === 'object' && window === globalThis) || !exists(recipeFile)) {
         return out;
     }
     let data = (await fs.readFile(recipeFile)).toString();

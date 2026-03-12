@@ -371,10 +371,10 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
     let depth = 0;
     while (true) {
         if (queue.length === 0) {
-            log(`No objects to search!`);
+            await log(`No objects to search!`);
             process.exit(0);
         }
-        log(`Searching depth ${depth + 1} (${queue.length} objects)`);
+        await log(`Searching depth ${depth + 1} (${queue.length} objects)`);
         let newQueue: string[] = [];
         for (let j = 0; j < queue.length; j++) {
             let code = queue[j];
@@ -411,7 +411,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     forInput[code] = out;
                 }
             }
-            log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(3)}% complete`, true);
+            await log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(3)}% complete`, true);
         }
         queue = newQueue;
         if (noCompile) {
@@ -419,7 +419,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             depth++;
             continue;
         }
-        log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
+        await log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
         if (start === info.startObject) {
             for (let i = 0; i < info.intermediateObjects.length; i++) {
                 let obj = info.intermediateObjects[i];
@@ -427,17 +427,14 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
                     compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth, recipes.salvos[type], start);
                 }
-                log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
+                await log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
             compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth, recipes.salvos[type], obj);
         }
-        log('Compiled all recipes');
+        await log('Compiled all recipes');
         await saveRecipes(recipes);
         depth++;
-        if (depth === 4) {
-            process.exit(0);
-        }
     }
 }

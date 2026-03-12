@@ -78,7 +78,6 @@ export class FiniteDataPattern extends DataPattern {
             shrink = true;
         }
         let maxX = this.xOffset + this.width - 1;
-        console.log(maxY, this.maxY, maxX, this.maxX);
         if (maxX > this.maxX) {
             this.clearPart(this.width - 1, 0, this.height, maxX - this.maxX);
             shrink = true;
@@ -211,8 +210,16 @@ export class TorusDataPattern extends DataPattern {
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, p: Pattern) {
-        super(height, width, data);
+    constructor(height: number, width: number, dataHeight: number, dataWidth: number, data: Uint8Array, p: Pattern) {
+        super(dataHeight, dataWidth, data);
+        if (dataHeight !== height || dataWidth !== width) {
+            if (dataHeight > height || dataWidth > width) {
+                throw new Error('Pattern too big for torus!');
+            }
+            this.ensure(height, width);
+            this.xOffset = 0;
+            this.yOffset = 0;
+        }
         this.pattern = p;
         this.states = p.states;
         this.ruleStr = p.ruleStr + ':T' + width + ',' + height;
@@ -225,51 +232,41 @@ export class TorusDataPattern extends DataPattern {
         let height = this.height;
         let width = this.width;
         let data = new Uint8Array((height + 2) * (width + 2));
+        data[0] = this.data[this.size - 1];
         data.set(this.data.slice(this.size - width), 1);
+        data[width + 1] = this.data[this.size - width];
         for (let y = 0; y < height; y++) {
             data[width + 2 + y * (width + 2)] = this.data[(y + 1) * width - 1];
             data.set(this.data.slice(y * width, (y + 1) * width), width + 3 + y * (width + 2));
             data[width + 1 + (y + 1) * (width + 2)] = this.data[y * width];
         }
+        data[data.length - width - 2] = this.data[width - 1];
         data.set(this.data.slice(0, width), data.length - width - 1);
+        data[data.length - 1] = this.data[0];
         p.setData(height + 2, width + 2, data);
-        console.log(p.toRLE());
         p.runGeneration();
-        console.log(p.toRLE());
-        let shrink = false;
+        let pData = p.getData();
+        this.data = new Uint8Array(height * width);
+        let i = p.width + 1;
         if (p.xOffset < 0) {
-            p.clearPart(0, 0, p.height, 1);
-            shrink = true;
+            i -= p.xOffset;
         }
         if (p.yOffset < 0) {
-            p.clearPart(0, 0, 1, p.width);
-            shrink = true;
+            i -= p.width * p.yOffset;
         }
-        if (shrink) {
-            p.shrinkToFit();
+        let loc = 0;
+        for (let y = 0; y < height; y++) {
+            this.data.set(pData.slice(i, i + width), loc);
+            i += p.width;
+            loc += width;
         }
-        shrink = false;
-        if (p.height > height + 2) {
-            p.clearPart(0, p.height - 1, 1, p.width);
-            shrink = true;
-        }
-        if (p.width > width + 2) {
-            p.clearPart(p.width - 1, 0, p.height, 1);
-            shrink = true;
-        }
-        if (shrink) {
-            p.shrinkToFit();
-        }
-        p.clearPart(0, 0, 1, p.width);
-        p.clearPart(0, 0, p.height, 1);
-        p.clearPart(0, p.height - 1, 1, p.width);
-        p.clearPart(p.width - 1, 0, p.height, 1);
-        this.data = p.getData();
+        p.xOffset = 0;
+        p.yOffset = 0;
         this.generation++;
     }
 
     copy(): TorusDataPattern {
-        let out = new TorusDataPattern(this.height, this.width, this.data, this.pattern);
+        let out = new TorusDataPattern(this.height, this.width, this.height, this.width, this.data, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -277,7 +274,7 @@ export class TorusDataPattern extends DataPattern {
     }
 
     clearedCopy(): TorusDataPattern {
-        return new TorusDataPattern(0, 0, new Uint8Array(0), this.pattern);
+        return new TorusDataPattern(0, 0, 0, 0, new Uint8Array(0), this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): TorusDataPattern {
@@ -287,17 +284,17 @@ export class TorusDataPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new TorusDataPattern(height, width, data, this.pattern);
+        return new TorusDataPattern(height, width, height, width, data, this.pattern);
     }
 
     loadApgcode(code: string): TorusDataPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new TorusDataPattern(height, width, data, this.pattern);
+        return new TorusDataPattern(this.height, this.width, height, width, data, this.pattern);
     }
 
     loadRLE(rle: string): TorusDataPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new TorusDataPattern(height, width, data, this.pattern);
+        return new TorusDataPattern(this.height, this.width, height, width, data, this.pattern);
     }
 
 }

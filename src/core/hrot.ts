@@ -1,7 +1,8 @@
 
 /* Implements higher-range outer-totalistic rules (https://conwaylife.com/wiki/Larger_than_Life). */
 
-import {CoordPattern, RuleError, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
+import {RuleError} from './util.js';
+import {CoordPattern, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
 
 
 /** Parses a HROT range, such as "3-4" or "1". */
@@ -496,13 +497,6 @@ export class HROTB0Pattern extends CoordPattern {
                 let value = this.coords.get(key);
                 if (value === undefined) {
                     if (b[count]) {
-                        if (this.generation === 1) {
-                            if (x - BIAS === 0 && y - BIAS === 0) {
-                                alert(count);
-                            }
-                            // @ts-ignore
-                            document.getElementById('out').textContent += (x - BIAS) + ' ' + (y - BIAS) + '\n';
-                        }
                         out.set(key, 1);
                     }
                 } else if (value === 1) {

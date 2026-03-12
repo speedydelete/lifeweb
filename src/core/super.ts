@@ -1,7 +1,7 @@
 
 /** Implements the Golly Super algorithm (https://conwaylife.com/wiki/OCA:LifeSuper) plus [R]Investigator (https://conwaylife.com/wiki/User:Entity_Valkyrie_2/StateInvestigator). */
 
-import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, DataPattern, CoordPattern} from './pattern.js';
 
 
 /** A DataPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).

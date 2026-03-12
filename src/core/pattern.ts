@@ -1,11 +1,6 @@
 
-/* Contains abstract base classes for patterns and other utilites. */
+/* Contains abstract base classes for patterns. */
 
-
-/** This error is raised when a rulestring is invalid or the wrong rule is passed. */
-export class RuleError extends Error {
-    name: 'RuleError' = 'RuleError';
-}
 
 /** A symmetry for a rule. */
 export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2|' | 'D2-' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
@@ -332,20 +327,6 @@ export function getRuleSymmetryFromBases(C2: boolean, C4: boolean, D2h: boolean,
     } else {
         return 'C1';
     }
-}
-
-
-export function gcd(a: number, b: number): number {
-    while (b > 0) {
-        let temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
-
-export function lcm(a: number, b: number): number {
-    return a * b / gcd(a, b);
 }
 
 

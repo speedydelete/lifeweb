@@ -1,8 +1,8 @@
 
 /* Contains utilities for identifying and getting other information about patterns. */
 
-import {stringMD5} from './md5.js';
-import {RuleError, Pattern} from './pattern.js';
+import {RuleError, stringMD5} from './util.js';
+import {Pattern} from './pattern.js';
 import {PhaseData, findMinmax} from './minmax.js';
 
 

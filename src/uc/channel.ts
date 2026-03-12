@@ -285,6 +285,8 @@ export async function searchChannel(type: string, threads: number, elbow: string
             msg = '\n' + msg;
         }
         await fs.appendFile('possible_useful.txt', msg);
+    } else {
+        await fs.writeFile('possible_useful.txt', msg);
     }
     let starts: [number, number][][] = [];
     for (let a = info.minSpacing; a < maxSpacing; a++) {
@@ -316,7 +318,14 @@ export async function searchChannel(type: string, threads: number, elbow: string
     console.log(`Compiled ${starts.length} starts`);
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
-        workers.push(new Worker(`${import.meta.dirname}/channel_searcher.js`, {workerData: {
+        let path: string;
+        if (typeof window === 'object' && window === globalThis) {
+            path = `./channel_searcher.js`;
+        } else {
+            // @ts-ignore
+            path = `${import.meta.dirname}/channel_searcher.js`;
+        }
+        workers.push(await new Worker(path, {workerData: {
             info,
             maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
@@ -337,7 +346,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
     }
     let depth = info.minSpacing;
     while (true) {
-        log(`Searching depth ${depth}`);
+        await log(`Searching depth ${depth}`);
         let start = performance.now();
         let recipeCount = 0;
         let possibleUseful = '';
@@ -347,18 +356,19 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let checkedRecipes = 0;
         let timeout: NodeJS.Timeout | null = null;
         let interval: NodeJS.Timeout | null = null;
+        let {promise, resolve} = Promise.withResolvers<void>();
         for (let worker of workers) {
             worker.removeAllListeners('message');
-            worker.on('message', ([type, data]) => {
+            worker.on('message', async ([type, data]) => {
                 if (type === 'starting') {
                     recipeCount += data;
                     startedCount++;
                     if (startedCount === threads) {
-                        log(`Checking ${recipeCount} recipes`);
+                        await log(`Checking ${recipeCount} recipes`);
                         timeout = setTimeout(() => {
-                            interval = setInterval(() => {
+                            interval = setInterval(async () => {
                                 if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                                    log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                                    await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                                 }
                             }, 5000);
                         }, 2500);
@@ -384,14 +394,13 @@ export async function searchChannel(type: string, threads: number, elbow: string
             });
             worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, depth, maxSpacing});
         }
-        let {promise, resolve} = Promise.withResolvers<void>();
         await promise;
         for (let data of finished) {
             possibleUseful += data.possibleUseful;
             possibleUseful += addNewRecipes(info, data, out);
         }
         let time = (performance.now() - start) / 1000;
-        log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
+        await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
@@ -400,7 +409,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         process.exit(0);
     }
 }
-
 
 /** Merges multiple restricted-channel recipes. */
 export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, number][][]): [number, number][] {

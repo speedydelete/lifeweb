@@ -80,7 +80,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number
 }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][], debug?: boolean): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][]): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -123,7 +123,6 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     let toInsert = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD];
     p.ensure(toInsert.width, toInsert.height);
     p.insert(toInsert, 0, 0);
-    console.log(p.toRLE());
     total += c.GLIDER_TARGET_SPACING;
     let i = 0;
     while (gliders.length > 0) {
@@ -166,7 +165,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         period = lcm(period, parseInt(elbow[0].slice(2)));
     }
     let prevPop = p.population;
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < 256; i++) {
         p.run(period);
         let pop = p.population;
         if (pop !== prevPop) {
@@ -300,6 +299,8 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
                 expected.others.push(obj.code);
             }
         }
+    } else {
+        expected.ships.push({dir: 'down', lane: elbow[1], timing: 0});
     }
     if (recipe.create) {
         if (recipe.create.type === 'sl') {
@@ -320,24 +321,21 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
     console.log(`\x1b[92mexpected:\n    stables: ${objectsToString(expected.stables)}\n    ships: ${expected.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n    others: ${expected.others.join(', ')}\x1b[0m`);
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
+    let i = 0;
     while (low < high) {
         let oldLow = low;
         let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (mid % expected.period !== 0) {
-            mid += (expected.period - mid % expected.period) % expected.period;
-            console.log(mid, expected.period);
-        }
         if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period, expected) && isNextWorkingInput(info, elbow, recipe, mid + expected.period * 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
         }
         console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
+        i++;
     }
     if (low >= info.maxNextSpacing) {
-        // console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
-        throw new Error('hi');
+        console.log(`\x1b[93mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         return false;
     }
     return low;
@@ -584,7 +582,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             }
         }
     }
-    recipes = [[[[98, 0]], 98]];
+    recipes = [[[[98, 0], [90, 0]], 188]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
@@ -617,8 +615,8 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
 }
 
 
-
-if (import.meta.main) {
+// @ts-ignore
+if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker)) {
     const {parentPort, workerData} = await import('node:worker_threads');
     let info: ChannelInfo = workerData.info;
     setMaxGenerations(workerData.maxGenerations);

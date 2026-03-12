@@ -1,7 +1,8 @@
 
 /* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
 
-import {lcm, RuleSymmetry, Pattern, DataPattern} from './pattern.js';
+import {lcm} from './util.js';
+import {RuleSymmetry, Pattern, DataPattern} from './pattern.js';
 
 
 /** Implements alternating-time rules. */

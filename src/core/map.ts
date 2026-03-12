@@ -6,7 +6,8 @@ We index the trs variables like this to make it faster:
 630
 The rest of this file assumes you are familiar with the INT notation (https://conwaylife.com/wiki/Isotropic_non-totalistic_rule). */
 
-import {DataPattern, RuleError, RuleSymmetry, SYMMETRY_MEET, getRuleSymmetryFromBases} from './pattern.js';
+import {RuleError} from './util.js';
+import {DataPattern, RuleSymmetry, SYMMETRY_MEET, getRuleSymmetryFromBases} from './pattern.js';
 
 
 /** Each INT transition's mapping to a 9-bit number. */
@@ -386,23 +387,23 @@ export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
 
 /** Bad, very incomplete, QuickLife implementation. */
 
-function create16Trs(trs: Uint8Array): Uint8Array {
-    let out = new Uint8Array(65536);
-    for (let i = 0; i < 65536; i++) {
-        out[i] |= trs[((i >> 5) & 7) | ((i >> 6) & 56) | ((i >> 7) & 448)] << 7;
-        out[i] |= trs[((i >> 4) & 7) | ((i >> 5) & 56) | ((i >> 6) & 448)] << 6;
-        out[i] |= trs[((i >> 1) & 7) | ((i >> 2) & 56) | ((i >> 3) & 448)] << 2;
-        out[i] |= trs[(i & 7) | ((i >> 1) & 56) | ((i >> 2) & 448)] << 1;
-    }
-    return out;
-}
+// function create16Trs(trs: Uint8Array): Uint8Array {
+//     let out = new Uint8Array(65536);
+//     for (let i = 0; i < 65536; i++) {
+//         out[i] |= trs[((i >> 5) & 7) | ((i >> 6) & 56) | ((i >> 7) & 448)] << 7;
+//         out[i] |= trs[((i >> 4) & 7) | ((i >> 5) & 56) | ((i >> 6) & 448)] << 6;
+//         out[i] |= trs[((i >> 1) & 7) | ((i >> 2) & 56) | ((i >> 3) & 448)] << 2;
+//         out[i] |= trs[(i & 7) | ((i >> 1) & 56) | ((i >> 2) & 448)] << 1;
+//     }
+//     return out;
+// }
 
 /** Represents a 16x16 region. a and b contain the allocations that are swapped on every generation. */
-interface Chunk {
-    a: Uint32Array;
-    b?: Uint32Array;
-    pop: number;
-}
+// interface Chunk {
+//     a: Uint32Array;
+//     b?: Uint32Array;
+//     pop: number;
+// }
 /* Chunk format:
 0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
 0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
@@ -427,44 +428,44 @@ Bits for each one:
 28 24 20 16 12 08 04 00
 */
 
-interface Tile {
-    super: false;
-    nw: Chunk | null;
-    ne: Chunk | null;
-    sw: Chunk | null;
-    se: Chunk | null;
-}
+// interface Tile {
+//     super: false;
+//     nw: Chunk | null;
+//     ne: Chunk | null;
+//     sw: Chunk | null;
+//     se: Chunk | null;
+// }
 
-interface SuperTile {
-    super: true;
-    nw: Tile | SuperTile;
-    ne: Tile | SuperTile;
-    sw: Tile | SuperTile;
-    se: Tile | SuperTile;
-}
+// interface SuperTile {
+//     super: true;
+//     nw: Tile | SuperTile;
+//     ne: Tile | SuperTile;
+//     sw: Tile | SuperTile;
+//     se: Tile | SuperTile;
+// }
 
-const POPCOUNT_TABLE = new Uint8Array(256);
-for (let i = 0; i < 256; i++) {
-    POPCOUNT_TABLE[i] = (i & 1) + ((i >> 1) & 1) + ((i >> 2) & 1) + ((i >> 3) & 1) + ((i >> 4) & 1) + ((i >> 5) & 1) + ((i >> 6) & 1) + ((i >> 7) & 1);
-}
+// const POPCOUNT_TABLE = new Uint8Array(256);
+// for (let i = 0; i < 256; i++) {
+//     POPCOUNT_TABLE[i] = (i & 1) + ((i >> 1) & 1) + ((i >> 2) & 1) + ((i >> 3) & 1) + ((i >> 4) & 1) + ((i >> 5) & 1) + ((i >> 6) & 1) + ((i >> 7) & 1);
+// }
 
 /** Run a single chunk by 1 generation. */
-function runChunk(c: Chunk, trs: Uint32Array): void {
-    if (!c.b) {
-        c.b = new Uint32Array(256);
-    }
-    for (let i = 0; i < 8; i += 2) {
-        let m = trs[((c.a[i] & 0x3333) << 2) | ((c.a[i + 1] & 0xcccc) >>> 2)] | (trs[(((c.a[i] >>> 8) & 0x3333) << 2) | (((c.a[i + 1] >>> 8) & 0xcccc) >>> 2)] << 8) | (trs[((c.a[i] >>> 6) & 0xcccc) | ((c.a[i + 1] >>> 10) & 0x3333)] << 16);
-        c.b[i] = trs[c.a[i] & 0xffff] | (trs[(c.a[i] >>> 8) & 0xffff] << 8) | (trs[c.a[i] >>> 16] << 16) | ((m & 0x4444) >>> 2);
-        c.b[i + 1] = trs[c.a[i + 1] & 0xffff] | (trs[(c.a[i + 1] >>> 8) & 0xffff] << 8) | (trs[c.a[i + 1] >>> 16] << 16) | ((m & 0x2222) << 2);
-    }
-    let m0 = trs[((c.a[0] & 0xff) << 8) | (c.a[4] >>> 24)];
-    let m1 = trs[((c.a[0] & 0x33) << 12) | ((c.a[4] >>> 26) & 0x00cc) | ((c.a[1] >> 2) & 0x3300) | ((c.a[5] >> 28) & 0x33)];
-    let m2 = trs[((c.a[1] & 0xff) << 8) | (c.a[5] >>> 24)];
-    let temp = c.b;
-    c.b = c.a;
-    c.a = temp;
-}
+// function runChunk(c: Chunk, trs: Uint32Array): void {
+//     if (!c.b) {
+//         c.b = new Uint32Array(256);
+//     }
+//     for (let i = 0; i < 8; i += 2) {
+//         let m = trs[((c.a[i] & 0x3333) << 2) | ((c.a[i + 1] & 0xcccc) >>> 2)] | (trs[(((c.a[i] >>> 8) & 0x3333) << 2) | (((c.a[i + 1] >>> 8) & 0xcccc) >>> 2)] << 8) | (trs[((c.a[i] >>> 6) & 0xcccc) | ((c.a[i + 1] >>> 10) & 0x3333)] << 16);
+//         c.b[i] = trs[c.a[i] & 0xffff] | (trs[(c.a[i] >>> 8) & 0xffff] << 8) | (trs[c.a[i] >>> 16] << 16) | ((m & 0x4444) >>> 2);
+//         c.b[i + 1] = trs[c.a[i + 1] & 0xffff] | (trs[(c.a[i + 1] >>> 8) & 0xffff] << 8) | (trs[c.a[i + 1] >>> 16] << 16) | ((m & 0x2222) << 2);
+//     }
+//     let m0 = trs[((c.a[0] & 0xff) << 8) | (c.a[4] >>> 24)];
+//     let m1 = trs[((c.a[0] & 0x33) << 12) | ((c.a[4] >>> 26) & 0x00cc) | ((c.a[1] >> 2) & 0x3300) | ((c.a[5] >> 28) & 0x33)];
+//     let m2 = trs[((c.a[1] & 0xff) << 8) | (c.a[5] >>> 24)];
+//     let temp = c.b;
+//     c.b = c.a;
+//     c.a = temp;
+// }
 
 // function runTile(t: Tile, trs: Uint8Array): void {
 //     if (t.nw) {
@@ -581,9 +582,9 @@ export class MAPPattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // I will explain how this function works, but not the ones in MAPB0Pattern, MAPGenPattern, and MAPGenB0Pattern.
-        // We first compute how it should expand, if at all.
-        // Then we run the interior of the pattern.
+        // i will explain how this function works, but not the ones in MAPB0Pattern, MAPGenPattern, and MAPGenB0Pattern
+        // we first compute how it should expand, if at all
+        // then we run the interior of the pattern
         let width = this.width;
         let height = this.height;
         /** The width multiplied by the height. */
@@ -598,7 +599,7 @@ export class MAPPattern extends DataPattern {
         let lastRow = size - width;
         /** The index in `data` of the second-to-last row of the original data. */
         let secondLastRow = size - width2;
-        // We first compute how it should expand in the top and bottom
+        // we first compute how it should expand in the top and bottom
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -607,7 +608,7 @@ export class MAPPattern extends DataPattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
-        // This part is only for B1e and B2a rules.
+        // this part is only for B1e and B2a rules
         if (width > 1) {
             if (trs[tr1]) {
                 expandUp = 1;
@@ -630,9 +631,9 @@ export class MAPPattern extends DataPattern {
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
             j++;
-            // This is why we index the trs variables weirdly, so we can do this!
+            // this is why we index the trs variables weirdly, so we can do this!
             tr1 = ((tr1 << 3) & 511) | data[i];
-            // We shift it by 2 because we are computing the bottom, we need to move it to the top of the transition because we are seeing if it should expand downwards.
+            // we shift it by 2 because we are computing the bottom, we need to move it to the top of the transition because we are seeing if it should expand downwards
             tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
             if (trs[tr1]) {
                 expandUp = 1;
@@ -643,7 +644,7 @@ export class MAPPattern extends DataPattern {
                 downExpands[loc] = 1;
             }
         }
-        // This part is only for B1e and B2a rules.
+        // this part is only for B1e and B2a rules
         if (width > 1) {
             if (trs[(tr1 << 3) & 511]) {
                 expandUp = 1;
@@ -663,14 +664,14 @@ export class MAPPattern extends DataPattern {
                 downExpands[width - 1] = 1;
             }
         }
-        // We then compute how it should expand to the left and right.
+        // we then compute how it should expand to the left and right
         let expandLeft = 0;
         let expandRight = 0;
         let leftExpands = new Uint8Array(height);
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        // This part is only for B1e and B2a rules.
+        // this part is only for B1e and B2a rules
         if (height > 1) {
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -693,9 +694,9 @@ export class MAPPattern extends DataPattern {
         let loc = 0;
         for (i = width2; i < size; i += width) {
             loc++;
-            // In this case, we are computing to the left, so the 3 bits to consider are all on the right.
+            // in this case, we are computing to the left, so the 3 bits to consider are all on the right
             tr1 = ((tr1 << 1) & 7) | data[i];
-            // In this case, we are computing to the right, so the 3 bits to consider are all on the right, so we shift by 6 bits.
+            // in this case, we are computing to the right, so the 3 bits to consider are all on the right, so we shift by 6 bits
             tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -707,7 +708,7 @@ export class MAPPattern extends DataPattern {
             }
         }
         i -= width;
-        // This part is only for B1c, B1e, or B2a rules.
+        // this part is only for B1c, B1e, or B2a rules
         if (height > 1) {
             if (trs[(tr1 << 1) & 7]) {
                 expandLeft = 1;
@@ -727,7 +728,7 @@ export class MAPPattern extends DataPattern {
                 rightExpands[height - 1] = 1;
             }
         }
-        // Special B1c checks.
+        // special B1c checks
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
         let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
@@ -758,7 +759,7 @@ export class MAPPattern extends DataPattern {
         let newSize = newWidth * newHeight;
         /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
-        // Putting the expansion data into the output.
+        // putting the expansion data into the output
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
@@ -783,41 +784,40 @@ export class MAPPattern extends DataPattern {
                 out[loc] = rightExpands[i];
             }
         }
-        // We need to do a special case for when width === 1, the basic method breaks in that case.
+        // we need to do a special case for when width === 1, the basic method breaks in that case
         if (width <= 1) {
             if (width === 1) {
                 let tr = (data[0] << 4) | (data[1] << 3);
                 let loc = oStart;
-                // The top cell.
+                // top
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
                 loc += oX + 1;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
-                    // Each middle cell.
+                    // middle
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     loc += oX + 1;
                 }
-                // The bottom cell.
+                // bottom
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
                 }
             }
         } else {
-            // We first need to compute the top and bottom rows.
             let loc1 = oStart;
             let loc2 = lastRow + oSize - oX;
             j = lastRow + 1;
             tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
-            // The top-left cell.
+            // top-left
             if (trs[tr1]) {
                 out[loc1] = 1;
             }
-            // The bottom-left cell.
+            // bottom-left
             if (trs[tr2]) {
                 out[loc2] = 1;
             }
@@ -826,31 +826,30 @@ export class MAPPattern extends DataPattern {
                 loc1++;
                 loc2++;
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
-                // The middle cells of the top row.
+                // top row
                 if (trs[tr1]) {
                     out[loc1] = 1;
                 }
-                // The middle cells of the bottom row.
+                // bottom row
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
                 }
             }
-            // The top-right cell.
+            // top-right
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
             }
-            // The bottom-right cell.
+            // bottom-right
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
             }
-            // We then finally compute all the middle rows!
             i = width + 1;
             loc = oStart + width;
             for (let y = 1; y < height - 1; y++) {
                 loc += oX;
                 let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
-                // The leftmost cell of the row.
+                // left column
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
@@ -858,14 +857,14 @@ export class MAPPattern extends DataPattern {
                 loc++;
                 for (let x = 1; x < width - 1; x++) {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
-                    // The middle cells.
+                    // middle
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     i++;
                     loc++;
                 }
-                // The rightmost cell of the row.
+                // right column
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
                 }
@@ -948,7 +947,7 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // An explanation of how this function works is in the comments in MAPPattern.runGeneration
+        // an explanation of how this function works is in the comments in MAPPattern.runGeneration
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1266,7 +1265,7 @@ export class MAPGenPattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // An explanation of how this function works is in the comments in MAPPattern.runGeneration
+        // an explanation of how this function works is in the comments in MAPPattern.runGeneration
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -1663,7 +1662,7 @@ export class MAPGenB0Pattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // An explanation of how this function works is in the comments in MAPPattern.runGeneration.
+        // an explanation of how this function works is in the comments in MAPPattern.runGeneration
         let width = this.width;
         let height = this.height;
         let size = this.size;

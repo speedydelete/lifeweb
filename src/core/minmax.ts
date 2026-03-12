@@ -1,7 +1,8 @@
 
 /** Finds the minimum and maximum rule of patterns. */
 
-import {RuleError, Pattern, CoordPattern} from './pattern.js';
+import {RuleError} from './util.js';
+import {Pattern, CoordPattern} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';

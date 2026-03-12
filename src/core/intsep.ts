@@ -1,15 +1,7 @@
 
 /*
 
-Implements xp2_882030kgz010602's algorithm for object seperation for INT rules:
-1. Give each group of kingwise-connected cells a number
-2. Run it for some number of generations, combining objects that birth cells
-3. After each generation, resolve knots
-4. After a sufficient number of generations, the objects should be seperated
-
-A knot is a dead cell surrounded by 2+ groups of live cells that won't come alive in the next generation
-Knots cause the merger of objects if a birth would happen if the groups were seperated. If it is ambiguous, the current behavior is to just merge them.
-
+The algorithm is explained at the top of sep.ts.
 
 Full analysis of knots for INT rules:
 
@@ -121,7 +113,7 @@ For optimization, we don't implement B1c.
 
 */
 
-import {gcd} from './pattern.js';
+import {gcd} from './util.js';
 import {MAPPattern, TRANSITIONS} from './map.js';
 import {findType, PatternType} from './identify.js';
 
@@ -474,18 +466,18 @@ export class INTSeparator extends MAPPattern {
             this.groups = p.groups;
             return;
         }
-        // We need to assign the initial group numbers.
-        // We do this for every contiguous group of cells, as described above.
+        // we need to assign the initial group numbers
+        // we do this for every contiguous group of cells, as described above
         let groups = new Uint32Array(this.size);
         this.groups = groups;
         let nextGroup = 1;
-        // Top-left cell.
+        // top-left cell
         if (data[0]) {
             groups[0] = nextGroup++;
         }
         let i = 1;
         for (; i < width; i++) {
-            // The other cells in the top row.
+            // top row
             if (data[i]) {
                 if (groups[i - 1]) {
                     groups[i] = groups[i - 1];
@@ -495,7 +487,7 @@ export class INTSeparator extends MAPPattern {
             }
         }
         for (let y = 1; y < height; y++) {
-            // The cells on the left column.
+            // left column
             if (data[i]) {
                 if (groups[i - width]) {
                     groups[i] = groups[i - width];
@@ -507,7 +499,7 @@ export class INTSeparator extends MAPPattern {
             }
             i++;
             for (let x = 1; x < width - 1; x++) {
-                // The cells in the middle. This part gets pretty complicated.
+                // middle
                 if (data[i]) {
                     let g0 = groups[i - width - 1];
                     let g1 = groups[i - width];
@@ -536,7 +528,7 @@ export class INTSeparator extends MAPPattern {
                 }
                 i++;
             }
-            // The cells in the right column.
+            // right column
             if (data[i]) {
                 if (groups[i - width - 1]) {
                     groups[i] = groups[i - width - 1];
@@ -576,9 +568,9 @@ export class INTSeparator extends MAPPattern {
     }
 
     runGeneration(): boolean {
-        // This does not implement knot resolution, just the birth rule.
-        // Very similar to `MAPPattern.runGeneration`, but has additional birth checks.
-        // There are probably some bugs in this function.
+        // this does not implement knot resolution, just the birth rule
+        // very similar to `MAPPattern.runGeneration`, but has additional birth checks
+        // there are probably some bugs in this function
         let width = this.width;
         let height = this.height;
         let size = this.size;
@@ -988,15 +980,14 @@ export class INTSeparator extends MAPPattern {
 
     /** Merges disconnected strict objects. */
     resolveKnots(): boolean {
-        // Does the knot resolution step described above.
         let height = this.height;
         let width = this.width;
         let data = this.data;
         let groups = this.groups;
         let i = width + 1;
         let reassignments: [number, number][] = [];
-        // We only have to do it for the middle cells, because knots can only exist there.
-        // This considerably simplifies the code compared to `MAPPAttern.runGeneration`.
+        // we only have to do it for the middle cells, because knots can only exist there
+        // this considerably simplifies the code compared to `MAPPAttern.runGeneration`
         for (let y = 1; y < height - 1; y++) {
             let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
             i++;
@@ -1008,7 +999,7 @@ export class INTSeparator extends MAPPattern {
                     continue;
                 }
                 if (value === 1) {
-                    // If it's 1, we know it is a 2-island knot, so we then find what to reassign.
+                    // if it's 1, we know it is a 2-island knot, so we then find what to reassign
                     let a = 0;
                     let x = groups[i - width - 2];
                     if (x) {
@@ -1077,7 +1068,7 @@ export class INTSeparator extends MAPPattern {
                         }
                     }
                 } else {
-                    // This implements the more complicated cases.
+                    // this implements the more complicated cases
                     let type = value & KNOT_TYPE;
                     if (type === A3C) {
                         if (value === A3C) {
@@ -1569,13 +1560,9 @@ export class INTSeparator extends MAPPattern {
             groups.set(this.groups.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        let oldData = this.data;
-        let oldGroups = this.groups;
-        this.data = data;
-        this.groups = groups;
         let out = new INTSeparator(this, this.knots);
-        this.data = oldData;
-        this.groups = oldGroups;
+        out.data = data;
+        out.groups = groups;
         return out;
     }
 

@@ -1,8 +1,7 @@
 
 /** Implements a soup searching program similar to apgsearch, but worse! */
 
-import {stringMD5} from './core/md5.js';
-import {Pattern, MAPPattern, getApgcode, getKnots, INTSeparator, getHashsoup, randomHashsoup, toCatagolueRule, createPattern} from './core/index.js';
+import {stringMD5, Pattern, MAPPattern, getApgcode, getKnots, INTSeparator, getHashsoup, randomHashsoup, toCatagolueRule, createPattern} from './core/index.js';
 
 
 let print: (msg: string) => void | Promise<void>;

@@ -87,8 +87,8 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             out.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + period),
-                x: minX,
-                y: minY,
+                x: minX + p.xOffset,
+                y: minY + p.yOffset,
                 p,
                 bb,
                 timing: obj.p.generation,
@@ -97,8 +97,8 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             out.push({
                 type: 'sl',
                 code: p.toApgcode('xs' + p.population),
-                x: minX,
-                y: minY,
+                x: minX + p.xOffset,
+                y: minY + p.yOffset,
                 p,
                 bb,
             });
