@@ -41,9 +41,9 @@ export function createSalvoPattern(info: {gliderSpacing: number}, target: string
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.LANE_OFFSET - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
-    p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
+    p.shrinkToFit();
     return p;
 }
 

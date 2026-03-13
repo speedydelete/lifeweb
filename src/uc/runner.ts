@@ -76,22 +76,22 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
         }
         let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
         if (isOsc) {
-            let period = obj.type === 'osc' ? parseInt(obj.code.slice(2)) : 1;
+            let period = obj.type === 'osc' ? obj.period : 1;
             for (let obj of objs) {
                 if (obj.type === 'sl') {
                     continue;
                 }
-                let objPeriod = parseInt(obj.code.slice(2));
-                period = lcm(period, objPeriod);
+                period = lcm(period, obj.period);
             }
             out.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + period),
                 x: minX + p.xOffset,
                 y: minY + p.yOffset,
+                period,
+                timing: obj.p.generation,
                 p,
                 bb,
-                timing: obj.p.generation,
             });
         } else {
             out.push({
@@ -165,6 +165,7 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                 code: p.toApgcode('xp' + type.period),
                 x: p.xOffset,
                 y: p.yOffset,
+                period: type.period,
                 timing: p.generation,
                 p,
                 bb: [q.xOffset, q.yOffset, q.xOffset + q.width - 1, q.yOffset + q.height - 1],
@@ -258,6 +259,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, c
                     code: obj.code,
                     x: obj.x,
                     y: obj.y,
+                    period: obj.period,
                     timing: obj.timing,
                 });
             }
@@ -324,5 +326,13 @@ export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean =
         return 'no stabilize';
     }
     p.shrinkToFit();
-    return separateObjects(p, period * 4, period * 4, combine);
+    let objs = separateObjects(p, period * 4, period * 4, combine);
+    // if (objs) {
+    //     for (let obj of objs) {
+    //         if (obj.type === 'osc') {
+    //             obj.timing %= obj.period;
+    //         }
+    //     }
+    // }
+    return objs;
 }

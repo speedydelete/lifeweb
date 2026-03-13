@@ -297,6 +297,7 @@ export interface StillLife extends BaseObject {
 
 export interface Oscillator extends BaseObject {
     type: 'osc';
+    period: number;
     timing: number;
 }
 
@@ -321,13 +322,12 @@ export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 
 /** Normalizes an oscillator to its canonical apgcode (but without rotation or reflection). */
 export function normalizeOscillator(obj: Oscillator): Oscillator {
-    let period = parseInt(obj.code.slice(2));
     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
     let newCode = p.toApgcode();
     let timing = 0;
     let xOffset = p.xOffset;
     let yOffset = p.yOffset;
-    for (let i = 0; i < period; i++) {
+    for (let i = 0; i < obj.period; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let code = p.toApgcode();
@@ -335,15 +335,16 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
             newCode = code;
             xOffset = p.xOffset;
             yOffset = p.yOffset;
-            timing = i;
+            timing = i + 1;
         }
     }
     return {
         type: 'osc',
-        code: `xp${period}_${newCode}`,
+        code: `xp${obj.period}_${newCode}`,
         x: obj.x + xOffset,
         y: obj.y + yOffset,
-        timing: obj.timing + timing,
+        period: obj.period,
+        timing: (obj.timing + timing) % obj.period,
     };
 }
 
@@ -508,6 +509,7 @@ export function stringToObjects(data: string): CAObject[] {
                 code,
                 x: parseInt(args[0]),
                 y: parseInt(args[1]),
+                period: parseInt(code.slice(2)),
                 timing: parseInt(args[2]),
             });
         } else if (code.startsWith('xq') && SHIP_DIRECTIONS.includes(args[0])) {
@@ -556,6 +558,7 @@ export interface ChannelRecipe {
     time: number;
     end?: {
         elbow: string;
+        period: number;
         move: number;
         flipped: boolean;
         timing: number;
@@ -741,6 +744,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     data = data.slice(2);
                 } else {
                     let elbow = data[2];
+                    let period = elbow.startsWith('xp') ? parseInt(elbow.slice(2)) : 1;
                     let move = parseInt(data[4]);
                     let timing = parseInt(data[6]);
                     data = data.slice(7);
@@ -749,7 +753,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         flipped = true;
                         data = data.slice(1);
                     }
-                    recipe.end = {elbow, move, flipped, timing};
+                    recipe.end = {elbow, period, move, flipped, timing};
                 }
                 if (data[0] === 'emit') {
                     let dir = data[1] as 'up' | 'down' | 'left' | 'right';

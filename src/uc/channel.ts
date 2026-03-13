@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
-import {MAPPattern} from '../core/index.js';
+import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
@@ -150,11 +150,11 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             out.push({type: 'destroy'});
         } else if (result.length === 1) {
             let obj = result[0];
-            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
-            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
             if (obj.type === 'osc') {
                 obj = normalizeOscillator(obj);
             }
+            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
+            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
             let str = `${obj.code}/${lane}`;
             let flippedStr = `${obj.code}/${Infinity}`;
             if (badElbows.has(str)) {
@@ -220,6 +220,40 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
     return out;
 }
 
+function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelRecipe[] {
+    let out: ChannelRecipe[] = [];
+    for (let recipe of recipes) {
+        let period = 1;
+        if (recipe.emit && info.period > 1) {
+            period = lcm(period, info.period);
+        }
+        if (recipe.end && recipe.end.elbow.startsWith('xp')) {
+            period = lcm(period, recipe.end.period);
+        }
+        if (recipe.create && recipe.create.type === 'osc') {
+            period = lcm(period, recipe.create.period);
+        }
+        out.push(recipe);
+        if (period > 1) {
+            for (let i = 1; i < period; i++) {
+                let recipe2 = structuredClone(recipe);
+                recipe2.recipe.unshift([i, -2]);
+                if (recipe2.emit && info.period > 1) {
+                    recipe2.emit.timing = (recipe2.emit.timing + i) % info.period;
+                }
+                if (recipe2.end && recipe2.end.elbow.startsWith('xp')) {
+                    recipe2.end.timing = (recipe2.end.timing + i) % recipe2.end.period;
+                }
+                if (recipe2.create && recipe2.create.type === 'osc') {
+                    recipe2.create.timing = (recipe2.create.timing + i) % recipe2.create.period;
+                }
+                out.push(recipe2);
+            }
+        }
+    }
+    return out;
+}
+
 function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): string {
     for (let elbow of data.newElbows) {
         let value = addElbow(info, elbow, out);
@@ -236,7 +270,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
-            let value = resolveElbow(info, out.elbows, out.badElbows, recipe, true);
+            let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         } else {
@@ -247,12 +281,13 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     //     console.log(recipes);
     //     throw new Error('hi');
     // }
+    recipes = expandRecipes(info, recipes);
     for (let recipe of recipes) {
         if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
             continue;
         }
         let key = channelRecipeInfoToString(recipe);
-        if (key in out.recipes && out.recipes[key].time < recipe.time) {
+        if (key in out.recipes && out.recipes[key].time <= recipe.time) {
             continue;
         }
         let color: string;
@@ -368,7 +403,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                         timeout = setTimeout(() => {
                             interval = setInterval(async () => {
                                 if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                                    await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                                    // await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                                 }
                             }, 5000);
                         }, 2500);
@@ -395,6 +430,12 @@ export async function searchChannel(type: string, threads: number, elbow: string
             worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, depth, maxSpacing});
         }
         await promise;
+        if (timeout !== null) {
+            clearTimeout(timeout);
+        }
+        if (interval !== null) {
+            clearInterval(interval);
+        }
         for (let data of finished) {
             possibleUseful += data.possibleUseful;
             possibleUseful += addNewRecipes(info, data, out);
