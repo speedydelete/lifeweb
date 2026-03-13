@@ -600,7 +600,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
 }
 
 export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
-    let value = getRecipeOutcome(info, elbows, recipe, time, elbowStr, elbowData, badElbows);
+    let value = getRecipeOutcome(info, elbows, recipe, time, elbowStr, elbowData, badElbows, newElbows);
     if (value === undefined) {
         return;
     } else if (typeof value === 'string') {
