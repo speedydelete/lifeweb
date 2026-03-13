@@ -369,30 +369,6 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
 }
 
 
-const APGCODE_POP_MAP: {[key: string]: number} = {};
-for (let i = 0; i < 32; i++) {
-    APGCODE_POP_MAP[APGCODE_CHARS[i]] = Array.from(i.toString(2)).filter(x => x === '1').length;
-}
-
-const MAX_POPULATION = Math.max(c.MAX_CREATE_POPULATION, c.MAX_ELBOW_POPULATION);
-
-function isTooBig(code: string, threshold: number): boolean {
-    if (code.startsWith('xs')) {
-        return parseInt(code.slice(2)) > threshold;
-    } else {
-        let pop = 0;
-        for (let i = code.indexOf('_') + 1; i < code.length; i++) {
-            let char = code[i];
-            if (char >= 'w') {
-                continue;
-            }
-            pop += APGCODE_POP_MAP[char];
-        }
-        return pop > threshold;
-    }
-}
-
-
 function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
     return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
 }
@@ -527,9 +503,6 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     let endElbowData: [CheckerObjectData, CAObject[][]] | undefined = undefined;
     if (so1) {
         if (so2) {
-            if (isTooBig(so1.obj.code, MAX_POPULATION) || isTooBig(so2.obj.code, MAX_POPULATION)) {
-                return;
-            }
             let so1Result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
                 so1Result.push(getCollision(so1.obj.code, so1.lane, i));
@@ -542,17 +515,11 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
                 if (so2Result.every(x => typeof x === 'object')) {
                     return;
                 } else {
-                    if (isTooBig(so1.obj.code, c.MAX_ELBOW_POPULATION) || isTooBig(so2.obj.code, c.MAX_CREATE_POPULATION)) {
-                        return;
-                    }
                     endElbowData = [so1, so1Result];
                     create = so2.obj;
                 }
             } else {
                 if (so2Result.every(x => typeof x === 'object')) {
-                    if (isTooBig(so2.obj.code, c.MAX_ELBOW_POPULATION) || isTooBig(so1.obj.code, c.MAX_CREATE_POPULATION)) {
-                        return;
-                    }
                     endElbowData = [so2, so2Result];
                     create = so1.obj;
                 } else {
@@ -560,9 +527,6 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
                 }
             }
         } else {
-            if (isTooBig(so1.obj.code, c.MAX_ELBOW_POPULATION)) {
-                return;
-            }
             let result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
                 result.push(getCollision(so1.obj.code, so1.lane, i));
