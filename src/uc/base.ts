@@ -571,7 +571,7 @@ export interface ChannelRecipe {
     create?: StableObject;
 }
 
-const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create'];
+const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy'];
 
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
