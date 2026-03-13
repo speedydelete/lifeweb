@@ -410,8 +410,8 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
     let outcomes = elbows[recipe.end.elbow];
     let out: ChannelRecipe[] = [];
     let possibleUseful = '';
-    console.log(`(\nresolving ${channelRecipeInfoToString(recipe)}`);
-    console.log('outcomes:', outcomes);
+    // console.log(`(\nresolving ${channelRecipeInfoToString(recipe)}`);
+    // console.log('outcomes:', outcomes);
     for (let i = 0; i < outcomes.length; i++) {
         let elbow = outcomes[i];
         if (elbow.type === 'bad') {
@@ -445,8 +445,8 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
             possibleUseful += value.possibleUseful;
         }
     }
-    console.log(`resolution result for ${channelRecipeInfoToString(recipe)}:`, out);
-    console.log(')');
+    // console.log(`resolution result for ${channelRecipeInfoToString(recipe)}:`, out);
+    // console.log(')');
     return {recipes: out, possibleUseful};
 }
 
@@ -457,7 +457,7 @@ interface CheckerObjectData {
     spacing: number;
 }
 
-export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
+export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | string | {recipe: ChannelRecipe, possibleUseful?: string, endResult?: Parameters<typeof findNextWorkingInput>[3]} {
     let possibleUseful: string | undefined = undefined;
     let result: false | 'no stabilize' | 'linear' | CAObject[];
     let strRecipe = channelRecipeToString(info, recipe);
@@ -466,7 +466,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         return;
     }
     if (result === 'linear') {
-        return {possibleUseful: `Linear growth: ${strRecipe}\n`};
+        return `Linear growth: ${strRecipe}\n`;
     }
     let so1: CheckerObjectData | undefined = undefined;
     let so2: CheckerObjectData | undefined = undefined;
@@ -521,7 +521,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         }
     }
     if (found) {
-        return {possibleUseful};
+        return possibleUseful;
     }
     let create: StableObject | undefined = undefined;
     let endElbowData: [CheckerObjectData, CAObject[][]] | undefined = undefined;
@@ -596,12 +596,22 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             newElbows.push(str);
         }
     }
-    let out: ChannelRecipe = {start: elbowStr, recipe, time, end, create, emit};
+    return {recipe: {start: elbowStr, recipe, time, end, create, emit}, possibleUseful, endResult};
+}
+
+export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
+    let value = getRecipeOutcome(info, elbows, recipe, time, elbowStr, elbowData, badElbows);
+    if (value === undefined) {
+        return;
+    } else if (typeof value === 'string') {
+        return {possibleUseful: value};
+    }
+    let {recipe: out, endResult} = value;
     let next = findNextWorkingInput(info, elbowData, out, endResult);
     if (next !== false) {
         out.recipe.push([next, -1]);
         out.time += next;
-        if (out.end && out.end.elbow.period > 1) {
+        if (out.end && out.end.period > 1) {
             // you're supposed to do something here
             // i hope this is the right thing
             // it might not be
@@ -609,9 +619,26 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             // so let's hope it isn't
             out.end.timing = (out.end.timing + next) % out.end.period;
         }
-        return resolveElbow(info, elbows, badElbows, out);
+        let data = resolveElbow(info, elbows, badElbows, out);
+        for (let recipe of data.recipes) {
+            let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
+            if (typeof value !== 'object') {
+                console.log('expected:', recipe);
+                console.log('got:', value);
+                console.error('\x1b[31mSanity check failed\x1b[0m');
+                continue;
+            }
+            let data = value.recipe;
+            if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
+                console.log('expected:', recipe);
+                console.log('got:', value);
+                console.error('\x1b[31mSanity check failed\x1b[0m');
+                continue;
+            }
+        }
+        return data;
     } else {
-        return {possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${strRecipe}\n`};
+        return {possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${channelRecipeToString(info, recipe)}\n`};
     }
 }
 

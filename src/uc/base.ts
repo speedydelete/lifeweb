@@ -571,7 +571,7 @@ export interface ChannelRecipe {
     create?: StableObject;
 }
 
-const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create', '90-degree and create and destroy', '0-degree and create and destroy', '180-degree and create and destroy'];
+const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy', '90-degree and create', '0-degree and create', '180-degree and create', '0-degree and create'];
 
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
@@ -918,6 +918,9 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 if (!recipe.end) {
                     key += ' and destroy';
                 }
+            }
+            if (!(key in sections)) {
+                console.error(`Cannot save recipe: ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}`);
             }
             sections[key].push(recipe);
         }
