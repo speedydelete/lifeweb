@@ -581,7 +581,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     let endResult: Parameters<typeof findNextWorkingInput>[3] = undefined;
     if (endElbowData) {
         let [elbow, result] = endElbowData;
-        console.log(elbow);
+        // console.log(elbow);
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
         if (badElbows.has(str)) {
@@ -625,14 +625,14 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             if (typeof value !== 'object') {
                 console.log('expected:', recipe);
                 console.log('got:', value);
-                console.error('\x1b[31mSanity check failed\x1b[0m');
+                console.error('\x1b[91mSanity check failed\x1b[0m');
                 continue;
             }
             let data = value.recipe;
             if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
                 console.log('expected:', recipe);
                 console.log('got:', value);
-                console.error('\x1b[31mSanity check failed\x1b[0m');
+                console.error('\x1b[91mSanity check failed\x1b[0m');
                 continue;
             }
         }
