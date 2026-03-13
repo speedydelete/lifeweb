@@ -670,7 +670,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             }
         }
     }
-    recipes = [[[[21, 0]], 21]];
+    // recipes = [[[[21, 0]], 21]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
