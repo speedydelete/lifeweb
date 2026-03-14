@@ -587,15 +587,15 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         for (let recipe of data.recipes) {
             let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
             if (typeof value !== 'object') {
-                console.log('expected:', recipe);
-                console.log('got:', value);
+                console.error('expected:', recipe);
+                console.error('got:', value);
                 console.error('\x1b[91mSanity check failed\x1b[0m');
                 continue;
             }
             let data = value.recipe;
             if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
-                console.log('expected:', recipe);
-                console.log('got:', value);
+                console.error('expected:', recipe);
+                console.error('got:', value);
                 console.error('\x1b[91mSanity check failed\x1b[0m');
                 continue;
             }
