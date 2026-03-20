@@ -458,7 +458,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        process.exit(0);
+        // process.exit(0);
     }
 }
 
