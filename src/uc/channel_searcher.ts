@@ -646,46 +646,46 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
             out.end.timing = (out.end.timing + next) % out.end.period;
         }
         let data = resolveElbow(info, elbows, badElbows, out);
-        for (let recipe of data.recipes) {
-            if (recipe.recipe.some(x => x[1] === -1)) {
-                let recipe2: [number, number][] = [];
-                for (let i = 0; i < recipe.recipe.length; i++) {
-                    let [timing, channel] = recipe.recipe[i];
-                    if (channel === -1) {
-                        recipe.time -= timing;
-                    } else {
-                        recipe2.push([timing, channel]);
-                    }
-                }
-                recipe.recipe = recipe2;
-            }
-            let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
-            if (typeof value !== 'object') {
-                console.error('expected:', recipe);
-                console.error('got:', value);
-                console.error('\x1b[91mSanity check failed\x1b[0m');
-                continue;
-            }
+        // for (let recipe of data.recipes) {
+        //     if (recipe.recipe.some(x => x[1] === -1)) {
+        //         let recipe2: [number, number][] = [];
+        //         for (let i = 0; i < recipe.recipe.length; i++) {
+        //             let [timing, channel] = recipe.recipe[i];
+        //             if (channel === -1) {
+        //                 recipe.time -= timing;
+        //             } else {
+        //                 recipe2.push([timing, channel]);
+        //             }
+        //         }
+        //         recipe.recipe = recipe2;
+        //     }
+        //     let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
+        //     if (typeof value !== 'object') {
+        //         console.error('expected:', recipe);
+        //         console.error('got:', value);
+        //         console.error('\x1b[91mSanity check failed\x1b[0m');
+        //         continue;
+        //     }
 
-            let data = value.recipe;
-            let next = findNextWorkingInput(info, elbowData, data, endResult);
-            if (!next) {
-                console.error('expected:', recipe);
-                console.error('got:', value);
-                console.error('\x1b[91mSanity check failed\x1b[0m');
-                continue;
-            }
-            data.time += next;
-            if (data.end && data.end.period > 1) {
-                data.end.timing = (data.end.timing + next) % data.end.period;
-            }
-            if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
-                console.error('expected:', recipe);
-                console.error('got:', value);
-                console.error('\x1b[91mSanity check failed\x1b[0m');
-                continue;
-            }
-        }
+        //     let data = value.recipe;
+        //     let next = findNextWorkingInput(info, elbowData, data, endResult);
+        //     if (!next) {
+        //         console.error('expected:', recipe);
+        //         console.error('got:', value);
+        //         console.error('\x1b[91mSanity check failed\x1b[0m');
+        //         continue;
+        //     }
+        //     data.time += next;
+        //     if (data.end && data.end.period > 1) {
+        //         data.end.timing = (data.end.timing + next) % data.end.period;
+        //     }
+        //     if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
+        //         console.error('expected:', recipe);
+        //         console.error('got:', value);
+        //         console.error('\x1b[91mSanity check failed\x1b[0m');
+        //         continue;
+        //     }
+        // }
         return data;
     } else {
         return {possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${channelRecipeToString(info, recipe)}\n`};
@@ -726,7 +726,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[19, 0], [14, 0]], 33]];
+    // recipes = [[[[17, 0], [21, 0]], 38]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }

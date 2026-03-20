@@ -463,7 +463,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        // if (maxSpacing === 61) {
+        // if (depth === 63 && maxSpacing === 61) {
         //     process.exit(0);
         // }
     }
