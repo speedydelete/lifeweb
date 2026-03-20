@@ -358,6 +358,11 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     let i = 0;
+    let offset = recipe.recipe.reduce((x, y) => x + y[0], 0) % expecteds.length;
+    if (offset > 0) {
+        // THIS MIGHT HAVE TO BE THE OTHER WAY BUT WE HAVE TO WAIT FOR A PULSAR ELBOW TO FIND OUT
+        expecteds = expecteds.slice(offset).concat(expecteds.slice(0, offset));
+    }
     while (low < high) {
         // let oldLow = low;
         // let oldHigh = high;
@@ -669,7 +674,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[86, 0], [65, 0]], 151]];
+    // recipes = [[[[61, 0], [98, 0]], 159]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
