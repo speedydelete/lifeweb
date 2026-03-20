@@ -171,7 +171,7 @@ if (cmd === 'get') {
             args = args.slice(1);
         }
         start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
-        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).toRLE());
+        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).shrinkToFit().toRLE());
     } else {
         let info = c.CHANNEL_INFO[type];
         let target: string;
@@ -184,7 +184,7 @@ if (cmd === 'get') {
             data = args.join(' ');
         }
         let lanes = parseChannelRecipe(info, data)[0];
-        console.log(createChannelPattern(info, target, lanes).p.toRLE());
+        console.log(createChannelPattern(info, target, lanes).p.shrinkToFit().toRLE());
     }
 } else if (cmd === 'from') {
     let data = fs.readFileSync(args[0]).toString();
@@ -213,7 +213,14 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
         }
     } else {
-        await searchChannel(type, threads, args[0], parseInt(args[1]));
+        let elbow = args[0];
+        let elbowTiming = 0;
+        let parts = elbow.split('T');
+        if (parts.length > 1) {
+            elbow = parts[0];
+            elbowTiming = parseInt(parts[1]);
+        }
+        await searchChannel(type, threads, elbow, elbowTiming, parseInt(args[1]));
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {

@@ -17,9 +17,17 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     }
     let p = base.copy();
     let total = 0;
+    let timingOffset = 0;
+    while (recipe[0][1] === -2) {
+        timingOffset += recipe[0][0];
+        recipe.shift();
+    }
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
         if (channel < 0) {
+            if (channel === -2) {
+                total += timing;
+            }
             continue;
         }
         let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
@@ -37,11 +45,12 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     let q = gliderPatterns[total % c.GLIDER_PERIOD];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
-    console.log(p.toRLE());
     let target = base.loadApgcode(elbow[0]).shrinkToFit();
+    if (timingOffset > 0) {
+        target.run(timingOffset).shrinkToFit();
+    }
     let yPos = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
-    console.log(xPos, yPos);
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     total += c.GLIDER_TARGET_SPACING;
@@ -313,7 +322,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
@@ -429,7 +438,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, depth, maxSpacing});
+            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, elbowTiming, depth, maxSpacing});
         }
         await promise;
         if (timeout !== null) {
@@ -449,7 +458,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        // process.exit(0);
+        process.exit(0);
     }
 }
 

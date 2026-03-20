@@ -88,9 +88,17 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     phaseOffset = (c.GLIDER_PERIOD - (phaseOffset % c.GLIDER_PERIOD)) % c.GLIDER_PERIOD;
     let gliders: MAPPattern[] = [];
     let total = 0;
+    let timingOffset = 0;
+    while (recipe[0][1] === -2) {
+        timingOffset += recipe[0][0];
+        recipe.shift();
+    }
     for (let i = recipe.length - 1; i >= (info.channels.length === 1 ? 0 : 1); i--) {
         let [timing, channel] = recipe[i];
         if (channel < 0) {
+            if (channel === -2) {
+                total += timing;
+            }
             continue;
         }
         let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
@@ -114,6 +122,9 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         g.yOffset -= y;
     });
     let p = base.loadApgcode(elbow[0]).shrinkToFit();
+    if (timingOffset > 0) {
+        p.run(timingOffset).shrinkToFit();
+    }
     let yPos = c.GLIDER_TARGET_SPACING;
     if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
         yPos--;
@@ -545,7 +556,6 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     let endResult: Parameters<typeof findNextWorkingInput>[3] = undefined;
     if (endElbowData) {
         let [elbow, result] = endElbowData;
-        // console.log(elbow);
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
         if (badElbows.has(str)) {
@@ -576,11 +586,6 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         out.recipe.push([next, -1]);
         out.time += next;
         if (out.end && out.end.period > 1) {
-            // you're supposed to do something here
-            // i hope this is the right thing
-            // it might not be
-            // and if it isn't that will cause very annoying bugs in the future
-            // so let's hope it isn't
             out.end.timing = (out.end.timing + next) % out.end.period;
         }
         let data = resolveElbow(info, elbows, badElbows, out);
@@ -592,7 +597,19 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
                 console.error('\x1b[91mSanity check failed\x1b[0m');
                 continue;
             }
+
             let data = value.recipe;
+            let next = findNextWorkingInput(info, elbowData, data, endResult);
+            if (!next) {
+                console.error('expected:', recipe);
+                console.error('got:', value);
+                console.error('\x1b[91mSanity check failed\x1b[0m');
+                continue;
+            }
+            data.time += next;
+            if (data.end && data.end.period > 1) {
+                data.end.timing = (data.end.timing + next) % data.end.period;
+            }
             if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
                 console.error('expected:', recipe);
                 console.error('got:', value);
@@ -606,7 +623,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
     }
 }
 
-export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, depth: number, maxSpacing: number, starts?: [number, number][][], parentPort?: MessagePort | null): {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowTiming: number, depth: number, maxSpacing: number, starts?: [number, number][][], parentPort?: MessagePort | null): {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number} {
     let elbowParts = elbow.split('/');
     let elbowLane = parseInt(elbowParts[1]);
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), elbowLane];
@@ -634,7 +651,13 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             }
         }
     }
-    // recipes = [[[[21, 0]], 21]];
+    if (elbowTiming > 0) {
+        recipes = recipes.map(x => {
+            x[0].unshift([elbowTiming, -2]);
+            return [x[0], x[1] + elbowTiming];
+        });
+    }
+    recipes = [[[[93, 0], [80, 0]], 173]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
@@ -674,7 +697,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
     setMaxGenerations(workerData.maxGenerations);
     let starts: [number, number][][] = workerData.starts;
     (parentPort as MessagePort).on('message', data => {
-        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.depth, data.maxSpacing, starts, parentPort)]);
+        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.depth, data.maxSpacing, data.elbowTiming, starts, parentPort)]);
     });
 }
 
