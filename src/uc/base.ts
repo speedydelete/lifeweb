@@ -702,7 +702,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         value.push({type: 'destroy'});
                     } else if (data === 'bad') {
                         value.push({type: 'bad'});
-                    } else if (data.startsWith('-> ')) {
+                    } else if (data.startsWith('-> ') || data.startsWith('= ')) {
                         let parts = data.split(' ');
                         let type = parts[0];
                         let elbow = parts[1];
