@@ -207,9 +207,9 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
     let elbowParts = elbow.split('/');
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), parseInt(elbowParts[1])];
     let result = checkElbow(info, data.elbows, data.badElbows, elbow, elbowData);
-    if (!result) {
+    if (!result || result.every(x => x.type === 'bad')) {
         data.badElbows.add(elbow);
-        return;
+        return false;
     }
     // console.log(result);
     let out: ElbowData = {[elbow]: result};
@@ -219,13 +219,15 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
                 return;
             }
             let newOut = addElbow(info, value.elbow, data, depth + 1);
-            if (newOut === false) {
+            if (newOut === undefined) {
+                continue;
+            } else if (newOut === false || Object.values(newOut).every(x => x.every(y => y.type === 'bad'))) {
                 data.badElbows.add(elbow);
                 data.badElbows.add(value.elbow);
                 return false;
-            } else if (newOut) {
+            } else {
                 Object.assign(out, newOut);
-            } 
+            }
         }
     }
     return out;
@@ -335,16 +337,16 @@ export async function searchChannel(type: string, threads: number, elbow: string
         await fs.writeFile('possible_useful.txt', msg);
     }
     let starts: [number, number][][] = [];
-    for (let a = info.minSpacing; a < maxSpacing; a++) {
+    for (let a = info.minSpacing; a <= maxSpacing; a++) {
         for (let b = 0; b < info.channels.length; b++) {
             starts.push([[a, b]]);
-            for (let c = info.minSpacing; c < maxSpacing; c++) {
+            for (let c = info.minSpacing; c <= maxSpacing; c++) {
                 for (let d = 0; d < info.channels.length; d++) {
                     if (c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))) {
                         continue;
                     }
                     starts.push([[a, b], [c, d]]);
-                    for (let e = info.minSpacing; e < maxSpacing; e++) {
+                    for (let e = info.minSpacing; e <= maxSpacing; e++) {
                         for (let f = 0; f < info.channels.length; f++) {
                             if (e < info.minSpacings[d][f] || (info.excludeSpacings && info.excludeSpacings[d][f].includes(e))) {
                                 continue;
@@ -458,7 +460,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        // process.exit(0);
+        if (maxSpacing === 61) {
+            process.exit(0);
+        }
     }
 }
 

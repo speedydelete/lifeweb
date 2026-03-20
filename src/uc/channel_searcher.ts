@@ -590,6 +590,18 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         }
         let data = resolveElbow(info, elbows, badElbows, out);
         for (let recipe of data.recipes) {
+            if (recipe.recipe.some(x => x[1] === -1)) {
+                let recipe2: [number, number][] = [];
+                for (let i = 0; i < recipe.recipe.length; i++) {
+                    let [timing, channel] = recipe.recipe[i];
+                    if (channel === -1) {
+                        recipe.time -= timing;
+                    } else {
+                        recipe2.push([timing, channel]);
+                    }
+                }
+                recipe.recipe = recipe2;
+            }
             let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
             if (typeof value !== 'object') {
                 console.error('expected:', recipe);
@@ -657,7 +669,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[93, 0], [80, 0]], 173]];
+    recipes = [[[[86, 0], [65, 0]], 151]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
@@ -697,7 +709,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
     setMaxGenerations(workerData.maxGenerations);
     let starts: [number, number][][] = workerData.starts;
     (parentPort as MessagePort).on('message', data => {
-        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.depth, data.maxSpacing, data.elbowTiming, starts, parentPort)]);
+        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.elbowTiming, data.depth, data.maxSpacing, starts, parentPort)]);
     });
 }
 
