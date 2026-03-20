@@ -669,7 +669,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    recipes = [[[[86, 0], [65, 0]], 151]];
+    // recipes = [[[[86, 0], [65, 0]], 151]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
