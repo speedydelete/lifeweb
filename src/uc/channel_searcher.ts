@@ -1,6 +1,6 @@
 
 import {MessagePort} from 'node:worker_threads';
-import {APGCODE_CHARS, lcm, MAPPattern, findType} from '../core/index.js';
+import {lcm, MAPPattern, findType} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
