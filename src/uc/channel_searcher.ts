@@ -149,6 +149,14 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
             if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
+                if (yDiff + p.height < last.height) {
+                    xDiff += Math.floor((last.height - p.height) * c.GLIDER_SLOPE);
+                    yDiff += last.height - p.height;
+                }
+                if (c.GLIDER_SLOPE > 0 && xDiff + p.width < last.width) {
+                    xDiff += last.width - p.width;
+                    yDiff += Math.floor((last.width - p.width) / c.GLIDER_SLOPE);
+                }
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
@@ -162,6 +170,14 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
                 let last = gliders[gliders.length - 1];
                 let xDiff = p.xOffset - last.xOffset;
                 let yDiff = p.yOffset - last.yOffset;
+                if (yDiff + p.height < last.height) {
+                    xDiff += Math.floor((last.height - p.height) * c.GLIDER_SLOPE);
+                    yDiff += last.height - p.height;
+                }
+                if (c.GLIDER_SLOPE > 0 && xDiff + p.width < last.width) {
+                    xDiff += last.width - p.width;
+                    yDiff += Math.floor((last.width - p.width) / c.GLIDER_SLOPE);
+                }
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
@@ -389,6 +405,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
     //     let expected = data[i];
     //     msg += `\n    ${i}:\n        stables: ${objectsToString(expected.stables)}\n        ships: ${expected.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n        others: ${expected.others.join(', ')}`;
     // }
+    // msg += `\ntotal period: ${period}`;
     // console.log(msg + '\x1b[0m');
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
@@ -709,7 +726,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[14, 0]], 14]];
+    // recipes = [[[[19, 0], [14, 0]], 33]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
