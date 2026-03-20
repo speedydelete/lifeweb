@@ -158,7 +158,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             let p = createPattern(parts[0], namedRules, height, width, data, prevName);
             let spec = parts[1];
             let type = spec[0];
-            let [x, y] = spec.slice(1).split(',').map(x => parseInt(x));
+            let [y, x] = spec.slice(1).split(',').map(x => parseInt(x));
             if (Number.isNaN(x) || Number.isNaN(y)) {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
             }
