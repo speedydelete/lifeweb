@@ -4,7 +4,7 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
-// import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
+import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 
 
 export async function run(): Promise<void> {
@@ -37,7 +37,8 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
-    -d <depth>, --depth <depth>: For convert_90, the depth to use for searching.
+    -d <depth>, --depth <depth>: For convert, the depth to use for searching.
+    -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
     --force-end-elbow <elbow>[/pos]: For convert, force an ending elbow.
     --destroy-elbow: For convert, destroy the elbow.
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
@@ -66,6 +67,7 @@ let forceEndElbow: number | false | undefined = undefined;
 let minElbow: number | undefined = undefined;
 let maxElbow: number | undefined = undefined;
 let depth: number | undefined = undefined;
+let beam: number | undefined = undefined;
 let dvgrn = false;
 let noCompile = false;
 let noEater = false;
@@ -91,6 +93,11 @@ for (let i = 2; i < argv.length; i++) {
         } else if (arg === '-d' || arg === '--depth') {
             depth = parseInt(argv[++i]);
             if (Number.isNaN(depth)) {
+                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+            }
+        } else if (arg === '-b' || arg === '--beam') {
+            beam = parseInt(argv[++i]);
+            if (Number.isNaN(beam)) {
                 error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
             }
         } else if (arg === '--force-end-elbow') {
@@ -137,16 +144,16 @@ if (maxGens !== undefined) {
     setMaxGenerations(maxGens);
 }
 
-// if (posArgs[0] === 'search_conduits') {
-//     await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
-//     process.exit(0);
-// } else if (posArgs[0] === 'search_conduits_objects') {
-//     await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
-//     process.exit(0);
-// } else if (posArgs[0] === 'search_conduits_random') {
-//     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
-//     process.exit(0);
-// }
+if (posArgs[0] === 'search_conduits') {
+    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_objects') {
+    await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
+    process.exit(0);
+} else if (posArgs[0] === 'search_conduits_random') {
+    await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
+    process.exit(0);
+}
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
@@ -241,7 +248,7 @@ if (cmd === 'get') {
         let elbow = args[2];
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
-        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[type], elbow, salvo, dir as 'up' | 'down' | 'left' | 'right', depth, forceEndElbow, minElbow, maxElbow);
+        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as 'up' | 'down' | 'left' | 'right', depth, beam, forceEndElbow, minElbow, maxElbow);
         console.log(channelRecipeToString(info, recipe));
         console.log(`${recipe.length} gliders, ${time} generations long`);
         if (newElbow !== false) {

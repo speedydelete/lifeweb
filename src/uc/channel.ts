@@ -524,7 +524,7 @@ interface RecipeProgress {
 }
 
 /** Converts a slow salvo to a restricted-channel recipe. */
-export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: 'up' | 'down' | 'left' | 'right', depth?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
+export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: 'up' | 'down' | 'left' | 'right', depth?: number, beam?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
     let prevLayer: RecipeProgress[] = [{recipes: [], time: 0, index: 0, elbow: startElbow, elbowPos: 0}];
     let moveRecipes: (ChannelRecipe & {end: [string, number]})[] = [];
     let emitRecipes: (ChannelRecipe & {end: [string, number], emit: ShipInfo})[] = [];
@@ -640,6 +640,27 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                     }
                 }
             }
+        }
+        if (beam !== undefined) {
+            nextLayer = nextLayer.sort((x, y) => {
+                if (x.index < y.index) {
+                    return 1;
+                } else if (x.index > y.index) {
+                    return -1;
+                } else {
+                    if (x.time < y.time) {
+                        return -1;
+                    } else if (x.time > y.time) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                }
+            });
+            nextLayer = nextLayer.slice(0, beam);
+        }
+        if (nextLayer.length === 0) {
+            throw new Error(`Cannot find recipe at depth ${i}!`);
         }
         prevLayer = nextLayer;
     }
