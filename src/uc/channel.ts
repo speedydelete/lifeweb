@@ -22,14 +22,14 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
         if (channel < 0) {
             continue;
         }
-        let y = Math.floor(total / c.GLIDER_PERIOD);
+        let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
         let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
         let q = gliderPatterns[total % c.GLIDER_PERIOD];
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
     }
-    let y = Math.floor(total / c.GLIDER_PERIOD);
+    let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
     if (info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
@@ -37,9 +37,11 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     let q = gliderPatterns[total % c.GLIDER_PERIOD];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
+    console.log(p.toRLE());
     let target = base.loadApgcode(elbow[0]).shrinkToFit();
-    let yPos = Math.floor(total / c.GLIDER_PERIOD) + elbow[1];
+    let yPos = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    console.log(xPos, yPos);
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     total += c.GLIDER_TARGET_SPACING;

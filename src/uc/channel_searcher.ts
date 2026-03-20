@@ -93,7 +93,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         if (channel < 0) {
             continue;
         }
-        let y = Math.floor(total / c.GLIDER_PERIOD);
+        let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
         if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
             y++;
         }
@@ -104,7 +104,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         gliders.push(p);
         total += timing;
     }
-    let y = Math.floor(total / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
+    let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let x = Math.floor(y * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
     if (info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
