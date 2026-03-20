@@ -195,7 +195,7 @@ export interface ShipInfo {
 export function getShipInfo(info: ChannelInfo, obj: Spaceship): ShipInfo {
     let dir: 'up' | 'down' | 'left' | 'right';
     let lane: number;
-    if (obj.dir === 'N' || obj.dir === 'NE') {
+    if (obj.dir === 'N' || obj.dir === 'NW') {
         dir = 'up';
         lane = obj.x - (obj.y * c.GLIDER_SLOPE);
     } else if (obj.dir === 'W' || obj.dir === 'SW') {
@@ -419,7 +419,11 @@ function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
     return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
 }
 
-export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe): {recipes: ChannelRecipe[], possibleUseful: string} {
+export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
+    if (depth === 64) {
+        console.error(`\x1b[91mThere is a recursive elbow (please report to speedydelete)\x1b[0m`);
+        return {recipes: [], possibleUseful: ''};
+    }
     if (!recipe.end) {
         return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
     }
@@ -432,6 +436,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
     let outcomes = elbows[recipe.end.elbow];
     let out: ChannelRecipe[] = [];
     let possibleUseful = '';
+    // console.log(`resolving ${recipe.end.elbow}`);
     // console.log(`(\nresolving ${channelRecipeInfoToString(recipe)}`);
     // console.log('outcomes:', outcomes);
     for (let i = 0; i < outcomes.length; i++) {
@@ -462,7 +467,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
             recipe2.end.timing += elbow.timing;
             recipe2.end.move += elbow.move;
-            let value = resolveElbow(info, elbows, badElbows, recipe2);
+            let value = resolveElbow(info, elbows, badElbows, recipe2, depth + 1);
             out.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         }
@@ -704,7 +709,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[14, 0]], 14], [[[21, 0]], 21], [[[61, 0], [98, 0]], 159]];
+    // recipes = [[[[14, 0]], 14]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }

@@ -99,7 +99,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 continue;
             }
             let codeStr = result.map(x => x.code).sort().join(' ');
-            for (let value of Object.values(elbows)) {
+            for (let [key, value] of Object.entries(elbows)) {
+                if (elbow === key) {
+                    continue;
+                }
                 for (let data of value) {
                     if (data.type === 'normal') {
                         if (result.length !== data.result.length) {
@@ -116,7 +119,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                             continue;
                         }
                         result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
-                        if (result[0].code !== result2[0].code) {
+                        if (!result[0] || !result2[0] || result[0].code !== result2[0].code) {
                             continue;
                         }
                         let xDiff = result[0].x - result2[0].x;
@@ -135,7 +138,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         }
                         if (!found2) {
                             let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
-                            out.push({type: 'alias', elbow: elbow, flipped, move: yDiff, timing});
+                            out.push({type: 'alias', elbow: key, flipped, move: yDiff, timing});
                         }
                     }
                 }
