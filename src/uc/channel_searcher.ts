@@ -124,6 +124,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     let p = base.loadApgcode(elbow[0]).shrinkToFit();
     if (timingOffset > 0) {
         p.run(timingOffset).shrinkToFit();
+        p.generation = 0;
     }
     let yPos = c.GLIDER_TARGET_SPACING;
     if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
@@ -212,17 +213,17 @@ export function getShipInfo(info: ChannelInfo, obj: Spaceship): ShipInfo {
 
 
 interface ExpectedResult {
-    stables: StableObject[];
-    ships: ShipInfo[];
-    others: string[];
+    data: {
+        stables: StableObject[];
+        ships: ShipInfo[];
+        others: string[];
+        period: number;
+    }[];
     period: number;
+    offsets: Set<number>;
 }
 
-function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expecteds: ExpectedResult[]): boolean {
-    let test = recipe.recipe.slice();
-    test.push([next, 0]);
-    let p = runInjection(info, elbow, test);
-    let expected = expecteds[next % expecteds.length];
+function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult['data'][number]): boolean {
     if (expected.period > 1) {
         let prevPop = p.population;
         for (let i = 0; i < 256; i++) {
@@ -279,14 +280,38 @@ function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: 
     return true;
 }
 
+function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
+    let test = recipe.recipe.slice();
+    test.push([next, 0]);
+    let p = runInjection(info, elbow, test);
+    if (expected.offsets.size === 1) {
+        return checkNextWorkingInput(p, info, elbow, recipe, next, expected.data[(next + Array.from(expected.offsets)[0]) % expected.data.length]);
+    } else {
+        let data = expected.data.map(x => checkNextWorkingInput(p, info, elbow, recipe, next, x));
+        if (data.every(x => x === false)) {
+            return false;
+        }
+        for (let i = 0; i < data.length; i++) {
+            if (i in expected.offsets) {
+                if (!data[i]) {
+                    expected.offsets.delete(i);
+                }
+            }
+        }
+        return true;
+    }
+}
+
 export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
-    let expecteds: ExpectedResult[] = [];
+    // console.log(recipe);
+    let data: ExpectedResult['data'] = [];
+    let period = 0;
     if (recipe.end) {
         if (!results) {
             throw new Error('No results! (there is a bug)');
         }
         for (let result of results.data) {
-            let expected: ExpectedResult = {stables: [], ships: [], others: [], period: 1};
+            let expected: (typeof data)[number] = {stables: [], ships: [], others: [], period: 1};
             for (let obj of result) {
                 obj = structuredClone(obj);
                 if (obj.type === 'osc') {
@@ -327,10 +352,13 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
                 }
                 expected.ships.push(recipe.emit);
             }
-            expecteds.push(expected);
+            if (expected.period !== 0) {
+                period = lcm(period, expected.period);
+            }
+            data.push(expected);
         }
     } else {
-        let expected: ExpectedResult = {stables: [], ships: [{dir: 'down', lane: elbow[1], timing: 0}], others: [], period: 1};
+        let expected: (typeof data)[number] = {stables: [], ships: [{dir: 'down', lane: elbow[1], timing: 0}], others: [], period: 1};
         if (recipe.create) {
             if (recipe.create.type === 'sl') {
                 expected.stables.push(recipe.create);
@@ -347,27 +375,29 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
             }
             expected.ships.push(recipe.emit);
         }
-        expecteds.push(expected);
+        if (expected.period !== 0) {
+            period = lcm(period, expected.period);
+        }
+        data.push(expected);
+    }
+    let expected: ExpectedResult = {data, period, offsets: new Set()};
+    for (let i = 0; i < data.length; i++) {
+        expected.offsets.add(i);
     }
     // let msg = '\x1b[92mexpecteds:';
-    // for (let i = 0; i < expecteds.length; i++) {
-    //     let expected = expecteds[i];
+    // for (let i = 0; i < data.length; i++) {
+    //     let expected = data[i];
     //     msg += `\n    ${i}:\n        stables: ${objectsToString(expected.stables)}\n        ships: ${expected.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n        others: ${expected.others.join(', ')}`;
     // }
     // console.log(msg + '\x1b[0m');
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
     let i = 0;
-    let offset = recipe.recipe.reduce((x, y) => x + y[0], 0) % expecteds.length;
-    if (offset > 0) {
-        // THIS MIGHT HAVE TO BE THE OTHER WAY BUT WE HAVE TO WAIT FOR A PULSAR ELBOW TO FIND OUT
-        expecteds = expecteds.slice(offset).concat(expecteds.slice(0, offset));
-    }
     while (low < high) {
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(info, elbow, recipe, mid, expecteds) && isNextWorkingInput(info, elbow, recipe, mid + 1, expecteds) && isNextWorkingInput(info, elbow, recipe, mid + 2, expecteds)) {
+        if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + 1, expected) && isNextWorkingInput(info, elbow, recipe, mid + 2, expected)) {
             high = mid;
         } else {
             low = mid + 1;
@@ -377,7 +407,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
     }
     if (low >= info.maxNextSpacing) {
         if (!recipe.create) {
-            console.log(`\x1b[91mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
+            console.error(`\x1b[91mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         }
         return false;
     }
@@ -453,7 +483,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     let possibleUseful: string | undefined = undefined;
     let result: false | 'no stabilize' | 'linear' | CAObject[];
     let strRecipe = channelRecipeToString(info, recipe);
-    result = findOutcome(runInjection(info, elbowData, recipe), undefined);
+    result = findOutcome(runInjection(info, elbowData, recipe));
     if (result === false || result === 'no stabilize') {
         return;
     }
@@ -674,7 +704,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[61, 0], [98, 0]], 159]];
+    // recipes = [[[[14, 0]], 14], [[[21, 0]], 21], [[[61, 0], [98, 0]], 159]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
