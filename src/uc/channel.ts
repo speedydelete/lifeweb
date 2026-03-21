@@ -46,6 +46,9 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
         total += timing;
     }
     let y = Math.floor(total * info.ship.dy / info.ship.period);
+    if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
+        y++;
+    }
     let x = Math.floor(y * info.ship.slope);
     if (recipe.length > 0 && info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
@@ -186,7 +189,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
                 continue;
             }
-            let p = createChannelPattern(info, [obj.code, lane], []).p;
+            let p = createChannelPattern(info, [obj.code.slice(obj.code.indexOf('_') + 1), lane], []).p;
             p.flipDiagonal();
             let data = patternToSalvo({ship: info.ship, period: 1}, p);
             let flippedStr = `${data[0]}/${data[1][0][0]}`;
@@ -484,7 +487,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        // if (depth === 63 && maxSpacing === 61) {
+        // if (depth === 91 && maxSpacing === 90) {
         //     process.exit(0);
         // }
     }

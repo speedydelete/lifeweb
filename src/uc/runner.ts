@@ -6,6 +6,9 @@ import {c, base, maxGenerations, StillLife, Oscillator, CAObject} from './base.j
 export type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
 
 export function combineStableObjects(objs: ForCombining[]): false | ForCombining[] {
+    if (objs.length < 2) {
+        return objs;
+    }
     let out: ForCombining[] = [];
     let used = new Uint8Array(objs.length);
     for (let i = 0; i < objs.length; i++) {
@@ -106,6 +109,81 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
     }
     return out;
 }
+
+export function combineAllStableObjects(objs: ForCombining[]): false | ForCombining[] {
+    if (objs.length < 2) {
+        return objs;
+    }
+    let out: ForCombining[] = [];
+    let obj = objs[0];
+    let data = objs.slice(1);
+    let isOsc = obj.type === 'osc';
+    for (let obj of data) {
+        isOsc ||= obj.type === 'osc';
+    }
+    let [minX, minY, maxX, maxY] = obj.bb;
+    for (let obj of data) {
+        if (obj.bb[0] < minX) {
+            minX = obj.bb[0];
+        }
+        if (obj.bb[1] < minY) {
+            minY = obj.bb[1];
+        }
+        if (obj.bb[2] > maxX) {
+            maxX = obj.bb[2];
+        }
+        if (obj.bb[3] > maxY) {
+            maxY = obj.bb[3];
+        }
+    }
+    maxX++;
+    maxY++;
+    let p = base.copy();
+    p.height = maxY - minY;
+    p.width = maxX - minX;
+    p.size = p.height * p.width;
+    p.data = new Uint8Array(p.size);
+    p.insert(obj.p, obj.x - minX, obj.y - minY);
+    for (let obj of data) {
+        p.insert(obj.p, obj.x - minX, obj.y - minY);
+    }
+    p.shrinkToFit();
+    let type = findType(p, 2, false);
+    if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
+        return false;
+    }
+    let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
+    if (isOsc) {
+        let period = obj.type === 'osc' ? obj.period : 1;
+        for (let obj of objs) {
+            if (obj.type === 'sl') {
+                continue;
+            }
+            period = lcm(period, obj.period);
+        }
+        out.push({
+            type: 'osc',
+            code: p.toApgcode('xp' + period),
+            x: minX + p.xOffset,
+            y: minY + p.yOffset,
+            period,
+            timing: obj.p.generation,
+            p,
+            bb,
+        });
+    } else {
+        out.push({
+            type: 'sl',
+            code: p.toApgcode('xs' + p.population),
+            x: minX + p.xOffset,
+            y: minY + p.yOffset,
+            p,
+            bb,
+        });
+    }
+    return out;
+}
+
 
 let knots = getKnots(base.trs);
 
@@ -222,7 +300,7 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
     return [out, stableObjects];
 }
 
-export function separateObjects(p: MAPPattern, sepGens: number, limit: number, combine: boolean = true): false | CAObject[] {
+export function separateObjects(p: MAPPattern, sepGens: number, limit: number, combine: boolean = true, combineAll: boolean = false): false | CAObject[] {
     let value = separateObjectsPartial(p, sepGens, limit);
     if (!value) {
         return false;
@@ -231,7 +309,12 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, c
     if (stableObjects.length > 0) {
         let objs: false | ForCombining[] = [];
         if (combine) {
-            let data = combineStableObjects(stableObjects);
+            let data: false | ForCombining[];
+            if (combineAll) {
+                data = combineAllStableObjects(stableObjects);
+            } else {
+                data = combineStableObjects(stableObjects);
+            }
             if (!data) {
                 return false;
             }

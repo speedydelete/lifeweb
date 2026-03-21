@@ -50,7 +50,7 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
 
 /** Reads a slow salvo from a `Pattern`. */
 export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: MAPPattern): [string, [number, number][]] {
-    let objs = separateObjects(p, 1, 65536);
+    let objs = separateObjects(p, 1, 65536, true, true);
     if (objs === false) {
         throw new Error('Object separation failed!');
     }

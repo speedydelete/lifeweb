@@ -707,7 +707,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[17, 0], [21, 0]], 38]];
+    // recipes = [[[[98, 0]], 98]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
@@ -742,6 +742,9 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
 
 // @ts-ignore
 if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker)) {
+    if (typeof process.env === 'object') {
+        process.env.FORCE_COLOR = '1';
+    }
     const {parentPort, workerData} = await import('node:worker_threads');
     let info: ChannelInfo = workerData.info;
     setMaxGenerations(workerData.maxGenerations);
