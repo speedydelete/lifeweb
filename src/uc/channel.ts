@@ -18,7 +18,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     let p = base.copy();
     let total = 0;
     let timingOffset = 0;
-    while (recipe[0][1] === -2) {
+    while (recipe.length > 0 && recipe[0][1] === -2) {
         timingOffset += recipe[0][0];
         recipe.shift();
     }
@@ -39,7 +39,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     }
     let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
     let x = Math.floor(y * c.GLIDER_SLOPE);
-    if (info.channels.length > 1) {
+    if (recipe.length > 0 && info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
     }
     let q = gliderPatterns[total % c.GLIDER_PERIOD];
@@ -51,6 +51,10 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     }
     let yPos = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    if (xPos < 0) {
+        yPos -= Math.floor(xPos * c.GLIDER_SLOPE);
+        xPos = 0;
+    }
     p.ensure(target.width + xPos, target.height + yPos);
     p.insert(target, xPos, yPos);
     total += c.GLIDER_TARGET_SPACING;
@@ -170,6 +174,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
             let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
             let str = `${obj.code}/${lane}`;
+            if (!c.GLIDER_IS_GLIDE_SYMMETRIC) {
+                out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                continue;
+            }
             let flippedStr = `${obj.code}/${Infinity}`;
             if (badElbows.has(str)) {
                 if (!badElbows.has(flippedStr)) {
