@@ -515,8 +515,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
             }
             let period = obj.type === 'osc' ? obj.period : 1;
             let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
-            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
-            let value = {obj, period, lane, spacing};
+            let value = {obj, period, lane, spacing: obj.y};
             if (so1 === undefined) {
                 so1 = value;
             } else {

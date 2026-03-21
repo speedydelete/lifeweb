@@ -418,8 +418,8 @@ export async function searchChannel(type: string, threads: number, elbow: string
                         await log(`Checking ${recipeCount} recipes`);
                         timeout = setTimeout(() => {
                             interval = setInterval(async () => {
-                                if (startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                                    // await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                                if (!(typeof window === 'object' && window === globalThis) && startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
+                                    await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                                 }
                             }, 5000);
                         }, 2500);

@@ -576,7 +576,10 @@ const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degre
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
     if (recipe.end) {
-        out += ` to ${recipe.end.elbow} move ${recipe.end.move} timing ${recipe.end.timing}`;
+        out += ` to ${recipe.end.elbow} move ${recipe.end.move}`;
+        if (recipe.end.period > 1) {
+            out += ` timing ${recipe.end.timing}`;
+        }
         if (recipe.end.flipped) {
             out += ' flip';
         }
@@ -746,8 +749,12 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     let elbow = data[2];
                     let period = elbow.startsWith('xp') ? parseInt(elbow.slice(2)) : 1;
                     let move = parseInt(data[4]);
-                    let timing = parseInt(data[6]);
-                    data = data.slice(7);
+                    data = data.slice(5);
+                    let timing = 0;
+                    if (data[0] === 'timing') {
+                        timing = parseInt(data[1]);
+                        data = data.slice(2);
+                    }
                     let flipped = false;
                     if (data[0] === 'flip') {
                         flipped = true;
