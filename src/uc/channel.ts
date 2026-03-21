@@ -5,7 +5,7 @@ import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
-import {getCollision} from './slow_salvos.js';
+import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {ShipInfo, runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
 
 
@@ -178,7 +178,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
                 continue;
             }
-            let flippedStr = `${obj.code}/${Infinity}`;
+            let p = createChannelPattern(info, [obj.code, lane], []).p;
+            p.flipDiagonal();
+            let data = patternToSalvo({period: 1}, p);
+            let flippedStr = `${data[0]}/${data[1][0][0]}`;
             if (badElbows.has(str)) {
                 if (!badElbows.has(flippedStr)) {
                     // console.log('adding flipped');
