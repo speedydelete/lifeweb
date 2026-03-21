@@ -213,7 +213,7 @@ function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string,
             prevPop = pop;
         }
     }
-    let objs = findOutcome(p);
+    let objs = findOutcome(p, undefined, undefined, true);
     if (typeof objs !== 'object') {
         return false;
     }
@@ -455,6 +455,12 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
             recipe2.end.timing += elbow.timing;
             recipe2.end.move += elbow.move;
+            // idk if you should do this
+            // if (recipe2.emit && info.period > 1) {
+            //     for (let ship of recipe2.emit) {
+            //         ship.timing = (ship.timing + elbow.timing) % info.period;
+            //     }
+            // }
             let value = resolveElbow(info, elbows, badElbows, recipe2, depth + 1);
             out.push(...value.recipes);
             possibleUseful += value.possibleUseful;
@@ -554,11 +560,11 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
         if (so2) {
             let so1Result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
-                so1Result.push(getCollision(info, so1.obj.code, so1.lane, i));
+                so1Result.push(getCollision(info, so1.obj.code, so1.lane, i, undefined, undefined, true));
             }
             let so2Result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so2.period; i++) {
-                so2Result.push(getCollision(info, so2.obj.code, so2.lane, i));
+                so2Result.push(getCollision(info, so2.obj.code, so2.lane, i, undefined, undefined, true));
             }
             if (so1Result.every(x => typeof x === 'object')) {
                 if (so2Result.every(x => typeof x === 'object')) {
@@ -578,7 +584,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
         } else {
             let result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
-                result.push(getCollision(info, so1.obj.code, so1.lane, i));
+                result.push(getCollision(info, so1.obj.code, so1.lane, i, undefined, undefined, true));
             }
             if (result.every(x => typeof x === 'object')) {
                 endElbowData = [so1, result];
@@ -626,20 +632,17 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         if (out.end && out.end.period > 1) {
             out.end.timing = (out.end.timing + next) % out.end.period;
         }
+        if (out.emit && info.period > 1) {
+            for (let ship of out.emit) {
+                ship.timing = (ship.timing + next) % info.period;
+            }
+        }
         let data = resolveElbow(info, elbows, badElbows, out);
+        // if (out.recipe.length >= 2 && out.recipe[0][0] === 90 && out.recipe[1][0] === 98) {
+        //     console.log('OUT:', out);
+        //     console.log('DATA:', data);
+        // }
         // for (let recipe of data.recipes) {
-        //     if (recipe.recipe.some(x => x[1] === -1)) {
-        //         let recipe2: [number, number][] = [];
-        //         for (let i = 0; i < recipe.recipe.length; i++) {
-        //             let [timing, channel] = recipe.recipe[i];
-        //             if (channel === -1) {
-        //                 recipe.time -= timing;
-        //             } else {
-        //                 recipe2.push([timing, channel]);
-        //             }
-        //         }
-        //         recipe.recipe = recipe2;
-        //     }
         //     let value = getRecipeOutcome(info, elbows, recipe.recipe, recipe.time, elbowStr, elbowData, badElbows);
         //     if (typeof value !== 'object') {
         //         console.error('expected:', recipe);
@@ -647,22 +650,26 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
         //         console.error('\x1b[91mSanity check failed\x1b[0m');
         //         continue;
         //     }
-
         //     let data = value.recipe;
-        //     let next = findNextWorkingInput(info, elbowData, data, endResult);
-        //     if (!next) {
+        //     // data = structuredClone(data);
+        //     // let next = findNextWorkingInput(info, elbowData, data, endResult);
+        //     // if (!next) {
+        //     //     console.error('expected:', recipe);
+        //     //     console.error('got:', data);
+        //     //     console.error('\x1b[91mSanity check failed\x1b[0m');
+        //     //     continue;
+        //     // }
+        //     // data.recipe = data.recipe.slice();
+        //     // data.recipe.push([next, -1]);
+        //     // data.time += next;
+        //     // if (data.end && data.end.period > 1) {
+        //     //     data.end.timing = (data.end.timing + next) % data.end.period;
+        //     // }
+        //     if (
+        //         (data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.length !== recipe.emit.length || recipe.emit.some((x, i) => (data.emit as ShipInfo[])[i].dir !== x.dir || (data.emit as ShipInfo[])[i].lane !== x.lane || (data.emit as ShipInfo[])[i].timing !== x.timing))) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
+        //         console.error('out:', out);
         //         console.error('expected:', recipe);
-        //         console.error('got:', value);
-        //         console.error('\x1b[91mSanity check failed\x1b[0m');
-        //         continue;
-        //     }
-        //     data.time += next;
-        //     if (data.end && data.end.period > 1) {
-        //         data.end.timing = (data.end.timing + next) % data.end.period;
-        //     }
-        //     if ((data.end && (!recipe.end || data.end.elbow !== recipe.end.elbow || data.end.flipped !== recipe.end.flipped || data.end.move !== recipe.end.move || data.end.period !== recipe.end.period || data.end.timing !== recipe.end.timing)) || (!data.end && recipe.end) || (data.emit && (!recipe.emit || data.emit.dir !== recipe.emit.dir || data.emit.lane !== recipe.emit.lane || data.emit.timing !== recipe.emit.timing)) || (!data.emit && recipe.emit) || (data.create && (!recipe.create || data.create.type !== recipe.create.type || data.create.code !== recipe.create.code || data.create.x !== recipe.create.x || data.create.y !== recipe.create.y)) || (!data.create && recipe.create)) {
-        //         console.error('expected:', recipe);
-        //         console.error('got:', value);
+        //         console.error('got:', data);
         //         console.error('\x1b[91mSanity check failed\x1b[0m');
         //         continue;
         //     }
@@ -707,7 +714,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
             return [x[0], x[1] + elbowTiming];
         });
     }
-    // recipes = [[[[98, 0]], 98]];
+    // recipes = [[[[96, 0], [99, 0]], 195]];
     if (parentPort) {
         parentPort.postMessage(['starting', recipes.length]);
     }
@@ -715,7 +722,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
     let lastUpdate = performance.now();
     for (let i = 0; i < recipes.length; i++) {
         let now = performance.now();
-        if (now - lastUpdate > 5000) {
+        if (now - lastUpdate > 10000) {
             lastUpdate = now;
             if (parentPort) {
                 parentPort.postMessage(['update', {count, recipes: newRecipes, newElbows: newElbows}]);

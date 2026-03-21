@@ -401,7 +401,7 @@ export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' |
     return null;
 }
 
-export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean = true): false | 'no stabilize' | 'linear' | CAObject[] {
+export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean = true, combineAll: boolean = false): false | 'no stabilize' | 'linear' | CAObject[] {
     let period = stabilize(p, isElbow);
     if (period === 'linear') {
         return 'linear';
@@ -409,7 +409,7 @@ export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean =
         return 'no stabilize';
     }
     p.shrinkToFit();
-    let objs = separateObjects(p, period * 4, period * 4, combine);
+    let objs = separateObjects(p, period * 4, period * 4, combine, combineAll);
     // if (objs) {
     //     for (let obj of objs) {
     //         if (obj.type === 'osc') {

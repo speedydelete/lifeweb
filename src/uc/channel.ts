@@ -446,7 +446,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                                 if (!(typeof window === 'object' && window === globalThis) && startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
                                     await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
                                 }
-                            }, 5000);
+                            }, 10000);
                         }, 2500);
                     }
                 } else if (type === 'update') {

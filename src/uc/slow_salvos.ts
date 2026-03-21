@@ -84,7 +84,7 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
 }
 
 
-export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
+export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean, combineAll?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
     let inc = info.ship.popPeriod;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
@@ -106,7 +106,7 @@ export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: nu
                 return 'no';
             }
             p.generation = 0;
-            return findOutcome(p, isElbow);
+            return findOutcome(p, isElbow, undefined, combineAll);
         }
         prevPop = pop;
     }
