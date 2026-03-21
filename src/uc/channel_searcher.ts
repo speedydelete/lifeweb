@@ -680,7 +680,7 @@ export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe:
     }
 }
 
-export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowTiming: number, depth: number, maxSpacing: number, starts?: [number, number][][], parentPort?: MessagePort | null): {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number} {
+export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowTiming: number, depth: number, maxSpacing: number, starts: [number, number][][], recipesOverride: boolean, parentPort: MessagePort | null): {recipes: ChannelRecipe[], newElbows: string[], possibleUseful: string, recipeCount: number} {
     let elbowParts = elbow.split('/');
     let elbowLane = parseInt(elbowParts[1]);
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), elbowLane];
@@ -688,24 +688,26 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
     let newElbows: string[] = [];
     let possibleUseful = '';
     let recipes: [[number, number][], number][] = [];
-    if (starts) {
-        for (let start of starts) {
-            let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
-            if (startTime > depth) {
-                continue;
-            }
-            if (startTime === depth) {
-                recipes.push([start.slice(), startTime]);
-            }
-            if (start.length < 3) {
-                continue;
-            }
-            let last = start[start.length - 1];
-            for (let [recipe, time] of getRecipesForDepth(info, depth - startTime, maxSpacing, last[1])) {
-                recipe.unshift(...start);
-                time += startTime;
-                recipes.push([recipe, time]);
-            }
+    for (let start of starts) {
+        let startTime = start.map(x => x[0]).reduce((x, y) => x + y);
+        if (recipesOverride) {
+            recipes.push([start, startTime]);
+            continue;
+        }
+        if (startTime > depth) {
+            continue;
+        }
+        if (startTime === depth) {
+            recipes.push([start.slice(), startTime]);
+        }
+        if (start.length < 3) {
+            continue;
+        }
+        let last = start[start.length - 1];
+        for (let [recipe, time] of getRecipesForDepth(info, depth - startTime, maxSpacing, last[1])) {
+            recipe.unshift(...start);
+            time += startTime;
+            recipes.push([recipe, time]);
         }
     }
     if (elbowTiming > 0) {
@@ -757,7 +759,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
     setMaxGenerations(workerData.maxGenerations);
     let starts: [number, number][][] = workerData.starts;
     (parentPort as MessagePort).on('message', data => {
-        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.elbowTiming, data.depth, data.maxSpacing, starts, parentPort)]);
+        (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.elbowTiming, data.depth, data.maxSpacing, starts, data.recipesOverride, parentPort)]);
     });
 }
 

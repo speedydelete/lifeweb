@@ -352,7 +352,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number, recipesOverride?: [number, number][][]): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
@@ -365,33 +365,37 @@ export async function searchChannel(type: string, threads: number, elbow: string
         await fs.writeFile('possible_useful.txt', msg);
     }
     let starts: [number, number][][] = [];
-    for (let a = info.minSpacing; a <= maxSpacing; a++) {
-        for (let b = 0; b < info.channels.length; b++) {
-            starts.push([[a, b]]);
-            for (let c = info.minSpacing; c <= maxSpacing; c++) {
-                for (let d = 0; d < info.channels.length; d++) {
-                    if (c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))) {
-                        continue;
-                    }
-                    starts.push([[a, b], [c, d]]);
-                    for (let e = info.minSpacing; e <= maxSpacing; e++) {
-                        for (let f = 0; f < info.channels.length; f++) {
-                            if (e < info.minSpacings[d][f] || (info.excludeSpacings && info.excludeSpacings[d][f].includes(e))) {
-                                continue;
+    if (recipesOverride) {
+        starts = recipesOverride;
+    } else {
+        for (let a = info.minSpacing; a <= maxSpacing; a++) {
+            for (let b = 0; b < info.channels.length; b++) {
+                starts.push([[a, b]]);
+                for (let c = info.minSpacing; c <= maxSpacing; c++) {
+                    for (let d = 0; d < info.channels.length; d++) {
+                        if (c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))) {
+                            continue;
+                        }
+                        starts.push([[a, b], [c, d]]);
+                        for (let e = info.minSpacing; e <= maxSpacing; e++) {
+                            for (let f = 0; f < info.channels.length; f++) {
+                                if (e < info.minSpacings[d][f] || (info.excludeSpacings && info.excludeSpacings[d][f].includes(e))) {
+                                    continue;
+                                }
+                                starts.push([[a, b], [c, d], [e, f]]);
                             }
-                            starts.push([[a, b], [c, d], [e, f]]);
                         }
                     }
                 }
             }
         }
-    }
-    if (info.forceStart) {
-        for (let start of starts) {
-            start.unshift(...info.forceStart);
+        if (info.forceStart) {
+            for (let start of starts) {
+                start.unshift(...info.forceStart);
+            }
         }
+        console.log(`Compiled ${starts.length} starts`);
     }
-    console.log(`Compiled ${starts.length} starts`);
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
         let path: string;
@@ -422,7 +426,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     }
     let depth = info.minSpacing;
     while (true) {
-        await log(`Searching depth ${depth}`);
+        if (!recipesOverride) {
+            await log(`Searching depth ${depth}`);
+        }
         let start = performance.now();
         let recipeCount = 0;
         let possibleUseful = '';
@@ -445,6 +451,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                             interval = setInterval(async () => {
                                 if (!(typeof window === 'object' && window === globalThis) && startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
                                     await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
+                                    await saveRecipes(recipes);
                                 }
                             }, 10000);
                         }, 2500);
@@ -468,7 +475,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, elbowTiming, depth, maxSpacing});
+            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, elbowTiming, depth, maxSpacing, recipesOverride: Boolean(recipesOverride)});
         }
         await promise;
         if (timeout !== null) {
@@ -488,9 +495,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         depth++;
-        // if (depth === 91 && maxSpacing === 90) {
-        //     process.exit(0);
-        // }
+        if (recipesOverride) {
+            process.exit(0);
+        }
     }
 }
 
