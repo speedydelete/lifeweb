@@ -276,6 +276,7 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
             for (let i = 1; i < period; i++) {
                 let recipe2 = structuredClone(recipe);
                 recipe2.recipe.unshift([i, -2]);
+                recipe2.time += i;
                 if (recipe2.emit && info.period > 1) {
                     for (let ship of recipe2.emit) {
                         ship.timing = (ship.timing + i) % info.period;

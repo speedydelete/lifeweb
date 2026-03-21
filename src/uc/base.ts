@@ -228,10 +228,10 @@ export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number,
         if (part === '') {
             continue;
         }
-        if (part.startsWith('(')) {
-            out.push([parseInt(part.slice(1)), -1]);
-        } else if (part.startsWith('+')) {
-            out.push([parseInt(part.slice(1)), -2]);
+        if (part.startsWith('(') || part.startsWith('+')) {
+            let timing = parseInt(part.slice(1));
+            time += timing;
+            out.push([timing, part.startsWith('(') ? -1 : -2]);
         } else if (part.length === 1 && LETTERS.includes(part[0])) {
             out.push([-1, LETTERS.indexOf(part[0])]);
         } else {
@@ -748,7 +748,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing});
                     } else {
                         let index = data.lastIndexOf(' ');
-                        let time = parseInt(data.slice(index + 1));
+                        let time = parseInt(data.slice(index + 2));
                         data = data.slice(0, index);
                         let [resultStr, flippedStr] = data.split(' / ');
                         let result = stringToObjects(resultStr);

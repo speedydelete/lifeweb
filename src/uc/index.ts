@@ -1,5 +1,5 @@
 
-import * as fs from 'node:fs';
+import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
@@ -187,7 +187,7 @@ if (cmd === 'get') {
         console.log(createChannelPattern(info, target, lanes).p.shrinkToFit().toRLE());
     }
 } else if (cmd === 'from') {
-    let data = fs.readFileSync(args[0]).toString();
+    let data = (await fs.readFile(args[0])).toString();
     let p = parse(data) as MAPPattern;
     if (type in c.SALVO_INFO) {
         let info = c.SALVO_INFO[type];
