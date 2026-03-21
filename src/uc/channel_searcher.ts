@@ -131,6 +131,10 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         yPos--;
     }
     let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    while (xPos <= -p.width || yPos <= -p.height) {
+        xPos++;
+        yPos++;
+    }
     p.offsetBy(xPos, yPos);
     let toInsert = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD];
     p.ensure(toInsert.width, toInsert.height);
@@ -148,15 +152,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             let last = gliders[gliders.length - 1];
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
-            if (xDiff < 2 || yDiff < 2 || (xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) {
-                if (yDiff + p.height < last.height) {
-                    xDiff += Math.floor((last.height - p.height) * c.GLIDER_SLOPE);
-                    yDiff += last.height - p.height;
-                }
-                if (c.GLIDER_SLOPE > 0 && xDiff + p.width < last.width) {
-                    xDiff += last.width - p.width;
-                    yDiff += Math.floor((last.width - p.width) / c.GLIDER_SLOPE);
-                }
+            if (xDiff < 2 || yDiff < 2 || ((xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) || (xDiff + p.width <= last.width) || (yDiff + p.height <= last.height)) {
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
@@ -170,14 +166,6 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
                 let last = gliders[gliders.length - 1];
                 let xDiff = p.xOffset - last.xOffset;
                 let yDiff = p.yOffset - last.yOffset;
-                if (yDiff + p.height < last.height) {
-                    xDiff += Math.floor((last.height - p.height) * c.GLIDER_SLOPE);
-                    yDiff += last.height - p.height;
-                }
-                if (c.GLIDER_SLOPE > 0 && xDiff + p.width < last.width) {
-                    xDiff += last.width - p.width;
-                    yDiff += Math.floor((last.width - p.width) / c.GLIDER_SLOPE);
-                }
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
