@@ -614,7 +614,7 @@ export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     }
     if (recipe.emit) {
         for (let ship of recipe.emit) {
-            out += ` emit ${ship} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+            out += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
         }
     }
     if (recipe.create) {
