@@ -3,15 +3,34 @@
 
 const RULE = 'B3/S23';
 
-// the glider is the spaceship used for slow salvos and single channel recipes
-const GLIDER_APGCODE = 'xq4_153';
-const GLIDER_DX = 1;
-// this one should be greater than or equal to GLIDER_DX
-const GLIDER_DY = 1;
-const GLIDER_PERIOD = 4;
-const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
-const GLIDER_POPULATION_PERIOD = 1;
-const GLIDER_IS_GLIDE_SYMMETRIC = true;
+// the spaceships being used
+// each of these should have entries in SHIP_IDENTIFICATION
+
+interface SpaceshipInfo {
+    // yes this one should be the key
+    code: string;
+    dx: number;
+    // this one should be greater than or equal to dx
+    dy: number;
+    period: number;
+    slope: number;
+    popPeriod: number;
+    glideSymmetric: boolean;
+}
+
+const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
+
+    'xq4_153': {
+        code: 'xq4_153',
+        dx: 1,
+        dy: 1,
+        period: 4,
+        slope: 1,
+        popPeriod: 1,
+        glideSymmetric: true,
+    },
+
+};
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 5;
@@ -23,6 +42,8 @@ const GLIDER_TARGET_SPACING = 7;
 // information about slow salvo synthesis methods
 
 interface SalvoInfo {
+    // the spaceship being used
+    ship: SpaceshipInfo;
     // aliases for it, can be used in the cli
     aliases?: string[];
     // the starting elbow object
@@ -44,6 +65,7 @@ interface SalvoInfo {
 const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
+        ship: SPACESHIPS['xq4_153'],
         aliases: ['ss'],
         startObject: 'xs4_33',
         gliderSpacing: 60,
@@ -59,6 +81,8 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 // information for restricted-channel synthesis methods
 
 interface ChannelInfo {
+    // the spaceship being used
+    ship: SpaceshipInfo;
     // aliases for it, can be used in the cli
     aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
@@ -86,6 +110,7 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
     'Single-channel (14)': {
+        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc14', 'sc'],
         channels: [0],
         period: 2,
@@ -96,6 +121,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (61)': {
+        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc61'],
         channels: [0],
         period: 2,
@@ -106,6 +132,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (syringe)': {
+        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc78'],
         channels: [0],
         period: 2,
@@ -117,6 +144,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (90)': {
+        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc90'],
         channels: [0],
         period: 2,
@@ -147,7 +175,7 @@ const PERIOD_SECURITY = 16;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 6;
+const MAX_PSEUDO_DISTANCE = 12;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
 const INJECTION_SPACING = 2;
@@ -160,7 +188,8 @@ const MAX_CREATE_POPULATION = 18;
 // information for spaceship identification
 
 // don't change this
-type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
+// the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
+type ShipDirection = 'N' | 'E' | 'S' | 'W' | 'NW' | 'NE' | 'SW' | 'SE' | 'N2' | 'E2' | 'S2' | 'W2' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
 
 /*
 ok this is how this part works:
@@ -217,7 +246,7 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_153: {
+    'xq4_153': {
         height: 3,
         width: 3,
         cells: [1, 5, 6, 7, 8],
@@ -252,4 +281,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, GLIDER_IS_GLIDE_SYMMETRIC, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection, SHIP_IDENTIFICATION};

@@ -50,13 +50,6 @@ Flags:
     --strict-bb: Combination of --strict-height and --strict-width.
 `;
 
-const DIR_ALIASES: {[key: string]: string} = {
-    '180': 'up',
-    '0': 'down',
-    '90i': 'right',
-    '90x': 'left',
-};
-
 
 let argv = process.argv;
 
@@ -237,25 +230,33 @@ if (cmd === 'get') {
     if (newType in INFO_ALIASES) {
         newType = INFO_ALIASES[newType];
     }
+    if (!(newType in c.SALVO_INFO || newType in c.CHANNEL_INFO)) {
+        error(`Invalid construction type: '${newType}'`)
+    }
+    let ship = (newType in c.SALVO_INFO ? c.SALVO_INFO[newType] : c.CHANNEL_INFO[newType]).ship;
     let dir = args[1];
-    if (dir in DIR_ALIASES) {
-        dir = DIR_ALIASES[dir];
+    if (dir === 'up' || dir === '180') {
+        dir = ship.slope === 0 ? 'N' : 'NW';
+    } else if (dir === 'down' || dir === '0') {
+        dir = ship.slope === 0 ? 'S' : 'SE';
+    } else if (dir === 'left' || dir === '90x') {
+        dir = ship.slope === 0 ? 'W' : 'SW';
+    } else if (dir === 'right' || dir === '90i') {
+        dir = ship.slope === 0 ? 'E' : 'NE';
     }
     if (newType in c.SALVO_INFO) {
-        error(`Cannot convert to slow salvos`);
-    } else if (newType in c.CHANNEL_INFO) {
+        error(`Cannot convert to slow salvos (yet!)`);
+    } else {
         let info = c.CHANNEL_INFO[newType];
         let elbow = args[2];
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
-        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as 'up' | 'down' | 'left' | 'right', depth, beam, forceEndElbow, minElbow, maxElbow);
+        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as c.ShipDirection, depth, beam, forceEndElbow, minElbow, maxElbow);
         console.log(channelRecipeToString(info, recipe));
         console.log(`${recipe.length} gliders, ${time} generations long`);
         if (newElbow !== false) {
             console.log(`End elbow is ${newElbow[0]}, moved by ${newElbow[1]}`);
         }
-    } else {
-        error(`Invalid construction type: '${newType}'`)
     }
 } else if (cmd === 'merge') {
     if (type in c.SALVO_INFO) {

@@ -37,20 +37,24 @@ export async function log(msg: string, notImportant?: boolean): Promise<void> {
 
 export let base = createPattern(c.RULE) as MAPPattern;
 
-let data = c.SHIP_IDENTIFICATION[c.GLIDER_APGCODE];
-let p = base.clearedCopy();
-p.height = data.height;
-p.width = data.width;
-p.size = data.height * data.width;
-p.data = new Uint8Array(p.size);
-for (let i of data.cells) {
-    p.data[i] = 1;
-}
-export let gliderPattern = p.copy();
-export let gliderPatterns: MAPPattern[] = [gliderPattern];
-for (let i = 1; i < c.GLIDER_PERIOD; i++) {
-    p.runGeneration();
-    gliderPatterns.push(p.copy());
+export let shipPatterns: {[key: string]: MAPPattern[]} = {};
+
+for (let key in c.SPACESHIPS) {
+    let data = c.SHIP_IDENTIFICATION[key];
+    let p = base.clearedCopy();
+    p.height = data.height;
+    p.width = data.width;
+    p.size = data.height * data.width;
+    p.data = new Uint8Array(p.size);
+    for (let i of data.cells) {
+        p.data[i] = 1;
+    }
+    let ps: MAPPattern[] = [p.copy()];
+    for (let i = 1; i < c.SPACESHIPS[key].period; i++) {
+        p.runGeneration();
+        ps.push(p.copy());
+    }
+    shipPatterns[key] = ps;
 }
 
 
@@ -538,6 +542,32 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
+export interface ShipInfo {
+    code: string;
+    dir: c.ShipDirection;
+    lane: number;
+    timing: number;
+}
+
+export function getShipInfo(info: {ship: c.SpaceshipInfo, period: number}, obj: Spaceship): ShipInfo {
+    let dir = obj.dir;
+    if (dir.endsWith('2')) {
+        dir = dir.slice(0, -1) as c.ShipDirection;
+    }
+    let lane: number;
+    if (obj.dir === 'N' || obj.dir === 'NW') {
+        lane = obj.x - (obj.y * info.ship.slope);
+    } else if (obj.dir === 'W' || obj.dir === 'SW') {
+        lane = (obj.x * info.ship.slope) + obj.y;
+    } else if (obj.dir === 'S' || obj.dir === 'SE') {
+        lane = obj.x - (obj.y * info.ship.slope);
+    } else {
+        lane = (obj.x * info.ship.slope) + obj.y;
+    }
+    return {code: obj.code, dir: obj.dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % info.period};
+}
+
+
 export interface SalvoRecipes {
     searchResults: {[key: string]: [number, number, CAObject[] | string][]};
     recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
@@ -563,11 +593,7 @@ export interface ChannelRecipe {
         flipped: boolean;
         timing: number;
     };
-    emit?: {
-        dir: 'up' | 'down' | 'left' | 'right';
-        lane: number;
-        timing: number;
-    };
+    emit?: ShipInfo[];
     create?: StableObject;
 }
 
@@ -587,7 +613,9 @@ export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
         out += ` destroy`;
     }
     if (recipe.emit) {
-        out += ` emit ${recipe.emit.dir} lane ${recipe.emit.lane} timing ${recipe.emit.timing}`;
+        for (let ship of recipe.emit) {
+            out += ` emit ${ship} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+        }
     }
     if (recipe.create) {
         out += ` create ${objectsToString([recipe.create])}`;
@@ -763,11 +791,15 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     recipe.end = {elbow, period, move, flipped, timing};
                 }
                 if (data[0] === 'emit') {
-                    let dir = data[1] as 'up' | 'down' | 'left' | 'right';
-                    let lane = parseInt(data[3]);
-                    let timing = parseInt(data[5]);
-                    recipe.emit = {dir, lane, timing};
-                    data = data.slice(5);
+                    recipe.emit = [];
+                    while (data[0] === 'emit') {
+                        let code = data[1];
+                        let dir = data[2] as c.ShipDirection;
+                        let lane = parseInt(data[4]);
+                        let timing = parseInt(data[6]);
+                        recipe.emit.push({code, dir, lane, timing});
+                        data = data.slice(7);
+                    }
                 }
                 if (data[0] === 'create') {
                     recipe.create = stringToObjects(data.slice(1).join(' '))[0] as StillLife;
@@ -908,10 +940,10 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 }
             } else {
                 if (recipe.emit) {
-                    let dir = recipe.emit.dir;
-                    if (dir === 'up') {
+                    let dir = recipe.emit[0].dir;
+                    if (dir === 'N' || dir === 'NW' || dir === 'N2' || dir === 'NW2') {
                         key = '180-degree';
-                    } else if (dir === 'down') {
+                    } else if (dir === 'S' || dir === 'SE' || dir === 'S2' || dir === 'SE2') {
                         key = '0-degree';
                     } else {
                         key = '90-degree';

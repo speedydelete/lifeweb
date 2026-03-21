@@ -1,11 +1,11 @@
 
 import {gcd, MAPPattern} from '../core/index.js';
-import {c, SalvoInfo, log, base, gliderPattern, gliderPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, SpaceshipInfo, SalvoInfo, log, base, shipPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
 
 /** Turns a salvo into a `Pattern`. */
-export function createSalvoPattern(info: {gliderSpacing: number}, target: string, lanes: [number, number][]): MAPPattern {
+export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: number}, target: string, lanes: [number, number][]): MAPPattern {
     lanes = lanes.reverse();
     let minLane = 0;
     for (let [lane] of lanes) {
@@ -13,6 +13,7 @@ export function createSalvoPattern(info: {gliderSpacing: number}, target: string
             minLane = lane;
         }
     }
+    let shipPattern = shipPatterns[info.ship.code][0];
     let p = base.copy();
     for (let i = 0; i < lanes.length; i++) {
         let [lane, timing] = lanes[i];
@@ -20,25 +21,25 @@ export function createSalvoPattern(info: {gliderSpacing: number}, target: string
             timing = 0;
         }
         let y = i * info.gliderSpacing;
-        let x = Math.floor(y * c.GLIDER_SLOPE) + lane - minLane;
+        let x = Math.floor(y * info.ship.slope) + lane - minLane;
         if (timing === 0) {
-            p.ensure(x + gliderPattern.width, y + gliderPattern.height);
-            p.insert(gliderPattern, x, y);
+            p.ensure(x + shipPattern.width, y + shipPattern.height);
+            p.insert(shipPattern, x, y);
         } else {
-            if (timing > c.GLIDER_PERIOD) {
-                let periods = Math.floor(timing / c.GLIDER_PERIOD);
-                x += c.GLIDER_DX * periods;
-                y += c.GLIDER_DY * periods;
+            if (timing > info.ship.period) {
+                let periods = Math.floor(timing / info.ship.period);
+                x += info.ship.dx * periods;
+                y += info.ship.dy * periods;
                 timing -= periods;
             }
-            let q = gliderPatterns[timing];
+            let q = shipPatterns[info.ship.code][timing];
             p.ensure(x + q.width, y + q.height);
             p.insert(q, x, y);
         }
     }
     let q = base.loadApgcode(target).shrinkToFit();
     let yPos = (lanes.length - 1) * info.gliderSpacing + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.LANE_OFFSET - minLane;
+    let xPos = Math.floor(yPos * info.ship.slope) + c.LANE_OFFSET - minLane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
     p.xOffset -= xPos;
@@ -48,7 +49,7 @@ export function createSalvoPattern(info: {gliderSpacing: number}, target: string
 }
 
 /** Reads a slow salvo from a `Pattern`. */
-export function patternToSalvo(info: {period: number}, p: MAPPattern): [string, [number, number][]] {
+export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: MAPPattern): [string, [number, number][]] {
     let objs = separateObjects(p, 1, 65536);
     if (objs === false) {
         throw new Error('Object separation failed!');
@@ -74,7 +75,7 @@ export function patternToSalvo(info: {period: number}, p: MAPPattern): [string, 
     for (let ship of ships) {
         let x = target.x - ship.x;
         let y = target.y - ship.y;
-        let lane = (y * c.GLIDER_SLOPE) - x + c.LANE_OFFSET - 6;
+        let lane = (y * info.ship.slope) - x + c.LANE_OFFSET - 6;
         let timing = x + y;
         lanes.push([lane, ship.timing, timing]);
     }
@@ -83,15 +84,13 @@ export function patternToSalvo(info: {period: number}, p: MAPPattern): [string, 
 }
 
 
-const SALVO_INFO = {gliderSpacing: 0};
-
-export function getCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
-    let inc = c.GLIDER_POPULATION_PERIOD;
+export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
+    let inc = info.ship.popPeriod;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
         inc = inc * period / gcd(inc, period);
     }
-    let p = createSalvoPattern(SALVO_INFO, code.slice(code.indexOf('_') + 1), [[lane, timing]]);
+    let p = createSalvoPattern({ship: info.ship, gliderSpacing: 0}, code.slice(code.indexOf('_') + 1), [[lane, timing]]);
     if (flip) {
         p.flipDiagonal();
         let temp = p.xOffset;
@@ -99,8 +98,8 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
         p.yOffset = temp;
     }
     let prevPop = p.population;
-    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
-        p.run(c.GLIDER_POPULATION_PERIOD);
+    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / info.ship.popPeriod; i++) {
+        p.run(info.ship.popPeriod);
         let pop = p.population;
         if (pop !== prevPop) {
             if (i === 0) {
@@ -114,8 +113,8 @@ export function getCollision(code: string, lane: number, timing: number = 0, fli
     return 'no collision';
 }
 
-export function getSalvoCollision(code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no stabilize' | 'no collision' | 'no' | 'linear' | CAObject[] {
-    let out = getCollision(code, lane, timing, flip, isElbow);
+export function getSalvoCollision(info: {ship: SpaceshipInfo}, code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean): false | 'no stabilize' | 'no collision' | 'no' | 'linear' | CAObject[] {
+    let out = getCollision(info, code, lane, timing, flip, isElbow);
     if (typeof out === 'object') {
         for (let obj of out) {
             if (obj.type === 'osc') {
@@ -132,13 +131,13 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
     let prefix = target.slice(0, index);
     let canonicalTarget = base.loadApgcode(target.slice(index + 1)).toCanonicalApgcode(prefix.startsWith('xs') ? 1 : parseInt(prefix.slice(2)), prefix);
     let lane = 0;
-    let data = getSalvoCollision(target, lane, timing);
+    let data = getSalvoCollision(info, target, lane, timing);
     if (data === 'no') {
         return false;
     }
     while (data !== 'no collision') {
         lane--;
-        data = getSalvoCollision(target, lane, timing);
+        data = getSalvoCollision(info, target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -147,13 +146,13 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
         }
     }
     lane--;
-    data = getSalvoCollision(target, lane, timing);
+    data = getSalvoCollision(info, target, lane, timing);
     if (data === 'no') {
         return false;
     }
     while (data !== 'no collision') {
         lane--;
-        data = getSalvoCollision(target, lane, timing);
+        data = getSalvoCollision(info, target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -167,7 +166,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
     let out: [number, number, false | null | CAObject[] | string][] = [];
     let hadCollision = false;
     for (; lane < info.laneLimit; lane++) {
-        let data = getSalvoCollision(target, lane, timing);
+        let data = getSalvoCollision(info, target, lane, timing);
         if (data === 'no') {
             return false;
         }
@@ -270,7 +269,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             continue;
         }
         let recipe = prefix.slice();
-        recipe.push([lane + x - y * c.GLIDER_SLOPE, timing]);
+        recipe.push([lane + x - y * info.ship.slope, timing]);
         objs = translateObjects(objs, x, y);
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];

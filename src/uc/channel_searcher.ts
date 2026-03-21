@@ -1,7 +1,7 @@
 
 import {MessagePort} from 'node:worker_threads';
 import {lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, setMaxGenerations, base, gliderPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -85,11 +85,11 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
     }
-    phaseOffset = (c.GLIDER_PERIOD - (phaseOffset % c.GLIDER_PERIOD)) % c.GLIDER_PERIOD;
+    phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
     let gliders: MAPPattern[] = [];
     let total = 0;
     let timingOffset = 0;
-    while (recipe[0][1] === -2) {
+    while (recipe.length > 0 && recipe[0][1] === -2) {
         timingOffset += recipe[0][0];
         recipe.shift();
     }
@@ -101,19 +101,19 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             }
             continue;
         }
-        let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
-        if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
+        let y = Math.floor(total * info.ship.dy / info.ship.period);
+        if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
             y++;
         }
-        let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
-        let p = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD].copy();
+        let x = Math.floor(y * info.ship.slope) + info.channels[channel];
+        let p = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period].copy();
         p.xOffset += x;
         p.yOffset += y;
         gliders.push(p);
         total += timing;
     }
-    let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let x = Math.floor(y * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    let y = Math.floor(total * info.ship.dy / info.ship.period) + c.GLIDER_TARGET_SPACING;
+    let x = Math.floor(y * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
     if (info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
     }
@@ -127,16 +127,16 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         p.generation = 0;
     }
     let yPos = c.GLIDER_TARGET_SPACING;
-    if ((total % c.GLIDER_PERIOD) + phaseOffset >= c.GLIDER_PERIOD) {
+    if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
         yPos--;
     }
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
     while (xPos <= -p.width || yPos <= -p.height) {
         xPos++;
         yPos++;
     }
     p.offsetBy(xPos, yPos);
-    let toInsert = gliderPatterns[(total + phaseOffset) % c.GLIDER_PERIOD];
+    let toInsert = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
     p.ensure(toInsert.width, toInsert.height);
     p.insert(toInsert, 0, 0);
     total += c.GLIDER_TARGET_SPACING;
@@ -173,7 +173,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             break;
         }
     }
-    let period = c.GLIDER_POPULATION_PERIOD;
+    let period = info.ship.popPeriod;
     if (elbow[0].startsWith('xp')) {
         period = lcm(period, parseInt(elbow[0].slice(2)));
     }
@@ -187,32 +187,6 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         prevPop = pop;
     }
     return p;
-}
-
-
-export interface ShipInfo {
-    dir: 'up' | 'down' | 'left' | 'right';
-    lane: number;
-    timing: number;
-}
-
-export function getShipInfo(info: ChannelInfo, obj: Spaceship): ShipInfo {
-    let dir: 'up' | 'down' | 'left' | 'right';
-    let lane: number;
-    if (obj.dir === 'N' || obj.dir === 'NW') {
-        dir = 'up';
-        lane = obj.x - (obj.y * c.GLIDER_SLOPE);
-    } else if (obj.dir === 'W' || obj.dir === 'SW') {
-        dir = 'left';
-        lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
-    } else if (obj.dir === 'S' || obj.dir === 'SE') {
-        dir = 'down';
-        lane = obj.x - (obj.y * c.GLIDER_SLOPE);
-    } else {
-        dir = 'right';
-        lane = (obj.x * c.GLIDER_SLOPE) + obj.y;
-    }
-    return {dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % info.period};
 }
 
 
@@ -243,11 +217,6 @@ function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string,
     if (typeof objs !== 'object') {
         return false;
     }
-    let expectedShips = expected.ships;
-    if (!recipe.end) {
-        expectedShips = expectedShips.slice();
-        expectedShips.push({dir: 'down', lane: elbow[1], timing: 0});
-    }
     let stables: StableObject[] = [];
     let ships: ShipInfo[] = [];
     let others: string[] = [];
@@ -256,7 +225,7 @@ function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string,
             stables.push(obj);
         } else if (obj.type === 'osc') {
             stables.push(normalizeOscillator(obj));
-        } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+        } else if (obj.type === 'ship') {
             ships.push(getShipInfo(info, obj));
         } else {
             others.push(obj.code);
@@ -330,9 +299,9 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
                         expected.period = lcm(expected.period, obj.period);
                     }
                     expected.stables.push(obj);
-                } else if (obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
+                } else if (obj.type === 'ship') {
                     if (expected.period !== 0) {
-                        expected.period = lcm(expected.period, c.GLIDER_POPULATION_PERIOD);
+                        expected.period = lcm(expected.period, info.ship.popPeriod);
                     }
                     expected.ships.push(getShipInfo(info, obj));
                 } else {
@@ -352,9 +321,11 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
             }
             if (recipe.emit) {
                 if (expected.period !== 0) {
-                    expected.period = lcm(expected.period, c.GLIDER_POPULATION_PERIOD);
+                    for (let ship of recipe.emit) {
+                        expected.period = lcm(expected.period, c.SPACESHIPS[ship.code].popPeriod);
+                    }
                 }
-                expected.ships.push(recipe.emit);
+                expected.ships.push(...recipe.emit);
             }
             if (expected.period !== 0) {
                 period = lcm(period, expected.period);
@@ -362,7 +333,17 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
             data.push(expected);
         }
     } else {
-        let expected: (typeof data)[number] = {stables: [], ships: [{dir: 'down', lane: elbow[1], timing: 0}], others: [], period: 1};
+        let expected: (typeof data)[number] = {
+            stables: [],
+            ships: [{
+                code: info.ship.code,
+                dir: info.ship.slope === 0 ? 'S' : 'SE',
+                lane: elbow[1],
+                timing: 0
+            }],
+            others: [],
+            period: 1
+        };
         if (recipe.create) {
             if (recipe.create.type === 'sl') {
                 expected.stables.push(recipe.create);
@@ -375,9 +356,11 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         }
         if (recipe.emit) {
             if (expected.period !== 0) {
-                expected.period = lcm(expected.period, c.GLIDER_POPULATION_PERIOD);
+                for (let ship of recipe.emit) {
+                    expected.period = lcm(expected.period, c.SPACESHIPS[ship.code].popPeriod);
+                }
             }
-            expected.ships.push(recipe.emit);
+            expected.ships.push(...recipe.emit);
         }
         if (expected.period !== 0) {
             period = lcm(period, expected.period);
@@ -502,7 +485,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     }
     let so1: CheckerObjectData | undefined = undefined;
     let so2: CheckerObjectData | undefined = undefined;
-    let emit: ChannelRecipe['emit'] | undefined = undefined;
+    let emit: ShipInfo[] | undefined = undefined;
     let found = false;
     for (let obj of result) {
         if (obj.type === 'sl' || obj.type === 'osc') {
@@ -514,23 +497,34 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
                 obj = normalizeOscillator(obj);
             }
             let period = obj.type === 'osc' ? obj.period : 1;
-            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
+            let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
             let value = {obj, period, lane, spacing: obj.y};
             if (so1 === undefined) {
                 so1 = value;
             } else {
                 so2 = value;
             }
-        } else if (!emit && obj.type === 'ship' && obj.code === c.GLIDER_APGCODE) {
-            emit = getShipInfo(info, obj);
+        } else if (obj.type === 'ship') {
+            let ship = getShipInfo(info, obj);
+            if (emit) {
+                let dir = ship.dir;
+                if (dir.endsWith('2')) {
+                    dir = dir.slice(0, -1) as ShipDirection;
+                }
+                if (emit.some(x => dir !== (x.dir.endsWith('2') ? x.dir.slice(0, -1) : x.dir))) {
+                    found = true;
+                    break;
+                }
+                emit.push(ship);
+            } else {
+                emit = [ship];
+            }
         } else {
             found = true;
             if (info.possiblyUsefulFilter.includes(obj.code)) {
                 break;
             }
-            if (obj.type === 'ship' && obj.code !== c.GLIDER_APGCODE) {
-                possibleUseful = `creates ${obj.code} (${obj.dir}, lane ${obj.x - obj.y}): ${strRecipe}\n`;
-            } else if (obj.type === 'other' && obj.code.startsWith('xq')) {
+            if (obj.type === 'other' && obj.code.startsWith('xq')) {
                 let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                 if (type.disp) {
                     let lane: number;
@@ -560,11 +554,11 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
         if (so2) {
             let so1Result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
-                so1Result.push(getCollision(so1.obj.code, so1.lane, i));
+                so1Result.push(getCollision(info, so1.obj.code, so1.lane, i));
             }
             let so2Result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so2.period; i++) {
-                so2Result.push(getCollision(so2.obj.code, so2.lane, i));
+                so2Result.push(getCollision(info, so2.obj.code, so2.lane, i));
             }
             if (so1Result.every(x => typeof x === 'object')) {
                 if (so2Result.every(x => typeof x === 'object')) {
@@ -584,7 +578,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
         } else {
             let result: ReturnType<typeof getCollision>[] = [];
             for (let i = 0; i < so1.period; i++) {
-                result.push(getCollision(so1.obj.code, so1.lane, i));
+                result.push(getCollision(info, so1.obj.code, so1.lane, i));
             }
             if (result.every(x => typeof x === 'object')) {
                 endElbowData = [so1, result];

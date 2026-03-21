@@ -3,12 +3,12 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
 import {gcd, MAPPattern, MAPGenPattern, findType, getKnots, INTSeparator} from '../core/index.js';
-import {c, SalvoInfo, maxGenerations, base, CAObject, gliderPattern} from './base.js';
+import {c, SalvoInfo, maxGenerations, base, shipPatterns, CAObject} from './base.js';
 import {ForCombining, combineStableObjects, separateObjectsPartial, separateObjects, stabilize} from './runner.js';
 import {createSalvoPattern} from './slow_salvos.js';
 
 
-let info: SalvoInfo = {startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
+let info: SalvoInfo = {ship: c.SPACESHIPS[Object.keys(c.SPACESHIPS)[0]], startObject: '', gliderSpacing: 0, period: 1, intermediateObjects: [], laneLimit: 256};
 
 function apgcodeSorter(a: string, b: string) {
     let x = a.slice(0, a.indexOf('_'));
@@ -32,23 +32,23 @@ function apgcodeSorter(a: string, b: string) {
 
 
 function getCollision(code: string, lane: number): false | 'no collision' | 'no stabilize' | 'no' | 'linear' | [CAObject[], ForCombining[]] {
-    let inc = c.GLIDER_POPULATION_PERIOD;
+    let inc = info.ship.popPeriod;
     if (code.startsWith('xp')) {
         let period = parseInt(code.slice(2));
         inc = inc * period / gcd(inc, period);
     }
-    let p = gliderPattern.copy();
+    let p = shipPatterns[info.ship.code][0].copy();
     let q = base.loadApgcode(code.slice(code.indexOf('_') + 1)).shrinkToFit();
     let yPos = c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) + c.LANE_OFFSET - lane;
+    let xPos = Math.floor(yPos * info.ship.slope) + c.LANE_OFFSET - lane;
     p.ensure(q.width + xPos, q.height + yPos);
     p.insert(q, xPos, yPos);
     p.shrinkToFit();
     p.xOffset -= xPos;
     p.yOffset -= yPos;
     let prevPop = p.population;
-    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / c.GLIDER_POPULATION_PERIOD; i++) {
-        p.run(c.GLIDER_POPULATION_PERIOD);
+    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / info.ship.popPeriod; i++) {
+        p.run(info.ship.popPeriod);
         let pop = p.population;
         if (pop !== prevPop) {
             if (i === 0) {
@@ -368,10 +368,10 @@ function expandObjects(p: MAPPattern, out: Set<string> = new Set()): Set<string>
         for (let j = 0; j < 4; j++) {
             p.rotateLeft();
             let value = p.toApgcode(prefix);
-            if (c.GLIDER_IS_GLIDE_SYMMETRIC) {
-                let flipped = c.GLIDER_SLOPE === 1 ? p.copy().flipDiagonal().toApgcode(prefix) : p.copy().flipHorizontal().toApgcode(prefix);
+            if (info.ship.glideSymmetric) {
+                let flipped = info.ship.slope === 1 ? p.copy().flipDiagonal().toApgcode(prefix) : p.copy().flipHorizontal().toApgcode(prefix);
                 if (!(out.has(value) || out.has(flipped))) {
-                    if (c.GLIDER_SLOPE === 1 && p.height > p.width) {
+                    if (info.ship.slope === 1 && p.height > p.width) {
                         out.add(flipped);
                     } else {
                         out.add(value);

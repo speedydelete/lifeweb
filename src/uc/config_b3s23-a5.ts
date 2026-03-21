@@ -174,7 +174,8 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    xq4_27: {
+
+    'xq4_27': {
         height: 2,
         width: 3,
         cells: [1, 3, 4, 5],
@@ -239,7 +240,8 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
             },
         ],
     },
-    xq4_153: {
+
+    'xq4_153': {
         height: 3,
         width: 3,
         cells: [1, 5, 6, 7, 8],
@@ -269,6 +271,7 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
             },
         ],
     },
+
 };
 
 

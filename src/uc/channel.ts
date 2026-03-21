@@ -3,10 +3,10 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, log, base, gliderPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, maxGenerations, log, base, shipPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
-import {ShipInfo, runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
+import {runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -15,6 +15,11 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
         let parts = elbow.split('/');
         elbow = [parts[0].slice(parts[0].indexOf('_') + 1), parseInt(parts[1])];
     }
+    let phaseOffset = 0;
+    for (let [spacing] of recipe) {
+        phaseOffset += spacing;
+    }
+    phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
     let p = base.copy();
     let total = 0;
     let timingOffset = 0;
@@ -30,29 +35,32 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
             }
             continue;
         }
-        let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
-        let x = Math.floor(y * c.GLIDER_SLOPE) + info.channels[channel];
-        let q = gliderPatterns[total % c.GLIDER_PERIOD];
+        let y = Math.floor(total * info.ship.dy / info.ship.period);
+        if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
+            y++;
+        }
+        let x = Math.floor(y * info.ship.slope) + info.channels[channel];
+        let q = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period].copy();
         p.ensure(x + q.width, y + q.height);
         p.insert(q, x, y);
         total += timing;
     }
-    let y = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD);
-    let x = Math.floor(y * c.GLIDER_SLOPE);
+    let y = Math.floor(total * info.ship.dy / info.ship.period);
+    let x = Math.floor(y * info.ship.slope);
     if (recipe.length > 0 && info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
     }
-    let q = gliderPatterns[total % c.GLIDER_PERIOD];
+    let q = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
     let target = base.loadApgcode(elbow[0]).shrinkToFit();
     if (timingOffset > 0) {
         target.run(timingOffset).shrinkToFit();
     }
-    let yPos = Math.floor(total * c.GLIDER_DY / c.GLIDER_PERIOD) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * c.GLIDER_SLOPE) - elbow[1] + c.LANE_OFFSET;
+    let yPos = Math.floor(total * info.ship.dy / info.ship.period) + c.GLIDER_TARGET_SPACING;
+    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
     if (xPos < 0) {
-        yPos -= Math.floor(xPos * c.GLIDER_SLOPE);
+        yPos -= Math.floor(xPos * info.ship.slope);
         xPos = 0;
     }
     p.ensure(target.width + xPos, target.height + yPos);
@@ -78,7 +86,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         }
         for (let obj of objs) {
             if (obj.type === 'ship') {
-                obj.x = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x;
+                obj.x = Math.floor(obj.y * info.ship.slope) - obj.x;
                 obj.y = 0;
                 obj.timing = 0;
             } else if (obj.type === 'osc') {
@@ -97,7 +105,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         // console.log('results are not the same');
         let out: ElbowData['string'] = [];
         for (let i = 0; i < period; i++) {
-            let result = getCollision(elbowData[0], elbowData[1], i, undefined, true);
+            let result = getCollision(info, elbowData[0], elbowData[1], i, undefined, true);
             if (typeof result !== 'object') {
                 out.push({type: 'bad'});
                 continue;
@@ -128,7 +136,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         }
                         let xDiff = result[0].x - result2[0].x;
                         let yDiff = result[0].x - result2[0].x;
-                        if (xDiff !== yDiff * c.GLIDER_SLOPE) {
+                        if (xDiff !== yDiff * info.ship.slope) {
                             continue;
                         }
                         let found2 = false;
@@ -147,7 +155,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     }
                 }
             }
-            let flippedResult = getCollision(elbowData[0], elbowData[1], i, true, true);
+            let flippedResult = getCollision(info, elbowData[0], elbowData[1], i, true, true);
             if (typeof flippedResult !== 'object') {
                 out.push({type: 'bad'});
                 continue;
@@ -159,7 +167,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     // console.log('running normal checks');
     let out: ElbowData['string'] = [];
     for (let i = 0; i < period; i++) {
-        let result = getCollision(elbowData[0], elbowData[1], i, undefined, true);
+        let result = getCollision(info, elbowData[0], elbowData[1], i, undefined, true);
         if (typeof result !== 'object') {
             // console.log('result is', result1);
             return;
@@ -171,16 +179,16 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             if (obj.type === 'osc') {
                 obj = normalizeOscillator(obj);
             }
-            let lane = Math.floor(obj.y * c.GLIDER_SLOPE) - obj.x + elbowData[1];
-            let spacing = Math.floor(obj.x * c.GLIDER_SLOPE) + obj.y;
+            let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
+            let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
             let str = `${obj.code}/${lane}`;
-            if (!c.GLIDER_IS_GLIDE_SYMMETRIC) {
+            if (!info.ship.glideSymmetric) {
                 out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
                 continue;
             }
             let p = createChannelPattern(info, [obj.code, lane], []).p;
             p.flipDiagonal();
-            let data = patternToSalvo({period: 1}, p);
+            let data = patternToSalvo({ship: info.ship, period: 1}, p);
             let flippedStr = `${data[0]}/${data[1][0][0]}`;
             if (badElbows.has(str)) {
                 if (!badElbows.has(flippedStr)) {
@@ -266,7 +274,9 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
                 let recipe2 = structuredClone(recipe);
                 recipe2.recipe.unshift([i, -2]);
                 if (recipe2.emit && info.period > 1) {
-                    recipe2.emit.timing = (recipe2.emit.timing + i) % info.period;
+                    for (let ship of recipe2.emit) {
+                        ship.timing = (ship.timing + i) % info.period;
+                    }
                 }
                 if (recipe2.end && recipe2.end.elbow.startsWith('xp')) {
                     recipe2.end.timing = (recipe2.end.timing + i) % recipe2.end.period;
@@ -535,19 +545,19 @@ interface RecipeProgress {
 }
 
 /** Converts a slow salvo to a restricted-channel recipe. */
-export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: 'up' | 'down' | 'left' | 'right', depth?: number, beam?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
+export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: c.ShipDirection, depth?: number, beam?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
     let prevLayer: RecipeProgress[] = [{recipes: [], time: 0, index: 0, elbow: startElbow, elbowPos: 0}];
-    let moveRecipes: (ChannelRecipe & {end: [string, number]})[] = [];
-    let emitRecipes: (ChannelRecipe & {end: [string, number], emit: ShipInfo})[] = [];
-    let emitDestroyRecipes: (ChannelRecipe & {emit: ShipInfo})[] = [];
+    let moveRecipes: (ChannelRecipe & {end: {}})[] = [];
+    let emitRecipes: (ChannelRecipe & {end: {}, emit: {}})[] = [];
+    let emitDestroyRecipes: (ChannelRecipe & {emit: {}})[] = [];
     let destroyRecipes: ChannelRecipe[] = [];
     for (let recipe of Object.values(recipeData.recipes)) {
         if (recipe.create) {
             continue;
         }
         if (recipe.end) {
-            if (recipe.emit) {
-                if (recipe.emit.dir === dir) {
+            if (recipe.emit && recipe.emit.length === 1) {
+                if (recipe.emit[0].dir === dir) {
                     // @ts-ignore
                     emitRecipes.push(recipe);   
                 }
@@ -555,8 +565,8 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                 // @ts-ignore
                 moveRecipes.push(recipe);
             }
-        } else if (recipe.emit) {
-            if (recipe.emit.dir === dir) {
+        } else if (recipe.emit && recipe.emit.length === 1) {
+            if (recipe.emit[0].dir === dir) {
                 // @ts-ignore
                 emitDestroyRecipes.push(recipe);
             }
@@ -571,10 +581,10 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
         for (let {recipes, time, index, elbow, elbowPos} of prevLayer) {
             if (index < salvo.length) {
                 for (let recipe of emitRecipes) {
-                    if (recipe.start === elbow && recipe.emit.lane === salvo[index][0] && recipe.emit.timing === salvo[index][1]) {
+                    if (recipe.start === elbow && recipe.emit[0].lane === salvo[index][0] && recipe.emit[0].timing === salvo[index][1]) {
                         let recipes2 = recipes.slice();
                         recipes2.push(recipe.recipe);
-                        let newElbowPos = elbowPos + recipe.end[1];
+                        let newElbowPos = elbowPos + recipe.end.move;
                         if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
                             continue;
                         }
@@ -582,7 +592,7 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                             out.push({
                                 recipes: recipes2,
                                 time: time + recipe.time,
-                                elbow: recipe.end,
+                                elbow: [recipe.end.elbow, newElbowPos],
                             })
                         } else {
                             let recipes2 = recipes.slice();
@@ -591,8 +601,8 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                                 recipes: recipes2,
                                 time: time + recipe.time,
                                 index: index + 1,
-                                elbow: recipe.end[0],
-                                elbowPos: elbowPos + recipe.end[1],
+                                elbow: recipe.end.elbow,
+                                elbowPos: newElbowPos,
                             })
                         }
                     }
@@ -602,7 +612,7 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                 if (recipe.start === elbow) {
                     let recipes2 = recipes.slice();
                     recipes2.push(recipe.recipe);
-                    let newElbowPos = elbowPos + recipe.end[1];
+                    let newElbowPos = elbowPos + recipe.end.move;
                     if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
                         continue;
                     }
@@ -610,7 +620,7 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                         out.push({
                             recipes: recipes2,
                             time: time + recipe.time,
-                            elbow: recipe.end,
+                            elbow: [recipe.end.elbow, newElbowPos],
                         })
                     } else {
                         let recipes2 = recipes.slice();
@@ -619,15 +629,15 @@ export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channe
                             recipes: recipes2,
                             time: time + recipe.time,
                             index,
-                            elbow: recipe.end[0],
-                            elbowPos: elbowPos + recipe.end[1],
+                            elbow: recipe.end.elbow,
+                            elbowPos: newElbowPos,
                         })
                     }
                 }
             }
             if (index === salvo.length - 1 && forceEndElbow === false) {
                 for (let recipe of emitDestroyRecipes) {
-                    if (recipe.start === elbow && recipe.emit.lane === salvo[index][0] && recipe.emit.timing === salvo[index][1]) {
+                    if (recipe.start === elbow && recipe.emit[0].lane === salvo[index][0] && recipe.emit[0].timing === salvo[index][1]) {
                         let recipes2 = recipes.slice();
                         recipes2.push(recipe.recipe);
                         out.push({
