@@ -580,7 +580,13 @@ export interface SalvoRecipes {
 }
 
 
-export type ElbowData = {[key: string]: ({type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} | {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} | {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number} | {type: 'destroy'} | {type: 'bad'})[]};
+export type ElbowData = {[key: string]: (
+    {type: 'normal', time: number, result: CAObject[], flippedResult: CAObject[]} |
+    {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} |
+    {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number} |
+    {type: 'destroy'} |
+    {type: 'bad'}
+)[]};
 
 export interface ChannelRecipe {
     start: string;

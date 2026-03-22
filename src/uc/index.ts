@@ -29,7 +29,7 @@ Subcommands:
     search_conduits <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters.
     search_conduits_objects <objects> <height> <width> <count>: Search for width by height stable reflectors, conduits, and eaters that are made up of count of the given objects.
     search_conduits_random <objects> <height> <width> <count>: Search for width by height stable reflectors, conduits, and eaters that are made up of count of the given objects placed randomly.
-
+    get_recipes <low> <high> <depth>: Get the recipes that single-channel search will find with minimum timing gap low, maximum timing gap high, and depth depth.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -145,6 +145,23 @@ if (posArgs[0] === 'search_conduits') {
     process.exit(0);
 } else if (posArgs[0] === 'search_conduits_random') {
     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
+    process.exit(0);
+} else if (posArgs[0] === 'get_recipes') {
+    let low = parseInt(posArgs[1]);
+    let high = parseInt(posArgs[2]);
+    let term = parseInt(posArgs[3]) + 1;
+    let out2 = (new Array(term - 1)).fill(0);
+    for (let i = low; i <= high && i <= term && i <= out2.length; i++) {
+        out2[i - 1] = 1;
+    }
+    for (let i = 0; i < term; i++) {
+        for (let j = low; j <= high; j++) {
+            if (i - j > 0 && i <= out2.length) {
+                out2[i - 1] += out2[i - j - 1];
+            }
+        }
+    }
+    console.log(out2[out2.length - 1]);
     process.exit(0);
 }
 
