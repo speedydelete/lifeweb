@@ -107,12 +107,12 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             prevResult = result;
         }
         let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
+        if (typeof result !== 'object') {
+            out.push({type: 'bad'});
+            continue;
+        }
         if (!isSame) {
             // console.log('results are not the same');
-            if (typeof result !== 'object') {
-                out.push({type: 'bad'});
-                continue;
-            }
             let codeStr = result.map(x => x.code).sort().join(' ');
             for (let [key, value] of Object.entries(elbows)) {
                 if (elbow === key) {
@@ -165,10 +165,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
         } else {
-            if (typeof result !== 'object') {
-                // console.log('result is', result1);
-                return;
-            }
             if (result.length === 0) {
                 out.push({type: 'destroy'});
             } else if (result.length === 1) {
