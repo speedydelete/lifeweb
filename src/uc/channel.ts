@@ -78,37 +78,37 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     if (elbow.startsWith('xp')) {
         period = parseInt(elbow.slice(2));
     }
-    let isSame = true;
-    let prevResult: string | null = null;
-    for (let i = 0; i < 3; i++) {
-        let p = runInjection(info, elbowData, [[info.minSpacing + i * period, 0]]);
-        // console.log(p.toRLE());
-        let objs = findOutcome(p, true);
-        if (typeof objs !== 'object') {
-            return;
-        }
-        for (let obj of objs) {
-            if (obj.type === 'ship') {
-                obj.x = Math.floor(obj.y * info.ship.slope) - obj.x;
-                obj.y = 0;
-                obj.timing = 0;
-            } else if (obj.type === 'osc') {
-                obj.timing = 0;
+    let out: ElbowData[string] = [];
+    for (let timing = 0; timing < period; timing++) {
+        let isSame = true;
+        let prevResult: string | null = null;
+        for (let i = 0; i < 3; i++) {
+            let p = runInjection(info, elbowData, [[info.minSpacing + timing + i * period, 0]]);
+            // console.log(p.toRLE());
+            let objs = findOutcome(p, true);
+            if (typeof objs !== 'object') {
+                return;
             }
+            for (let obj of objs) {
+                if (obj.type === 'ship') {
+                    obj.x = Math.floor(obj.y * info.ship.slope) - obj.x;
+                    obj.y = 0;
+                    obj.timing = 0;
+                } else if (obj.type === 'osc') {
+                    obj.timing = 0;
+                }
+            }
+            let result = objectsToString(objs);
+            // throw new Error(result);
+            if (prevResult && result !== prevResult) {
+                isSame = false;
+                break;
+            }
+            prevResult = result;
         }
-        let result = objectsToString(objs);
-        // throw new Error(result);
-        if (prevResult && result !== prevResult) {
-            isSame = false;
-            break;
-        }
-        prevResult = result;
-    }
-    if (!isSame) {
-        // console.log('results are not the same');
-        let out: ElbowData['string'] = [];
-        for (let i = 0; i < period; i++) {
-            let result = getCollision(info, elbowData[0], elbowData[1], i, undefined, true);
+        let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
+        if (!isSame) {
+            // console.log('results are not the same');
             if (typeof result !== 'object') {
                 out.push({type: 'bad'});
                 continue;
@@ -158,64 +158,59 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     }
                 }
             }
-            let flippedResult = getCollision(info, elbowData[0], elbowData[1], i, true, true);
+            let flippedResult = getCollision(info, elbowData[0], elbowData[1], timing, true, true);
             if (typeof flippedResult !== 'object') {
                 out.push({type: 'bad'});
                 continue;
             }
             out.push({type: 'normal', time: 0, result, flippedResult});
-        }
-        return out;
-    }
-    // console.log('running normal checks');
-    let out: ElbowData['string'] = [];
-    for (let i = 0; i < period; i++) {
-        let result = getCollision(info, elbowData[0], elbowData[1], i, undefined, true);
-        if (typeof result !== 'object') {
-            // console.log('result is', result1);
-            return;
-        }
-        if (result.length === 0) {
-            out.push({type: 'destroy'});
-        } else if (result.length === 1) {
-            let obj = result[0];
-            if (obj.type === 'osc') {
-                obj = normalizeOscillator(obj);
-            }
-            let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
-            let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
-            let str = `${obj.code}/${lane}`;
-            if (!info.ship.glideSymmetric) {
-                out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
-                continue;
-            }
-            let p = createChannelPattern(info, [obj.code.slice(obj.code.indexOf('_') + 1), lane], []).p;
-            p.flipDiagonal();
-            let data = patternToSalvo({ship: info.ship, period: 1}, p);
-            let flippedStr = `${data[0]}/${data[1][0][0]}`;
-            if (badElbows.has(str)) {
-                if (!badElbows.has(flippedStr)) {
-                    // console.log('adding flipped');
-                    badElbows.add(flippedStr);
-                }
-                out.push({type: 'bad'});
-                continue;
-            }
-            if (badElbows.has(flippedStr)) {
-                if (!badElbows.has(str)) {
-                    // console.log('adding flipped');
-                    badElbows.add(str);
-                }
-                out.push({type: 'bad'});
-                continue;
-            }
-            if (flippedStr in elbows) {
-                out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
-            } else {
-                out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
-            }
         } else {
-            out.push({type: 'bad'});
+            if (typeof result !== 'object') {
+                // console.log('result is', result1);
+                return;
+            }
+            if (result.length === 0) {
+                out.push({type: 'destroy'});
+            } else if (result.length === 1) {
+                let obj = result[0];
+                if (obj.type === 'osc') {
+                    obj = normalizeOscillator(obj);
+                }
+                let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
+                let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
+                let str = `${obj.code}/${lane}`;
+                if (!info.ship.glideSymmetric) {
+                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                    continue;
+                }
+                let p = createChannelPattern(info, [obj.code.slice(obj.code.indexOf('_') + 1), lane], []).p;
+                p.flipDiagonal();
+                let data = patternToSalvo({ship: info.ship, period: 1}, p);
+                let flippedStr = `${data[0]}/${data[1][0][0]}`;
+                if (badElbows.has(str)) {
+                    if (!badElbows.has(flippedStr)) {
+                        // console.log('adding flipped');
+                        badElbows.add(flippedStr);
+                    }
+                    out.push({type: 'bad'});
+                    continue;
+                }
+                if (badElbows.has(flippedStr)) {
+                    if (!badElbows.has(str)) {
+                        // console.log('adding flipped');
+                        badElbows.add(str);
+                    }
+                    out.push({type: 'bad'});
+                    continue;
+                }
+                if (flippedStr in elbows) {
+                    out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                } else {
+                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                }
+            } else {
+                out.push({type: 'bad'});
+            }
         }
     }
     // if (elbow === 'xs4_33/7') {
