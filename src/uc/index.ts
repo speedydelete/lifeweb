@@ -150,18 +150,22 @@ if (posArgs[0] === 'search_conduits') {
     let low = parseInt(posArgs[1]);
     let high = parseInt(posArgs[2]);
     let term = parseInt(posArgs[3]) + 1;
-    let out2 = (new Array(term - 1)).fill(0);
-    for (let i = low; i <= high && i <= term && i <= out2.length; i++) {
-        out2[i - 1] = 1;
+    let out = (new Array(term - 1)).fill(0);
+    for (let i = low; i <= high && i <= term && i <= out.length; i++) {
+        out[i - 1] = 1;
     }
     for (let i = 0; i < term; i++) {
         for (let j = low; j <= high; j++) {
-            if (i - j > 0 && i <= out2.length) {
-                out2[i - 1] += out2[i - j - 1];
+            if (i - j > 0 && i <= out.length) {
+                out[i - 1] += out[i - j - 1];
             }
         }
     }
-    console.log(out2[out2.length - 1]);
+    if (posArgs[4] === 'full') {
+        console.log(out.reduce((x, y) => x + y));
+    } else {
+        console.log(out[out.length - 1]);
+    }
     process.exit(0);
 }
 
