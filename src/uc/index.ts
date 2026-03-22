@@ -161,11 +161,31 @@ if (posArgs[0] === 'search_conduits') {
             }
         }
     }
-    if (posArgs[4] === 'full') {
-        console.log(out.reduce((x, y) => x + y));
-    } else {
-        console.log(out[out.length - 1]);
+    if (posArgs[4] !== 'short') {
+        console.log(out.join(', '));
     }
+    console.log('total: ' + out.reduce((x, y) => x + y));
+    let sumX = 0;
+    let sumX2 = 0;
+    let sumLogY = 0;
+    let sumXLogY = 0;
+    for (let i = 0; i < out.length; i++) {
+        if (out[i] === 0) {
+            continue;
+        }
+        let x = i;
+        let y = Math.log(out[i]);
+        sumX += x;
+        sumX2 += x * x;
+        sumLogY += y;
+        sumXLogY += x * y;
+    }
+    let denominator = out.length * sumX2 - sumX * sumX;
+    let logA = (out.length * sumXLogY - sumX * sumLogY) / denominator;
+    let logB = (sumLogY * sumX2 - sumX * sumXLogY) / denominator;
+    let a = Math.exp(logA);
+    let b = Math.exp(logB);
+    console.log(`recipes = ${b.toFixed(6)} * ${a.toFixed(6)} ^ depth`);
     process.exit(0);
 }
 
