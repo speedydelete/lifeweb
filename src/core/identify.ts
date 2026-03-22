@@ -142,24 +142,24 @@ export function getApgcode(type: PatternType): string {
         }
         return type.phases[type.stabilizedAt].shrinkToFit().toCanonicalApgcode(type.period, prefix);
     } else {
-        let data: [number, number][] = [];
-        let totalI = 0;
-        let pop = 0;
+        let sumX = 0;
+        let sumX2 = 0;
+        let sumLogY = 0;
+        let sumXLogY = 0;
         for (let i = 0; i < type.pops.length; i++) {
-            let x = Math.log(i + 1);
-            totalI += x;
-            pop += type.pops[i];
-            data.push([x, Math.log(pop)]);
+            if (type.pops[i] === 0) {
+                continue;
+            }
+            let x = i;
+            let y = Math.log(type.pops[i]);
+            sumX += x;
+            sumX2 += x * x;
+            sumLogY += y;
+            sumXLogY += x * y;
         }
-        let meanI = totalI / data.length;
-        let meanPop = pop / type.pops.length;
-        let a = 0;
-        let b = 0;
-        for (let [x, y] of data) {
-            a += (x - meanI) * (y - meanPop);
-            b += (x - meanI) ** 2;
-        }
-        let power = a / b;
+        let denominator = type.pops.length * sumX2 - sumX * sumX;
+        let logA = (type.pops.length * sumXLogY - sumX * sumLogY) / denominator;
+        let power = Math.exp(logA);
         type.power = power;
         if (power < 1.15) {
             return 'PATHOLOGICAL';

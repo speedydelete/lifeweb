@@ -7,6 +7,10 @@ import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel
 import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 
 
+import {Decimal} from 'decimal.js';
+
+
+
 export async function run(): Promise<void> {
 
 
@@ -147,44 +151,45 @@ if (posArgs[0] === 'search_conduits') {
     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
     process.exit(0);
 } else if (posArgs[0] === 'get_recipes') {
+    Decimal.set({precision: 128, rounding: Decimal.ROUND_HALF_UP});
     let low = parseInt(posArgs[1]);
     let high = parseInt(posArgs[2]);
     let term = parseInt(posArgs[3]) + 1;
-    let out = (new Array(term - 1)).fill(0);
+    let out = Array.from({length: term - 1}, () => new Decimal(0));
     for (let i = low; i <= high && i <= term && i <= out.length; i++) {
-        out[i - 1] = 1;
+        out[i - 1] = new Decimal(1);
     }
     for (let i = 0; i < term; i++) {
         for (let j = low; j <= high; j++) {
             if (i - j > 0 && i <= out.length) {
-                out[i - 1] += out[i - j - 1];
+                out[i - 1] = out[i - 1].add(out[i - j - 1]);
             }
         }
     }
     if (posArgs[4] !== 'short') {
         console.log(out.join(', '));
     }
-    console.log('total: ' + out.reduce((x, y) => x + y));
-    let sumX = 0;
-    let sumX2 = 0;
-    let sumLogY = 0;
-    let sumXLogY = 0;
+    let total = out.reduce((x, y) => x.add(y));
+    console.log('total: ' + (total.gt(10**12) ? total.toExponential(6) : total));
+    let sumX = new Decimal(0);
+    let sumX2 = new Decimal(0);
+    let sumLogY = new Decimal(0);
+    let sumXLogY = new Decimal(0);
     for (let i = 0; i < out.length; i++) {
-        if (out[i] === 0) {
+        if (out[i].eq(0)) {
             continue;
         }
-        let x = i;
-        let y = Math.log(out[i]);
-        sumX += x;
-        sumX2 += x * x;
-        sumLogY += y;
-        sumXLogY += x * y;
+        let x = new Decimal(i);
+        let y = out[i].ln();
+        sumX = sumX.add(x);
+        sumX2 = sumX2.add(x.pow(2));
+        sumLogY = sumLogY.add(y);
+        sumXLogY = sumXLogY.add(x.mul(y));
     }
-    let denominator = out.length * sumX2 - sumX * sumX;
-    let logA = (out.length * sumXLogY - sumX * sumLogY) / denominator;
-    let logB = (sumLogY * sumX2 - sumX * sumXLogY) / denominator;
-    let a = Math.exp(logA);
-    let b = Math.exp(logB);
+    let length = new Decimal(out.length);
+    let denominator = length.mul(sumX2).sub(sumX.pow(2));
+    let a = (length.mul(sumXLogY).sub(sumX.mul(sumLogY))).div(denominator).exp();
+    let b = (sumLogY.mul(sumX2).sub(sumX.mul(sumXLogY))).div(denominator).exp();
     console.log(`recipes = ${b.toFixed(6)} * ${a.toFixed(6)} ^ depth`);
     process.exit(0);
 }
