@@ -111,7 +111,7 @@ if (startApgcode in activeRegions) {
 
 let maxCatalysts = Infinity;
 if (args[1] !== undefined) {
-    maxCatalysts = parseInt(args[2]);
+    maxCatalysts = parseInt(args[1]);
     if (Number.isNaN(maxCatalysts)) {
         console.error('Invalid max catalysts number');
         process.exit(1);
