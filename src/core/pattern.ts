@@ -416,9 +416,9 @@ export interface Pattern {
     shrinkToFit(): this;
     /** Expands the pattern by the given amounts, does nothing in `CoordPattern`. */
     expand(up: number, down: number, left: number, right: number): this;
-    /** Flips the pattern along the line x = 0. */
-    flipHorizontal(): this;
     /** Flips the pattern along the line y = 0. */
+    flipHorizontal(): this;
+    /** Flips the pattern along the line x = 0. */
     flipVertical(): this;
     /** Swaps the x and y coordinates of every live cell. */
     transpose(): this;
