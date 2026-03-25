@@ -577,7 +577,7 @@ export abstract class DataPattern implements Pattern {
         return this.data[y * this.width + x];
     }
 
-    set(x: number, y: number, value: number = 1): this {
+    set(x: number, y: number, value: number): this {
         this.data[y * this.width + x] = value;
         return this;
     }

@@ -61,11 +61,9 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
                 maxY = obj.bb[3];
             }
         }
-        maxX++;
-        maxY++;
         let p = base.copy();
-        p.height = maxY - minY;
-        p.width = maxX - minX;
+        p.height = maxY - minY + 1;
+        p.width = maxX - minX + 1;
         p.size = p.height * p.width;
         p.data = new Uint8Array(p.size);
         p.insert(obj.p, obj.x - minX, obj.y - minY);
@@ -136,11 +134,9 @@ export function combineAllStableObjects(objs: ForCombining[]): false | ForCombin
             maxY = obj.bb[3];
         }
     }
-    maxX++;
-    maxY++;
     let p = base.copy();
-    p.height = maxY - minY;
-    p.width = maxX - minX;
+    p.height = maxY - minY + 1;
+    p.width = maxX - minX + 1;
     p.size = p.height * p.width;
     p.data = new Uint8Array(p.size);
     p.insert(obj.p, obj.x - minX, obj.y - minY);
