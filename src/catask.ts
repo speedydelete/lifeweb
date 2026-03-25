@@ -20,7 +20,7 @@ export const DIRECTION_COMBINE: {[K in Direction]: {[K in Direction]: Direction}
 
 export const CONDUIT_OBJECTS: {[key: string]: [name: string, symmetric: boolean, data: [code: string, centerX: number, centerY: number][]]} = {
     'R': ['R-pentomino', false, [['472', 1, 1]]],
-    'B': ['B-heptomino', false, [['pe4', 1, 2], ['d72', 1, 1]]],
+    'B': ['B-heptomino', false, [['d72', 1, 1], ['pe4', 1, 2]]],
     'H': ['herschel', false, [['74e', 1, 2]]],
     'C': ['century', false, [['c97', 2, 1]]],
     'D': ['dove', false, [['ci97', 2, 1]]],
@@ -33,32 +33,30 @@ export const CONDUIT_OBJECTS: {[key: string]: [name: string, symmetric: boolean,
     'M': ['MWSS', false, [['aghgis', 5, 3]]],
 };
 
-const GLIDERS: {[key: string]: [GliderDirection, number]} = {
-    '111100010': ['NW', 0],
-    '010110101': ['NW', 3],
-    '110101100': ['NW', 2],
-    '011110001': ['NW', 1],
-    '111001010': ['NE', 0],
-    '010011101': ['NE', 3],
-    '011101001': ['NE', 2],
-    '110011100': ['NE', 1],
-    '010100111': ['SW', 0],
-    '101110010': ['SW', 3],
-    '100101110': ['SW', 2],
-    '001110011': ['SW', 1],
-    '010001111': ['SE', 0],
-    '101011010': ['SE', 3],
-    '001101011': ['SE', 2],
-    '100011110': ['SE', 1],
+const GLIDERS: {[key: string]: [dir: GliderDirection, timing: number, lane: number]} = {
+    '111100010': ['NW', 0, 0],
+    '010110101': ['NW', 3, -1],
+    '110101100': ['NW', 2, -1],
+    '011110001': ['NW', 1, 0],
+    '111001010': ['NE', 0, 0],
+    '010011101': ['NE', 3, 1],
+    '011101001': ['NE', 2, 1],
+    '110011100': ['NE', 1, 0],
+    '010100111': ['SW', 0, 0],
+    '101110010': ['SW', 3, -1],
+    '100101110': ['SW', 2, -1],
+    '001110011': ['SW', 1, 0],
+    '010001111': ['SE', 0, 0],
+    '101011010': ['SE', 3, 1],
+    '001101011': ['SE', 2, 1],
+    '100011110': ['SE', 1, 0],
 };
 
 const CONDUIT_OBJECT_LOOKAHEAD_GENS = 64;
-const MIN_OBJ_SEP_SIZE = 64;
 const MAX_REPEAT_TIME = 384;
 
 const IDENTIFY_MAX_TIME = 384;
-const IDENTIFY_SEP_GENS = 8;
-const IDENTIFY_START_SEP_GENS = 8;
+const IDENTIFY_SEP_GENS = 0;
 const IDENTIFY_IDENTIFY_GENS = 30;
 
 const UPDATE_INTERVAL = 3;
@@ -72,18 +70,20 @@ const BLOCK = base.loadApgcode('33').shrinkToFit();
 
 
 let conduitObjects: {[key: string]: {p: MAPPattern, obj: string, dir: Direction, x: number, y: number, time: number}} = {};
-let reverseConduitObjects: {[key: string]: MAPPattern} = {};
+let reverseConduitObjects: {[key: string]: {code: string, p: MAPPattern, x: number, y: number}} = {};
 
-function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number): void {
+function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, center: number): void {
+    p = p.copy();
     let found = false;
-    let x2 = 0;
-    let y2 = 0;
+    let x = 0;
+    let y = 0;
     let i = 0;
-    for (let y = 0; y < p.height; y++) {
-        for (let x = 0; x < p.width; x++) {
+    for (let y2 = 0; y2 < p.height; y2++) {
+        for (let x2 = 0; x2 < p.width; x2++) {
             if (p.data[i++] === 2) {
-                x2 = x;
-                y2 = y;
+                p.data[i - 1] = center;
+                x = x2;
+                y = y2;
                 found = true;
                 break;
             }
@@ -98,12 +98,12 @@ function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number): vo
         console.log(p.toRLE());
         throw new Error(`No center cell found for ${obj}${dir}${time}`);
     }
-    let x = x2 + p.xOffset;
-    let y = y2 + p.yOffset;
-    let q = p.copy();
-    q.data = q.data.map(x => x ? 1 : 0);
-    conduitObjects[q.toApgcode()] = {p, obj, dir, x, y, time};
-    reverseConduitObjects[obj + dir + time] = q;
+    let code = p.toApgcode();
+    conduitObjects[code] = {p, obj, dir, x, y, time};
+    let key = obj + dir + time;
+    if (!(key in reverseConduitObjects)) {
+        reverseConduitObjects[key] = {code, p, x, y};
+    }
 }
 
 for (let key in CONDUIT_OBJECTS) {
@@ -126,27 +126,27 @@ for (let key in CONDUIT_OBJECTS) {
                 x2 += oldX - p.xOffset;
                 y2 += oldY - p.yOffset;
             }
-            let prevCenter = p.get(x2, y2);
+            let center = p.get(x2, y2);
             p.set(x2, y2, 2);
-            addRegion(p, key, 'F', i);
+            addRegion(p, key, 'F', i, center);
             p.rotateRight();
-            addRegion(p, key, 'R', i);
+            addRegion(p, key, 'R', i, center);
             p.rotateRight();
-            addRegion(p, key, 'B', i);
+            addRegion(p, key, 'B', i, center);
             p.rotateRight();
-            addRegion(p, key, 'L', i);
-            p.rotateRight();
-            p.flipVertical();
-            addRegion(p, key, 'Fx', i);
-            p.rotateRight();
-            addRegion(p, key, 'Rx', i);
-            p.rotateRight();
-            addRegion(p, key, 'Bx', i);
-            p.rotateRight();
-            addRegion(p, key, 'Lx', i);
+            addRegion(p, key, 'L', i, center);
             p.rotateRight();
             p.flipVertical();
-            p.set(x2, y2, prevCenter);
+            addRegion(p, key, 'Fx', i, center);
+            p.rotateRight();
+            addRegion(p, key, 'Rx', i, center);
+            p.rotateRight();
+            addRegion(p, key, 'Bx', i, center);
+            p.rotateRight();
+            addRegion(p, key, 'Lx', i, center);
+            p.rotateRight();
+            p.flipVertical();
+            p.set(x2, y2, center);
             p.runGeneration();
             p.shrinkToFit();
         }
@@ -209,7 +209,7 @@ export interface Conduit {
     factoryTime?: number;
     otherOutputs: (ObjData & {code: string})[];
     repeatTime?: number;
-    repeatTimeNoFNG?: number;
+    repeatTimeWithFNG?: number;
     overclock?: number[];
 }
 
@@ -273,11 +273,11 @@ export function getConduitName(data: Conduit): string {
     return out.join('_');
 }
 
-function worksAtRepeatTime(data: Conduit, start: MAPPattern, rt: number, maxTime: number, removeFNG?: number): boolean {
-    // TODO ADD CODE TO DEAL WITH GLIDERS SOMEWHERE IN HERE
+function worksAtRepeatTime(data: Conduit, start: MAPPattern, centerX: number, centerY: number, rt: number, maxTime: number, removeFNG?: number): boolean {
     let p = data.p.copy();
     for (let i = 0; i < rt; i++) {
         p.runGeneration();
+        p.shrinkToFit();
         if (i > maxTime) {
             continue;
         }
@@ -290,29 +290,60 @@ function worksAtRepeatTime(data: Conduit, start: MAPPattern, rt: number, maxTime
             p.data[i + 2 * p.width + 2] = 0;
         }
         for (let obj of data.output) {
-            if (obj.obj !== '' && obj.time === p.generation) {
-                p.insertXor(obj.p, obj.x + p.xOffset, obj.y + p.yOffset);
+            if (obj.time === p.generation) {
+                let x = obj.x - p.xOffset;
+                let y = obj.y - p.yOffset;
+                let value = reverseConduitObjects[obj.obj + 'F0'];
+                if (value) {
+                    x -= value.x;
+                    y -= value.y;
+                }
+                let i = 0;
+                for (let y2 = 0; y2 < obj.p.height; y2++) {
+                    let loc = (y + y2) * p.width + x;
+                    for (let x2 = 0; x2 < obj.p.width; x2++) {
+                        if (obj.p.data[i++]) {
+                            p.data[loc] = 0;
+                        }
+                        loc++;
+                    }
+                }
             }
         }
     }
-    p.insert(start, -p.xOffset, -p.yOffset);
+    let x = -p.xOffset - centerX;
+    let y = -p.yOffset - centerY;
+    if (x < 0 || x + start.width >= p.width || y < 0 || y + start.height >= p.height) {
+        p.expand(
+            y < 0 ? -y : 0,
+            y + start.height >= p.height ? y + start.height - p.height : 0,
+            x < 0 ? -x : 0,
+            x + start.width >= p.width ? x + start.width - p.width : 0,
+        );
+    }
+    p.insert(start, -p.xOffset - centerX, -p.yOffset - centerY);
     let found = 0;
-    for (let i = 0; i < maxTime; i++) {
+    for (let i = 0; i <= maxTime; i++) {
         p.runGeneration();
         for (let obj of data.output) {
-            if (obj.obj !== '' && (obj.time === p.generation || obj.time === p.generation - rt)) {
+            if (obj.time === p.generation || obj.time === p.generation - rt) {
+                let x = obj.x - p.xOffset;
+                let y = obj.y - p.yOffset;
+                let value = reverseConduitObjects[obj.obj + 'F0'];
+                if (value) {
+                    x -= value.x;
+                    y -= value.y;
+                }
                 let i = 0;
-                let loc = 0;
-                let failed = false;
-                for (let y = 0; y < obj.p.height; y++) {
-                    for (let x = 0; x < obj.p.width; x++) {
-                        if (obj.p.data[i++] !== p.data[loc]) {
-                            failed = true;
-                            break;
+                for (let y2 = 0; y2 < obj.p.height; y2++) {
+                    let loc = (y + y2) * p.width + x;
+                    for (let x2 = 0; x2 < obj.p.width; x2++) {
+                        if (obj.p.data[i] !== p.data[loc]) {
+                            return false;
                         }
+                        i++;
                         p.data[loc++] = 0;
                     }
-                    loc += p.width - obj.p.width;
                 }
                 found++;
             }
@@ -326,19 +357,27 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
         x.dir = DIRECTION_COMBINE[input.dir][x.dir];
         x.time += input.time;
     }
-    let p: MAPPattern;
+    for (let x of gliders) {
+        x.timing += input.time;
+    }
     let start: MAPPattern;
+    let centerX = 0;
+    let centerY = 0;
     if (input.obj.startsWith('(')) {
         start = base.loadApgcode(input.obj.slice(1, input.obj.indexOf(')'))).shrinkToFit();
     } else {
-        start = reverseConduitObjects[input.obj + input.dir + input.time];
+        let data = reverseConduitObjects[input.obj + input.dir + input.time];
+        start = data.p;
+        centerX = data.x;
+        centerY = data.y;
     }
+    let p: MAPPattern;
     if (reconstruct) {
         // we need to reconstruct the conduit from the catalysts
-        let minX = start.xOffset;
-        let minY = start.yOffset;
-        let maxX = start.xOffset + start.width;
-        let maxY = start.yOffset + start.height;
+        let minX = start.xOffset + centerX;
+        let minY = start.yOffset + centerY;
+        let maxX = minX + start.width;
+        let maxY = minY + start.height;
         for (let obj of data.cats) {
             if (obj.x < minX) {
                 minX = obj.x;
@@ -353,14 +392,14 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
                 maxY = obj.x + obj.p.width;
             }
         }
-        let p = base.copy();
+        p = base.copy();
         p.height = maxY - minY + 1;
         p.width = maxX - minX + 1;
         p.size = p.height * p.width;
         p.data = new Uint8Array(p.size);
-        p.xOffset = minX - p.xOffset;
-        p.yOffset = minY - p.yOffset;
-        p.insert(start, start.xOffset - minX, start.yOffset - minY);
+        p.xOffset = -(start.xOffset - minX + 2 * centerX);
+        p.yOffset = -(start.yOffset - minY + 2 * centerY);
+        p.insert(start, -p.xOffset - centerX, -p.yOffset - centerY);
         for (let obj of data.cats) {
             p.insert(obj.p, obj.x - minX, obj.y - minY);
         }
@@ -368,7 +407,7 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
     } else {
         p = data.p;
     }
-    let out: Conduit = {p: data.p, input: input.obj, output, gliders, otherOutputs};
+    let out: Conduit = {p, input: input.obj, output, gliders, otherOutputs};
     if (factoryTime) {
         out.factoryTime = factoryTime;
     }
@@ -376,9 +415,9 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
     let maxTime = Math.max(...output.map(x => x.time));
     let worksAt: boolean[] = [];
     for (let rt = 1; rt < MAX_REPEAT_TIME; rt++) {
-        worksAt.push(worksAtRepeatTime(out, start, rt, maxTime));
+        worksAt.push(worksAtRepeatTime(out, start, centerX, centerY, rt, maxTime));
     }
-    let rt = worksAt.length;
+    let rt = worksAt.length - 1;
     if (worksAt[rt]) {
         for (; rt > 1; rt--) {
             if (!worksAt[rt - 1]) {
@@ -387,20 +426,20 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
         }
         out.repeatTime = rt;
         out.overclock = worksAt.slice(0, rt).map((x, i) => x ? i : -1).filter(x => x !== -1);
-        if (input.obj === 'H') {
+        if (input.obj === 'H' && gliders.some(x => x.dir === 'SW' && x.lane === -2 && x.timing === 21)) {
             let offset = 21 - input.time;
             for (; rt > 0; rt--) {
-                if (!worksAtRepeatTime(out, start, rt, maxTime, offset)) {
+                if (!worksAtRepeatTime(out, start, centerX, centerY, rt, maxTime, offset)) {
                     break;
                 }
             }
-            out.repeatTimeNoFNG = rt;
+            out.repeatTimeWithFNG = rt;
         }
     }
     return out;
 }
 
-function combineObjects(objs: ObjData[]): ObjData {
+function combineObjects(objs: ObjData[]): undefined | ObjData {
     if (objs.length === 1) {
         return objs[0];
     }
@@ -439,6 +478,9 @@ function combineObjects(objs: ObjData[]): ObjData {
     let code: string | undefined = undefined;
     let type = findType(p, 2);
     if (type.period !== -1) {
+        if (type.pops[type.pops.length - 1] === 0) {
+            return undefined;
+        }
         if (type.stabilizedAt === 1) {
             p.runGeneration();
         }
@@ -491,20 +533,21 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         }
     }
     p.shrinkToFit();
+    let input = reverseConduitObjects[start.obj + start.dir + start.time];
+    if (input) {
+        p.xOffset -= input.x * 2;
+        p.yOffset -= input.y * 2;
+    }
     // now we check if it is a pure conduit
     let code = p.toApgcode();
     if (code in conduitObjects) {
         let {p: q, obj, dir, x, y, time} = conduitObjects[code];
-        x -= p.xOffset;
-        y -= p.yOffset;
+        x += p.xOffset;
+        y += p.yOffset;
         time = p.generation - time;
         if (!(x === 0 && y === 0 && time === 0)) {
-            return getConduitInfo(data, start, [{obj, dir, time, x: -x, y: -y, p: q}], [], [], true);
+            return getConduitInfo(data, start, [{obj, dir, time, x, y, p: q}], [], [], true);
         }
-    }
-    // now we check if it is has a more complicated output
-    if (p.size < MIN_OBJ_SEP_SIZE) {
-        return false;
     }
     // first we run object separation and get a list of stable and unstable objects
     let sep = new INTSeparator(p, knots);
@@ -523,7 +566,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         let width = p.width;
         let data = p.data;
         let pop = p.population;
-        let value: [GliderDirection, number];
+        let value: (typeof GLIDERS)[string];
         // we do quick checks for common objects to speed it up a bit
         if (height === 2 && width === 2 && pop === 4) {
             code = 'xs4_33';
@@ -532,18 +575,31 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         } else if (pop === 6 && p.size === 12 && data[1] && data[10] && ((height === 4 && width === 3 && data[3] && data[5] && data[6] && data[8]) || (data[2] && data[4] && data[7] && data[9]))) {
             code = 'xs6_696';
         } else if (height === 3 && width === 3 && pop === 5 && (value = GLIDERS[data.join('')])) {
-            let [dir, timing] = value;
-            timing += p.generation - (p.generation % 4);
-            let x = p.xOffset + 1;
-            let y = p.yOffset + 1;
-            let lane: number;
-            if (dir === 'NW' || dir === 'SE') {
-                lane = x - y;
-                timing += x + y;
-            } else {
-                lane = x + y;
-                timing += y - x;
+            let [dir, timing, lane] = value;
+            let x = p.xOffset;
+            let y = p.yOffset;
+            if (dir === 'NE' || dir === 'SE') {
+                x += 2;
             }
+            if (dir === 'SW' || dir === 'SE') {
+                y += 2;
+            }
+            timing += sep.generation - (sepGens + 1);
+            if (dir === 'NW') {
+                lane += x - y;
+                timing -= x + y;
+            } else if (dir === 'NE') {
+                lane += x + y;
+                timing -= (y - x) * 2;
+            } else if (dir === 'SW') {
+                lane += x + y;
+                timing -= (y - x) * 2;
+            } else {
+                console.log(timing, x, y);
+                lane += x - y;
+                timing -= x + y;
+            }
+            timing--;
             gliders.push({dir, lane, timing});
             continue;
         } else if (height === 3 && width === 3 && pop < 7 && data[1] && data[3] && data[5] && data[7]) {
@@ -588,7 +644,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
     }
     // now we check every combination and see if it's a conduit
     for (let groups of partitions(objs)) {
-        let objs = groups.map(x => combineObjects(x));
+        let objs = groups.map(x => combineObjects(x)).filter(x => x !== undefined);
         let outputs: Conduit['output'] = [];
         let otherOutputs: (ObjData & {code: string})[] = [];
         let found = false;
@@ -599,14 +655,14 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                 let code = obj.p.toApgcode();
                 if (code in conduitObjects) {
                     let {obj: obj2, dir, x, y, time} = conduitObjects[code];
-                    x += obj.p.xOffset;
-                    y += obj.p.yOffset;
-                    time = p.generation - time;
+                    x += obj.x;
+                    y += obj.y;
+                    time = (p.generation + (sepGens + 1)) - time;
                     if (x === 0 && y === 0 && time === 0) {
                         found = true;
                         break;
                     }
-                    outputs.push({obj: obj2, dir, time, p: obj.p, x: obj.x + x, y: obj.y + y});
+                    outputs.push({obj: obj2, dir, time, p: obj.p, x, y});
                 } else {
                     found = true;
                     break;
@@ -831,16 +887,16 @@ export function searchSingleObject(data: Partial, options: SearchOptions): false
             let str = getConduitName(x);
             if (x.repeatTime) {
                 str += `, rt ${x.repeatTime}`;
-                if (x.repeatTimeNoFNG || x.overclock) {
+                if (x.repeatTimeWithFNG || x.overclock) {
                     str += ' (';
                     if (x.overclock) {
                         str += `overclock: ${toRanges(x.overclock)}`;
-                        if (x.repeatTimeNoFNG) {
+                        if (x.repeatTimeWithFNG) {
                             str += ', ';
                         }
                     }
-                    if (x.repeatTimeNoFNG) {
-                        str += `no FNG: ${x.repeatTimeNoFNG}`;
+                    if (x.repeatTimeWithFNG) {
+                        str += `with FNG: ${x.repeatTimeWithFNG}`;
                     }
                     str += ')';
                 }
@@ -902,7 +958,7 @@ CatAsk ${VERSION} - searches for conduits in Conway's Game of Life
 
 Usage:
     ./catask <rle> [options]
-    ./catask identify <rle> [sep-gens]
+    ./catask identify <rle> <sep-gens>
     ./catask (help|version|-h|--help|-v|--version)
 
 Options:
@@ -926,13 +982,10 @@ if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
 
 if (args[0] === 'identify') {
     let p = base.loadRLE(args[1]).shrinkToFit();
-    let sepGens = IDENTIFY_START_SEP_GENS;
-    if (args[2]) {
-        sepGens = parseInt(args[2]);
-        if (Number.isNaN(sepGens)) {
-            console.error(`Error: Invalid value for sep-gens: '${args[2]}', must be a number`);
-            process.exit(1);
-        }
+    let sepGens = parseInt(args[2]);
+    if (Number.isNaN(sepGens)) {
+        console.error(`Error: Invalid value for sep-gens: '${args[2]}', must be a number`);
+        process.exit(1);
     }
     let sep = new INTSeparator(p, knots);
     for (let i = 0; i < sepGens; i++) {
@@ -987,7 +1040,7 @@ if (args[0] === 'identify') {
         if (catalystsAreFine(p, cats) === 'restored') {
             let value = checkConduit({p, cats}, IDENTIFY_SEP_GENS, start);
             if (value) {
-                console.log(getConduitName(value));
+                console.log(`\x1b[92m${getConduitName(value)}\x1b[0m`);
                 if (value.input.startsWith('(')) {
                     console.log(`Input: ${value.input}`);
                 } else {
@@ -996,15 +1049,13 @@ if (args[0] === 'identify') {
                     console.log(`Input: ${name}`);
                 }
                 for (let obj of value.output) {
-                    if (obj.obj !== '') {
-                        let suffix = `at generation ${obj.time} and position (${obj.x}, ${obj.y})`;
-                        if (obj.obj.startsWith('(')) {
-                            console.log(`Output: ${obj.obj} ${suffix}`);
-                        } else {
-                            let name = CONDUIT_OBJECTS[obj.obj][0];
-                            name = name[0].toUpperCase() + name.slice(1);
-                            console.log(`Output: ${name} ${suffix}`);
-                        }
+                    let suffix = `at generation ${obj.time} and position (${obj.x}, ${obj.y})`;
+                    if (obj.obj.startsWith('(')) {
+                        console.log(`Output: ${obj.obj} ${suffix}`);
+                    } else {
+                        let name = CONDUIT_OBJECTS[obj.obj][0];
+                        name = name[0].toUpperCase() + name.slice(1);
+                        console.log(`Output: ${name} ${suffix}`);
                     }
                 }
                 for (let glider of value.gliders) {
@@ -1013,14 +1064,14 @@ if (args[0] === 'identify') {
                 for (let obj of value.otherOutputs) {
                     console.log(`Output: ${obj.code} (${obj.x}, ${obj.y})`);
                 }
-                if (value.repeatTime) {
+                if (value.repeatTime !== undefined) {
                     console.log(`Repeat time: ${value.repeatTime}`);
-                    if (value.repeatTimeNoFNG) {
-                        console.log(`Repeat time (no FNG): ${value.repeatTime}`);
+                    if (value.repeatTimeWithFNG) {
+                        console.log(`Repeat time (with FNG): ${value.repeatTime}`);
                     }
                     if (value.overclock) {
                         if (value.overclock.length === 0) {
-                            console.log('Not overclockable');
+                            console.log('No overclock');
                         } else {
                             console.log(`Overclock: ${toRanges(value.overclock)}`);
                         }
@@ -1031,7 +1082,7 @@ if (args[0] === 'identify') {
         }
         p.runGeneration();
     }
-    console.log('Not a conduit');
+    console.log('Error: Not a conduit');
     process.exit(0);
 }
 
