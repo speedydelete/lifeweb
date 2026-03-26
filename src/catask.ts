@@ -33,23 +33,23 @@ export const CONDUIT_OBJECTS: {[key: string]: [name: string, symmetric: boolean,
     'M': ['MWSS', false, [['aghgis', 5, 3]]],
 };
 
-const GLIDERS: {[key: string]: [dir: GliderDirection, timing: number, lane: number]} = {
-    '111100010': ['NW', 0, 0],
-    '010110101': ['NW', 3, -1],
-    '110101100': ['NW', 2, -1],
-    '011110001': ['NW', 1, 0],
-    '111001010': ['NE', 0, 0],
-    '010011101': ['NE', 3, 1],
-    '011101001': ['NE', 2, 1],
-    '110011100': ['NE', 1, 0],
-    '010100111': ['SW', 0, 0],
-    '101110010': ['SW', 3, -1],
-    '100101110': ['SW', 2, -1],
-    '001110011': ['SW', 1, 0],
-    '010001111': ['SE', 0, 0],
-    '101011010': ['SE', 3, 1],
-    '001101011': ['SE', 2, 1],
-    '100011110': ['SE', 1, 0],
+const GLIDERS: {[key: string]: [dir: GliderDirection, timing: number, x: number, y: number]} = {
+    '111100010': ['NW', 0, 0, 0],
+    '010110101': ['NW', 3, -1, 0],
+    '110101100': ['NW', 2, -1, 0],
+    '011110001': ['NW', 1, 0, 0],
+    '111001010': ['NE', 0, 2, 0],
+    '010011101': ['NE', 3, 3, 0],
+    '011101001': ['NE', 2, 3, 0],
+    '110011100': ['NE', 1, 2, 0],
+    '010100111': ['SW', 0, 0, 2],
+    '101110010': ['SW', 3, -1, 2],
+    '100101110': ['SW', 2, -1, 2],
+    '001110011': ['SW', 1, 0, 2],
+    '010001111': ['SE', 0, 2, 2],
+    '101011010': ['SE', 3, 3, 2],
+    '001101011': ['SE', 2, 3, 2],
+    '100011110': ['SE', 1, 2, 2],
 };
 
 const CONDUIT_OBJECT_LOOKAHEAD_GENS = 64;
@@ -575,31 +575,25 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         } else if (pop === 6 && p.size === 12 && data[1] && data[10] && ((height === 4 && width === 3 && data[3] && data[5] && data[6] && data[8]) || (data[2] && data[4] && data[7] && data[9]))) {
             code = 'xs6_696';
         } else if (height === 3 && width === 3 && pop === 5 && (value = GLIDERS[data.join('')])) {
-            let [dir, timing, lane] = value;
-            let x = p.xOffset;
-            let y = p.yOffset;
-            if (dir === 'NE' || dir === 'SE') {
-                x += 2;
-            }
-            if (dir === 'SW' || dir === 'SE') {
-                y += 2;
-            }
-            timing += sep.generation - (sepGens + 1);
+            let [dir, timing, x, y] = value;
+            x += p.xOffset;
+            y += p.yOffset;
+            timing += sep.generation + sepGens;
+            console.log(dir, x, y, timing);
+            let lane: number;
             if (dir === 'NW') {
-                lane += x - y;
+                lane = x - y;
                 timing -= x + y;
             } else if (dir === 'NE') {
-                lane += x + y;
+                lane = x + y;
                 timing -= (y - x) * 2;
             } else if (dir === 'SW') {
-                lane += x + y;
+                lane = x + y;
                 timing -= (y - x) * 2;
             } else {
-                console.log(timing, x, y);
-                lane += x - y;
+                lane = x - y;
                 timing -= x + y;
             }
-            timing--;
             gliders.push({dir, lane, timing});
             continue;
         } else if (height === 3 && width === 3 && pop < 7 && data[1] && data[3] && data[5] && data[7]) {
