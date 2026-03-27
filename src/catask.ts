@@ -1004,7 +1004,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
 
 export const ALL_ALLOWED_CATALYSTS: string[] = ['block'];
 
-function catalystsAreFine(p: MAPPattern, cats: Catalyst[]): false | true | 'restored' {
+export function catalystsAreFine(p: MAPPattern, cats: Catalyst[]): false | true | 'restored' {
     let height = p.height;
     let width = p.width;
     let data = p.data;
