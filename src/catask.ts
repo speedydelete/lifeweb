@@ -7,8 +7,10 @@ const VERSION = '1.0';
 const CONDUIT_OBJECT_LOOKAHEAD_GENS = 64;
 const MAX_REPEAT_TIME = 384;
 
+const CREATE_PARTIAL_MAX_SEP_GENS = 16;
+
 const IDENTIFY_MAX_TIME = 384;
-const IDENTIFY_SEP_GENS = 0;
+const IDENTIFY_CONDUIT_SEP_GENS = 0;
 const IDENTIFY_IDENTIFY_GENS = 30;
 
 const UPDATE_INTERVAL = 3;
@@ -337,42 +339,48 @@ export function isSymmetric(obj: string): boolean {
     }
 }
 
-export function createPartial(p: MAPPattern, sepGens: number): [Partial, ConduitObject] {
+export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
     let sep = new INTSeparator(p, knots);
-    for (let i = 0; i < sepGens; i++) {
+    sep.resolveKnots();
+    let startP: MAPPattern | undefined = undefined;
+    let cats: Catalyst[] = [];
+    for (let i = 0; i < CREATE_PARTIAL_MAX_SEP_GENS; i++) {
+        startP = undefined;
+        cats = [];
+        for (let p of sep.getObjects()) {
+            let type = findType(p, IDENTIFY_IDENTIFY_GENS);
+            type.pops = [];
+            type.hashes = [];
+            type.phases = [];
+            if (type.disp) {
+                if (type.stabilizedAt > 0) {
+                    continue;
+                } else if (type.disp[0] !== 0 || type.disp[1] !== 0) {
+                    throw new Error('Spaceships are not supported');
+                } else if (type.period !== 1) {
+                    throw new Error('Oscillators are not supported');
+                }
+                cats.push({type: 'custom', p, x: p.xOffset, y: p.yOffset});
+            } else {
+                if (startP !== undefined) {
+                    if (INTENTIONAL_SPARKS.includes(p.toCanonicalApgcode())) {
+                        continue;
+                    }
+                    if (i === CREATE_PARTIAL_MAX_SEP_GENS - 1) {
+                        throw new Error(`More than 1 start object! (If there isn't, there is a bug, please tell speedydelete)`);
+                    }
+                }
+                startP = p;
+            }
+        }
+        if (startP) {
+            break;
+        }
         sep.runGeneration();
         sep.resolveKnots();
     }
-    let startP: MAPPattern | undefined = undefined;
-    let cats: Catalyst[] = [];
-    for (let p of sep.getObjects()) {
-        let type = findType(p, IDENTIFY_IDENTIFY_GENS);
-        type.pops = [];
-        type.hashes = [];
-        type.phases = [];
-        if (type.disp) {
-            if (type.stabilizedAt > 0) {
-                continue;
-            } else if (type.disp[0] !== 0 || type.disp[1] !== 0) {
-                throw new Error('Spaceships are not supported');
-            } else if (type.period !== 1) {
-                throw new Error('Oscillators are not supported');
-            }
-            cats.push({type: 'custom', p, x: p.xOffset, y: p.yOffset});
-        } else {
-            if (startP !== undefined) {
-                if (INTENTIONAL_SPARKS.includes(p.toCanonicalApgcode())) {
-                    continue;
-                }
-                console.error(`Error: More than 1 start object! (If there is actually only 1, try increasing sep-gens, if that doesn\'t work please tell speedydelete)`);
-                process.exit(1);
-            }
-            startP = p;
-        }
-    }
     if (!startP) {
-        console.error('Error: No start object!');
-        process.exit(1);
+        throw new Error('No start object!');
     }
     let start: ConduitObject;
     let code = startP.toApgcode();
@@ -393,7 +401,7 @@ export function createPartial(p: MAPPattern, sepGens: number): [Partial, Conduit
             if (dir[1] === 'x') {
                 p.flipVertical();
             }
-            return createPartial(p, sepGens);
+            return createPartial(p);
         }
         start = {obj: data.obj, dir: data.dir, time: data.time};
         p.xOffset -= startP.xOffset + data.x;
@@ -1275,7 +1283,7 @@ CatAsk ${VERSION} - searches for conduits in Conway's Game of Life
 
 Usage:
     ./catask <rle> [options]
-    ./catask identify <rle> <sep-gens>
+    ./catask identify <rle>
     ./catask (help|version|-h|--help|-v|--version)
 
 Options:
@@ -1299,16 +1307,11 @@ if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
 
 if (args[0] === 'identify') {
     let p = base.loadRLE(args[1]).shrinkToFit();
-    let sepGens = parseInt(args[2]);
-    if (Number.isNaN(sepGens)) {
-        console.error(`Error: Invalid value for sep-gens: '${args[2]}', must be a number`);
-        process.exit(1);
-    }
-    let [partial, start] = createPartial(p, sepGens);
+    let [partial, start] = createPartial(p);
     p = partial.p;
     for (let i = 0; i < IDENTIFY_MAX_TIME; i++) {
         if (catalystsAreFine(p, partial.cats) === 'restored') {
-            let value = checkConduit(partial, IDENTIFY_SEP_GENS, start);
+            let value = checkConduit(partial, IDENTIFY_CONDUIT_SEP_GENS, start);
             if (value) {
                 console.log(`\x1b[92m${removeHIfPossible(getConduitName(value))}\x1b[0m`);
                 if (value.input.startsWith('(')) {
