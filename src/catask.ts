@@ -545,7 +545,7 @@ function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObject
                 p.shrinkToFit();
             }
             for (let ship of data.gliders) {
-                if (data.input === 'H' && removeFNG !== undefined && ship.dir === 'SW' && ship.lane === -2 && ship.timing === 21) {
+                if (data.input === 'H' && ship.dir === 'SW' && ship.lane === -2 && ship.timing === 21) {
                     continue;
                 }
                 let timing = data.time - ship.timing;
@@ -642,7 +642,7 @@ function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObject
                 }
             }
             for (let ship of data.gliders) {
-                if (p.generation === data.time && data.input === 'H' && removeFNG !== undefined && ship.dir === 'SW' && ship.lane === -2 && ship.timing === 21) {
+                if (p.generation === data.time && data.input === 'H' && ship.dir === 'SW' && ship.lane === -2 && ship.timing === 21) {
                     continue;
                 }
                 let timing = data.time - ship.timing;
