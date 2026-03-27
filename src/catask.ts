@@ -1,56 +1,8 @@
 
-import {MAPPattern, findType, getKnots, INTSeparator, createPattern} from './core/index.js';
+import {MAPPattern, findType, findStaticSymmetry, getKnots, INTSeparator, createPattern} from './core/index.js';
 
 
 const VERSION = '1.0';
-
-export type Direction = 'F' | 'Fx' | 'R' | 'Rx' | 'B' | 'Bx' | 'L' | 'Lx';
-export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
-
-export const DIRECTION_COMBINE: {[K in Direction]: {[K in Direction]: Direction}} = {
-    F: {F: 'F', Fx: 'Fx', R: 'R', Rx: 'Rx', B: 'B', Bx: 'Bx', L: 'L', Lx: 'Lx'},
-    Fx: {F: 'Fx', Fx: 'F', R: 'Rx', Rx: 'R', B: 'Bx', Bx: 'B', L: 'Lx', Lx: 'L'},
-    R: {F: 'R', Fx: 'Rx', R: 'B', Rx: 'Bx', B: 'L', Bx: 'Lx', L: 'F', Lx: 'Fx'},
-    Rx: {F: 'Rx', Fx: 'R', R: 'Bx', Rx: 'B', B: 'Lx', Bx: 'L', L: 'Fx', Lx: 'F'},
-    B: {F: 'B', Fx: 'Bx', R: 'L', Rx: 'Lx', B: 'F', Bx: 'Fx', L: 'R', Lx: 'Rx'},
-    Bx: {F: 'Bx', Fx: 'B', R: 'Lx', Rx: 'L', B: 'Fx', Bx: 'F', L: 'Rx', Lx: 'R'},
-    L: {F: 'L', Fx: 'Lx', R: 'F', Rx: 'Fx', B: 'R', Bx: 'Rx', L: 'B', Lx: 'Bx'},
-    Lx: {F: 'Lx', Fx: 'L', R: 'Fx', Rx: 'F', B: 'Rx', Bx: 'R', L: 'Bx', Lx: 'B'},
-};
-
-export const CONDUIT_OBJECTS: {[key: string]: [name: string, symmetric: boolean, data: [code: string, centerX: number, centerY: number][]]} = {
-    'R': ['R-pentomino', false, [['472', 1, 1]]],
-    'B': ['B-heptomino', false, [['d72', 1, 1], ['pe4', 1, 2]]],
-    'H': ['herschel', false, [['74e', 1, 2]]],
-    'C': ['century', false, [['c97', 2, 1]]],
-    'D': ['dove', false, [['ci97', 2, 1]]],
-    'E': ['E-heptomino', false, [['1572', 2, 1]]],
-    'P': ['pi-heptomino', true, [['557', 1, 1], ['577', 1, 1]]],
-    'Q': ['queen bee', true, [['3us8z31', 2, 3]]],
-    'W': ['wing', true, [['c53', 1, 1]]],
-    'U': ['U-turner', false, [['77ac', 1, 1]]],
-    'L': ['LWSS', false, [['5889e', 4, 2]]],
-    'M': ['MWSS', false, [['aghgis', 5, 3]]],
-};
-
-const GLIDERS: {[key: string]: [dir: GliderDirection, timing: number, x: number, y: number]} = {
-    '111100010': ['NW', 0, 0, 0],
-    '010110101': ['NW', 3, -1, 0],
-    '110101100': ['NW', 2, -1, 0],
-    '011110001': ['NW', 1, 0, 0],
-    '111001010': ['NE', 0, 2, 0],
-    '010011101': ['NE', 3, 3, 0],
-    '011101001': ['NE', 2, 3, 0],
-    '110011100': ['NE', 1, 2, 0],
-    '010100111': ['SW', 0, 0, 2],
-    '101110010': ['SW', 3, -1, 2],
-    '100101110': ['SW', 2, -1, 2],
-    '001110011': ['SW', 1, 0, 2],
-    '010001111': ['SE', 0, 2, 2],
-    '101011010': ['SE', 3, 3, 2],
-    '001101011': ['SE', 2, 3, 2],
-    '100011110': ['SE', 1, 2, 2],
-};
 
 const CONDUIT_OBJECT_LOOKAHEAD_GENS = 64;
 const MAX_REPEAT_TIME = 384;
@@ -62,17 +14,142 @@ const IDENTIFY_IDENTIFY_GENS = 30;
 const UPDATE_INTERVAL = 3;
 
 
+export type Direction = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
+export type ExpandedDirection = Direction | 'F*' | 'L*' | 'B*' | 'R*' | 'T';
+
+export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
+export type XWSSDirection = 'N' | 'S' | 'E' | 'W';
+
+export type CatalystType = 'block' | 'custom';
+
+export interface Catalyst {
+    type: CatalystType;
+    p: MAPPattern;
+    x: number;
+    y: number;
+}
+
+export interface Partial {
+    p: MAPPattern;
+    cats: Catalyst[];
+    p2Prev?: {
+        hash: number;
+        pop: number;
+        data: Uint8Array;
+    };
+}
+
+export interface ObjData {
+    p: MAPPattern;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    maxX: number;
+    maxY: number;
+    code?: string;
+}
+
+export interface ConduitObject {
+    obj: string;
+    dir: ExpandedDirection;
+    time: number;
+}
+
+export interface ConduitObjectInfo extends ConduitObject {
+    p: MAPPattern;
+    x: number;
+    y: number;
+}
+
+export interface Glider {
+    dir: GliderDirection;
+    lane: number;
+    timing: number;
+}
+
+export interface Conduit {
+    p: MAPPattern;
+    input: string;
+    inputTime?: number;
+    time: number;
+    output: ConduitObjectInfo[];
+    gliders: Glider[];
+    otherOutputs: (ObjData & {code: string})[];
+    repeatTime?: number;
+    repeatTimeWithFNG?: number;
+    overclock?: number[];
+}
+
+
+export const DIRECTION_COMBINE: {[K in Direction]: {[K in Direction]: Direction}} = {
+    F: {F: 'F', Fx: 'Fx', L: 'L', Lx: 'Lx', B: 'B', Bx: 'Bx', R: 'R', Rx: 'Rx'},
+    Fx: {F: 'Fx', Fx: 'F', L: 'Lx', Lx: 'L', B: 'Bx', Bx: 'B', R: 'Rx', Rx: 'R'},
+    L: {F: 'L', Fx: 'Lx', L: 'B', Lx: 'Bx', B: 'R', Bx: 'Rx', R: 'F', Rx: 'Fx'},
+    Lx: {F: 'Lx', Fx: 'L', L: 'Bx', Lx: 'B', B: 'Rx', Bx: 'R', R: 'Fx', Rx: 'F'},
+    B: {F: 'B', Fx: 'Bx', L: 'R', Lx: 'Rx', B: 'F', Bx: 'Fx', R: 'L', Rx: 'Lx'},
+    Bx: {F: 'Bx', Fx: 'B', L: 'Rx', Lx: 'R', B: 'Fx', Bx: 'F', R: 'Lx', Rx: 'L'},
+    R: {F: 'R', Fx: 'Rx', L: 'F', Lx: 'Fx', B: 'L', Bx: 'Lx', R: 'B', Rx: 'Bx'},
+    Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'F', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'B'},
+};
+
+export const CONDUIT_OBJECTS: {[key: string]: [name: string, symmetric: boolean, data: [code: string, centerX: number, centerY: number][]]} = {
+    'R': ['R-pentomino', false, [['472', 1, 1]]],
+    'B': ['B-heptomino', false, [['d72', 1, 1], ['pe4', 1, 2]]],
+    'H': ['herschel', false, [['74e', 1, 2]]],
+    'C': ['century', false, [['c97', 2, 1]]],
+    'D': ['dove', false, [['ci97', 2, 1]]],
+    'E': ['E-heptomino', false, [['1572', 2, 1]]],
+    'P': ['pi-heptomino', true, [['557', 1, 1], ['577', 1, 1]]],
+    'Q': ['queen bee', true, [['3us8z31', 2, 3]]],
+    'W': ['wing', false, [['c53', 1, 1]]],
+    'U': ['U-turner', false, [['77ac', 1, 1]]],
+    'L': ['LWSS', false, [['5889e', 4, 2]]],
+    'M': ['MWSS', false, [['aghgis', 5, 3]]],
+};
+
+const SMALL_OBJECT_DIMENSIONS: [number, number][] = [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [4, 1], [4, 2], [4, 3], [4, 4], [5, 1], [5, 2], [5, 3], [6, 1], [6, 2], [7, 1], [7, 2], [8, 1], [8, 2]];
+
+const GLIDERS: {[key: string]: [dir: GliderDirection, timing: number, x: number]} = {
+    '111100010': ['NW', 0, 0],
+    '010110101': ['NW', 3, -1],
+    '110101100': ['NW', 2, -1],
+    '011110001': ['NW', 1, 0],
+    '111001010': ['NE', 0, 0],
+    '010011101': ['NE', 3, 1],
+    '011101001': ['NE', 2, 1],
+    '110011100': ['NE', 1, 0],
+    '010100111': ['SW', 0, 0],
+    '101110010': ['SW', 3, -1],
+    '100101110': ['SW', 2, -1],
+    '001110011': ['SW', 1, 0],
+    '010001111': ['SE', 0, 0],
+    '101011010': ['SE', 3, 1],
+    '001101011': ['SE', 2, 1],
+    '100011110': ['SE', 1, 0],
+};
+
+const REVERSE_GLIDERS: {[key: string]: string} = {
+    
+}
+
+const INTENTIONAL_SPARKS = ['32e', '167', '296', '16', '3'];
+
+
 let base = createPattern('B3/S23') as MAPPattern;
 
 let knots = getKnots(base.trs);
 
 const BLOCK = base.loadApgcode('33').shrinkToFit();
 
+let reverseGliders: {[key: string]: MAPPattern} = {};
+for (let [key, value] of Object.entries(REVERSE_GLIDERS)) {
+    reverseGliders[key] = base.loadRLE(value);
+}
 
-let conduitObjects: {[key: string]: {p: MAPPattern, obj: string, dir: Direction, x: number, y: number, time: number}} = {};
-let reverseConduitObjects: {[key: string]: {code: string, p: MAPPattern, x: number, y: number}} = {};
+let conduitObjects: {[key: string]: ConduitObjectInfo} = {};
 
-function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, center: number): void {
+function addRegion(p: MAPPattern, obj: string, dir: ExpandedDirection, time: number, center: number): void {
     p = p.copy();
     let found = false;
     let x = 0;
@@ -98,16 +175,19 @@ function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, cen
         console.log(p.toRLE());
         throw new Error(`No center cell found for ${obj}${dir}${time}`);
     }
+    let value = {p, obj, dir, x, y, time};
     let code = p.toApgcode();
-    conduitObjects[code] = {p, obj, dir, x, y, time};
+    conduitObjects[code] = value;
     let key = obj + dir + time;
-    if (!(key in reverseConduitObjects)) {
-        reverseConduitObjects[key] = {code, p, x, y};
+    if (!(key in conduitObjects)) {
+        conduitObjects[key] = value;
     }
 }
 
 for (let key in CONDUIT_OBJECTS) {
-    for (let [code, x, y] of CONDUIT_OBJECTS[key][2]) {
+    let value = CONDUIT_OBJECTS[key];
+    let symmetric = value[1];
+    for (let [code, x, y] of value[2]) {
         let p = base.loadApgcode(code).shrinkToFit();
         p.xOffset = 0;
         p.yOffset = 0;
@@ -128,24 +208,35 @@ for (let key in CONDUIT_OBJECTS) {
             }
             let center = p.get(x2, y2);
             p.set(x2, y2, 2);
-            addRegion(p, key, 'F', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'R', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'B', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'L', i, center);
-            p.rotateRight();
-            p.flipVertical();
-            addRegion(p, key, 'Fx', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'Rx', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'Bx', i, center);
-            p.rotateRight();
-            addRegion(p, key, 'Lx', i, center);
-            p.rotateRight();
-            p.flipVertical();
+            if (symmetric) {
+                addRegion(p, key, 'F*', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'R*', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'B*', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'L*', i, center);
+                p.rotateRight();
+            } else {
+                addRegion(p, key, 'F', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'R', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'B', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'L', i, center);
+                p.rotateRight();
+                p.flipVertical();
+                addRegion(p, key, 'Fx', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'Rx', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'Bx', i, center);
+                p.rotateRight();
+                addRegion(p, key, 'Lx', i, center);
+                p.rotateRight();
+                p.flipVertical();
+            }
             p.set(x2, y2, center);
             p.runGeneration();
             p.shrinkToFit();
@@ -153,65 +244,147 @@ for (let key in CONDUIT_OBJECTS) {
     }
 }
 
-
-export type CatalystType = 'block' | 'custom';
-
-export interface Catalyst {
-    type: CatalystType;
-    p: MAPPattern;
-    x: number;
-    y: number;
+let smallObjectFates: {[key: string]: (false | string | (typeof GLIDERS)[string])[]} = {};
+for (let [width, height] of SMALL_OBJECT_DIMENSIONS) {
+    let size = height * width;
+    let p = base.copy();
+    let value: (typeof smallObjectFates)[string] = [];
+    for (let i = 0; i < 2**size; i++) {
+        p.width = width;
+        p.height = height;
+        p.size = size;
+        p.data = new Uint8Array(size);
+        for (let j = 0; j < size; j++) {
+            p.data[j] = (i & (1 << j)) >> j;
+        }
+        if (p.population < 3) {
+            value.push(false);
+            continue;
+        }
+        if (width === 3 && height === 3 && p.data.join('') in GLIDERS) {
+            value.push(GLIDERS[p.data.join('')]);
+            continue;
+        }
+        p.runGeneration();
+        if (p.population < 3) {
+            value.push(false);
+            continue;
+        } else if (p.width === width && p.height === height && p.data.every((x, j) => x === ((i & (1 << j)) >> j))) {
+            value.push(`xs${p.population}_${p.shrinkToFit().toCanonicalApgcode()}`);
+            continue;
+        }
+        p.runGeneration();
+        if (p.population < 3) {
+            value.push(false);
+            continue;
+        } else if (p.width === width && p.height === height && p.data.every((x, j) => x === ((i & (1 << j)) >> j))) {
+            value.push(`xp2_${p.shrinkToFit().toCanonicalApgcode(2)}`);
+            continue;
+        }
+        value.push(false);
+    }
+    smallObjectFates[String(width) + String(height)] = value;
 }
 
-export interface Partial {
-    p: MAPPattern;
-    cats: Catalyst[];
-    p2Prev?: {
-        hash: number;
-        pop: number;
-        data: Uint8Array;
-    };
+
+
+
+export function getObjectInfo(obj: string | ConduitObject): ConduitObjectInfo {
+    if (typeof obj === 'string') {
+        if (obj.startsWith('(')) {
+            return {obj, dir: 'F', time: 0, p: base.loadApgcode(obj.slice(1, -1)), x: 0, y: 0};
+        } else {
+            return conduitObjects[obj + 'F0'];
+        }
+    } else {
+        if (obj.obj.startsWith('(')) {
+            return Object.assign({}, obj, {p: base.loadApgcode(obj.obj.slice(1, -1)), x: 0, y: 0});
+        } else {
+            return conduitObjects[obj.obj + obj.dir + obj.time];
+        }
+    }
 }
 
-// export function createPartial(p: MAPPattern): Partial {
-
-// }
-
-
-export interface ObjData {
-    p: MAPPattern;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    maxX: number;
-    maxY: number;
-    code?: string;
+export function isSymmetric(obj: string): boolean {
+    if (obj.startsWith('(')) {
+        let p = base.loadApgcode(obj.slice(1, -1));
+        return findStaticSymmetry(p) !== 'n';
+    } else {
+        return CONDUIT_OBJECTS[obj][1];
+    }
 }
 
-export interface ConduitObject {
-    obj: string;
-    dir: Direction;
-    time: number;
+export function createPartial(p: MAPPattern, sepGens: number): [Partial, ConduitObject] {
+    let sep = new INTSeparator(p, knots);
+    for (let i = 0; i < sepGens; i++) {
+        sep.runGeneration();
+        sep.resolveKnots();
+    }
+    let startP: MAPPattern | undefined = undefined;
+    let cats: Catalyst[] = [];
+    for (let p of sep.getObjects()) {
+        let type = findType(p, IDENTIFY_IDENTIFY_GENS);
+        type.pops = [];
+        type.hashes = [];
+        type.phases = [];
+        if (type.disp) {
+            if (type.stabilizedAt > 0) {
+                continue;
+            } else if (type.disp[0] !== 0 || type.disp[1] !== 0) {
+                throw new Error('Spaceships are not supported');
+            } else if (type.period !== 1) {
+                throw new Error('Oscillators are not supported');
+            }
+            cats.push({type: 'custom', p, x: p.xOffset, y: p.yOffset});
+        } else {
+            if (startP !== undefined) {
+                if (INTENTIONAL_SPARKS.includes(p.toCanonicalApgcode())) {
+                    continue;
+                }
+                console.error('Error: More than 1 start object! (If there isn\'t actually more than 1, there is a bug, please report this to speedydelete)');
+                process.exit(1);
+            }
+            startP = p;
+        }
+    }
+    if (!startP) {
+        console.error('Error: No start object!');
+        process.exit(1);
+    }
+    let start: ConduitObject;
+    let code = startP.toApgcode();
+    if (code in conduitObjects) {
+        let data = conduitObjects[code];
+        if (!(data.dir === 'F' || data.dir === 'F*')) {
+            p = p.copy();
+            let dir = data.dir;
+            if (dir[0] === 'R') {
+                p.rotateLeft();
+            } else if (dir[0] === 'L') {
+                p.rotateRight();
+            } else if (dir[0] === 'B') {
+                p.rotate180();
+            } else if (dir[0] === 'T') {
+                p.rotateRight();
+            }
+            if (dir[1] === 'x') {
+                p.flipVertical();
+            }
+            return createPartial(p, sepGens);
+        }
+        start = {obj: data.obj, dir: data.dir, time: data.time};
+        p.xOffset -= startP.xOffset + data.x;
+        p.yOffset -= startP.yOffset + data.y;
+        for (let cat of cats) {
+            cat.x -= startP.xOffset + data.x;
+            cat.y -= startP.yOffset + data.y;
+        }
+    } else {
+        start = {obj: `(${code})`, dir: 'F', time: 0};
+    }
+    return [{p, cats}, start];
 }
 
-export interface Glider {
-    dir: GliderDirection;
-    lane: number;
-    timing: number;
-}
-
-export interface Conduit {
-    p: MAPPattern;
-    input: string;
-    output: (ConduitObject & {x: number, y: number, p: MAPPattern})[];
-    gliders: Glider[];
-    factoryTime?: number;
-    otherOutputs: (ObjData & {code: string})[];
-    repeatTime?: number;
-    repeatTimeWithFNG?: number;
-    overclock?: number[];
-}
 
 export function toRanges(data: number[]): string {
     data = data.sort((a, b) => a - b);
@@ -239,25 +412,14 @@ export function toRanges(data: number[]): string {
 
 export function getConduitName(data: Conduit): string {
     let out: string[] = [];
-    for (let i = 0; i < data.output.length; i++) {
-        let obj = data.output[i];
-        let value = obj.dir + obj.time;
-        if (!(data.input === 'H' && obj.obj === 'H')) {
-            value = data.input + value + obj.obj;
-        }
-        out.push(value);
+    for (let obj of data.output) {
+        out.push(obj.dir + obj.time + obj.obj);
     }
     for (let obj of data.gliders) {
-        let value = obj.dir + obj.lane + 'T' + obj.timing;
-        if (out.length === 0 && data.input !== 'H') {
-            value = data.input + value;
-        }
-        out.push(value);
-    }
-    if (out.length === 0 && data.factoryTime !== undefined) {
-        out.push(data.input + data.factoryTime);
+        out.push(obj.dir + obj.lane + 'T' + obj.timing);
     }
     if (data.otherOutputs.length > 0) {
+        out.push('X' + data.time);
         let counts: {[key: string]: number} = {};
         for (let obj of data.otherOutputs) {
             if (obj.code in counts) {
@@ -270,19 +432,38 @@ export function getConduitName(data: Conduit): string {
             out.push(`${count === 1 ? '' : count + 'x'}(${obj})`);   
         }
     }
-    return out.join('_');
+    if (out.length === 0 && data.time !== undefined) {
+        return data.input + 'X' + data.time;
+    } else {
+        return data.input + out.join('_');
+    }
 }
 
-function worksAtRepeatTime(data: Conduit, start: MAPPattern, centerX: number, centerY: number, rt: number, maxTime: number, removeFNG?: number): boolean {
-    let p = data.p.copy();
+export function removeHIfPossible(name: string): string {
+    if (!name.startsWith('H')) {
+        return name;
+    }
+    let index = name.indexOf('_');
+    if (name[index - 1] === 'H') {
+        return name.slice(1, index - 1) + name.slice(index);
+    } else if (name.startsWith('HNW') || name.startsWith('HNE') || name.startsWith('HSW') || name.startsWith('HSE')) {
+        return name.slice(1);
+    } else {
+        return name;
+    }
+}
+
+
+function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObjectInfo, rt: number, removeFNG?: number): boolean {
+    let p = data.p.copy(); 
     for (let i = 0; i < rt; i++) {
         p.runGeneration();
         p.shrinkToFit();
-        if (i > maxTime) {
+        if (i > data.time) {
             continue;
         }
         if (removeFNG !== undefined && p.generation === removeFNG) {
-            let i = (-p.yOffset - 4) * p.height - p.xOffset - 1;
+            let i = (-p.yOffset - 3) * p.width - p.xOffset - 1;
             p.data[i + 1] = 0;
             p.data[i + p.width] = 0;
             p.data[i + 2 * p.width] = 0;
@@ -290,14 +471,10 @@ function worksAtRepeatTime(data: Conduit, start: MAPPattern, centerX: number, ce
             p.data[i + 2 * p.width + 2] = 0;
         }
         for (let obj of data.output) {
-            if (obj.time === p.generation) {
-                let x = obj.x - p.xOffset;
-                let y = obj.y - p.yOffset;
-                let value = reverseConduitObjects[obj.obj + 'F0'];
-                if (value) {
-                    x -= value.x;
-                    y -= value.y;
-                }
+            if (p.generation === obj.time) {
+                let value = conduitObjects[obj.obj + obj.dir + '0'];
+                let x = obj.x - value.x - p.xOffset;
+                let y = obj.y - value.y - p.yOffset;
                 let i = 0;
                 for (let y2 = 0; y2 < obj.p.height; y2++) {
                     let loc = (y + y2) * p.width + x;
@@ -310,30 +487,70 @@ function worksAtRepeatTime(data: Conduit, start: MAPPattern, centerX: number, ce
                 }
             }
         }
-    }
-    let x = -p.xOffset - centerX;
-    let y = -p.yOffset - centerY;
-    if (x < 0 || x + start.width >= p.width || y < 0 || y + start.height >= p.height) {
-        p.expand(
-            y < 0 ? -y : 0,
-            y + start.height >= p.height ? y + start.height - p.height : 0,
-            x < 0 ? -x : 0,
-            x + start.width >= p.width ? x + start.width - p.width : 0,
-        );
-    }
-    p.insert(start, -p.xOffset - centerX, -p.yOffset - centerY);
-    let found = 0;
-    for (let i = 0; i <= maxTime; i++) {
-        p.runGeneration();
-        for (let obj of data.output) {
-            if (obj.time === p.generation || obj.time === p.generation - rt) {
+        if (p.generation === data.time) {
+            for (let obj of data.otherOutputs) {
                 let x = obj.x - p.xOffset;
                 let y = obj.y - p.yOffset;
-                let value = reverseConduitObjects[obj.obj + 'F0'];
-                if (value) {
-                    x -= value.x;
-                    y -= value.y;
+                let i = 0;
+                for (let y2 = 0; y2 < obj.p.height; y2++) {
+                    let loc = (y + y2) * p.width + x;
+                    for (let x2 = 0; x2 < obj.p.width; x2++) {
+                        if (obj.p.data[i++]) {
+                            p.data[loc] = 0;
+                        }
+                        loc++;
+                    }
                 }
+            }
+            for (let obj of data.gliders) {
+                
+            }
+            // CODE TO REMOVE GLIDERS HERE
+        }
+    }
+    let x = -p.xOffset - start.x;
+    let y = -p.yOffset - start.y;
+    if (x < 0 || x + start.p.width >= p.width || y < 0 || y + start.p.height >= p.height) {
+        p.expand(
+            y < 0 ? -y : 0,
+            y + start.p.height >= p.height ? y + start.p.height - p.height : 0,
+            x < 0 ? -x : 0,
+            x + start.p.width >= p.width ? x + start.p.width - p.width : 0,
+        );
+    }
+    p.insert(start.p, -p.xOffset - start.x, -p.yOffset - start.y);
+    let found = 0;
+    for (let i = 0; i <= data.time; i++) {
+        p.runGeneration();
+        p.shrinkToFit();
+        for (let obj of data.output) {
+            if (p.generation === obj.time || p.generation === obj.time + rt) {
+                let value = conduitObjects[obj.obj + obj.dir + '0'];
+                let x = obj.x - value.x - p.xOffset;
+                let y = obj.y - value.y - p.yOffset;
+                if (x < 0 || y < 0 || x + obj.p.width > p.width || y + obj.p.height > p.height) {
+                    return false;
+                }
+                let i = 0;
+                for (let y2 = 0; y2 < obj.p.height; y2++) {
+                    let loc = (y + y2) * p.width + x;
+                    for (let x2 = 0; x2 < obj.p.width; x2++) {
+                        if (obj.p.data[i] !== p.data[loc]) {
+                            return false;
+                        }
+                        i++;
+                        p.data[loc++] = 0;
+                    }
+                }
+                if (p.generation === obj.time + rt) {
+                    found++;
+                }
+            }
+        }
+        if (p.generation === data.time) {
+            for (let obj of data.otherOutputs) {
+                let x = obj.x - p.xOffset;
+                let y = obj.y - p.yOffset;
                 let i = 0;
                 for (let y2 = 0; y2 < obj.p.height; y2++) {
                     let loc = (y + y2) * p.width + x;
@@ -347,59 +564,42 @@ function worksAtRepeatTime(data: Conduit, start: MAPPattern, centerX: number, ce
                 }
                 found++;
             }
+
+            // CODE TO REMOVE GLIDERS HERE
         }
     }
-    return found === data.output.length;
+    return Boolean(found === data.output.length + data.gliders.length + data.otherOutputs.length && catalystsAreFine(p, cats));
 }
 
-function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['output'], gliders: Glider[], otherOutputs: (ObjData & {code: string})[], reconstruct: boolean = false, factoryTime?: number): Conduit {
+function getConduitInfo(data: Partial, input: ConduitObject, time: number, output: Conduit['output'], gliders: Glider[], otherOutputs: (ObjData & {code: string})[], reconstruct: boolean = false): Conduit {
     for (let x of output) {
-        x.dir = DIRECTION_COMBINE[input.dir][x.dir];
         x.time += input.time;
     }
     for (let x of gliders) {
         x.timing += input.time;
     }
-    let start: MAPPattern;
-    let centerX = 0;
-    let centerY = 0;
-    if (input.obj.startsWith('(')) {
-        start = base.loadApgcode(input.obj.slice(1, input.obj.indexOf(')'))).shrinkToFit();
-    } else {
-        let data = reverseConduitObjects[input.obj + input.dir + input.time];
-        start = data.p;
-        centerX = data.x;
-        centerY = data.y;
-    }
+    let start = getObjectInfo(input);
     let p: MAPPattern;
     if (reconstruct) {
         // we need to reconstruct the conduit from the catalysts
-        let minX = start.xOffset + centerX;
-        let minY = start.yOffset + centerY;
-        let maxX = minX + start.width;
-        let maxY = minY + start.height;
-        for (let obj of data.cats) {
-            if (obj.x < minX) {
-                minX = obj.x;
-            }
-            if (obj.y < minY) {
-                minY = obj.y;
-            }
-            if (obj.x + obj.p.width > maxX) {
-                maxX = obj.x + obj.p.width;
-            }
-            if (obj.y + obj.p.height > maxY) {
-                maxY = obj.x + obj.p.width;
-            }
+        let minX = -start.x;
+        let minY = -start.y;
+        let maxX = minX + start.p.width;
+        let maxY = minY + start.p.height;
+        for (let cat of data.cats) {
+            minX = Math.min(minX, cat.x);
+            minY = Math.min(minY, cat.y);
+            maxX = Math.max(maxX, cat.x + cat.p.width);
+            maxY = Math.max(maxY, cat.y + cat.p.height);
         }
         p = base.copy();
         p.height = maxY - minY + 1;
         p.width = maxX - minX + 1;
         p.size = p.height * p.width;
         p.data = new Uint8Array(p.size);
-        p.xOffset = -(start.xOffset - minX + 2 * centerX);
-        p.yOffset = -(start.yOffset - minY + 2 * centerY);
-        p.insert(start, -p.xOffset - centerX, -p.yOffset - centerY);
+        p.xOffset = minX;
+        p.yOffset = minY;
+        p.insert(start.p, -minX - start.x, -minY - start.y);
         for (let obj of data.cats) {
             p.insert(obj.p, obj.x - minX, obj.y - minY);
         }
@@ -407,15 +607,18 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
     } else {
         p = data.p;
     }
-    let out: Conduit = {p, input: input.obj, output, gliders, otherOutputs};
-    if (factoryTime) {
-        out.factoryTime = factoryTime;
+    let out: Conduit = {p, input: input.obj, time, output, gliders, otherOutputs};
+    if (input.time !== 0) {
+        out.inputTime = input.time;
     }
     // now we find the repeat time and determine overclocks
-    let maxTime = Math.max(...output.map(x => x.time));
-    let worksAt: boolean[] = [];
+    let removeFNG: number | undefined = undefined;
+    if (input.obj === 'H' && gliders.some(x => x.dir === 'SW' && x.lane === -2 && x.timing === 21)) {
+        removeFNG = 21 - input.time;
+    }
+    let worksAt: boolean[] = [false];
     for (let rt = 1; rt < MAX_REPEAT_TIME; rt++) {
-        worksAt.push(worksAtRepeatTime(out, start, centerX, centerY, rt, maxTime));
+        worksAt.push(worksAtRepeatTime(out, data.cats, start, rt, removeFNG));
     }
     let rt = worksAt.length - 1;
     if (worksAt[rt]) {
@@ -426,10 +629,9 @@ function getConduitInfo(data: Partial, input: ConduitObject, output: Conduit['ou
         }
         out.repeatTime = rt;
         out.overclock = worksAt.slice(0, rt).map((x, i) => x ? i : -1).filter(x => x !== -1);
-        if (input.obj === 'H' && gliders.some(x => x.dir === 'SW' && x.lane === -2 && x.timing === 21)) {
-            let offset = 21 - input.time;
+        if (removeFNG !== undefined) {
             for (; rt > 0; rt--) {
-                if (!worksAtRepeatTime(out, start, centerX, centerY, rt, maxTime, offset)) {
+                if (!worksAtRepeatTime(out, data.cats, start, rt)) {
                     break;
                 }
             }
@@ -533,11 +735,6 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         }
     }
     p.shrinkToFit();
-    let input = reverseConduitObjects[start.obj + start.dir + start.time];
-    if (input) {
-        p.xOffset -= input.x * 2;
-        p.yOffset -= input.y * 2;
-    }
     // now we check if it is a pure conduit
     let code = p.toApgcode();
     if (code in conduitObjects) {
@@ -546,7 +743,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         y += p.yOffset;
         time = p.generation - time;
         if (!(x === 0 && y === 0 && time === 0)) {
-            return getConduitInfo(data, start, [{obj, dir, time, x, y, p: q}], [], [], true);
+            return getConduitInfo(data, start, time, [{obj, dir, time, x, y, p: q}], [], [], true);
         }
     }
     // first we run object separation and get a list of stable and unstable objects
@@ -562,43 +759,41 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
     let gliders: Glider[] = [];
     for (let p of sep.getObjects()) {
         let code: string | undefined = undefined;
-        let height = p.height;
-        let width = p.width;
-        let data = p.data;
-        let pop = p.population;
-        let value: (typeof GLIDERS)[string];
-        // we do quick checks for common objects to speed it up a bit
-        if (height === 2 && width === 2 && pop === 4) {
-            code = 'xs4_33';
-        } else if (pop === 3 && ((height === 1 && width === 3) || (height === 3 && width === 1))) {
-            code = 'xp2_7';
-        } else if (pop === 6 && p.size === 12 && data[1] && data[10] && ((height === 4 && width === 3 && data[3] && data[5] && data[6] && data[8]) || (data[2] && data[4] && data[7] && data[9]))) {
-            code = 'xs6_696';
-        } else if (height === 3 && width === 3 && pop === 5 && (value = GLIDERS[data.join('')])) {
-            let [dir, timing, x, y] = value;
-            x += p.xOffset;
-            y += p.yOffset;
-            timing += sep.generation + sepGens;
-            console.log(dir, x, y, timing);
-            let lane: number;
-            if (dir === 'NW') {
-                lane = x - y;
-                timing -= x + y;
-            } else if (dir === 'NE') {
-                lane = x + y;
-                timing -= (y - x) * 2;
-            } else if (dir === 'SW') {
-                lane = x + y;
-                timing -= (y - x) * 2;
-            } else {
-                lane = x - y;
-                timing -= x + y;
+        let key = String(p.width) + String(p.height);
+        if (key in smallObjectFates) {
+            let key2 = 0;
+            for (let i = 0; i < p.data.length; i++) {
+                key2 |= p.data[i] << i;
             }
-            gliders.push({dir, lane, timing});
-            continue;
-        } else if (height === 3 && width === 3 && pop < 7 && data[1] && data[3] && data[5] && data[7]) {
-            code = pop === 5 ? 'xs5_253' : (pop === 6 ? 'xs6_356' : 'xs4_252');
+            let value = smallObjectFates[key][key2];
+            if (value) {
+                if (typeof value === 'string') {
+                    code = value;
+                } else {
+                    let [dir, timing, xAdjust] = value;
+                    let x = p.xOffset + 1 + xAdjust;
+                    let y = p.yOffset + 1;
+                    timing += sep.generation - sepGens;
+                    let lane: number;
+                    if (dir === 'NW') {
+                        lane = x - y;
+                        timing += x * 4;
+                    } else if (dir === 'NE') {
+                        lane = x + y;
+                        timing -= x * 4;
+                    } else if (dir === 'SW') {
+                        lane = x + y;
+                        timing += x * 4;
+                    } else {
+                        lane = x - y;
+                        timing -= x * 4;
+                    }
+                    gliders.push({dir, lane, timing});
+                    continue;
+                }
+            }
         } else {
+            let pop = p.population;
             let q = p.copy();
             q.runGeneration();
             if (p.height === q.height && p.width === q.width && q.population === pop && q.data.every((x, i) => x === p.data[i])) {
@@ -634,7 +829,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
     }
     // if there are no unstables then it's a factory
     if (unstableCount === 0) {
-        return getConduitInfo(data, start, [], gliders, objs as (ObjData & {code: string})[], true, p.generation);
+        return getConduitInfo(data, start, sep.generation, [], gliders, objs as (ObjData & {code: string})[], true);
     }
     // now we check every combination and see if it's a conduit
     for (let groups of partitions(objs)) {
@@ -664,7 +859,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
             }
         }
         if (!found) {
-            return getConduitInfo(data, start, outputs, gliders, otherOutputs, true);
+            return getConduitInfo(data, start, sep.generation, outputs, gliders, otherOutputs, true);
         }
     }
     return false;
@@ -878,7 +1073,7 @@ export function searchSingleObject(data: Partial, options: SearchOptions): false
         let x = checkConduit(data, 0, options.start, options.maxStables, options.maxUnstables);
         if (x) {
             console.log(`\x1b[92mConduit found:\x1b[0m`);
-            let str = getConduitName(x);
+            let str = removeHIfPossible(getConduitName(x));
             if (x.repeatTime) {
                 str += `, rt ${x.repeatTime}`;
                 if (x.repeatTimeWithFNG || x.overclock) {
@@ -981,60 +1176,13 @@ if (args[0] === 'identify') {
         console.error(`Error: Invalid value for sep-gens: '${args[2]}', must be a number`);
         process.exit(1);
     }
-    let sep = new INTSeparator(p, knots);
-    for (let i = 0; i < sepGens; i++) {
-        sep.runGeneration();
-        sep.resolveKnots();
-    }
-    let startP: MAPPattern | undefined = undefined;
-    let cats: Catalyst[] = [];
-    for (let p of sep.getObjects()) {
-        let type = findType(p, IDENTIFY_IDENTIFY_GENS);
-        type.pops = [];
-        type.hashes = [];
-        type.phases = [];
-        if (type.disp) {
-            if (type.stabilizedAt > 0) {
-                continue;
-            } else if (type.disp[0] !== 0 || type.disp[1] !== 0) {
-                console.error('Error: Spaceships are not supported');
-                process.exit(1);
-            } else if (type.period !== 1) {
-                console.error('Error: Oscillators are not supported');
-                process.exit(1);
-            }
-            cats.push({type: 'custom', p, x: p.xOffset, y: p.yOffset});
-        } else {
-            if (startP !== undefined) {
-                console.error('Error: More than 1 start object! (If there isn\'t actually more than 1, there is a bug, please report this to speedydelete)');
-                process.exit(1);
-            }
-            startP = p;
-        }
-    }
-    if (!startP) {
-        console.error('Error: No start object!');
-        process.exit(1);
-    }
-    let start: ConduitObject;
-    let code = startP.toApgcode();
-    if (code in conduitObjects) {
-        let data = conduitObjects[code];
-        start = data;
-        p.xOffset -= startP.xOffset - data.x;
-        p.yOffset -= startP.yOffset - data.y;
-        for (let cat of cats) {
-            cat.x -= startP.xOffset - data.x;
-            cat.y -= startP.yOffset - data.y;
-        }
-    } else {
-        start = {obj: `(${code})`, dir: 'F', time: 0};
-    }
+    let [partial, start] = createPartial(p, sepGens);
+    p = partial.p;
     for (let i = 0; i < IDENTIFY_MAX_TIME; i++) {
-        if (catalystsAreFine(p, cats) === 'restored') {
-            let value = checkConduit({p, cats}, IDENTIFY_SEP_GENS, start);
+        if (catalystsAreFine(p, partial.cats) === 'restored') {
+            let value = checkConduit(partial, IDENTIFY_SEP_GENS, start);
             if (value) {
-                console.log(`\x1b[92m${getConduitName(value)}\x1b[0m`);
+                console.log(`\x1b[92m${removeHIfPossible(getConduitName(value))}\x1b[0m`);
                 if (value.input.startsWith('(')) {
                     console.log(`Input: ${value.input}`);
                 } else {
