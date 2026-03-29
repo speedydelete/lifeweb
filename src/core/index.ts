@@ -55,7 +55,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
         try {
             let out = createHROTPattern(rule, height, width, data);
             if (typeof out === 'string') {
-                rule = out;
+                return createPattern(out, namedRules, height, width, data, prevName);
             } else {
                 return out;
             }
