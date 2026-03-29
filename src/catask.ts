@@ -1004,7 +1004,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                     x += obj.x;
                     y += obj.y;
                     if (time >= 0) {
-                        let time2 = time = (p.generation + (sepGens + 1)) - time;
+                        let time2 = (p.generation + (sepGens + 1)) - time;
                         if (x === 0 && y === 0 && time2 === 0) {
                             found = true;
                             break;
