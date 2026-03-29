@@ -78,7 +78,7 @@ export interface Conduit {
     input: string;
     inputTime?: number;
     time: number;
-    output: ConduitObjectInfo[];
+    output: (ConduitObjectInfo & {objTime: number})[];
     gliders: Glider[];
     otherOutputs: (ObjData & {code: string})[];
     repeatTime?: number;
@@ -119,7 +119,13 @@ export const CONDUIT_OBJECTS: {[key: string]: [name: string, code: string, cente
     '(TEARDROP)': ['teardrop', '699e', 3, 3, 'D2x'],
     '(LONGBUN)': ['long bun', '25556', 2, 1, 'C1'],
     '(PROC)': ['procrastinator', '46232', 2, 1, 'C1'],
-    '(IWONAAR)': ['Iwona active region', '3t', 1, 1, 'C1'],
+    '(IWONA)': ['Iwona active region', '3t', 1, 1, 'C1'],
+    '(RT)': ['R-turner', '2598c', 1, 1, 'C1'],
+    '(DIEHARD)': ['original die hard', '207z062', 2, 1, 'C1'],
+    '(JASON)': ['object hassled in Jason\'s p22', '4ahiic', 2, 2, 'C1'],
+    '(BUTTERFLY)': ['butterfly', '8ca7', 3, 3, 'D2x'],
+    '(O2)': ['octomino 2', '8d72', 2, 1, 'C1'],
+    '(KAREL)': ['object hassled in Karel\'s p177', 'sid', 1, 1, 'C1'],
 };
 
 const OTHER_CONDUIT_OBJECTS: {[key: string]: [value: string, time: number, x: number, y: number, symmetry: Symmetry, gens: number]} = {
@@ -474,7 +480,17 @@ export function toRanges(data: number[]): string {
 export function getConduitName(data: Conduit): string {
     let out: string[] = [];
     for (let obj of data.output) {
-        out.push(obj.dir + obj.time + obj.obj);
+        let objStr: string;
+        if (obj.objTime !== 0) {
+            if (obj.obj.startsWith('(')) {
+                objStr = `(${obj.obj.slice(1, -1)}+${obj.objTime})`;
+            } else {
+                objStr = `(${obj.obj}+${obj.objTime})`;
+            }
+        } else {
+            objStr = obj.obj;
+        }
+        out.push(obj.dir + obj.time + objStr);
     }
     for (let obj of data.gliders) {
         out.push(obj.dir + obj.lane + 'T' + obj.timing);
@@ -880,9 +896,11 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         let {p: q, obj, dir, x, y, time} = conduitObjects[code];
         x += p.xOffset;
         y += p.yOffset;
-        time = p.generation - time;
-        if (!(x === 0 && y === 0 && time === 0)) {
-            return getConduitInfo(data, start, time, [{obj, dir, time, x, y, p: q}], [], [], true);
+        if (time >= 0) {
+            let time2 = p.generation - time;
+            if (!(x === 0 && y === 0 && time2 === 0)) {
+                return getConduitInfo(data, start, time, [{obj, dir, time: time2, x, y, p: q, objTime: time}], [], [], true);
+            }
         }
     }
     // first we run object separation and get a list of stable and unstable objects
@@ -985,12 +1003,16 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                     let {p: q, obj: obj2, dir, x, y, time} = conduitObjects[code];
                     x += obj.x;
                     y += obj.y;
-                    time = (p.generation + (sepGens + 1)) - time;
-                    if (x === 0 && y === 0 && time === 0) {
-                        found = true;
-                        break;
+                    if (time >= 0) {
+                        let time2 = time = (p.generation + (sepGens + 1)) - time;
+                        if (x === 0 && y === 0 && time2 === 0) {
+                            found = true;
+                            break;
+                        }
+                        outputs.push({obj: obj2, dir, time: time2, p: q, x, y, objTime: time});
+                    } else {
+                        continue;
                     }
-                    outputs.push({obj: obj2, dir, time, p: q, x, y});
                 } else {
                     found = true;
                     break;
