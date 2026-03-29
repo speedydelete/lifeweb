@@ -3,6 +3,7 @@
 
 import {RuleError} from './util.js';
 import {CoordPattern, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
+import {unparseMAP} from './map.js';
 
 
 /** Parses a HROT range, such as "3-4" or "1". */
@@ -95,6 +96,9 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             r = parseInt(section.slice(1));
         } else if (section[0] === 'C') {
             c = parseInt(section.slice(1));
+            if (c === 0) {
+                c = 2;
+            }
         } else if (section[0] === 'S') {
             sFound = true;
             s.push(...parseHROTRange(section.slice(1)));
@@ -225,8 +229,24 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     }
     if (r === 1) {
         if (n2) {
-
-        } else if (!n2) {
+            let trs = new Uint8Array(512);
+            for (let i = 0; i < 512; i++) {
+                let value = n2[2][2] * (i & 1) + n2[2][1] * ((i >> 1) & 1) + n2[2][0] * ((i >> 2) & 1) + n2[1][2] * ((i >> 3) & 1) + n2[1][0] * ((i >> 5) & 1) + n2[2][0] * ((i >> 6) & 1) + n2[1][0] * ((i >> 7) & 1) + n2[0][0] * ((i >> 8) & 1);
+                if (i & (1 << 4)) {
+                    if (value in s) {
+                        trs[i] = 1;
+                    }
+                } else if (value in b) {
+                    trs[i] = 1;
+                }
+            }
+            return 'MAP' + unparseMAP(trs);
+        } else {
+            if (c === 2) {
+                return `B${b.join('')}/S${s.join('')}`;
+            } else {
+                return `${s.join('')}/${b.join('')}/${c}`;
+            }
 
         }
     }
