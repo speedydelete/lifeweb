@@ -522,7 +522,13 @@ export function removeHIfPossible(name: string): string {
         return name;
     }
     let index = name.indexOf('_');
-    if (name[index - 1] === 'H') {
+    if (index === -1) {
+        if (name[name.length - 1] === 'H') {
+            return name.slice(1, -1);
+        } else {
+            return name;
+        }
+    } else if (name[index - 1] === 'H') {
         return name.slice(1, index - 1) + name.slice(index);
     } else if (name.startsWith('HNW') || name.startsWith('HNE') || name.startsWith('HSW') || name.startsWith('HSE')) {
         return name.slice(1);
