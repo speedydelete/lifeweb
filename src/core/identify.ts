@@ -563,6 +563,8 @@ export function findStaticSymmetry(p: Pattern): StaticSymmetry {
             } else {
                 return p.width % 2 === 1 ? '+-e' : '+k';
             }
+        } else if (p.copy().flipDiagonal().isEqual(p)) {
+            return p.width % 2 === 1 ? 'xc' : 'xk';
         } else {
             if (p.height % 2 === 1) {
                 return p.width % 2 === 1 ? '.c' : '.|e';

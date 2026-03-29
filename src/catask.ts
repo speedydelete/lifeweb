@@ -1,15 +1,16 @@
 
-import {MAPPattern, findType, findStaticSymmetry, getKnots, INTSeparator, createPattern} from './core/index.js';
+import {MAPPattern, findType, getKnots, INTSeparator, createPattern} from './core/index.js';
 
 
 const VERSION = '1.0';
 
-const CONDUIT_OBJECT_LOOKAHEAD_GENS = 64;
-const MAX_REPEAT_TIME = 384;
+const CONDUIT_OBJECT_LOOKAHEAD_GENS = 32;
+
+const MAX_REPEAT_TIME = 512;
 
 const CREATE_PARTIAL_MAX_SEP_GENS = 16;
 
-const IDENTIFY_MAX_TIME = 384;
+const IDENTIFY_MAX_TIME = 512;
 const IDENTIFY_CONDUIT_SEP_GENS = 0;
 const IDENTIFY_IDENTIFY_GENS = 30;
 
@@ -17,12 +18,14 @@ const UPDATE_INTERVAL = 3;
 
 
 export type Direction = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
-export type ExpandedDirection = Direction | 'F*' | 'L*' | 'B*' | 'R*' | 'T';
+export type ExpandedDirection = Direction | 'F*' | 'L*' | 'B*' | 'R*' | 'T' | '*';
 
 export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
 export type XWSSDirection = 'N' | 'S' | 'E' | 'W';
 
-export type CatalystType = 'block' | 'custom';
+export type Symmetry = 'C1' | 'C2' | 'C4' | 'D2+' | 'D2x' | 'D4+' | 'D4x' | 'D8';
+
+export type CatalystType = 'block' | 'custom' | `custom_p${number}`;
 
 export interface Catalyst {
     type: CatalystType;
@@ -95,25 +98,35 @@ export const DIRECTION_COMBINE: {[K in Direction]: {[K in Direction]: Direction}
     Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'F', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'B'},
 };
 
-export const CONDUIT_OBJECTS: {[key: string]: [name: string, code: string, centerX: number, centerY: number, symmetric: boolean]} = {
-    'R': ['R-pentomino', '472', 1, 1, false],
-    'B': ['B-heptomino', 'd72', 1, 1, false],
-    'H': ['herschel', '74e', 1, 2, false],
-    'C': ['century', 'c97', 2, 1, false],
-    'D': ['dove', 'ci97', 2, 1, false],
-    'E': ['E-heptomino', '1572' , 2, 1, false],
-    'P': ['pi-heptomino', '557', 1, 1, true],
-    'Q': ['queen bee', '3us8z31', 2, 3, true],
-    'W': ['wing', 'c53', 1, 1, false],
-    'U': ['U-turner', '77ac', 1, 1, false],
-    'L': ['LWSS', '5889e', 4, 2, false],
-    'M': ['MWSS', 'aghgis', 5, 3, false],
+export const CONDUIT_OBJECTS: {[key: string]: [name: string, code: string, centerX: number, centerY: number, symmetry: Symmetry]} = {
+    'R': ['R-pentomino', '472', 1, 1, 'C1'],
+    'B': ['B-heptomino', 'd72', 1, 1, 'C1'],
+    'H': ['herschel', '74e', 1, 2, 'C1'],
+    'C': ['century', 'c97', 2, 1, 'C1'],
+    'D': ['dove', 'ci97', 2, 1, 'C1'],
+    'E': ['E-heptomino', '1572' , 2, 1, 'C1'],
+    'I': ['I-heptomino', 'c463', 1, 2, 'C1'],
+    // 'J': ['blonk-tie', ],
+    // 'O': ['two-glider octomino', ],
+    'P': ['pi-heptomino', '557', 1, 1, 'D2+'],
+    'Q': ['queen bee', '3us8z31', 2, 3, 'D2+'],
+    'W': ['wing', 'c53', 1, 1, 'C1'],
+    'U': ['U-turner', '77ac', 1, 1, 'C1'],
+    '(TL)': ['traffic light', '757', 1, 1, 'D8'],
+    '(HF)': ['honey farm', 's21112sz012221', 3, 3, 'D8'],
+    '(LOM)': ['lumps of muck', 'c63', 1, 1, 'C2'],
+    '(FLEET)': ['fleet', '799e', 1, 1, 'D4x'],
+    '(BAKERY)': ['bakery', 's211hez0111', 2, 2, 'D4x'],
+    '(TEARDROP)': ['teardrop', '699e', 3, 3, 'D2x'],
+    '(LONGBUN)': ['long bun', '25556', 2, 1, 'C1'],
+    '(PROC)': ['procrastinator', '46232', 2, 1, 'C1'],
+    '(IWONAAR)': ['Iwona active region', '3t', 1, 1, 'C1'],
 };
 
-const OTHER_CONDUIT_OBJECTS: {[key: string]: [value: string, time: number, x: number, y: number, symmetric: boolean, gens: number]} = {
-    'pe4': ['B', 0, 1, 2, false, 0],
-    '2eehfd': ['H', -5, 4, 3, false, 4],
-    '577': ['P', 0, 1, 1, false, 2],
+const OTHER_CONDUIT_OBJECTS: {[key: string]: [value: string, time: number, x: number, y: number, symmetry: Symmetry, gens: number]} = {
+    'pe4': ['B', 0, 1, 2, 'C1', 0],
+    '2eehfd': ['H', -5, 4, 3, 'C1', 4],
+    '577': ['P', 0, 1, 1, 'C1', 2],
 };
 
 const SMALL_OBJECT_DIMENSIONS: [number, number][] = [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [4, 1], [4, 2], [4, 3], [4, 4], [5, 1], [5, 2], [5, 3], [6, 1], [6, 2], [7, 1], [7, 2], [8, 1], [8, 2]];
@@ -200,14 +213,16 @@ function addRegion(p: MAPPattern, obj: string, dir: ExpandedDirection, time: num
     }
     let value = {p, obj, dir, x, y, time};
     let code = p.toApgcode();
-    conduitObjects[code] = value;
+    if (!(code in conduitObjects)) {
+        conduitObjects[code] = value;
+    }
     let key = obj + dir + time;
     if (!(key in conduitObjects)) {
         conduitObjects[key] = value;
     }
 }
 
-function addConduitObject(key: string, code: string, x: number, y: number, symmetric: boolean, gens: number = CONDUIT_OBJECT_LOOKAHEAD_GENS, timeOffset: number = 0): void {
+function addConduitObject(key: string, code: string, x: number, y: number, symmetry: Symmetry, gens: number = CONDUIT_OBJECT_LOOKAHEAD_GENS, timeOffset: number = 0): void {
     let p = base.loadApgcode(code).shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
@@ -228,7 +243,9 @@ function addConduitObject(key: string, code: string, x: number, y: number, symme
         }
         let center = p.get(x2, y2);
         p.set(x2, y2, 2);
-        if (symmetric) {
+        if (symmetry === 'D8') {
+            addRegion(p, key, '*', i + timeOffset, center);
+        } else if (symmetry === 'D2+') {
             addRegion(p, key, 'F*', i + timeOffset, center);
             p.rotateRight();
             addRegion(p, key, 'R*', i + timeOffset, center);
@@ -316,26 +333,47 @@ for (let [width, height] of SMALL_OBJECT_DIMENSIONS) {
 
 export function getObjectInfo(obj: string | ConduitObject): ConduitObjectInfo {
     if (typeof obj === 'string') {
-        if (obj.startsWith('(')) {
-            return {obj, dir: 'F', time: 0, p: base.loadApgcode(obj.slice(1, -1)), x: 0, y: 0};
-        } else {
+        if ((obj + 'F0') in conduitObjects) {
             return conduitObjects[obj + 'F0'];
+        } else {
+            return {obj, dir: 'F', time: 0, p: base.loadApgcode(obj.slice(1, -1)), x: 0, y: 0};
         }
     } else {
-        if (obj.obj.startsWith('(')) {
-            return Object.assign({}, obj, {p: base.loadApgcode(obj.obj.slice(1, -1)), x: 0, y: 0});
+        let key = obj.obj + obj.dir + obj.time;
+        if (key in conduitObjects) {
+            return conduitObjects[key];
         } else {
-            return conduitObjects[obj.obj + obj.dir + obj.time];
+            return Object.assign({}, obj, {p: base.loadApgcode(obj.obj.slice(1, -1)), x: 0, y: 0});
         }
     }
 }
 
-export function isSymmetric(obj: string): boolean {
-    if (obj.startsWith('(')) {
-        let p = base.loadApgcode(obj.slice(1, -1));
-        return findStaticSymmetry(p) !== 'n';
-    } else {
+export function getSymmetry(obj: string): Symmetry {
+    if (obj in CONDUIT_OBJECTS) {
         return CONDUIT_OBJECTS[obj][4];
+    } else {
+        let p = base.loadApgcode(obj.slice(1, -1));
+        if (p.copy().rotate180().isEqual(p)) {
+            if (p.copy().rotateRight().isEqual(p)) {
+                if (p.copy().flipHorizontal().isEqual(p)) {
+                    return 'D8';
+                } else {
+                    return 'C4';
+                }
+            } else if (p.copy().flipHorizontal().isEqual(p)) {
+                return 'D4+';
+            } else if (p.copy().flipDiagonal().isEqual(p)) {
+                return 'D4x';
+            } else {
+                return 'C2';
+            }
+        } else if (p.copy().flipHorizontal().isEqual(p) || p.copy().flipVertical().isEqual(p)) {
+            return 'D2+';
+        } else if (p.copy().flipDiagonal().isEqual(p) || p.copy().flipAntiDiagonal().isEqual(p)) {
+            return 'D2x';
+        } else {
+            return 'C1';
+        }
     }
 }
 
@@ -352,15 +390,8 @@ export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
             type.pops = [];
             type.hashes = [];
             type.phases = [];
-            if (type.disp) {
-                if (type.stabilizedAt > 0) {
-                    continue;
-                } else if (type.disp[0] !== 0 || type.disp[1] !== 0) {
-                    throw new Error('Spaceships are not supported');
-                } else if (type.period !== 1) {
-                    throw new Error('Oscillators are not supported');
-                }
-                cats.push({type: 'custom', p, x: p.xOffset, y: p.yOffset});
+            if (type.disp && type.stabilizedAt === 0 && type.disp[0] === 0 && type.disp[1] === 0) {
+                cats.push({type: type.period === 1 ? 'custom' : `custom_p${type.period}`, p, x: p.xOffset, y: p.yOffset});
             } else {
                 if (startP !== undefined) {
                     if (INTENTIONAL_SPARKS.includes(p.toCanonicalApgcode())) {
@@ -465,10 +496,16 @@ export function getConduitName(data: Conduit): string {
     }
     let input: string;
     if (data.inputTime) {
-        if (data.input.startsWith('(')) {
-            input = `(${data.input.slice(1, -1)}${data.inputTime < 0 ? data.inputTime : '+' + data.inputTime})`;
+        let inputTimeStr: string;
+        if (data.inputTime < 0) {
+            inputTimeStr = '-' + data.inputTime;
         } else {
-            input = `(${data.input}${data.inputTime < 0 ? data.inputTime : '+' + data.inputTime})`;
+            inputTimeStr = '+' + data.inputTime;
+        }
+        if (data.input.startsWith('(')) {
+            input = `(${data.input.slice(1, -1)}${inputTimeStr})`;
+        } else {
+            input = `(${data.input}${inputTimeStr})`;
         }
     } else {
         input = data.input;
@@ -719,14 +756,19 @@ function getConduitInfo(data: Partial, input: ConduitObject, time: number, outpu
             out.repeatTimeWithFNG = rt;
         }
     }
-    if (isSymmetric(out.input)) {
+    let sym = getSymmetry(out.input);
+    if (sym === 'D8') {
+        for (let obj of out.output) {
+            obj.dir = '*';
+        }
+    } else if (sym === 'D2+') {
         for (let obj of out.output) {
             if (obj.dir.startsWith('F')) {
                 obj.dir = 'F*';
             } else if (obj.dir.startsWith('B')) {
                 obj.dir = 'B*';
             } else {
-                if (isSymmetric(obj.obj)) {
+                if (getSymmetry(obj.obj) === 'D2+') {
                     obj.dir = 'T';
                 } else {
                     if (obj.dir.startsWith('L')) {
@@ -1028,6 +1070,19 @@ export function catalystsAreFine(p: MAPPattern, cats: Catalyst[]): false | true 
                 }
                 i += p.width;
             }
+        } else if (cat.type.startsWith('custom_p')) {
+            let period = parseInt(cat.type.slice('custom_p'.length));
+            let q = cat.p.copy().run(p.generation % period).shrinkToFit();
+            let i = (y + q.yOffset) * p.width + (x + q.xOffset);
+            let j = 0;
+            for (let y2 = 0; y2 < cat.p.height; y2++) {
+                for (let x2 = 0; x2 < cat.p.width; x2++) {
+                    if (q.data[j++] !== p.data[i + x2]) {
+                        return false;
+                    }
+                }
+                i += p.width;
+            }
         } else {
             throw new Error(`Unrecognized catalyst type: '${cat.type}'`);
         }
@@ -1278,21 +1333,24 @@ if (args[0] === 'identify') {
             let value = checkConduit(partial, IDENTIFY_CONDUIT_SEP_GENS, start);
             if (value) {
                 console.log(`\x1b[92m${removeHIfPossible(getConduitName(value))}\x1b[0m`);
-                if (value.input.startsWith('(')) {
-                    console.log(`Input: ${value.input}`);
-                } else {
+                if (value.input in CONDUIT_OBJECTS) {
                     let name = CONDUIT_OBJECTS[value.input][0];
                     name = name[0].toUpperCase() + name.slice(1);
                     console.log(`Input: ${name}`);
+                } else {
+                    if (value.input.includes('+') || value.input) {
+                        let [a, b] = value.input.split('+')
+                    }
+                    console.log(`Input: ${value.input}`);
                 }
                 for (let obj of value.output) {
                     let suffix = `at generation ${obj.time} and position (${obj.x}, ${obj.y})`;
-                    if (obj.obj.startsWith('(')) {
-                        console.log(`Output: ${obj.obj} ${suffix}`);
-                    } else {
+                    if (obj.obj in CONDUIT_OBJECTS) {
                         let name = CONDUIT_OBJECTS[obj.obj][0];
                         name = name[0].toUpperCase() + name.slice(1);
                         console.log(`Output: ${name} ${suffix}`);
+                    } else {
+                        console.log(`Output: ${obj.obj} ${suffix}`);
                     }
                 }
                 for (let glider of value.gliders) {
@@ -1304,7 +1362,7 @@ if (args[0] === 'identify') {
                 if (value.repeatTime !== undefined) {
                     console.log(`Repeat time: ${value.repeatTime}`);
                     if (value.repeatTimeWithFNG) {
-                        console.log(`Repeat time (with FNG): ${value.repeatTime}`);
+                        console.log(`Repeat time (with FNG): ${value.repeatTimeWithFNG}`);
                     }
                     if (value.overclock) {
                         if (value.overclock.length === 0) {
