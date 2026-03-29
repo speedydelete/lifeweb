@@ -544,42 +544,6 @@ function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObject
                 }
                 p.shrinkToFit();
             }
-            for (let ship of data.gliders) {
-                if (data.input === 'H' && ship.dir === 'SW' && ship.lane === -2 && ship.timing === 21) {
-                    continue;
-                }
-                let timing = data.time - ship.timing;
-                let mod4 = timing % 4;
-                if (mod4 < 0) {
-                    mod4 += 4;
-                }
-                let [q, x, y] = reverseGliders[ship.dir + mod4];
-                timing -= mod4;
-                if (ship.dir === 'NW') {
-                    x -= timing / 4;
-                    y -= ship.lane + timing / 4;
-                } else if (ship.dir === 'NE') {
-                    x += timing / 4;
-                    y -= ship.lane + timing / 4;
-                } else if (ship.dir === 'SW') {
-                    x -= timing / 4;
-                    y += ship.lane + timing / 4;
-                } else {
-                    x += timing / 4;
-                    y += -ship.lane + timing / 4;
-                }
-                let i = 0;
-                for (let y2 = 0; y2 < q.height; y2++) {
-                    let loc = (y + y2 - p.yOffset - 1) * p.width + (x - p.xOffset - 1);
-                    for (let x2 = 0; x2 < q.width; x2++) {
-                        if (q.data[i++]) {
-                            p.data[loc] = 0;
-                        }
-                        loc++;
-                    }
-                }
-                p.shrinkToFit();
-            }
         }
     }
     let x = -p.xOffset - start.x;
