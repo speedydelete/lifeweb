@@ -1330,20 +1330,20 @@ if (args[0] === 'identify') {
     p = partial.p;
     for (let i = 0; i < IDENTIFY_MAX_TIME; i++) {
         if (catalystsAreFine(p, partial.cats) === 'restored') {
-            let value = checkConduit(partial, IDENTIFY_CONDUIT_SEP_GENS, start);
-            if (value) {
-                console.log(`\x1b[92m${removeHIfPossible(getConduitName(value))}\x1b[0m`);
-                if (value.input in CONDUIT_OBJECTS) {
-                    let name = CONDUIT_OBJECTS[value.input][0];
+            let data = checkConduit(partial, IDENTIFY_CONDUIT_SEP_GENS, start);
+            if (data) {
+                console.log(`\x1b[92m${removeHIfPossible(getConduitName(data))}\x1b[0m`);
+                if (data.input in CONDUIT_OBJECTS) {
+                    let name = CONDUIT_OBJECTS[data.input][0];
                     name = name[0].toUpperCase() + name.slice(1);
                     console.log(`Input: ${name}`);
                 } else {
-                    if (value.input.includes('+') || value.input) {
-                        let [a, b] = value.input.split('+')
+                    if (data.input.includes('+') || data.input) {
+                        let [a, b] = data.input.split('+')
                     }
-                    console.log(`Input: ${value.input}`);
+                    console.log(`Input: ${data.input}`);
                 }
-                for (let obj of value.output) {
+                for (let obj of data.output) {
                     let suffix = `at generation ${obj.time} and position (${obj.x}, ${obj.y})`;
                     if (obj.obj in CONDUIT_OBJECTS) {
                         let name = CONDUIT_OBJECTS[obj.obj][0];
@@ -1353,22 +1353,22 @@ if (args[0] === 'identify') {
                         console.log(`Output: ${obj.obj} ${suffix}`);
                     }
                 }
-                for (let glider of value.gliders) {
+                for (let glider of data.gliders) {
                     console.log(`Output: ${glider.dir} glider lane ${glider.lane} timing ${glider.timing}`);
                 }
-                for (let obj of value.otherOutputs) {
+                for (let obj of data.otherOutputs) {
                     console.log(`Output: ${obj.code} (${obj.x}, ${obj.y})`);
                 }
-                if (value.repeatTime !== undefined) {
-                    console.log(`Repeat time: ${value.repeatTime}`);
-                    if (value.repeatTimeWithFNG) {
-                        console.log(`Repeat time (with FNG): ${value.repeatTimeWithFNG}`);
+                if (data.repeatTime !== undefined) {
+                    console.log(`Repeat time: ${data.repeatTime}`);
+                    if (data.repeatTimeWithFNG) {
+                        console.log(`Repeat time (with FNG): ${data.repeatTimeWithFNG}`);
                     }
-                    if (value.overclock) {
-                        if (value.overclock.length === 0) {
+                    if (data.overclock) {
+                        if (data.overclock.length === 0) {
                             console.log('No overclock');
                         } else {
-                            console.log(`Overclock: ${toRanges(value.overclock)}`);
+                            console.log(`Overclock: ${toRanges(data.overclock)}`);
                         }
                     }
                 }
