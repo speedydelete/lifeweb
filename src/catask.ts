@@ -82,7 +82,6 @@ export interface Conduit {
     gliders: Glider[];
     otherOutputs: (ObjData & {code: string})[];
     repeatTime?: number;
-    repeatTimeWithFNG?: number;
     overclock?: number[];
 }
 
@@ -753,14 +752,6 @@ function getConduitInfo(data: Partial, input: ConduitObject, time: number, outpu
         }
         out.repeatTime = rt;
         out.overclock = worksAt.slice(0, rt).map((x, i) => x ? i : -1).filter(x => x !== -1);
-        if (removeFNG !== undefined) {
-            for (; rt > 0; rt--) {
-                if (!worksAtRepeatTime(out, data.cats, start, rt)) {
-                    break;
-                }
-            }
-            out.repeatTimeWithFNG = rt;
-        }
     }
     let sym = getSymmetry(out.input);
     if (sym === 'D8') {
@@ -1237,18 +1228,8 @@ export function searchSingleObject(data: Partial, options: SearchOptions): false
             let str = removeHIfPossible(getConduitName(x));
             if (x.repeatTime) {
                 str += `, rt ${x.repeatTime}`;
-                if (x.repeatTimeWithFNG || x.overclock) {
-                    str += ' (';
-                    if (x.overclock) {
-                        str += `overclock: ${toRanges(x.overclock)}`;
-                        if (x.repeatTimeWithFNG) {
-                            str += ', ';
-                        }
-                    }
-                    if (x.repeatTimeWithFNG) {
-                        str += `with FNG: ${x.repeatTimeWithFNG}`;
-                    }
-                    str += ')';
+                if (x.overclock) {
+                    str += ` (overclock: ${toRanges(x.overclock)})`;
                 }
             }
             str += ':';
@@ -1367,9 +1348,6 @@ if (args[0] === 'identify') {
                 }
                 if (data.repeatTime !== undefined) {
                     console.log(`Repeat time: ${data.repeatTime}`);
-                    if (data.repeatTimeWithFNG) {
-                        console.log(`Repeat time (with FNG): ${data.repeatTimeWithFNG}`);
-                    }
                     if (data.overclock) {
                         if (data.overclock.length === 0) {
                             console.log('No overclock');
