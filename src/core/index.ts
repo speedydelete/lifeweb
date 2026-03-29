@@ -30,6 +30,9 @@ export * from './catagolue.js';
  */
 export function createPattern(rule: string, namedRules?: {[key: string]: string}, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0), prevName?: string): Pattern {
     rule = rule.trim();
+    if (rule.toLowerCase() === 'Life' && !(namedRules && 'life' in namedRules)) {
+        return createPattern('B3/S23', namedRules, height, width, data, prevName);
+    }
     let errors: string[] = [];
     try {
         let out = createMAPPattern(rule, height, width, data);
@@ -130,7 +133,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('Investigator')) {
         try {
-            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -2), namedRules, height, width, data, undefined);
             if (p.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
