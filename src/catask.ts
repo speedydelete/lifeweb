@@ -1013,17 +1013,17 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                             break;
                         }
                         if (time > 0) {
-                            let index = data.prevPs.length - 1;
+                            let index = data.prevPs.length - 1 + (sepGens + 1);
                             while (time > 0 && index > 0) {
-                                let p = data.prevPs[index];
-                                let obj3 = conduitObjects[obj2 + (time - 1) + dir];
+                                let p2 = data.prevPs[index] ?? p;
+                                let obj3 = conduitObjects[obj2 + dir + (time - 1)];
                                 let i = 0;
                                 let found = false;
                                 for (let y2 = 0; y2 < obj3.p.height; y2++) {
-                                    let loc = (y + p.yOffset - obj3.y + y2) * p.width + (x + p.xOffset - obj3.x);
+                                    let loc = (y - p2.yOffset - obj3.y + y2) * p2.width + (x - p2.xOffset - obj3.x);
                                     for (let x2 = 0; x2 < obj3.p.width; x2++) {
                                         if (obj3.p.data[i++]) {
-                                            if (!p.data[loc]) {
+                                            if (!p2.data[loc]) {
                                                 found = true;
                                                 break;
                                             }
@@ -1038,6 +1038,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                                     break;
                                 }
                                 time--;
+                                index--;
                             }
                         }
                         outputs.push({obj: obj2, dir, time: time2, p: q, x, y, objTime: time});
