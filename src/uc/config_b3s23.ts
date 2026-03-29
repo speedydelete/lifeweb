@@ -42,10 +42,10 @@ const GLIDER_TARGET_SPACING = 7;
 // information about slow salvo synthesis methods
 
 interface SalvoInfo {
+    // aliases for it, can be used in the CLI
+    aliases?: string[];
     // the spaceship being used
     ship: SpaceshipInfo;
-    // aliases for it, can be used in the cli
-    aliases?: string[];
     // the starting elbow object
     startObject: string;
     // the spacing (in cells) between 2 gliders in a multi-glider salvo
@@ -58,6 +58,8 @@ interface SalvoInfo {
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
     maxRecipes?: number;
+    // congruence restrictions on lane numbers: AND of OR's of [mod, value] pairs
+    restriction?: [number, number][][];
 }
 
 // you name the construction types whatever you want
@@ -65,8 +67,8 @@ interface SalvoInfo {
 const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['ss'],
+        ship: SPACESHIPS['xq4_153'],
         startObject: 'xs4_33',
         gliderSpacing: 60,
         period: 2,
@@ -81,10 +83,10 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 // information for restricted-channel synthesis methods
 
 interface ChannelInfo {
+    // aliases for it, can be used in the CLI
+    aliases?: string[];
     // the spaceship being used
     ship: SpaceshipInfo;
-    // aliases for it, can be used in the cli
-    aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
     // the period for output gliders (so it can be used to implement period n synthesis)
@@ -110,8 +112,8 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
     'Single-channel (14)': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc14', 'sc'],
+        ship: SPACESHIPS['xq4_153'],
         channels: [0],
         period: 2,
         minSpacings: [[14]],
@@ -121,8 +123,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (61)': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc61'],
+        ship: SPACESHIPS['xq4_153'],
         channels: [0],
         period: 2,
         minSpacings: [[61]],
@@ -132,8 +134,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (syringe)': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc78'],
+        ship: SPACESHIPS['xq4_153'],
         channels: [0],
         period: 2,
         minSpacings: [[74]],
@@ -144,8 +146,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (90)': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['sc90'],
+        ship: SPACESHIPS['xq4_153'],
         channels: [0],
         period: 2,
         minSpacings: [[90]],

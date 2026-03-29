@@ -680,7 +680,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
         let out = recipeData.salvos[type];
         if (section === 'search results') {
             for (let [apgcode, data] of parseRecipeSections(current)) {
-                out.searchResults[apgcode] = data.map(x => x.split(':')).map(x => [...parseSlowSalvo(info, x[0])[0], x[1] === 'linear' || x[1] === 'eater' || x[1].includes('reflector') || x[1].includes('splitter') || x[1] === 'factory' ? x[1] : stringToObjects(x[1])]);
+                out.searchResults[apgcode] = data.map(x => x.split(': ')).map(x => [...parseSlowSalvo(info, x[0])[0], x[1] === 'nothing' ? [] : (x[1] === 'linear' || x[1] === 'eater' || x[1].includes('reflector') || x[1].includes('splitter') || x[1] === 'factory' ? x[1] : stringToObjects(x[1]))]);
             }
         } else if (section === 'recipes') {
             for (let line of current) {
@@ -872,8 +872,10 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
                 return aCount - bCount;
             } else if (a < b) {
                 return -1;
-            } else {
+            } else if (a > b) {
                 return 1;
+            } else {
+                return 0;
             }
         }).join('\n') + '\n\n';
     }

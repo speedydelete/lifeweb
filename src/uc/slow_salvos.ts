@@ -272,12 +272,32 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
 
 function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[] | string][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
     for (let [lane, timing, objs] of data[code]) {
-        timing = (timing + totalTiming) % info.period;
         if (!objs || typeof objs === 'string') {
             continue;
         }
+        lane += x - y * info.ship.slope;
+        if (info.restriction) {
+            let found = false;
+            for (let list of info.restriction) {
+                let found2 = false;
+                for (let [mod, value] of list) {
+                    if (lane % mod === value) {
+                        found2 = true;
+                        break;
+                    }
+                }
+                if (!found2) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                continue;
+            }
+        }
         let recipe = prefix.slice();
-        recipe.push([lane + x - y * info.ship.slope, timing]);
+        timing = (timing + totalTiming) % info.period;
+        recipe.push([lane, timing]);
         objs = translateObjects(objs, x, y);
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];
@@ -368,7 +388,7 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
 }
 
 /** Searches slow salvos. */
-export async function searchSalvos(type: string, start: string, noCompile?: boolean): Promise<void> {
+export async function searchSalvos(type: string, start: string, noCompile?: boolean, depthInc: number = 0): Promise<void> {
     let info = c.SALVO_INFO[type];
     let recipes = await loadRecipes();
     let results = recipes.salvos[type].searchResults;
@@ -432,13 +452,13 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], start);
                 }
                 await log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], obj);
         }
         await log('Compiled all recipes');
         await saveRecipes(recipes);

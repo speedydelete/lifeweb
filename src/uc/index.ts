@@ -36,7 +36,7 @@ Flags:
     -h, --help: Show this help message.
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
     -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
-    -d <depth>, --depth <depth>: For convert, the depth to use for searching.
+    -d <depth>, --depth <depth>: For convert, the depth to use for searching. For salvo searching, it will increase the depth by that much when compiling recipes.
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
     --force-end-elbow <elbow>[/pos]: For convert, force an ending elbow.
     --destroy-elbow: For convert, destroy the elbow.
@@ -209,7 +209,7 @@ if (cmd === 'get') {
         if (args[0] && args[0].startsWith('x')) {
             await searchSalvos(type, args[0], noCompile);
         } else {
-            await searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile);
+            await searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile, depth);
         }
     } else {
         let elbow = args[0];

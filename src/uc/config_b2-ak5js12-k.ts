@@ -3,15 +3,35 @@
 
 const RULE = 'B2-ak5j/S12-k';
 
-// the glider is the spaceship used for slow salvos and single channel recipes
-const GLIDER_APGCODE = 'xq4_15';
-const GLIDER_DX = 1;
-// this one should be greater than or equal to GLIDER_DX
-const GLIDER_DY = 1;
-const GLIDER_PERIOD = 4;
-const GLIDER_SLOPE = GLIDER_DX / GLIDER_DY;
-const GLIDER_POPULATION_PERIOD = 1;
-const GLIDER_IS_GLIDE_SYMMETRIC = true;
+// the spaceships being used
+// each of these should have entries in SHIP_IDENTIFICATION
+
+interface SpaceshipInfo {
+    // yes this one should be the key
+    code: string;
+    dx: number;
+    // this one should be greater than or equal to dx
+    dy: number;
+    period: number;
+    slope: number;
+    popPeriod: number;
+    glideSymmetric: boolean;
+}
+
+const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
+
+    'xq4_15': {
+        code: 'xq4_15',
+        dx: 1,
+        dy: 1,
+        period: 4,
+        slope: 1,
+        popPeriod: 1,
+        glideSymmetric: true,
+    },
+
+};
+
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
 const LANE_OFFSET = 6;
@@ -23,8 +43,10 @@ const GLIDER_TARGET_SPACING = 5;
 // information for slow salvo synthesis
 
 interface SalvoInfo {
-    // aliases for it, can be used in the cli
+    // aliases for it, can be used in the CLI
     aliases?: string[];
+    // the spaceship being used
+    ship: SpaceshipInfo;
     // the starting elbow object
     startObject: string;
     // the spacing (in cells) between 2 gliders in a multi-glider salvo
@@ -37,6 +59,8 @@ interface SalvoInfo {
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
     maxRecipes?: number;
+    // congruence restrictions on lane numbers: AND of OR's of [mod, value] pairs
+    restriction?: [number, number][][];
 }
 
 // you name the construction types whatever you want
@@ -45,12 +69,25 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
         aliases: ['ss'],
+        ship: SPACESHIPS['xq4_15'],
         startObject: 'xs2_11',
         gliderSpacing: 10,
         period: 1,
-        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs5_11111', 'xs5_v', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
         laneLimit: 128,
-        maxRecipes: 5,
+        maxRecipes: 2,
+    },
+
+    'Monochrome slow salvo': {
+        aliases: ['mss'],
+        ship: SPACESHIPS['xq4_15'],
+        startObject: 'xs2_11',
+        gliderSpacing: 10,
+        period: 1,
+        intermediateObjects: ['xs2_11', 'xs2_3'],
+        laneLimit: 128,
+        maxRecipes: 2,
+        restriction: [[[2, 0]]],
     },
 
 };
@@ -59,8 +96,10 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
 // information about restricted-channel synthesis methods
 
 interface ChannelInfo {
-    // aliases for it, can be used in the cli
+    // aliases for it, can be used in the CLI
     aliases?: string[];
+    // the spaceship being used
+    ship: SpaceshipInfo;
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
     // the period for output gliders (so it can be used to implement period n synthesis)
@@ -117,7 +156,8 @@ const MAX_CREATE_POPULATION = 18;
 // information for spaceship identification
 
 // don't change this
-type ShipDirection = 'NW' | 'NE' | 'SW' | 'SE' | 'N' | 'E' | 'S' | 'W';
+// the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
+type ShipDirection = 'N' | 'E' | 'S' | 'W' | 'NW' | 'NE' | 'SW' | 'SE' | 'N2' | 'E2' | 'S2' | 'W2' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
 
 /*
 ok this is how this part works:
@@ -218,4 +258,4 @@ const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
 
 // don't change this
 
-export {RULE, GLIDER_APGCODE, GLIDER_DX, GLIDER_DY, GLIDER_SLOPE, GLIDER_PERIOD, GLIDER_POPULATION_PERIOD, GLIDER_IS_GLIDE_SYMMETRIC, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection, SHIP_IDENTIFICATION};

@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B3/S23';
+const RULE = 'B2-ak5j/S12-k';
 
 // the spaceships being used
 // each of these should have entries in SHIP_IDENTIFICATION
@@ -20,8 +20,8 @@ interface SpaceshipInfo {
 
 const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
 
-    'xq4_153': {
-        code: 'xq4_153',
+    'xq4_15': {
+        code: 'xq4_15',
         dx: 1,
         dy: 1,
         period: 4,
@@ -32,20 +32,21 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
 
 };
 
+
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 5;
+const LANE_OFFSET = 6;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 7;
+const GLIDER_TARGET_SPACING = 5;
 
 
-// information about slow salvo synthesis methods
+// information for slow salvo synthesis
 
 interface SalvoInfo {
+    // aliases for it, can be used in the CLI
+    aliases?: string[];
     // the spaceship being used
     ship: SpaceshipInfo;
-    // aliases for it, can be used in the cli
-    aliases?: string[];
     // the starting elbow object
     startObject: string;
     // the spacing (in cells) between 2 gliders in a multi-glider salvo
@@ -58,6 +59,8 @@ interface SalvoInfo {
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
     maxRecipes?: number;
+    // congruence restrictions on lane numbers: AND of OR's of [mod, value] pairs
+    restriction?: [number, number][][];
 }
 
 // you name the construction types whatever you want
@@ -65,26 +68,38 @@ interface SalvoInfo {
 const SALVO_INFO: {[key: string]: SalvoInfo} = {
 
     'Slow salvo': {
-        ship: SPACESHIPS['xq4_153'],
         aliases: ['ss'],
-        startObject: 'xs4_33',
-        gliderSpacing: 60,
-        period: 2,
-        intermediateObjects: ['xs4_33', 'xp2_111', 'xp2_7', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
+        ship: SPACESHIPS['xq4_15'],
+        startObject: 'xs2_11',
+        gliderSpacing: 10,
+        period: 1,
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
         laneLimit: 128,
-        maxRecipes: 5,
+        maxRecipes: 2,
+    },
+
+    'Monochrome slow salvo': {
+        aliases: ['mss'],
+        ship: SPACESHIPS['xq4_15'],
+        startObject: 'xs2_11',
+        gliderSpacing: 10,
+        period: 1,
+        intermediateObjects: ['xs2_11', 'xs2_3'],
+        laneLimit: 128,
+        maxRecipes: 2,
+        restriction: [[[2, 0]]],
     },
 
 };
 
 
-// information for restricted-channel synthesis methods
+// information about restricted-channel synthesis methods
 
 interface ChannelInfo {
+    // aliases for it, can be used in the CLI
+    aliases?: string[];
     // the spaceship being used
     ship: SpaceshipInfo;
-    // aliases for it, can be used in the cli
-    aliases?: string[];
     // the lanes for each channel, the first element of this should always be zero, the next should be the lane offsets
     channels: number[];
     // the period for output gliders (so it can be used to implement period n synthesis)
@@ -107,54 +122,7 @@ interface ChannelInfo {
 
 // you name the construction types whatever you want
 
-const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
-
-    'Single-channel (14)': {
-        ship: SPACESHIPS['xq4_153'],
-        aliases: ['sc14', 'sc'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[14]],
-        minSpacing: 14,
-        maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
-    },
-
-    'Single-channel (61)': {
-        ship: SPACESHIPS['xq4_153'],
-        aliases: ['sc61'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[61]],
-        minSpacing: 61,
-        maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
-    },
-
-    'Single-channel (syringe)': {
-        ship: SPACESHIPS['xq4_153'],
-        aliases: ['sc78'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[74]],
-        minSpacing: 74,
-        excludeSpacings: [[[76, 77]]],
-        maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
-    },
-
-    'Single-channel (90)': {
-        ship: SPACESHIPS['xq4_153'],
-        aliases: ['sc90'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[90]],
-        minSpacing: 90,
-        maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
-    },
-
-};
+const CHANNEL_INFO: {[key: string]: ChannelInfo} = {};
 
 
 // information for how searches proceed
@@ -175,7 +143,7 @@ const PERIOD_SECURITY = 16;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 12;
+const MAX_PSEUDO_DISTANCE = 6;
 
 // for channel searching, at what spacing to inject the gliders at (the default should be fine)
 const INJECTION_SPACING = 2;
@@ -194,7 +162,7 @@ type ShipDirection = 'N' | 'E' | 'S' | 'W' | 'NW' | 'NE' | 'SW' | 'SE' | 'N2' | 
 /*
 ok this is how this part works:
 the stuff that's not in the data property is simple, just provide the canonical phase you would like!
-now for the stuff in the data property 
+now for the stuff in the data property
 for each ship
 determine the canonical phase, this should head southwest for diagonals or south for orthogonals
 put that canonical phase in the height, width, and cells options, those are described below
@@ -246,37 +214,46 @@ interface ShipIdentification {
 }
 
 const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-    'xq4_153': {
-        height: 3,
+
+    'xq4_15': {
+        height: 2,
         width: 3,
-        cells: [1, 5, 6, 7, 8],
+        cells: [2, 3, 4],
         data: [
             {
                 height: 3,
-                width: 3,
-                population: 5,
+                width: 2,
+                population: 3,
                 data: [
-                    [[0, 1, 2, 3, 7], 'NW', 0],
-                    [[1, 3, 4, 6, 8], 'NW', 3],
-                    [[0, 1, 3, 5, 6], 'NW', 2],
-                    [[1, 2, 3, 4, 8], 'NW', 1],
-                    [[1, 2, 3, 5, 8], 'NE', 0],
-                    [[0, 1, 4, 5, 6], 'NE', 3],
-                    [[0, 1, 2, 5, 7], 'NE', 2],
-                    [[1, 4, 5, 6, 8], 'NE', 1],
-                    [[0, 3, 5, 6, 7], 'SW', 0],
-                    [[2, 3, 4, 7, 8], 'SW', 3],
-                    [[1, 3, 6, 7, 8], 'SW', 2],
-                    [[0, 2, 3, 4, 7], 'SW', 1],
-                    [[1, 5, 6, 7, 8], 'SE', 0],
-                    [[0, 2, 4, 5, 7], 'SE', 3],
-                    [[2, 3, 5, 7, 8], 'SE', 2],
-                    [[0, 4, 5, 6, 7], 'SE', 1],
+                    [[1, 2, 4], 'NW', 2],
+                    [[0, 1, 4], 'NW', 1],
+                    [[0, 3, 5], 'NE', 0],
+                    [[0, 1, 5], 'NE', 3],
+                    [[0, 2, 5], 'SW', 0],
+                    [[0, 4, 5], 'SW', 3],
+                    [[1, 3, 4], 'SE', 2],
+                    [[1, 4, 5], 'SE', 1],
+                ],
+            },
+            {
+                height: 2,
+                width: 3,
+                population: 3,
+                data: [
+                    [[1, 2, 3], 'NW', 0],
+                    [[0, 2, 3], 'NW', 3],
+                    [[0, 1, 5], 'NE', 2],
+                    [[0, 2, 5], 'NE', 1],
+                    [[0, 4, 5], 'SW', 2],
+                    [[0, 3, 5], 'SW', 1],
+                    [[2, 3, 4], 'SE', 0],
+                    [[2, 3, 5], 'SE', 3],
                 ],
             },
         ],
     },
-};
+
+}
 
 
 // don't change this
