@@ -133,7 +133,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('Investigator')) {
         try {
-            let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -2), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -12), namedRules, height, width, data, undefined);
             if (p.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
