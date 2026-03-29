@@ -2181,6 +2181,21 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             ruleStr += 'H';
         }
     }
+    let symmetry = findTransitionsSymmetry(trs);
+    if (ruleStr.startsWith('MAP')) {
+        if (symmetry === 'D8') {
+            let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
+            let b = unparseTransitions(bTrs, VALID_TRANSITIONS);
+            let s = unparseTransitions(sTrs, VALID_TRANSITIONS);
+            if (states > 2) {
+                ruleStr = `${s}/${b}/${states}`;
+            } else {
+                ruleStr = `B${b}/S${s}`;
+            }
+        } else if (symmetry === 'D4x') {
+
+        }
+    }
     if (trs[0]) {
         if (trs[511]) {
             let out = new Uint8Array(512);
@@ -2213,7 +2228,6 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 evenTrs[i] = 1 - trs[i];
                 oddTrs[i] = trs[511 - i];
             }
-            let symmetry = SYMMETRY_MEET[findTransitionsSymmetry(evenTrs)][findTransitionsSymmetry(oddTrs)];
             if (states > 2) {
                 return new MAPGenB0Pattern(height, width, data, evenTrs, oddTrs, states, ruleStr, symmetry);
             } else {
@@ -2221,7 +2235,6 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             }
         }
     }
-    let symmetry = findTransitionsSymmetry(trs);
     if (states > 2) {
         return new MAPGenPattern(height, width, data, trs, states, ruleStr, symmetry);
     } else {
