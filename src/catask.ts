@@ -37,9 +37,10 @@ export interface Catalyst {
 export interface Partial {
     p: MAPPattern;
     cats: Catalyst[];
+    prevPs: MAPPattern[];
     p2Prev?: {
-        hash: number;
         pop: number;
+        hash: number;
         data: Uint8Array;
     };
 }
@@ -449,7 +450,7 @@ export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
     } else {
         start = {obj: `(${code})`, dir: 'F', time: 0};
     }
-    return [{p, cats}, start];
+    return [{p, cats, prevPs: []}, start];
 }
 
 
@@ -1009,6 +1010,34 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
                             found = true;
                             break;
                         }
+                        if (time > 0) {
+                            let index = data.prevPs.length - 1;
+                            while (time > 0 && index > 0) {
+                                let p = data.prevPs[index];
+                                let obj3 = conduitObjects[obj2 + (time - 1) + dir];
+                                let i = 0;
+                                let found = false;
+                                for (let y2 = 0; y2 < obj3.p.height; y2++) {
+                                    let loc = (y + p.yOffset - obj3.y + y2) * p.width + (x + p.xOffset - obj3.x);
+                                    for (let x2 = 0; x2 < obj3.p.width; x2++) {
+                                        if (obj3.p.data[i++]) {
+                                            if (!p.data[loc]) {
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                        loc++;
+                                    }
+                                    if (found) {
+                                        break;
+                                    }
+                                }
+                                if (found) {
+                                    break;
+                                }
+                                time--;
+                            }
+                        }
                         outputs.push({obj: obj2, dir, time: time2, p: q, x, y, objTime: time});
                     } else {
                         continue;
@@ -1215,7 +1244,7 @@ function addCatalyst(out: Partial[], {p, cats, p2Prev}: Partial, type: CatalystT
     } else {
         throw new Error(`Unrecognized catalyst type: '${type}'`);
     }
-    out.push({p, cats, p2Prev});
+    out.push({p, cats, p2Prev, prevPs: []});
 }
 
 export interface SearchOptions {
@@ -1231,6 +1260,7 @@ export function searchSingleObject(data: Partial, options: SearchOptions): false
     let prevHash = p.hash32();
     let prevPop = p.population;
     let prevData = p.data;
+    let oldP = p.copy();
     p.runGeneration();
     // check if it died, is period 1, or is period 2
     if (p.population === 0 || (p.data.length === prevData.length && p.population === prevPop && p.hash32() === prevHash && p.data.every((x, i) => prevData[i] === x)) || (p2Prev && (p.data.length === p2Prev.data.length && p.population === p2Prev.pop && p.hash32() === p2Prev.hash && p.data.every((x, i) => p2Prev.data[i] === x)))) {
@@ -1241,7 +1271,9 @@ export function searchSingleObject(data: Partial, options: SearchOptions): false
     if (!fine) {
         return false;
     }
-    data = {p, cats: data.cats, p2Prev: {hash: prevHash, pop: prevPop, data: prevData}};
+    let prevPs = data.prevPs.slice();
+    prevPs.push(oldP);
+    data = {p, cats: data.cats, prevPs: data.prevPs.slice(), p2Prev: {pop: prevPop, hash: prevHash, data: prevData}};
     // check if it's a conduit
     if (fine === 'restored' && data.cats.length > 0) {
         let x = checkConduit(data, 0, options.start, options.maxStables, options.maxUnstables);
@@ -1347,9 +1379,6 @@ if (args[0] === 'identify') {
                     name = name[0].toUpperCase() + name.slice(1);
                     console.log(`Input: ${name}`);
                 } else {
-                    if (data.input.includes('+') || data.input) {
-                        let [a, b] = data.input.split('+')
-                    }
                     console.log(`Input: ${data.input}`);
                 }
                 for (let obj of data.output) {
@@ -1381,6 +1410,7 @@ if (args[0] === 'identify') {
                 process.exit(0);
             }
         }
+        partial.prevPs.push(p.copy());
         p.runGeneration();
     }
     console.log('Error: Not a conduit');
@@ -1475,7 +1505,7 @@ let options: SearchOptions = {
 
 console.log(`This is CatAsk ${VERSION} searching for conduits with input '${start.obj}'`);
 let depth = 1;
-let data: Partial[] = [{p, cats: []}];
+let data: Partial[] = [{p, cats: [], prevPs: []}];
 let startTime = performance.now();
 let prevUpdateTime = startTime;
 let totalPartialsChecked = 0;

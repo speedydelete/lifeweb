@@ -220,6 +220,16 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             n2[r + 1][r + 1] = 1;
         }
     }
+    if (n2 && n2.length === 0) {
+        throw new RuleError(`Invalid HROT neighborhood: '${n}'`);
+    }
+    if (r === 1) {
+        if (n2) {
+
+        } else if (!n2) {
+
+        }
+    }
     let length = (n2 ? n2.flat().reduce((x, y) => x + y) : (2*r + 1)**2 - 1) + 1;
     let outB = new Uint8Array(length);
     for (let value of b) {
