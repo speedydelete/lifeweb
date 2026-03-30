@@ -113,6 +113,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         }
         if (!isSame) {
             // console.log('results are not the same');
+            let found = false;
             let codeStr = result.map(x => x.code).sort().join(' ');
             for (let [key, value] of Object.entries(elbows)) {
                 if (elbow === key) {
@@ -154,9 +155,14 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         if (!found2) {
                             let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
                             out.push({type: 'alias', elbow: key, flipped, move: yDiff, timing});
+                            found = true;
+                            break;
                         }
                     }
                 }
+            }
+            if (found) {
+                continue;
             }
             let flippedResult = getCollision(info, elbowData[0], elbowData[1], timing, true, true);
             if (typeof flippedResult !== 'object') {
@@ -309,10 +315,6 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
             recipes.push(recipe);
         }
     }
-    // if (data.recipes.length > 0) {
-    //     console.log(recipes);
-    //     throw new Error('hi');
-    // }
     recipes = expandRecipes(info, recipes);
     for (let recipe of recipes) {
         if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
@@ -450,6 +452,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
                 } else if (type === 'update') {
                     checkedRecipes += data.count;
                     possibleUseful += addNewRecipes(info, data, out);
+                    if (recipesOverride) {
+                        await saveRecipes(recipes);
+                    }
                 } else if (type === 'completed') {
                     finished.push(data);
                     finishedCount++;
