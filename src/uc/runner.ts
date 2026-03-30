@@ -244,41 +244,26 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                 p,
                 bb: [q.xOffset, q.yOffset, q.xOffset + q.width - 1, q.yOffset + q.height - 1],
             });
-        } else if (apgcode in c.SHIP_IDENTIFICATION) {
-            let {data: info} = c.SHIP_IDENTIFICATION[apgcode];
-            let found = false;
-            for (let {height, width, population, data} of info) {
-                if (p.height === height && p.width === width && p.population === population) {
-                    for (let [cells, dir, timing] of data) {
-                        found = true;
-                        for (let i of cells) {
-                            if (!p.data[i]) {
-                                found = false;
-                                break;
-                            }
-                        }
-                        if (found) {
-                            p.run(timing).shrinkToFit();
-                            out.push({
-                                type: 'ship',
-                                code: apgcode,
-                                x: p.xOffset,
-                                y: p.yOffset,
-                                dir,
-                                at: 0,
-                                timing: p.generation,
-                            })
-                            break;
-                        }
+        } else if (apgcode in c.SPACESHIPS) {
+            let data = c.SPACESHIPS[apgcode];
+            for (let i = 0; i < data.period; i++) {
+                for (let [height, width, pop, cells, dir] of data.identification) {
+                    if (p.height === height && p.width === width && p.population === pop && cells.every(x => p.data[x])) {
+                        out.push({
+                            type: 'ship',
+                            code: apgcode,
+                            x: p.xOffset,
+                            y: p.yOffset,
+                            dir,
+                            at: 0,
+                            timing: p.generation,
+                        })
                     }
                 }
-                if (found) {
-                    break;
-                }
+                p.runGeneration();
+                p.shrinkToFit();
             }
-            if (!found) {
-                throw new Error(`Invalid spaceship: ${p.toRLE()}`);
-            }
+            throw new Error(`Invalid spaceship: ${p.toRLE()}`);
         } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
             return false;
         } else {

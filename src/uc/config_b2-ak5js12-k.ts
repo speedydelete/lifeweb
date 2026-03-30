@@ -3,8 +3,11 @@
 
 const RULE = 'B2-ak5j/S12-k';
 
+// don't change this
+// the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
+type ShipDirection = 'N' | 'E' | 'S' | 'W' | 'NW' | 'NE' | 'SW' | 'SE' | 'N2' | 'E2' | 'S2' | 'W2' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
+
 // the spaceships being used
-// each of these should have entries in SHIP_IDENTIFICATION
 
 interface SpaceshipInfo {
     // yes this one should be the key
@@ -16,6 +19,23 @@ interface SpaceshipInfo {
     slope: number;
     popPeriod: number;
     glideSymmetric: boolean;
+    // now information about the ship itself
+    // this is for the canonical (S for orthogonals, SE for diagonals, in between for obliques) phase, y * width + x
+    height: number;
+    width: number;
+    cells: number[];
+    // now for all 4 (or 8 if oblique) directions of the ship
+    // yes this does mean repeating one of them...
+    // you should orient it like this, rotating 90 degrees each time:
+    // NW: NE:
+    // ooo .oo
+    // o.. o.o
+    // .o. ..o
+    // SW: SE:
+    // o.. .o.
+    // o.o ..o
+    // oo. ooo
+    identification: [height: number, width: number, pop: number, cells: number[], dir: ShipDirection][];
 }
 
 const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
@@ -28,6 +48,15 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         slope: 1,
         popPeriod: 1,
         glideSymmetric: true,
+        height: 2,
+        width: 3,
+        cells: [2, 3, 4],
+        identification: [
+            [2, 3, 3, [1, 2, 3], 'NW'],
+            [3, 2, 3, [0, 3, 5], 'NE'],
+            [3, 2, 3, [0, 2, 5], 'SW'],
+            [2, 3, 3, [2, 3, 4], 'SE'],
+        ],
     },
 
 };
@@ -153,109 +182,6 @@ const MAX_ELBOW_POPULATION = 18;
 const MAX_CREATE_POPULATION = 18;
 
 
-// information for spaceship identification
-
-// don't change this
-// the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
-type ShipDirection = 'N' | 'E' | 'S' | 'W' | 'NW' | 'NE' | 'SW' | 'SE' | 'N2' | 'E2' | 'S2' | 'W2' | 'NW2' | 'NE2' | 'SW2' | 'SE2';
-
-/*
-ok this is how this part works:
-the stuff that's not in the data property is simple, just provide the canonical phase you would like!
-now for the stuff in the data property
-for each ship
-determine the canonical phase, this should head southwest for diagonals or south for orthogonals
-put that canonical phase in the height, width, and cells options, those are described below
-then you tell it how to normalize it to an orientation of that phase
-you should orient it like this, rotating 90 degrees each time:
-NW: NE:
-ooo .oo
-o.. o.o
-.o. ..o
-SW: SE:
-o.. .o.
-o.o ..o
-oo. ooo
-then you provide a list of test cases, each case consists of a height, width, and population
-for each case you provide a list of subcases, each subcase has the following format:
-[cells: number[], dir: ShipDirection, timing: number][]
-the cells let you actually test for the pattern that is the ship
-here's an example
-{
-    height: 2,
-    width: 3,
-    population: 3,
-    data: [
-        [[2, 3, 4], 'NW', 0]
-    ],
-}
-the cells argument tells you the indices of alive cells
-you use a grid like this (for height 2 and width 3):
-0 1 2
-3 4 5
-so [2, 3, 4] means that cells 2, 3, and 4 must be on, and therefore the pattern must look like this:
-bbo$
-oob!
-then a direction
-then a number of generations to run to get to the canonical phase
-then a boolean of whether to flip it to get to the canonical phase
-*/
-
-interface ShipIdentification {
-    height: number;
-    width: number;
-    cells: number[];
-    data: {
-        height: number;
-        width: number;
-        population: number;
-        data: [cells: number[], dir: ShipDirection, timing: number][];
-    }[];
-}
-
-const SHIP_IDENTIFICATION: {[key: string]: ShipIdentification} = {
-
-    'xq4_15': {
-        height: 2,
-        width: 3,
-        cells: [2, 3, 4],
-        data: [
-            {
-                height: 3,
-                width: 2,
-                population: 3,
-                data: [
-                    [[1, 2, 4], 'NW', 2],
-                    [[0, 1, 4], 'NW', 1],
-                    [[0, 3, 5], 'NE', 0],
-                    [[0, 1, 5], 'NE', 3],
-                    [[0, 2, 5], 'SW', 0],
-                    [[0, 4, 5], 'SW', 3],
-                    [[1, 3, 4], 'SE', 2],
-                    [[1, 4, 5], 'SE', 1],
-                ],
-            },
-            {
-                height: 2,
-                width: 3,
-                population: 3,
-                data: [
-                    [[1, 2, 3], 'NW', 0],
-                    [[0, 2, 3], 'NW', 3],
-                    [[0, 1, 5], 'NE', 2],
-                    [[0, 2, 5], 'NE', 1],
-                    [[0, 4, 5], 'SW', 2],
-                    [[0, 3, 5], 'SW', 1],
-                    [[2, 3, 4], 'SE', 0],
-                    [[2, 3, 5], 'SE', 3],
-                ],
-            },
-        ],
-    },
-
-}
-
-
 // don't change this
 
-export {RULE, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection, SHIP_IDENTIFICATION};
+export {RULE, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection};
