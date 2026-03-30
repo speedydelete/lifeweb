@@ -18,7 +18,6 @@ const UPDATE_INTERVAL = 3;
 
 
 export type Direction = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
-export type ExpandedDirection = Direction | 'F*' | 'L*' | 'B*' | 'R*' | 'T' | '*';
 
 export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
 export type XWSSDirection = 'N' | 'S' | 'E' | 'W';
@@ -58,7 +57,7 @@ export interface ObjData {
 
 export interface ConduitObject {
     obj: string;
-    dir: ExpandedDirection;
+    dir: Direction;
     time: number;
 }
 
@@ -98,43 +97,43 @@ export const DIRECTION_COMBINE: {[K in Direction]: {[K in Direction]: Direction}
     Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'F', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'B'},
 };
 
-export const CONDUIT_OBJECTS: {[key: string]: [name: string, code: string, centerX: number, centerY: number, symmetry: Symmetry]} = {
-    'R': ['R-pentomino', '472', 1, 1, 'C1'],
-    'B': ['B-heptomino', 'd72', 1, 1, 'C1'],
-    'H': ['herschel', '74e', 1, 2, 'C1'],
-    'C': ['century', 'c97', 2, 1, 'C1'],
-    'D': ['dove', 'ci97', 2, 1, 'C1'],
-    'E': ['E-heptomino', '1572' , 2, 1, 'C1'],
-    'I': ['I-heptomino', 'c463', 1, 2, 'C1'],
+export const CONDUIT_OBJECTS: {[key: string]: [name: string, code: string, centerX: number, centerY: number]} = {
+    'R': ['R-pentomino', '472', 1, 1],
+    'B': ['B-heptomino', 'd72', 1, 1],
+    'H': ['herschel', '74e', 1, 2],
+    'C': ['century', 'c97', 2, 1],
+    'D': ['dove', 'ci97', 2, 1],
+    'E': ['E-heptomino', '1572' , 2, 1],
+    'I': ['I-heptomino', 'c463', 1, 2],
     // 'J': ['blonk-tie', ],
     // 'O': ['two-glider octomino', ],
-    'P': ['pi-heptomino', '557', 1, 1, 'D2+'],
-    'Q': ['queen bee', '3us8z31', 2, 3, 'D2+'],
-    'W': ['wing', 'c53', 1, 1, 'C1'],
-    'U': ['U-turner', '77ac', 1, 1, 'C1'],
-    '(TL)': ['traffic light', '757', 1, 1, 'D8'],
-    '(HF)': ['honey farm', 's21112sz012221', 3, 3, 'D8'],
-    '(LOM)': ['lumps of muck', 'c63', 1, 1, 'C2'],
-    '(FLEET)': ['fleet', '799e', 1, 1, 'D4x'],
-    '(BAKERY)': ['bakery', 's211hez0111', 2, 2, 'D4x'],
-    '(TEARDROP)': ['teardrop', '699e', 3, 3, 'D2x'],
-    '(LONGBUN)': ['long bun', '25556', 2, 1, 'C1'],
-    '(PROC)': ['procrastinator', '46232', 2, 1, 'C1'],
-    '(IWONA)': ['Iwona active region', '3t', 1, 1, 'C1'],
-    '(RT)': ['R-turner', '2598c', 1, 1, 'C1'],
-    '(DIEHARD)': ['original die hard', '207z062', 2, 1, 'C1'],
-    '(JASON)': ['object hassled in Jason\'s p22', '4ahiic', 2, 2, 'C1'],
-    '(BUTTERFLY)': ['butterfly', '8ca7', 3, 3, 'D2x'],
-    '(O2)': ['octomino 2', '8d72', 2, 1, 'C1'],
-    '(KAREL)': ['object hassled in Karel\'s p177', 'sid', 1, 1, 'C1'],
+    'P': ['pi-heptomino', '557', 1, 1],
+    'Q': ['queen bee', '3us8z31', 2, 3],
+    'W': ['wing', 'c53', 1, 1],
+    'U': ['U-turner', '77ac', 1, 1],
+    '(TL)': ['traffic light', '757', 1, 1],
+    '(HF)': ['honey farm', 's21112sz012221', 3, 3],
+    '(LOM)': ['lumps of muck', 'c63', 1, 1],
+    '(FLEET)': ['fleet', '799e', 1, 1],
+    '(BAKERY)': ['bakery', 's211hez0111', 2, 2],
+    '(TEARDROP)': ['teardrop', '699e', 3, 3],
+    '(LONGBUN)': ['long bun', '25556', 2, 1],
+    '(PROC)': ['procrastinator', '46232', 2, 1],
+    '(IWONA)': ['Iwona active region', '3t', 1, 1],
+    '(RT)': ['R-turner', '2598c', 1, 1],
+    '(DIEHARD)': ['original die hard', '207z062', 2, 1],
+    '(JASON)': ['object hassled in Jason\'s p22', '4ahiic', 2, 2],
+    '(BUTTERFLY)': ['butterfly', '8ca7', 3, 3],
+    '(O2)': ['octomino 2', '8d72', 2, 1],
+    '(KAREL)': ['object hassled in Karel\'s p177', 'sid', 1, 1],
 };
 
-const OTHER_CONDUIT_OBJECTS: {[key: string]: [value: string, time: number, x: number, y: number, symmetry: Symmetry, gens: number]} = {
-    'pe4': ['B', 0, 1, 2, 'C1', 0],
-    '2eehfd': ['H', -5, 4, 3, 'C1', 4],
-    '577': ['P', 0, 1, 1, 'C1', 2],
-    'c72': ['C', -1, 2, 1, 'C1', 0],
-    '4be4': ['(TEARDROP)', -1, 3, 3, 'C1', 0],
+const OTHER_CONDUIT_OBJECTS: {[key: string]: [value: string, time: number, x: number, y: number, gens: number]} = {
+    'pe4': ['B', 0, 1, 2, 0],
+    '2eehfd': ['H', -5, 4, 3, 4],
+    '577': ['P', 0, 1, 1, 2],
+    'c72': ['C', -1, 2, 1, 0],
+    '4be4': ['(TEARDROP)', -1, 3, 3, 0],
 };
 
 const SMALL_OBJECT_DIMENSIONS: [number, number][] = [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [4, 1], [4, 2], [4, 3], [4, 4], [5, 1], [5, 2], [5, 3], [6, 1], [6, 2], [7, 1], [7, 2], [8, 1], [8, 2]];
@@ -193,7 +192,7 @@ for (let [key, [rle, x, y]] of Object.entries(REVERSE_GLIDERS)) {
 
 let conduitObjects: {[key: string]: ConduitObjectInfo} = {};
 
-function addRegion(p: MAPPattern, obj: string, dir: ExpandedDirection, time: number, center: number): void {
+function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, center: number): void {
     p = p.copy();
     let found = false;
     let x = 0;
@@ -230,7 +229,7 @@ function addRegion(p: MAPPattern, obj: string, dir: ExpandedDirection, time: num
     }
 }
 
-function addConduitObject(key: string, code: string, x: number, y: number, symmetry: Symmetry, gens: number = CONDUIT_OBJECT_LOOKAHEAD_GENS, timeOffset: number = 0): void {
+function addConduitObject(key: string, code: string, x: number, y: number, gens: number = CONDUIT_OBJECT_LOOKAHEAD_GENS, timeOffset: number = 0): void {
     let p = base.loadApgcode(code).shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
@@ -251,37 +250,24 @@ function addConduitObject(key: string, code: string, x: number, y: number, symme
         }
         let center = p.get(x2, y2);
         p.set(x2, y2, 2);
-        if (symmetry === 'D8') {
-            addRegion(p, key, '*', i + timeOffset, center);
-        } else if (symmetry === 'D2+') {
-            addRegion(p, key, 'F*', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'R*', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'B*', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'L*', i + timeOffset, center);
-            p.rotateRight();
-        } else {
-            addRegion(p, key, 'F', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'R', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'B', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'L', i + timeOffset, center);
-            p.rotateRight();
-            p.flipVertical();
-            addRegion(p, key, 'Fx', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'Rx', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'Bx', i + timeOffset, center);
-            p.rotateRight();
-            addRegion(p, key, 'Lx', i + timeOffset, center);
-            p.rotateRight();
-            p.flipVertical();
-        }
+        addRegion(p, key, 'F', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'L', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'B', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'R', i + timeOffset, center);
+        p.rotateLeft();
+        p.flipVertical();
+        addRegion(p, key, 'Fx', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'Lx', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'Bx', i + timeOffset, center);
+        p.rotateLeft();
+        addRegion(p, key, 'Rx', i + timeOffset, center);
+        p.rotateLeft();
+        p.flipVertical();
         p.set(x2, y2, center);
         p.runGeneration();
         p.shrinkToFit();
@@ -289,11 +275,11 @@ function addConduitObject(key: string, code: string, x: number, y: number, symme
 }
 
 for (let [key, value] of Object.entries(CONDUIT_OBJECTS)) {
-    addConduitObject(key, value[1], value[2], value[3], value[4]);
+    addConduitObject(key, value[1], value[2], value[3]);
 }
 
 for (let [key, value] of Object.entries(OTHER_CONDUIT_OBJECTS)) {
-    addConduitObject(value[0], key, value[1], value[2], value[4], value[5], value[3]);
+    addConduitObject(value[0], key, value[1], value[2], value[4], value[3]);
 }
 
 let smallObjectFates: {[key: string]: (false | string | (typeof GLIDERS)[string])[]} = {};
@@ -356,35 +342,6 @@ export function getObjectInfo(obj: string | ConduitObject): ConduitObjectInfo {
     }
 }
 
-export function getSymmetry(obj: string): Symmetry {
-    if (obj in CONDUIT_OBJECTS) {
-        return CONDUIT_OBJECTS[obj][4];
-    } else {
-        let p = base.loadApgcode(obj.slice(1, -1));
-        if (p.copy().rotate180().isEqual(p)) {
-            if (p.copy().rotateRight().isEqual(p)) {
-                if (p.copy().flipHorizontal().isEqual(p)) {
-                    return 'D8';
-                } else {
-                    return 'C4';
-                }
-            } else if (p.copy().flipHorizontal().isEqual(p)) {
-                return 'D4+';
-            } else if (p.copy().flipDiagonal().isEqual(p)) {
-                return 'D4x';
-            } else {
-                return 'C2';
-            }
-        } else if (p.copy().flipHorizontal().isEqual(p) || p.copy().flipVertical().isEqual(p)) {
-            return 'D2+';
-        } else if (p.copy().flipDiagonal().isEqual(p) || p.copy().flipAntiDiagonal().isEqual(p)) {
-            return 'D2x';
-        } else {
-            return 'C1';
-        }
-    }
-}
-
 export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
     let sep = new INTSeparator(p, knots);
     sep.resolveKnots();
@@ -425,7 +382,7 @@ export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
     let code = startP.toApgcode();
     if (code in conduitObjects) {
         let data = conduitObjects[code];
-        if (!(data.dir === 'F' || data.dir === 'F*')) {
+        if (data.dir !== 'F') {
             p = p.copy();
             let dir = data.dir;
             if (dir[0] === 'R') {
@@ -434,8 +391,6 @@ export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
                 p.rotateRight();
             } else if (dir[0] === 'B') {
                 p.rotate180();
-            } else if (dir[0] === 'T') {
-                p.rotateRight();
             }
             if (dir[1] === 'x') {
                 p.flipVertical();
@@ -771,30 +726,6 @@ function getConduitInfo(data: Partial, input: ConduitObject, time: number, outpu
         }
         out.repeatTime = rt;
         out.overclock = worksAt.slice(0, rt).map((x, i) => x ? i : -1).filter(x => x !== -1);
-    }
-    let sym = getSymmetry(out.input);
-    if (sym === 'D8') {
-        for (let obj of out.output) {
-            obj.dir = '*';
-        }
-    } else if (sym === 'D2+') {
-        for (let obj of out.output) {
-            if (obj.dir.startsWith('F')) {
-                obj.dir = 'F*';
-            } else if (obj.dir.startsWith('B')) {
-                obj.dir = 'B*';
-            } else {
-                if (getSymmetry(obj.obj) === 'D2+') {
-                    obj.dir = 'T';
-                } else {
-                    if (obj.dir.startsWith('L')) {
-                        obj.dir = 'L*';
-                    } else {
-                        obj.dir = 'R*';
-                    }
-                }
-            }
-        }
     }
     return out;
 }
