@@ -246,6 +246,7 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
             });
         } else if (apgcode in c.SPACESHIPS) {
             let data = c.SPACESHIPS[apgcode];
+            let found = false;
             for (let i = 0; i < data.period; i++) {
                 for (let [height, width, pop, cells, dir] of data.identification) {
                     if (p.height === height && p.width === width && p.population === pop && cells.every(x => p.data[x])) {
@@ -257,13 +258,20 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                             dir,
                             at: 0,
                             timing: p.generation,
-                        })
+                        });
+                        found = true;
+                        break;
                     }
+                }
+                if (found) {
+                    break;
                 }
                 p.runGeneration();
                 p.shrinkToFit();
             }
-            throw new Error(`Invalid spaceship: ${p.toRLE()}`);
+            if (!found) {
+                throw new Error(`Invalid ${apgcode} (fix your config): ${p.toRLE()}`);
+            }
         } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
             return false;
         } else {

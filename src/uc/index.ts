@@ -145,6 +145,11 @@ if (posArgs[0] === 'search_conduits') {
 } else if (posArgs[0] === 'search_conduits_random') {
     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
     process.exit(0);
+} else if (posArgs[0] === 'search_simeks_test') {
+    let info = c.CHANNEL_INFO['Single-channel (90)'];
+    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
+    await searchChannel('Single-channel (90)', 1, 'xs4_33/9', 0, 256, recipes);
+    process.exit(0);
 }
 
 if (posArgs.length < 2) {
@@ -221,10 +226,6 @@ if (cmd === 'get') {
         }
         await searchChannel(type, threads, elbow, elbowTiming, parseInt(args[1]));
     }
-} else if (cmd === 'search_simeks_test') {
-    let info = c.CHANNEL_INFO['Single-channel (90)'];
-    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
-    await searchChannel('sc90', 1, 'xs4_33/9', 0, 256, recipes);
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
         error(`Cannot convert from restricted-channel`);
