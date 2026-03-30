@@ -10,6 +10,11 @@ import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 export async function run(): Promise<void> {
 
 
+if (typeof process.env === 'object') {
+    process.env.FORCE_COLOR = '1';
+}
+
+
 function error(msg: string): never {
     console.error('Error:', msg);
     process.exit(1);
@@ -145,10 +150,10 @@ if (posArgs[0] === 'search_conduits') {
 } else if (posArgs[0] === 'search_conduits_random') {
     await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
     process.exit(0);
-} else if (posArgs[0] === 'search_simeks_test') {
+} else if (posArgs[0] === 'search_simeks') {
     let info = c.CHANNEL_INFO['Single-channel (90)'];
     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0].slice(0, -1));
-    await searchChannel('Single-channel (90)', 1, 'xs4_33/9', 0, 256, recipes);
+    await searchChannel('Single-channel (90)', threads, 'xs4_33/9', 0, 256, recipes);
     process.exit(0);
 }
 

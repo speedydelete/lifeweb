@@ -100,3 +100,27 @@ export function stringMD5(data: string): string {
     }
     return Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
 }
+
+
+export function numericSorter(a: string, b: string): number {
+    let length = Math.min(a.length, b.length);
+    for (let i = 0; i < length; i++) {
+        if (a[i] === b[i]) {
+            continue;
+        }
+        if ('0123456789'.includes(a[i])) {
+            if ('0123456789'.includes(b[i])) {
+                return parseInt(a[i]) - parseInt(b[i]);
+            } else {
+                return -1;
+            }
+        } else {
+            if ('0123456789'.includes(b[i])) {
+                return 1;
+            } else {
+                return a.charCodeAt(i) - b.charCodeAt(i);
+            }
+        }
+    }
+    return a.length - b.length;
+}

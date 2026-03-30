@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
-import {MAPPattern, toCatagolueRule, createPattern} from '../core/index.js';
+import {numericSorter, MAPPattern, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 
 export * from './config.js';
@@ -869,12 +869,8 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
             let bCount = b.split('),').length;
             if (aCount !== bCount) {
                 return aCount - bCount;
-            } else if (a < b) {
-                return -1;
-            } else if (a > b) {
-                return 1;
             } else {
-                return 0;
+                return numericSorter(a, b);
             }
         }).join('\n') + '\n\n';
     }
@@ -981,10 +977,8 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 }
             }
             for (let recipes of Object.values(groups)) {
-                for (let recipe of recipes) {
-                    out += channelRecipeInfoToString(recipe) + ': ' + channelRecipeToString(info, recipe.recipe) + '\n';
-                }
-                out += '\n';
+                let strs = recipes.map(x => channelRecipeInfoToString(x) + ': ' + channelRecipeToString(info, x.recipe) + '\n');
+                out += strs.join('') + '\n';
             }
         }
     }

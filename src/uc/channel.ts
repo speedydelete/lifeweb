@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, log, base, shipPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, maxGenerations, log, base, shipPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
@@ -78,6 +78,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     if (elbow.startsWith('xp')) {
         period = parseInt(elbow.slice(2));
     }
+    let elbowObjCode = elbowData[0].slice(elbowData[0].indexOf('_') + 1);
     let out: ElbowData[string] = [];
     for (let timing = 0; timing < period; timing++) {
         let isSame = true;
@@ -134,14 +135,49 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         } else {
                             continue;
                         }
+                        let oldResult2 = result2;
                         result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
                         if (!result[0] || !result2[0] || result[0].code !== result2[0].code) {
                             continue;
                         }
                         let xDiff = result[0].x - result2[0].x;
-                        let yDiff = result[0].x - result2[0].x;
-                        if (xDiff !== yDiff * info.ship.slope) {
-                            continue;
+                        let yDiff = result[0].y - result2[0].y;
+                        let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
+                        let move: number;
+                        if (oldResult2 === data.result) {
+                            adjustLane -= elbowData[1];
+                            if (xDiff + adjustLane !== yDiff * info.ship.slope) {
+                                continue;
+                            }
+                            move = xDiff + adjustLane;
+                            // let p = base.loadApgcode(elbowObjCode).shrinkToFit();
+                            // for (let i = 0; i < p.width; i++) {
+                            //     if (p.data[i]) {
+                            //         break;
+                            //     }
+                            //     move++;
+                            // }
+                        } else {
+                            let p = createChannelPattern(info, [elbowObjCode, elbowData[1]], []).p;
+                            p.flipDiagonal();
+                            let data = patternToSalvo({ship: info.ship, period: 1}, p);
+                            adjustLane -= data[1][0][0];
+                            // if (elbow === 'xs4_33/2' && key === 'xs4_33/9') {
+                            //     console.log(p.toRLE());
+                            //     console.log(data);
+                            //     console.log(xDiff, adjustLane, xDiff + parseInt(key.slice(key.indexOf('/') + 1)) - adjustLane, yDiff);
+                            //     throw new Error('hi');
+                            // }
+                            if (xDiff !== (yDiff + adjustLane) * info.ship.slope) {
+                                continue;
+                            }
+                            move = yDiff + adjustLane;
+                            for (let i = 0; i < p.size; i += p.width) {
+                                if (p.data[i]) {
+                                    break;
+                                }
+                                move++;
+                            }
                         }
                         let found2 = false;
                         for (let i = 1; i < result.length; i++) {
@@ -154,7 +190,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         }
                         if (!found2) {
                             let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
-                            out.push({type: 'alias', elbow: key, flipped, move: yDiff, timing});
+                            out.push({type: 'alias', elbow: key, flipped, move, timing});
                             found = true;
                             break;
                         }
@@ -308,7 +344,14 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
+            if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 97, 91, 91, 93, 91, 90, 90, 91, 123, 114, 92, 90, 90, 154, 90, 117, 126, 141, 90, 92, 106')) {
+                console.log(recipe);
+            }
             let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
+            if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 97, 91, 91, 93, 91, 90, 90, 91, 123, 114, 92, 90, 90, 154, 90, 117, 126, 141, 90, 92, 106')) {
+                console.log(value.recipes[0]);
+                throw new Error('hi');
+            }
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         } else {
