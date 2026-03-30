@@ -221,6 +221,10 @@ if (cmd === 'get') {
         }
         await searchChannel(type, threads, elbow, elbowTiming, parseInt(args[1]));
     }
+} else if (cmd === 'search_simeks_test') {
+    let info = c.CHANNEL_INFO['Single-channel (90)'];
+    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
+    await searchChannel('sc90', 1, 'xs4_33/9', 0, 256, recipes);
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
         error(`Cannot convert from restricted-channel`);

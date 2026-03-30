@@ -39,18 +39,17 @@ export let base = createPattern(c.RULE) as MAPPattern;
 
 export let shipPatterns: {[key: string]: MAPPattern[]} = {};
 
-for (let key in c.SPACESHIPS) {
-    let data = c.SHIP_IDENTIFICATION[key];
-    let p = base.clearedCopy();
-    p.height = data.height;
-    p.width = data.width;
-    p.size = data.height * data.width;
+for (let [key, value] of Object.entries(c.SPACESHIPS)) {
+    let p = base.copy();
+    p.height = value.height;
+    p.width = value.width;
+    p.size = value.height * value.width;
     p.data = new Uint8Array(p.size);
-    for (let i of data.cells) {
+    for (let i of value.cells) {
         p.data[i] = 1;
     }
     let ps: MAPPattern[] = [p.copy()];
-    for (let i = 1; i < c.SPACESHIPS[key].period; i++) {
+    for (let i = 1; i < value.period; i++) {
         p.runGeneration();
         ps.push(p.copy());
     }
