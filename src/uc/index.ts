@@ -152,7 +152,7 @@ if (posArgs[0] === 'search_conduits') {
     process.exit(0);
 } else if (posArgs[0] === 'search_simeks') {
     let info = c.CHANNEL_INFO['Single-channel (90)'];
-    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0].slice(0, -1));
+    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
     await searchChannel('Single-channel (90)', threads, 'xs4_33/9', 0, 256, recipes);
     process.exit(0);
 }

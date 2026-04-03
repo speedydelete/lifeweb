@@ -80,7 +80,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number
 }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][]): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -101,6 +101,10 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             }
             continue;
         }
+        if (override && i < recipe.length - override[1]) {
+            total += timing;
+            continue;
+        }
         let y = Math.floor(total * info.ship.dy / info.ship.period);
         if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
             y++;
@@ -112,6 +116,9 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         gliders.push(p);
         total += timing;
     }
+    if (override) {
+        total -= override[0].generation;
+    }
     let y = Math.floor(total * info.ship.dy / info.ship.period) + c.GLIDER_TARGET_SPACING;
     let x = Math.floor(y * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
     if (info.channels.length > 1) {
@@ -121,24 +128,29 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
         g.xOffset -= x;
         g.yOffset -= y;
     });
-    let p = base.loadApgcode(elbow[0]).shrinkToFit();
-    if (timingOffset > 0) {
-        p.run(timingOffset).shrinkToFit();
-        p.generation = 0;
+    let p: MAPPattern;
+    if (override) {
+        p = override[0];
+    } else {
+        p = base.loadApgcode(elbow[0]).shrinkToFit();
+        if (timingOffset > 0) {
+            p.run(timingOffset).shrinkToFit();
+            p.generation = 0;
+        }
+        let yPos = c.GLIDER_TARGET_SPACING;
+        if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
+            yPos--;
+        }
+        let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+        while (xPos <= -p.width || yPos <= -p.height) {
+            xPos++;
+            yPos++;
+        }
+        p.offsetBy(xPos, yPos);
+        let toInsert = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
+        p.ensure(toInsert.width, toInsert.height);
+        p.insert(toInsert, 0, 0);
     }
-    let yPos = c.GLIDER_TARGET_SPACING;
-    if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
-        yPos--;
-    }
-    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
-    while (xPos <= -p.width || yPos <= -p.height) {
-        xPos++;
-        yPos++;
-    }
-    p.offsetBy(xPos, yPos);
-    let toInsert = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
-    p.ensure(toInsert.width, toInsert.height);
-    p.insert(toInsert, 0, 0);
     total += c.GLIDER_TARGET_SPACING;
     let i = 0;
     while (gliders.length > 0) {
@@ -173,18 +185,20 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
             break;
         }
     }
-    let period = info.ship.popPeriod;
-    if (elbow[0].startsWith('xp')) {
-        period = lcm(period, parseInt(elbow[0].slice(2)));
-    }
-    let prevPop = p.population;
-    for (let i = 0; i < 256; i++) {
-        p.run(period);
-        let pop = p.population;
-        if (pop !== prevPop) {
-            return p;
+    if (doFinal) {
+        let period = info.ship.popPeriod;
+        if (elbow[0].startsWith('xp')) {
+            period = lcm(period, parseInt(elbow[0].slice(2)));
         }
-        prevPop = pop;
+        let prevPop = p.population;
+        for (let i = 0; i < 256; i++) {
+            p.run(period);
+            let pop = p.population;
+            if (pop !== prevPop) {
+                return p;
+            }
+            prevPop = pop;
+        }
     }
     return p;
 }
@@ -253,10 +267,10 @@ function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string,
     return true;
 }
 
-function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
+function isNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
     let test = recipe.recipe.slice();
     test.push([next, 0]);
-    let p = runInjection(info, elbow, test);
+    p = runInjection(info, elbow, test, [p.copy(), 1]);
     if (expected.offsets.size === 1) {
         return checkNextWorkingInput(p, info, elbow, recipe, next, expected.data[(next + Array.from(expected.offsets)[0]) % expected.data.length]);
     } else {
@@ -275,8 +289,7 @@ function isNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: 
     }
 }
 
-export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
-    // console.log(recipe);
+function getExpected(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): ExpectedResult {
     let data: ExpectedResult['data'] = [];
     let period = 0;
     if (recipe.end) {
@@ -301,7 +314,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
                     expected.stables.push(obj);
                 } else if (obj.type === 'ship') {
                     if (expected.period !== 0) {
-                        expected.period = lcm(expected.period, info.ship.popPeriod);
+                        expected.period = lcm(expected.period, c.SPACESHIPS[obj.code].popPeriod);
                     }
                     expected.ships.push(getShipInfo(info, obj));
                 } else {
@@ -367,16 +380,23 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         }
         data.push(expected);
     }
-    let expected: ExpectedResult = {data, period, offsets: new Set()};
+    let out: ExpectedResult = {data, period, offsets: new Set()};
     for (let i = 0; i < data.length; i++) {
-        expected.offsets.add(i);
+        out.offsets.add(i);
     }
+    return out;
+}
+
+export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
+    // console.log(recipe);
+    let p = runInjection(info, elbow, recipe.recipe, undefined, true);
+    let expecteds = getExpected(info, elbow, recipe, results);
     // let msg = '\x1b[92mexpecteds:';
-    // for (let i = 0; i < data.length; i++) {
-    //     let expected = data[i];
-    //     msg += `\n    ${i}:\n        stables: ${objectsToString(expected.stables)}\n        ships: ${expected.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n        others: ${expected.others.join(', ')}`;
+    // for (let i = 0; i < expecteds.data.length; i++) {
+    //     let value = expecteds.data[i];
+    //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\n        others: ${value.others.join(', ')}`;
     // }
-    // msg += `\ntotal period: ${period}`;
+    // msg += `\ntotal period: ${expecteds.period}`;
     // console.log(msg + '\x1b[0m');
     let low = info.minSpacing;
     let high = info.maxNextSpacing;
@@ -385,7 +405,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(info, elbow, recipe, mid, expected) && isNextWorkingInput(info, elbow, recipe, mid + 1, expected) && isNextWorkingInput(info, elbow, recipe, mid + 2, expected)) {
+        if (isNextWorkingInput(p, info, elbow, recipe, mid, expecteds) && isNextWorkingInput(p, info, elbow, recipe, mid + 1, expecteds) && isNextWorkingInput(p, info, elbow, recipe, mid + 2, expecteds)) {
             high = mid;
         } else {
             low = mid + 1;
@@ -567,67 +587,8 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
                 so2Result.push(getCollision(info, so2.obj.code, so2.lane, i, undefined, undefined, true));
             }
             if (so1Result.every(x => typeof x === 'object')) {
-                if (so2Result.every(x => typeof x === 'object')) {
-                    // let p = base.loadApgcode(so1.obj.code.slice(so1.obj.code.indexOf('_') + 1)).shrinkToFit();
-                    // let obj2 = base.loadApgcode(so1.obj.code.slice(so1.obj.code.indexOf('_') + 1)).shrinkToFit();
-                    // p.expand(0, so2.obj.y - so1.obj.y + obj2.height, 0, so2.obj.x - so1.obj.x + obj2.width - p.xOffset);
-                    // p.insert(obj2, so2.obj.x - so1.obj.x, so2.obj.y - so1.obj.y);
-                    // p.xOffset = so1.obj.x;
-                    // p.yOffset = so2.obj.y;
-                    // let code = p.toApgcode();
-                    // let expected: string[] = [];
-                    // for (let value of so1Result) {
-                    //     value = value.filter(x => x.type === 'sl' || x.type === 'osc');
-                    //     let obj = structuredClone(so2.obj);
-                    //     obj.x += so1.obj.x - so2.obj.x;
-                    //     obj.y += so1.obj.y - so2.obj.y;
-                    //     if (so2.obj.type === 'sl') {
-                    //         value.push()
-                    //     }
-                    //     value.push({
-                    //         type: so2.obj.type,
-
-                    //     })
-                    // }
-                    // let so2Obj = base.loadApgcode(so2.obj.code.slice(so2.obj.code.indexOf('_') + 1));
-                    // for (let i = 0; i < lcm(so1.period, so2.period); i++) {
-                    //     let value = getCollision(info, code, so1.lane, i, undefined, undefined, true);
-                    //     if (typeof value !== 'object' || value.length !== so1Result[i].length + 1) {
-                    //         return;
-                    //     }
-                    //     let obj = value.find(x => x.type === 'sl' || x.type === 'osc');
-                    //     let obj2 = expected[i % so1.period];
-                    //     if (obj === undefined || obj2 === undefined) {
-                    //         if (obj === obj2) {
-                    //             continue;
-                    //         }
-                    //         return;
-                    //     }
-                    //     if (obj.type === 'osc') {
-                    //         obj = normalizeOscillator(obj);
-                    //     }
-                    //     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
-                    //     let q = base.loadApgcode(obj2.code.slice(obj2.code.indexOf('_') + 1)).shrinkToFit();
-                    //     p.insertXor(q, obj2.x - obj.x, obj2.y - obj.y).shrinkToFit();
-                    //     let found = false;
-                    //     for (let i = 0; i < so2.period; i++) {
-                    //         if (p.isEqualWithTranslate(so2Obj)) {
-                    //             found = true;
-                    //             break;
-                    //         }
-                    //         p.runGeneration();
-                    //         p.shrinkToFit();
-                    //     }
-                    //     if (!found) {
-                    //         return;
-                    //     }
-                    // }
-                    endElbowData = [so1, so1Result];
-                    create = so2.obj;
-                } else {
-                    endElbowData = [so1, so1Result];
-                    create = so2.obj;
-                }
+                endElbowData = [so1, so1Result];
+                create = so2.obj;
             } else {
                 if (so2Result.every(x => typeof x === 'object')) {
                     endElbowData = [so2, so2Result];
