@@ -791,7 +791,6 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
         count++;
         let [recipe, time] = recipes[i];
         let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, badElbows, newElbows);
-        console.log(value);
         if (value) {
             if (value.recipes) {
                 newRecipes.push(...value.recipes);
