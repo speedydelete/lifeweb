@@ -162,18 +162,13 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                             p.flipDiagonal();
                             let data = patternToSalvo({ship: info.ship, period: 1}, p);
                             adjustLane -= data[1][0][0];
-                            // if (elbow === 'xs4_33/2' && key === 'xs4_33/9') {
-                            //     console.log(p.toRLE());
-                            //     console.log(data);
-                            //     console.log(xDiff, adjustLane, xDiff + parseInt(key.slice(key.indexOf('/') + 1)) - adjustLane, yDiff);
-                            //     throw new Error('hi');
-                            // }
                             if (xDiff !== (yDiff + adjustLane) * info.ship.slope) {
                                 continue;
                             }
                             move = yDiff + adjustLane;
-                            for (let i = 0; i < p.size; i += p.width) {
-                                if (p.data[i]) {
+                            let q = base.loadApgcode(elbowObjCode).shrinkToFit();
+                            for (let i = 0; i < q.size; i += q.width) {
+                                if (q.data[i]) {
                                     break;
                                 }
                                 move++;
@@ -344,14 +339,14 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
-            if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 97, 91, 91, 93, 91, 90, 90, 91, 123, 114, 92, 90, 90, 154, 90, 117, 126, 141, 90, 92, 106')) {
-                console.log(recipe);
-            }
+            // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
+            //     console.log(recipe);
+            // }
             let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
-            if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 97, 91, 91, 93, 91, 90, 90, 91, 123, 114, 92, 90, 90, 154, 90, 117, 126, 141, 90, 92, 106')) {
-                console.log(value.recipes[0]);
-                throw new Error('hi');
-            }
+            // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
+            //     console.log(value.recipes[0]);
+            //     throw new Error('hi');
+            // }
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         } else {
