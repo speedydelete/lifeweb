@@ -389,7 +389,7 @@ function getExpected(info: ChannelInfo, elbow: [string, number], recipe: Channel
 
 export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
     // console.log(recipe);
-    let p = runInjection(info, elbow, recipe.recipe, undefined, true);
+    let p = runInjection(info, elbow, recipe.recipe, undefined, false);
     let expecteds = getExpected(info, elbow, recipe, results);
     // let msg = '\x1b[92mexpecteds:';
     // for (let i = 0; i < expecteds.data.length; i++) {
