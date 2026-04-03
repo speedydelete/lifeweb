@@ -170,7 +170,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                     return new FiniteCoordPattern(p.coords, p.range, p, x, y);
                 } else {
                     if (x !== width || y !== height) {
-                        let newData = new Uint8Array(height * width);
+                        let newData = new Uint8Array(x * y);
                         let i = 0;
                         for (let y2 = 0; y2 < height; y2++) {
                             let loc = y2 * x;
