@@ -1,7 +1,7 @@
 
 import {MessagePort} from 'node:worker_threads';
-import {lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {gcd, lcm, MAPPattern, findType} from '../core/index.js';
+import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, Oscillator, StableObject, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -568,7 +568,62 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
             }
             if (so1Result.every(x => typeof x === 'object')) {
                 if (so2Result.every(x => typeof x === 'object')) {
-                    return;
+                    // let p = base.loadApgcode(so1.obj.code.slice(so1.obj.code.indexOf('_') + 1)).shrinkToFit();
+                    // let obj2 = base.loadApgcode(so1.obj.code.slice(so1.obj.code.indexOf('_') + 1)).shrinkToFit();
+                    // p.expand(0, so2.obj.y - so1.obj.y + obj2.height, 0, so2.obj.x - so1.obj.x + obj2.width - p.xOffset);
+                    // p.insert(obj2, so2.obj.x - so1.obj.x, so2.obj.y - so1.obj.y);
+                    // p.xOffset = so1.obj.x;
+                    // p.yOffset = so2.obj.y;
+                    // let code = p.toApgcode();
+                    // let expected: string[] = [];
+                    // for (let value of so1Result) {
+                    //     value = value.filter(x => x.type === 'sl' || x.type === 'osc');
+                    //     let obj = structuredClone(so2.obj);
+                    //     obj.x += so1.obj.x - so2.obj.x;
+                    //     obj.y += so1.obj.y - so2.obj.y;
+                    //     if (so2.obj.type === 'sl') {
+                    //         value.push()
+                    //     }
+                    //     value.push({
+                    //         type: so2.obj.type,
+
+                    //     })
+                    // }
+                    // let so2Obj = base.loadApgcode(so2.obj.code.slice(so2.obj.code.indexOf('_') + 1));
+                    // for (let i = 0; i < lcm(so1.period, so2.period); i++) {
+                    //     let value = getCollision(info, code, so1.lane, i, undefined, undefined, true);
+                    //     if (typeof value !== 'object' || value.length !== so1Result[i].length + 1) {
+                    //         return;
+                    //     }
+                    //     let obj = value.find(x => x.type === 'sl' || x.type === 'osc');
+                    //     let obj2 = expected[i % so1.period];
+                    //     if (obj === undefined || obj2 === undefined) {
+                    //         if (obj === obj2) {
+                    //             continue;
+                    //         }
+                    //         return;
+                    //     }
+                    //     if (obj.type === 'osc') {
+                    //         obj = normalizeOscillator(obj);
+                    //     }
+                    //     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
+                    //     let q = base.loadApgcode(obj2.code.slice(obj2.code.indexOf('_') + 1)).shrinkToFit();
+                    //     p.insertXor(q, obj2.x - obj.x, obj2.y - obj.y).shrinkToFit();
+                    //     let found = false;
+                    //     for (let i = 0; i < so2.period; i++) {
+                    //         if (p.isEqualWithTranslate(so2Obj)) {
+                    //             found = true;
+                    //             break;
+                    //         }
+                    //         p.runGeneration();
+                    //         p.shrinkToFit();
+                    //     }
+                    //     if (!found) {
+                    //         return;
+                    //     }
+                    // }
+                    endElbowData = [so1, so1Result];
+                    create = so2.obj;
                 } else {
                     endElbowData = [so1, so1Result];
                     create = so2.obj;
@@ -736,6 +791,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
         count++;
         let [recipe, time] = recipes[i];
         let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, badElbows, newElbows);
+        console.log(value);
         if (value) {
             if (value.recipes) {
                 newRecipes.push(...value.recipes);

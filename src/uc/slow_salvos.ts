@@ -1,5 +1,5 @@
 
-import {gcd, MAPPattern} from '../core/index.js';
+import {lcm, MAPPattern} from '../core/index.js';
 import {c, SpaceshipInfo, SalvoInfo, log, base, shipPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
@@ -87,8 +87,7 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
 export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: number, timing: number = 0, flip?: boolean, isElbow?: boolean, combineAll?: boolean): false | 'no collision' | 'no stabilize' | 'linear' | 'no' | CAObject[] {
     let inc = info.ship.popPeriod;
     if (code.startsWith('xp')) {
-        let period = parseInt(code.slice(2));
-        inc = inc * period / gcd(inc, period);
+        inc = lcm(inc, parseInt(code.slice(2)));
     }
     let p = createSalvoPattern({ship: info.ship, gliderSpacing: 0}, code.slice(code.indexOf('_') + 1), [[lane, timing]]);
     if (flip) {
@@ -98,8 +97,8 @@ export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: nu
         p.yOffset = temp;
     }
     let prevPop = p.population;
-    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / info.ship.popPeriod; i++) {
-        p.run(info.ship.popPeriod);
+    for (let i = 0; i < c.MAX_WAIT_GENERATIONS / inc; i++) {
+        p.run(inc);
         let pop = p.population;
         if (pop !== prevPop) {
             if (i === 0) {
