@@ -169,7 +169,20 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                 if (p instanceof CoordPattern) {
                     return new FiniteCoordPattern(p.coords, p.range, p, x, y);
                 } else {
-                    return new FiniteDataPattern(height, width, data, p, x, y);
+                    if (x !== width || y !== height) {
+                        let newData = new Uint8Array(height * width);
+                        let i = 0;
+                        for (let y2 = 0; y2 < height; y2++) {
+                            let loc = y2 * x;
+                            for (let x2 = 0; x2 < width; x2++) {
+                                newData[loc++] = data[i++];
+                            }
+                        }
+                        data = newData;
+                        height = y;
+                        width = x;
+                    }
+                    return new FiniteDataPattern(height, width, data, p);
                 }
             } else if (type === 'T') {
                 if (p instanceof CoordPattern) {

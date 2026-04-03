@@ -10,38 +10,18 @@ import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPat
 export class FiniteDataPattern extends DataPattern {
 
     pattern: Pattern;
-    /** The height of the bounding box. */
-    bbHeight: number;
-    /** The width of the bounding box. */
-    bbWidth: number;
-    /** The minimum X value of live cells. */
-    minX: number;
-    /** The minimum Y value of live cells. */
-    minY: number;
-    /** The maximum X value of live cells. */
-    maxX: number;
-    /** The maximum Y value of live cells. */
-    maxY: number;
-    xOffset: number;
-    yOffset: number;
     states: number;
     ruleStr: string;
     ruleSymmetry: RuleSymmetry;
     rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, p: Pattern, bbWidth: number, bbHeight: number) {
+    constructor(height: number, width: number, data: Uint8Array, p: Pattern) {
         super(height, width, data);
         this.pattern = p;
-        this.bbHeight = bbHeight;
-        this.bbWidth = bbWidth;
-        this.minX = -Math.floor(bbWidth / 2);
-        this.minY = -Math.floor(bbHeight / 2);
-        this.maxX = bbWidth + this.minX - 1;
-        this.maxY = bbHeight + this.minY - 1;
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
         this.states = p.states;
-        this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
+        this.ruleStr = p.ruleStr + ':P' + width + ',' + height;
         this.ruleSymmetry = p.ruleSymmetry;
         this.rulePeriod = p.rulePeriod;
     }
@@ -49,55 +29,35 @@ export class FiniteDataPattern extends DataPattern {
     runGeneration(): void {
         let p = this.pattern;
         p.setData(this.height, this.width, this.data);
-        p.xOffset = this.xOffset;
-        p.yOffset = this.yOffset;
+        p.xOffset = 0;
+        p.yOffset = 0;
         p.runGeneration();
         p.shrinkToFit();
-        this.height = p.height;
-        this.width = p.width;
-        this.size = this.height * this.width;
-        this.data = p.getData();
-        this.xOffset = p.xOffset;
-        this.yOffset = p.yOffset;
         let shrink = false;
-        if (this.xOffset < this.minX) {
-            this.clearPart(0, 0, this.height, this.minX - this.xOffset);
-            shrink = true;
+        if (p.xOffset < 0) {
+            p.clearPart(0, 0, p.height, -p.xOffset);
+            p.shrinkToFit();
         }
-        if (this.yOffset < this.minY) {
-            this.clearPart(0, 0, this.minY - this.yOffset, this.width);
-            shrink = true;
+        if (p.yOffset < 0) {
+            p.clearPart(0, 0, p.width, -p.yOffset);
+            p.shrinkToFit();
         }
-        if (shrink) {
-            this.shrinkToFit();
-        }
-        shrink = false;
-        let maxY = this.yOffset + this.height - 1;
-        if (maxY > this.maxY) {
-            this.clearPart(0, this.height - 1, maxY - this.maxY, this.width);
-            shrink = true;
-        }
-        let maxX = this.xOffset + this.width - 1;
-        if (maxX > this.maxX) {
-            this.clearPart(this.width - 1, 0, this.height, maxX - this.maxX);
-            shrink = true;
-        }
-        if (shrink) {
-            this.shrinkToFit();
+        let data = p.getData();
+        this.data = new Uint8Array(this.size);
+        for (let y = 0; y < this.height; y++) {
+            this.data.set(data.slice(y * p.width, y * p.width + this.width), y * this.width);
         }
         this.generation++;
     }
 
     copy(): FiniteDataPattern {
-        let out = new FiniteDataPattern(this.height, this.width, this.data, this.pattern, this.bbHeight, this.bbWidth);
+        let out = new FiniteDataPattern(this.height, this.width, this.data, this.pattern);
         out.generation = this.generation;
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
         return out;
     }
 
     clearedCopy(): FiniteDataPattern {
-        return new FiniteDataPattern(0, 0, new Uint8Array(0), this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteDataPattern(this.height, this.width, new Uint8Array(this.size), this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): FiniteDataPattern {
@@ -107,17 +67,25 @@ export class FiniteDataPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new FiniteDataPattern(height, width, data, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteDataPattern(this.height, this.width, data, this.pattern);
     }
 
     loadApgcode(code: string): FiniteDataPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new FiniteDataPattern(height, width, data, this.pattern, this.bbHeight, this.bbWidth);
+        let out = new Uint8Array(this.size);
+        for (let y = 0; y < this.height; y++) {
+            out.set(data.slice(y * width, y * width + this.width), y * this.width);
+        }
+        return new FiniteDataPattern(this.height, this.width, out, this.pattern);
     }
 
     loadRLE(rle: string): FiniteDataPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new FiniteDataPattern(height, width, data, this.pattern, this.bbHeight, this.bbWidth);
+        let out = new Uint8Array(this.size);
+        for (let y = 0; y < this.height; y++) {
+            out.set(data.slice(y * width, y * width + this.width), y * this.width);
+        }
+        return new FiniteDataPattern(this.height, this.width, out, this.pattern);
     }
 
 }
