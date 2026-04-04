@@ -105,14 +105,15 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 }
             }
             results.push(objs);
-            let result = objectsToString(objs);
-            if (prevResult && result !== prevResult) {
+            let strResult = objectsToString(objs);
+            if (prevResult && strResult !== prevResult) {
                 isSame = false;
                 break;
             }
-            prevResult = result;
+            prevResult = strResult;
         }
         if (!isSame) {
+            results = results.map(x => x.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare));
             let index = 0;
             while (results[index].length === 0) {
                 index++;
@@ -142,26 +143,15 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         } else {
                             continue;
                         }
-                        let oldDataResult2 = dataResult2;
                         dataResult2 = dataResult2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
+                        if (result2[0].code !== dataResult2[0].code) {
+                            continue;
+                        }
                         let xDiff = result2[0].x - dataResult2[0].x;
                         let yDiff = result2[0].y - dataResult2[0].y;
                         let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                         let move: number;
-                        if (oldDataResult2 === data.results[index]) {
-                            adjustLane -= elbowData[1];
-                            if (xDiff + adjustLane !== yDiff * info.ship.slope) {
-                                continue;
-                            }
-                            move = xDiff + adjustLane;
-                            // let p = base.loadApgcode(elbowObjCode).shrinkToFit();
-                            // for (let i = 0; i < p.width; i++) {
-                            //     if (p.data[i]) {
-                            //         break;
-                            //     }
-                            //     move++;
-                            // }
-                        } else {
+                        if (flipped) {
                             let p = createChannelPattern(info, [elbowObjCode, elbowData[1]], []).p;
                             p.flipDiagonal();
                             let data = patternToSalvo({ship: info.ship, period: 1}, p);
@@ -177,6 +167,23 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                                 }
                                 move++;
                             }
+                        } else {
+                            adjustLane -= elbowData[1];
+                            if (xDiff + adjustLane !== yDiff * info.ship.slope) {
+                                console.log('FAILED IN ADJUSTLANE CHECK');
+                                console.log(result2);
+                                console.log(dataResult2);
+                                console.log(xDiff, adjustLane, yDiff, info.ship.slope, elbowData);
+                                continue;
+                            }
+                            move = xDiff + adjustLane;
+                            // let p = base.loadApgcode(elbowObjCode).shrinkToFit();
+                            // for (let i = 0; i < p.width; i++) {
+                            //     if (p.data[i]) {
+                            //         break;
+                            //     }
+                            //     move++;
+                            // }
                         }
                         let found2 = false;
                         for (let i = 1; i < result2.length; i++) {

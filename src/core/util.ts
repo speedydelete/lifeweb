@@ -114,15 +114,15 @@ export function numericSorter(a: string, b: string): number {
         }
         if (startsWithNumber(a, i)) {
             if (startsWithNumber(b, i)) {
-                return parseInt(a, i) - parseInt(b, i);
+                return parseInt(b, i) - parseInt(a, i);
             } else {
-                return -1;
+                return 1;
             }
         } else {
             if (startsWithNumber(b, i)) {
-                return 1;
+                return -1;
             } else {
-                return a.charCodeAt(i) - b.charCodeAt(i);
+                return b.charCodeAt(i) - a.charCodeAt(i);
             }
         }
     }
