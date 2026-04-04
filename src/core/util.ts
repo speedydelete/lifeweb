@@ -102,20 +102,24 @@ export function stringMD5(data: string): string {
 }
 
 
+function startsWithNumber(x: string, i: number = 0): boolean {
+    return '0123456789'.includes(x[i]) || (x[i] === '-' && '0123456789'.includes(x[i + 1]));
+}
+
 export function numericSorter(a: string, b: string): number {
     let length = Math.min(a.length, b.length);
     for (let i = 0; i < length; i++) {
         if (a[i] === b[i]) {
             continue;
         }
-        if ('0123456789'.includes(a[i])) {
-            if ('0123456789'.includes(b[i])) {
-                return parseInt(a[i]) - parseInt(b[i]);
+        if (startsWithNumber(a, i)) {
+            if (startsWithNumber(b, i)) {
+                return parseInt(a, i) - parseInt(b, i);
             } else {
                 return -1;
             }
         } else {
-            if ('0123456789'.includes(b[i])) {
+            if (startsWithNumber(b, i)) {
                 return 1;
             } else {
                 return a.charCodeAt(i) - b.charCodeAt(i);

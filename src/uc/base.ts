@@ -977,8 +977,18 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 }
             }
             for (let recipes of Object.values(groups)) {
-                let strs = recipes.map(x => channelRecipeInfoToString(x) + ': ' + channelRecipeToString(info, x.recipe) + '\n');
-                out += strs.join('') + '\n';
+                let groups: {[key: string]: string[]} = {};
+                for (let recipe of recipes) {
+                    let str = channelRecipeInfoToString(recipe) + ': ' + channelRecipeToString(info, recipe.recipe) + '\n';
+                    if (recipe.start in groups) {
+                        groups[recipe.start].push(str);
+                    } else {
+                        groups[recipe.start] = [str];
+                    }
+                }
+                for (let key of Object.keys(groups).sort(numericSorter)) {
+                    out += groups[key].sort(numericSorter).join('') + '\n';
+                }
             }
         }
     }
