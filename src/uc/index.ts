@@ -4,7 +4,6 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
-import {searchConduits, searchConduitsRandom} from './conduit_searcher.js';
 
 
 export async function run(): Promise<void> {
@@ -31,27 +30,31 @@ Subcommands:
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
     merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
-    search_conduits <lss-path> <height> <width>: Search for width by height stable reflectors, conduits, and eaters.
-    search_conduits_objects <objects> <height> <width> <count>: Search for width by height stable reflectors, conduits, and eaters that are made up of count of the given objects.
-    search_conduits_random <objects> <height> <width> <count>: Search for width by height stable reflectors, conduits, and eaters that are made up of count of the given objects placed randomly.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
 Flags:
+
     -h, --help: Show this help message.
+
     -t <n>, --threads <n>: Parallelize using n threads (only supported for channel searching currently).
+
     -m, --max-gens: Set the maximum amount of generations for stabilization (overrides config.ts).
+
     -d <depth>, --depth <depth>: For convert, the depth to use for searching. For salvo searching, it will increase the depth by that much when compiling recipes.
+
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
-    --force-end-elbow <elbow>[/pos]: For convert, force an ending elbow.
+
+    --force-end-elbow <elbow>: For convert, force an ending elbow.
+
     --destroy-elbow: For convert, destroy the elbow.
+
     --min-elbow <pos>: For convert_0, the minimum position the elbow can be on.
+
     --max-elbow <pos>: For convert_0, the maximum postiion the elbow can be on.
+
     --no-compile: For slow salvo searching, disables compilation of recipes.
-    --no-eater: For conduit searching, do not report eaters.
-    --strict-height: For conduit searching, only search objects that fill the whole height.
-    --strict-width: For conduit searching, only search objects that fill the whole width.
-    --strict-bb: Combination of --strict-height and --strict-width.
+
 `;
 
 
@@ -66,10 +69,6 @@ let maxElbow: number | undefined = undefined;
 let depth: number | undefined = undefined;
 let beam: number | undefined = undefined;
 let dvgrn = false;
-let noCompile = false;
-let noEater = false;
-let strictHeight = false;
-let strictWidth = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -116,17 +115,6 @@ for (let i = 2; i < argv.length; i++) {
             }
         } else if (arg === '--dvgrn') {
             dvgrn = true;
-        } else if (arg === '--no-compile') {
-            noCompile = true;
-        } else if (arg === '--no-eater') {
-            noEater = true;
-        } else if (arg === '--strict-height') {
-            strictHeight = true;
-        } else if (arg === '--strict-width') {
-            strictWidth = true;
-        } else if (arg === '--strict-bb') {
-            strictHeight = true;
-            strictWidth = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
@@ -141,16 +129,7 @@ if (maxGens !== undefined) {
     setMaxGenerations(maxGens);
 }
 
-if (posArgs[0] === 'search_conduits') {
-    await searchConduits(posArgs[1], parseInt(posArgs[2]), parseInt(posArgs[3]), undefined, noEater, strictHeight, strictWidth);
-    process.exit(0);
-} else if (posArgs[0] === 'search_conduits_objects') {
-    await searchConduits('', parseInt(posArgs[2]), parseInt(posArgs[3]), [posArgs[1].split(/[ ,]+/), parseInt(posArgs[4])], noEater, strictHeight, strictWidth);
-    process.exit(0);
-} else if (posArgs[0] === 'search_conduits_random') {
-    await searchConduitsRandom(parseInt(posArgs[2]), parseInt(posArgs[3]), posArgs[1].split(/[ ,]+/), parseInt(posArgs[4]), noEater);
-    process.exit(0);
-} else if (posArgs[0] === 'search_simeks') {
+if (posArgs[0] === 'search_simeks') {
     let info = c.CHANNEL_INFO['Single-channel (90)'];
     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
     await searchChannel('Single-channel (90)', threads, 'xs4_33/9', 0, 256, recipes);
