@@ -109,10 +109,14 @@ function startsWithNumber(x: string, i: number = 0): boolean {
 export function numericSorter(a: string, b: string): number {
     let length = Math.min(a.length, b.length);
     for (let i = 0; i < length; i++) {
-        if (a[i] === b[i]) {
+        if (a[i] === b[i] && !('0123456789-:'.includes(a[i]))) {
             continue;
         }
-        if (startsWithNumber(a, i)) {
+        if (a[i] === ':') {
+            return -1;
+        } else if (b[i] === ':') {
+            return 1;
+        } else if (startsWithNumber(a, i)) {
             if (startsWithNumber(b, i)) {
                 return parseInt(a.slice(i)) - parseInt(b.slice(i));
             } else {
