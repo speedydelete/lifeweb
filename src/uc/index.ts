@@ -91,7 +91,7 @@ let argv = process.argv;
 let posArgs: string[] = [];
 let options: Partial<{[K in Option]: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : never))}> = {}
 
-for (let i = 1; i < argv.length; i++) {
+for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
     if (arg.match(/^-[-a-zA-Z]/)) {
         arg = arg.toLowerCase();
