@@ -20,7 +20,7 @@ function error(msg: string): never {
 }
 
 const HELP = `
-Usage: ./uc <command> <type> [command_options] [flags]
+Usage: ./uc <command> [options]
 
 Search program and utility for universal construction in cellular automata.
 
@@ -33,7 +33,7 @@ Subcommands:
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
-Flags:
+Options:
 
     -h, --help: Show this help message.
 
@@ -45,6 +45,8 @@ Flags:
 
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
 
+    -f <path>, --file <path>: Provide an output file to append stdout to as well as putting it on the screen.
+    
     --force-end-elbow <elbow>: For convert, force an ending elbow.
 
     --destroy-elbow: For convert, destroy the elbow.
@@ -57,69 +59,72 @@ Flags:
 
 `;
 
+const OPTIONS = {
+    'help': true,
+    'threads': 'number',
+    'max-gens': 'number',
+    'depth': 'number',
+    'beam': 'number',
+    'file': 'string',
+    'force-end-elbow': 'string',
+    'destroy-elbow': true,
+    'min-elbow': 'number',
+    'max-elbow': 'number',
+    'no-compile': true,
+    'dvgrn': true,
+} as const satisfies {[key: string]: true | 'string' | 'number'};
+
+type Options = typeof OPTIONS;
+type Option = keyof Options;
+
+const OPTION_ALIASES: {[key: string]: Option} = {
+    'h': 'help',
+    't': 'threads',
+    'm': 'max-gens',
+    'd': 'depth',
+    'b': 'beam',
+    'f': 'file',
+};
 
 let argv = process.argv;
 
 let posArgs: string[] = [];
-let threads = 1;
-let maxGens: number | undefined = undefined;
-let forceEndElbow: number | false | undefined = undefined;
-let minElbow: number | undefined = undefined;
-let maxElbow: number | undefined = undefined;
-let depth: number | undefined = undefined;
-let beam: number | undefined = undefined;
-let dvgrn = false;
-let noCompile = false;
+let options: Partial<{[K in Option]: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : never))}> = {}
 
-for (let i = 2; i < argv.length; i++) {
+for (let i = 1; i < argv.length; i++) {
     let arg = argv[i];
     if (arg.match(/^-[-a-zA-Z]/)) {
-        if (arg === '-h' || arg === '--help') {
-            console.log(HELP);
-            process.exit(0);
-        } else if (arg === '-t' || arg === '--threads') {
-            threads = parseInt(argv[++i]);
-            if (Number.isNaN(threads)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
+        arg = arg.toLowerCase();
+        let originalArg = arg;
+        while (arg.startsWith('-')) {
+            arg = arg.slice(1);
+        }
+        if (arg in OPTION_ALIASES) {
+            arg = OPTION_ALIASES[arg];
+        }
+        if (!(arg in OPTIONS)) {
+            error(`Unrecognized option: '${arg}'`);
+        }
+        let option = arg as Option;
+        let value = OPTIONS[option];
+        if (value === true) {
+            (options[option] as true) = true;
+        } else if (value === 'string') {
+            if (i === argv.length - 1) {
+                error(`Expected argument for option '${originalArg}'`);
             }
-        } else if (arg === '-m' || arg === '--max-gens') {
-            maxGens = parseInt(argv[++i]);
-            if (Number.isNaN(maxGens)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '-d' || arg === '--depth') {
-            depth = parseInt(argv[++i]);
-            if (Number.isNaN(depth)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '-b' || arg === '--beam') {
-            beam = parseInt(argv[++i]);
-            if (Number.isNaN(beam)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '--force-end-elbow') {
-            forceEndElbow = parseInt(argv[++i]);
-            if (Number.isNaN(forceEndElbow)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '--destroy-elbow') {
-            forceEndElbow = false;
-        } else if (arg === '--min-elbow') {
-            minElbow = parseInt(argv[++i]);
-            if (Number.isNaN(minElbow)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '--max-elbow') {
-            maxElbow = parseInt(argv[++i]);
-            if (Number.isNaN(maxElbow)) {
-                error(`Invalid option for ${arg}: '${argv[i]}'\nSee -h for help.`);
-            }
-        } else if (arg === '--dvgrn') {
-            dvgrn = true;
-        } else if (arg === '--no-compile') {
-            noCompile = true;
+            let arg = argv[++i];
+            (options[option] as string) = arg;
         } else {
-            error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
+            if (i === argv.length - 1) {
+                error(`Expected argument for option '${originalArg}'`);
+            }
+            let arg = argv[++i];
+            let num = parseFloat(arg);
+            if (Number.isNaN(num)) {
+                error(`Expected numeric argument for option '${originalArg}'`);
+            }
+            (options[option] as number) = num;
         }
     } else {
         posArgs.push(arg);
@@ -127,15 +132,41 @@ for (let i = 2; i < argv.length; i++) {
 }
 
 
+if (options['help']) {
+    console.log(HELP);
+    process.exit(0);
+}
 
-if (maxGens !== undefined) {
-    setMaxGenerations(maxGens);
+if (options['max-gens'] !== undefined) {
+    setMaxGenerations(options['max-gens']);
+}
+
+if (options['file'] !== undefined) {
+    let originalWrite = process.stdout.write.bind(process.stdout);
+    let {appendFileSync} = await import('node:fs');
+    process.stdout.write = function(data: string | Uint8Array, encoding: NodeJS.BufferEncoding | ((error?: Error | null) => void) = 'utf-8', callback?: (error?: Error | null) => void): boolean {
+        if (typeof encoding === 'function') {
+            callback = encoding;
+            encoding = 'utf-8';
+        }
+        if (data instanceof Uint8Array) {
+            let str = '';
+            for (let byte of data) {
+                str += String.fromCharCode(byte);
+            }
+            data = str;
+            encoding = 'latin1';
+        }
+        let stripped = data.replaceAll(/\x1b\[([0-9;]+)/g, '');
+        appendFileSync(options['file'] as string, stripped, encoding);
+        return originalWrite(data, encoding, callback);
+    }
 }
 
 if (posArgs[0] === 'search_simeks') {
     let info = c.CHANNEL_INFO['Single-channel (90)'];
     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
-    await searchChannel('Single-channel (90)', threads, 'xs4_33/9', 0, 256, recipes);
+    await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 0, 256, recipes, options['file']);
     process.exit(0);
 }
 
@@ -182,7 +213,7 @@ if (cmd === 'get') {
     let p = parse(data) as MAPPattern;
     if (type in c.SALVO_INFO) {
         let info = c.SALVO_INFO[type];
-        if (dvgrn) {
+        if (options['dvgrn']) {
             let out: string[] = [];
             for (let [lane, timing] of patternToSalvo(info, p)[1]) {
                 out.push((timing ? 'O' : 'E') + (lane - 2));
@@ -199,9 +230,9 @@ if (cmd === 'get') {
 } else if (cmd === 'search') {
     if (type in c.SALVO_INFO) {
         if (args[0] && args[0].startsWith('x')) {
-            await searchSalvos(type, args[0], noCompile);
+            await searchSalvos(type, args[0], options['no-compile']);
         } else {
-            await searchSalvos(type, c.SALVO_INFO[type].startObject, noCompile, depth);
+            await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
         let elbow = args[0];
@@ -211,7 +242,7 @@ if (cmd === 'get') {
             elbow = parts[0];
             elbowTiming = parseInt(parts[1]);
         }
-        await searchChannel(type, threads, elbow, elbowTiming, parseInt(args[1]));
+        await searchChannel(type, options['threads'] ?? 1, elbow, elbowTiming, parseInt(args[1]), undefined, options['file']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
@@ -242,7 +273,7 @@ if (cmd === 'get') {
         let elbow = args[2];
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
-        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as c.ShipDirection, depth, beam, forceEndElbow, minElbow, maxElbow);
+        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as c.ShipDirection, options['depth'], options['beam'], options['destroy-elbow'] ? false : options['force-end-elbow'], options['min-elbow'], options['max-elbow']);
         console.log(channelRecipeToString(info, recipe));
         console.log(`${recipe.length} gliders, ${time} generations long`);
         if (newElbow !== false) {

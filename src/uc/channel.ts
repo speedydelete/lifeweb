@@ -383,7 +383,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number, recipesOverride?: [number, number][][]): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number, recipesOverride?: [number, number][][], outputFile?: string): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
@@ -440,6 +440,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
             info,
             maxGenerations,
             starts: starts.filter((_, j) => j % threads === i),
+            outputFile,
         }}));
     }
     let recipes = await loadRecipes();
@@ -590,7 +591,7 @@ interface RecipeProgress {
 }
 
 /** Converts a slow salvo to a restricted-channel recipe. */
-export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: c.ShipDirection, depth?: number, beam?: number, forceEndElbow?: false | number, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
+export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: c.ShipDirection, depth?: number, beam?: number, forceEndElbow?: false | string, minElbow?: number, maxElbow?: number): {recipe: [number, number][], time: number, elbow: false | [string, number]} {
     let prevLayer: RecipeProgress[] = [{recipes: [], time: 0, index: 0, elbow: startElbow, elbowPos: 0}];
     let moveRecipes: (ChannelRecipe & {end: {}})[] = [];
     let emitRecipes: (ChannelRecipe & {end: {}, emit: {}})[] = [];

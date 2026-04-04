@@ -774,6 +774,27 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
     let info: ChannelInfo = workerData.info;
     setMaxGenerations(workerData.maxGenerations);
     let starts: [number, number][][] = workerData.starts;
+    if (workerData.outputFile !== undefined) {
+        let originalWrite = process.stdout.write.bind(process.stdout);
+        let {appendFileSync} = await import('node:fs');
+        process.stdout.write = function(data: string | Uint8Array, encoding: NodeJS.BufferEncoding | ((error?: Error | null) => void) = 'utf-8', callback?: (error?: Error | null) => void): boolean {
+            if (typeof encoding === 'function') {
+                callback = encoding;
+                encoding = 'utf-8';
+            }
+            if (data instanceof Uint8Array) {
+                let str = '';
+                for (let byte of data) {
+                    str += String.fromCharCode(byte);
+                }
+                data = str;
+                encoding = 'latin1';
+            }
+            let stripped = data.replaceAll(/\x1b\[([0-9;]+)/g, '');
+            appendFileSync(workerData.outputFile, stripped, encoding);
+            return originalWrite(data, encoding, callback);
+        }
+    }
     (parentPort as MessagePort).on('message', data => {
         (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.elbowTiming, data.depth, data.maxSpacing, starts, data.recipesOverride, parentPort)]);
     });
