@@ -157,7 +157,7 @@ if (options['file'] !== undefined) {
             data = str;
             encoding = 'latin1';
         }
-        let stripped = data.replaceAll(/\x1b\[([0-9;]+)/g, '');
+        let stripped = data.replaceAll(/\x1b\[([0-9;]+)m/g, '');
         appendFileSync(options['file'] as string, stripped, encoding);
         return originalWrite(data, encoding, callback);
     }

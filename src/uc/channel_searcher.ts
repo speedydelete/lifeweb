@@ -791,7 +791,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
                 data = str;
                 encoding = 'latin1';
             }
-            let stripped = data.replaceAll(/\x1b\[([0-9;]+)/g, '');
+            let stripped = data.replaceAll(/\x1b\[([0-9;]+)m/g, '');
             appendFileSync(workerData.outputFile, stripped, encoding);
             return originalWrite(data, encoding, callback);
         }
