@@ -109,7 +109,7 @@ function startsWithNumber(x: string, i: number = 0): boolean {
 export function numericSorter(a: string, b: string): number {
     let length = Math.min(a.length, b.length);
     for (let i = 0; i < length; i++) {
-        if (a[i] === b[i] && !('0123456789-:'.includes(a[i]))) {
+        if (a[i] === b[i] && !('0123456789-'.includes(a[i]))) {
             continue;
         }
         if (a[i] === ':') {
@@ -118,13 +118,19 @@ export function numericSorter(a: string, b: string): number {
             return 1;
         } else if (startsWithNumber(a, i)) {
             if (startsWithNumber(b, i)) {
-                return parseInt(a.slice(i)) - parseInt(b.slice(i));
+                let value = parseInt(a.slice(i)) - parseInt(b.slice(i));
+                if (value === 0) {
+                    continue;
+                }
+                return value;
             } else {
                 return -1;
             }
         } else {
             if (startsWithNumber(b, i)) {
                 return 1;
+            } else if (a[i] === b[i]) {
+                continue;
             } else {
                 return a.charCodeAt(i) - b.charCodeAt(i);
             }
