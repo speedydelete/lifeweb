@@ -69,6 +69,7 @@ let maxElbow: number | undefined = undefined;
 let depth: number | undefined = undefined;
 let beam: number | undefined = undefined;
 let dvgrn = false;
+let noCompile = false;
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -115,6 +116,8 @@ for (let i = 2; i < argv.length; i++) {
             }
         } else if (arg === '--dvgrn') {
             dvgrn = true;
+        } else if (arg === '--no-compile') {
+            noCompile = true;
         } else {
             error(`Unrecognized flag: '${arg}'\nSee -h for help.`);
         }
