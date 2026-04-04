@@ -215,7 +215,7 @@ interface ExpectedResult {
     offsets: Set<number>;
 }
 
-function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult['data'][number]): boolean {
+function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, expected: ExpectedResult['data'][number]): boolean {
     if (expected.period > 1) {
         let prevPop = p.population;
         for (let i = 0; i < 256; i++) {
@@ -272,9 +272,9 @@ function isNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, nu
     test.push([next, 0]);
     p = runInjection(info, elbow, test, [p.copy(), 1]);
     if (expected.offsets.size === 1) {
-        return checkNextWorkingInput(p, info, elbow, recipe, next, expected.data[(next + Array.from(expected.offsets)[0]) % expected.data.length]);
+        return checkNextWorkingInput(p, info, expected.data[(next + Array.from(expected.offsets)[0]) % expected.data.length]);
     } else {
-        let data = expected.data.map(x => checkNextWorkingInput(p, info, elbow, recipe, next, x));
+        let data = expected.data.map(x => checkNextWorkingInput(p, info, x));
         if (data.every(x => x === false)) {
             return false;
         }
