@@ -253,7 +253,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     return out;
 }
 
-function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | false | ElbowData {
+function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | [ElbowData, boolean] {
     if (elbow in data.elbows || data.badElbows.has(elbow)) {
         return;
     }
@@ -262,7 +262,15 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
     let result = checkElbow(info, data.elbows, data.badElbows, elbow, elbowData);
     if (!result || result.every(x => x.type === 'bad')) {
         data.badElbows.add(elbow);
-        return false;
+        let period = 1;
+        if (elbow.startsWith('xp')) {
+            period = parseInt(elbow.slice(2));
+        }
+        let entry: ElbowData[string] = [];
+        for (let i = 0; i < period; i++) {
+            entry.push({type: 'bad'});
+        }
+        return [{[elbow]: entry}, false];
     }
     // console.log(result);
     let out: ElbowData = {[elbow]: result};
@@ -274,16 +282,26 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
             let newOut = addElbow(info, value.elbow, data, depth + 1);
             if (newOut === undefined) {
                 continue;
-            } else if (newOut === false || Object.values(newOut).every(x => x.every(y => y.type === 'bad'))) {
+            }
+            Object.assign(out, newOut);
+            if (newOut[1] === false || Object.values(newOut[0]).every(x => x.every(y => y.type === 'bad'))) {
                 data.badElbows.add(elbow);
                 data.badElbows.add(value.elbow);
-                return false;
+                let period = 1;
+                if (elbow.startsWith('xp')) {
+                    period = parseInt(elbow.slice(2));
+                }
+                out[elbow] = [];
+                for (let i = 0; i < period; i++) {
+                    out[elbow].push({type: 'bad'});
+                }
+                return [out, false];
             } else {
                 Object.assign(out, newOut);
             }
         }
     }
-    return out;
+    return [out, true];
 }
 
 function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelRecipe[] {
@@ -326,12 +344,12 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
 function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): string {
     for (let elbow of data.newElbows) {
         let value = addElbow(info, elbow, out);
-        if (value) {
-            for (let key in value) {
+        if (value && value[1]) {
+            for (let key in value[0]) {
                 if (key in out.elbows) {
                     throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
                 }
-                out.elbows[key] = value[key];
+                out.elbows[key] = value[0][key];
             }
         }
     }
@@ -447,12 +465,12 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let out = recipes.channels[type];
     if (!(elbow in out.elbows)) {
         let value = addElbow(info, elbow, out);
-        if (value) {
-            for (let key in value) {
+        if (value && value[1]) {
+            for (let key in value[0]) {
                 if (key in out.elbows) {
                     throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
                 }
-                out.elbows[key] = value[key];
+                out.elbows[key] = value[0][key];
             }
         }
     }

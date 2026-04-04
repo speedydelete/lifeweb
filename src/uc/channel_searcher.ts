@@ -627,6 +627,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
             end = {elbow: str, period: elbow.obj.period, move: elbow.spacing, flipped: false, timing: elbow.obj.timing};
         }
         if (!(str in elbows) && newElbows && !newElbows.includes(str)) {
+            console.log(`New elbow detected: ${str} in recipe ${strRecipe}`);
             newElbows.push(str);
         }
     }
