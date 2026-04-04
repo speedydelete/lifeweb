@@ -81,11 +81,16 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     let elbowObjCode = elbowData[0].slice(elbowData[0].indexOf('_') + 1);
     let out: ElbowData[string] = [];
     for (let timing = 0; timing < period; timing++) {
+        let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
+        if (typeof result !== 'object') {
+            out.push({type: 'bad'});
+            continue;
+        }
         let isSame = true;
+        let results: CAObject[][] = [];
         let prevResult: string | null = null;
         for (let i = 0; i < 3; i++) {
             let p = runInjection(info, elbowData, [[info.minSpacing + timing + i * period, 0]]);
-            // console.log(p.toRLE());
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
                 return;
@@ -99,52 +104,51 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     obj.timing = 0;
                 }
             }
+            results.push(objs);
             let result = objectsToString(objs);
-            // throw new Error(result);
             if (prevResult && result !== prevResult) {
                 isSame = false;
                 break;
             }
             prevResult = result;
         }
-        let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
-        if (typeof result !== 'object') {
-            out.push({type: 'bad'});
-            continue;
-        }
         if (!isSame) {
-            // console.log('results are not the same');
+            let index = 0;
+            while (results[index].length === 0) {
+                index++;
+            }
+            let result2 = results[index];
             let found = false;
-            let codeStr = result.map(x => x.code).sort().join(' ');
+            let codeStrs = results.map(x => x.map(y => y.code).sort().join(' '));
             for (let [key, value] of Object.entries(elbows)) {
                 if (elbow === key) {
                     continue;
                 }
                 for (let data of value) {
                     if (data.type === 'normal') {
-                        if (result.length !== data.result.length) {
+                        if (!results.every((x, i) => x.length === data.results[i].length)) {
                             continue;
                         }
-                        let result2: CAObject[] = [];
+                        let dataResult: CAObject[] = [];
+                        let dataResult2: CAObject[] = [];
                         let flipped = false;
-                        if (codeStr === data.result.map(x => x.code).sort().join(' ')) {
-                            result2 = data.result;
-                        } else if (codeStr === data.flippedResult.map(x => x.code).sort().join(' ')) {
-                            result2 = data.flippedResult;
+                        if (codeStrs.every((x, i) => x === data.results[i].map(x => x.code).sort().join(' '))) {
+                            dataResult = data.result;
+                            dataResult2 = data.results[index];
+                        } else if (codeStrs.every((x, i) => x === data.flippedResults[i].map(x => x.code).sort().join(' '))) {
+                            dataResult = data.flippedResult;
+                            dataResult2 = data.flippedResults[index];
                             flipped = true;
                         } else {
                             continue;
                         }
-                        let oldResult2 = result2;
-                        result2 = result2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
-                        if (!result[0] || !result2[0] || result[0].code !== result2[0].code) {
-                            continue;
-                        }
-                        let xDiff = result[0].x - result2[0].x;
-                        let yDiff = result[0].y - result2[0].y;
+                        let oldDataResult2 = dataResult2;
+                        dataResult2 = dataResult2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
+                        let xDiff = result2[0].x - dataResult2[0].x;
+                        let yDiff = result2[0].y - dataResult2[0].y;
                         let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                         let move: number;
-                        if (oldResult2 === data.result) {
+                        if (oldDataResult2 === data.results[index]) {
                             adjustLane -= elbowData[1];
                             if (xDiff + adjustLane !== yDiff * info.ship.slope) {
                                 continue;
@@ -175,16 +179,16 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                             }
                         }
                         let found2 = false;
-                        for (let i = 1; i < result.length; i++) {
-                            let obj = result[i];
-                            let obj2 = result2[i];
+                        for (let i = 1; i < result2.length; i++) {
+                            let obj = result2[i];
+                            let obj2 = dataResult2[i];
                             if (obj.code !== obj2.code || obj.x - obj2.x !== xDiff || obj.y - obj2.y !== yDiff) {
                                 found2 = true;
                                 break;
                             }
                         }
                         if (!found2) {
-                            let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (result2[0].type === 'osc' ? result2[0].timing : 0);
+                            let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (dataResult[0].type === 'osc' ? dataResult[0].timing : 0);
                             out.push({type: 'alias', elbow: key, flipped, move, timing});
                             found = true;
                             break;
@@ -200,7 +204,26 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 out.push({type: 'bad'});
                 continue;
             }
-            out.push({type: 'normal', time: 0, result, flippedResult});
+            let flippedResults: CAObject[][] = [];
+            for (let i = 0; i < 3; i++) {
+                let p = runInjection(info, elbowData, [[info.minSpacing + timing + i * period, 0]]);
+                p.flipDiagonal();
+                let objs = findOutcome(p, true);
+                if (typeof objs !== 'object') {
+                    return;
+                }
+                for (let obj of objs) {
+                    if (obj.type === 'ship') {
+                        obj.x = Math.floor(obj.y * info.ship.slope) - obj.x;
+                        obj.y = 0;
+                        obj.timing = 0;
+                    } else if (obj.type === 'osc') {
+                        obj.timing = 0;
+                    }
+                }
+                flippedResults.push(objs);
+            }
+            out.push({type: 'normal', time: 0, result, results, flippedResult, flippedResults});
         } else {
             if (result.length === 0) {
                 out.push({type: 'destroy'});
@@ -222,7 +245,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 let flippedStr = `${data[0]}/${data[1][0][0]}`;
                 if (badElbows.has(str)) {
                     if (!badElbows.has(flippedStr)) {
-                        // console.log('adding flipped');
                         badElbows.add(flippedStr);
                     }
                     out.push({type: 'bad'});
@@ -230,7 +252,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 }
                 if (badElbows.has(flippedStr)) {
                     if (!badElbows.has(str)) {
-                        // console.log('adding flipped');
                         badElbows.add(str);
                     }
                     out.push({type: 'bad'});
@@ -246,10 +267,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
         }
     }
-    // if (elbow === 'xs4_33/7') {
-    //     console.log(out);
-    //     throw new Error('haiiii');
-    // }
     return out;
 }
 
@@ -272,7 +289,6 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
         }
         return [{[elbow]: entry}, false];
     }
-    // console.log(result);
     let out: ElbowData = {[elbow]: result};
     for (let value of result) {
         if ((value.type === 'alias' || value.type === 'convert') && !(value.elbow in data.elbows)) {
@@ -451,7 +467,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         if (typeof window === 'object' && window === globalThis) {
             path = `./channel_searcher.js`;
         } else {
-            // @ts-ignore
             path = `${import.meta.dirname}/channel_searcher.js`;
         }
         workers.push(await new Worker(path, {workerData: {

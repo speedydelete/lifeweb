@@ -800,5 +800,3 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
         (parentPort as MessagePort).postMessage(['completed', findChannelResults(info, data.elbows, data.badElbows, data.elbow, data.elbowTiming, data.depth, data.maxSpacing, starts, data.recipesOverride, parentPort)]);
     });
 }
-
-// https://conwaylife.com/forums/viewtopic.php?f=2&t=1701
