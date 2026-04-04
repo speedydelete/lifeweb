@@ -250,7 +250,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 // the maximum number of generations it should take a glider to get to the object (dependant on GLIDER_TARGET_SPACING)
 const MAX_WAIT_GENERATIONS = 60;
 // the maximum number of generations it can take a collision to stabilize, collisions past this are reported as "unknown"
-const MAX_GENERATIONS = 384;
+const MAX_GENERATIONS = 512;
 // MAX_GENERATIONS but for elbow checking, this should be pretty high
 const ELBOW_MAX_GENERATIONS = 4096;
 // the maximum population period, optional
@@ -258,7 +258,7 @@ const MAX_POPULATION_PERIOD: null | number = null;
 // whether to do linear growth checking
 const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
-const PERIOD_SECURITY = 256;
+const PERIOD_SECURITY = 128;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
