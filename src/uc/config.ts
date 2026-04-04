@@ -258,7 +258,7 @@ const MAX_POPULATION_PERIOD: null | number = null;
 // whether to do linear growth checking
 const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
-const PERIOD_SECURITY = 64;
+const PERIOD_SECURITY = 256;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
