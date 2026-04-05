@@ -196,7 +196,11 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                         }
                     }
                     if (!found2) {
-                        let timing = (result[0].type === 'osc' ? result[0].timing : 0) - (dataResult[0].type === 'osc' ? dataResult[0].timing : 0);
+                        let keyPeriod = 1;
+                        if (key.startsWith('xp')) {
+                            keyPeriod = parseInt(key.slice(2));
+                        }
+                        let timing = ((result[0].type === 'osc' ? result[0].timing : 0) - (dataResult[0].type === 'osc' ? dataResult[0].timing : 0)) % keyPeriod;
                         out.push({type: 'alias', elbow: key, flipped, move, timing});
                         found = true;
                         break;
