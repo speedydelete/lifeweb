@@ -90,26 +90,21 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
         let results: CAObject[][] = [];
         let prevResult: string | null = null;
         for (let i = 0; i < 3; i++) {
-            let p = runInjection(info, elbowData, [[info.minSpacing + timing + i * period, 0]]);
+            let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + i, 0]]);
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
                 return;
             }
-            objs = objs.map(obj => {
-                if (obj.type === 'ship') {
-                    obj.x = Math.floor(obj.y * info.ship.slope) - obj.x;
-                    obj.y = 0;
-                    obj.timing = 0;
-                } else if (obj.type === 'osc') {
+            objs = objs.filter(x => x.type === 'sl' || x.type === 'osc').map(obj => {
+                if (obj.type === 'osc') {
                     obj = normalizeOscillator(obj);
                 }
                 return obj;
-            })
+            });
             results.push(objs);
             let strResult = objectsToString(objs);
             if (prevResult && strResult !== prevResult) {
                 isSame = false;
-                break;
             }
             prevResult = strResult;
         }
@@ -218,7 +213,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             }
             let flippedResults: CAObject[][] = [];
             for (let i = 0; i < 3; i++) {
-                let p = runInjection(info, elbowData, [[info.minSpacing + timing + i * period, 0]]);
+                let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + timing + i * period, 0]]);
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -234,7 +229,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                     return obj;
                 }));
             }
-            out.push({type: 'normal', time: 0, result, results, flippedResult, flippedResults});
+            out.push({type: 'normal', result, results, flippedResult, flippedResults});
         } else {
             if (result.length === 0) {
                 out.push({type: 'destroy'});

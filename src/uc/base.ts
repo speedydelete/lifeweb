@@ -580,7 +580,7 @@ export interface SalvoRecipes {
 
 
 export type ElbowData = {[key: string]: (
-    {type: 'normal', time: number, result: CAObject[], results: CAObject[][], flippedResult: CAObject[], flippedResults: CAObject[][]} |
+    {type: 'normal', result: CAObject[], results: CAObject[][], flippedResult: CAObject[], flippedResults: CAObject[][]} |
     {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} |
     {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number} |
     {type: 'destroy'} |
@@ -752,13 +752,9 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         let timing = parseInt(parts[3]);
                         value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing});
                     } else {
-                        let index = data.lastIndexOf(' ');
-                        let time = parseInt(data.slice(index + 2));
-                        data = data.slice(0, index);
                         let values = data.split(' / ').map(stringToObjects);
                         value.push({
                             type: 'normal',
-                            time,
                             result: values[0],
                             results: values.slice(1, 4), 
                             flippedResult: values[4], 
@@ -917,7 +913,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 let strs: string[] = [];
                 for (let x of value) {
                     if (x.type === 'normal') {
-                        strs.push(`${x.results.map(objectsToString).join(' / ')} / ${x.flippedResults.map(objectsToString).join(' / ')} (${x.time})`);
+                        strs.push(`${objectsToString(x.result)} / ${x.results.map(objectsToString).join(' / ')} / ${objectsToString(x.flippedResult)} / ${x.flippedResults.map(objectsToString).join(' / ')}`);
                     } else if (x.type === 'alias' || x.type === 'convert') {
                         strs.push(`${x.type === 'alias' ? '=' : '->'} ${x.elbow}${x.flipped ? ' flip' : ''} move ${x.move} timing ${x.timing}`);
                     } else if (x.type === 'destroy') {

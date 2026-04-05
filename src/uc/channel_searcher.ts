@@ -80,7 +80,7 @@ function getRecipesForDepth(info: ChannelInfo, depth: number, maxSpacing: number
 }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -88,7 +88,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
     let gliders: MAPPattern[] = [];
     let total = 0;
-    let timingOffset = 0;
+    let timingOffset = elbowTiming;
     while (recipe.length > 0 && recipe[0][1] === -2) {
         timingOffset += recipe[0][0];
         recipe.shift();
@@ -124,27 +124,35 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], recipe:
     if (info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
     }
-    gliders.forEach(g => {
-        g.xOffset -= x;
-        g.yOffset -= y;
-    });
+    for (let glider of gliders) {
+        glider.xOffset -= x;
+        glider.yOffset -= y;
+    }
     let p: MAPPattern;
     if (override) {
         p = override[0];
     } else {
         p = base.loadApgcode(elbow[0]).shrinkToFit();
-        if (timingOffset > 0) {
-            p.run(timingOffset).shrinkToFit();
-            p.generation = 0;
-        }
         let yPos = c.GLIDER_TARGET_SPACING;
         if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
             yPos--;
         }
         let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
-        while (xPos <= -p.width || yPos <= -p.height) {
+        while (xPos < 0 || yPos < 0) {
             xPos++;
             yPos++;
+        }
+        if (timingOffset > 0) {
+            p.run(timingOffset).shrinkToFit();
+            for (let glider of gliders) {
+                glider.xOffset += p.xOffset;
+                glider.yOffset += p.yOffset;
+            }
+            xPos += p.xOffset;
+            yPos += p.yOffset;
+            p.xOffset = 0;
+            p.yOffset = 0;
+            p.generation = 0;
         }
         p.offsetBy(xPos, yPos);
         let toInsert = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
@@ -267,10 +275,10 @@ function checkNextWorkingInput(p: MAPPattern, info: ChannelInfo, expected: Expec
     return true;
 }
 
-function isNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
+function isNextWorkingInput(p: MAPPattern, info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: ChannelRecipe, next: number, expected: ExpectedResult): boolean {
     let test = recipe.recipe.slice();
     test.push([next, 0]);
-    p = runInjection(info, elbow, test, [p.copy(), 1]);
+    p = runInjection(info, elbow, elbowTiming, elbowPeriod, test, [p.copy(), 1]);
     if (expected.offsets.size === 1) {
         return checkNextWorkingInput(p, info, expected.data[(next + Array.from(expected.offsets)[0]) % expected.data.length]);
     } else {
@@ -387,9 +395,9 @@ function getExpected(info: ChannelInfo, elbow: [string, number], recipe: Channel
     return out;
 }
 
-export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
+export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
     // console.log(recipe);
-    let p = runInjection(info, elbow, recipe.recipe, undefined, false);
+    let p = runInjection(info, elbow, elbowTiming, elbowPeriod, recipe.recipe, undefined, false);
     let expecteds = getExpected(info, elbow, recipe, results);
     // let msg = '\x1b[92mexpecteds:';
     // for (let i = 0; i < expecteds.data.length; i++) {
@@ -405,7 +413,7 @@ export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number],
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(p, info, elbow, recipe, mid, expecteds) && isNextWorkingInput(p, info, elbow, recipe, mid + 1, expecteds) && isNextWorkingInput(p, info, elbow, recipe, mid + 2, expecteds)) {
+        if (isNextWorkingInput(p, info, elbow, elbowTiming, elbowPeriod, recipe, mid, expecteds) && isNextWorkingInput(p, info, elbow, elbowTiming, elbowPeriod, recipe, mid + 1, expecteds) && isNextWorkingInput(p, info, elbow, elbowTiming, elbowPeriod, recipe, mid + 2, expecteds)) {
             high = mid;
         } else {
             low = mid + 1;
@@ -498,11 +506,11 @@ interface CheckerObjectData {
     spacing: number;
 }
 
-export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | string | {recipe: ChannelRecipe, possibleUseful?: string, endResult?: Parameters<typeof findNextWorkingInput>[3]} {
+export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], elbowTiming: number, elbowPeriod: number, badElbows: Set<string>, newElbows?: string[]): undefined | string | {recipe: ChannelRecipe, possibleUseful?: string, endResult?: Parameters<typeof findNextWorkingInput>[5]} {
     let possibleUseful: string | undefined = undefined;
     let result: false | 'no stabilize' | 'linear' | CAObject[];
     let strRecipe = channelRecipeToString(info, recipe);
-    result = findOutcome(runInjection(info, elbowData, recipe));
+    result = findOutcome(runInjection(info, elbowData, elbowTiming, elbowPeriod, recipe));
     if (result === false || result === 'no stabilize') {
         return;
     }
@@ -613,7 +621,7 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
         return;
     }
     let end: ChannelRecipe['end'] | undefined = undefined;
-    let endResult: Parameters<typeof findNextWorkingInput>[3] = undefined;
+    let endResult: Parameters<typeof findNextWorkingInput>[5] = undefined;
     if (endElbowData) {
         let [elbow, result] = endElbowData;
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
@@ -627,22 +635,22 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
             end = {elbow: str, period: elbow.obj.period, move: elbow.spacing, flipped: false, timing: elbow.obj.timing};
         }
         if (!(str in elbows) && newElbows && !newElbows.includes(str)) {
-            console.log(`New elbow detected: ${str} in recipe ${strRecipe}`);
+            // console.log(`New elbow detected: ${str} in recipe ${strRecipe}`);
             newElbows.push(str);
         }
     }
     return {recipe: {start: elbowStr, recipe, time, end, create, emit}, possibleUseful, endResult};
 }
 
-export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
-    let value = getRecipeOutcome(info, elbows, recipe, time, elbowStr, elbowData, badElbows, newElbows);
+export function checkChannelRecipe(info: ChannelInfo, elbows: ElbowData, recipe: [number, number][], time: number, elbowStr: string, elbowData: [string, number], elbowTiming: number, elbowPeriod: number, badElbows: Set<string>, newElbows?: string[]): undefined | {recipes?: ChannelRecipe[], possibleUseful?: string} {
+    let value = getRecipeOutcome(info, elbows, recipe, time, elbowStr, elbowData, elbowTiming, elbowPeriod, badElbows, newElbows);
     if (value === undefined) {
         return;
     } else if (typeof value === 'string') {
         return {possibleUseful: value};
     }
     let {recipe: out, endResult} = value;
-    let next = findNextWorkingInput(info, elbowData, out, endResult);
+    let next = findNextWorkingInput(info, elbowData, elbowPeriod, elbowTiming, out, endResult);
     if (next !== false) {
         out.recipe.push([next, -1]);
         out.time += next;
@@ -701,6 +709,10 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
     let elbowParts = elbow.split('/');
     let elbowLane = parseInt(elbowParts[1]);
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), elbowLane];
+    let elbowPeriod = 1;
+    if (elbow.startsWith('xp')) {
+        elbowPeriod = parseInt(elbow.slice(2));
+    }
     let newRecipes: ChannelRecipe[] = [];
     let newElbows: string[] = [];
     let possibleUseful = '';
@@ -752,7 +764,7 @@ export function findChannelResults(info: ChannelInfo, elbows: ElbowData, badElbo
         }
         count++;
         let [recipe, time] = recipes[i];
-        let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, badElbows, newElbows);
+        let value = checkChannelRecipe(info, elbows, recipe, time, elbow, elbowData, elbowTiming, elbowPeriod, badElbows, newElbows);
         if (value) {
             if (value.recipes) {
                 newRecipes.push(...value.recipes);
