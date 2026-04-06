@@ -1,9 +1,11 @@
 
 import {MessagePort} from 'node:worker_threads';
-import {gcd, lcm, MAPPattern, findType} from '../core/index.js';
+import {lcm, MAPPattern, findType} from '../core/index.js';
 import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
+
+import './channel_searcher_2.js';
 
 
 function getRecipesForDepthSingleChannel(info: ChannelInfo, depth: number, maxSpacing: number): [[number, number][], number][] {
@@ -194,13 +196,9 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
         }
     }
     if (doFinal) {
-        let period = info.ship.popPeriod;
-        if (elbow[0].startsWith('xp')) {
-            period = lcm(period, parseInt(elbow[0].slice(2)));
-        }
         let prevPop = p.population;
         for (let i = 0; i < 256; i++) {
-            p.run(period);
+            p.run(info.ship.popPeriod);
             let pop = p.population;
             if (pop !== prevPop) {
                 return p;
@@ -209,6 +207,64 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
         }
     }
     return p;
+}
+
+interface RunState {
+    p: MAPPattern;
+    prevGliders: number[];
+    time: number;
+    startX: number;
+    startY: number;
+}
+
+function createRunState(info: ChannelInfo, elbow: [string, number], timing: number): RunState {
+    let p = base.loadApgcode(elbow[0]).shrinkToFit();
+    let yPos = c.GLIDER_TARGET_SPACING;
+    if (timing > info.ship.period) {
+        let mod = timing % info.ship.period;
+        yPos += (timing - (info.ship.period - mod)) / info.ship.period + 1;
+        timing = mod;
+    }
+    while (timing > info.ship.period) {
+        yPos++;
+        timing -= info.ship.period;
+    }
+    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+    p.offsetBy(Math.max(xPos, 0), Math.max(yPos, 0));
+    let toInsert = shipPatterns[info.ship.code][timing];
+    p.ensure(toInsert.width, toInsert.height);
+    let startX = Math.max(-xPos, 0);
+    let startY = Math.max(-yPos, 0);
+    p.insert(toInsert, startX, startY);
+    startX += p.xOffset;
+    startY += p.yOffset;
+    return {p, prevGliders: [], time: 0, startX, startY};
+}
+
+function runRunState(info: ChannelInfo, state: RunState, nextGlider: number, channel: number): RunState {
+    let p = state.p;
+    let injected = false;
+    while (true) {
+        let timing = p.generation + state.time + (injected ? info.minSpacing : nextGlider);
+        let mod = timing % info.ship.period;
+        let q = shipPatterns[info.ship.code][info.ship.period - mod];
+        let dist = (timing - mod) / info.ship.period;
+        let x = q.xOffset + state.startX - dist * info.ship.dx + info.channels[channel];
+        let y = q.yOffset + state.startY - dist * info.ship.dy;
+        let xDiff = p.xOffset - x;
+        let yDiff = p.yOffset - y;
+        if (xDiff < 3 || yDiff < 3 || ((xDiff < q.width + c.INJECTION_SPACING) && (yDiff < q.height + c.INJECTION_SPACING)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
+            if (injected) {
+                return state;
+            } else {
+                injected = true;
+            }
+            p.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
+            p.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
+        }
+        p.runGeneration();
+        p.shrinkToFit();
+    }
 }
 
 
@@ -395,24 +451,6 @@ function getExpected(info: ChannelInfo, elbow: [string, number], recipe: Channel
     return out;
 }
 
-function elbowIsTooBig(elbow: string): boolean {
-    if (elbow.startsWith('xs')) {
-        return parseInt(elbow.slice(2)) > c.MAX_ELBOW_POPULATION;
-    }
-    let period = parseInt(elbow.slice(2));
-    let p = base.loadApgcode(elbow.slice(elbow.indexOf('_') + 1, elbow.indexOf('/')));
-    if (p.population > c.MAX_ELBOW_POPULATION) {
-        return false;
-    }
-    for (let i = 0; i < period - 1; i++) {
-        p.runGeneration();
-        if (p.population > c.MAX_ELBOW_POPULATION) {
-            return false;
-        }
-    }
-    return true;
-}
-
 export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
     // console.log(recipe);
     let p = runInjection(info, elbow, elbowTiming, elbowPeriod, recipe.recipe, undefined, false);
@@ -515,6 +553,25 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
     // console.log(`resolution result for ${channelRecipeInfoToString(recipe)}:`, out);
     // console.log(')');
     return {recipes: out, possibleUseful};
+}
+
+
+function elbowIsTooBig(elbow: string): boolean {
+    if (elbow.startsWith('xs')) {
+        return parseInt(elbow.slice(2)) > c.MAX_ELBOW_POPULATION;
+    }
+    let period = parseInt(elbow.slice(2));
+    let p = base.loadApgcode(elbow.slice(elbow.indexOf('_') + 1, elbow.indexOf('/')));
+    if (p.population > c.MAX_ELBOW_POPULATION) {
+        return false;
+    }
+    for (let i = 0; i < period - 1; i++) {
+        p.runGeneration();
+        if (p.population > c.MAX_ELBOW_POPULATION) {
+            return false;
+        }
+    }
+    return true;
 }
 
 interface CheckerObjectData {

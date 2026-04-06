@@ -122,7 +122,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
 const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 7;
+const GLIDER_TARGET_SPACING = 8;
 
 
 // information about slow salvo synthesis methods
