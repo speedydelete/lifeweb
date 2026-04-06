@@ -295,6 +295,6 @@ if (cmd === 'get') {
 }
 
 
-if (import.meta.main) {
+if (import.meta.main || process.argv[0].endsWith('lib/uc/index.js')) {
     run();
 }
