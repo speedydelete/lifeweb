@@ -1154,6 +1154,50 @@ export abstract class DataPattern implements Pattern {
     }
 
     _loadApgcode(code: string): [number, number, Uint8Array] {
+        if (this.states === 2) {
+            let data: number[][] = [];
+            let width = 0;
+            for (let strip of code.split('z')) {
+                let stripData: number[] = [];
+                for (let i = 0; i < strip.length; i++) {
+                    let char = strip[i];
+                    let index = APGCODE_CHARS.indexOf(char);
+                    if (index >= 32) {
+                        if (char === 'w') {
+                            stripData.push(0, 0);
+                        } else if (char === 'x') {
+                            stripData.push(0, 0, 0);
+                        } else {
+                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
+                            for (let i = 0; i < count; i++) {
+                                stripData.push(0);
+                            }
+                            i++;
+                        }
+                    } else {
+                        stripData.push(index);
+                    }
+                }
+                if (stripData.length > width) {
+                    width = stripData.length;
+                }
+                data.push(stripData);
+            }
+            let height = data.length * 5;
+            let out = new Uint8Array(height * width);
+            for (let y = 0; y < data.length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[y]) {
+                    out[loc] = part & 1;
+                    out[loc + width] = (part >> 1) & 1;
+                    out[loc + 2 * width] = (part >> 2) & 1;
+                    out[loc + 3 * width] = (part >> 3) & 1;
+                    out[loc + 4 * width] = (part >> 4) & 1;
+                    loc++;
+                }
+            }
+            return [height, width, out];
+        }
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
@@ -1892,6 +1936,60 @@ export abstract class CoordPattern implements Pattern {
     }
 
     _loadApgcode(code: string): Map<number, number> {
+        if (this.states === 2) {
+            let data: number[][] = [];
+            let width = 0;
+            for (let strip of code.split('z')) {
+                let stripData: number[] = [];
+                for (let i = 0; i < strip.length; i++) {
+                    let char = strip[i];
+                    let index = APGCODE_CHARS.indexOf(char);
+                    if (index >= 32) {
+                        if (char === 'w') {
+                            stripData.push(0, 0);
+                        } else if (char === 'x') {
+                            stripData.push(0, 0, 0);
+                        } else {
+                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
+                            for (let i = 0; i < count; i++) {
+                                stripData.push(0);
+                            }
+                            i++;
+                        }
+                    } else {
+                        stripData.push(index);
+                    }
+                }
+                if (stripData.length > width) {
+                    width = stripData.length;
+                }
+                data.push(stripData);
+            }
+            let height = data.length * 5;
+            let out = new Uint8Array(height * width);
+            for (let y = 0; y < data.length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[y]) {
+                    out[loc] = part & 1;
+                    out[loc + width] = (part >> 1) & 1;
+                    out[loc + 2 * width] = (part >> 2) & 1;
+                    out[loc + 3 * width] = (part >> 3) & 1;
+                    out[loc + 4 * width] = (part >> 4) & 1;
+                    loc++;
+                }
+            }
+            let coords = new Map<number, number>();
+            let i = 0;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let value = out[i++];
+                    if (value) {
+                        coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                    }
+                }
+            }
+            return coords;
+        }
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
