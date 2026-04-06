@@ -395,6 +395,24 @@ function getExpected(info: ChannelInfo, elbow: [string, number], recipe: Channel
     return out;
 }
 
+function elbowIsTooBig(elbow: string): boolean {
+    if (elbow.startsWith('xs')) {
+        return parseInt(elbow.slice(2)) > c.MAX_ELBOW_POPULATION;
+    }
+    let period = parseInt(elbow.slice(2));
+    let p = base.loadApgcode(elbow.slice(elbow.indexOf('_') + 1, elbow.indexOf('/')));
+    if (p.population > c.MAX_ELBOW_POPULATION) {
+        return false;
+    }
+    for (let i = 0; i < period - 1; i++) {
+        p.runGeneration();
+        if (p.population > c.MAX_ELBOW_POPULATION) {
+            return false;
+        }
+    }
+    return true;
+}
+
 export function findNextWorkingInput(info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
     // console.log(recipe);
     let p = runInjection(info, elbow, elbowTiming, elbowPeriod, recipe.recipe, undefined, false);
@@ -624,6 +642,9 @@ export function getRecipeOutcome(info: ChannelInfo, elbows: ElbowData, recipe: [
     let endResult: Parameters<typeof findNextWorkingInput>[5] = undefined;
     if (endElbowData) {
         let [elbow, result] = endElbowData;
+        if (elbowIsTooBig(elbow.obj.code)) {
+            return;
+        }
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
         if (badElbows.has(str)) {
