@@ -6,8 +6,17 @@ import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
 
-interface RunState {
+export interface RunState {
     p: MAPPattern;
+    elbow: [string, number, number];
+    recipe: [number, number][];
+    time: number;
+    startX: number;
+    startY: number;
+}
+
+export interface StrRunState {
+    p: string;
     elbow: [string, number, number];
     recipe: [number, number][];
     time: number;
@@ -537,7 +546,8 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string
 }
 
 
-export function runJob(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, newElbows: string[], state: RunState, maxSpacing: number): {recipes: ChannelRecipe[], possibleUseful: string} {
+export function runJob(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, newElbows: string[], state: RunState, maxSpacing: number): {states: RunState[], recipes: ChannelRecipe[], possibleUseful: string} {
+    let states: RunState[] = [];
     let recipes: ChannelRecipe[] = [];
     let possibleUseful = '';
     let startChannel = (state.recipe[state.recipe.length - 1] ?? [0, 0])[1];
@@ -545,30 +555,103 @@ export function runJob(info: ChannelInfo, elbows: ElbowData, badElbows: Set<stri
         let outcomes: string[] = [];
         for (let timing = info.minSpacings[startChannel][channel]; timing < maxSpacing; timing++) {
             let data = checkRecipe(info, elbows, badElbows, newElbows, state, timing, channel);
+            states.unshift(data.state);
             if (data.recipes) {
                 recipes.push(...data.recipes);
             }
             if (data.possibleUseful) {
                 possibleUseful += data.possibleUseful;
             }
-            let outcome = data.outcome;
+            outcomes.unshift(data.outcome);
             let found = false;
             for (let period = 0; period < Math.floor(outcomes.length / 3); period++) {
-                for (let i = 1; i < 4; i++) {
-                    if (outcome !== outcomes[period * i]) {
-                        found = true;
+                let found2 = false;
+                for (let i = 0; i < period; i++) {
+                    if (outcomes[i] !== outcomes[i + period] || outcomes[i] !== outcomes[i + period * 2]) {
+                        found2 = true;
                         break;
                     }
                 }
-                if (found) {
+                if (!found2) {
+                    found = true;
+                    states = states.slice(period * 2);
                     break;
                 }
             }
             if (found) {
                 break;
             }
-            outcomes.unshift(outcome);
         }
     }
-    return {recipes, possibleUseful};
+    return {states, recipes, possibleUseful};
+}
+
+
+export interface WorkerData {
+    info: ChannelInfo;
+    maxGenerations: number;
+    outputFile?: string;
+    maxSpacing: number;
+}
+
+export interface WorkerJobData {
+    elbows: ElbowData;
+    badElbows: Set<string>;
+    jobs: StrRunState[];
+}
+
+export interface WorkerOutput {
+    states: StrRunState[];
+    recipes: ChannelRecipe[];
+    possibleUseful: string[];
+    newElbows: string[];
+}
+
+// @ts-ignore
+if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker)) {
+    if (typeof process.env === 'object') {
+        process.env.FORCE_COLOR = '1';
+    }
+    let {parentPort, workerData: _workerData} = await import('node:worker_threads');
+    if (!parentPort) {
+        throw new Error('No parent port!');
+    }
+    let workerData: WorkerData = _workerData;
+    let info = workerData.info;
+    let maxSpacing = workerData.maxSpacing;
+    setMaxGenerations(workerData.maxGenerations);
+    if (workerData.outputFile !== undefined) {
+        let originalWrite = process.stdout.write.bind(process.stdout);
+        let {appendFileSync} = await import('node:fs');
+        process.stdout.write = function(data: string | Uint8Array, encoding: NodeJS.BufferEncoding | ((error?: Error | null) => void) = 'utf-8', callback?: (error?: Error | null) => void): boolean {
+            if (typeof encoding === 'function') {
+                callback = encoding;
+                encoding = 'utf-8';
+            }
+            if (data instanceof Uint8Array) {
+                let str = '';
+                for (let byte of data) {
+                    str += String.fromCharCode(byte);
+                }
+                data = str;
+                encoding = 'latin1';
+            }
+            let stripped = data.replaceAll(/\x1b\[([0-9;]+)m/g, '');
+            appendFileSync(workerData.outputFile as string, stripped, encoding);
+            return originalWrite(data, encoding, callback);
+        }
+    }
+    parentPort.on('message', (data: WorkerJobData) => {
+        let states: StrRunState[] = [];
+        let recipes: ChannelRecipe[] = [];
+        let possibleUseful: string[] = [];
+        let newElbows: string[] = [];
+        for (let state of data.jobs) {
+            let value = runJob(info, data.elbows, data.badElbows, newElbows, Object.assign(state, {p: base.loadApgcode(state.p).shrinkToFit()}), maxSpacing);
+            states.push(...value.states.map(x => Object.assign(x, {p: x.p.toApgcode()})));
+            recipes.push(...value.recipes);
+            possibleUseful.push(value.possibleUseful);
+        }
+        parentPort.postMessage(['completed', {states, recipes, possibleUseful, newElbows} satisfies WorkerOutput]);
+    });
 }
