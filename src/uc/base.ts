@@ -639,7 +639,7 @@ export interface RecipeData {
     }};
 }
 
-let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
+let recipeFile = `recipes_${toCatagolueRule(c.RULE)}_2.txt`;
 
 function parseRecipeSections(data: string[]): [string, string[]][] {
     let out: [string, string[]][] = [];

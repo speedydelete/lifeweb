@@ -438,14 +438,14 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let parts = elbow.split('/');
     let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
-    if (existsSync('possible_useful.txt')) {
-        let stat = await fs.stat('possible_useful.txt');
+    if (existsSync('possible_useful_2.txt')) {
+        let stat = await fs.stat('possible_useful_2.txt');
         if (stat.size > 0) {
             msg = '\n' + msg;
         }
-        await fs.appendFile('possible_useful.txt', msg);
+        await fs.appendFile('possible_useful_2.txt', msg);
     } else {
-        await fs.writeFile('possible_useful.txt', msg);
+        await fs.writeFile('possible_useful_2.txt', msg);
     }
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
@@ -522,7 +522,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
                     await saveRecipes(recipes);
                 }
-            }, 10000);
+            }, 5000);
         }, 2500);
         await promise;
         if (timeout !== null) {
@@ -535,13 +535,10 @@ export async function searchChannel(type: string, threads: number, elbow: string
         await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
-            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
+            await fs.appendFile('possible_useful_2.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
         starts = newStarts;
         depth++;
-        if (depth === 3) {
-            throw new Error('hi');
-        }
     }
 }
 
