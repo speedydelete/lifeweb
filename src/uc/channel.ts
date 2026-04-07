@@ -6,7 +6,7 @@ import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, log, base, shipPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
-import {runInjection, resolveElbow, findChannelResults} from './channel_searcher.js';
+import {runInjection, StrRunState, createState, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -372,6 +372,9 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
 
 function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newElbows: string[]}, out: RecipeData['channels'][string]): string {
     for (let elbow of data.newElbows) {
+        if (elbow in out.elbows) {
+            continue;
+        }
         let value = addElbow(info, elbow, out);
         if (value && value[1]) {
             for (let key in value[0]) {
@@ -430,8 +433,10 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, elbowTiming: number, maxSpacing: number, recipesOverride?: [number, number][][], outputFile?: string): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, recipesOverride?: [number, number][][], outputFile?: string): Promise<void> {
     let info = c.CHANNEL_INFO[type];
+    let parts = elbow.split('/');
+    let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
@@ -442,38 +447,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
     } else {
         await fs.writeFile('possible_useful.txt', msg);
     }
-    let starts: [number, number][][] = [];
-    if (recipesOverride) {
-        starts = recipesOverride;
-    } else {
-        for (let a = info.minSpacing; a <= maxSpacing; a++) {
-            for (let b = 0; b < info.channels.length; b++) {
-                starts.push([[a, b]]);
-                for (let c = info.minSpacing; c <= maxSpacing; c++) {
-                    for (let d = 0; d < info.channels.length; d++) {
-                        if (c < info.minSpacings[b][d] || (info.excludeSpacings && info.excludeSpacings[b][d].includes(c))) {
-                            continue;
-                        }
-                        starts.push([[a, b], [c, d]]);
-                        for (let e = info.minSpacing; e <= maxSpacing; e++) {
-                            for (let f = 0; f < info.channels.length; f++) {
-                                if (e < info.minSpacings[d][f] || (info.excludeSpacings && info.excludeSpacings[d][f].includes(e))) {
-                                    continue;
-                                }
-                                starts.push([[a, b], [c, d], [e, f]]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (info.forceStart) {
-            for (let start of starts) {
-                start.unshift(...info.forceStart);
-            }
-        }
-        console.log(`Compiled ${starts.length} starts`);
-    }
     let workers: Worker[] = [];
     for (let i = 0; i < threads; i++) {
         let path: string;
@@ -482,12 +455,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         } else {
             path = `${import.meta.dirname}/channel_searcher.js`;
         }
-        workers.push(await new Worker(path, {workerData: {
-            info,
-            maxGenerations,
-            starts: starts.filter((_, j) => j % threads === i),
-            outputFile,
-        }}));
+        workers.push(await new Worker(path, {workerData: {info, maxGenerations, outputFile, maxSpacing} satisfies WorkerData}));
     }
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
@@ -502,46 +470,33 @@ export async function searchChannel(type: string, threads: number, elbow: string
             }
         }
     }
-    let depth = info.minSpacing;
+    let state = createState(info, elbowData);
+    let starts: StrRunState[] = [Object.assign(state, {
+        p: state.p.toApgcode(),
+        xOffset: state.p.xOffset,
+        yOffset: state.p.yOffset,
+    })];
+    let depth = 1;
     while (true) {
-        if (!recipesOverride) {
-            await log(`Searching depth ${depth}`);
-        }
         let start = performance.now();
-        let recipeCount = 0;
         let possibleUseful = '';
-        let finished: ReturnType<typeof findChannelResults>[] = [];
-        let startedCount = 0;
+        let newStarts: StrRunState[] = [];
         let finishedCount = 0;
-        let checkedRecipes = 0;
+        let startsChecked = 0;
+        let recipesChecked = 0;
         let timeout: NodeJS.Timeout | null = null;
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
-        for (let worker of workers) {
+        for (let i = 0; i < workers.length; i++) {
+            let worker = workers[i];
             worker.removeAllListeners('message');
-            worker.on('message', async ([type, data]) => {
-                if (type === 'starting') {
-                    recipeCount += data;
-                    startedCount++;
-                    if (startedCount === threads) {
-                        await log(`Checking ${recipeCount} recipes`);
-                        timeout = setTimeout(() => {
-                            interval = setInterval(async () => {
-                                if (!(typeof window === 'object' && window === globalThis) && startedCount === threads && checkedRecipes > 0 && recipeCount > 0) {
-                                    await log(`${checkedRecipes - 1}/${recipeCount} (${((checkedRecipes - 1) / recipeCount * 100).toFixed(3)}%) recipes checked`);
-                                    await saveRecipes(recipes);
-                                }
-                            }, 10000);
-                        }, 2500);
-                    }
-                } else if (type === 'update') {
-                    checkedRecipes += data.count;
-                    possibleUseful += addNewRecipes(info, data, out);
-                    if (recipesOverride) {
-                        await saveRecipes(recipes);
-                    }
-                } else if (type === 'completed') {
-                    finished.push(data);
+            worker.on('message', async (data: WorkerOutput) => {
+                startsChecked += data.startsChecked;
+                recipesChecked += data.recipesChecked;
+                possibleUseful += data.possibleUseful.join('');
+                newStarts.push(...data.states);
+                possibleUseful += addNewRecipes(info, data, out);
+                if (data.complete) {
                     finishedCount++;
                     if (finishedCount === threads) {
                         if (timeout !== null) {
@@ -552,12 +507,23 @@ export async function searchChannel(type: string, threads: number, elbow: string
                         }
                         resolve();
                     }
-                } else {
-                    throw new Error(`Invalid Worker message type: '${type}'`);
                 }
             });
-            worker.postMessage({elbows: out.elbows, badElbows: out.badElbows, elbow, elbowTiming, depth, maxSpacing, recipesOverride: Boolean(recipesOverride)});
+            worker.postMessage({
+                elbows: out.elbows,
+                badElbows: out.badElbows,
+                starts: starts.filter((_, j) => j % workers.length === i),
+            } satisfies WorkerStartData);
         }
+        timeout = setTimeout(() => {
+            interval = setInterval(async () => {
+                if (startsChecked > 0 && recipesChecked > 0) {
+                    let time = (performance.now() - start) / 1000;
+                    await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                    await saveRecipes(recipes);
+                }
+            }, 10000);
+        }, 2500);
         await promise;
         if (timeout !== null) {
             clearTimeout(timeout);
@@ -565,22 +531,20 @@ export async function searchChannel(type: string, threads: number, elbow: string
         if (interval !== null) {
             clearInterval(interval);
         }
-        for (let data of finished) {
-            possibleUseful += data.possibleUseful;
-            possibleUseful += addNewRecipes(info, data, out);
-        }
         let time = (performance.now() - start) / 1000;
-        await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${(recipeCount / time).toFixed(3)} recipes/second)`);
+        await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
             await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
         }
+        starts = newStarts;
         depth++;
-        if (recipesOverride) {
-            process.exit(0);
+        if (depth === 3) {
+            throw new Error('hi');
         }
     }
 }
+
 
 /** Merges multiple restricted-channel recipes. */
 export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, number][][]): [number, number][] {

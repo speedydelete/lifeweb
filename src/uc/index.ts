@@ -166,7 +166,7 @@ if (options['file'] !== undefined) {
 if (posArgs[0] === 'search_simeks') {
     let info = c.CHANNEL_INFO['Single-channel (90)'];
     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
-    await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 0, 256, recipes, options['file']);
+    await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 256, recipes, options['file']);
     process.exit(0);
 }
 
@@ -235,14 +235,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
-        let elbow = args[0];
-        let elbowTiming = 0;
-        let parts = elbow.split('T');
-        if (parts.length > 1) {
-            elbow = parts[0];
-            elbowTiming = parseInt(parts[1]);
-        }
-        await searchChannel(type, options['threads'] ?? 1, elbow, elbowTiming, parseInt(args[1]), undefined, options['file']);
+        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), undefined, options['file']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
@@ -295,6 +288,6 @@ if (cmd === 'get') {
 }
 
 
-if (import.meta.main || process.argv[0].endsWith('lib/uc/index.js')) {
+if (import.meta.main || (typeof process === 'object' && process && Array.isArray(process.argv) && process.argv[0].endsWith('lib/uc/index.js'))) {
     run();
 }

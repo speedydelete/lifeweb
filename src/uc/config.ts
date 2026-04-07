@@ -265,14 +265,18 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 12;
 
-// for channel searching, at what spacing to inject the gliders at (the default should be fine)
-const INJECTION_SPACING = 2;
-// for channel searching, the maximum elbow population
-const MAX_ELBOW_POPULATION = 18;
-// for channel searching, the maximum created object population
-const MAX_CREATE_POPULATION = 18;
-// the elbow size limit
-const ELBOW_SIZE_LIMIT = 12;
+// extra options for channel searching
+
+// at what spacing to inject the gliders at (the default should be fine)
+const INJECTION_SPACING = 3;
+// the created object population limit
+const CREATE_SIZE_LIMIT = 16;
+// overrides for the created object limit
+const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+// the elbow population limit
+const ELBOW_SIZE_LIMIT = 16;
+// overrides for the elbow size limit
+const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 
 
-export {RULE, ShipDirection, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ELBOW_SIZE_LIMIT};
+export {RULE, ShipDirection, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, CREATE_SIZE_LIMIT, CREATE_SIZE_LIMIT_OVERRIDES, ELBOW_SIZE_LIMIT, ELBOW_SIZE_LIMIT_OVERRIDES};

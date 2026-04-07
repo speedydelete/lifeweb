@@ -59,6 +59,63 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         ],
     },
 
+    'xq4_59': {
+        code: 'xq4_59',
+        dx: 1,
+        dy: 1,
+        period: 4,
+        slope: 1,
+        popPeriod: 2,
+        glideSymmetric: true,
+        height: 4,
+        width: 2,
+        cells: [0, 3, 6, 7],
+        identification: [
+            [4, 2, 4, [0, 1, 4, 7], 'NW'],
+            [2, 4, 4, [1, 3, 4, 7], 'NE'],
+            [2, 4, 4, [0, 3, 4, 6], 'SW'],
+            [4, 2, 4, [0, 3, 6, 7], 'SE'],
+        ],
+    },
+
+    'xq5_103a': {
+        code: 'xq5_103a',
+        dx: 1,
+        dy: 1,
+        period: 5,
+        slope: 1,
+        popPeriod: 5,
+        glideSymmetric: false,
+        height: 4,
+        width: 4,
+        cells: [3, 7, 12, 13],
+        identification: [
+            [4, 4, 4, [2, 3, 8, 12], 'NW'],
+            [4, 4, 4, [0, 1, 11, 15], 'NE'],
+            [4, 4, 4, [0, 4, 14, 15], 'SW'],
+            [4, 4, 4, [3, 7, 12, 13], 'SE'],
+        ],
+    },
+
+    'xq6_103a0o': {
+        code: 'xq6_103a0o',
+        dx: 1,
+        dy: 1,
+        period: 6,
+        slope: 1,
+        popPeriod: 6,
+        glideSymmetric: true,
+        height: 5,
+        width: 6,
+        cells: [5, 9, 10, 15, 25, 26],
+        identification: [
+            [6, 5, 5, [4, 5, 14, 19, 20, 24], 'NW'],
+            [5, 6, 5, [0, 6, 11, 12, 24, 29], 'NE'],
+            [5, 6, 5, [0, 5, 17, 18, 23, 29], 'SW'],
+            [6, 5, 5, [5, 9, 10, 15, 25, 26], 'SE'],
+        ],
+    },
+
 };
 
 
@@ -174,14 +231,18 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 
-// for channel searching, at what spacing to inject the gliders at (the default should be fine)
-const INJECTION_SPACING = 2;
-// for channel searching, the maximum elbow population
-const MAX_ELBOW_POPULATION = 18;
-// for channel searching, the maximum created object population
-const MAX_CREATE_POPULATION = 18;
+// at what spacing to inject the gliders at (the default should be fine)
+const INJECTION_SPACING = 3;
+// the created object population limit
+const CREATE_SIZE_LIMIT = 16;
+// overrides for the created object limit
+const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+// the elbow population limit
+const ELBOW_SIZE_LIMIT = 16;
+// overrides for the elbow size limit
+const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 
 
 // don't change this
 
-export {RULE, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, MAX_ELBOW_POPULATION, MAX_CREATE_POPULATION, ShipDirection};
+export {RULE, ShipDirection, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, CREATE_SIZE_LIMIT, CREATE_SIZE_LIMIT_OVERRIDES, ELBOW_SIZE_LIMIT, ELBOW_SIZE_LIMIT_OVERRIDES};

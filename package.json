@@ -1,6 +1,6 @@
 {
     "name": "lifeweb",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "description": "Cellular automata simulation library",
     "license": "MIT",
     "author": "speedydelete",
@@ -15,9 +15,14 @@
         "typescript": "^5.9.3"
     },
     "wrecked": {
-        "html": "apgweb.html",
+        "html": "test.html",
+        "showErrors": true,
         "imports": {
-            "./lib/index.js": "src/index.ts"
+            "./lib/index.js": "src/index.ts",
+            "./lib/uc/index.js": "src/uc/index.ts"
+        },
+        "workerPaths": {
+            "./channel_searcher.js": "src/uc/channel_searcher.ts"
         }
     }
 }
