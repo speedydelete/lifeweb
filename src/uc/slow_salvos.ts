@@ -239,7 +239,12 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
         }
         failed = false;
         if (data) {
+            let found = false;
             for (let obj of data) {
+                if (obj.type === 'osc' && obj.period / info.period !== 0) {
+                    found = true;
+                    break;
+                }
                 if (obj.type === 'sl' || obj.type === 'osc') {
                     newObjs.add(obj.code);
                     // let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1));
@@ -251,6 +256,9 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                     //     p.flipHorizontal();
                     // }
                 }
+            }
+            if (found) {
+                continue;
             }
         }
         if (lane === info.laneLimit - 1) {

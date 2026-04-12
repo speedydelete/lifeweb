@@ -167,7 +167,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         aliases: ['mp1ss'],
         ship: SPACESHIPS['xq4_153'],
         startObject: 'xs4_33',
-        gliderSpacing: 60,
+        gliderSpacing: 20,
         period: 1,
         intermediateObjects: ['xs4_33'],
         laneLimit: 128,

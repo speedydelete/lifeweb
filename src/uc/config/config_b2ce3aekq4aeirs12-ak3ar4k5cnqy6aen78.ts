@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B2-ak5j/S12-k';
+const RULE = 'B2ce3aekq4aeir/S12-ak3ar4k5cnqy6aen78';
 
 // don't change this
 // the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
@@ -59,60 +59,22 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         ],
     },
 
-    'xq4_59': {
-        code: 'xq4_59',
-        dx: 1,
-        dy: 1,
-        period: 4,
-        slope: 1,
-        popPeriod: 2,
-        glideSymmetric: true,
-        height: 4,
-        width: 2,
-        cells: [0, 3, 6, 7],
-        identification: [
-            [4, 2, 4, [0, 1, 4, 7], 'NW'],
-            [2, 4, 4, [1, 3, 4, 7], 'NE'],
-            [2, 4, 4, [0, 3, 4, 6], 'SW'],
-            [4, 2, 4, [0, 3, 6, 7], 'SE'],
-        ],
-    },
-
-    'xq5_103a': {
-        code: 'xq5_103a',
-        dx: 1,
-        dy: 1,
-        period: 5,
-        slope: 1,
-        popPeriod: 5,
-        glideSymmetric: false,
-        height: 4,
-        width: 4,
-        cells: [3, 7, 12, 13],
-        identification: [
-            [4, 4, 4, [2, 3, 8, 12], 'NW'],
-            [4, 4, 4, [0, 1, 11, 15], 'NE'],
-            [4, 4, 4, [0, 4, 14, 15], 'SW'],
-            [4, 4, 4, [3, 7, 12, 13], 'SE'],
-        ],
-    },
-
-    'xq6_103a0o': {
-        code: 'xq6_103a0o',
+    'xq6_1l': {
+        code: 'xq6_1l',
         dx: 1,
         dy: 1,
         period: 6,
         slope: 1,
         popPeriod: 6,
-        glideSymmetric: true,
+        glideSymmetric: false,
         height: 5,
-        width: 6,
-        cells: [5, 9, 10, 15, 25, 26],
+        width: 2,
+        cells: [1, 5, 8, 9],
         identification: [
-            [6, 5, 5, [4, 5, 14, 19, 20, 24], 'NW'],
-            [5, 6, 5, [0, 6, 11, 12, 24, 29], 'NE'],
-            [5, 6, 5, [0, 5, 17, 18, 23, 29], 'SW'],
-            [6, 5, 5, [5, 9, 10, 15, 25, 26], 'SE'],
+            [5, 2, 4, [0, 1, 4, 8], 'NW'],
+            [2, 5, 4, [0, 2, 4, 9], 'NE'],
+            [2, 5, 4, [0, 5, 7, 9], 'SW'],
+            [5, 2, 4, [1, 5, 8, 9], 'SE'],
         ],
     },
 
@@ -120,7 +82,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
 
 
 // makes lane numbers more sane, set it to whatever makes most sense but make sure it's consistent bwetween people
-const LANE_OFFSET = 6;
+const LANE_OFFSET = 5;
 
 // the spacing (in cells) between a glider and the target
 const GLIDER_TARGET_SPACING = 5;
@@ -159,7 +121,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         startObject: 'xs2_11',
         gliderSpacing: 10,
         period: 1,
-        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs4_33', 'xp2_101', 'xp2_5', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs40_v111111111vzvy5vz11111111111', 'xs5_117', 'xs5_711', 'xs5_447', 'xs5_11111', 'xs5_v'],
         laneLimit: 128,
         maxRecipes: 2,
     },
@@ -170,7 +132,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         startObject: 'xs2_11',
         gliderSpacing: 10,
         period: 1,
-        intermediateObjects: ['xs2_11', 'xs2_3'],
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs4_33', 'xp2_101', 'xp2_5', 'xs3_111', 'xs3_7', 'xs4_1111', 'xs4_f', 'xs40_v111111111vzvy5vz11111111111', 'xs5_117', 'xs5_711', 'xs5_447', 'xs5_11111', 'xs5_v'],
         laneLimit: 128,
         maxRecipes: 2,
         restriction: [[[2, 0]]],
@@ -224,7 +186,7 @@ const MAX_POPULATION_PERIOD: null | number = null;
 // whether to do linear growth checking
 const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
-const PERIOD_SECURITY = 16;
+const PERIOD_SECURITY = 128;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
@@ -236,11 +198,11 @@ const INJECTION_SPACING = 3;
 // the created object population limit
 const CREATE_SIZE_LIMIT = 16;
 // overrides for the created object limit
-const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+const CREATE_SIZE_LIMIT_OVERRIDES: string[] = [];
 // the elbow population limit
 const ELBOW_SIZE_LIMIT = 16;
 // overrides for the elbow size limit
-const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = [];
 
 
 // don't change this
