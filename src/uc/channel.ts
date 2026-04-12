@@ -464,10 +464,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let depth = 1;
     while (true) {
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
-        if (depth === 2) {
-            console.log('Exiting');
-            process.exit(0);
-        }
         let start = performance.now();
         let possibleUseful = '';
         let newStarts: StrRunState[] = [];
