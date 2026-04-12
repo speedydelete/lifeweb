@@ -1,5 +1,4 @@
 
-import {MessagePort} from 'node:worker_threads';
 import {lcm, MAPPattern, findType} from '../core/index.js';
 import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
