@@ -463,6 +463,14 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
+        // if (depth === 2) {
+        //     starts = starts.filter(x => String(x.recipe) === '127,0');
+        // } else if (depth === 3) {
+        //     starts = starts.filter(x => String(x.recipe) === '127,0,137,0');
+        // } else if (depth === 4) {
+        //     console.log('Exiting');
+        //     process.exit(0);
+        // }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         let start = performance.now();
         let possibleUseful = '';

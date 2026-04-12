@@ -500,7 +500,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             }
             recipe2.end.elbow = elbow.elbow;
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
-            recipe2.end.timing += elbow.timing;
+            recipe2.end.timing = (recipe2.end.timing + elbow.timing) % recipe2.end.period;
             recipe2.end.move += elbow.move;
             // idk if you should do this
             // if (recipe2.emit && info.period > 1) {
