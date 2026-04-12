@@ -312,7 +312,6 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
             if (newOut === undefined) {
                 continue;
             }
-            Object.assign(out, newOut);
             if (newOut[1] === false || Object.values(newOut[0]).every(x => x.every(y => y.type === 'bad'))) {
                 data.badElbows.add(elbow);
                 data.badElbows.add(value.elbow);
@@ -326,7 +325,7 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
                 }
                 return [out, false];
             } else {
-                Object.assign(out, newOut);
+                Object.assign(out, newOut[0]);
             }
         }
     }
@@ -433,7 +432,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
 }
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, recipesOverride?: [number, number][][], outputFile?: string): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, outputFile?: string): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let parts = elbow.split('/');
     let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
@@ -475,9 +474,11 @@ export async function searchChannel(type: string, threads: number, elbow: string
         p: state.p.toApgcode(),
         xOffset: state.p.xOffset,
         yOffset: state.p.yOffset,
+        generation: state.p.generation,
     })];
     let depth = 1;
     while (true) {
+        console.log(`Searching depth ${depth} (${starts.length} starts)`);
         let start = performance.now();
         let possibleUseful = '';
         let newStarts: StrRunState[] = [];

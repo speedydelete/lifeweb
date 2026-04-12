@@ -146,6 +146,7 @@ export interface StrRunState {
     p: string;
     xOffset: number;
     yOffset: number;
+    generation: number;
     elbow: [string, number, number];
     recipe: [number, number][];
     time: number;
@@ -182,10 +183,11 @@ export function createState(info: ChannelInfo, elbow: [string, number, number]):
 }
 
 function runState(info: ChannelInfo, state: RunState, nextGlider: number, channel: number, injected: boolean = false): RunState {
+    let subtractTime = injected;
     // console.log(Object.assign({}, state, {p: undefined}));
     let p = state.p.copy();
     while (true) {
-        let timing = p.generation - state.time - (injected ? info.minSpacing + nextGlider : nextGlider);
+        let timing = p.generation - (subtractTime ? state.time : 0) - (injected ? info.minSpacing + nextGlider : nextGlider);
         let mod = timing % info.ship.period;
         if (mod < 0) {
             mod += info.ship.period;
@@ -196,7 +198,7 @@ function runState(info: ChannelInfo, state: RunState, nextGlider: number, channe
         let y = state.startY + dist * info.ship.dy;
         let xDiff = p.xOffset - x;
         let yDiff = p.yOffset - y;
-        // console.log(`time = ${p.generation}, timing = ${timing}, mod = ${mod}, dist = ${dist}, q.xOffset = ${q.xOffset}, q.yOffset = ${q.yOffset}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
+        // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
         if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + c.INJECTION_SPACING) && (yDiff < q.height + c.INJECTION_SPACING)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
             if (injected) {
                 // console.log('returning');
@@ -523,8 +525,10 @@ interface CheckerObjectData {
 }
 
 function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, newElbows: string[], state: RunState, nextGlider: number, nextChannel: number): {state: RunState, outcome: string, recipes?: ChannelRecipe[], possibleUseful?: string} {
+    // console.log(`\x1b[94m${nextGlider}:\x1b[0m\n${state.p.toRLE()}`);
     state = runState(info, state, nextGlider, nextChannel, true);
     let p = state.p.copy();
+    // console.log(p.toRLE());
     let prevPop = p.population;
     for (let i = 0; i < 256; i++) {
         p.run(info.ship.popPeriod);
@@ -725,18 +729,16 @@ function runStart(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, 
             let y = state.startY + dist * info.ship.dy;
             let xDiff = p.xOffset - x;
             let yDiff = p.yOffset - y;
-            // console.log(`time = ${p.generation}, timing = ${timing}, mod = ${mod}, dist = ${dist}, q.xOffset = ${q.xOffset}, q.yOffset = ${q.yOffset}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
+            // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
             if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + c.INJECTION_SPACING) && (yDiff < q.height + c.INJECTION_SPACING)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
                 r.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
-                let newRecipe = state.recipe.slice();
-                newRecipe.push([timings[0], channel]);
                 let data = checkRecipe(info, elbows, badElbows, newElbows, {
                     p: r,
                     elbow: state.elbow,
-                    recipe: newRecipe,
-                    time: state.time + timings[0],
+                    recipe: state.recipe.slice(),
+                    time: state.time,
                     startX: state.startX,
                     startY: state.startY,
                 }, timings[0], channel);
@@ -847,6 +849,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
             let state = Object.assign(start, {p: base.loadApgcode(start.p).shrinkToFit()});
             state.p.xOffset = state.xOffset;
             state.p.yOffset = state.yOffset;
+            state.p.generation = state.generation;
             let value = runStart(info, data.elbows, data.badElbows, newElbows, state, maxSpacing);
             startsChecked++;
             recipesChecked += value.recipesChecked;
@@ -854,6 +857,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
                 p: x.p.toApgcode(),
                 xOffset: x.p.xOffset,
                 yOffset: x.p.yOffset,
+                generation: x.p.generation,
             })));
             recipes.push(...value.recipes);
             possibleUseful.push(value.possibleUseful);

@@ -163,12 +163,12 @@ if (options['file'] !== undefined) {
     }
 }
 
-if (posArgs[0] === 'search_simeks') {
-    let info = c.CHANNEL_INFO['Single-channel (90)'];
-    let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
-    await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 256, recipes, options['file']);
-    process.exit(0);
-}
+// if (posArgs[0] === 'search_simeks') {
+//     let info = c.CHANNEL_INFO['Single-channel (90)'];
+//     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
+//     await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 256, recipes, options['file']);
+//     process.exit(0);
+// }
 
 if (posArgs.length < 2) {
     error('At least 2 positional arguments expected!');
@@ -235,7 +235,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
-        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), undefined, options['file']);
+        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), options['file']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
