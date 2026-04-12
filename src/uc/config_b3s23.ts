@@ -163,6 +163,18 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         maxRecipes: 5,
     },
 
+    'Monochrome p1 slow salvo': {
+        aliases: ['mp1ss'],
+        ship: SPACESHIPS['xq4_153'],
+        startObject: 'xs4_33',
+        gliderSpacing: 60,
+        period: 1,
+        intermediateObjects: ['xs4_33', 'xs6_696', 'xs6_2552', 'xs7_2596', 'xs7_4a96', 'xs7_69a4', 'xs7_6952', 'xs5_253', 'xs5_256', 'xs5_652', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_25ac', 'xs7_ca52', 'xs7_35a4', 'xs7_4a53'],
+        laneLimit: 128,
+        maxRecipes: 5,
+        restriction: [[[2, 0]]],
+    },
+
 };
 
 
