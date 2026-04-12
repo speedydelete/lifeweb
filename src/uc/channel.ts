@@ -86,11 +86,17 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
             out.push({type: 'bad'});
             continue;
         }
+        let resultPeriod = 1;
+        for (let obj of result) {
+            if (obj.type === 'osc') {
+                resultPeriod = lcm(resultPeriod, obj.period);
+            }
+        }
         let isSame = true;
         let results: CAObject[][] = [];
         let prevResult: string | null = null;
         for (let i = 0; i < 3; i++) {
-            let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + i, 0]]);
+            let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + i * resultPeriod, 0]]);
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
                 return;
@@ -102,7 +108,15 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 return obj;
             });
             results.push(objs);
-            let strResult = objectsToString(objs);
+            let strResult = objectsToString(objs.map(obj => {
+                if (obj.type === 'osc') {
+                    obj = structuredClone(obj);
+                    obj.timing = 0;
+                    return obj;
+                } else {
+                    return obj;
+                }
+            }));
             if (prevResult && strResult !== prevResult) {
                 isSame = false;
             }
