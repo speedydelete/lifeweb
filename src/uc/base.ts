@@ -634,7 +634,6 @@ export interface RecipeData {
     salvos: {[key: string]: SalvoRecipes};
     channels: {[key: string]: {
         elbows: ElbowData;
-        badElbows: Set<string>;
         recipes: {[key: string]: ChannelRecipe};
     }};
 }
@@ -763,12 +762,6 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     }
                 }
                 out.elbows[elbow] = value;
-            }
-        } else if (section === 'bad elbows') {
-            for (let line of current) {
-                for (let elbow of line.split(', ')) {
-                    out.badElbows.add(elbow);
-                }
             }
         } else if (section.includes('recipes')) {
             for (let line of current) {
@@ -927,9 +920,6 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             out += '\n';
         }
         out += `\n${type} bad elbows:\n\n`;
-        if (value.badElbows.size > 0) {
-            out += Array.from(value.badElbows).sort().join(', ') + '\n\n';
-        }
         let sections: {[key: string]: ChannelRecipe[]} = {};
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
             sections[key] = [];

@@ -73,7 +73,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
-function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
+function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
     let period = 1;
     if (elbow.startsWith('xp')) {
         period = parseInt(elbow.slice(2));
@@ -238,6 +238,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 p.yOffset = temp;
                 let objs = findOutcome(p, true);
                 if (typeof objs !== 'object') {
+                    console.error(`\x1b[31mThis message should not appear. Please report this to speedydelete. (in checkElbow, when computing flippedResults, objs is ${objs})\x1b[0m`);
                     return;
                 }
                 flippedResults.push(objs.filter(obj => obj.type === 'sl' || obj.type === 'osc').map(obj => {
@@ -270,20 +271,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
                 p.yOffset = temp;
                 let data = patternToSalvo({ship: info.ship, period: 1}, p);
                 let flippedStr = `${data[0]}/${data[1][0][0]}`;
-                if (badElbows.has(str)) {
-                    if (!badElbows.has(flippedStr)) {
-                        badElbows.add(flippedStr);
-                    }
-                    out.push({type: 'bad'});
-                    continue;
-                }
-                if (badElbows.has(flippedStr)) {
-                    if (!badElbows.has(str)) {
-                        badElbows.add(str);
-                    }
-                    out.push({type: 'bad'});
-                    continue;
-                }
                 if (flippedStr in elbows) {
                     out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
                 } else {
@@ -297,15 +284,14 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>
     return out;
 }
 
-function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | [ElbowData, boolean] {
-    if (elbow in data.elbows || data.badElbows.has(elbow)) {
+function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | ElbowData {
+    if (elbow in data.elbows) {
         return;
     }
     let elbowParts = elbow.split('/');
     let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), parseInt(elbowParts[1])];
-    let result = checkElbow(info, data.elbows, data.badElbows, elbow, elbowData);
-    if (!result || result.every(x => x.type === 'bad')) {
-        data.badElbows.add(elbow);
+    let result = checkElbow(info, data.elbows, elbow, elbowData);
+    if (!result) {
         let period = 1;
         if (elbow.startsWith('xp')) {
             period = parseInt(elbow.slice(2));
@@ -314,7 +300,7 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
         for (let i = 0; i < period; i++) {
             entry.push({type: 'bad'});
         }
-        return [{[elbow]: entry}, false];
+        return {[elbow]: entry};
     }
     let out: ElbowData = {[elbow]: result};
     for (let value of result) {
@@ -323,27 +309,15 @@ function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels']
                 return;
             }
             let newOut = addElbow(info, value.elbow, data, depth + 1);
+            if (newOut) {
+                Object.assign(out, newOut);
+            }
             if (newOut === undefined) {
                 continue;
             }
-            if (newOut[1] === false || Object.values(newOut[0]).every(x => x.every(y => y.type === 'bad'))) {
-                data.badElbows.add(elbow);
-                data.badElbows.add(value.elbow);
-                let period = 1;
-                if (elbow.startsWith('xp')) {
-                    period = parseInt(elbow.slice(2));
-                }
-                out[elbow] = [];
-                for (let i = 0; i < period; i++) {
-                    out[elbow].push({type: 'bad'});
-                }
-                return [out, false];
-            } else {
-                Object.assign(out, newOut[0]);
-            }
         }
     }
-    return [out, true];
+    return out;
 }
 
 function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelRecipe[] {
@@ -389,12 +363,12 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
             continue;
         }
         let value = addElbow(info, elbow, out);
-        if (value && value[1]) {
-            for (let key in value[0]) {
+        if (value) {
+            for (let key in value) {
                 if (key in out.elbows) {
                     throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
                 }
-                out.elbows[key] = value[0][key];
+                out.elbows[key] = value[key];
             }
         }
     }
@@ -405,7 +379,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
             // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
             //     console.log(recipe);
             // }
-            let value = resolveElbow(info, out.elbows, out.badElbows, recipe);
+            let value = resolveElbow(info, out.elbows, recipe);
             // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
             //     console.log(value.recipes[0]);
             //     throw new Error('hi');
@@ -418,7 +392,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     }
     recipes = expandRecipes(info, recipes);
     for (let recipe of recipes) {
-        if (recipe.end && out.badElbows.has(recipe.end.elbow)) {
+        if (recipe.end) {
             continue;
         }
         let key = channelRecipeInfoToString(recipe);
@@ -474,12 +448,12 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let out = recipes.channels[type];
     if (!(elbow in out.elbows)) {
         let value = addElbow(info, elbow, out);
-        if (value && value[1]) {
-            for (let key in value[0]) {
+        if (value) {
+            for (let key in value) {
                 if (key in out.elbows) {
                     throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
                 }
-                out.elbows[key] = value[0][key];
+                out.elbows[key] = value[key];
             }
         }
     }
@@ -526,7 +500,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
             });
             worker.postMessage({
                 elbows: out.elbows,
-                badElbows: out.badElbows,
                 starts: starts.filter((_, j) => j % workers.length === i),
             } satisfies WorkerStartData);
         }

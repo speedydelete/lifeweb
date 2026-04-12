@@ -423,16 +423,13 @@ function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
     return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
 }
 
-export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
+export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
     if (depth === 64) {
         console.error(`\x1b[91mThere is a recursive elbow (please report to speedydelete)\x1b[0m`);
         return {recipes: [], possibleUseful: ''};
     }
     if (!recipe.end) {
         return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
-    }
-    if (badElbows.has(recipe.end.elbow)) {
-        return {recipes: [], possibleUseful: ''};
     }
     if (!(recipe.end.elbow in elbows)) {
         return {recipes: [recipe], possibleUseful: ''};
@@ -474,7 +471,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, badElbows: Se
             //         ship.timing = (ship.timing + elbow.timing) % info.period;
             //     }
             // }
-            let value = resolveElbow(info, elbows, badElbows, recipe2, depth + 1);
+            let value = resolveElbow(info, elbows, recipe2, depth + 1);
             out.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         }
@@ -524,7 +521,7 @@ interface CheckerObjectData {
     spacing: number;
 }
 
-function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, newElbows: string[], state: RunState, nextGlider: number, nextChannel: number): {state: RunState, outcome: string, recipes?: ChannelRecipe[], possibleUseful?: string} {
+function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], state: RunState, nextGlider: number, nextChannel: number): {state: RunState, outcome: string, recipes?: ChannelRecipe[], possibleUseful?: string} {
     // console.log(`\x1b[94m${nextGlider}:\x1b[0m\n${state.p.toRLE()}`);
     state = runState(info, state, nextGlider, nextChannel, true);
     let p = state.p.copy();
@@ -669,9 +666,6 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string
         }
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
-        if (badElbows.has(str)) {
-            return {state, outcome};
-        }
         if (elbow.obj.type === 'sl') {
             end = {elbow: str, period: 1, move: elbow.spacing, flipped: false, timing: 0};
         } else {
@@ -695,7 +689,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string
                 ship.timing = (ship.timing + next) % info.period;
             }
         }
-        let {recipes} = resolveElbow(info, elbows, badElbows, out);
+        let {recipes} = resolveElbow(info, elbows, out);
         return {state, outcome, recipes};
     } else {
         return {state, outcome, possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${channelRecipeToString(info, state.recipe)}\n`};
@@ -703,7 +697,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string
 }
 
 
-function runStart(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, newElbows: string[], state: RunState, maxSpacing: number): {states: RunState[], recipes: ChannelRecipe[], possibleUseful: string, recipesChecked: number} {
+function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], state: RunState, maxSpacing: number): {states: RunState[], recipes: ChannelRecipe[], possibleUseful: string, recipesChecked: number} {
     let states: RunState[] = [];
     let recipes: ChannelRecipe[] = [];
     let possibleUseful = '';
@@ -734,7 +728,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, badElbows: Set<string>, 
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
                 r.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
-                let data = checkRecipe(info, elbows, badElbows, newElbows, {
+                let data = checkRecipe(info, elbows, newElbows, {
                     p: r,
                     elbow: state.elbow,
                     recipe: state.recipe.slice(),
@@ -789,7 +783,6 @@ export interface WorkerData {
 
 export interface WorkerStartData {
     elbows: ElbowData;
-    badElbows: Set<string>;
     starts: StrRunState[];
 }
 
@@ -850,7 +843,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
             state.p.xOffset = state.xOffset;
             state.p.yOffset = state.yOffset;
             state.p.generation = state.generation;
-            let value = runStart(info, data.elbows, data.badElbows, newElbows, state, maxSpacing);
+            let value = runStart(info, data.elbows, newElbows, state, maxSpacing);
             startsChecked++;
             recipesChecked += value.recipesChecked;
             states.push(...value.states.map(x => Object.assign(x, {
