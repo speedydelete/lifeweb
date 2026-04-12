@@ -476,9 +476,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
         yOffset: state.p.yOffset,
         generation: state.p.generation,
     })];
-    let depth = 1;
+    let gliders = 2;
     while (true) {
-        console.log(`Searching depth ${depth} (${starts.length} starts)`);
+        console.log(`Searching ${gliders}-glider recipes (${starts.length} starts)`);
         let start = performance.now();
         let possibleUseful = '';
         let newStarts: StrRunState[] = [];
@@ -533,13 +533,13 @@ export async function searchChannel(type: string, threads: number, elbow: string
             clearInterval(interval);
         }
         let time = (performance.now() - start) / 1000;
-        await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+        await log(`${gliders}-glider recipes complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
         await saveRecipes(recipes);
         if (possibleUseful.length > 0) {
-            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
+            await fs.appendFile('possible_useful.txt', `\n${gliders} gliders:\n${possibleUseful}`);
         }
         starts = newStarts;
-        depth++;
+        gliders++;
     }
 }
 
