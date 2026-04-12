@@ -532,6 +532,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         }
         starts = newStarts;
         depth++;
+        // await fs.writeFile(`starts_${depth}.txt`, starts.map(x => [x.elbow[0], x.elbow[1], x.elbow[2], x.startX, x.startY, x.p, x.xOffset, x.yOffset, x.generation, x.time, channelRecipeToString(info, x.recipe)].join(' ')).join('\n'));
     }
 }
 
