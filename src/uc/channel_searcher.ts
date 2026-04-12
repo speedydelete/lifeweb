@@ -423,6 +423,40 @@ function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
     return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
 }
 
+export function isTooBig(obj: string, limit: number, overrides: string[]): boolean {
+    if (obj.startsWith('xs')) {
+        if (parseInt(obj.slice(2)) > limit) {
+            let index = obj.indexOf('_');
+            let p = base.loadApgcode(obj.slice(index + 1, obj.indexOf('/')));
+            if (overrides.includes(p.toCanonicalApgcode(1, obj.slice(0, index)))) {
+                return false;
+            } else {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    }
+    let period = parseInt(obj.slice(2));
+    let p = base.loadApgcode(obj.slice(obj.indexOf('_') + 1, obj.indexOf('/')));
+    if (p.population > limit) {
+        if (overrides.includes(p.toCanonicalApgcode(1, 'xp' + period))) {
+            return false;
+        }
+        return true;
+    }
+    for (let i = 0; i < period - 1; i++) {
+        p.runGeneration();
+        if (p.population > limit) {
+            if (overrides.includes(p.toCanonicalApgcode(1, 'xp' + period))) {
+                return false;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
     if (depth === 64) {
         console.error(`\x1b[91mThere is a recursive elbow (please report to speedydelete)\x1b[0m`);
@@ -461,6 +495,9 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             out.push(recipe2);
             possibleUseful += getStringRecipe(info, recipe);
         } else {
+            if (isTooBig(elbow.elbow, c.ELBOW_SIZE_LIMIT, c.ELBOW_SIZE_LIMIT_OVERRIDES)) {
+                continue;
+            }
             recipe2.end.elbow = elbow.elbow;
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
             recipe2.end.timing += elbow.timing;
@@ -479,40 +516,6 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
     return {recipes: out, possibleUseful};
 }
 
-
-function isTooBig(obj: string, limit: number, overrides: string[]): boolean {
-    if (obj.startsWith('xs')) {
-        if (parseInt(obj.slice(2)) > limit) {
-            let index = obj.indexOf('_');
-            let p = base.loadApgcode(obj.slice(index + 1, obj.indexOf('/')));
-            if (overrides.includes(p.toCanonicalApgcode(1, obj.slice(0, index)))) {
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return false;
-        }
-    }
-    let period = parseInt(obj.slice(2));
-    let p = base.loadApgcode(obj.slice(obj.indexOf('_') + 1, obj.indexOf('/')));
-    if (p.population > limit) {
-        if (overrides.includes(p.toCanonicalApgcode(1, 'xp' + period))) {
-            return false;
-        }
-        return true;
-    }
-    for (let i = 0; i < period - 1; i++) {
-        p.runGeneration();
-        if (p.population > limit) {
-            if (overrides.includes(p.toCanonicalApgcode(1, 'xp' + period))) {
-                return false;
-            }
-            return true;
-        }
-    }
-    return false;
-}
 
 interface CheckerObjectData {
     obj: StableObject;
