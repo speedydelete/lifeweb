@@ -809,6 +809,9 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             recipe2.time += inc + info.minSpacing;
         }
         if (elbow.type === 'convert' && elbow.emit) {
+            // if (recipe2.create) {
+            //     continue;
+            // }
             if (recipe2.emit) {
                 if (elbow.emit.some(x => x.dir !== (recipe2.emit as ShipInfo[])[0].dir)) {
                     continue;
