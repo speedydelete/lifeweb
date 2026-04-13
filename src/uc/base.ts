@@ -569,17 +569,18 @@ export function getShipInfo(info: {ship: c.SpaceshipInfo, period: number}, obj: 
     if (dir.endsWith('2')) {
         dir = dir.slice(0, -1) as c.ShipDirection;
     }
+    let slope = c.SPACESHIPS[info.ship.code].slope;
     let lane: number;
     if (obj.dir === 'N' || obj.dir === 'NW') {
-        lane = obj.x - (obj.y * info.ship.slope);
+        lane = obj.x - (obj.y * slope);
     } else if (obj.dir === 'W' || obj.dir === 'SW') {
-        lane = (obj.x * info.ship.slope) + obj.y;
+        lane = (obj.x * slope) + obj.y;
     } else if (obj.dir === 'S' || obj.dir === 'SE') {
-        lane = obj.x - (obj.y * info.ship.slope);
+        lane = obj.x - (obj.y * slope);
     } else {
-        lane = (obj.x * info.ship.slope) + obj.y;
+        lane = (obj.x * slope) + obj.y;
     }
-    return {code: obj.code, dir: obj.dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % info.period};
+    return {code: obj.code, dir: obj.dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % parseInt(obj.code.slice(2))};
 }
 
 
