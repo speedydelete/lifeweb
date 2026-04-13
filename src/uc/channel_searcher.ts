@@ -5,7 +5,7 @@ import {separateObjectsPartial, findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
 
-// type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
+export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
 
 // const GLIDERS_HORIZONTAL: {[key: number]: [GliderDirection, number]} = {
 //     0b110_101_100_000000: ['NW', 0],

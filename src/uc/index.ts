@@ -46,6 +46,8 @@ Options:
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
 
     -f <path>, --file <path>: Provide an output file to append stdout to as well as putting it on the screen.
+
+    -s <dir>, --save <dir>: The directory to save progress to, only supported for channel searching currently.
     
     --force-end-elbow <elbow>: For convert, force an ending elbow.
 
@@ -66,6 +68,7 @@ const OPTIONS = {
     'depth': 'number',
     'beam': 'number',
     'file': 'string',
+    'save': 'string',
     'force-end-elbow': 'string',
     'destroy-elbow': true,
     'min-elbow': 'number',
@@ -84,6 +87,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'd': 'depth',
     'b': 'beam',
     'f': 'file',
+    's': 'save',
 };
 
 let argv = process.argv;
@@ -166,7 +170,7 @@ if (options['file'] !== undefined) {
 // if (posArgs[0] === 'search_simeks') {
 //     let info = c.CHANNEL_INFO['Single-channel (90)'];
 //     let recipes = (await fs.readFile('recipes_b3s23_simeks.txt')).toString().split('\n').map(x => parseChannelRecipe(info, x)[0]);
-//     await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 256, recipes, options['file']);
+//     await searchChannel('Single-channel (90)', options['threads'] ?? 1, 'xs4_33/9', 256, recipes, options['file'], true);
 //     process.exit(0);
 // }
 
@@ -235,7 +239,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
-        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), options['file']);
+        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), options['file'], options['save']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {

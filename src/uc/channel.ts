@@ -6,7 +6,7 @@ import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, isWrecked, maxGenerations, redraw, log, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
-import {runInjection, StrRunState, createState, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
+import {GliderDirection, runInjection, StrRunState, createState, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -448,8 +448,105 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     return possibleUseful;
 }
 
+
+const GLIDER_DIRECTION_NUMBERS: GliderDirection[] = ['NW', 'NE', 'SW', 'SE'];
+
+function encodeInts(data: number[]): Uint8Array {
+    let out: number[] = [];
+    for (let value of data) {
+        if (value > -128 && value < 128) {
+            out.push(value < 0 ? value + 256 : value);
+        } else if (value > -0xff00 && value < 0xff00) {
+            if (value < 0) {
+                value += 1 << 16;
+            }
+            out.push(255, (value & 0xff00) >> 8, (value & 0xff));
+        } else {
+            if (value < 0) {
+                value += 2**32;
+            }
+            out.push(255, 255, (value & 0xff000000) >> 24, (value & 0xff0000) >> 16, (value & 0xff00) >> 8, (value & 0xff));
+        }
+    }
+    return new Uint8Array(out);
+}
+
+async function saveStarts(type: string, info: ChannelInfo, starts: StrRunState[], elbow: [string, number, number], depth: number): Promise<void> {
+    let arrays: Uint8Array[] = [];
+    let totalLength = 0;
+    for (let start of starts) {
+        let header: number[] = [start.xOffset, start.yOffset, start.generation, start.startX, start.startY, start.recipe.length];
+        for (let [timing, channel] of start.recipe) {
+            header.push(timing, channel);
+        }
+        if (start.gliders) {
+            header.push(start.gliders.length);
+            for (let glider of start.gliders) {
+                header.push(GLIDER_DIRECTION_NUMBERS.findIndex(x => x === glider.dir), glider.x, glider.y, glider.timing);
+            }
+        } else {
+            header.push(0);
+        }
+        let headerData = encodeInts(header);
+        let code: number[] = [];
+        let p = base.loadApgcode(start.p);
+        let height = p.height;
+        let width = p.width;
+        let data = p.data;
+        for (let stripNum = 0; stripNum < Math.ceil(height / 7); stripNum++) {
+            let zeros = 0;
+            let start = stripNum * width * 7;
+            for (let x = 0; x < width; x++) {
+                let value = data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4) | (data[start + 5 * width + x] << 5) | (data[start + 6 * width + x] << 6);
+                if (value === 0) {
+                    zeros++;
+                } else {
+                    if (zeros > 0) {
+                        while (zeros > 127) {
+                            zeros -= 127;
+                            code.push(253);
+                        }
+                        if (zeros > 0) {
+                            if (zeros === 0) {
+                                code.push(0);
+                            } else {
+                                code.push(126 + zeros);
+                            }
+                        }
+                        zeros = 0;
+                    }
+                    code.push(value);
+                }
+            }
+            code.push(254);
+        }
+        let array = new Uint8Array(headerData.length + code.length);
+        array.set(headerData, 0);
+        array.set(code, headerData.length);
+        arrays.push(array);
+        totalLength += array.length;
+    }
+    let out = new Uint8Array(totalLength);
+    let i = 0;
+    for (let array of arrays) {
+        out.set(array, i);
+        i += array.length;
+    }
+    let path = `${elbow[0]}_${elbow[1]}_${elbow[2]}_depth_${depth}.starts`;
+    if (info.aliases) {
+        let alias = info.aliases.find(x => !x.includes(' '));
+        if (alias) {
+            path = alias + '_' + path;
+        }
+    } else {
+        path = type + path;
+    }
+    await fs.writeFile(path, out);
+}
+
+
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, outputFile?: string): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, outputFile?: string, saveProgress?: string): Promise<void> {
     let info = c.CHANNEL_INFO[type];
     let parts = elbow.split('/');
     let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
@@ -586,7 +683,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
         await saveRecipes(recipes);
         starts = newStarts;
         depth++;
-        // await fs.writeFile(`starts_${depth}.txt`, starts.map(x => [x.elbow[0], x.elbow[1], x.elbow[2], x.startX, x.startY, x.p, x.xOffset, x.yOffset, x.generation, x.time, channelRecipeToString(info, x.recipe)].join(' ')).join('\n'));
+        if (saveProgress) {
+            saveStarts(type, info, starts, elbowData, depth);
+        }
     }
 }
 
