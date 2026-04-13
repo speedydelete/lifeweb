@@ -769,7 +769,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             continue;
         }
         if (elbow.type === 'no collision') {
-            if (recipe.create) {
+            if (recipe.create || recipe.emit) {
                 continue;
             }
             let recipe2 = structuredClone(recipe);
@@ -1043,9 +1043,11 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             timings.push(timing);
         }
         // if (state.time === 0) {
-        //     timings = [127];
-        // } else if (state.time === 127) {
-        //     timings = [137];
+        //     timings = [126];
+        // } else if (state.time === 126) {
+        //     timings = [129];
+        // } else if (state.time === 255) {
+        //     timings = [183];
         // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));

@@ -593,6 +593,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
+        // if (depth === 4) {
+        //     process.exit(0);
+        // }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
         let start = performance.now();

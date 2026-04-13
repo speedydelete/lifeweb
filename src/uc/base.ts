@@ -1032,7 +1032,8 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 }
             }
             if (!(key in sections)) {
-                console.error(`Cannot save recipe: ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}`);
+                console.error(`\x1b[91mCannot save recipe: ${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
+                continue;
             }
             sections[key].push(recipe);
         }
