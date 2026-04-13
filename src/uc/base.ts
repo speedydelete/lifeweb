@@ -8,8 +8,13 @@ export * from './config.js';
 export * as c from './config.js';
 
 
-export let maxGenerations = c.MAX_GENERATIONS;
+// this is for school chromebook running
+// @ts-ignore
+export let isWrecked = Boolean('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker);
 
+
+// we make the max generations configurable at runtime like this
+export let maxGenerations = c.MAX_GENERATIONS;
 export function setMaxGenerations(value: number): void {
     maxGenerations = value;
 }
@@ -36,6 +41,9 @@ export async function log(msg: string, notImportant?: boolean): Promise<void> {
 
 
 export let base = createPattern(c.RULE) as MAPPattern;
+
+
+// we have to compute all the orientations of the spaceships
 
 export let shipPatterns: {[key: string]: MAPPattern[]} = {};
 
@@ -75,6 +83,8 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
     }
 }
 
+
+// unused code
 
 export type Edge<T> = [number, number, T];
 export type Vertex<T> = Edge<T>[];
@@ -161,6 +171,8 @@ export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number
         throw new Error('Target unreachable!');
     }
 }
+
+// also unused code
 
 export function graphToDOT<T extends [any, any, string]>(graph: Vertex<T>[]): string {
     let out: string[] = [];
@@ -286,6 +298,8 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
 }
 
 
+// basic types for objects
+
 export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
 
 export interface BaseObject {
@@ -362,6 +376,7 @@ export function translateObjects<T extends CAObject>(objs: T[], x: number, y: nu
     });
 }
 
+/** A sorting function that sorts objects by their (x, y) displacement. */
 export function xyCompare(a: CAObject, b: CAObject): number {
     if (a.y === b.y) {
         return a.x - b.x;
@@ -548,6 +563,7 @@ export interface ShipInfo {
     timing: number;
 }
 
+/** Gets information on a spaceship. */
 export function getShipInfo(info: {ship: c.SpaceshipInfo, period: number}, obj: Spaceship): ShipInfo {
     let dir = obj.dir;
     if (dir.endsWith('2')) {
@@ -582,8 +598,9 @@ export interface SalvoRecipes {
 export type ElbowData = {[key: string]: (
     {type: 'normal', result: CAObject[], results: CAObject[][], flippedResult: CAObject[], flippedResults: CAObject[][]} |
     {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} |
-    {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number} |
-    {type: 'destroy'} |
+    {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number, emit?: ShipInfo[]} |
+    {type: 'destroy', emit?: ShipInfo[]} |
+    {type: 'no collision'} |
     {type: 'bad'}
 )[]};
 
@@ -737,6 +754,8 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         value.push({type: 'destroy'});
                     } else if (data === 'bad') {
                         value.push({type: 'bad'});
+                    } else if (data === 'no collision') {
+                        value.push({type: 'no collision'});
                     } else if (data.startsWith('-> ') || data.startsWith('= ')) {
                         let parts = data.split(' ');
                         let type = parts[0];
@@ -749,7 +768,20 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         }
                         let move = parseInt(parts[1]);
                         let timing = parseInt(parts[3]);
-                        value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing});
+                        let emit: ShipInfo[] | undefined = undefined;
+                        if (parts[4] === 'emit') {
+                            parts = parts.slice(4);
+                            emit = [];
+                            while (parts[0] === 'emit') {
+                                let code = data[1];
+                                let dir = data[2] as c.ShipDirection;
+                                let lane = parseInt(data[4]);
+                                let timing = parseInt(data[6]);
+                                emit.push({code, dir, lane, timing});
+                                data = data.slice(7);
+                            }
+                        }
+                        value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing, emit});
                     } else {
                         let values = data.split(' / ').map(stringToObjects);
                         value.push({
@@ -900,7 +932,40 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 elbowGroups[code] = [[obj, parseInt(lane), data]];
             }
         }
-        for (let data of Object.values(elbowGroups)) {
+        let entries = Object.entries(elbowGroups).sort(([x], [y]) => {
+            if (x.startsWith('xs')) {
+                if (y.startsWith('xs')) {
+                    let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
+                    if (value !== 0) {
+                        return value;
+                    } else if (x < y) {
+                        return -1;
+                    } else if (x > y) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    return -1;
+                }
+            } else {
+                if (y.startsWith('xs')) {
+                    return 1;
+                } else {
+                    let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
+                    if (value !== 0) {
+                        return value;
+                    } else if (x < y) {
+                        return -1;
+                    } else if (x > y) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
+                }
+            }
+        });
+        for (let [_, data] of entries) {
             data = data.sort((a, b) => a[1] - b[1]);
             for (let [key, _, value] of data) {
                 let strs: string[] = [];
@@ -908,9 +973,23 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                     if (x.type === 'normal') {
                         strs.push(`${objectsToString(x.result)} / ${x.results.map(objectsToString).join(' / ')} / ${objectsToString(x.flippedResult)} / ${x.flippedResults.map(objectsToString).join(' / ')}`);
                     } else if (x.type === 'alias' || x.type === 'convert') {
-                        strs.push(`${x.type === 'alias' ? '=' : '->'} ${x.elbow}${x.flipped ? ' flip' : ''} move ${x.move} timing ${x.timing}`);
+                        let str = `${x.type === 'alias' ? '=' : '->'} ${x.elbow}${x.flipped ? ' flip' : ''} move ${x.move} timing ${x.timing}`;
+                        if (x.type === 'convert' && x.emit) {
+                            for (let ship of x.emit) {
+                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+                            }
+                        }
+                        strs.push(str);
                     } else if (x.type === 'destroy') {
-                        strs.push('destroy');
+                        let str = 'destroy';
+                        if (x.emit) {
+                            for (let ship of x.emit) {
+                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+                            }
+                        }
+                        strs.push(str);
+                    } else if (x.type === 'no collision') {
+                        strs.push('no collision');
                     } else {
                         strs.push('bad');
                     }

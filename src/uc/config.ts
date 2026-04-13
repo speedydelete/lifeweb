@@ -144,8 +144,8 @@ interface SalvoInfo {
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
     maxRecipes?: number;
-    // congruence restrictions on lane numbers: AND of OR's of [mod, value] pairs
-    restriction?: [number, number][][];
+    // restriction on lane numbers
+    restriction?: (lane: number) => boolean;
 }
 
 // you name the construction types whatever you want
@@ -163,17 +163,34 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         maxRecipes: 5,
     },
 
-    'Monochrome p1 slow salvo': {
-        aliases: ['mp1ss'],
+    'Monochrome slow salvo (even)': {
+        aliases: ['msse'],
         ship: SPACESHIPS['xq4_153'],
         startObject: 'xs4_33',
         gliderSpacing: 20,
-        period: 1,
+        period: 2,
         intermediateObjects: ['xs4_33'],
         laneLimit: 128,
         maxRecipes: 2,
-        restriction: [[[2, 0]]],
+        restriction(lane: number): boolean {
+            return lane % 2 === 0;
+        },
     },
+
+    'Monochrome slow salvo (odd)': {
+        aliases: ['msse'],
+        ship: SPACESHIPS['xq4_153'],
+        startObject: 'xs4_33',
+        gliderSpacing: 20,
+        period: 2,
+        intermediateObjects: ['xs4_33'],
+        laneLimit: 128,
+        maxRecipes: 2,
+        restriction(lane: number): boolean {
+            return lane % 2 === 1;
+        },
+    },
+
 
 };
 
@@ -201,8 +218,8 @@ interface ChannelInfo {
     forceStart?: [number, number][];
     // the maximum possible next glider spacing (after a recipe)
     maxNextSpacing: number;
-    // a filter for possibly useful recipes
-    possiblyUsefulFilter: string[];
+    // // restriction on the sum of the timing gaps
+    // restriction?: (time: number) => boolean;
 }
 
 // you name the construction types whatever you want
@@ -217,7 +234,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[14]],
         minSpacing: 14,
         maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
     },
 
     'Single-channel (61)': {
@@ -228,7 +244,16 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[61]],
         minSpacing: 61,
         maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
+    },
+
+    'Single-channel (70)': {
+        aliases: ['sc70'],
+        ship: SPACESHIPS['xq4_153'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[70]],
+        minSpacing: 70,
+        maxNextSpacing: 512,
     },
 
     'Single-channel (syringe)': {
@@ -240,7 +265,6 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 74,
         excludeSpacings: [[[76, 77]]],
         maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
     },
 
     'Single-channel (90)': {
@@ -251,8 +275,33 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[90]],
         minSpacing: 90,
         maxNextSpacing: 512,
-        possiblyUsefulFilter: [],
     },
+
+    // 'Single-channel (61) (twin bees assisted)': {
+    //     aliases: ['sc61p46'],
+    //     ship: SPACESHIPS['xq4_153'],
+    //     channels: [0],
+    //     period: 2,
+    //     minSpacings: [[61]],
+    //     minSpacing: 61,
+    //     maxNextSpacing: 512,
+    //     restriction(time: number): boolean {
+    //         return time % 46 > 2;
+    //     },
+    // },
+
+    // 'Single-channel (70) (twin bees assisted)': {
+    //     aliases: ['sc70p46'],
+    //     ship: SPACESHIPS['xq4_153'],
+    //     channels: [0],
+    //     period: 2,
+    //     minSpacings: [[70]],
+    //     minSpacing: 70,
+    //     maxNextSpacing: 512,
+    //     restriction(time: number): boolean {
+    //         return time % 46 > 2;
+    //     },
+    // },
 
 };
 

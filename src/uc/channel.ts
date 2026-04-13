@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, log, base, shipPatterns, channelRecipeToString, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, isWrecked, maxGenerations, redraw, log, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {runInjection, StrRunState, createState, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
@@ -83,7 +83,11 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
     for (let timing = 0; timing < period; timing++) {
         let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
         if (typeof result !== 'object') {
-            out.push({type: 'bad'});
+            if (result === 'no collision') {
+                out.push({type: 'no collision'});
+            } else {
+                out.push({type: 'bad'});
+            }
             continue;
         }
         let resultPeriod = 1;
@@ -165,6 +169,9 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                     }
                     let xDiff = result2[0].x - dataResult2[0].x;
                     let yDiff = result2[0].y - dataResult2[0].y;
+                    if (elbow === 'xs8_6996/1' && key === 'xs4_33/8') {
+                        console.log(xDiff, yDiff);   
+                    }
                     let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                     let move: number;
                     if (flipped) {
@@ -231,7 +238,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             }
             let flippedResults: CAObject[][] = [];
             for (let i = 0; i < 3; i++) {
-                let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + timing + i * period, 0]]);
+                let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + timing + i * resultPeriod, 0]]);
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -250,10 +257,35 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             }
             out.push({type: 'normal', result, results, flippedResult, flippedResults});
         } else {
-            if (result.length === 0) {
-                out.push({type: 'destroy'});
-            } else if (result.length === 1) {
-                let obj = result[0];
+            let filtered: StableObject[] = [];
+            let emit: ShipInfo[] | undefined = undefined;
+            let found = false;
+            for (let obj of result) {
+                if (obj.type === 'sl' || obj.type === 'osc') {
+                    filtered.push(obj);
+                } else if (obj.type === 'ship') {
+                    if (emit) {
+                        if (emit.some(x => x.dir !== obj.dir)) {
+                            found = true;
+                            break;
+                        }
+                        emit.push(getShipInfo(info, obj));
+                    } else {
+                        emit = [getShipInfo(info, obj)];
+                    }
+                } else {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                out.push({type: 'bad'});
+                continue;
+            }
+            if (filtered.length === 0) {
+                out.push({type: 'destroy', emit});
+            } else if (filtered.length === 1) {
+                let obj = filtered[0];
                 if (obj.type === 'osc') {
                     obj = normalizeOscillator(obj);
                 }
@@ -261,7 +293,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                 let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
                 let str = `${obj.code}/${lane}`;
                 if (!info.ship.glideSymmetric) {
-                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});
                     continue;
                 }
                 let p = createChannelPattern(info, [obj.code.slice(obj.code.indexOf('_') + 1), lane], []).p;
@@ -272,9 +304,9 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                 let data = patternToSalvo({ship: info.ship, period: 1}, p);
                 let flippedStr = `${data[0]}/${data[1][0][0]}`;
                 if (flippedStr in elbows) {
-                    out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                    out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});
                 } else {
-                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing});
+                    out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});
                 }
             } else {
                 out.push({type: 'bad'});
@@ -437,6 +469,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         if (typeof window === 'object' && window === globalThis) {
             path = `./channel_searcher.js`;
         } else {
+            // @ts-ignore
             path = `${import.meta.dirname}/channel_searcher.js`;
         }
         workers.push(await new Worker(path, {workerData: {info, maxGenerations, outputFile, maxSpacing} satisfies WorkerData}));
@@ -463,17 +496,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 2) {
-        //     starts = starts.filter(x => String(x.recipe) === '127,0');
-        // } else if (depth === 3) {
-        //     starts = starts.filter(x => String(x.recipe) === '127,0,137,0');
-        // } else if (depth === 4) {
-        //     console.log('Exiting');
-        //     process.exit(0);
-        // }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
+        await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
         let start = performance.now();
-        let possibleUseful = '';
         let newStarts: StrRunState[] = [];
         let finishedCount = 0;
         let startsChecked = 0;
@@ -481,42 +506,74 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let timeout: NodeJS.Timeout | null = null;
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
+        // <school-chromebook>
+        let nextStartIndex = 0;
+        // </school-chromebook>
         for (let i = 0; i < workers.length; i++) {
             let worker = workers[i];
             worker.removeAllListeners('message');
             worker.on('message', async (data: WorkerOutput) => {
                 startsChecked += data.startsChecked;
                 recipesChecked += data.recipesChecked;
-                possibleUseful += data.possibleUseful.join('');
+                let possibleUseful = data.possibleUseful.join('');
                 newStarts.push(...data.states);
                 possibleUseful += addNewRecipes(info, data, out);
-                if (data.complete) {
-                    finishedCount++;
-                    if (finishedCount === threads) {
-                        if (timeout !== null) {
-                            clearTimeout(timeout);
-                        }
-                        if (interval !== null) {
-                            clearInterval(interval);
-                        }
-                        resolve();
+                if (possibleUseful.length > 0) {
+                    await fs.appendFile('possible_useful.txt', possibleUseful);
+                }
+                // <school-chromebook>
+                if (startsChecked > 0 && recipesChecked > 0) {
+                    let now = performance.now();
+                    if (now - lastUpdate > 5000) {
+                        lastUpdate = now;
+                        let time = (now - start) / 1000;
+                        await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                        await saveRecipes(recipes);
                     }
                 }
+                await redraw();
+                if (nextStartIndex === starts.length) {
+                    resolve();
+                } else {
+                    worker.postMessage({
+                        elbows: out.elbows,
+                        starts: [starts[nextStartIndex++]],
+                    } satisfies WorkerStartData);
+                }
+                // </school-chromebook><not-school-chromebook>
+                // if (data.complete) {
+                //     finishedCount++;
+                //     if (finishedCount === threads) {
+                //         resolve();
+                //     }
+                // }
+                // </not-school-chromebook>
             });
+            // <school-chromebook>
+            let lastUpdate = performance.now();
+            await redraw();
             worker.postMessage({
                 elbows: out.elbows,
-                starts: starts.filter((_, j) => j % workers.length === i),
+                starts: [starts[nextStartIndex++]],
             } satisfies WorkerStartData);
+            // </school-chromebook><not-school-chromebook>
+            // worker.postMessage({
+            //     elbows: out.elbows,
+            //     starts: starts.filter((_, j) => j % workers.length === i),
+            // } satisfies WorkerStartData);
+            // </not-school-chromebook>
         }
-        timeout = setTimeout(() => {
-            interval = setInterval(async () => {
-                if (startsChecked > 0 && recipesChecked > 0) {
-                    let time = (performance.now() - start) / 1000;
-                    await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
-                    await saveRecipes(recipes);
-                }
-            }, 5000);
-        }, 2500);
+        // <not-school-chromebook>
+        // timeout = setTimeout(() => {
+        //     interval = setInterval(async () => {
+        //         if (startsChecked > 0 && recipesChecked > 0) {
+        //             let time = (performance.now() - start) / 1000;
+        //             await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+        //             await saveRecipes(recipes);
+        //         }
+        //     }, 5000);
+        // }, 2500);
+        // </not-school-chromebook>
         await promise;
         if (timeout !== null) {
             clearTimeout(timeout);
@@ -527,9 +584,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let time = (performance.now() - start) / 1000;
         await log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
         await saveRecipes(recipes);
-        if (possibleUseful.length > 0) {
-            await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n${possibleUseful}`);
-        }
         starts = newStarts;
         depth++;
         // await fs.writeFile(`starts_${depth}.txt`, starts.map(x => [x.elbow[0], x.elbow[1], x.elbow[2], x.startX, x.startY, x.p, x.xOffset, x.yOffset, x.generation, x.time, channelRecipeToString(info, x.recipe)].join(' ')).join('\n'));

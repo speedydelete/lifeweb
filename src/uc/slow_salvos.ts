@@ -283,24 +283,8 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             continue;
         }
         lane += x - y * info.ship.slope;
-        if (info.restriction) {
-            let found = false;
-            for (let list of info.restriction) {
-                let found2 = false;
-                for (let [mod, value] of list) {
-                    if (lane % mod === value) {
-                        found2 = true;
-                        break;
-                    }
-                }
-                if (!found2) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                continue;
-            }
+        if (info.restriction && !info.restriction(lane)) {
+            continue;
         }
         let recipe = prefix.slice();
         timing = (timing + totalTiming) % info.period;
