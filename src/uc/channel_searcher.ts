@@ -1027,17 +1027,6 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     if (next !== false) {
         out.recipe.push([next, -1]);
         out.time += next;
-        if (out.end) {
-            out.end.timing += next;
-        }
-        if (out.emit) {
-            for (let ship of out.emit) {
-                ship.timing += next;
-            }
-        }
-        if (out.create && out.create.timing) {
-            out.create.timing += next;
-        }
         let {recipes} = resolveElbow(info, elbows, out);
         return {state, outcome, recipes};
     } else {
