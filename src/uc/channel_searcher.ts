@@ -949,6 +949,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     }
     let create: StableObject | undefined = undefined;
     let endElbowData: [CheckerObjectData, CAObject[][]] | undefined = undefined;
+    // console.log(`Candidate: ${channelRecipeToString(info, state.recipe)}`);
     if (so1) {
         if (so2) {
             let so1Result: ReturnType<typeof getCollision>[] = [];
