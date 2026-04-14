@@ -104,7 +104,6 @@ export function getCollision(info: {ship: SpaceshipInfo}, code: string, lane: nu
             if (i === 0) {
                 return 'no';
             }
-            p.generation = 0;
             return findOutcome(p, isElbow, undefined, combineAll);
         }
         prevPop = pop;

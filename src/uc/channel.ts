@@ -594,9 +594,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        if (depth === 2) {
-            process.exit(0);
-        }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
         let start = performance.now();
@@ -608,7 +605,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
         // <school-chromebook>
-        let nextStartIndex = 0;
+        // let nextStartIndex = 0;
         // </school-chromebook>
         for (let i = 0; i < workers.length; i++) {
             let worker = workers[i];
@@ -623,57 +620,57 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     await fs.appendFile('possible_useful.txt', possibleUseful);
                 }
                 // <school-chromebook>
-                if (startsChecked > 0 && recipesChecked > 0) {
-                    let now = performance.now();
-                    if (now - lastUpdate > 5000) {
-                        lastUpdate = now;
-                        let time = (now - start) / 1000;
-                        await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
-                        await saveRecipes(recipes);
-                    }
-                }
-                await redraw();
-                if (nextStartIndex === starts.length) {
-                    resolve();
-                } else {
-                    worker.postMessage({
-                        elbows: out.elbows,
-                        starts: [starts[nextStartIndex++]],
-                    } satisfies WorkerStartData);
-                }
-                // </school-chromebook><not-school-chromebook>
-                // if (data.complete) {
-                //     finishedCount++;
-                //     if (finishedCount === threads) {
-                //         resolve();
+                // if (startsChecked > 0 && recipesChecked > 0) {
+                //     let now = performance.now();
+                //     if (now - lastUpdate > 5000) {
+                //         lastUpdate = now;
+                //         let time = (now - start) / 1000;
+                //         await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                //         await saveRecipes(recipes);
                 //     }
                 // }
+                // await redraw();
+                // if (nextStartIndex === starts.length) {
+                //     resolve();
+                // } else {
+                //     worker.postMessage({
+                //         elbows: out.elbows,
+                //         starts: [starts[nextStartIndex++]],
+                //     } satisfies WorkerStartData);
+                // }
+                // </school-chromebook><not-school-chromebook>
+                if (data.complete) {
+                    finishedCount++;
+                    if (finishedCount === threads) {
+                        resolve();
+                    }
+                }
                 // </not-school-chromebook>
             });
             // <school-chromebook>
-            let lastUpdate = performance.now();
-            await redraw();
-            worker.postMessage({
-                elbows: out.elbows,
-                starts: [starts[nextStartIndex++]],
-            } satisfies WorkerStartData);
-            // </school-chromebook><not-school-chromebook>
+            // let lastUpdate = performance.now();
+            // await redraw();
             // worker.postMessage({
             //     elbows: out.elbows,
-            //     starts: starts.filter((_, j) => j % workers.length === i),
+            //     starts: [starts[nextStartIndex++]],
             // } satisfies WorkerStartData);
+            // </school-chromebook><not-school-chromebook>
+            worker.postMessage({
+                elbows: out.elbows,
+                starts: starts.filter((_, j) => j % workers.length === i),
+            } satisfies WorkerStartData);
             // </not-school-chromebook>
         }
         // <not-school-chromebook>
-        // timeout = setTimeout(() => {
-        //     interval = setInterval(async () => {
-        //         if (startsChecked > 0 && recipesChecked > 0) {
-        //             let time = (performance.now() - start) / 1000;
-        //             await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
-        //             await saveRecipes(recipes);
-        //         }
-        //     }, 5000);
-        // }, 2500);
+        timeout = setTimeout(() => {
+            interval = setInterval(async () => {
+                if (startsChecked > 0 && recipesChecked > 0) {
+                    let time = (performance.now() - start) / 1000;
+                    await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                    await saveRecipes(recipes);
+                }
+            }, 5000);
+        }, 2500);
         // </not-school-chromebook>
         await promise;
         if (timeout !== null) {

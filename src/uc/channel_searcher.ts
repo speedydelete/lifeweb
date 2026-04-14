@@ -821,7 +821,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
         if (elbow.type !== 'alias') {
             let value = recipe2.recipe[recipe2.recipe.length - 1];
             let inc = (i + recipe.end.timing - (recipe.time - value[0])) % outcomes.length;
-            console.log(value, recipe.time, recipe.end.timing, inc);
+            console.log(i, value, recipe.time, recipe.end.timing, inc);
             if (inc < 0) {
                 inc += outcomes.length;
             }
@@ -829,10 +829,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             value[1] = 0;
             recipe2.recipe.push([info.minSpacing, -1]);
             recipe2.time += inc + info.minSpacing;
-            recipe2.end.timing += inc + info.minSpacing;
-            if (recipe2.create && recipe2.create.timing) {
-                recipe2.create.timing += inc + info.minSpacing;
-            }
+            recipe2.end.timing += info.minSpacing;
         }
         if ((elbow.type === 'convert' || elbow.type === 'destroy') && elbow.emit) {
             // if (recipe2.create) {
@@ -1061,7 +1058,6 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
         for (let timing = info.minSpacings[startChannel][channel]; timing <= maxSpacing; timing++) {
             timings.push(timing);
         }
-        timings = [21];
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));
         let p = state.p.copy();
