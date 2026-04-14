@@ -821,7 +821,6 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
         if (elbow.type !== 'alias') {
             let value = recipe2.recipe[recipe2.recipe.length - 1];
             let inc = (i + recipe.end.timing - (recipe.time - value[0])) % outcomes.length;
-            console.log(i, value, recipe.time, recipe.end.timing, inc);
             if (inc < 0) {
                 inc += outcomes.length;
             }
