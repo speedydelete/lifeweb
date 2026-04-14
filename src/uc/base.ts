@@ -310,6 +310,7 @@ export interface BaseObject {
 
 export interface StillLife extends BaseObject {
     type: 'sl';
+    timing?: number;
 }
 
 export interface Oscillator extends BaseObject {
@@ -338,7 +339,7 @@ export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 
 
 /** Normalizes an oscillator to its canonical apgcode (but without rotation or reflection). */
-export function normalizeOscillator(obj: Oscillator): Oscillator {
+export function normalizeOscillator(obj: Oscillator, modTiming: boolean = true): Oscillator {
     let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1)).shrinkToFit();
     let newCode = p.toApgcode();
     let timing = 0;
@@ -355,13 +356,17 @@ export function normalizeOscillator(obj: Oscillator): Oscillator {
             timing = i + 1;
         }
     }
+    timing += obj.timing;
+    if (modTiming) {
+        timing %= obj.period;
+    }
     return {
         type: 'osc',
         code: `xp${obj.period}_${newCode}`,
         x: obj.x + xOffset,
         y: obj.y + yOffset,
         period: obj.period,
-        timing: (obj.timing + timing) % obj.period,
+        timing,
     };
 }
 

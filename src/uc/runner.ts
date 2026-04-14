@@ -90,7 +90,7 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
                 x: minX + p.xOffset,
                 y: minY + p.yOffset,
                 period,
-                timing: obj.p.generation,
+                timing: obj.timing ?? 0,
                 p,
                 bb,
             });
@@ -100,6 +100,7 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
                 code: p.toApgcode('xs' + p.population),
                 x: minX + p.xOffset,
                 y: minY + p.yOffset,
+                timing: obj.timing ?? 0,
                 p,
                 bb,
             });
@@ -229,11 +230,12 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                 code: p.toApgcode('xs' + p.population),
                 x: p.xOffset,
                 y: p.yOffset,
+                timing: p.generation,
                 p,
                 bb: [p.xOffset, p.yOffset, p.xOffset + p.width - 1, p.yOffset + p.height - 1],
             });
         } else if (apgcode.startsWith('xp')) {
-            let q = p.copy().run(type.period + (type.period - p.generation) % type.period);
+            let q = p.copy().run(type.period);
             stableObjects.push({
                 type: 'osc',
                 code: p.toApgcode('xp' + type.period),
@@ -324,6 +326,7 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, c
                     code: obj.code,
                     x: obj.x,
                     y: obj.y,
+                    timing: obj.timing,
                 });
             } else {
                 out.push({
@@ -399,12 +402,5 @@ export function findOutcome(p: MAPPattern, isElbow?: boolean, combine: boolean =
     }
     p.shrinkToFit();
     let objs = separateObjects(p, period * 4, period * 4, combine, combineAll);
-    // if (objs) {
-    //     for (let obj of objs) {
-    //         if (obj.type === 'osc') {
-    //             obj.timing %= obj.period;
-    //         }
-    //     }
-    // }
     return objs;
 }

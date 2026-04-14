@@ -383,7 +383,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
             let last = gliders[gliders.length - 1];
             let xDiff = p.xOffset - last.xOffset;
             let yDiff = p.yOffset - last.yOffset;
-            if (xDiff - last.width < 3 || yDiff - last.height < 3 || ((xDiff < last.width + c.INJECTION_SPACING) && (yDiff < last.height + c.INJECTION_SPACING)) || (xDiff + p.width <= last.width) || (yDiff + p.height <= last.height)) {
+            if (xDiff - last.width < 3 || yDiff - last.height < 3 || ((xDiff < last.width + 3) && (yDiff < last.height + 3)) || (xDiff + p.width <= last.width) || (yDiff + p.height <= last.height)) {
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
@@ -466,14 +466,13 @@ export function createState(info: ChannelInfo, elbow: [string, number, number]):
     startY += p.yOffset;
     p.xOffset = startX;
     p.yOffset = startY;
-    // console.log(p.toRLE());
     return {p, elbow, recipe: [], time: 0, startX, startY};
 }
 
 function runState(info: ChannelInfo, state: RunState, nextGlider: number, channel: number, injected: boolean = false, subtractTime: boolean = true): RunState {
     // console.log(Object.assign({}, state, {p: undefined}));
     let p = state.p.copy();
-    while (true) {
+    for (let i = 0; i < c.MAX_CHANNEL_RUN_GENERATIONS; i++) {
         let timing = p.generation - (subtractTime ? state.time : 0) - (injected ? info.minSpacing + nextGlider : nextGlider);
         let mod = timing % info.ship.period;
         if (mod < 0) {
@@ -486,7 +485,7 @@ function runState(info: ChannelInfo, state: RunState, nextGlider: number, channe
         let xDiff = p.xOffset - x;
         let yDiff = p.yOffset - y;
         // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
-        if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + c.INJECTION_SPACING) && (yDiff < q.height + c.INJECTION_SPACING)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
+        if (i >= c.MAX_CHANNEL_RUN_GENERATIONS - 2 || xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + 3) && (yDiff < q.height + 3)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
             if (injected) {
                 // console.log('returning');
                 // console.log(p.toRLE());
@@ -511,6 +510,7 @@ function runState(info: ChannelInfo, state: RunState, nextGlider: number, channe
         p.runGeneration();
         p.shrinkToFit();
     }
+    throw new Error(`This error should not occur (runState completed loop), please report this to speedydelete`);
 }
 
 interface ExpectedResult {
@@ -529,7 +529,7 @@ function getExpected(info: ChannelInfo, elbow: [string, number, number], recipe:
     let period = 1;
     if (recipe.end) {
         if (!results) {
-            throw new Error('No results! (there is a bug)');
+            throw new Error(`This error should not occur (no results but recipe.end exists in getExpected), please report this to speedydelete`);
         }
         for (let result of results.data) {
             let out: (typeof data)[number] = {stables: [], ships: [], period: 1};
@@ -549,7 +549,8 @@ function getExpected(info: ChannelInfo, elbow: [string, number, number], recipe:
                     out.period = lcm(out.period, c.SPACESHIPS[obj.code].popPeriod);
                     out.ships.push(getShipInfo(info, obj));
                 } else {
-                    throw new Error(`Invalid object for getting expected: ${JSON.stringify(obj, undefined, 4)}`);
+                    console.log(obj);
+                    throw new Error(`This error should not occur (invalid object for getting expected), please report this to speedydelete (also some debug information got printed above, send that too)`);
                 }
             }
             if (recipe.create) {
@@ -576,7 +577,7 @@ function getExpected(info: ChannelInfo, elbow: [string, number, number], recipe:
                 code: info.ship.code,
                 dir: info.ship.slope === 0 ? 'S' : 'SE',
                 lane: elbow[1],
-                timing: 0
+                timing: 0,
             }],
             period: 1,
         };
@@ -634,7 +635,7 @@ function checkNextWorkingInput(info: ChannelInfo, state: RunState, expected: Exp
             return false;
         }
     }
-    // console.log(`\ib[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\ib[0m`);
+    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
     if (stables.length !== expected.stables.length || ships.length !== expected.ships.length) {
         return false;
     }
@@ -651,64 +652,76 @@ function checkNextWorkingInput(info: ChannelInfo, state: RunState, expected: Exp
     return true;
 }
 
-function isNextWorkingInput(info: ChannelInfo, state: RunState, next: number, expecteds: ExpectedResult): boolean {
+function isNextWorkingInput(cache: {[key: number]: boolean}, info: ChannelInfo, state: RunState, next: number, expecteds: ExpectedResult): boolean {
+    if (next in cache) {
+        return cache[next];
+    }
     state = runState(info, state, next, 0, false, true);
+    let out: boolean;
     if (expecteds.offsets.size === 1) {
-        return checkNextWorkingInput(info, state, expecteds.data[(next + Array.from(expecteds.offsets)[0]) % expecteds.data.length]);
+        out = checkNextWorkingInput(info, state, expecteds.data[(next + Array.from(expecteds.offsets)[0]) % expecteds.data.length]);
     } else {
         let data = expecteds.data.map(x => checkNextWorkingInput(info, state, x));
         if (data.every(x => x === false)) {
-            return false;
-        }
-        for (let i = 0; i < data.length; i++) {
-            if (i in expecteds.offsets) {
-                if (!data[i]) {
-                    expecteds.offsets.delete(i);
+            out = false;
+        } else {
+            for (let i = 0; i < data.length; i++) {
+                if (i in expecteds.offsets) {
+                    if (!data[i]) {
+                        expecteds.offsets.delete(i);
+                    }
                 }
             }
+            out = true;
         }
-        return true;
     }
+    cache[next] = out;
+    return out;
 }
 
 export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
     // console.log(recipe);
     let expecteds = getExpected(info, state.elbow, recipe, results);
-    // let msg = '\ib[92mexpecteds:';
+    // let msg = '\x1b[92mexpecteds:';
     // for (let i = 0; i < expecteds.data.length; i++) {
     //     let value = expecteds.data[i];
     //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
     // }
     // msg += `\ntotal period: ${expecteds.period}`;
-    // console.log(msg);
-    let low = info.minSpacing;
-    let high = info.maxNextSpacing;
-    let i = 0;
+    let cache: {[key: number]: boolean} = {};
+    let i = 1;
+    while (true) {
+        let value = info.minSpacing + i;
+        if (value > info.maxNextSpacing) {
+            break;
+        }
+        if (isNextWorkingInput(cache, info, state, value, expecteds) && isNextWorkingInput(cache, info, state, value + 1, expecteds) && isNextWorkingInput(cache, info, state, value + 2, expecteds) && isNextWorkingInput(cache, info, state, value + 3, expecteds)) {
+            break;
+        }
+        i *= 2;
+    }
+    let low = info.minSpacing + Math.floor(i / 2);
+    let high = Math.min(info.minSpacing + i, info.maxNextSpacing);
     while (low < high) {
         // let oldLow = low;
         // let oldHigh = high;
         let mid = Math.floor((low + high) / 2);
-        if (isNextWorkingInput(info, state, mid, expecteds) && isNextWorkingInput(info, state, mid + 1, expecteds) && isNextWorkingInput(info, state, mid + 2, expecteds)) {
+        if (isNextWorkingInput(cache, info, state, mid, expecteds) && isNextWorkingInput(cache, info, state, mid + 1, expecteds) && isNextWorkingInput(cache, info, state, mid + 2, expecteds) && isNextWorkingInput(cache, info, state, mid + 3, expecteds)) {
             high = mid;
         } else {
             low = mid + 1;
         }
-        // console.log(`\ib[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\ib[0m`);
-        i++;
+        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
     }
     if (low >= info.maxNextSpacing) {
         if (!recipe.create) {
-            console.error(`\ib[91mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\ib[0m`);
+            console.error(`\x1b[91mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
         }
         return false;
     }
     return low;
 }
 
-
-function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
-    return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
-}
 
 export function isTooBig(obj: string, limit: number, overrides: string[]): boolean {
     if (obj.startsWith('xs')) {
@@ -744,9 +757,13 @@ export function isTooBig(obj: string, limit: number, overrides: string[]): boole
     return false;
 }
 
+export function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): string {
+    return `${channelRecipeInfoToString(recipe)}: ${channelRecipeToString(info, recipe.recipe)}\n`;
+}
+
 export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
     if (depth === 64) {
-        console.error(`\ib[91mThere is a recursive elbow (please report to speedydelete)\ib[0m`);
+        console.error(`\x1b[91mThere is a recursive elbow (please report to speedydelete)\x1b[0m`);
         return {recipes: [], possibleUseful: ''};
     }
     if (!recipe.end) {
@@ -793,6 +810,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
                     code: parts[0],
                     x,
                     y,
+                    timing: recipe.end.timing,
                 };
             }
             out.push(recipe2);
@@ -802,13 +820,21 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
         let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {elbow: string, move: number, flipped: boolean, timing: number}};
         if (elbow.type !== 'alias') {
             let value = recipe2.recipe[recipe2.recipe.length - 1];
-            let inc = (i + recipe.end.timing) % outcomes.length;
+            let inc = (i + recipe.end.timing - (recipe.time - value[0])) % outcomes.length;
+            console.log(value, recipe.time, recipe.end.timing, inc);
+            if (inc < 0) {
+                inc += outcomes.length;
+            }
             value[0] += inc;
             value[1] = 0;
             recipe2.recipe.push([info.minSpacing, -1]);
             recipe2.time += inc + info.minSpacing;
+            recipe2.end.timing += inc + info.minSpacing;
+            if (recipe2.create && recipe2.create.timing) {
+                recipe2.create.timing += inc + info.minSpacing;
+            }
         }
-        if (elbow.type === 'convert' && elbow.emit) {
+        if ((elbow.type === 'convert' || elbow.type === 'destroy') && elbow.emit) {
             // if (recipe2.create) {
             //     continue;
             // }
@@ -831,14 +857,11 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             }
             recipe2.end.elbow = elbow.elbow;
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
-            recipe2.end.timing = (recipe2.end.timing + elbow.timing) % recipe2.end.period;
+            recipe2.end.timing += elbow.timing;
             recipe2.end.move += elbow.move;
-            // idk if you should do this
-            // if (recipe2.emit && info.period > 1) {
-            //     for (let ship of recipe2.emit) {
-            //         ship.timing = (ship.timing + elbow.timing) % info.period;
-            //     }
-            // }
+            if (recipe2.create && recipe2.create.timing) {
+                recipe2.create.timing += elbow.timing;
+            }
             let value = resolveElbow(info, elbows, recipe2, depth + 1);
             out.push(...value.recipes);
             possibleUseful += value.possibleUseful;
@@ -856,10 +879,8 @@ interface CheckerObjectData {
 }
 
 function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], state: RunState, nextGlider: number, nextChannel: number): {state: RunState, outcome: string, recipes?: ChannelRecipe[], possibleUseful?: string} {
-    // console.log(`\ib[94m${nextGlider}:\ib[0m\n${state.p.toRLE()}`);
     state = runState(info, state, nextGlider, nextChannel, true, true);
     let p = state.p.copy();
-    // console.log(p.toRLE());
     let prevPop = p.population;
     for (let i = 0; i < 256; i++) {
         p.run(info.ship.popPeriod);
@@ -869,7 +890,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
         }
         prevPop = pop;
     }
-    let result = findOutcome(p);
+    let result = findOutcome(p, undefined, undefined, undefined);
     if (result === false || result === 'no stabilize') {
         return {state, outcome: String(result)};
     } else if (result === 'linear') {
@@ -901,7 +922,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 return {state, outcome};
             }
             if (obj.type === 'osc') {
-                obj = normalizeOscillator(obj);
+                obj = normalizeOscillator(obj, false);
             }
             let period = obj.type === 'osc' ? obj.period : 1;
             let lane = Math.floor(obj.y * info.ship.slope) - obj.x + state.elbow[1];
@@ -998,11 +1019,8 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
         }
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
-        if (elbow.obj.type === 'sl') {
-            end = {elbow: str, period: 1, move: elbow.spacing, flipped: false, timing: 0};
-        } else {
-            end = {elbow: str, period: elbow.obj.period, move: elbow.spacing, flipped: false, timing: elbow.obj.timing};
-        }
+        let period = elbow.obj.type === 'osc' ? elbow.obj.period : 1;
+        end = {elbow: str, period, move: elbow.spacing, flipped: false, timing: elbow.obj.timing ?? 0};
         if (!(str in elbows) && newElbows && !newElbows.includes(str)) {
             // console.log(`New elbow detected: ${str} in recipe ${strRecipe}`);
             newElbows.push(str);
@@ -1013,13 +1031,16 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     if (next !== false) {
         out.recipe.push([next, -1]);
         out.time += next;
-        if (out.end && out.end.period > 1) {
-            out.end.timing = (out.end.timing + next) % out.end.period;
+        if (out.end) {
+            out.end.timing += next;
         }
-        if (out.emit && info.period > 1) {
+        if (out.emit) {
             for (let ship of out.emit) {
-                ship.timing = (ship.timing + next) % info.period;
+                ship.timing += next;
             }
+        }
+        if (out.create && out.create.timing) {
+            out.create.timing += next;
         }
         let {recipes} = resolveElbow(info, elbows, out);
         return {state, outcome, recipes};
@@ -1038,18 +1059,9 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
     for (let channel = 0; channel < info.channels.length; channel++) {
         let timings: number[] = [];
         for (let timing = info.minSpacings[startChannel][channel]; timing <= maxSpacing; timing++) {
-            // if (state.time === 0 && timing > 128) {
-            //     break;
-            // }
             timings.push(timing);
         }
-        // if (state.time === 0) {
-        //     timings = [126];
-        // } else if (state.time === 126) {
-        //     timings = [129];
-        // } else if (state.time === 255) {
-        //     timings = [183];
-        // }
+        timings = [21];
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));
         let p = state.p.copy();
@@ -1066,7 +1078,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             let xDiff = p.xOffset - x;
             let yDiff = p.yOffset - y;
             // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
-            if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + c.INJECTION_SPACING) && (yDiff < q.height + c.INJECTION_SPACING)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
+            if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + 3) && (yDiff < q.height + 3)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
                 r.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
@@ -1139,12 +1151,10 @@ export interface WorkerOutput {
 }
 
 
-// @ts-ignore
 if (import.meta.main || isWrecked) {
     if (typeof process === 'object' && process && typeof process.env === 'object') {
         process.env.FORCE_COLOR = '1';
     }
-    // @ts-ignore
     let {parentPort, workerData: _workerData} = await import('node:worker_threads');
     if (!parentPort) {
         throw new Error('No parent port!');
@@ -1155,7 +1165,6 @@ if (import.meta.main || isWrecked) {
     setMaxGenerations(workerData.maxGenerations);
     if (workerData.outputFile !== undefined) {
         let originalWrite = process.stdout.write.bind(process.stdout);
-        // @ts-ignore
         let {appendFileSync} = await import('node:fs');
         process.stdout.write = function(data: string | Uint8Array, encoding: NodeJS.BufferEncoding | ((error?: Error | null) => void) = 'utf-8', callback?: (error?: Error | null) => void): boolean {
             if (typeof encoding === 'function') {

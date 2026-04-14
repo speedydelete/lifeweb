@@ -6,7 +6,7 @@ import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, isWrecked, maxGenerations, redraw, log, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
-import {GliderDirection, runInjection, StrRunState, createState, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
+import {GliderDirection, runInjection, StrRunState, createState, getStringRecipe, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -107,7 +107,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             }
             objs = objs.filter(x => x.type === 'sl' || x.type === 'osc').map(obj => {
                 if (obj.type === 'osc') {
-                    obj = normalizeOscillator(obj);
+                    obj = normalizeOscillator(obj, false);
                 }
                 return obj;
             });
@@ -169,9 +169,6 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                     }
                     let xDiff = result2[0].x - dataResult2[0].x;
                     let yDiff = result2[0].y - dataResult2[0].y;
-                    if (elbow === 'xs8_6996/1' && key === 'xs4_33/8') {
-                        console.log(xDiff, yDiff);   
-                    }
                     let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                     let move: number;
                     if (flipped) {
@@ -221,7 +218,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                         if (key.startsWith('xp')) {
                             keyPeriod = parseInt(key.slice(2));
                         }
-                        let timing = ((result[0].type === 'osc' ? result[0].timing : 0) - (dataResult[0].type === 'osc' ? dataResult[0].timing : 0)) % keyPeriod;
+                        let timing = ((result[0].timing ?? 0) - (dataResult[0].timing ?? 0)) % keyPeriod;
                         out.push({type: 'alias', elbow: key, flipped, move, timing});
                         found = true;
                         break;
@@ -250,7 +247,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                 }
                 flippedResults.push(objs.filter(obj => obj.type === 'sl' || obj.type === 'osc').map(obj => {
                     if (obj.type === 'osc') {
-                        obj = normalizeOscillator(obj);
+                        obj = normalizeOscillator(obj, false);
                     }
                     return obj;
                 }));
@@ -287,7 +284,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             } else if (filtered.length === 1) {
                 let obj = filtered[0];
                 if (obj.type === 'osc') {
-                    obj = normalizeOscillator(obj);
+                    obj = normalizeOscillator(obj, false);
                 }
                 let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
                 let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
@@ -365,6 +362,17 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
         if (recipe.create && recipe.create.type === 'osc') {
             period = lcm(period, recipe.create.period);
         }
+        if (recipe.end) {
+            recipe.end.timing %= recipe.end.period;
+        }
+        if (recipe.emit) {
+            for (let ship of recipe.emit) {
+                ship.timing %= c.SPACESHIPS[ship.code].period;
+            }
+        }
+        if (recipe.create && recipe.create.type === 'osc') {
+            recipe.create.timing %= recipe.create.period;
+        }
         out.push(recipe);
         if (period > 1) {
             for (let i = 1; i < period; i++) {
@@ -398,7 +406,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
         if (value) {
             for (let key in value) {
                 if (key in out.elbows) {
-                    throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
+                    throw new Error(`This error should not occur (attempted overwrite: ${key}), please report this to speedydelete`);
                 }
                 out.elbows[key] = value[key];
             }
@@ -408,18 +416,12 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
-            // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
-            //     console.log(recipe);
-            // }
             let value = resolveElbow(info, out.elbows, recipe);
-            // if (channelRecipeToString(info, recipe.recipe).startsWith('109, 91, 93, 90, 171, 90, 90, 91, 154, 110, 169, 107, 91, 90, 99, 91, 122, 90, 90, 159, 90')) {
-            //     console.log(value.recipes[0]);
-            //     throw new Error('hi');
-            // }
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
         } else {
             recipes.push(recipe);
+            possibleUseful += getStringRecipe(info, recipe);
         }
     }
     recipes = expandRecipes(info, recipes);
@@ -566,7 +568,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         if (typeof window === 'object' && window === globalThis) {
             path = `./channel_searcher.js`;
         } else {
-            // @ts-ignore
             path = `${import.meta.dirname}/channel_searcher.js`;
         }
         workers.push(await new Worker(path, {workerData: {info, maxGenerations, outputFile, maxSpacing} satisfies WorkerData}));
@@ -578,7 +579,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         if (value) {
             for (let key in value) {
                 if (key in out.elbows) {
-                    throw new Error(`Attempted overwrite: ${key} (there is a bug)`);
+                    throw new Error(`This error should not occur (attempted overwrite: ${key}), please report this to speedydelete`);
                 }
                 out.elbows[key] = value[key];
             }
@@ -593,9 +594,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 4) {
-        //     process.exit(0);
-        // }
+        if (depth === 2) {
+            process.exit(0);
+        }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
         let start = performance.now();
@@ -607,7 +608,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
         // <school-chromebook>
-        // let nextStartIndex = 0;
+        let nextStartIndex = 0;
         // </school-chromebook>
         for (let i = 0; i < workers.length; i++) {
             let worker = workers[i];
@@ -622,57 +623,57 @@ export async function searchChannel(type: string, threads: number, elbow: string
                     await fs.appendFile('possible_useful.txt', possibleUseful);
                 }
                 // <school-chromebook>
-                // if (startsChecked > 0 && recipesChecked > 0) {
-                //     let now = performance.now();
-                //     if (now - lastUpdate > 5000) {
-                //         lastUpdate = now;
-                //         let time = (now - start) / 1000;
-                //         await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
-                //         await saveRecipes(recipes);
-                //     }
-                // }
-                // await redraw();
-                // if (nextStartIndex === starts.length) {
-                //     resolve();
-                // } else {
-                //     worker.postMessage({
-                //         elbows: out.elbows,
-                //         starts: [starts[nextStartIndex++]],
-                //     } satisfies WorkerStartData);
-                // }
-                // </school-chromebook><not-school-chromebook>
-                if (data.complete) {
-                    finishedCount++;
-                    if (finishedCount === threads) {
-                        resolve();
+                if (startsChecked > 0 && recipesChecked > 0) {
+                    let now = performance.now();
+                    if (now - lastUpdate > 5000) {
+                        lastUpdate = now;
+                        let time = (now - start) / 1000;
+                        await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                        await saveRecipes(recipes);
                     }
                 }
+                await redraw();
+                if (nextStartIndex === starts.length) {
+                    resolve();
+                } else {
+                    worker.postMessage({
+                        elbows: out.elbows,
+                        starts: [starts[nextStartIndex++]],
+                    } satisfies WorkerStartData);
+                }
+                // </school-chromebook><not-school-chromebook>
+                // if (data.complete) {
+                //     finishedCount++;
+                //     if (finishedCount === threads) {
+                //         resolve();
+                //     }
+                // }
                 // </not-school-chromebook>
             });
             // <school-chromebook>
-            // let lastUpdate = performance.now();
-            // await redraw();
-            // worker.postMessage({
-            //     elbows: out.elbows,
-            //     starts: [starts[nextStartIndex++]],
-            // } satisfies WorkerStartData);
-            // </school-chromebook><not-school-chromebook>
+            let lastUpdate = performance.now();
+            await redraw();
             worker.postMessage({
                 elbows: out.elbows,
-                starts: starts.filter((_, j) => j % workers.length === i),
+                starts: [starts[nextStartIndex++]],
             } satisfies WorkerStartData);
+            // </school-chromebook><not-school-chromebook>
+            // worker.postMessage({
+            //     elbows: out.elbows,
+            //     starts: starts.filter((_, j) => j % workers.length === i),
+            // } satisfies WorkerStartData);
             // </not-school-chromebook>
         }
         // <not-school-chromebook>
-        timeout = setTimeout(() => {
-            interval = setInterval(async () => {
-                if (startsChecked > 0 && recipesChecked > 0) {
-                    let time = (performance.now() - start) / 1000;
-                    await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
-                    await saveRecipes(recipes);
-                }
-            }, 5000);
-        }, 2500);
+        // timeout = setTimeout(() => {
+        //     interval = setInterval(async () => {
+        //         if (startsChecked > 0 && recipesChecked > 0) {
+        //             let time = (performance.now() - start) / 1000;
+        //             await log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+        //             await saveRecipes(recipes);
+        //         }
+        //     }, 5000);
+        // }, 2500);
         // </not-school-chromebook>
         await promise;
         if (timeout !== null) {
