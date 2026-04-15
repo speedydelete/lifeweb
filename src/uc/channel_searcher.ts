@@ -393,9 +393,6 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
-                if (elbow[0] === 'ggg07zy0ey633') {
-                    console.log(p.toRLE());
-                }
             } else {
                 break;
             }
@@ -1079,6 +1076,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             let xDiff = p.xOffset - x;
             let yDiff = p.yOffset - y;
             // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
+            let found = false;
             while (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + 3) && (yDiff < q.height + 3)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
@@ -1102,7 +1100,6 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 }
                 // console.log(channelRecipeToString(info, data.state.recipe) + ': ' + data.outcome);
                 outcomes.unshift(data.outcome);
-                let found = false;
                 for (let period = 1; period < Math.floor(outcomes.length / 3); period++) {
                     let found2 = false;
                     for (let i = 0; i < period; i++) {
@@ -1149,6 +1146,9 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 y = state.startY + dist * info.ship.dy;
                 xDiff = p.xOffset - x;
                 yDiff = p.yOffset - y;
+            }
+            if (found) {
+                break;
             }
             p.runGeneration();
             p.shrinkToFit();

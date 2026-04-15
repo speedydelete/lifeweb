@@ -220,7 +220,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                         if (key.startsWith('xp')) {
                             keyPeriod = parseInt(key.slice(2));
                         }
-                        let timing = ((result[0].timing ?? 0) - (dataResult[0].timing ?? 0)) % keyPeriod;
+                        let timing = ((result[0]?.timing ?? 0) - (dataResult[0]?.timing ?? 0)) % keyPeriod;
                         out.push({type: 'alias', elbow: key, flipped, move, timing});
                         found = true;
                         break;
