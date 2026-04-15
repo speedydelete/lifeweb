@@ -1398,7 +1398,7 @@ export abstract class DataPattern implements Pattern {
             ruleStr: this.ruleStr,
             ruleSymmetry: this.ruleSymmetry,
             rulePeriod: this.rulePeriod,
-        }, options)}\n${this.toRLE()}`;
+        }, options)} ${this.toRLE()}`;
     }
 
 }
@@ -2212,7 +2212,7 @@ export abstract class CoordPattern implements Pattern {
             ruleStr: this.ruleStr,
             ruleSymmetry: this.ruleSymmetry,
             rulePeriod: this.rulePeriod,
-        }, options)}\n${this.toRLE()}`;
+        }, options)} ${this.toRLE()}`;
     }
 
 }

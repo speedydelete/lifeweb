@@ -102,7 +102,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
         let results: CAObject[][] = [];
         let prevResult: string | null = null;
         for (let i = 0; i < 3; i++) {
-            let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + i * resultPeriod, 0]]);
+            let p = runInjection(info, elbowData, timing, [[info.minSpacing + i * resultPeriod, 0]]);
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
                 return;
@@ -237,7 +237,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             }
             let flippedResults: CAObject[][] = [];
             for (let i = 0; i < 3; i++) {
-                let p = runInjection(info, elbowData, timing, period, [[info.minSpacing + timing + i * resultPeriod, 0]]);
+                let p = runInjection(info, elbowData, timing, [[info.minSpacing + timing + i * resultPeriod, 0]]);
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -588,9 +588,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 2) {
-        //     process.exit(0);
-        // }
+        if (depth === 2) {
+            process.exit(0);
+        }
         if (starts.length === 0) {
             console.log(`Elbow exhausted`);
             process.exit(0);

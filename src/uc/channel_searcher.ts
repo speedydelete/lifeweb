@@ -291,7 +291,7 @@ export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
 // }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTiming: number, elbowPeriod: number, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTiming: number, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -362,8 +362,8 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
         if (timingOffset > 0) {
             p.run(timingOffset).shrinkToFit();
             for (let glider of gliders) {
-                glider.xOffset += p.xOffset;
-                glider.yOffset += p.yOffset;
+                glider.xOffset -= p.xOffset;
+                glider.yOffset -= p.yOffset;
             }
             xPos += p.xOffset;
             yPos += p.yOffset;
@@ -393,6 +393,9 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
                 p.offsetBy(xDiff, yDiff);
                 p.insert(last, 0, 0);
                 gliders.pop();
+                if (elbow[0] === 'ggg07zy0ey633') {
+                    console.log(p.toRLE());
+                }
             } else {
                 break;
             }
@@ -838,7 +841,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             if (inc < 0) {
                 inc += outcomes.length;
             }
-            console.log(`recipe = ${channelRecipeToString(info, recipe.recipe)}, elbow = ${recipe.end.elbow}: i = ${i}, recipe.end.timing = ${recipe.end.timing}, recipe.time = ${recipe.time}, outcomes.length = ${outcomes.length}, inc = ${inc}\n`);
+            // console.log(`recipe = ${channelRecipeToString(info, recipe.recipe)}, elbow = ${recipe.end.elbow}: i = ${i}, recipe.end.timing = ${recipe.end.timing}, recipe.time = ${recipe.time}, outcomes.length = ${outcomes.length}, inc = ${inc}\n`);
             value[0] += inc;
             value[1] = 0;
             value[2] = outcomes.length;
@@ -1076,7 +1079,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             let xDiff = p.xOffset - x;
             let yDiff = p.yOffset - y;
             // console.log(`time = ${p.generation}, timing = ${timing}, dist = ${dist}, x = ${x}, y = ${y}, p.xOffset = ${p.xOffset}, p.yOffset = ${p.yOffset}, xDiff = ${xDiff}, yDiff = ${yDiff}`);
-            if (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + 3) && (yDiff < q.height + 3)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
+            while (xDiff - q.width < 3 || yDiff - q.height < 3 || ((xDiff < q.width + 3) && (yDiff < q.height + 3)) || (xDiff + p.width <= q.width) || (yDiff + p.height <= q.height)) {
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
                 r.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
@@ -1132,6 +1135,20 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 if (found) {
                     break;
                 }
+                if (timings.length === 0) {
+                    break;
+                }
+                timing = p.generation - state.time - timings[0];
+                mod = timing % info.ship.period;
+                if (mod < 0) {
+                    mod += info.ship.period;
+                }
+                q = shipPatterns[info.ship.code][mod];
+                dist = (timing - mod) / info.ship.period;
+                x = state.startX + dist * info.ship.dx + info.channels[channel];
+                y = state.startY + dist * info.ship.dy;
+                xDiff = p.xOffset - x;
+                yDiff = p.yOffset - y;
             }
             p.runGeneration();
             p.shrinkToFit();
@@ -1166,7 +1183,6 @@ export interface WorkerOutput {
 
 // @ts-ignore
 if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker)) {
-    document.title = 'lifeweb worker';
     if (typeof process === 'object' && process && typeof process.env === 'object') {
         process.env.FORCE_COLOR = '1';
     }
