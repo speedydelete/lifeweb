@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, ShipDirection, isWrecked, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
 import {separateObjectsPartial, findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -349,9 +349,15 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
             yPos--;
         }
         let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+        let change = 0;
         while (xPos < 0 || yPos < 0) {
             xPos++;
             yPos++;
+            change++;
+        }
+        for (let glider of gliders) {
+            glider.xOffset -= change;
+            glider.yOffset -= change;
         }
         if (timingOffset > 0) {
             p.run(timingOffset).shrinkToFit();
@@ -422,7 +428,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
 export interface RunState {
     p: MAPPattern;
     elbow: [string, number, number];
-    recipe: [number, number][];
+    recipe: [number, number, number][];
     time: number;
     startX: number;
     startY: number;
@@ -435,7 +441,7 @@ export interface StrRunState {
     yOffset: number;
     generation: number;
     elbow: [string, number, number];
-    recipe: [number, number][];
+    recipe: [number, number, number][];
     time: number;
     startX: number;
     startY: number;
@@ -490,7 +496,7 @@ function runState(info: ChannelInfo, state: RunState, nextGlider: number, channe
                 // console.log('returning');
                 // console.log(p.toRLE());
                 let recipe = state.recipe.slice();
-                recipe.push([nextGlider, channel]);
+                recipe.push([nextGlider, channel, 0]);
                 return {
                     p,
                     elbow: state.elbow,
@@ -689,7 +695,9 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
     // }
     // msg += `\ntotal period: ${expecteds.period}`;
     let cache: {[key: number]: boolean} = {};
-    let i = 1;
+    let prevI = 0;
+    let i = info.initialBound;
+    // console.log('\x1b[95mexponential search:\x1b[0m');
     while (true) {
         let value = info.minSpacing + i;
         if (value > info.maxNextSpacing) {
@@ -698,9 +706,12 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
         if (isNextWorkingInput(cache, info, state, value, expecteds) && isNextWorkingInput(cache, info, state, value + 1, expecteds) && isNextWorkingInput(cache, info, state, value + 2, expecteds) && isNextWorkingInput(cache, info, state, value + 3, expecteds)) {
             break;
         }
+        // console.log(`\x1b[92mold: ${info.minSpacing + prevI} to ${value}, new: ${value} to ${info.minSpacing + i * 2}\x1b[0m`);
+        prevI = i;
         i *= 2;
     }
-    let low = info.minSpacing + Math.floor(i / 2);
+    // console.log('\x1b[95mbinary search:\x1b[0m');
+    let low = info.minSpacing + prevI;
     let high = Math.min(info.minSpacing + i, info.maxNextSpacing);
     while (low < high) {
         // let oldLow = low;
@@ -711,7 +722,7 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
         } else {
             low = mid + 1;
         }
-        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}\x1b[0m`);
+        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}: ${isNextWorkingInput(cache, info, state, mid, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 1, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 2, expecteds)} ${isNextWorkingInput(cache, info, state, mid + 3, expecteds)}\x1b[0m`);
     }
     if (low >= info.maxNextSpacing) {
         if (!recipe.create) {
@@ -775,13 +786,16 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
     let outcomes = elbows[recipe.end.elbow];
     let out: ChannelRecipe[] = [];
     let possibleUseful = '';
+    // console.log(`resolving ${recipe.end.elbow}: ${outcomes.map(x => x.type).join(', ')}`);
     for (let i = 0; i < outcomes.length; i++) {
         let elbow = outcomes[i];
         if (elbow.type === 'bad') {
             continue;
         }
         if (elbow.type === 'normal') {
-            out.push(recipe);
+            let recipe2 = structuredClone(recipe);
+            recipe2.recipe[recipe2.recipe.length - 1][2] = outcomes.length;
+            out.push(recipe2);
             possibleUseful += getStringRecipe(info, recipe);
             continue;
         }
@@ -820,15 +834,16 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
         let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {elbow: string, move: number, flipped: boolean, timing: number}};
         if (elbow.type !== 'alias') {
             let value = recipe2.recipe[recipe2.recipe.length - 1];
-            let inc = (i + recipe.end.timing - (recipe.time - value[0])) % outcomes.length;
+            let inc = (i + recipe.end.timing - recipe.time) % outcomes.length;
             if (inc < 0) {
                 inc += outcomes.length;
             }
+            console.log(`recipe = ${channelRecipeToString(info, recipe.recipe)}, elbow = ${recipe.end.elbow}: i = ${i}, recipe.end.timing = ${recipe.end.timing}, recipe.time = ${recipe.time}, outcomes.length = ${outcomes.length}, inc = ${inc}\n`);
             value[0] += inc;
             value[1] = 0;
-            recipe2.recipe.push([info.minSpacing, -1]);
+            value[2] = outcomes.length;
+            recipe2.recipe.push([info.minSpacing, -1, 0]);
             recipe2.time += inc + info.minSpacing;
-            recipe2.end.timing += info.minSpacing;
         }
         if ((elbow.type === 'convert' || elbow.type === 'destroy') && elbow.emit) {
             // if (recipe2.create) {
@@ -855,7 +870,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
             recipe2.end.timing += elbow.timing;
             recipe2.end.move += elbow.move;
-            if (recipe2.create && recipe2.create.timing) {
+            if (recipe2.create && recipe2.create.timing !== undefined) {
                 recipe2.create.timing += elbow.timing;
             }
             let value = resolveElbow(info, elbows, recipe2, depth + 1);
@@ -886,7 +901,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
         }
         prevPop = pop;
     }
-    let result = findOutcome(p, undefined, undefined, undefined);
+    let result = findOutcome(p);
     if (result === false || result === 'no stabilize') {
         return {state, outcome: String(result)};
     } else if (result === 'linear') {
@@ -966,7 +981,6 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     }
     let create: StableObject | undefined = undefined;
     let endElbowData: [CheckerObjectData, CAObject[][]] | undefined = undefined;
-    // console.log(`Candidate: ${channelRecipeToString(info, state.recipe)}`);
     if (so1) {
         if (so2) {
             let so1Result: ReturnType<typeof getCollision>[] = [];
@@ -1025,7 +1039,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     let out: ChannelRecipe = {start: `${state.elbow[0]}/${state.elbow[1]}`, recipe: state.recipe.slice(), time: state.time, end, create, emit};
     let next = findNextWorkingInput(info, state, out, endResult);
     if (next !== false) {
-        out.recipe.push([next, -1]);
+        out.recipe.push([next, -1, 1]);
         out.time += next;
         let {recipes} = resolveElbow(info, elbows, out);
         return {state, outcome, recipes};
@@ -1046,11 +1060,6 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
         for (let timing = info.minSpacings[startChannel][channel]; timing <= maxSpacing; timing++) {
             timings.push(timing);
         }
-        // if (state.recipe.length === 0) {
-        //     timings = [107];
-        // } else if (state.recipe.length === 1) {
-        //     timings = [31];
-        // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));
         let p = state.p.copy();
@@ -1102,6 +1111,21 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                     if (!found2) {
                         found = true;
                         states = states.slice(period * 2);
+                        let toChange: number[] = [];
+                        for (let i = 0; i < period; i++) {
+                            let recipe = states[i].recipe;
+                            let part = structuredClone(recipe[recipe.length - 1]);
+                            recipe[recipe.length - 1] = part;
+                            toChange.push(part[0]);
+                            part[2] = period;
+                        }
+                        for (let {recipe} of recipes) {
+                            if (toChange.includes(recipe[recipe.length - 1][0])) {
+                                let part = structuredClone(recipe[recipe.length - 1]);
+                                recipe[recipe.length - 1] = part;
+                                part[2] = period;
+                            }
+                        }
                         break;
                     }
                 }
@@ -1140,7 +1164,9 @@ export interface WorkerOutput {
 }
 
 
-if (import.meta.main || isWrecked) {
+// @ts-ignore
+if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker)) {
+    document.title = 'lifeweb worker';
     if (typeof process === 'object' && process && typeof process.env === 'object') {
         process.env.FORCE_COLOR = '1';
     }
@@ -1186,7 +1212,14 @@ if (import.meta.main || isWrecked) {
             state.p.xOffset = state.xOffset;
             state.p.yOffset = state.yOffset;
             state.p.generation = state.generation;
-            let value = runStart(info, data.elbows, newElbows, state, maxSpacing);
+            // let value = runStart(info, data.elbows, newElbows, state, maxSpacing);
+            let value: ReturnType<typeof runStart>;
+            try {
+                value = runStart(info, data.elbows, newElbows, state, maxSpacing);
+            } catch (error) {
+                console.error(`Error while searching ${channelRecipeToString(info, state.recipe)}:`);
+                throw error;
+            }
             startsChecked++;
             recipesChecked += value.recipesChecked;
             states.push(...value.states.map(x => Object.assign(x, {

@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, SpaceshipInfo, SalvoInfo, log, base, shipPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, SpaceshipInfo, SalvoInfo, base, shipPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
 
@@ -388,13 +388,14 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
     let depth = 0;
     while (true) {
         if (queue.length === 0) {
-            await log(`No objects to search!`);
+            console.log(`No objects to search!`);
             process.exit(0);
         }
-        await log(`Searching depth ${depth + 1} (${queue.length} objects)`);
+        console.log(`Searching depth ${depth + 1} (${queue.length} objects)`);
+        let lastUpdate = performance.now();
         let newQueue: string[] = [];
-        for (let j = 0; j < queue.length; j++) {
-            let code = queue[j];
+        for (let i = 0; i < queue.length; i++) {
+            let code = queue[i];
             if (done.has(code)) {
                 continue;
             } else {
@@ -428,7 +429,11 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     forInput[code] = out;
                 }
             }
-            await log(`Depth ${depth + 1} ${(j / queue.length * 100).toFixed(3)}% complete`, true);
+            let now = performance.now();
+            if (now - lastUpdate > 5000 && i < queue.length) {
+                lastUpdate = now;
+                console.log(`Depth ${depth + 1} ${(i / queue.length * 100).toFixed(3)}% complete`);
+            }
         }
         queue = newQueue;
         if (noCompile) {
@@ -436,7 +441,8 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             depth++;
             continue;
         }
-        await log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
+        console.log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
+        lastUpdate = performance.now();
         if (start === info.startObject) {
             for (let i = 0; i < info.intermediateObjects.length; i++) {
                 let obj = info.intermediateObjects[i];
@@ -444,13 +450,17 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
                     compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], start);
                 }
-                await log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`, true);
+                let now = performance.now();
+                if (now - lastUpdate > 5000 && i + 1 < info.intermediateObjects.length) {
+                    lastUpdate = now;
+                    console.log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`);
+                }
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
             compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], obj);
         }
-        await log('Compiled all recipes');
+        console.log('Compiled all recipes');
         await saveRecipes(recipes);
         depth++;
     }

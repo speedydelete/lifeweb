@@ -258,7 +258,6 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                             x: p.xOffset,
                             y: p.yOffset,
                             dir,
-                            at: 0,
                             timing: p.generation,
                         });
                         found = true;
@@ -283,7 +282,6 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                 x: p.xOffset,
                 y: p.yOffset,
                 realCode: p.toApgcode(),
-                at: 0,
                 timing: p.generation,
             });
         }

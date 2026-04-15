@@ -1,6 +1,8 @@
 
 /* Contains abstract base classes for patterns. */
 
+import {InspectOptions} from 'node:util';
+
 
 /** A symmetry for a rule. */
 export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2|' | 'D2-' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
@@ -1386,6 +1388,18 @@ export abstract class DataPattern implements Pattern {
 
     abstract loadRLE(code: string): DataPattern;
 
+    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
+        return `${this.constructor.name} ${inspect({
+            height: this.height,
+            width: this.width,
+            xOffset: this.xOffset,
+            yOffset: this.yOffset,
+            generation: this.generation,
+            ruleStr: this.ruleStr,
+            ruleSymmetry: this.ruleSymmetry,
+            rulePeriod: this.rulePeriod,
+        }, options)}\n${this.toRLE()}`;
+    }
 
 }
 
@@ -2187,5 +2201,18 @@ export abstract class CoordPattern implements Pattern {
     }
 
     abstract loadRLE(code: string): CoordPattern;
+
+    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
+        return `${this.constructor.name} ${inspect({
+            height: this.height,
+            width: this.width,
+            xOffset: this.xOffset,
+            yOffset: this.yOffset,
+            generation: this.generation,
+            ruleStr: this.ruleStr,
+            ruleSymmetry: this.ruleSymmetry,
+            rulePeriod: this.rulePeriod,
+        }, options)}\n${this.toRLE()}`;
+    }
 
 }

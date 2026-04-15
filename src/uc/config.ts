@@ -18,7 +18,8 @@ interface SpaceshipInfo {
     period: number;
     slope: number;
     popPeriod: number;
-    glideSymmetric: boolean;
+    // whether the spaceship supports flipped recipes, for diagonals it's true if it's glide symmetric, for orthogonals it's true if it's statically symmetric
+    supportsFlipped: boolean;
     // now information about the ship itself
     // this is for the canonical (S for orthogonals, SE for diagonals, in between for obliques) phase, y * width + x
     height: number;
@@ -47,7 +48,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 1,
         popPeriod: 1,
-        glideSymmetric: true,
+        supportsFlipped: true,
         height: 3,
         width: 3,
         cells: [1, 5, 6, 7, 8],
@@ -66,7 +67,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 0,
         popPeriod: 2,
-        glideSymmetric: true,
+        supportsFlipped: false,
         height: 5,
         width: 4,
         cells: [0, 2, 7, 11, 12, 15, 17, 18, 19],
@@ -85,7 +86,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 0,
         popPeriod: 2,
-        glideSymmetric: true,
+        supportsFlipped: false,
         height: 6,
         width: 5,
         cells: [1, 3, 9, 10, 14, 19, 21, 24, 27, 28, 29],
@@ -104,7 +105,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 0,
         popPeriod: 2,
-        glideSymmetric: true,
+        supportsFlipped: false,
         height: 7,
         width: 5,
         cells: [1, 3, 9, 10, 14, 15, 19, 24, 26, 29, 32, 33, 34],
@@ -218,6 +219,10 @@ interface ChannelInfo {
     forceStart?: [number, number][];
     // the maximum possible next glider spacing (after a recipe)
     maxNextSpacing: number;
+    // the initial bound in the exponential search
+    initialBound: number;
+    // construction types that it can use recipes from
+    compatibleWith: string[];
     // // restriction on the sum of the timing gaps
     // restriction?: (time: number) => boolean;
 }
@@ -234,6 +239,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[14]],
         minSpacing: 14,
         maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (15)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
     },
 
     'Single-channel (15)': {
@@ -244,6 +251,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[15]],
         minSpacing: 15,
         maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
     },
 
     'Single-channel (61)': {
@@ -254,16 +263,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[61]],
         minSpacing: 61,
         maxNextSpacing: 512,
-    },
-
-    'Single-channel (70)': {
-        aliases: ['sc70'],
-        ship: SPACESHIPS['xq4_153'],
-        channels: [0],
-        period: 2,
-        minSpacings: [[70]],
-        minSpacing: 70,
-        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (syringe)', 'Single-channel (90)'],
     },
 
     'Single-channel (syringe)': {
@@ -275,6 +276,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 74,
         excludeSpacings: [[[76, 77]]],
         maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (90)'],
     },
 
     'Single-channel (90)': {
@@ -285,6 +288,8 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacings: [[90]],
         minSpacing: 90,
         maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: [],
     },
 
     // 'Single-channel (61) (twin bees assisted)': {

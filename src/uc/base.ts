@@ -9,16 +9,6 @@ export * as c from './config.js';
 
 
 // this is for school chromebook running
-// @ts-ignore
-export let isWrecked = Boolean('__wrecked_isWorker' in globalThis && globalThis.__wrecked_isWorker);
-
-
-// we make the max generations configurable at runtime like this
-export let maxGenerations = c.MAX_GENERATIONS;
-export function setMaxGenerations(value: number): void {
-    maxGenerations = value;
-}
-
 
 export async function redraw(): Promise<void> {
     if (typeof requestAnimationFrame === 'function') {
@@ -28,23 +18,21 @@ export async function redraw(): Promise<void> {
     }
 }
 
-let prevUpdateTime = performance.now();
 
-export async function log(msg: string, notImportant?: boolean): Promise<void> {
-    let now = performance.now();
-    if (!notImportant || now - prevUpdateTime > 2000) {
-        console.log(msg);
-        prevUpdateTime = now;
-    }
-    await redraw();
+// we make the max generations configurable at runtime like this
+export let maxGenerations = c.MAX_GENERATIONS;
+export function setMaxGenerations(value: number): void {
+    maxGenerations = value;
 }
 
 
+/** An empty pattern in the rule being searched in. */
 export let base = createPattern(c.RULE) as MAPPattern;
 
 
 // we have to compute all the orientations of the spaceships
 
+/** Holds all orientations of every spaceship. */
 export let shipPatterns: {[key: string]: MAPPattern[]} = {};
 
 for (let [key, value] of Object.entries(c.SPACESHIPS)) {
@@ -81,115 +69,6 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
             INFO_ALIASES[alias.toLowerCase()] = key;
         }
     }
-}
-
-
-// unused code
-
-export type Edge<T> = [number, number, T];
-export type Vertex<T> = Edge<T>[];
-
-/** Runs Dijkstra's algorithm. */
-export function dijkstra<T>(graph: Vertex<T>[], target: number): [number, number][] {
-    if (target === 0) {
-        return [];
-    }
-    let targetFound = false;
-    for (let vertex of graph) {
-        for (let edge of vertex) {
-            if (edge[0] === target) {
-                targetFound = true;
-                break;
-            }
-        }
-        if (targetFound) {
-            break;
-        }
-    }
-    if (!targetFound) {
-        throw new Error('Target unreachable!');
-    }
-    let dists: number[] = [];
-    let prevs: (undefined | [number, number])[] = [];
-    let queue: number[] = [];
-    for (let i = 0; i < graph.length; i++) {
-        dists.push(Infinity);
-        prevs.push(undefined);
-        queue.push(i);
-    }
-    dists[0] = 0;
-    let found = false;
-    while (queue.length > 0) {
-        let vertex = queue[0];
-        let vertexIndex = 0;
-        let dist = dists[vertex];
-        for (let i = 1; i < queue.length; i++) {
-            let newVertex = queue[i];
-            let newDist = dists[newVertex];
-            if (newDist < dist) {
-                vertex = newVertex;
-                vertexIndex = i;
-                dist = newDist;
-            }
-        }
-        queue.splice(vertexIndex, 1);
-        if (vertex === target) {
-            if (dist === Infinity) {
-                throw new Error('Target unreachable!');
-            }
-            found = true;
-            break;
-        }
-        for (let i = 0; i < graph[vertex].length; i++) {
-            let edge = graph[vertex][i];
-            let newDist = dist + edge[1];
-            if (newDist < dists[edge[0]]) {
-                dists[edge[0]] = newDist;
-                prevs[edge[0]] = [vertex, i];
-            }
-        }
-    }
-    if (found) {
-        let prev = prevs[target];
-        if (!prev) {
-            throw new Error('Missing prev for vertex! (there is probably a bug)');
-        }
-        if (prev[0] === 0) {
-            return [prev];
-        }
-        let out: [number, number][] = [];
-        while (prev[0] !== 0) {
-            out.push(prev);
-            prev = prevs[prev[0]];
-            if (!prev) {
-                throw new Error('Missing prev for vertex! (there is probably a bug)');
-            }
-        }
-        out.push(prev);
-        return out.reverse();
-    } else {
-        throw new Error('Target unreachable!');
-    }
-}
-
-// also unused code
-
-export function graphToDOT<T extends [any, any, string]>(graph: Vertex<T>[]): string {
-    let out: string[] = [];
-    out.push('digraph G {');
-    out.push('    node [shape=circle];');
-    for (let from = 0; from < graph.length; from++) {
-        let edges = graph[from];
-        if (edges.length === 0) {
-            out.push(`  ${from};`);
-            continue;
-        }
-        for (let [to, weight, payload] of edges) {
-            out.push(`    ${from} -> ${to} [label="${payload[2]} (${weight})"];`);
-        }
-    }
-    out.push('}');
-    return out.join('\n');
 }
 
 
@@ -230,69 +109,104 @@ export function salvoToString(info: c.SalvoInfo, data: [number, number][]): stri
     return out.join(', ');
 }
 
-/** Parses a restricted-channel recipe string. */
-export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number, number][], number] {
-    let out: [number, number][] = [];
+/** Parses a channel recipe string. */
+export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number, number, number][], number] {
+    let out: [number, number, number][] = [];
     let time = 0;
     for (let part of data.split(/[, ]/)) {
         part = part.trim();
         if (part === '') {
             continue;
         }
+        let timing: number;
+        let channel: number;
         if (part.startsWith('(') || part.startsWith('+')) {
-            let timing = parseInt(part.slice(1));
+            timing = parseInt(part.slice(1));
             time += timing;
-            out.push([timing, part.startsWith('(') ? -1 : -2]);
+            channel = part.startsWith('(') ? -1 : -2;
         } else if (part.length === 1 && LETTERS.includes(part[0])) {
-            out.push([-1, LETTERS.indexOf(part[0])]);
+            timing = -1;
+            channel = LETTERS.indexOf(part[0]);
         } else {
-            let timing = parseInt(part);
+            timing = parseInt(part);
             let end = part[part.length - 1];
             let index = LETTERS.indexOf(end);
             if (part.length === 1 && index !== -1) {
-                out.push([-1, index]);
+                timing = -1;
+                channel = index;
             } else if (index === -1) {
                 if (info.channels.length === 1) {
                     time += timing;
-                    out.push([timing, 0]);
+                    channel = 0;
                 } else {
                     time += Math.max(timing, info.minSpacing);
-                    out.push([timing, -1]);
+                    channel = 0;
                 }
             } else {
                 time += timing;
-                out.push([timing, index]);
+                channel = index;
             }
         }
+        let slow = 0;
+        let index = part.indexOf('+', 1);
+        if (index !== -1) {
+            if (index === part.length - 1) {
+                slow = 1;
+            } else {
+                slow = parseInt(part.slice(index + 2));
+            }
+        }
+        out.push([timing, channel, slow]);
     }
     return [out, time];
 }
 
-/** Turns a restricted-channel recipe into a string */
-export function channelRecipeToString(info: c.ChannelInfo, data: [number, number][]): string {
+/** Turns a channel recipe into a string */
+export function channelRecipeToString(info: c.ChannelInfo, data: [number, number, number][]): string {
     if (info.channels.length === 1) {
         return data.map(x => {
+            let out: string;
             if (x[1] >= 0) {
-                return x[0];
+                out = String(x[0]);
             } else if (x[1] === -1) {
-                return `(${x[0]})`;
+                out = `(${x[0]})`;
             } else if (x[1] === -2) {
-                return `+${x[0]}`;
+                out = `+${x[0]}`;
+            } else {
+                throw new Error(`Invalid recipe: ${JSON.stringify(data)}`);
             }
+            if (x[2] > 0) {
+                if (x[2] > 1) {
+                    out += `+[${x[2]}]`;
+                } else {
+                    out += '+';
+                }
+            }
+            return out;
         }).join(', ');
     } else {
         return data.map(x => {
+            let out: string;
             if (x[1] >= 0) {
                 if (x[0] === -1) {
-                    return LETTERS[x[1]];
+                    out = LETTERS[x[1]];
                 } else {
-                    return x[0] + LETTERS[x[1]];
+                    out = x[0] + LETTERS[x[1]];
                 }
             } else if (x[1] === -1) {
-                return `(${x[0]})`;
+                out = `(${x[0]})`;
             } else if (x[1] === -2) {
-                return `+${x[0]}`;
+                out = `+${x[0]}`;
+            } else {
+                throw new Error(`Invalid recipe: ${JSON.stringify(data)}`);
             }
+            if (x[2] > 0) {
+                if (x[2] > 1) {
+                    out += `+(${x[2]})`;
+                }
+                out += '+';
+            }
+            return out;
         }).join(', ');
     }
 }
@@ -300,22 +214,31 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
 
 // basic types for objects
 
-export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W'];
+export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W', 'NW2', 'NE2', 'SW2', 'SE2', 'N2', 'E2', 'S2', 'W2'];
 
+/** Base type for `CAObjects`. */
 export interface BaseObject {
+    /** The non-canonical prefixed apgcode. */
     code: string;
+    /** The x coordinate of the top-left corner. */
     x: number;
+    /** The y coordinate of the top-left corner. */
     y: number;
 }
 
+/** Represents a still life. */
 export interface StillLife extends BaseObject {
     type: 'sl';
+    /** The reason why this exists is because sometimes `StillLifes` are used to make `Oscillators` */
     timing?: number;
 }
 
+/** Represents an oscillator. */
 export interface Oscillator extends BaseObject {
     type: 'osc';
+    /** The period of the oscillator. */
     period: number;
+    /** Either the number of generations since the start or that modulo the period. */
     timing: number;
 }
 
@@ -323,18 +246,23 @@ export type StableObject = StillLife | Oscillator;
 
 export interface Spaceship extends BaseObject {
     type: 'ship';
+    /** The canonical apgcode of the spaceship. */
+    code: string;
+    /** The direction it is moving. */
     dir: c.ShipDirection;
-    at: number;
+    /** T number of generations from the start it took to get here. */
     timing: number;
 }
 
 export interface OtherObject extends BaseObject {
     type: 'other';
+    /** The "actual" unprefixed apgcode representing the object. */
     realCode: string;
-    at: number;
+    /** The number of generations before it was categorized. */
     timing: number;
 }
 
+/** Represents a classified object. */
 export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
 
 
@@ -412,11 +340,7 @@ export function objectSorter(a: CAObject, b: CAObject): number {
         if (b.type === a.type) {
             if (a.code.length === b.code.length) {
                 if (a.code === b.code) {
-                    if (a.at === b.at) {
-                        return xyCompare(a, b);
-                    } else {
-                        return a.at - b.at;
-                    }
+                    return xyCompare(a, b);
                 } else if (a.code < b.code) {
                     return -1;
                 } else {
@@ -480,9 +404,9 @@ export function objectsToString(objs: CAObject[]): string {
         } else if (obj.type === 'osc') {
             out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.timing})`);
         } else if (obj.type === 'ship') {
-            out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
+            out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.timing})`);
         } else {
-            out.push(`${obj.code} (${obj.realCode}, ${obj.x}, ${obj.y}, ${obj.at}, ${obj.timing})`);
+            out.push(`${obj.code} (${obj.realCode}, ${obj.x}, ${obj.y}, ${obj.timing})`);
         }
     }
     return out.join(', ');
@@ -542,8 +466,7 @@ export function stringToObjects(data: string): CAObject[] {
                 x: parseInt(args[1]),
                 y: parseInt(args[2]),
                 dir: args[0] as c.ShipDirection,
-                at: parseInt(args[3]),
-                timing: parseInt(args[4]),
+                timing: parseInt(args[3]),
             });
         } else {
             out.push({
@@ -552,8 +475,7 @@ export function stringToObjects(data: string): CAObject[] {
                 x: parseInt(args[1].slice(1)),
                 y: parseInt(args[2]),
                 realCode: args[0],
-                at: parseInt(args[3]),
-                timing: parseInt(args[4]),
+                timing: parseInt(args[3]),
             });
         }
     }
@@ -561,10 +483,14 @@ export function stringToObjects(data: string): CAObject[] {
 }
 
 
+/** Stores information about a spaceship. */
 export interface ShipInfo {
     code: string;
+    /** The direction it is moving. */
     dir: c.ShipDirection;
+    /** The lane number, relative to the initial xOffset and yOffset properties. This is not the same system as that used for B3/S23 conduits. */
     lane: number;
+    /** The timing value of the spaceship. */
     timing: number;
 }
 
@@ -576,11 +502,7 @@ export function getShipInfo(info: {ship: c.SpaceshipInfo, period: number}, obj: 
     }
     let slope = c.SPACESHIPS[info.ship.code].slope;
     let lane: number;
-    if (obj.dir === 'N' || obj.dir === 'NW') {
-        lane = obj.x - (obj.y * slope);
-    } else if (obj.dir === 'W' || obj.dir === 'SW') {
-        lane = (obj.x * slope) + obj.y;
-    } else if (obj.dir === 'S' || obj.dir === 'SE') {
+    if ((obj.dir.startsWith('N') && !obj.dir.startsWith('NE')) || (obj.dir.startsWith('S') && !obj.dir.startsWith('SW'))) {
         lane = obj.x - (obj.y * slope);
     } else {
         lane = (obj.x * slope) + obj.y;
@@ -589,6 +511,7 @@ export function getShipInfo(info: {ship: c.SpaceshipInfo, period: number}, obj: 
 }
 
 
+/** Stores information about slow salvos. */
 export interface SalvoRecipes {
     searchResults: {[key: string]: [number, number, CAObject[] | string][]};
     recipes: {[key: string]: [StableObject, CAObject[], [number, number][][]]};
@@ -601,6 +524,7 @@ export interface SalvoRecipes {
 }
 
 
+/** Stores information about channel elbows. */
 export type ElbowData = {[key: string]: (
     {type: 'normal', result: CAObject[], results: CAObject[][], flippedResult: CAObject[], flippedResults: CAObject[][]} |
     {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} |
@@ -610,23 +534,36 @@ export type ElbowData = {[key: string]: (
     {type: 'bad'}
 )[]};
 
+/** Stores a complete channel recipe. */
 export interface ChannelRecipe {
+    /** The starting elbow. */
     start: string;
-    recipe: [number, number][];
+    /** The sequence of timing gaps, format for each one is `[timing, channel, slowPeriod]`, channel -1 is "next working input", channel -2 is "add to the previous one when combining". */
+    recipe: [number, number, number][];
+    /** The sum of the timing gaps. */
     time: number;
+    /** The new elbow if present. */
     end?: {
+        /** The elbow string. */
         elbow: string;
+        /** The period of the elbow. */
         period: number;
+        /** The number of cells in the y direction by which the elbow is moved. */
         move: number;
+        /** Whether the elbow is a flipped version. */
         flipped: boolean;
+        /** The timing difference between the initial and new elbows. */
         timing: number;
     };
+    /** Spaceships it emits. */
     emit?: ShipInfo[];
+    /** An object it creates. */
     create?: StableObject;
 }
 
 const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy'];
 
+/** Creates a human-readable presentation of a `ChannelRecipe` object. */
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
     if (recipe.end) {
