@@ -588,9 +588,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        if (depth === 2) {
-            process.exit(0);
-        }
+        // if (depth === 2) {
+        //     process.exit(0);
+        // }
         if (starts.length === 0) {
             console.log(`Elbow exhausted`);
             process.exit(0);
