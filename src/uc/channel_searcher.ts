@@ -1091,7 +1091,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 }, timings[0], channel);
                 timings.shift();
                 recipesChecked++;
-                states.unshift(data.state);
+                states.push(data.state);
                 if (data.recipes) {
                     recipes.push(...data.recipes);
                 }
@@ -1110,10 +1110,10 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                     }
                     if (!found2) {
                         found = true;
-                        states = states.slice(period * 2);
+                        states = states.slice(0, -period * 2);
                         let toChange: number[] = [];
                         for (let i = 0; i < period; i++) {
-                            let recipe = states[i].recipe;
+                            let recipe = states[states.length - 1 - i].recipe;
                             let part = structuredClone(recipe[recipe.length - 1]);
                             recipe[recipe.length - 1] = part;
                             toChange.push(part[0]);
