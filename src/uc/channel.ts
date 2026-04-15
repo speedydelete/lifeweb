@@ -73,7 +73,10 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
+import {appendFileSync} from 'node:fs';
+
 function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
+    appendFileSync('elbows.txt', elbow + '\n');
     let period = 1;
     if (elbow.startsWith('xp')) {
         period = parseInt(elbow.slice(2));
@@ -594,6 +597,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
+        // if (depth === 3) {
+        //     process.exit(0);
+        // }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
         let start = performance.now();

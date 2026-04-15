@@ -1046,6 +1046,11 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
         for (let timing = info.minSpacings[startChannel][channel]; timing <= maxSpacing; timing++) {
             timings.push(timing);
         }
+        // if (state.recipe.length === 0) {
+        //     timings = [107];
+        // } else if (state.recipe.length === 1) {
+        //     timings = [31];
+        // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));
         let p = state.p.copy();
