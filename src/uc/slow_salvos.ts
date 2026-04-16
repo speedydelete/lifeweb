@@ -26,11 +26,11 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
             p.ensure(x + shipPattern.width, y + shipPattern.height);
             p.insert(shipPattern, x, y);
         } else {
-            if (timing > info.ship.period) {
+            if (timing >= info.ship.period) {
                 let periods = Math.floor(timing / info.ship.period);
                 x += info.ship.dx * periods;
                 y += info.ship.dy * periods;
-                timing -= periods;
+                timing -= periods * info.ship.period;
             }
             let q = shipPatterns[info.ship.code][timing];
             p.ensure(x + q.width, y + q.height);

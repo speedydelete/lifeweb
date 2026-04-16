@@ -1060,6 +1060,11 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
         for (let timing = info.minSpacings[startChannel][channel]; timing <= maxSpacing; timing++) {
             timings.push(timing);
         }
+        // if (state.recipe.length === 0) {
+        //     timings = [17];
+        // } else if (state.recipe.length === 1) {
+        //     timings = [19];
+        // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));
         let p = state.p.copy();
@@ -1081,6 +1086,7 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 let r = p.copy();
                 r.offsetBy(Math.max(xDiff, 0), Math.max(yDiff, 0));
                 r.insert(q, Math.max(-xDiff, 0), Math.max(-yDiff, 0));
+                r.shrinkToFit();
                 let data = checkRecipe(info, elbows, newElbows, {
                     p: r,
                     elbow: state.elbow,

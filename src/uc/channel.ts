@@ -592,7 +592,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 2) {
+        // if (depth === 3) {
         //     process.exit(0);
         // }
         if (starts.length === 0) {
@@ -601,11 +601,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         }
         console.log(`Searching depth ${depth} (${starts.length} starts)`);
         await fs.appendFile('possible_useful.txt', `\nDepth ${depth}:\n`);
-        // <school-chromebook>
-        // await redraw();
-        // await redraw();
-        // await redraw();
-        // </school-chromebook>
         let start = performance.now();
         let newStarts: StrRunState[] = [];
         let finishedCount = 0;
@@ -615,6 +610,9 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
         // <school-chromebook>
+        // await redraw();
+        // await redraw();
+        // await redraw();
         // let nextStartIndex = 0;
         // </school-chromebook>
         for (let i = 0; i < workers.length; i++) {
@@ -696,11 +694,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let time = (performance.now() - start) / 1000;
         console.log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
         await saveRecipes(recipes);
-        // <school-chromebook>
-        // await redraw();
-        // await redraw();
-        // await redraw();
-        // </school-chromebook>
         starts = newStarts;
         depth++;
         if (saveProgress) {
