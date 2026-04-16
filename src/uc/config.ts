@@ -267,6 +267,18 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         compatibleWith: ['Single-channel (syringe)', 'Single-channel (90)'],
     },
 
+    'Single-channel (69)': {
+        aliases: ['sc61'],
+        ship: SPACESHIPS['xq4_153'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[69]],
+        minSpacing: 69,
+        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (syringe)', 'Single-channel (90)'],
+    },
+
     'Single-channel (syringe)': {
         aliases: ['sc78'],
         ship: SPACESHIPS['xq4_153'],
