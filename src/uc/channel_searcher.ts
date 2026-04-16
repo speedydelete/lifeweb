@@ -774,7 +774,7 @@ export function getStringRecipe(info: ChannelInfo, recipe: ChannelRecipe): strin
 
 export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: ChannelRecipe, depth: number = 0): {recipes: ChannelRecipe[], possibleUseful: string} {
     if (depth === 64) {
-        console.error(`\x1b[91mThere is a recursive elbow (please report to speedydelete)\x1b[0m`);
+        console.error(`\x1b[91mThis message should not appear. Please report this to speedydelete. There is a recursive elbow.\x1b[0m`);
         return {recipes: [], possibleUseful: ''};
     }
     if (!recipe.end) {

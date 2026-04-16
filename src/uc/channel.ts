@@ -244,7 +244,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                 p.yOffset = temp;
                 let objs = findOutcome(p, true);
                 if (typeof objs !== 'object') {
-                    console.error(`\x1b[31mThis message should not appear. Please report this to speedydelete. (in checkElbow, when computing flippedResults, objs is ${objs})\x1b[0m`);
+                    console.error(`\x1b[91mThis message should not appear. Please report this to speedydelete. In checkElbow, when computing flippedResults, objs is ${objs} (for elbow ${elbow}).\x1b[0m`);
                     return;
                 }
                 flippedResults.push(objs.filter(obj => obj.type === 'sl' || obj.type === 'osc').map(obj => {
@@ -546,6 +546,23 @@ export async function searchChannel(type: string, threads: number, elbow: string
     let info = c.CHANNEL_INFO[type];
     let parts = elbow.split('/');
     let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
+    let recipes = await loadRecipes();
+    let out = recipes.channels[type];
+    if (!(elbow in out.elbows)) {
+        let value = addElbow(info, elbow, out);
+        if (value) {
+            for (let key in value) {
+                if (key in out.elbows) {
+                    throw new Error(`This error should not occur (attempted overwrite: ${key}), please report this to speedydelete`);
+                }
+                out.elbows[key] = value[key];
+            }
+        }
+    }
+    let elbowType = out.elbows[elbowData[0] + '/' + elbowData[1]]?.[elbowData[2]]?.type;
+    if (elbowType !== 'normal') {
+        throw new Error(`Provided elbow '${elbowData.join('/')}' is not of type normal, type is ${elbowType}`);
+    }
     let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
@@ -565,19 +582,6 @@ export async function searchChannel(type: string, threads: number, elbow: string
             path = `${import.meta.dirname}/channel_searcher.js`;
         }
         workers.push(await new Worker(path, {workerData: {info, maxGenerations, outputFile, maxSpacing} satisfies WorkerData}));
-    }
-    let recipes = await loadRecipes();
-    let out = recipes.channels[type];
-    if (!(elbow in out.elbows)) {
-        let value = addElbow(info, elbow, out);
-        if (value) {
-            for (let key in value) {
-                if (key in out.elbows) {
-                    throw new Error(`This error should not occur (attempted overwrite: ${key}), please report this to speedydelete`);
-                }
-                out.elbows[key] = value[key];
-            }
-        }
     }
     let state = createState(info, elbowData);
     let starts: StrRunState[] = [Object.assign(state, {

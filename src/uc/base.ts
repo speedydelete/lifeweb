@@ -738,6 +738,8 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 }
                 out.elbows[elbow] = value;
             }
+        } else if (section === 'elbow scores') {
+            return;
         } else if (section.includes('recipes')) {
             for (let line of current) {
                 let [desc, recipeStr] = line.split(': ');
