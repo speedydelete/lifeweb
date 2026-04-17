@@ -376,7 +376,7 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
                 }
             }
             if (recipe2.end) {
-                if (recipe2.end.period === 1) {
+                if (recipe2.end.period === 1 || recipe2.end.elbow.startsWith('xs')) {
                     recipe2.end.timing = 0;
                 } else {
                     recipe2.end.timing = (recipe2.end.timing + i) % recipe2.end.period;
@@ -606,6 +606,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         let finishedCount = 0;
         let startsChecked = 0;
         let recipesChecked = 0;
+        let lastSave = performance.now();
         let timeout: NodeJS.Timeout | null = null;
         let interval: NodeJS.Timeout | null = null;
         let {promise, resolve} = Promise.withResolvers<void>();
@@ -626,6 +627,11 @@ export async function searchChannel(type: string, threads: number, elbow: string
                 possibleUseful += addNewRecipes(info, data, out);
                 if (possibleUseful.length > 0) {
                     await fs.appendFile('possible_useful.txt', possibleUseful);
+                }
+                let now = performance.now();
+                if (now - lastSave > 5000) {
+                    lastSave = now;
+                    await saveRecipes(recipes);
                 }
                 // <school-chromebook>
                 // if (startsChecked > 0 && recipesChecked > 0) {
