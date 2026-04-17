@@ -72,7 +72,7 @@ for (let [key, value] of Object.entries(c.CHANNEL_INFO)) {
 }
 
 
-export const LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export const LETTERS = 'abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** Parses a slow salvo string. */
 export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number][] {
@@ -150,10 +150,10 @@ export function parseChannelRecipe(info: c.ChannelInfo, data: string): [[number,
         let slow = 0;
         let index = part.indexOf('+', 1);
         if (index !== -1) {
-            if (index === part.length - 1) {
+            if (part[index + 1] === 'n') {
                 slow = 1;
             } else {
-                slow = parseInt(part.slice(index + 2));
+                slow = parseInt(part.slice(index + 1));
             }
         }
         out.push([timing, channel, slow]);
@@ -177,9 +177,9 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
             }
             if (x[2] > 0) {
                 if (x[2] > 1) {
-                    out += `+[${x[2]}]`;
+                    out += `+${x[2]}n`;
                 } else {
-                    out += '+';
+                    out += '+n';
                 }
             }
             return out;
@@ -534,6 +534,15 @@ export type ElbowData = {[key: string]: (
     {type: 'bad'}
 )[]};
 
+export interface Elbow {
+    str: string;
+    timingStr: string;
+    code: string;
+    lane: number;
+    period: number;
+    timing: number;
+}
+
 /** Stores a complete channel recipe. */
 export interface ChannelRecipe {
     /** The starting elbow. */
@@ -543,22 +552,34 @@ export interface ChannelRecipe {
     /** The sum of the timing gaps. */
     time: number;
     /** The new elbow if present. */
-    end?: {
-        /** The elbow string. */
-        elbow: string;
-        /** The period of the elbow. */
-        period: number;
+    end?: Elbow & {
         /** The number of cells in the y direction by which the elbow is moved. */
         move: number;
         /** Whether the elbow is a flipped version. */
         flipped: boolean;
-        /** The timing difference between the initial and new elbows. */
-        timing: number;
     };
     /** Spaceships it emits. */
     emit?: ShipInfo[];
     /** An object it creates. */
     create?: StableObject;
+}
+
+export function parseElbow(elbow: string): Elbow {
+    let parts = elbow.split('/');
+    let timing = parts[2] ? parseInt(parts[2]) : 0;
+    let str = `${parts[0]}/${parts[1]}`;
+    let timingStr = str;
+    if (elbow.startsWith('xp')) {
+        timingStr += '/' + timing;
+    }
+    return {
+        str,
+        timingStr,
+        code: parts[0],
+        lane: parseInt(parts[1]),
+        timing,
+        period: elbow.startsWith('xp') ? parseInt(elbow.slice(2)) : 1,
+    };
 }
 
 const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degree', '0-degree', 'create', '90-degree and destroy', '180-degree and destroy', '0-degree and destroy', 'create and destroy'];
@@ -567,10 +588,7 @@ const CHANNEL_RECIPE_SECTION_NAMES = ['move', 'destroy', '90-degree', '180-degre
 export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     let out = recipe.start;
     if (recipe.end) {
-        out += ` to ${recipe.end.elbow} move ${recipe.end.move}`;
-        if (recipe.end.period > 1) {
-            out += ` timing ${recipe.end.timing}`;
-        }
+        out += ` to ${recipe.end.timingStr} move ${recipe.end.move}`;
         if (recipe.end.flipped) {
             out += ' flip';
         }
@@ -750,21 +768,13 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 if (data[1] === 'destroy') {
                     data = data.slice(2);
                 } else {
-                    let elbow = data[2];
-                    let period = elbow.startsWith('xp') ? parseInt(elbow.slice(2)) : 1;
+                    let elbow = parseElbow(data[2]);
                     let move = parseInt(data[4]);
-                    data = data.slice(5);
-                    let timing = 0;
-                    if (data[0] === 'timing') {
-                        timing = parseInt(data[1]);
-                        data = data.slice(2);
-                    }
                     let flipped = false;
-                    if (data[0] === 'flip') {
+                    if (data[5] === 'flip') {
                         flipped = true;
-                        data = data.slice(1);
                     }
-                    recipe.end = {elbow, period, move, flipped, timing};
+                    recipe.end = {...elbow, move, flipped};
                 }
                 if (data[0] === 'emit') {
                     recipe.emit = [];

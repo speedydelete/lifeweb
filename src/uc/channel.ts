@@ -3,17 +3,16 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, redraw, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, maxGenerations, redraw, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {GliderDirection, runInjection, StrRunState, createState, getStringRecipe, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
-export function createChannelPattern(info: ChannelInfo, elbow: string | [string, number], recipe: [number, number, number][]): {p: MAPPattern, xPos: number, yPos: number, total: number} {
+export function createChannelPattern(info: ChannelInfo, elbow: string | Pick<Elbow, 'code' | 'lane' | 'timing'>, recipe: [number, number, number][]): {p: MAPPattern, xPos: number, yPos: number, total: number} {
     if (typeof elbow === 'string') {
-        let parts = elbow.split('/');
-        elbow = [parts[0].slice(parts[0].indexOf('_') + 1), parseInt(parts[1])];
+        elbow = parseElbow(elbow);
     }
     let phaseOffset = 0;
     for (let [spacing, channel] of recipe) {
@@ -24,7 +23,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
     let p = base.copy();
     let total = 0;
-    let timingOffset = 0;
+    let timingOffset = elbow.timing;
     while (recipe.length > 0 && recipe[0][1] === -2) {
         timingOffset += recipe[0][0];
         recipe.shift();
@@ -58,12 +57,12 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
     let q = shipPatterns[info.ship.code][(total + phaseOffset) % info.ship.period];
     p.ensure(x + q.width, y + q.height);
     p.insert(q, x, y);
-    let target = base.loadApgcode(elbow[0]).shrinkToFit();
+    let target = base.loadApgcode(elbow.code.slice(elbow.code.indexOf('_') + 1)).shrinkToFit();
     if (timingOffset > 0) {
         target.run(timingOffset).shrinkToFit();
     }
     let yPos = Math.floor(total * info.ship.dy / info.ship.period) + c.GLIDER_TARGET_SPACING;
-    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+    let xPos = Math.floor(yPos * info.ship.slope) - elbow.lane + c.LANE_OFFSET;
     if (xPos < 0) {
         yPos -= Math.floor(xPos * info.ship.slope);
         xPos = 0;
@@ -75,15 +74,13 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | [string,
 }
 
 
-function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowData: [string, number]): undefined | ElbowData['string'] {
-    let period = 1;
-    if (elbow.startsWith('xp')) {
-        period = parseInt(elbow.slice(2));
-    }
-    let elbowObjCode = elbowData[0].slice(elbowData[0].indexOf('_') + 1);
+function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefined | ElbowData['string'] {
+    elbow = structuredClone(elbow);
+    let elbowObjCode = elbow.code.slice(elbow.code.indexOf('_') + 1);
     let out: ElbowData[string] = [];
-    for (let timing = 0; timing < period; timing++) {
-        let result = getCollision(info, elbowData[0], elbowData[1], timing, undefined, true);
+    for (let timing = 0; timing < elbow.period; timing++) {
+        elbow.timing = timing;
+        let result = getCollision(info, elbow.code, elbow.lane, timing, undefined, true);
         if (typeof result !== 'object') {
             if (result === 'no collision') {
                 out.push({type: 'no collision'});
@@ -102,7 +99,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
         let results: CAObject[][] = [];
         let prevResult: string | null = null;
         for (let i = 0; i < 3; i++) {
-            let p = runInjection(info, elbowData, timing, [[info.minSpacing + i * resultPeriod, 0]]);
+            let p = runInjection(info, elbow, [[info.minSpacing + i * resultPeriod, 0]]);
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
                 return;
@@ -138,7 +135,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             let found = false;
             let codeStrs = results.map(x => x.map(y => y.code).sort().join(' '));
             for (let [key, value] of Object.entries(elbows)) {
-                if (elbow === key) {
+                if (elbow.str === key) {
                     continue;
                 }
                 for (let data of value) {
@@ -174,7 +171,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                     let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                     let move: number;
                     if (flipped) {
-                        let p = createChannelPattern(info, [elbowObjCode, elbowData[1]], []).p;
+                        let p = createChannelPattern(info, elbow, []).p;
                         p.flipDiagonal();
                         let temp = p.xOffset;
                         p.xOffset = p.yOffset;
@@ -193,7 +190,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                             move++;
                         }
                     } else {
-                        adjustLane -= elbowData[1];
+                        adjustLane -= elbow.lane;
                         if (xDiff + adjustLane !== yDiff * info.ship.slope) {
                             continue;
                         }
@@ -230,14 +227,14 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
             if (found) {
                 continue;
             }
-            let flippedResult = getCollision(info, elbowData[0], elbowData[1], timing, true, true);
+            let flippedResult = getCollision(info, elbow.code, elbow.lane, timing, true, true);
             if (typeof flippedResult !== 'object') {
                 out.push({type: 'bad'});
                 continue;
             }
             let flippedResults: CAObject[][] = [];
             for (let i = 0; i < 3; i++) {
-                let p = runInjection(info, elbowData, timing, [[info.minSpacing + timing + i * resultPeriod, 0]]);
+                let p = runInjection(info, elbow, [[info.minSpacing + timing + i * resultPeriod, 0]]);
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -288,14 +285,14 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
                 if (obj.type === 'osc') {
                     obj = normalizeOscillator(obj, false);
                 }
-                let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbowData[1];
+                let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbow.lane;
                 let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
                 let str = `${obj.code}/${lane}`;
                 if (!info.ship.supportsFlipped) {
                     out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});
                     continue;
                 }
-                let p = createChannelPattern(info, [obj.code.slice(obj.code.indexOf('_') + 1), lane], []).p;
+                let p = createChannelPattern(info, {code: obj.code.slice(obj.code.indexOf('_') + 1), lane, timing: 0}, []).p;
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -315,25 +312,25 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: string, elbowDa
     return out;
 }
 
-function addElbow(info: ChannelInfo, elbow: string, data: RecipeData['channels'][string], depth: number = 0): undefined | ElbowData {
-    if (elbow in data.elbows) {
+function addElbow(info: ChannelInfo, elbow: string | Elbow, data: RecipeData['channels'][string], depth: number = 0): undefined | ElbowData {
+    if (typeof elbow === 'string') {
+        if (elbow in data.elbows) {
+            return;
+        }
+        elbow = parseElbow(elbow);
+    }
+    if (elbow.str in data.elbows) {
         return;
     }
-    let elbowParts = elbow.split('/');
-    let elbowData: [string, number] = [elbowParts[0].slice(elbowParts[0].indexOf('_') + 1), parseInt(elbowParts[1])];
-    let result = checkElbow(info, data.elbows, elbow, elbowData);
+    let result = checkElbow(info, data.elbows, elbow);
     if (!result) {
-        let period = 1;
-        if (elbow.startsWith('xp')) {
-            period = parseInt(elbow.slice(2));
-        }
         let entry: ElbowData[string] = [];
-        for (let i = 0; i < period; i++) {
+        for (let i = 0; i < elbow.period; i++) {
             entry.push({type: 'bad'});
         }
-        return {[elbow]: entry};
+        return {[elbow.str]: entry};
     }
-    let out: ElbowData = {[elbow]: result};
+    let out: ElbowData = {[elbow.str]: result};
     for (let value of result) {
         if ((value.type === 'alias' || value.type === 'convert') && !(value.elbow in data.elbows)) {
             if (depth === 16) {
@@ -376,10 +373,14 @@ function expandRecipes(info: ChannelInfo, recipes: ChannelRecipe[]): ChannelReci
                 }
             }
             if (recipe2.end) {
-                if (recipe2.end.period === 1 || recipe2.end.elbow.startsWith('xs')) {
+                if (recipe2.end.period === 1 || recipe2.end.code.startsWith('xs')) {
                     recipe2.end.timing = 0;
                 } else {
                     recipe2.end.timing = (recipe2.end.timing + i) % recipe2.end.period;
+                }
+                recipe2.end.timingStr = `${recipe2.end.code}/${recipe2.end.lane}`;
+                if (recipe2.end.period > 1) {
+                    recipe2.end.timingStr += `/${recipe2.end.timing}`;
                 }
             }
             if (recipe2.create && recipe2.create.type === 'osc') {
@@ -409,7 +410,7 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     let possibleUseful = '';
     let recipes: ChannelRecipe[] = [];
     for (let recipe of data.recipes) {
-        if (recipe.end && data.newElbows.includes(recipe.end.elbow)) {
+        if (recipe.end && data.newElbows.includes(recipe.end.str)) {
             let value = resolveElbow(info, out.elbows, recipe);
             recipes.push(...value.recipes);
             possibleUseful += value.possibleUseful;
@@ -467,7 +468,7 @@ function encodeInts(data: number[]): Uint8Array {
     return new Uint8Array(out);
 }
 
-async function saveStarts(type: string, info: ChannelInfo, starts: StrRunState[], elbow: [string, number, number], depth: number): Promise<void> {
+async function saveStarts(type: string, info: ChannelInfo, starts: StrRunState[], elbow: Elbow, depth: number): Promise<void> {
     let arrays: Uint8Array[] = [];
     let totalLength = 0;
     for (let start of starts) {
@@ -528,7 +529,7 @@ async function saveStarts(type: string, info: ChannelInfo, starts: StrRunState[]
         out.set(array, i);
         i += array.length;
     }
-    let path = `${elbow[0]}_${elbow[1]}_${elbow[2]}_depth_${depth}.starts`;
+    let path = `${elbow.code}_${elbow.lane}_${elbow.timing}_depth_${depth}.starts`;
     if (info.aliases) {
         let alias = info.aliases.find(x => !x.includes(' '));
         if (alias) {
@@ -542,13 +543,11 @@ async function saveStarts(type: string, info: ChannelInfo, starts: StrRunState[]
 
 
 /** Performs a restricted-channel search. */
-export async function searchChannel(type: string, threads: number, elbow: string, maxSpacing: number, outputFile?: string, saveProgress?: string): Promise<void> {
+export async function searchChannel(type: string, threads: number, elbow: Elbow, maxSpacing: number, outputFile?: string, saveProgress?: string): Promise<void> {
     let info = c.CHANNEL_INFO[type];
-    let parts = elbow.split('/');
-    let elbowData: [string, number, number] = [parts[0], parseInt(parts[1]), parts[2] ? parseInt(parts[2]) : 0];
     let recipes = await loadRecipes();
     let out = recipes.channels[type];
-    if (!(elbow in out.elbows)) {
+    if (!(elbow.str in out.elbows)) {
         let value = addElbow(info, elbow, out);
         if (value) {
             for (let key in value) {
@@ -559,11 +558,11 @@ export async function searchChannel(type: string, threads: number, elbow: string
             }
         }
     }
-    let elbowType = out.elbows[elbowData[0] + '/' + elbowData[1]]?.[elbowData[2]]?.type;
+    let elbowType = out.elbows[elbow.str]?.[elbow.timing]?.type;
     if (elbowType !== 'normal') {
-        throw new Error(`Provided elbow '${elbowData.join('/')}' is not of type normal, type is ${elbowType}`);
+        throw new Error(`Provided elbow '${elbow.timingStr}' is not of type normal, type is ${elbowType}`);
     }
-    let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
+    let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow.timingStr}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
         if (stat.size > 0) {
@@ -583,7 +582,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         }
         workers.push(await new Worker(path, {workerData: {info, maxGenerations, outputFile, maxSpacing} satisfies WorkerData}));
     }
-    let state = createState(info, elbowData);
+    let state = createState(info, elbow);
     let starts: StrRunState[] = [Object.assign(state, {
         p: state.p.toApgcode(),
         xOffset: state.p.xOffset,
@@ -592,7 +591,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 3) {
+        // if (depth === 2) {
         //     process.exit(0);
         // }
         if (starts.length === 0) {
@@ -697,224 +696,7 @@ export async function searchChannel(type: string, threads: number, elbow: string
         starts = newStarts;
         depth++;
         if (saveProgress) {
-            saveStarts(type, info, starts, elbowData, depth);
+            saveStarts(type, info, starts, elbow, depth);
         }
     }
-}
-
-
-/** Merges multiple restricted-channel recipes. */
-export function mergeChannelRecipes(info: c.ChannelInfo, ...recipes: [number, number, number][][]): [number, number, number][] {
-    let recipe = recipes.flat();
-    let out: [number, number, number][] = [];
-    let lastUses = (new Array(info.channels.length)).fill(Infinity);
-    let prevChannel: number | null = null;
-    for (let i = 0; i < recipe.length; i++) {
-        let [spacing, channel, slow] = recipe[i];
-        if (channel === -1) {
-            if (i !== recipe.length - 1) {
-                if (recipe[i + 1][0] === -1) {
-                    i++;
-                    channel = recipe[i][1];
-                } else {
-                    channel = 0;
-                }
-            }
-        } else if (channel === -2) {
-            for (let j = 0; j < info.channels.length; j++) {
-                lastUses[channel] += spacing;
-            }
-            if (out.length === 0) {
-                out.push([spacing, channel, slow]);
-            } else {
-                out[out.length - 1][0] += spacing;
-            }
-            continue;
-        } else {
-            for (let j = 0; j < info.channels.length; j++) {
-                lastUses[channel] += spacing;
-            }
-            if (lastUses[channel] < info.minSpacings[channel][channel] || (info.excludeSpacings && info.excludeSpacings[channel][channel].includes(lastUses[channel]))) {
-                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]} generations`);
-            }
-            if (prevChannel && (spacing < info.minSpacings[prevChannel][channel] || (info.excludeSpacings && info.excludeSpacings[prevChannel][channel].includes(spacing)))) {
-                throw new Error(`Invalid restricted-channel sequence, channel ${channel} used again after ${lastUses[channel]} generations`);
-            }
-            lastUses[channel] = 0;
-        }
-        out.push([spacing, channel, slow]);
-        prevChannel = channel;
-    }
-    return out;
-}
-
-
-interface RecipeProgress {
-    recipes: [number, number, number][][];
-    time: number;
-    index: number;
-    elbow: string;
-    elbowPos: number;
-}
-
-/** Converts a slow salvo to a restricted-channel recipe. */
-export function salvoToChannel(info: ChannelInfo, recipeData: RecipeData['channels'][string], startElbow: string, salvo: [number, number][], dir: c.ShipDirection, depth?: number, beam?: number, forceEndElbow?: false | string, minElbow?: number, maxElbow?: number): {recipe: [number, number, number][], time: number, elbow: false | [string, number]} {
-    let prevLayer: RecipeProgress[] = [{recipes: [], time: 0, index: 0, elbow: startElbow, elbowPos: 0}];
-    let moveRecipes: (ChannelRecipe & {end: {}})[] = [];
-    let emitRecipes: (ChannelRecipe & {end: {}, emit: {}})[] = [];
-    let emitDestroyRecipes: (ChannelRecipe & {emit: {}})[] = [];
-    let destroyRecipes: ChannelRecipe[] = [];
-    for (let recipe of Object.values(recipeData.recipes)) {
-        if (recipe.create) {
-            continue;
-        }
-        if (recipe.end) {
-            if (recipe.emit && recipe.emit.length === 1) {
-                if (recipe.emit[0].dir === dir) {
-                    // @ts-ignore
-                    emitRecipes.push(recipe);   
-                }
-            } else {
-                // @ts-ignore
-                moveRecipes.push(recipe);
-            }
-        } else if (recipe.emit && recipe.emit.length === 1) {
-            if (recipe.emit[0].dir === dir) {
-                // @ts-ignore
-                emitDestroyRecipes.push(recipe);
-            }
-        } else {
-            destroyRecipes.push(recipe);
-        }
-    }
-    depth ??= salvo.length;
-    let out: {recipes: [number, number, number][][], time: number, elbow: false | [string, number]}[] = [];
-    for (let i = 0; i < depth; i++) {
-        let nextLayer: RecipeProgress[] = [];
-        for (let {recipes, time, index, elbow, elbowPos} of prevLayer) {
-            if (index < salvo.length) {
-                for (let recipe of emitRecipes) {
-                    if (recipe.start === elbow && recipe.emit[0].lane === salvo[index][0] && recipe.emit[0].timing === salvo[index][1]) {
-                        let recipes2 = recipes.slice();
-                        recipes2.push(recipe.recipe);
-                        let newElbowPos = elbowPos + recipe.end.move;
-                        if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
-                            continue;
-                        }
-                        if (index + 1 === salvo.length && (typeof forceEndElbow !== 'number' || forceEndElbow === newElbowPos)) {
-                            out.push({
-                                recipes: recipes2,
-                                time: time + recipe.time,
-                                elbow: [recipe.end.elbow, newElbowPos],
-                            })
-                        } else {
-                            let recipes2 = recipes.slice();
-                            recipes2.push(recipe.recipe);
-                            nextLayer.push({
-                                recipes: recipes2,
-                                time: time + recipe.time,
-                                index: index + 1,
-                                elbow: recipe.end.elbow,
-                                elbowPos: newElbowPos,
-                            })
-                        }
-                    }
-                }
-            }
-            for (let recipe of moveRecipes) {
-                if (recipe.start === elbow) {
-                    let recipes2 = recipes.slice();
-                    recipes2.push(recipe.recipe);
-                    let newElbowPos = elbowPos + recipe.end.move;
-                    if ((minElbow !== undefined && newElbowPos < minElbow) || (maxElbow !== undefined && newElbowPos > maxElbow)) {
-                        continue;
-                    }
-                    if (index === salvo.length && (typeof forceEndElbow !== 'number' || forceEndElbow === newElbowPos)) {
-                        out.push({
-                            recipes: recipes2,
-                            time: time + recipe.time,
-                            elbow: [recipe.end.elbow, newElbowPos],
-                        })
-                    } else {
-                        let recipes2 = recipes.slice();
-                        recipes2.push(recipe.recipe);
-                        nextLayer.push({
-                            recipes: recipes2,
-                            time: time + recipe.time,
-                            index,
-                            elbow: recipe.end.elbow,
-                            elbowPos: newElbowPos,
-                        })
-                    }
-                }
-            }
-            if (index === salvo.length - 1 && forceEndElbow === false) {
-                for (let recipe of emitDestroyRecipes) {
-                    if (recipe.start === elbow && recipe.emit[0].lane === salvo[index][0] && recipe.emit[0].timing === salvo[index][1]) {
-                        let recipes2 = recipes.slice();
-                        recipes2.push(recipe.recipe);
-                        out.push({
-                            recipes: recipes2,
-                            time: time + recipe.time,
-                            elbow: false,
-                        });
-                    }
-                }
-            }
-            if (index === salvo.length && forceEndElbow === false) {
-                for (let recipe of destroyRecipes) {
-                    if (recipe.start === elbow) {
-                        let recipes2 = recipes.slice();
-                        recipes2.push(recipe.recipe);
-                        out.push({
-                            recipes: recipes2,
-                            time: time + recipe.time,
-                            elbow: false,
-                        });
-                    }
-                }
-            }
-        }
-        if (beam !== undefined) {
-            nextLayer = nextLayer.sort((x, y) => {
-                if (x.index < y.index) {
-                    return 1;
-                } else if (x.index > y.index) {
-                    return -1;
-                } else {
-                    if (x.time < y.time) {
-                        return -1;
-                    } else if (x.time > y.time) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-            });
-            nextLayer = nextLayer.slice(0, beam);
-        }
-        if (nextLayer.length === 0) {
-            throw new Error(`Cannot find recipe at depth ${i}!`);
-        }
-        prevLayer = nextLayer;
-    }
-    if (out.length === 0) {
-        throw new Error('No recipes found!');
-    }
-    let best = out[0];
-    for (let recipe of out.slice(1)) {
-        if (recipe.time < best.time) {
-            best = recipe;
-        }
-    }
-    let recipe = mergeChannelRecipes(info, ...best.recipes);
-    let time = 0;
-    for (let [spacing] of recipe) {
-        time += spacing;
-    }
-    return {
-        recipe,
-        time,
-        elbow: best.elbow,
-    };
 }

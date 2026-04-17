@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, ChannelRecipe, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString} from './base.js';
 import {separateObjectsPartial, findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -291,7 +291,7 @@ export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
 // }
 
 
-export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTiming: number, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
+export function runInjection(info: ChannelInfo, elbow: Elbow, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
     let phaseOffset = 0;
     for (let [spacing] of recipe) {
         phaseOffset += spacing;
@@ -299,7 +299,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
     phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
     let gliders: MAPPattern[] = [];
     let total = 0;
-    let timingOffset = elbowTiming;
+    let timingOffset = elbow.timing;
     while (recipe.length > 0 && recipe[0][1] === -2) {
         timingOffset += recipe[0][0];
         recipe.shift();
@@ -331,7 +331,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
         total -= override[0].generation;
     }
     let y = Math.floor(total * info.ship.dy / info.ship.period) + c.GLIDER_TARGET_SPACING;
-    let x = Math.floor(y * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+    let x = Math.floor(y * info.ship.slope) - elbow.lane + c.LANE_OFFSET;
     if (info.channels.length > 1) {
         x += info.channels[recipe[0][1]];
     }
@@ -343,12 +343,12 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
     if (override) {
         p = override[0];
     } else {
-        p = base.loadApgcode(elbow[0].slice(elbow[0].indexOf('_') + 1)).shrinkToFit();
+        p = base.loadApgcode(elbow.code.slice(elbow.code.indexOf('_') + 1)).shrinkToFit();
         let yPos = c.GLIDER_TARGET_SPACING;
         if ((total % info.ship.period) + phaseOffset >= info.ship.period) {
             yPos--;
         }
-        let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+        let xPos = Math.floor(yPos * info.ship.slope) - elbow.lane + c.LANE_OFFSET;
         let change = 0;
         while (xPos < 0 || yPos < 0) {
             xPos++;
@@ -427,7 +427,7 @@ export function runInjection(info: ChannelInfo, elbow: [string, number], elbowTi
 
 export interface RunState {
     p: MAPPattern;
-    elbow: [string, number, number];
+    elbow: Elbow;
     recipe: [number, number, number][];
     time: number;
     startX: number;
@@ -440,7 +440,7 @@ export interface StrRunState {
     xOffset: number;
     yOffset: number;
     generation: number;
-    elbow: [string, number, number];
+    elbow: Elbow;
     recipe: [number, number, number][];
     time: number;
     startX: number;
@@ -448,10 +448,10 @@ export interface StrRunState {
     gliders?: Spaceship[];
 }
 
-export function createState(info: ChannelInfo, elbow: [string, number, number]): RunState {
-    let p = base.loadApgcode(elbow[0].slice(elbow[0].indexOf('_') + 1)).shrinkToFit();
+export function createState(info: ChannelInfo, elbow: Elbow): RunState {
+    let p = base.loadApgcode(elbow.code.slice(elbow.code.indexOf('_') + 1)).shrinkToFit();
     let yPos = c.GLIDER_TARGET_SPACING;
-    let timing = elbow[2];
+    let timing = elbow.timing;
     if (timing > info.ship.period) {
         let mod = timing % info.ship.period;
         yPos += (timing - (info.ship.period - mod)) / info.ship.period + 1;
@@ -461,7 +461,7 @@ export function createState(info: ChannelInfo, elbow: [string, number, number]):
         yPos++;
         timing -= info.ship.period;
     }
-    let xPos = Math.floor(yPos * info.ship.slope) - elbow[1] + c.LANE_OFFSET;
+    let xPos = Math.floor(yPos * info.ship.slope) - elbow.lane + c.LANE_OFFSET;
     p.offsetBy(Math.max(xPos, 0), Math.max(yPos, 0));
     let toInsert = shipPatterns[info.ship.code][timing];
     p.ensure(toInsert.width, toInsert.height);
@@ -472,7 +472,11 @@ export function createState(info: ChannelInfo, elbow: [string, number, number]):
     startY += p.yOffset;
     p.xOffset = startX;
     p.yOffset = startY;
-    return {p, elbow, recipe: [], time: 0, startX, startY};
+    let recipe: [number, number, number][] = [];
+    if (elbow.timing > 0) {
+        recipe.push([elbow.timing, -1, 0]);
+    }
+    return {p, elbow, recipe, time: elbow.timing, startX, startY};
 }
 
 function runState(info: ChannelInfo, state: RunState, nextGlider: number, channel: number, injected: boolean = false, subtractTime: boolean = true): RunState {
@@ -530,7 +534,7 @@ interface ExpectedResult {
 }
 
 
-function getExpected(info: ChannelInfo, elbow: [string, number, number], recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): ExpectedResult {
+function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): ExpectedResult {
     let data: ExpectedResult['data'] = [];
     let period = 1;
     if (recipe.end) {
@@ -582,7 +586,7 @@ function getExpected(info: ChannelInfo, elbow: [string, number, number], recipe:
             ships: [{
                 code: info.ship.code,
                 dir: info.ship.slope === 0 ? 'S' : 'SE',
-                lane: elbow[1],
+                lane: elbow.lane,
                 timing: 0,
             }],
             period: 1,
@@ -780,10 +784,10 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
     if (!recipe.end) {
         return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
     }
-    if (!(recipe.end.elbow in elbows)) {
+    if (!(recipe.end.str in elbows)) {
         return {recipes: [recipe], possibleUseful: ''};
     }
-    let outcomes = elbows[recipe.end.elbow];
+    let outcomes = elbows[recipe.end.str];
     let out: ChannelRecipe[] = [];
     let possibleUseful = '';
     // console.log(`resolving ${recipe.end.elbow}: ${outcomes.map(x => x.type).join(', ')}`);
@@ -805,23 +809,21 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             }
             let recipe2 = structuredClone(recipe);
             recipe2.end = undefined;
-            let elbow = recipe.end.elbow;
-            let parts = elbow.split('/');
             let y = recipe.end.move;
-            let x = y * info.ship.slope - (parseInt(parts[1]) - parseInt(recipe.start.slice(recipe.start.indexOf('/') + 1)));
-            if (elbow.startsWith('xp')) {
+            let x = y * info.ship.slope - (recipe.end.lane - parseInt(recipe.start.slice(recipe.start.indexOf('/') + 1)));
+            if (recipe.end.period > 1) {
                 recipe2.create = {
                     type: 'osc',
-                    code: parts[0],
+                    code: recipe.end.code,
                     x,
                     y,
-                    period: parseInt(elbow.slice(2)),
+                    period: recipe.end.period,
                     timing: recipe.end.timing,
                 };
             } else {
                 recipe2.create = {
                     type: 'sl',
-                    code: parts[0],
+                    code: recipe.end.code,
                     x,
                     y,
                     timing: recipe.end.timing,
@@ -831,7 +833,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             possibleUseful += getStringRecipe(info, recipe2);
             continue;
         }
-        let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {elbow: string, move: number, flipped: boolean, timing: number}};
+        let recipe2 = structuredClone(recipe) as ChannelRecipe & {end: {}};
         if (elbow.type !== 'alias') {
             let value = recipe2.recipe[recipe2.recipe.length - 1];
             let inc = (i + recipe.end.timing - recipe.time) % outcomes.length;
@@ -866,10 +868,12 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             if (isTooBig(elbow.elbow, c.ELBOW_SIZE_LIMIT, c.ELBOW_SIZE_LIMIT_OVERRIDES)) {
                 continue;
             }
-            recipe2.end.elbow = elbow.elbow;
-            recipe2.end.flipped = recipe2.end.flipped !== elbow.flipped;
-            recipe2.end.timing += elbow.timing;
-            recipe2.end.move += elbow.move;
+            let data = parseElbow(elbow.elbow);
+            recipe2.end = Object.assign(data, {
+                timing: recipe2.end.timing + elbow.timing,
+                move: recipe2.end.move + elbow.move,
+                flipped: recipe2.end.flipped !== elbow.flipped,
+            });
             if (recipe2.create && recipe2.create.timing !== undefined) {
                 recipe2.create.timing += elbow.timing;
             }
@@ -936,7 +940,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 obj = normalizeOscillator(obj, false);
             }
             let period = obj.type === 'osc' ? obj.period : 1;
-            let lane = Math.floor(obj.y * info.ship.slope) - obj.x + state.elbow[1];
+            let lane = Math.floor(obj.y * info.ship.slope) - obj.x + state.elbow.lane;
             let value = {obj, period, lane, spacing: obj.y};
             if (so1 === undefined) {
                 so1 = value;
@@ -1029,14 +1033,18 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
         }
         endResult = {data: result, x: elbow.obj.x, y: elbow.obj.y};
         let str = `${elbow.obj.code}/${elbow.lane}`;
+        let timingStr = str;
+        if (elbow.period > 0) {
+            timingStr += '/' + elbow.obj.timing;
+        }
         let period = elbow.obj.type === 'osc' ? elbow.obj.period : 1;
-        end = {elbow: str, period, move: elbow.spacing, flipped: false, timing: elbow.obj.timing ?? 0};
-        if (!(str in elbows) && newElbows && !newElbows.includes(str)) {
+        end = {str, timingStr, code: elbow.obj.code, lane: elbow.lane, timing: elbow.obj.timing ?? 0, period, move: elbow.spacing, flipped: false};
+        if (!(str in elbows) && !newElbows.includes(str)) {
             // console.log(`New elbow detected: ${str} in recipe ${strRecipe}`);
             newElbows.push(str);
         }
     }
-    let out: ChannelRecipe = {start: `${state.elbow[0]}/${state.elbow[1]}`, recipe: state.recipe.slice(), time: state.time, end, create, emit};
+    let out: ChannelRecipe = {start: state.elbow.str, recipe: state.recipe.slice(), time: state.time, end, create, emit};
     let next = findNextWorkingInput(info, state, out, endResult);
     if (next !== false) {
         out.recipe.push([next, -1, 1]);

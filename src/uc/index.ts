@@ -1,9 +1,10 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, loadRecipes} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, loadRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
-import {createChannelPattern, searchChannel, mergeChannelRecipes, salvoToChannel} from './channel.js';
+import {createChannelPattern, searchChannel} from './channel.js';
+import {mergeRecipes, sortRecipes, salvoToChannel} from './compiler.js';
 
 
 export async function run(): Promise<void> {
@@ -239,7 +240,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
-        await searchChannel(type, options['threads'] ?? 1, args[0], parseInt(args[1]), options['file'], options['save']);
+        await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file'], options['save']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {
@@ -267,14 +268,14 @@ if (cmd === 'get') {
         error(`Cannot convert to slow salvos (yet!)`);
     } else {
         let info = c.CHANNEL_INFO[newType];
-        let elbow = args[2];
+        let elbow = parseElbow(args[2]);
         let recipes = await loadRecipes();
         let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
-        let {recipe, time, elbow: newElbow} = salvoToChannel(info, recipes.channels[newType], elbow, salvo, dir as c.ShipDirection, options['depth'], options['beam'], options['destroy-elbow'] ? false : options['force-end-elbow'], options['min-elbow'], options['max-elbow']);
+        let {recipe, time, elbow: newElbow} = salvoToChannel(info, sortRecipes(recipes.channels[newType]), elbow, salvo, dir as c.ShipDirection, options['depth'], options['beam'], options['destroy-elbow'] ? false : options['force-end-elbow'], options['min-elbow'], options['max-elbow']);
         console.log(channelRecipeToString(info, recipe));
         console.log(`${recipe.length} gliders, ${time} generations long`);
         if (newElbow !== false) {
-            console.log(`End elbow is ${newElbow[0]}, moved by ${newElbow[1]}`);
+            console.log(`End elbow is ${newElbow[0].timingStr}, moved by ${newElbow[1]}`);
         }
     }
 } else if (cmd === 'merge') {
@@ -283,7 +284,7 @@ if (cmd === 'get') {
     }
     let info = c.CHANNEL_INFO[type];
     let recipes = args.map(x => parseChannelRecipe(info, x)[0]);
-    console.log(channelRecipeToString(info, mergeChannelRecipes(info, ...recipes)));
+    console.log(channelRecipeToString(info, mergeRecipes(info, ...recipes)));
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
 }
