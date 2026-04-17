@@ -241,7 +241,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                 p.yOffset = temp;
                 let objs = findOutcome(p, true);
                 if (typeof objs !== 'object') {
-                    console.error(`\x1b[91mThis message should not appear. Please report this to speedydelete. In checkElbow, when computing flippedResults, objs is ${objs} (for elbow ${elbow}).\x1b[0m`);
+                    console.error(`\x1b[91mThis message should not appear. Please report this to speedydelete. In checkElbow, when computing flippedResults, objs is ${objs} (for elbow ${elbow.timingStr}).\x1b[0m`);
                     return;
                 }
                 flippedResults.push(objs.filter(obj => obj.type === 'sl' || obj.type === 'osc').map(obj => {
