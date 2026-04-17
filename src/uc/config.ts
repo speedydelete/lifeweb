@@ -268,7 +268,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
     },
 
     'Single-channel (69)': {
-        aliases: ['sc61'],
+        aliases: ['sc69'],
         ship: SPACESHIPS['xq4_153'],
         channels: [0],
         period: 2,
