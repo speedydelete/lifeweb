@@ -98,11 +98,13 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
         let isSame = true;
         let results: CAObject[][] = [];
         let prevResult: string | null = null;
+        let found = false;
         for (let i = 0; i < 3; i++) {
             let p = runInjection(info, elbow, [[info.minSpacing + i * resultPeriod, 0]]);
             let objs = findOutcome(p, true);
             if (typeof objs !== 'object') {
-                return;
+                found = true;
+                break;
             }
             objs = objs.filter(x => x.type === 'sl' || x.type === 'osc').map(obj => {
                 if (obj.type === 'osc') {
@@ -124,6 +126,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                 isSame = false;
             }
             prevResult = strResult;
+        }
+        if (found) {
+            out.push({type: 'bad'});
+            continue;
         }
         if (!isSame) {
             results = results.map(x => x.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare));
@@ -234,7 +240,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
             }
             let flippedResults: CAObject[][] = [];
             for (let i = 0; i < 3; i++) {
-                let p = runInjection(info, elbow, [[info.minSpacing + timing + i * resultPeriod, 0]]);
+                let p = runInjection(info, elbow, [[info.minSpacing + i * resultPeriod, 0]]);
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -292,7 +298,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                     out.push({type: 'convert', elbow: str, flipped: false, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});
                     continue;
                 }
-                let p = createChannelPattern(info, {code: obj.code.slice(obj.code.indexOf('_') + 1), lane, timing: 0}, []).p;
+                let p = createChannelPattern(info, {code: obj.code, lane, timing: 0}, []).p;
                 p.flipDiagonal();
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
@@ -322,7 +328,17 @@ function addElbow(info: ChannelInfo, elbow: string | Elbow, data: RecipeData['ch
     if (elbow.str in data.elbows) {
         return;
     }
-    let result = checkElbow(info, data.elbows, elbow);
+    let result: ReturnType<typeof checkElbow>;
+    try {
+        result = checkElbow(info, data.elbows, elbow);
+    } catch (error) {
+        console.error(`Error while checking elbow '${elbow}':\n${error instanceof Error ? error.stack : String(error)}`);
+        let entry: ElbowData[string] = [];
+        for (let i = 0; i < elbow.period; i++) {
+            entry.push({type: 'bad'});
+        }
+        return {[elbow.str]: entry};
+    }
     if (!result) {
         let entry: ElbowData[string] = [];
         for (let i = 0; i < elbow.period; i++) {

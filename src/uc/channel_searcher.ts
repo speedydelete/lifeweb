@@ -1247,7 +1247,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
             try {
                 value = runStart(info, data.elbows, newElbows, state, maxSpacing);
             } catch (error) {
-                console.error(`Error while searching ${channelRecipeToString(info, state.recipe)}:`);
+                console.error(`Error while searching start '${channelRecipeToString(info, state.recipe)}'`);
                 throw error;
             }
             startsChecked++;
