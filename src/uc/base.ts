@@ -956,13 +956,14 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
             sections[key] = [];
         }
-        let scores: {[key: string]: number} = {};
+        let scoreSets: {[key: string]: Set<string>} = {};
         for (let recipe of Object.values(value.recipes)) {
+            let value = channelRecipeToString(info, recipe.recipe.filter(x => x[1] !== -2));
             if (recipe.end) {
-                if (recipe.end.str in scores) {
-                    scores[recipe.end.str]++;
+                if (recipe.end.str in scoreSets) {
+                    scoreSets[recipe.end.str].add(value);
                 } else {
-                    scores[recipe.end.str] = 1;
+                    scoreSets[recipe.end.str] = new Set(value);
                 }
             }
             let key: string;
@@ -999,7 +1000,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             sections[key].push(recipe);
         }
         out += `\n${type} elbow scores:\n\n`;
-        let sorted = Object.entries(scores).sort((a, b) => {
+        let sorted = Object.entries(scoreSets).map(x => [x[0], x[1].size] as [string, number]).sort((a, b) => {
             let value = b[1] - a[1];
             if (value === 0) {
                 return stableObjectApgcodeSorter(a[0], b[0]);
