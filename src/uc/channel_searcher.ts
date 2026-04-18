@@ -359,7 +359,7 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
             return false;
         }
     }
-    console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
+    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
     if (stables.length !== expected.stables.length || ships.length !== expected.ships.length) {
         return false;
     }
@@ -404,18 +404,18 @@ function isNextWorkingInput(cache: {[key: number]: boolean}, info: ChannelInfo, 
 }
 
 export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
-    console.log(recipe);
+    // console.log(recipe);
     let expecteds = getExpected(info, state.elbow, recipe, results);
-    let msg = '\x1b[92mexpecteds:';
-    for (let i = 0; i < expecteds.data.length; i++) {
-        let value = expecteds.data[i];
-        msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
-    }
-    msg += `\ntotal period: ${expecteds.period}`;
+    // let msg = '\x1b[92mexpecteds:';
+    // for (let i = 0; i < expecteds.data.length; i++) {
+    //     let value = expecteds.data[i];
+    //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
+    // }
+    // msg += `\ntotal period: ${expecteds.period}`;
     let cache: {[key: number]: boolean} = {};
     let prevI = 0;
     let i = info.initialBound;
-    console.log('\x1b[95mexponential search:\x1b[0m');
+    // console.log('\x1b[95mexponential search:\x1b[0m');
     while (true) {
         let value = info.minSpacing + i;
         if (value > info.maxNextSpacing) {
@@ -424,7 +424,7 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
         if (isNextWorkingInput(cache, info, state, value, expecteds) && isNextWorkingInput(cache, info, state, value + 1, expecteds) && isNextWorkingInput(cache, info, state, value + 2, expecteds) && isNextWorkingInput(cache, info, state, value + 3, expecteds)) {
             break;
         }
-        console.log(`\x1b[92mold: ${info.minSpacing + prevI} to ${value}, new: ${value} to ${info.minSpacing + i * 2}\x1b[0m`);
+        // console.log(`\x1b[92mold: ${info.minSpacing + prevI} to ${value}, new: ${value} to ${info.minSpacing + i * 2}\x1b[0m`);
         prevI = i;
         i *= 2;
     }

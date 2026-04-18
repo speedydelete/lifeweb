@@ -240,7 +240,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 14,
         maxNextSpacing: 512,
         initialBound: 16,
-        compatibleWith: ['Single-channel (15)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
+        compatibleWith: ['Single-channel (43)', 'Single-channel (15)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
     },
 
     'Single-channel (15)': {
@@ -250,6 +250,18 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         period: 2,
         minSpacings: [[15]],
         minSpacing: 15,
+        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (43)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
+    },
+
+    'Single-channel (43)': {
+        aliases: ['sc43'],
+        ship: SPACESHIPS['xq4_153'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[43]],
+        minSpacing: 43,
         maxNextSpacing: 512,
         initialBound: 16,
         compatibleWith: ['Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
