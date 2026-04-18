@@ -353,10 +353,36 @@ export function separateObjects(p: MAPPattern, sepGens: number, limit: number, c
 export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' | null {
     let maxGens = isElbow ? Math.max(maxGenerations, c.ELBOW_MAX_GENERATIONS) : maxGenerations;
     let pops: number[] = [p.population];
+    let prev1: {height: number, width: number, data: Uint8Array} | undefined = undefined;
+    let prev2: {height: number, width: number, data: Uint8Array} | undefined = undefined;
     for (let i = 0; i < maxGens; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let pop = p.population;
+        if (prev2 && pop === pops[pops.length - 2] && p.height === prev2.height && p.width === prev2.width) {
+            let found = false;
+            for (let i = 0; i < p.data.length; i++) {
+                if (p.data[i] !== prev2.data[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return 2;
+            }
+        }
+        if (prev1 && pop === pops[pops.length - 1] && p.height === prev1.height && p.width === prev1.width) {
+            let found = false;
+            for (let i = 0; i < p.data.length; i++) {
+                if (p.data[i] !== prev1.data[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return 1;
+            }
+        }
         // let limit = maxPeriodTable[i];
         // if (limit === undefined) {
         //     limit = Math.floor(maxGens / c.PERIOD_SECURITY);
@@ -387,6 +413,8 @@ export function stabilize(p: MAPPattern, isElbow?: boolean): number | 'linear' |
             }
         }
         pops.push(pop);
+        prev2 = prev1;
+        prev1 = {height: p.height, width: p.width, data: p.data};
     }
     return null;
 }
