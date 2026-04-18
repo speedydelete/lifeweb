@@ -47,8 +47,6 @@ Options:
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
 
     -f <path>, --file <path>: Provide an output file to append stdout to as well as putting it on the screen.
-
-    -s <dir>, --save <dir>: The directory to save progress to, only supported for channel searching currently.
     
     --force-end-elbow <elbow>: For convert, force an ending elbow.
 
@@ -69,7 +67,6 @@ const OPTIONS = {
     'depth': 'number',
     'beam': 'number',
     'file': 'string',
-    'save': 'string',
     'force-end-elbow': 'string',
     'destroy-elbow': true,
     'min-elbow': 'number',
@@ -88,7 +85,6 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'd': 'depth',
     'b': 'beam',
     'f': 'file',
-    's': 'save',
 };
 
 let argv = process.argv;
@@ -240,7 +236,7 @@ if (cmd === 'get') {
             await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
         }
     } else {
-        await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file'], options['save']);
+        await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file']);
     }
 } else if (cmd === 'convert') {
     if (type in c.CHANNEL_INFO) {

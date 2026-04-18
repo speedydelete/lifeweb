@@ -1,294 +1,8 @@
 
 import {lcm, MAPPattern, findType} from '../core/index.js';
 import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString} from './base.js';
-import {separateObjectsPartial, findOutcome} from './runner.js';
+import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
-
-
-export type GliderDirection = 'NW' | 'NE' | 'SW' | 'SE';
-
-// const GLIDERS_HORIZONTAL: {[key: number]: [GliderDirection, number]} = {
-//     0b110_101_100_000000: ['NW', 0],
-//     0b011_110_001_000000: ['NW', 3],
-//     0b111_100_010_000000: ['NW', 2],
-//     0b010_110_101_000000: ['NW', 1],
-//     0b010_100_111_000000: ['NE', 0],
-//     0b101_110_010_000000: ['NE', 3],
-//     0b100_101_110_000000: ['NE', 2],
-//     0b001_110_011_000000: ['NE', 1],
-//     0b111_001_010_000000: ['SW', 0],
-//     0b010_011_101_000000: ['SW', 3],
-//     0b011_101_001_000000: ['SW', 2],
-//     0b110_011_100_000000: ['SW', 1],
-//     0b001_101_011_000000: ['SE', 0],
-//     0b100_011_110_000000: ['SE', 3],
-//     0b010_001_111_000000: ['SE', 2],
-//     0b101_011_010_000000: ['SE', 1],
-// };
-
-// const GLIDERS_VERTICAL: {[key: number]: [GliderDirection, number]} = {
-//     0b111_100_010_000000: ['NW', 0],
-//     0b010_110_101_000000: ['NW', 3],
-//     0b110_101_100_000000: ['NW', 2],
-//     0b011_110_001_000000: ['NW', 1],
-//     0b011_101_001_000000: ['NE', 0],
-//     0b110_011_100_000000: ['NE', 3],
-//     0b111_001_010_000000: ['NE', 2],
-//     0b010_011_101_000000: ['NE', 1],
-//     0b100_101_110_000000: ['SW', 0],
-//     0b001_110_011_000000: ['SW', 3],
-//     0b010_100_111_000000: ['SW', 2],
-//     0b101_110_010_000000: ['SW', 1],
-//     0b010_001_111_000000: ['SE', 0],
-//     0b101_011_010_000000: ['SE', 3],
-//     0b001_101_011_000000: ['SE', 2],
-//     0b100_011_110_000000: ['SE', 1],
-// };
-
-// function extractGlider(p: MAPPattern, x: number, y: number, dir: GliderDirection): false | [MAPPattern, Spaceship] {
-//     let height = p.height;
-//     let width = p.width;
-//     let data = p.data;
-//     // we first check if every cell within 2 rows of the glider is empty
-//     if (x > 0) {
-//         // (-1, 0), (-1, 1), (-1, 2)
-//         if (data[y * width + x - 1] || data[(y + 1) * width + x - 1] || data[(y + 2) * width + x - 1]) {
-//             return false;
-//         }
-//         if (y > 0) {
-//             // (-1, -1)
-//             if (data[(y - 1) * width + x - 1]) {
-//                 return false;
-//             }
-//             // (-1, -2)
-//             if (y > 1 && data[(y - 2) * width + x - 1]) {
-//                 return false;
-//             }
-//         }
-//         if (x > 1) {
-//             // (-2, 0), (-2, 1), (-2, 2)
-//             if (data[y * width + x - 2] || data[(y + 1) * width + x - 2] || data[(y + 2) * width + x - 2]) {
-//                 return false;
-//             }
-//             if (y > 0) {
-//                 // (-2, -1)
-//                 if (data[(y - 1) * width + x - 2]) {
-//                     return false;
-//                 }
-//                 // (-2, -2)
-//                 if (y > 1 && data[(y - 2) * width + x - 2]) {
-//                     return false;
-//                 }
-//             }
-//         }
-//     }
-//     if (x < width - 3) {
-//         // (3, 0), (3, 1), (3, 2)
-//         if (data[y * width + x + 3] || data[(y + 1) * width + x + 3] || data[(y + 2) * width + x + 3]) {
-//             return false;
-//         }
-//         if (y > 0) {
-//             // (3, -1)
-//             if (data[(y - 1) * width + x + 3]) {
-//                 return false;
-//             }
-//             // (3, -2)
-//             if (y > 1 && data[(y - 2) * width + x + 3]) {
-//                 return false;
-//             }
-//         }
-//         if (x < width - 4) {
-//             // (4, 0), (4, 1), (4, 2)
-//             if (data[y * width + x + 4] || data[(y + 1) * width + x + 4] || data[(y + 2) * width + x + 4]) {
-//                 return false;
-//             }
-//             if (y > 0) {
-//                 // (4, -1)
-//                 if (data[(y - 1) * width + x - 2]) {
-//                     return false;
-//                 }
-//                 // (4, -2)
-//                 if (y > 1 && data[(y - 2) * width + x - 2]) {
-//                     return false;
-//                 }
-//             }
-//         }
-//     }
-//     if (y > 0) {
-//         // (-1, 0), (-1, 1), (-1, 2)
-//         if (data[(y - 1) * width + x] || data[(y - 1) * width + x + 1] || data[(y - 1) * width + x + 2]) {
-//             return false;
-//         }
-//         if (y > 1) {
-//             // (-2, 0), (-2, 1), (-2, 2)
-//             if (data[(y - 2) * width + x] || data[(y - 2) * width + x + 1] || data[(y - 2) * width + x + 2]) {
-//                 return false;
-//             }
-//         }
-//     }
-//     if (y < width - 3) {
-//         // (3, 0), (3, 1), (3, 2)
-//         if (data[(y + 3) * width + x] || data[(y + 3) * width + x + 1] || data[(y + 3) * width + x + 2]) {
-//             return false;
-//         }
-//         if (y < width - 4) {
-//             // (4, 0), (4, 1), (4, 2)
-//             if (data[(y + 4) * width + x] || data[(y + 4) * width + x + 1] || data[(y + 4) * width + x + 2]) {
-//                 return false;
-//             }
-//         }
-//     }
-//     // we now check if it has actually escaped
-//     // a pattern's bounding diamond is bounded by 4 slope-1 lines where they have points that are the min/max x + y (or  x - y) live cells
-//     // however we only need to check 1 of these to see if it has escaped
-//     // if it's more than 3 cells away from it, then it has in fact escaped, because nothing can travel faster than c/4d
-//     let q = p.copy();
-//     let glider = p.copyPart(x, y, 3, 3);
-//     glider.xOffset = 0;
-//     glider.yOffset = 0;
-//     q.insertXor(glider, x, y);
-//     q.shrinkToFit();
-//     height = q.height;
-//     width = q.width;
-//     data = q.data;
-//     if (dir === 'NW') {
-//         let gliderPoint = (x + 6) + (y + 6);
-//         let found = false;
-//         for (let i = 0; i < width; i++) {
-//             let x = i;
-//             let y = 0;
-//             for (let j = 0; j <= i; j++) {
-//                 y++
-//                 x--;
-//                 if (data[y * width + x]) {
-//                     if (gliderPoint >= x + y) {
-//                         return false;
-//                     }
-//                     found = true;
-//                     break;
-//                 }
-//             }
-//             if (found) {
-//                 break;
-//             }
-//         }
-//     } else if (dir === 'SW') {
-//         let gliderPoint = (x - 3) + (y - 3);
-//         let found = false;
-//         for (let i = height - 1; i >= 0; i--) {
-//             let x = width - 1;
-//             let y = i;
-//             for (let j = 0; j <= i; j++) {
-//                 y++;
-//                 x--;
-//                 if (data[y * width + x]) {
-//                     if (gliderPoint <= x + y) {
-//                         return false;
-//                     }
-//                     found = true;
-//                     break;
-//                 }
-//             }
-//             if (found) {
-//                 break;
-//             }
-//         }
-//     }
-// }
-
-// function removeEscapedGlider(p: MAPPattern): false | [MAPPattern, Spaceship] {
-//     let height = p.height;
-//     let width = p.width;
-//     let width2 = width * 2;
-//     let data = p.data;
-//     // top and bottom
-//     let tr1 = 0;
-//     let tr2 = 0;
-//     let i = 0;
-//     let j = p.size - width;
-//     while (i < 5) {
-//         tr1 = (tr1 << 3) | (data[i] << 2) | (data[i + width] << 1) | (data[i + width2] << 1);
-//         tr2 = (tr2 << 3) | (data[j - width2] << 2) | (data[j - width] << 1) | (data[j] << 1);
-//         i++;
-//         j++;
-//     }
-//     if (tr1 in GLIDERS_HORIZONTAL) {
-//         return extractGlider(p, 0, 0, GLIDERS_HORIZONTAL[tr1][0]);
-//     }
-//     if (tr2 in GLIDERS_HORIZONTAL) {
-//         return extractGlider(p, 0, height - 3, GLIDERS_HORIZONTAL[tr2][0]);
-//     }
-//     while (i < width - 5) {
-//         tr1 = ((tr1 << 3) & 32767) | (data[i] << 2) | (data[i + width] << 1) | (data[i + width2] << 1);
-//         tr2 = (tr2 << 3) | (data[j - width2] << 2) | (data[j - width] << 1) | (data[j] << 1);
-//         if (tr1 in GLIDERS_HORIZONTAL) {
-//             return extractGlider(p, i - 4, 0, GLIDERS_HORIZONTAL[tr1][0]);
-//         }
-//         if (tr2 in GLIDERS_HORIZONTAL) {
-//             return extractGlider(p, j - 4, height - 3, GLIDERS_HORIZONTAL[tr2][0]);
-//         }
-//         i++;
-//         j++;
-//     }
-//     while (i < width) {
-//         tr1 = ((tr1 << 3) & 32767);
-//         tr2 = ((tr2 << 3) & 32767);
-//         if (tr1 in GLIDERS_HORIZONTAL) {
-//             return extractGlider(p, i - 4, 0, GLIDERS_HORIZONTAL[tr1][0]);
-//         }
-//         if (tr2 in GLIDERS_HORIZONTAL) {
-//             return extractGlider(p, j - 4, height - 3, GLIDERS_HORIZONTAL[tr2][0]);
-//         }
-//         i++;
-//         j++;
-//     }
-//     // left and right
-//     tr1 = 0;
-//     tr2 = 0;
-//     let y = 0;
-//     i = 0;
-//     j = width - 1;
-//     while (y < 5) {
-//         tr1 = (tr1 << 3) | (data[i] << 2) | (data[i + 1] << 2) | data[i + 2];
-//         tr2 = (tr2 << 3) | (data[j - 2] << 2) | (data[j - 1] << 2) | data[j];
-//         y++;
-//         i += width;
-//         j += width;
-//     }
-//     if (tr1 in GLIDERS_VERTICAL) {
-//         return extractGlider(p, 0, 0, GLIDERS_VERTICAL[tr1][0]);
-//     }
-//     if (tr2 in GLIDERS_VERTICAL) {
-//         return extractGlider(p, width - 3, 0, GLIDERS_VERTICAL[tr2][0]);
-//     }
-//     while (y < height - 5) {
-//         tr1 = ((tr1 << 3) & 32767) | (data[i] << 2) | (data[i + 1] << 2) | data[i + 2];
-//         tr2 = ((tr1 << 3) & 32767) | (data[j - 2] << 2) | (data[j - 1] << 2) | data[j];
-//         if (tr1 in GLIDERS_VERTICAL) {
-//             return extractGlider(p, 0, y - 4, GLIDERS_VERTICAL[tr1][0]);
-//         }
-//         if (tr2 in GLIDERS_VERTICAL) {
-//             return extractGlider(p, width - 3, y - 4, GLIDERS_VERTICAL[tr2][0]);
-//         }
-//         y++;
-//         i += width;
-//         j += width;
-//     }
-//     while (y < height) {
-//         tr1 = ((tr1 << 3) & 32767);
-//         tr2 = ((tr1 << 3) & 32767);
-//         if (tr1 in GLIDERS_VERTICAL) {
-//             return extractGlider(p, 0, y - 4, GLIDERS_VERTICAL[tr1][0]);
-//         }
-//         if (tr2 in GLIDERS_VERTICAL) {
-//             return extractGlider(p, width - 3, y - 4, GLIDERS_VERTICAL[tr2][0]);
-//         }
-//         y++;
-//         i += width;
-//         j += width;
-//     }
-//     return false;
-// }
 
 
 export function runInjection(info: ChannelInfo, elbow: Elbow, recipe: [number, number][], override?: [MAPPattern, number], doFinal: boolean = true): MAPPattern {
@@ -557,7 +271,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
                     out.stables.push(obj);
                 } else if (obj.type === 'ship') {
                     out.period = lcm(out.period, c.SPACESHIPS[obj.code].popPeriod);
-                    out.ships.push(getShipInfo(info, obj));
+                    out.ships.push(getShipInfo(obj));
                 } else {
                     console.log(obj);
                     throw new Error(`This error should not occur (invalid object for getting expected), please report this to speedydelete (also some debug information got printed above, send that too)`);
@@ -615,7 +329,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
     return out;
 }
 
-function checkNextWorkingInput(info: ChannelInfo, state: RunState, expected: ExpectedResult['data'][number]): boolean {
+function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data'][number]): boolean {
     let p = state.p;
     if (expected.period > 1) {
         let prevPop = p.population;
@@ -640,12 +354,12 @@ function checkNextWorkingInput(info: ChannelInfo, state: RunState, expected: Exp
         } else if (obj.type === 'osc') {
             stables.push(normalizeOscillator(obj));
         } else if (obj.type === 'ship') {
-            ships.push(getShipInfo(info, obj));
+            ships.push(getShipInfo(obj));
         } else {
             return false;
         }
     }
-    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
+    console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
     if (stables.length !== expected.stables.length || ships.length !== expected.ships.length) {
         return false;
     }
@@ -669,9 +383,9 @@ function isNextWorkingInput(cache: {[key: number]: boolean}, info: ChannelInfo, 
     state = runState(info, state, next, 0, false, true);
     let out: boolean;
     if (expecteds.offsets.size === 1) {
-        out = checkNextWorkingInput(info, state, expecteds.data[(next + Array.from(expecteds.offsets)[0]) % expecteds.data.length]);
+        out = checkNextWorkingInput(state, expecteds.data[(next + Array.from(expecteds.offsets)[0]) % expecteds.data.length]);
     } else {
-        let data = expecteds.data.map(x => checkNextWorkingInput(info, state, x));
+        let data = expecteds.data.map(x => checkNextWorkingInput(state, x));
         if (data.every(x => x === false)) {
             out = false;
         } else {
@@ -690,18 +404,18 @@ function isNextWorkingInput(cache: {[key: number]: boolean}, info: ChannelInfo, 
 }
 
 export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
-    // console.log(recipe);
+    console.log(recipe);
     let expecteds = getExpected(info, state.elbow, recipe, results);
-    // let msg = '\x1b[92mexpecteds:';
-    // for (let i = 0; i < expecteds.data.length; i++) {
-    //     let value = expecteds.data[i];
-    //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
-    // }
-    // msg += `\ntotal period: ${expecteds.period}`;
+    let msg = '\x1b[92mexpecteds:';
+    for (let i = 0; i < expecteds.data.length; i++) {
+        let value = expecteds.data[i];
+        msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
+    }
+    msg += `\ntotal period: ${expecteds.period}`;
     let cache: {[key: number]: boolean} = {};
     let prevI = 0;
     let i = info.initialBound;
-    // console.log('\x1b[95mexponential search:\x1b[0m');
+    console.log('\x1b[95mexponential search:\x1b[0m');
     while (true) {
         let value = info.minSpacing + i;
         if (value > info.maxNextSpacing) {
@@ -710,7 +424,7 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
         if (isNextWorkingInput(cache, info, state, value, expecteds) && isNextWorkingInput(cache, info, state, value + 1, expecteds) && isNextWorkingInput(cache, info, state, value + 2, expecteds) && isNextWorkingInput(cache, info, state, value + 3, expecteds)) {
             break;
         }
-        // console.log(`\x1b[92mold: ${info.minSpacing + prevI} to ${value}, new: ${value} to ${info.minSpacing + i * 2}\x1b[0m`);
+        console.log(`\x1b[92mold: ${info.minSpacing + prevI} to ${value}, new: ${value} to ${info.minSpacing + i * 2}\x1b[0m`);
         prevI = i;
         i *= 2;
     }
@@ -948,7 +662,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 so2 = value;
             }
         } else if (obj.type === 'ship') {
-            let ship = getShipInfo(info, obj);
+            let ship = getShipInfo(obj);
             if (emit) {
                 let dir = ship.dir;
                 if (dir.endsWith('2')) {
@@ -1069,9 +783,9 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             timings.push(timing);
         }
         // if (state.recipe.length === 0) {
-        //     timings = [17];
+        //     timings = [28];
         // } else if (state.recipe.length === 1) {
-        //     timings = [19];
+        //     timings = [71];
         // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));

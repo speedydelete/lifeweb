@@ -267,6 +267,18 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         compatibleWith: ['Single-channel (syringe)', 'Single-channel (90)'],
     },
 
+    'Single-channel (69)': {
+        aliases: ['sc69'],
+        ship: SPACESHIPS['xq4_153'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[69]],
+        minSpacing: 69,
+        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (syringe)', 'Single-channel (90)'],
+    },
+
     'Single-channel (syringe)': {
         aliases: ['sc78'],
         ship: SPACESHIPS['xq4_153'],
@@ -346,11 +358,11 @@ const MAX_PSEUDO_DISTANCE = 12;
 // maximum number of generations for running (should be high but not infinite)
 const MAX_CHANNEL_RUN_GENERATIONS = 1024;
 // the created object population limit
-const CREATE_SIZE_LIMIT = 16;
+const CREATE_SIZE_LIMIT = 12;
 // overrides for the created object limit
 const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 // the elbow population limit
-const ELBOW_SIZE_LIMIT = 16;
+const ELBOW_SIZE_LIMIT = 12;
 // overrides for the elbow size limit
 const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 
