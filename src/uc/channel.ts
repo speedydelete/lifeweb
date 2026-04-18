@@ -336,7 +336,7 @@ function addElbow(info: ChannelInfo, elbow: string | Elbow, data: RecipeData['ch
     try {
         result = checkElbow(info, data.elbows, elbow);
     } catch (error) {
-        console.error(`Error while checking elbow '${elbow}':\n${error instanceof Error ? error.stack : String(error)}`);
+        console.error(`Error while checking elbow '${elbow.timingStr}':\n${error instanceof Error ? error.stack : String(error)}`);
         let entry: ElbowData[string] = [];
         for (let i = 0; i < elbow.period; i++) {
             entry.push({type: 'bad'});
