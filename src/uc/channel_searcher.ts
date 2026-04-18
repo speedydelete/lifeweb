@@ -655,7 +655,7 @@ function checkNextWorkingInput(info: ChannelInfo, state: RunState, expected: Exp
         }
     }
     for (let a of expected.ships) {
-        if (!ships.some(b => a.dir === b.dir && a.lane === b.lane)) {
+        if (!ships.some(b => a.code === b.code && a.dir === b.dir && a.lane === b.lane)) {
             return false;
         }
     }
@@ -785,7 +785,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
         return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
     }
     if (!(recipe.end.str in elbows)) {
-        return {recipes: [recipe], possibleUseful: ''};
+        return {recipes: [recipe], possibleUseful: getStringRecipe(info, recipe)};
     }
     let outcomes = elbows[recipe.end.str];
     let out: ChannelRecipe[] = [];
