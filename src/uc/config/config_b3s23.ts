@@ -240,7 +240,7 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         minSpacing: 14,
         maxNextSpacing: 512,
         initialBound: 16,
-        compatibleWith: ['Single-channel (15)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
+        compatibleWith: ['Single-channel (43)', 'Single-channel (15)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
     },
 
     'Single-channel (15)': {
@@ -250,6 +250,18 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         period: 2,
         minSpacings: [[15]],
         minSpacing: 15,
+        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: ['Single-channel (43)', 'Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
+    },
+
+    'Single-channel (43)': {
+        aliases: ['sc43'],
+        ship: SPACESHIPS['xq4_153'],
+        channels: [0],
+        period: 2,
+        minSpacings: [[43]],
+        minSpacing: 43,
         maxNextSpacing: 512,
         initialBound: 16,
         compatibleWith: ['Single-channel (61)', 'Single-channel (syringe)', 'Single-channel (90)'],
@@ -358,11 +370,11 @@ const MAX_PSEUDO_DISTANCE = 12;
 // maximum number of generations for running (should be high but not infinite)
 const MAX_CHANNEL_RUN_GENERATIONS = 1024;
 // the created object population limit
-const CREATE_SIZE_LIMIT = 12;
+const CREATE_SIZE_LIMIT = 16;
 // overrides for the created object limit
 const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 // the elbow population limit
-const ELBOW_SIZE_LIMIT = 12;
+const ELBOW_SIZE_LIMIT = 16;
 // overrides for the elbow size limit
 const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 
