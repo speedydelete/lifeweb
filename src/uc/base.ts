@@ -504,10 +504,8 @@ export function getShipInfo(obj: Spaceship): ShipInfo {
     let lane: number;
     if ((obj.dir.startsWith('N') && !obj.dir.startsWith('NE')) || (obj.dir.startsWith('S') && !obj.dir.startsWith('SW'))) {
         lane = obj.x - (obj.y * slope);
-        console.log(obj.code, obj.dir, obj.x, obj.y, slope, 1, lane);
     } else {
         lane = (obj.x * slope) + obj.y;
-        console.log(obj.code, obj.dir, obj.x, obj.y, slope, 2, lane);
     }
     return {code: obj.code, dir: obj.dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % parseInt(obj.code.slice(2))};
 }
