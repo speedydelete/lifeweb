@@ -958,12 +958,12 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         }
         let scoreSets: {[key: string]: Set<string>} = {};
         for (let recipe of Object.values(value.recipes)) {
-            let value = channelRecipeToString(info, recipe.recipe.filter(x => x[1] !== -2));
             if (recipe.end) {
+                let value = channelRecipeToString(info, recipe.recipe.filter(x => x[1] !== -2));
                 if (recipe.end.str in scoreSets) {
                     scoreSets[recipe.end.str].add(value);
                 } else {
-                    scoreSets[recipe.end.str] = new Set(value);
+                    scoreSets[recipe.end.str] = new Set([value]);
                 }
             }
             let key: string;
