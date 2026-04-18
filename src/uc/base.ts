@@ -166,14 +166,10 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
     if (info.channels.length === 1) {
         return data.map(x => {
             let out: string;
-            if (x[1] >= 0) {
-                out = String(x[0]);
-            } else if (x[1] === -1) {
-                out = `(${x[0]})`;
-            } else if (x[1] === -2) {
+            if (x[1] === -2) {
                 out = `+${x[0]}`;
             } else {
-                throw new Error(`Invalid recipe: ${JSON.stringify(data)}`);
+                out = String(x[0]);
             }
             if (x[2] > 0) {
                 if (x[2] > 1) {
@@ -182,29 +178,31 @@ export function channelRecipeToString(info: c.ChannelInfo, data: [number, number
                     out += '+n';
                 }
             }
+            if (x[1] === -1) {
+                out = '(' + out + ')';
+            }
             return out;
         }).join(', ');
     } else {
         return data.map(x => {
             let out: string;
-            if (x[1] >= 0) {
+            if (x[1] === -2) {
+                out = `+${x[0]}`;
+            } else {
                 if (x[0] === -1) {
                     out = LETTERS[x[1]];
                 } else {
                     out = x[0] + LETTERS[x[1]];
                 }
-            } else if (x[1] === -1) {
-                out = `(${x[0]})`;
-            } else if (x[1] === -2) {
-                out = `+${x[0]}`;
-            } else {
-                throw new Error(`Invalid recipe: ${JSON.stringify(data)}`);
             }
             if (x[2] > 0) {
                 if (x[2] > 1) {
                     out += `+(${x[2]})`;
                 }
                 out += '+';
+            }
+            if (x[1] === -1) {
+                out = '(' + out + ')';
             }
             return out;
         }).join(', ');
