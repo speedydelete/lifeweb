@@ -580,9 +580,6 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
             out.push(recipe2);
             possibleUseful += getStringRecipe(info, recipe2);
         } else {
-            if (isTooBig(elbow.elbow, c.ELBOW_SIZE_LIMIT, c.ELBOW_SIZE_LIMIT_OVERRIDES)) {
-                continue;
-            }
             let data = parseElbow(elbow.elbow);
             recipe2.end = Object.assign(data, {
                 timing: recipe2.end.timing + elbow.timing,

@@ -6,7 +6,7 @@ import {lcm, MAPPattern} from '../core/index.js';
 import {c, ChannelInfo, maxGenerations, redraw, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
-import {runInjection, StrRunState, createState, getStringRecipe, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
+import {runInjection, StrRunState, createState, getStringRecipe, isTooBig, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
 
 
 /** Turns a single-channel sequence into a `Pattern`. */
@@ -290,6 +290,10 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                 let obj = filtered[0];
                 if (obj.type === 'osc') {
                     obj = normalizeOscillator(obj, false);
+                }
+                if (isTooBig(obj.code, c.ELBOW_SIZE_LIMIT, c.ELBOW_SIZE_LIMIT_OVERRIDES)) {
+                    out.push({type: 'bad'});
+                    continue;
                 }
                 let lane = Math.floor(obj.y * info.ship.slope) - obj.x + elbow.lane;
                 let spacing = Math.floor(obj.x * info.ship.slope) + obj.y;
