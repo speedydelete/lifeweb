@@ -359,7 +359,7 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
             return false;
         }
     }
-    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
+    // console.log(`\x1b[94mgot:\n    stables: ${objectsToString(stables)}\n    ships: ${ships.map(x => `${x.dir} ${x.code} lane ${x.lane} timing ${x.timing}`).join(', ')}\x1b[0m`);
     if (stables.length !== expected.stables.length || ships.length !== expected.ships.length) {
         return false;
     }
@@ -409,9 +409,10 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
     // let msg = '\x1b[92mexpecteds:';
     // for (let i = 0; i < expecteds.data.length; i++) {
     //     let value = expecteds.data[i];
-    //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
+    //     msg += `\n    ${i}:\n        stables: ${objectsToString(value.stables)}\n        ships: ${value.ships.map(x => `${x.dir} ${x.code} lane ${x.lane} timing ${x.timing}`).join(', ')}`;
     // }
     // msg += `\ntotal period: ${expecteds.period}`;
+    // console.log(msg);
     let cache: {[key: number]: boolean} = {};
     let prevI = 0;
     let i = info.initialBound;
@@ -440,7 +441,7 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
         } else {
             low = mid + 1;
         }
-        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}: ${isNextWorkingInput(cache, info, state, mid, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 1, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 2, expecteds)} ${isNextWorkingInput(cache, info, state, mid + 3, expecteds)}\x1b[0m`);
+        // console.log(`\x1b[92mold: ${oldLow} to ${oldHigh}, mid = ${mid}, new: ${low} to ${high}: ${isNextWorkingInput(cache, info, state, mid, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 1, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 2, expecteds)}, ${isNextWorkingInput(cache, info, state, mid + 3, expecteds)}\x1b[0m`);
     }
     if (low >= info.maxNextSpacing) {
         if (!recipe.create) {
@@ -783,9 +784,9 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             timings.push(timing);
         }
         // if (state.recipe.length === 0) {
-        //     timings = [28];
+        //     timings = [51];
         // } else if (state.recipe.length === 1) {
-        //     timings = [71];
+        //     timings = [18];
         // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));

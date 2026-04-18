@@ -273,7 +273,7 @@ export function normalizeOscillator(obj: Oscillator, modTiming: boolean = true):
     let timing = 0;
     let xOffset = p.xOffset;
     let yOffset = p.yOffset;
-    for (let i = 0; i < obj.period; i++) {
+    for (let i = 1; i < obj.period; i++) {
         p.runGeneration();
         p.shrinkToFit();
         let code = p.toApgcode();
@@ -281,7 +281,7 @@ export function normalizeOscillator(obj: Oscillator, modTiming: boolean = true):
             newCode = code;
             xOffset = p.xOffset;
             yOffset = p.yOffset;
-            timing = i + 1;
+            timing = i;
         }
     }
     timing += obj.timing;
@@ -858,6 +858,40 @@ function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, numb
     return out;
 }
 
+export function stableObjectApgcodeSorter(x: string, y: string): number {
+    if (x.startsWith('xs')) {
+        if (y.startsWith('xs')) {
+            let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
+            if (value !== 0) {
+                return value;
+            } else if (x < y) {
+                return -1;
+            } else if (x > y) {
+                return 1;
+            } else {
+                return 0;
+            }
+        } else {
+            return -1;
+        }
+    } else {
+        if (y.startsWith('xs')) {
+            return 1;
+        } else {
+            let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
+            if (value !== 0) {
+                return value;
+            } else if (x < y) {
+                return -1;
+            } else if (x > y) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    }
+}
+
 /** Saves to the recipe file. */
 export async function saveRecipes(recipeData: RecipeData): Promise<void> {
     let out = '';
@@ -887,40 +921,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 elbowGroups[code] = [[obj, parseInt(lane), data]];
             }
         }
-        let entries = Object.entries(elbowGroups).sort(([x], [y]) => {
-            if (x.startsWith('xs')) {
-                if (y.startsWith('xs')) {
-                    let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
-                    if (value !== 0) {
-                        return value;
-                    } else if (x < y) {
-                        return -1;
-                    } else if (x > y) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                } else {
-                    return -1;
-                }
-            } else {
-                if (y.startsWith('xs')) {
-                    return 1;
-                } else {
-                    let value = parseInt(x.slice(2)) - parseInt(y.slice(2));
-                    if (value !== 0) {
-                        return value;
-                    } else if (x < y) {
-                        return -1;
-                    } else if (x > y) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-            }
-        });
-        for (let [_, data] of entries) {
+        for (let [_, data] of Object.entries(elbowGroups).sort((a, b) => stableObjectApgcodeSorter(a[0], b[0]))) {
             data = data.sort((a, b) => a[1] - b[1]);
             for (let [key, _, value] of data) {
                 let strs: string[] = [];
@@ -957,7 +958,15 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
             sections[key] = [];
         }
+        let scores: {[key: string]: number} = {};
         for (let recipe of Object.values(value.recipes)) {
+            if (recipe.end) {
+                if (recipe.end.str in scores) {
+                    scores[recipe.end.str]++;
+                } else {
+                    scores[recipe.end.str] = 1;
+                }
+            }
             let key: string;
             if (!recipe.emit && !recipe.create) {
                 if (recipe.end) {
@@ -991,6 +1000,26 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
             }
             sections[key].push(recipe);
         }
+        out += `\n${type} elbow scores:\n\n`;
+        let sorted = Object.entries(scores).sort((a, b) => {
+            let value = b[1] - a[1];
+            if (value === 0) {
+                return stableObjectApgcodeSorter(a[0], b[0]);
+            } else {
+                return value;
+            }
+        });
+        if (sorted.length > 0) {
+            let prevScore = sorted[0][1];
+            for (let [elbow, score] of sorted) {
+                if (score !== prevScore) {
+                    out += '\n';
+                }
+                out += `${elbow}: ${score}\n`;
+                prevScore = score;
+            }
+            out += '\n';
+        }
         for (let key of CHANNEL_RECIPE_SECTION_NAMES) {
             out += `\n${type} ${key} recipes:\n\n`;
             let groups: {[key: string]: ChannelRecipe[]} = {};
@@ -1001,19 +1030,8 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                     groups[recipe.start] = [recipe];
                 }
             }
-            for (let recipes of Object.values(groups)) {
-                let groups: {[key: string]: string[]} = {};
-                for (let recipe of recipes) {
-                    let str = channelRecipeInfoToString(recipe) + ': ' + channelRecipeToString(info, recipe.recipe) + '\n';
-                    if (recipe.start in groups) {
-                        groups[recipe.start].push(str);
-                    } else {
-                        groups[recipe.start] = [str];
-                    }
-                }
-                for (let key of Object.keys(groups).sort(numericSorter)) {
-                    out += groups[key].sort(numericSorter).join('') + '\n';
-                }
+            for (let [_, recipes] of Object.entries(groups).sort((a, b) => numericSorter(a[0], b[0]))) {
+                out += recipes.map(x => channelRecipeInfoToString(x) + ': ' + channelRecipeToString(info, x.recipe) + '\n').sort(numericSorter).join('') + '\n';
             }
         }
     }

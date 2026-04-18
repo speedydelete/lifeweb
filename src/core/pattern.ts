@@ -1157,9 +1157,27 @@ export abstract class DataPattern implements Pattern {
 
     _loadApgcode(code: string): [number, number, Uint8Array] {
         if (this.states === 2) {
+            let strips: string[] = [];
+            if (code.includes('yz')) {
+                let prev = '';
+                let current = '';
+                for (let char of code) {
+                    if (char === 'z' && prev !== 'y') {
+                        strips.push(current);
+                        current = '';
+                        prev = char;
+                        continue;
+                    }
+                    current += char;
+                    prev = char;
+                }
+                strips.push(current);
+            } else {
+                strips = code.split('z');
+            }
             let data: number[][] = [];
             let width = 0;
-            for (let strip of code.split('z')) {
+            for (let strip of strips) {
                 let stripData: number[] = [];
                 for (let i = 0; i < strip.length; i++) {
                     let char = strip[i];
@@ -1189,12 +1207,12 @@ export abstract class DataPattern implements Pattern {
             let out = new Uint8Array(height * width);
             for (let y = 0; y < data.length; y++) {
                 let loc = width * y * 5;
-                for (let part of data[y]) {
-                    out[loc] = part & 1;
-                    out[loc + width] = (part >> 1) & 1;
-                    out[loc + 2 * width] = (part >> 2) & 1;
-                    out[loc + 3 * width] = (part >> 3) & 1;
-                    out[loc + 4 * width] = (part >> 4) & 1;
+                for (let value of data[y]) {
+                    out[loc] = value & 1;
+                    out[loc + width] = (value >> 1) & 1;
+                    out[loc + 2 * width] = (value >> 2) & 1;
+                    out[loc + 3 * width] = (value >> 3) & 1;
+                    out[loc + 4 * width] = (value >> 4) & 1;
                     loc++;
                 }
             }
