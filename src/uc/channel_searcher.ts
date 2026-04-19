@@ -403,7 +403,7 @@ function isNextWorkingInput(cache: {[key: number]: boolean}, info: ChannelInfo, 
     return out;
 }
 
-export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | number {
+export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): false | 'none' | number {
     // console.log(recipe);
     let expecteds = getExpected(info, state.elbow, recipe, results);
     // let msg = '\x1b[92mexpecteds:';
@@ -446,6 +446,9 @@ export function findNextWorkingInput(info: ChannelInfo, state: RunState, recipe:
     if (low >= info.maxNextSpacing) {
         if (!recipe.create) {
             console.error(`\x1b[91mUnable to find next possible glider spacing: ${channelRecipeToString(info, recipe.recipe)}\x1b[0m`);
+        }
+        if (recipe.emit && recipe.emit.some(x => (info.ship.slope === 1 ? x.dir === 'NW' : x.dir === 'N'))) {
+            return 'none';
         }
         return false;
     }
@@ -758,11 +761,13 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     }
     let out: ChannelRecipe = {start: state.elbow.str, recipe: state.recipe.slice(), time: state.time, end, create, emit};
     let next = findNextWorkingInput(info, state, out, endResult);
-    if (next !== false) {
+    if (typeof next === 'number') {
         out.recipe.push([next, -1, 1]);
         out.time += next;
         let {recipes} = resolveElbow(info, elbows, out);
         return {state, outcome, recipes};
+    } else if (next === 'none') {
+        return {state, outcome, recipes: [out]};
     } else {
         return {state, outcome, possibleUseful: `probably broken ${channelRecipeInfoToString(out)}: ${channelRecipeToString(info, state.recipe)}\n`};
     }
