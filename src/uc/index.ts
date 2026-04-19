@@ -346,6 +346,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
                 delete value.recipes[key];
             }
         }
+        await saveRecipes(recipes);
     },
 
 };
