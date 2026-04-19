@@ -529,7 +529,8 @@ export type ElbowData = {[key: string]: (
     {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number, emit?: ShipInfo[]} |
     {type: 'destroy', emit?: ShipInfo[]} |
     {type: 'no collision'} |
-    {type: 'bad'}
+    {type: 'bad'} | 
+    {type: 'rare'}
 )[]};
 
 export interface Elbow {
@@ -709,12 +710,24 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 let [elbow, fullData] = line.split(': ');
                 let value: ElbowData[string] = [];
                 for (let data of fullData.split(' | ')) {
-                    if (data === 'destroy') {
-                        value.push({type: 'destroy'});
-                    } else if (data === 'bad') {
-                        value.push({type: 'bad'});
-                    } else if (data === 'no collision') {
-                        value.push({type: 'no collision'});
+                    if (data === 'bad' || data === 'no collision' || data === 'rare') {
+                        value.push({type: data});
+                    } else if (data.startsWith('destroy ')) {
+                        let emit: ShipInfo[] | undefined = undefined;
+                        let parts = data.split(' ');
+                        if (parts[1] === 'emit') {
+                            parts = parts.slice(2);
+                            emit = [];
+                            while (parts[0] === 'emit') {
+                                let code = data[1];
+                                let dir = data[2] as c.ShipDirection;
+                                let lane = parseInt(data[4]);
+                                let timing = parseInt(data[6]);
+                                emit.push({code, dir, lane, timing});
+                                data = data.slice(7);
+                            }
+                        }
+                        value.push({type: 'destroy', emit});
                     } else if (data.startsWith('-> ') || data.startsWith('= ')) {
                         let parts = data.split(' ');
                         let type = parts[0];
@@ -949,10 +962,8 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                             }
                         }
                         strs.push(str);
-                    } else if (x.type === 'no collision') {
-                        strs.push('no collision');
                     } else {
-                        strs.push('bad');
+                        strs.push(x.type);
                     }
                 }
                 out += `${key}: ${strs.join(' | ')}\n`;

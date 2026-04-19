@@ -26,11 +26,18 @@ Usage: ./uc <command> [options]
 Search program and utility for universal construction in cellular automata.
 
 Subcommands:
+
     get <type> <recipe>: Turns a list of lanes/timing gaps into a RLE.
+
     from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
+
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
+
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
-    merge <path/to/file>: Merge recipes from another file.
+
+    merge <file>: Merge recipes from another file.
+
+    purge_elbows <type> <limit>: Purge elbows whose score is less than the given number.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -299,6 +306,46 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
         let file = (await fs.readFile(args.join(' '))).toString();
         recipes = addRecipeFile(recipes, file);
         await saveRecipes(recipes);
+    },
+
+    async 'purge_elbows'(): Promise<void> {
+        if (!(type in c.CHANNEL_INFO)) {
+            error(`Type must be channel`);
+        }
+        let limit = parseInt(args[0]);
+        if (Number.isNaN(limit)) {
+            error(`Invalid number: '${args[0]}'`);
+        }
+        let recipes = await loadRecipes();
+        let info = c.CHANNEL_INFO[type];
+        let value = recipes.channels[type];
+        let scoreSets: {[key: string]: Set<string>} = {};
+        for (let recipe of Object.values(value.recipes)) {
+            if (recipe.end) {
+                let value = channelRecipeToString(info, recipe.recipe.filter(x => x[1] !== -2));
+                if (recipe.end.str in scoreSets) {
+                    scoreSets[recipe.end.str].add(value);
+                } else {
+                    scoreSets[recipe.end.str] = new Set([value]);
+                }
+            }
+        }
+        let scores = Object.entries(scoreSets).map(x => [x[0], x[1].size] as [string, number]);
+        let rareElbows = scores.filter(x => x[1] >= limit).map(x => x[0]);
+        for (let [elbow, data] of Object.entries(value.elbows)) {
+            if (rareElbows.includes(elbow)) {
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i].type === 'normal') {
+                        data[i] = {type: 'rare'};
+                    }
+                }
+            }
+        }
+        for (let [key, recipe] of Object.entries(value.recipes)) {
+            if (recipe.end && rareElbows.includes(recipe.end.str)) {
+                delete value.recipes[key];
+            }
+        }
     },
 
 };

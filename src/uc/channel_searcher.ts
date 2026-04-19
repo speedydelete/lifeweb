@@ -508,7 +508,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
     // console.log(`resolving ${recipe.end.elbow}: ${outcomes.map(x => x.type).join(', ')}`);
     for (let i = 0; i < outcomes.length; i++) {
         let elbow = outcomes[i];
-        if (elbow.type === 'bad') {
+        if (elbow.type === 'bad' || elbow.type === 'rare') {
             continue;
         }
         if (elbow.type === 'normal') {
