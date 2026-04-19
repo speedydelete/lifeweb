@@ -372,11 +372,11 @@ const MAX_CHANNEL_RUN_GENERATIONS = 1024;
 // the created object population limit
 const CREATE_SIZE_LIMIT = 12;
 // overrides for the created object limit
-const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121', 'xs18_696z0gw2552z343', 'xs18_2552wgw2552zy1343', 'xs18_y1696z2552wgzy1343', 'xs18_y1696z2552y12552'];
 // the elbow population limit
 const ELBOW_SIZE_LIMIT = 12;
 // overrides for the elbow size limit
-const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
+const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121', 'xs18_696z0gw2552z343', 'xs18_2552wgw2552zy1343', 'xs18_y1696z2552wgzy1343', 'xs18_y1696z2552y12552'];
 // update interval (ms)
 const UPDATE_INTERVAL = 10000;
 // memory update interval (ms)
