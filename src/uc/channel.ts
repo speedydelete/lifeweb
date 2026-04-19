@@ -529,8 +529,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         let finishedCount = 0;
         let startsChecked = 0;
         let recipesChecked = 0;
-        let timeout: NodeJS.Timeout | null = null;
-        let interval: NodeJS.Timeout | null = null;
+        let toClear: NodeJS.Timeout[] = [];
         let {promise, resolve} = Promise.withResolvers<void>();
         // <school-chromebook>
         // await redraw();
@@ -597,22 +596,32 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
             // </not-school-chromebook>
         }
         // <not-school-chromebook>
-        timeout = setTimeout(() => {
-            interval = setInterval(async () => {
+        toClear.push(setTimeout(() => {
+            toClear.push(setInterval(async () => {
                 if (startsChecked > 0 && recipesChecked > 0) {
                     let time = (performance.now() - start) / 1000;
-                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps`);
                     await saveRecipes(recipes);
                 }
-            }, 5000);
-        }, 2500);
+            }, c.UPDATE_INTERVAL));
+            toClear.push(setInterval(async () => {
+                let heap = process.memoryUsage().heapUsed;
+                let memory: string;
+                if (heap > 2**30) {
+                    memory = (heap / 2**30).toFixed(3) + ' GiB';
+                } else if (heap > 2**20) {
+                    memory = (heap / 2**20).toFixed(3) + ' MiB';
+                } else {
+                    memory = (heap / 2**10).toFixed(3) + ' KiB';
+                }
+                console.log(`${memory} in usage`);
+                await saveRecipes(recipes);
+            }, c.MEMORY_UPDATE_INTERVAL));
+        }, c.UPDATE_INTERVAL / 4));
         // </not-school-chromebook>
         await promise;
-        if (timeout !== null) {
+        for (let timeout of toClear) {
             clearTimeout(timeout);
-        }
-        if (interval !== null) {
-            clearInterval(interval);
         }
         let time = (performance.now() - start) / 1000;
         console.log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);

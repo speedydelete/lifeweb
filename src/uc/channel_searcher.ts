@@ -973,7 +973,7 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
             recipes.push(...value.recipes);
             possibleUseful.push(value.possibleUseful);
             let now = performance.now();
-            if (now - lastUpdate > 5000) {
+            if (now - lastUpdate > c.UPDATE_INTERVAL) {
                 lastUpdate = now;
                 parentPort.postMessage({complete: false, startsChecked, recipesChecked, states, recipes, possibleUseful, newElbows} satisfies WorkerOutput);
                 startsChecked = 0;
