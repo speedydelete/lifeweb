@@ -334,7 +334,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
             }
         }
         let scores = Object.entries(scoreSets).map(x => [x[0], x[1].size] as [string, number]);
-        let rareElbows = scores.filter(x => x[1] >= limit).map(x => x[0]);
+        let rareElbows = scores.filter(x => x[1] < limit).map(x => x[0]);
         for (let [elbow, data] of Object.entries(value.elbows)) {
             if (rareElbows.includes(elbow)) {
                 for (let i = 0; i < data.length; i++) {
