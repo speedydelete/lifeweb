@@ -317,6 +317,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
             error(`Invalid number: '${args[0]}'`);
         }
         let recipes = await loadRecipes();
+        console.log('Loaded recipes');
         let info = c.CHANNEL_INFO[type];
         let value = recipes.channels[type];
         let scoreSets: {[key: string]: Set<string>} = {};
@@ -346,6 +347,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
                 delete value.recipes[key];
             }
         }
+        console.log('Purge complete, saving recipes');
         await saveRecipes(recipes);
     },
 

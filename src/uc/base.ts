@@ -712,7 +712,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 for (let data of fullData.split(' | ')) {
                     if (data === 'bad' || data === 'no collision' || data === 'rare') {
                         value.push({type: data});
-                    } else if (data.startsWith('destroy ')) {
+                    } else if (data.startsWith('destroy')) {
                         let emit: ShipInfo[] | undefined = undefined;
                         let parts = data.split(' ');
                         if (parts[1] === 'emit') {
