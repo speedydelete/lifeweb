@@ -184,7 +184,7 @@ if (posArgs.length < 1) {
 
 let cmd = posArgs[0];
 
-const EXPECTS_TYPE: string[] = ['get', 'from', 'search', 'convert'];
+const EXPECTS_TYPE: string[] = ['get', 'from', 'search', 'convert', 'purge_elbows'];
 let args = posArgs.slice(1);
 let type = '';
 if (EXPECTS_TYPE.includes(cmd)) {
