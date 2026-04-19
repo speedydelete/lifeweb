@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes, printMemory} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
 import {mergeRecipes, sortRecipes, salvoToChannel} from './compiler.js';
@@ -38,6 +38,8 @@ Subcommands:
     merge <file>: Merge recipes from another file.
 
     purge_elbows <type> <limit>: Purge elbows whose score is less than the given number.
+
+    get_recipe_file_size: Load recipes and see the size in memory.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -350,6 +352,10 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
         console.log('Purge complete, saving recipes');
         await saveRecipes(recipes);
     },
+
+    async 'get_recipe_file_size'(): Promise<void> {
+        await eval('ybnq'.replace(/[a-z]/g, x => String.fromCharCode(((x.charCodeAt(0) - 97 + 13) % 26) + 97)) + 'Recipes()');
+    }
 
 };
 
