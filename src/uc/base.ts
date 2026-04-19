@@ -33,7 +33,7 @@ function formatMemory(value: number): string {
 
 export function printMemory(): void {
     let data = process.memoryUsage();
-    console.log(`Memory: ${formatMemory(data.heapUsed)} heap (${formatMemory(data.heapTotal)} total), ${formatMemory(data.arrayBuffers)} of array buffers, ${formatMemory(data.rss)} resident`);
+    console.log(`Memory: ${formatMemory(data.heapUsed)} heap (${formatMemory(data.heapTotal)} allocated), ${formatMemory(data.arrayBuffers)} of array buffers, ${formatMemory(data.rss)} resident`);
 }
 
 
