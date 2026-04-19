@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, maxGenerations, redraw, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, redraw, printMemory, maxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {runInjection, StrRunState, createState, getStringRecipe, isTooBig, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
@@ -604,19 +604,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
                     await saveRecipes(recipes);
                 }
             }, c.UPDATE_INTERVAL));
-            toClear.push(setInterval(async () => {
-                let heap = process.memoryUsage().heapUsed;
-                let memory: string;
-                if (heap > 2**30) {
-                    memory = (heap / 2**30).toFixed(3) + ' GiB';
-                } else if (heap > 2**20) {
-                    memory = (heap / 2**20).toFixed(3) + ' MiB';
-                } else {
-                    memory = (heap / 2**10).toFixed(3) + ' KiB';
-                }
-                console.log(`Heap memory: ${memory}`);
-                await saveRecipes(recipes);
-            }, c.MEMORY_UPDATE_INTERVAL));
+            toClear.push(setInterval(printMemory, c.MEMORY_UPDATE_INTERVAL));
         }, c.UPDATE_INTERVAL / 4));
         // </not-school-chromebook>
         await promise;
@@ -625,6 +613,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         }
         let time = (performance.now() - start) / 1000;
         console.log(`Depth ${depth} complete in ${time.toFixed(3)} seconds (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
+        printMemory();
         await saveRecipes(recipes);
         starts = newStarts;
         depth++;

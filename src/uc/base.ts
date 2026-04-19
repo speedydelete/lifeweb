@@ -19,6 +19,24 @@ export async function redraw(): Promise<void> {
 }
 
 
+// prints out the memory, utility logger
+
+function formatMemory(value: number): string {
+    if (value > 2**30) {
+        return (value / 2**30).toFixed(3) + ' GiB';
+    } else if (value > 2**20) {
+        return (value / 2**20).toFixed(3) + ' MiB';
+    } else {
+        return (value / 2**10).toFixed(3) + ' KiB';
+    }
+}
+
+export function printMemory(): void {
+    let data = process.memoryUsage();
+    console.log(`Memory: ${formatMemory(data.heapUsed)} heap (${formatMemory(data.heapTotal)} total), ${formatMemory(data.arrayBuffers)} of array buffers, ${formatMemory(data.rss)} resident`);
+}
+
+
 // we make the max generations configurable at runtime like this
 export let maxGenerations = c.MAX_GENERATIONS;
 export function setMaxGenerations(value: number): void {
@@ -847,7 +865,9 @@ export async function loadRecipes(): Promise<RecipeData> {
         return out;
     }
     let data = (await fs.readFile(recipeFile)).toString();
-    return addRecipeFile(out, data);
+    out = addRecipeFile(out, data);
+    printMemory();
+    return out;
 }
 
 
