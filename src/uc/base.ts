@@ -617,6 +617,7 @@ export interface RecipeData {
 
 let recipeFile = `recipes_${toCatagolueRule(c.RULE)}.txt`;
 
+
 function parseRecipeSections(data: string[]): [string, string[]][] {
     let out: [string, string[]][] = [];
     let name: string | undefined = undefined;
@@ -840,7 +841,7 @@ export function addRecipeFile(out: RecipeData, data: string): RecipeData {
 export async function loadRecipes(): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, badElbows: new Set(), recipes: {}}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: {}}])),
     };
     if ((typeof window === 'object' && window === globalThis) || !exists(recipeFile)) {
         return out;
@@ -848,6 +849,7 @@ export async function loadRecipes(): Promise<RecipeData> {
     let data = (await fs.readFile(recipeFile)).toString();
     return addRecipeFile(out, data);
 }
+
 
 function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, number][][]][]): string {
     let groups: {[key: string]: string[]} = {};
