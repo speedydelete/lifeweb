@@ -788,6 +788,9 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                 if (data[0] === 'create') {
                     recipe.create = stringToObjects(data.slice(1).join(' '))[0] as StillLife;
                 }
+                if (desc in out.recipes && out.recipes[desc].time < recipe.time) {
+                    continue;
+                }
                 out.recipes[desc] = recipe;
             }
         } else {
@@ -796,16 +799,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
     }
 }
 
-/** Gets and parses the recipe file. */
-export async function loadRecipes(): Promise<RecipeData> {
-    let out: RecipeData = {
-        salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
-        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, badElbows: new Set(), recipes: {}}])),
-    };
-    if ((typeof window === 'object' && window === globalThis) || !exists(recipeFile)) {
-        return out;
-    }
-    let data = (await fs.readFile(recipeFile)).toString();
+export function addRecipeFile(out: RecipeData, data: string): RecipeData {
     let section: string | undefined = undefined;
     let current: string[] = [];
     for (let line of data.split('\n')) {
@@ -827,6 +821,19 @@ export async function loadRecipes(): Promise<RecipeData> {
         addSection(section, current, out);
     }
     return out;
+}
+
+/** Gets and parses the recipe file. */
+export async function loadRecipes(): Promise<RecipeData> {
+    let out: RecipeData = {
+        salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
+        channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, badElbows: new Set(), recipes: {}}])),
+    };
+    if ((typeof window === 'object' && window === globalThis) || !exists(recipeFile)) {
+        return out;
+    }
+    let data = (await fs.readFile(recipeFile)).toString();
+    return addRecipeFile(out, data);
 }
 
 function salvoRecipesToString(info: c.SalvoInfo, recipes: [string, [number, number][][]][]): string {

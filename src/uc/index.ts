@@ -1,7 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {MAPPattern, parse} from '../core/index.js';
-import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, loadRecipes} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
 import {mergeRecipes, sortRecipes, salvoToChannel} from './compiler.js';
@@ -30,7 +30,7 @@ Subcommands:
     from <type> <rle_file>: Turns a RLE into a list of lanes/timing gaps.
     search <type> [max_spacing]: Perform a search for recipes. max_spacing is required for channel searching.
     convert <type> <new_type> <dir> <recipe>: Convert a slow salvo to a restricted-channel recipe.
-    merge <type> '<recipe 1>' '<recipe 2>': Merge restricted-channel recipes.
+    merge <path/to/file>: Merge recipes from another file.
 
 The type argument is the construction type, defined in src/uc/config.ts.
 
@@ -171,116 +171,140 @@ if (options['file'] !== undefined) {
 //     process.exit(0);
 // }
 
-if (posArgs.length < 2) {
-    error('At least 2 positional arguments expected!');
+if (posArgs.length < 1) {
+    error('At least 1 positional argument expected!');
 }
 
 let cmd = posArgs[0];
-let type = posArgs[1].toLowerCase();
-let args = posArgs.slice(2);
-if (type in INFO_ALIASES) {
-    type = INFO_ALIASES[type];
-}
-if (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO)) {
-    error(`Invalid construction type: '${type}'`);
+
+const EXPECTS_TYPE: string[] = ['get', 'from', 'search', 'convert'];
+let args = posArgs.slice(1);
+let type = '';
+if (EXPECTS_TYPE.includes(cmd)) {
+    if (args.length < 1) {
+        error('At least 1 positional argument expected!');
+    }
+    type = args[0].toLowerCase();
+    args = args.slice(1);
+    if (type in INFO_ALIASES) {
+        type = INFO_ALIASES[type];
+    }
+    if (!(type in c.SALVO_INFO || type in c.CHANNEL_INFO)) {
+        error(`Invalid construction type: '${type}'`);
+    }
 }
 
-if (cmd === 'get') {
-    if (type in c.SALVO_INFO) {
-        let info = c.SALVO_INFO[type];
-        let start = info.startObject;
-        if (args[0].startsWith('x')) {
-            start = args[0];
-            args = args.slice(1);
-        }
-        start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
-        console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).shrinkToFit().toRLE());
-    } else {
-        let info = c.CHANNEL_INFO[type];
-        let target: string;
-        let data: string;
-        if (args[0].startsWith('x')) {
-            target = args[0];
-            data = args.slice(1).join(' ');
-        } else {
-            target = 'xs0_0/0';
-            data = args.join(' ');
-        }
-        let lanes = parseChannelRecipe(info, data)[0];
-        console.log(createChannelPattern(info, target, lanes).p.shrinkToFit().toRLE());
-    }
-} else if (cmd === 'from') {
-    let data = (await fs.readFile(args[0])).toString();
-    let p = parse(data) as MAPPattern;
-    if (type in c.SALVO_INFO) {
-        let info = c.SALVO_INFO[type];
-        if (options['dvgrn']) {
-            let out: string[] = [];
-            for (let [lane, timing] of patternToSalvo(info, p)[1]) {
-                out.push((timing ? 'O' : 'E') + (lane - 2));
+
+const COMMANDS: {[key: string]: () => Promise<void>} = {
+
+    async 'get'(): Promise<void> {
+        if (type in c.SALVO_INFO) {
+            let info = c.SALVO_INFO[type];
+            let start = info.startObject;
+            if (args[0].startsWith('x')) {
+                start = args[0];
+                args = args.slice(1);
             }
-            console.log(out.join(' '));
+            start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
+            console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).shrinkToFit().toRLE());
         } else {
-            let [target, lanes] = patternToSalvo(info, p);
-            lanes = lanes.map(x => [x[0] + 6, x[1]]);
-            console.log(target + ', ' + salvoToString(c.SALVO_INFO[type], lanes));
+            let info = c.CHANNEL_INFO[type];
+            let target: string;
+            let data: string;
+            if (args[0].startsWith('x')) {
+                target = args[0];
+                data = args.slice(1).join(' ');
+            } else {
+                target = 'xs0_0/0';
+                data = args.join(' ');
+            }
+            let lanes = parseChannelRecipe(info, data)[0];
+            console.log(createChannelPattern(info, target, lanes).p.shrinkToFit().toRLE());
         }
-    } else {
-        error(`Cannot use 'from' with restricted-channel (will hopefully be supported soon!)`);
-    }
-} else if (cmd === 'search') {
-    if (type in c.SALVO_INFO) {
-        if (args[0] && args[0].startsWith('x')) {
-            await searchSalvos(type, args[0], options['no-compile']);
+    },
+
+    async 'from'(): Promise<void> {
+        let data = (await fs.readFile(args[0])).toString();
+        let p = parse(data) as MAPPattern;
+        if (type in c.SALVO_INFO) {
+            let info = c.SALVO_INFO[type];
+            if (options['dvgrn']) {
+                let out: string[] = [];
+                for (let [lane, timing] of patternToSalvo(info, p)[1]) {
+                    out.push((timing ? 'O' : 'E') + (lane - 2));
+                }
+                console.log(out.join(' '));
+            } else {
+                let [target, lanes] = patternToSalvo(info, p);
+                lanes = lanes.map(x => [x[0] + 6, x[1]]);
+                console.log(target + ', ' + salvoToString(c.SALVO_INFO[type], lanes));
+            }
         } else {
-            await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
+            error(`Cannot use 'from' with restricted-channel (will hopefully be supported soon!)`);
         }
-    } else {
-        await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file']);
-    }
-} else if (cmd === 'convert') {
-    if (type in c.CHANNEL_INFO) {
-        error(`Cannot convert from restricted-channel`);
-    }
-    let newType = args[0];
-    if (newType in INFO_ALIASES) {
-        newType = INFO_ALIASES[newType];
-    }
-    if (!(newType in c.SALVO_INFO || newType in c.CHANNEL_INFO)) {
-        error(`Invalid construction type: '${newType}'`)
-    }
-    let ship = (newType in c.SALVO_INFO ? c.SALVO_INFO[newType] : c.CHANNEL_INFO[newType]).ship;
-    let dir = args[1];
-    if (dir === 'up' || dir === '180') {
-        dir = ship.slope === 0 ? 'N' : 'NW';
-    } else if (dir === 'down' || dir === '0') {
-        dir = ship.slope === 0 ? 'S' : 'SE';
-    } else if (dir === 'left' || dir === '90x') {
-        dir = ship.slope === 0 ? 'W' : 'SW';
-    } else if (dir === 'right' || dir === '90i') {
-        dir = ship.slope === 0 ? 'E' : 'NE';
-    }
-    if (newType in c.SALVO_INFO) {
-        error(`Cannot convert to slow salvos (yet!)`);
-    } else {
-        let info = c.CHANNEL_INFO[newType];
-        let elbow = parseElbow(args[2]);
+    },
+    
+    async 'search'(): Promise<void> {
+        if (type in c.SALVO_INFO) {
+            if (args[0] && args[0].startsWith('x')) {
+                await searchSalvos(type, args[0], options['no-compile']);
+            } else {
+                await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
+            }
+        } else {
+            await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file']);
+        }
+    },
+
+    async 'convert'(): Promise<void> {
+        if (type in c.CHANNEL_INFO) {
+            error(`Cannot convert from restricted-channel`);
+        }
+        let newType = args[0];
+        if (newType in INFO_ALIASES) {
+            newType = INFO_ALIASES[newType];
+        }
+        if (!(newType in c.SALVO_INFO || newType in c.CHANNEL_INFO)) {
+            error(`Invalid construction type: '${newType}'`)
+        }
+        let ship = (newType in c.SALVO_INFO ? c.SALVO_INFO[newType] : c.CHANNEL_INFO[newType]).ship;
+        let dir = args[1];
+        if (dir === 'up' || dir === '180') {
+            dir = ship.slope === 0 ? 'N' : 'NW';
+        } else if (dir === 'down' || dir === '0') {
+            dir = ship.slope === 0 ? 'S' : 'SE';
+        } else if (dir === 'left' || dir === '90x') {
+            dir = ship.slope === 0 ? 'W' : 'SW';
+        } else if (dir === 'right' || dir === '90i') {
+            dir = ship.slope === 0 ? 'E' : 'NE';
+        }
+        if (newType in c.SALVO_INFO) {
+            error(`Cannot convert to slow salvos (yet!)`);
+        } else {
+            let info = c.CHANNEL_INFO[newType];
+            let elbow = parseElbow(args[2]);
+            let recipes = await loadRecipes();
+            let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
+            let {recipe, time, elbow: newElbow} = salvoToChannel(info, sortRecipes(recipes.channels[newType]), elbow, salvo, dir as c.ShipDirection, options['depth'], options['beam'], options['destroy-elbow'] ? false : options['force-end-elbow'], options['min-elbow'], options['max-elbow']);
+            console.log(channelRecipeToString(info, recipe));
+            console.log(`${recipe.length} gliders, ${time} generations long`);
+            if (newElbow !== false) {
+                console.log(`End elbow is ${newElbow[0].timingStr}, moved by ${newElbow[1]}`);
+            }
+        }
+    },
+
+    async 'merge'(): Promise<void> {
         let recipes = await loadRecipes();
-        let salvo = parseSlowSalvo(c.SALVO_INFO[type], args.slice(2).join(' '));
-        let {recipe, time, elbow: newElbow} = salvoToChannel(info, sortRecipes(recipes.channels[newType]), elbow, salvo, dir as c.ShipDirection, options['depth'], options['beam'], options['destroy-elbow'] ? false : options['force-end-elbow'], options['min-elbow'], options['max-elbow']);
-        console.log(channelRecipeToString(info, recipe));
-        console.log(`${recipe.length} gliders, ${time} generations long`);
-        if (newElbow !== false) {
-            console.log(`End elbow is ${newElbow[0].timingStr}, moved by ${newElbow[1]}`);
-        }
-    }
-} else if (cmd === 'merge') {
-    if (type in c.SALVO_INFO) {
-        throw new Error('Cannot merge slow salvos');
-    }
-    let info = c.CHANNEL_INFO[type];
-    let recipes = args.map(x => parseChannelRecipe(info, x)[0]);
-    console.log(channelRecipeToString(info, mergeRecipes(info, ...recipes)));
+        let file = (await fs.readFile(args.join(' '))).toString();
+        recipes = addRecipeFile(recipes, file);
+        await saveRecipes(recipes);
+    },
+
+};
+
+if (cmd in COMMANDS) {
+    COMMANDS[cmd]();
 } else {
     throw new Error(`Invalid command: '${cmd}'.`);
 }
