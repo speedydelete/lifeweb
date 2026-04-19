@@ -614,7 +614,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
                 } else {
                     memory = (heap / 2**10).toFixed(3) + ' KiB';
                 }
-                console.log(`${memory} in usage`);
+                console.log(`Heap memory: ${memory}`);
                 await saveRecipes(recipes);
             }, c.MEMORY_UPDATE_INTERVAL));
         }, c.UPDATE_INTERVAL / 4));
