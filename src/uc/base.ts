@@ -764,12 +764,12 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                             parts = parts.slice(4);
                             emit = [];
                             while (parts[0] === 'emit') {
-                                let code = data[1];
-                                let dir = data[2] as c.ShipDirection;
-                                let lane = parseInt(data[4]);
-                                let timing = parseInt(data[6]);
+                                let code = parts[1];
+                                let dir = parts[2] as c.ShipDirection;
+                                let lane = parseInt(parts[4]);
+                                let timing = parseInt(parts[6]);
                                 emit.push({code, dir, lane, timing});
-                                data = data.slice(7);
+                                parts = parts.slice(7);
                             }
                         }
                         value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing, emit});
@@ -862,7 +862,7 @@ export async function loadRecipes(): Promise<RecipeData> {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
         channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: {}}])),
     };
-    if ((typeof window === 'object' && window === globalThis) || !exists(recipeFile)) {
+    if (!exists(recipeFile)) {
         return out;
     }
     let data = (await fs.readFile(recipeFile)).toString();
