@@ -804,6 +804,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     let flipped = false;
                     if (data[0] === 'flip') {
                         flipped = true;
+                        data = data.slice(1);
                     }
                     recipe.end = {...elbow, move, flipped};
                 }
