@@ -212,7 +212,6 @@ export class TorusDataPattern extends DataPattern {
         data.set(this.data.slice(0, width), data.length - width - 1);
         data[data.length - 1] = this.data[0];
         p.setData(height + 2, width + 2, data);
-        throw new Error(this.height + ' ' + this.width + ' ' + p.toRLE());
         p.runGeneration();
         let pData = p.getData();
         this.data = new Uint8Array(height * width);
@@ -232,6 +231,10 @@ export class TorusDataPattern extends DataPattern {
         p.xOffset = 0;
         p.yOffset = 0;
         this.generation++;
+    }
+
+    shrinkToFit(): this {
+        return this;
     }
 
     copy(): TorusDataPattern {
