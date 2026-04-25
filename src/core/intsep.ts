@@ -455,11 +455,10 @@ export class INTSeparator extends MAPPattern {
         let height = p.height;
         let width = p.width;
         let data = p.data.slice();
-        super(height, width, data, p.trs, p.ruleStr, 'D8');
+        super(height, width, data, p.rule, p.trs);
         this.xOffset = p.xOffset;
         this.yOffset = p.yOffset;
         this.generation = p.generation;
-        this.ruleStr = p.ruleStr;
         this.trs = p.trs;
         this.knots = knots;
         if (p instanceof INTSeparator) {
@@ -1324,7 +1323,7 @@ export class INTSeparator extends MAPPattern {
             for (let [x, y] of cells) {
                 data[(y - minY) * width + x - minX] = 1;
             }
-            let p = new MAPPattern(height, width, data, this.trs, this.ruleStr, 'D8');
+            let p = new MAPPattern(height, width, data, this.rule, this.trs);
             p.xOffset = minX + this.xOffset;
             p.yOffset = minY + this.yOffset;
             out.push(p);
@@ -1548,7 +1547,7 @@ export class INTSeparator extends MAPPattern {
     }
 
     clearedCopy(): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8'), this.knots);
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs), this.knots);
     }
 
     copyPart(x: number, y: number, height: number, width: number): INTSeparator {
@@ -1567,7 +1566,7 @@ export class INTSeparator extends MAPPattern {
     }
 
     loadApgcode(code: string): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, 'D8').loadApgcode(code), this.knots);
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots);
     }
 
 }

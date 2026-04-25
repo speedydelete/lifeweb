@@ -2,7 +2,7 @@
 /* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
 
 import {RuleError} from './util.js';
-import {CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS} from './pattern.js';
+import {CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS, Rule} from './pattern.js';
 
 
 /** Stores a compiled rule tree data. */
@@ -877,23 +877,17 @@ export class TreePattern extends CoordPattern {
     
     nh: Int8Array;
     tree: Tree;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: 'C1' = 'C1';
-    rule: AtRule;
-    rulePeriod: 1 = 1;
+    atRule: AtRule;
 
-    constructor(coords: Map<number, number>, nh: Int8Array, tree: Tree, states: number, ruleStr: string, rule: AtRule) {
-        super(coords, Math.max(...nh.map(Math.abs)));
+    constructor(coords: Map<number, number>, rule: Rule, nh: Int8Array, tree: Tree, atRule: AtRule) {
+        super(coords, rule);
         this.nh = nh;
         this.tree = tree;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.rule = rule;
+        this.atRule = atRule;
     }
 
     runGeneration(): void {
-        let range = this.range;
+        let range = this.rule.range;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
         minX = minX - range + BIAS;
         maxX = maxX + range + BIAS;
@@ -919,7 +913,7 @@ export class TreePattern extends CoordPattern {
     }
 
     copy(): TreePattern {
-        let out = new TreePattern(new Map(this.coords), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        let out = new TreePattern(new Map(this.coords), this.rule, this.nh, this.tree, this.atRule);
         out.generation = this.generation;
         return out;
     }
@@ -933,21 +927,21 @@ export class TreePattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new TreePattern(out, this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        let p = new TreePattern(out, this.rule, this.nh, this.tree, this.atRule);
         p.generation = this.generation;
         return p;
     }
 
     clearedCopy(): TreePattern {
-        return new TreePattern(new Map(), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        return new TreePattern(new Map(), this.rule, this.nh, this.tree, this.atRule);
     }
 
     loadApgcode(code: string): TreePattern {
-        return new TreePattern(this._loadApgcode(code), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        return new TreePattern(this._loadApgcode(code), this.rule, this.nh, this.tree, this.atRule);
     }
 
     loadRLE(rle: string): TreePattern {
-        return new TreePattern(this._loadRLE(rle), this.nh, this.tree, this.states, this.ruleStr, this.rule);
+        return new TreePattern(this._loadRLE(rle), this.rule, this.nh, this.tree, this.atRule);
     }
 
 }

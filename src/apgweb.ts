@@ -111,17 +111,17 @@ async function runSearch(rule: string, symmetry: string, soups: number, seed: st
     print('Using seed ' + seed);
     let census: {[key: string]: number} = {};
     let samples: {[key: string]: number[]} = {};
-    let pattern = createPattern(rule);
-    if (!(pattern instanceof MAPPattern) || pattern.ruleSymmetry !== 'D8') {
+    let p = createPattern(rule);
+    if (!(p instanceof MAPPattern) || p.rule.symmetry !== 'D8') {
         throw new Error('Cannot search non-INT rules');
     }
-    let knots = getKnots(pattern.trs);
+    let knots = getKnots(p.trs);
     let start = performance.now();
     let prev = start;
     let prevI = 0;
     for (let i = 0; i < soups; i++) {
         let {height, width, data} = await getHashsoup(seed + i, symmetry);
-        let soup = new MAPPattern(height, width, data, pattern.trs, '', 'D8');
+        let soup = new MAPPattern(height, width, data, p.rule, p.trs);
         let out = await censusINT(soup, knots, seed + i);
         for (let key in out) {
             if (key in census) {

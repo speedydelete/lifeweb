@@ -213,8 +213,8 @@ function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, cen
         }
     }
     if (!found) {
-        (p.states as number) = 3;
-        p.ruleStr = 'B3/S23History';
+        p.rule.states = 3;
+        p.rule.str = 'B3/S23History';
         console.log(p.toRLE());
         throw new Error(`No center cell found for ${obj}${dir}${time}`);
     }

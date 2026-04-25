@@ -36,13 +36,13 @@ export function findType(p: Pattern, limit: number, acceptStabilized: boolean = 
         let pop = p.population;
         let hash = p.hash32();
         if (pop === 0) {
-            for (let j = 0; j < p.rulePeriod; j++) {
+            for (let j = 0; j < p.rule.period; j++) {
                 phases.push(p.copy());
             }
-            return {period: p.rulePeriod, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases};
+            return {period: p.rule.period, stabilizedAt: i, disp: [0, 0], pops: [0], hashes: [hash], phases};
         }
-        if ((i + 1) % p.rulePeriod === 0) {
-            for (let j = 0; j <= (acceptStabilized ? i : 0); j += p.rulePeriod) {
+        if ((i + 1) % p.rule.period === 0) {
+            for (let j = 0; j <= (acceptStabilized ? i : 0); j += p.rule.period) {
                 if (hash === hashes[j] && pop === pops[j]) {
                     let q = phases[j];
                     let disp = p.isEqualWithTranslate(q);

@@ -72,7 +72,7 @@ function createPattern(base: string, change: string[]): MAPPattern {
     // }
     let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
     let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, false);
-    return new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
+    return new MAPPattern(0, 0, new Uint8Array(0), {str: ruleStr, states: 2, symmetry: 'D8', period: 1, range: 1, neighborhood: [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]]}, trs);
 }
 
 function isExplosive(p: MAPPattern): 'yes' | number | 'died' | 'linear' {
@@ -139,10 +139,10 @@ let done = new Set(out.split('\n').map(x => x.trim()).filter(x => x.length > 0).
 
 async function check(p: MAPPattern, change: string[]): Promise<void> {
     // let p = createPattern(base, change);
-    if (done.has(p.ruleStr)) {
+    if (done.has(p.rule.str)) {
         return;
     }
-    done.add(p.ruleStr);
+    done.add(p.rule.str);
     let allDied = true;
     let interesting = false;
     for (let i = 0; i < 50; i++) {
@@ -152,7 +152,7 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
         q.setData(height, width, data);
         let e = isExplosive(q);
         if (e === 'yes') {
-            await writeOut(`${p.ruleStr}: explosive (${i + 1})`);
+            await writeOut(`${p.rule.str}: explosive (${i + 1})`);
             return;
         } else if (typeof e === 'number') {
             if (e > 1) {
@@ -165,13 +165,13 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
         }
     }
     if (allDied) {
-        await writeOut(`${p.ruleStr}: no objects`);
+        await writeOut(`${p.rule.str}: no objects`);
         return;
     } else if (!interesting) {
-        await writeOut(`${p.ruleStr}: not interesting`);
+        await writeOut(`${p.rule.str}: not interesting`);
         return;
     }
-    execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.ruleStr)} --symmetry C1)`, {stdio: 'inherit'});
+    execSync(`(cd apgmera; ./recompile.sh --rule ${toCatagolueRule(p.rule.str)} --symmetry C1)`, {stdio: 'inherit'});
     let timedOut = await new Promise<boolean>((resolve, reject) => {
         let child = spawn('./apgmera/apgluxe', ['-n', '20000', '-i', '1', '-t', '1', '-L', '1', '-v', '0'], {stdio: 'inherit', detached: true});
         let timeout: any = null;
@@ -202,7 +202,7 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
         });
     });
     if (timedOut) {
-        await writeOut(`${p.ruleStr}: timed out`);
+        await writeOut(`${p.rule.str}: timed out`);
         return;
     }
     let files = await fs.readdir('.');
@@ -245,9 +245,9 @@ async function check(p: MAPPattern, change: string[]): Promise<void> {
         }
     }
     if (notable.length === 0) {
-        await writeOut(`${p.ruleStr}: nothing`);
+        await writeOut(`${p.rule.str}: nothing`);
     } else {
-        await writeOut(`${p.ruleStr}: ${notable.join(', ')}`);
+        await writeOut(`${p.rule.str}: ${notable.join(', ')}`);
     }
 }
 
@@ -279,7 +279,7 @@ for (let num = 0; num < 2**TRS.length; num++) {
     let sTrs = allTrs.filter(x => x.startsWith('S')).map(x => x.slice(1));
     let trs = transitionsToArray(bTrs, sTrs, HEX_TRANSITIONS);
     let ruleStr = 'B' + unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true) + '/S' + unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true) + 'H';
-    let p = new MAPPattern(0, 0, new Uint8Array(0), trs, ruleStr, 'D8');
+    let p = new MAPPattern(0, 0, new Uint8Array(0), {str: ruleStr, states: 2, symmetry: 'D8', period: 1, range: 1, neighborhood: [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]]}, trs);
     await check(p, []);
 }
 
