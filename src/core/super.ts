@@ -1,7 +1,7 @@
 
 /** Implements the Golly Super algorithm (https://conwaylife.com/wiki/OCA:LifeSuper) plus [R]Investigator (https://conwaylife.com/wiki/User:Entity_Valkyrie_2/StateInvestigator). */
 
-import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, DataPattern, CoordPattern} from './pattern.js';
+import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, DataPattern, CoordPattern} from './pattern.js';
 
 
 /** A DataPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
@@ -10,16 +10,10 @@ import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, DataPattern, Coo
 export class DataHistoryPattern extends DataPattern {
 
     pattern: DataPattern;
-    states: 7 = 7;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+        super(height, width, data, rule);
         this.pattern = pattern;
-        this.ruleStr = pattern.ruleStr + 'History';
-        this.ruleSymmetry = pattern.ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -105,7 +99,7 @@ export class DataHistoryPattern extends DataPattern {
     }
 
     copy(): DataHistoryPattern {
-        let out = new DataHistoryPattern(this.height, this.width, this.data, this.pattern);
+        let out = new DataHistoryPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -113,7 +107,7 @@ export class DataHistoryPattern extends DataPattern {
     }
 
     clearedCopy(): DataHistoryPattern {
-        return new DataHistoryPattern(0, 0, new Uint8Array(0), this.pattern);
+        return new DataHistoryPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): DataHistoryPattern {
@@ -123,17 +117,17 @@ export class DataHistoryPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new DataHistoryPattern(height, width, data, this.pattern);
+        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadApgcode(code: string): DataHistoryPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new DataHistoryPattern(height, width, data, this.pattern);
+        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadRLE(rle: string): DataHistoryPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new DataHistoryPattern(height, width, data, this.pattern);
+        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
 }
@@ -145,16 +139,10 @@ export class DataHistoryPattern extends DataPattern {
 export class CoordHistoryPattern extends CoordPattern {
 
     pattern: CoordPattern;
-    states: 7 = 7;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(coords: Map<number, number>, range: number, pattern: CoordPattern) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, pattern: CoordPattern) {
+        super(coords, rule);
         this.pattern = pattern;
-        this.ruleStr = pattern.ruleStr + 'History';
-        this.ruleSymmetry = pattern.ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -164,10 +152,10 @@ export class CoordHistoryPattern extends CoordPattern {
         p.runGeneration();
         let out = p.coords;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
-        minX = minX - this.range + BIAS;
-        maxX = maxX + this.range + BIAS;
-        minY = minY - this.range + BIAS;
-        maxY = maxY + this.range + BIAS;
+        minX = minX - this.rule.range + BIAS;
+        maxX = maxX + this.rule.range + BIAS;
+        minY = minY - this.rule.range + BIAS;
+        maxY = maxY + this.rule.range + BIAS;
         let state6: number[] = [];
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
@@ -215,23 +203,11 @@ export class CoordHistoryPattern extends CoordPattern {
             }
         }
         for (let key of state6) {
-            if (p.nh) {
-                for (let i = 0; i < p.nh.length; i += 2) {
-                    let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
-                    let value = coords.get(key2);
-                    if (value) {
-                        out.set(key2, value === 1 ? 2 : 4);
-                    }
-                }
-            } else {
-                for (let y = -this.range; y <= this.range; y++) {
-                    for (let x = -this.range; x <= this.range; x++) {
-                        let key2 = key + y * WIDTH + x;
-                        let value = coords.get(key2);
-                        if (value) {
-                            out.set(key2, value === 1 ? 2 : 4);
-                        }
-                    }
+            for (let i = 0; i < p.rule.neighborhood.length; i++) {
+                let key2 = key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0];
+                let value = coords.get(key2);
+                if (value) {
+                    out.set(key2, value === 1 ? 2 : 4);
                 }
             }
         }
@@ -240,7 +216,7 @@ export class CoordHistoryPattern extends CoordPattern {
     }
 
     copy(): CoordHistoryPattern {
-        let out = new CoordHistoryPattern(new Map(this.coords), this.range, this.pattern);
+        let out = new CoordHistoryPattern(new Map(this.coords), this.rule, this.pattern);
         out.generation = this.generation;
         return out;
     }
@@ -254,21 +230,21 @@ export class CoordHistoryPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new CoordHistoryPattern(out, this.range, this.pattern);
+        let p = new CoordHistoryPattern(out, this.rule, this.pattern);
         p.generation = this.generation;
         return p;
     }
 
     clearedCopy(): CoordHistoryPattern {
-        return new CoordHistoryPattern(new Map(), this.range, this.pattern);
+        return new CoordHistoryPattern(new Map(), this.rule, this.pattern);
     }
 
     loadApgcode(code: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadApgcode(code), this.range, this.pattern);
+        return new CoordHistoryPattern(this._loadApgcode(code), this.rule, this.pattern);
     }
 
     loadRLE(rle: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadRLE(rle), this.range, this.pattern);
+        return new CoordHistoryPattern(this._loadRLE(rle), this.rule, this.pattern);
     }
 
 }
@@ -280,16 +256,10 @@ export class CoordHistoryPattern extends CoordPattern {
 export class DataSuperPattern extends DataPattern {
 
     pattern: DataPattern;
-    states: 26 = 26;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+        super(height, width, data, rule);
         this.pattern = pattern;
-        this.ruleStr = pattern.ruleStr + 'Super';
-        this.ruleSymmetry = pattern.ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -480,7 +450,7 @@ export class DataSuperPattern extends DataPattern {
     }
 
     copy(): DataSuperPattern {
-        let out = new DataSuperPattern(this.height, this.width, this.data, this.pattern);
+        let out = new DataSuperPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -488,7 +458,7 @@ export class DataSuperPattern extends DataPattern {
     }
 
     clearedCopy(): DataSuperPattern {
-        return new DataSuperPattern(0, 0, new Uint8Array(0), this.pattern);
+        return new DataSuperPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): DataSuperPattern {
@@ -498,17 +468,17 @@ export class DataSuperPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new DataSuperPattern(height, width, data, this.pattern);
+        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadApgcode(code: string): DataSuperPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new DataSuperPattern(height, width, data, this.pattern);
+        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadRLE(rle: string): DataSuperPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new DataSuperPattern(height, width, data, this.pattern);
+        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
     }
 
 }
@@ -520,16 +490,10 @@ export class DataSuperPattern extends DataPattern {
 export class CoordSuperPattern extends CoordPattern {
 
     pattern: CoordPattern;
-    states: 7 = 7;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(coords: Map<number, number>, range: number, pattern: CoordPattern) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, pattern: CoordPattern) {
+        super(coords, rule);
         this.pattern = pattern;
-        this.ruleStr = pattern.ruleStr + 'Super';
-        this.ruleSymmetry = pattern.ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -539,10 +503,10 @@ export class CoordSuperPattern extends CoordPattern {
         p.runGeneration();
         let out = p.coords;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
-        minX = minX - this.range + BIAS;
-        maxX = maxX + this.range + BIAS;
-        minY = minY - this.range + BIAS;
-        maxY = maxY + this.range + BIAS;
+        minX = minX - this.rule.range + BIAS;
+        maxX = maxX + this.rule.range + BIAS;
+        minY = minY - this.rule.range + BIAS;
+        maxY = maxY + this.rule.range + BIAS;
         let state6: number[] = [];
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
@@ -553,27 +517,13 @@ export class CoordSuperPattern extends CoordPattern {
                     if (newValue === 1) {
                         let cells: number[] = [];
                         let found = false;
-                        if (p.nh) {
-                            for (let i = 0; i < p.nh.length; i += 2) {
-                                let value = coords.get(key + p.nh[i] * WIDTH + p.nh[i + 1]);
-                                if (value === 1) {
-                                    found = true;
-                                    break;
-                                } else if (value) {
-                                    cells.push(value);
-                                }
-                            }
-                        } else {
-                            for (let y = -this.range; y <= this.range; y++) {
-                                for (let x = -this.range; x <= this.range; x++) {
-                                    let value = coords.get(key + y * WIDTH + x);
-                                    if (value === 1) {
-                                        found = true;
-                                        break;
-                                    } else if (value) {
-                                        cells.push(value);
-                                    }
-                                }
+                        for (let i = 0; i < p.rule.neighborhood.length; i++) {
+                            let value = coords.get(key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0]);
+                            if (value === 1) {
+                                found = true;
+                                break;
+                            } else if (value) {
+                                cells.push(value);
                             }
                         }
                         if (found) {
@@ -615,21 +565,10 @@ export class CoordSuperPattern extends CoordPattern {
                     out.set(key, 0);
                 } else {
                     let cells: number[] = [];
-                    if (p.nh) {
-                        for (let i = 0; i < p.nh.length; i += 2) {
-                            let value = coords.get(key + p.nh[i] * WIDTH + p.nh[i + 1]);
-                            if (value) {
-                                cells.push(value);
-                            }
-                        }
-                    } else {
-                        for (let y = -this.range; y <= this.range; y++) {
-                            for (let x = -this.range; x <= this.range; x++) {
-                                let value = coords.get(key + y * WIDTH + x);
-                                if (value) {
-                                    cells.push(value);
-                                }
-                            }
+                    for (let i = 0; i < p.rule.neighborhood.length; i++) {
+                        let value = coords.get(key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0]);
+                        if (value) {
+                            cells.push(value);
                         }
                     }
                     if (oldValue === 16) {
@@ -648,23 +587,11 @@ export class CoordSuperPattern extends CoordPattern {
         }
         for (let key of state6) {
             let toSet: [number, number][] = [];
-            if (p.nh) {
-                for (let i = 0; i < p.nh.length; i += 2) {
-                    let key2 = key + p.nh[i] * WIDTH + p.nh[i + 1];
-                    let value = coords.get(key2) ?? 0;
-                    if (value % 2 === 1) {
-                        toSet.push([key2, value]);
-                    }
-                }
-            } else {
-                for (let y = -this.range; y <= this.range; y++) {
-                    for (let x = -this.range; x <= this.range; x++) {
-                        let key2 = key + y * WIDTH + x;
-                        let value = coords.get(key2) ?? 0;
-                        if (value % 2 === 1) {
-                            toSet.push([key2, value]);
-                        }
-                    }
+            for (let i = 0; i < p.rule.neighborhood.length; i++) {
+                let key2 = key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0];
+                let value = coords.get(key2) ?? 0;
+                if (value % 2 === 1) {
+                    toSet.push([key2, value]);
                 }
             }
             for (let [key, value] of toSet) {
@@ -688,7 +615,7 @@ export class CoordSuperPattern extends CoordPattern {
     }
 
     copy(): CoordSuperPattern {
-        let out = new CoordSuperPattern(new Map(this.coords), this.range, this.pattern);
+        let out = new CoordSuperPattern(new Map(this.coords), this.rule, this.pattern);
         out.generation = this.generation;
         return out;
     }
@@ -702,21 +629,21 @@ export class CoordSuperPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new CoordSuperPattern(out, this.range, this.pattern);
+        let p = new CoordSuperPattern(out, this.rule, this.pattern);
         p.generation = this.generation;
         return p;
     }
 
     clearedCopy(): CoordSuperPattern {
-        return new CoordSuperPattern(new Map(), this.range, this.pattern);
+        return new CoordSuperPattern(new Map(), this.rule, this.pattern);
     }
 
     loadApgcode(code: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadApgcode(code), this.range, this.pattern);
+        return new CoordSuperPattern(this._loadApgcode(code), this.rule, this.pattern);
     }
 
     loadRLE(rle: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadRLE(rle), this.range, this.pattern);
+        return new CoordSuperPattern(this._loadRLE(rle), this.rule, this.pattern);
     }
 
 }
@@ -728,16 +655,10 @@ export class CoordSuperPattern extends CoordPattern {
 export class InvestigatorPattern extends DataPattern {
 
     pattern: DataPattern;
-    states: 21 = 21;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, pattern: DataPattern) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+        super(height, width, data, rule);
         this.pattern = pattern;
-        this.ruleStr = pattern.ruleStr + 'Investigator';
-        this.ruleSymmetry = pattern.ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -964,7 +885,7 @@ export class InvestigatorPattern extends DataPattern {
     }
 
     copy(): InvestigatorPattern {
-        let out = new InvestigatorPattern(this.height, this.width, this.data, this.pattern);
+        let out = new InvestigatorPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -972,7 +893,7 @@ export class InvestigatorPattern extends DataPattern {
     }
 
     clearedCopy(): InvestigatorPattern {
-        return new InvestigatorPattern(0, 0, new Uint8Array(0), this.pattern);
+        return new InvestigatorPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): InvestigatorPattern {
@@ -982,17 +903,17 @@ export class InvestigatorPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new InvestigatorPattern(height, width, data, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadApgcode(code: string): InvestigatorPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new InvestigatorPattern(height, width, data, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
     }
 
     loadRLE(rle: string): InvestigatorPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new InvestigatorPattern(height, width, data, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
     }
 
 }

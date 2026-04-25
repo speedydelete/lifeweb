@@ -202,7 +202,7 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Patter
     let maxB: string;
     let maxS: string;
     let out: ReturnType<typeof isotropicMinmax>;
-    if (p.ruleStr.endsWith('H')) {
+    if (p.rule.str.endsWith('H')) {
         if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
             out = isotropicMinmax(p, data, gens, step, HEX_TRANSITIONS);
         } else {
@@ -212,7 +212,7 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Patter
         minS = unparseTransitions(out.minS, VALID_HEX_TRANSITIONS, true);
         maxB = unparseTransitions(out.maxB, VALID_HEX_TRANSITIONS, true);
         maxS = unparseTransitions(out.maxS, VALID_HEX_TRANSITIONS, true);
-    } else if (p.ruleStr.startsWith('MAP')) {
+    } else if (p.rule.str.startsWith('MAP')) {
         let min: string, max: string;
         if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
             [min, max] = mapStringMinmax(p, data, gens, step);
@@ -220,8 +220,8 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Patter
             [min, max] = mapB0StringMinmax(p, data, gens, step);
         }
         if (p instanceof MAPGenPattern) {
-            min += '/' + p.states;
-            max += '/' + p.states;
+            min += '/' + p.rule.states;
+            max += '/' + p.rule.states;
         }
         return [min, max];
     } else {
@@ -241,10 +241,10 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Patter
         min = `B${minB}/S${minS}`;
         max = `B${maxB}/S${maxS}`;
     } else {
-        min = `${minS}/${minB}/${p.states}`;
-        max = `${maxS}/${maxB}/${p.states}`;
+        min = `${minS}/${minB}/${p.rule.states}`;
+        max = `${maxS}/${maxB}/${p.rule.states}`;
     }
-    if (p.ruleStr.endsWith('H')) {
+    if (p.rule.str.endsWith('H')) {
         min += 'H';
         max += 'H';
     }
@@ -367,10 +367,10 @@ function otB0Minmax(p: MAPB0Pattern | MAPGenB0Pattern, minB: number[], minS: num
 
 /** Finds minimum and maximum rules for patterns in OT rules. */
 function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let isHex = p.ruleStr.endsWith('H');
+    let isHex = p.rule.str.endsWith('H');
     let allTrs = isHex ? HEX_TRANSITIONS : TRANSITIONS;
     let validTrs = isHex ? VALID_HEX_TRANSITIONS : VALID_TRANSITIONS;
-    if (isHex ? p.ruleSymmetry === 'D4x' : p.ruleSymmetry !== 'D8') {
+    if (isHex ? p.rule.symmetry === 'D4x' : p.rule.symmetry !== 'D8') {
         throw new Error(`Pattern must be in [Hexagonal] [Generations] [B0] INT for outer-totalistic minmax`);
     }
     let startB: number[] = [];
@@ -404,13 +404,13 @@ function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pat
     if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
         return [`B${minB}/S${minS}`, `B${maxB}/S${maxS}`];
     } else {
-        return [`${minS}/${minB}/${p.states}`, `${maxS}/${maxB}/${p.states}`];
+        return [`${minS}/${minB}/${p.rule.states}`, `${maxS}/${maxB}/${p.rule.states}`];
     }
 }
 
 /** Finds minimum and maximum rules for patterns in HROT rules without B0. */
 function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let parts = p.ruleStr.split(',');
+    let parts = p.rule.str.split(',');
     let min = `${parts[0]},${parts[1]},S`;
     let max = `${parts[0]},${parts[1]},S`;
     let minS = p.s.slice();
@@ -460,7 +460,7 @@ function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number)
 
 /** Finds minimum and maximum rules for patterns in HROT rules with B0. */
 function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
-    let parts = p.ruleStr.split(',');
+    let parts = p.rule.str.split(',');
     let min = `${parts[0]},${parts[1]},S`;
     let max = `${parts[0]},${parts[1]},S`;
     let minS = p.evenS.map(x => 1 - x);
@@ -567,7 +567,7 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: num
         data.phases.push(q);
     }
     if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern || p instanceof MAPGenB0Pattern) {
-        if (ot && p.ruleSymmetry === 'D8') {
+        if (ot && p.rule.symmetry === 'D8') {
             return fullOTMinmax(p, data, gens, step);
         } else {
             return mapMinmax(p, data, gens, step);
@@ -579,7 +579,7 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: num
     } else if (p instanceof AlternatingPattern) {
         return alternatingMinmax(p, data, gens, step, ot);
     } else if (p instanceof TreePattern) {
-        return [p.ruleStr, p.ruleStr];
+        return [p.rule.str, p.rule.str];
     } else {
         throw new RuleError(`Unknown pattern: ${p.constructor.name}`);
     }

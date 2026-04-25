@@ -340,6 +340,22 @@ export interface Rect {
     yOffset: number;
 }
 
+/** Represents the properties of a rule. */
+export interface Rule {
+    /** The normalized rulestring. */
+    str: string;
+    /** The number of states the rule has. */
+    states: number;
+    /** The symmetry that the rule follows. */
+    symmetry: RuleSymmetry;
+    /** The period of the rule. This is 1 for most rules, 2 for B0 rules, and the number of alternations for alternating-time rules. */
+    period: number;
+    /** The maximum number of cells away (in any direction, even diagonally) that can be affected by a cell change in a single generation. */
+    range: number;
+    /** The neighborhood as a list of [x, y] coordinates. */
+    neighborhood: [number, number][];
+}
+
 /** Represents a pattern in a cellular automata. */
 export interface Pattern {
     /** The height of the pattern. */
@@ -352,14 +368,8 @@ export interface Pattern {
     yOffset: number;
     /** The generation it is on, this value is used by AlternatingPattern and B0 rules. */
     generation: number;
-    /** The number of states the rule has. */
-    states: number;
-    /** The normalized rulestring. */
-    ruleStr: string;
-    /** The symmetry that the rule follows. */
-    ruleSymmetry: RuleSymmetry;
-    /** The period of the rule. This is 1 for most rules, 2 for B0 rules, and the number of alternations for alternating-time rules. */
-    rulePeriod: number;
+    /** An object representing the rule. */
+    rule: Rule;
     /** Runs a single generation. */
     runGeneration(): unknown;
     /** Runs one or more generations. */
@@ -458,16 +468,14 @@ export abstract class DataPattern implements Pattern {
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
-    abstract states: number;
-    abstract ruleStr: string;
-    abstract ruleSymmetry: RuleSymmetry;
-    abstract rulePeriod: number;
+    rule: Rule;
 
-    constructor(height: number, width: number, data: Uint8Array) {
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule) {
         this.height = height;
         this.width = width;
         this.size = this.height * this.width;
         this.data = data;
+        this.rule = rule;
     }
 
     abstract runGeneration(): any;
@@ -731,7 +739,7 @@ export abstract class DataPattern implements Pattern {
 
     hash32(): number {
         let out = 0x811c9dc5;
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             for (let i = 0; i < this.data.length; i += 8) {
                 out ^= this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5);
                 out *= 0x01000193;
@@ -747,7 +755,7 @@ export abstract class DataPattern implements Pattern {
 
     hash64(): bigint {
         let out = 0xcbf29ce484222325n;
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             for (let i = 0; i < this.data.length; i += 8) {
                 out ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
                 out = (out + 0x00000100000001b3n) % (2n ** 64n);
@@ -1001,14 +1009,14 @@ export abstract class DataPattern implements Pattern {
         } else {
             prefix += '_';
         }
-        if (this.states < 3) {
+        if (this.rule.states < 3) {
             return prefix + this._toApgcode(this.data);
         } else {
             let out = prefix + this._toApgcode(this.data.map(x => x === 1 ? 1 : 0));
             out += '_' + this._toApgcode(this.data.map(x => x > 1 ? 1 : 0));
-            let layers = Math.ceil(Math.log2(this.states - 2));
+            let layers = Math.ceil(Math.log2(this.rule.states - 2));
             if (layers > 0) {
-                let data = this.data.map(x => x < 2 ? 0 : (this.states - x) * 4 - 2);
+                let data = this.data.map(x => x < 2 ? 0 : (this.rule.states - x) * 4 - 2);
                 for (let i = 0; i < layers; i++) {
                     out += '_' + this._toApgcode(data.map(x => x & (1 << i)));
                 }
@@ -1027,9 +1035,9 @@ export abstract class DataPattern implements Pattern {
                 p.shrinkToFit();
             }
             codes.push(p.toApgcode());
-            if (this.ruleSymmetry !== 'C1') {
+            if (this.rule.symmetry !== 'C1') {
                 let q = p.copy();
-                if (this.ruleSymmetry === 'D8') {
+                if (this.rule.symmetry === 'D8') {
                     codes.push(q.rotateLeft().toApgcode());
                     for (let i = 0; i < 2; i++) {
                         for (let j = 0; j < 4; j++) {
@@ -1037,21 +1045,21 @@ export abstract class DataPattern implements Pattern {
                         }
                         q.flipHorizontal();
                     }
-                } else if (this.ruleSymmetry === 'C2') {
+                } else if (this.rule.symmetry === 'C2') {
                     codes.push(q.rotate180().toApgcode());
-                } else if (this.ruleSymmetry === 'C4') {
+                } else if (this.rule.symmetry === 'C4') {
                     for (let i = 0; i < 4; i++) {
                         codes.push(q.rotateLeft().toApgcode());
                     }
-                } else if (this.ruleSymmetry === 'D2-') {
+                } else if (this.rule.symmetry === 'D2-') {
                     codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2|') {
+                } else if (this.rule.symmetry === 'D2|') {
                     codes.push(q.flipVertical().toApgcode());
-                } else if (this.ruleSymmetry === 'D2/') {
+                } else if (this.rule.symmetry === 'D2/') {
                     codes.push(q.flipDiagonal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2\\') {
+                } else if (this.rule.symmetry === 'D2\\') {
                     codes.push(q.transpose().toApgcode());
-                } else if (this.ruleSymmetry === 'D4+') {
+                } else if (this.rule.symmetry === 'D4+') {
                     codes.push(q.flipHorizontal().toApgcode());
                     codes.push(q.flipVertical().toApgcode());
                     codes.push(q.flipHorizontal().toApgcode());
@@ -1077,7 +1085,7 @@ export abstract class DataPattern implements Pattern {
     }
 
     toRLE(): string {
-        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.ruleStr}\n`;
+        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n`;
         let prevChar = '';
         let num = 0;
         let i = 0;
@@ -1113,7 +1121,7 @@ export abstract class DataPattern implements Pattern {
             isStart = false;
             for (let x = 0; x < this.width; x++) {
                 let char: string;
-                if (this.states > 2) {
+                if (this.rule.states > 2) {
                     char = RLE_CHARS[this.data[i]];
                 } else if (this.data[i]) {
                     char = 'o';
@@ -1156,7 +1164,7 @@ export abstract class DataPattern implements Pattern {
     }
 
     _loadApgcode(code: string): [number, number, Uint8Array] {
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             let strips: string[] = [];
             if (code.includes('yz')) {
                 let prev = '';
@@ -1413,9 +1421,7 @@ export abstract class DataPattern implements Pattern {
             xOffset: this.xOffset,
             yOffset: this.yOffset,
             generation: this.generation,
-            ruleStr: this.ruleStr,
-            ruleSymmetry: this.ruleSymmetry,
-            rulePeriod: this.rulePeriod,
+            rule: this.rule,
         }, options)} ${this.toRLE()}`;
     }
 
@@ -1425,23 +1431,16 @@ export abstract class DataPattern implements Pattern {
 /** Implements CA by storing the pattern data in a Map. Much more general than `DataPattern`, but slower. */
 export abstract class CoordPattern implements Pattern {
 
-    /** The maximum number of cells away (in any direction, even diagonally) that can be affected by a cell change in a single generation. */
-    range: number;
-    /** The equivalent HROT weighted neighborhood for the rule. If null, it will assume it is using a Moore nieghborhood. */
-    nh?: Int8Array | null;
     /** Stores the pattern data in a Map. We pack 26-bit signed integers into a 52-bit integer, which is then used as a double. */
     coords: Map<number, number>;
     xOffset: number = 0;
     yOffset: number = 0;
     generation: number = 0;
-    abstract states: number;
-    abstract ruleStr: string;
-    abstract ruleSymmetry: RuleSymmetry;
-    abstract rulePeriod: number;
+    rule: Rule;
 
-    constructor(coords: Map<number, number>, range: number) {
+    constructor(coords: Map<number, number>, rule: Rule) {
         this.coords = coords;
-        this.range = range;
+        this.rule = rule;
     }
 
     /** Gets the bounding box of the pattern. */
@@ -1648,7 +1647,7 @@ export abstract class CoordPattern implements Pattern {
     hash32(): number {
         let data = this.getData();
         let out = 0x811c9dc5;
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             for (let i = 0; i < data.length; i += 8) {
                 out ^= data[i] | (data[i + 1] << 1) | (data[i + 2] << 2) | (data[i + 3] << 3) | (data[i + 4] << 4) | (data[i + 5] << 5) | (data[i + 6] << 5) | (data[i + 7] << 5);
                 out *= 0x01000193;
@@ -1665,7 +1664,7 @@ export abstract class CoordPattern implements Pattern {
     hash64(): bigint {
         let data = this.getData();
         let out = 0xcbf29ce484222325n;
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             for (let i = 0; i < data.length; i += 8) {
                 out ^= BigInt(data[i] | (data[i + 1] << 1) | (data[i + 2] << 2) | (data[i + 3] << 3) | (data[i + 4] << 4) | (data[i + 5] << 5) | (data[i + 6] << 5) | (data[i + 7] << 5));
                 out = (out + 0x00000100000001b3n) % (2n ** 64n);
@@ -1811,14 +1810,14 @@ export abstract class CoordPattern implements Pattern {
         }
         let data = this.getData();
         let {height, width} = this.getRect();
-        if (this.states < 3) {
+        if (this.rule.states < 3) {
             return prefix + this._toApgcode(data, height, width);
         } else {
             let out = prefix + this._toApgcode(data.map(x => x === 1 ? 1 : 0), height, width);
             out += '_' + this._toApgcode(data.map(x => x > 1 ? 1 : 0), height, width);
-            let layers = Math.ceil(Math.log2(this.states - 2));
+            let layers = Math.ceil(Math.log2(this.rule.states - 2));
             if (layers > 0) {
-                let data2 = data.map(x => x < 2 ? 0 : (this.states - x) * 4 - 2);
+                let data2 = data.map(x => x < 2 ? 0 : (this.rule.states - x) * 4 - 2);
                 for (let i = 0; i < layers; i++) {
                     out += '_' + this._toApgcode(data2.map(x => x & (1 << i)), height, width);
                 }
@@ -1837,9 +1836,9 @@ export abstract class CoordPattern implements Pattern {
                 p.shrinkToFit();
             }
             codes.push(p.toApgcode());
-            if (this.ruleSymmetry !== 'C1') {
+            if (this.rule.symmetry !== 'C1') {
                 let q = p.copy();
-                if (this.ruleSymmetry === 'D8') {
+                if (this.rule.symmetry === 'D8') {
                     codes.push(q.rotateLeft().toApgcode());
                     for (let i = 0; i < 2; i++) {
                         for (let j = 0; j < 4; j++) {
@@ -1847,21 +1846,21 @@ export abstract class CoordPattern implements Pattern {
                         }
                         q.flipHorizontal();
                     }
-                } else if (this.ruleSymmetry === 'C2') {
+                } else if (this.rule.symmetry === 'C2') {
                     codes.push(q.rotate180().toApgcode());
-                } else if (this.ruleSymmetry === 'C4') {
+                } else if (this.rule.symmetry === 'C4') {
                     for (let i = 0; i < 4; i++) {
                         codes.push(q.rotateLeft().toApgcode());
                     }
-                } else if (this.ruleSymmetry === 'D2-') {
+                } else if (this.rule.symmetry === 'D2-') {
                     codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2|') {
+                } else if (this.rule.symmetry === 'D2|') {
                     codes.push(q.flipVertical().toApgcode());
-                } else if (this.ruleSymmetry === 'D2/') {
+                } else if (this.rule.symmetry === 'D2/') {
                     codes.push(q.flipDiagonal().toApgcode());
-                } else if (this.ruleSymmetry === 'D2\\') {
+                } else if (this.rule.symmetry === 'D2\\') {
                     codes.push(q.transpose().toApgcode());
-                } else if (this.ruleSymmetry === 'D4+') {
+                } else if (this.rule.symmetry === 'D4+') {
                     codes.push(q.flipHorizontal().toApgcode());
                     codes.push(q.flipVertical().toApgcode());
                     codes.push(q.flipHorizontal().toApgcode());
@@ -1889,7 +1888,7 @@ export abstract class CoordPattern implements Pattern {
     toRLE(): string {
         let data = this.getData();
         let {height, width} = this.getRect();
-        let out = `x = ${width}, y = ${height}, rule = ${this.ruleStr}\n`;
+        let out = `x = ${width}, y = ${height}, rule = ${this.rule.str}\n`;
         let prevChar = '';
         let num = 0;
         let i = 0;
@@ -1925,7 +1924,7 @@ export abstract class CoordPattern implements Pattern {
             isStart = false;
             for (let x = 0; x < this.width; x++) {
                 let char: string;
-                if (this.states > 2) {
+                if (this.rule.states > 2) {
                     char = RLE_CHARS[data[i]];
                 } else if (data[i]) {
                     char = 'o';
@@ -1968,7 +1967,7 @@ export abstract class CoordPattern implements Pattern {
     }
 
     _loadApgcode(code: string): Map<number, number> {
-        if (this.states === 2) {
+        if (this.rule.states === 2) {
             let data: number[][] = [];
             let width = 0;
             for (let strip of code.split('z')) {
@@ -2227,9 +2226,7 @@ export abstract class CoordPattern implements Pattern {
             xOffset: this.xOffset,
             yOffset: this.yOffset,
             generation: this.generation,
-            ruleStr: this.ruleStr,
-            ruleSymmetry: this.ruleSymmetry,
-            rulePeriod: this.rulePeriod,
+            rule: this.rule,
         }, options)} ${this.toRLE()}`;
     }
 

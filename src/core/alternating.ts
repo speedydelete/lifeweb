@@ -2,7 +2,7 @@
 /* Implements alternating-time rules (https://conwaylife.com/wiki/Alternating_rule). */
 
 import {lcm} from './util.js';
-import {RuleSymmetry, Pattern, DataPattern} from './pattern.js';
+import {Rule, Pattern, DataPattern} from './pattern.js';
 
 
 /** Implements alternating-time rules. */
@@ -10,24 +10,10 @@ export class AlternatingPattern extends DataPattern {
 
     /** A list of internal patterns that are copied into and out of when generations are run. Can be shared by multiple instances. */
     patterns: Pattern[];
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, patterns: Pattern[], states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, patterns: Pattern[]) {
+        super(height, width, data, rule);
         this.patterns = patterns;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
-        let rulePeriod = patterns.length;
-        for (let p of patterns.slice(1)) {
-            if (p.rulePeriod > 1) {
-                rulePeriod = lcm(rulePeriod, p.rulePeriod);
-            }
-        }
-        this.rulePeriod = rulePeriod;
     }
 
     runGeneration(): void {
@@ -44,7 +30,7 @@ export class AlternatingPattern extends DataPattern {
     }
 
     copy(): AlternatingPattern {
-        let out = new AlternatingPattern(this.height, this.width, this.data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new AlternatingPattern(this.height, this.width, this.data, this.rule, this.patterns);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -52,7 +38,7 @@ export class AlternatingPattern extends DataPattern {
     }
     
     clearedCopy(): AlternatingPattern {
-        return new AlternatingPattern(0, 0, new Uint8Array(0), this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+        return new AlternatingPattern(0, 0, new Uint8Array(0), this.rule, this.patterns);
     }
 
     copyPart(x: number, y: number, height: number, width: number): AlternatingPattern {
@@ -62,17 +48,17 @@ export class AlternatingPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+        return new AlternatingPattern(height, width, data, this.rule, this.patterns);
     }
 
     loadApgcode(code: string): AlternatingPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+        return new AlternatingPattern(height, width, data, this.rule, this.patterns);
     }
 
     loadRLE(rle: string): AlternatingPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new AlternatingPattern(height, width, data, this.patterns, this.states, this.ruleStr, this.ruleSymmetry);
+        return new AlternatingPattern(height, width, data, this.rule, this.patterns);
     }
 
 }

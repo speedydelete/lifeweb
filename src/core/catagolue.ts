@@ -369,7 +369,7 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
     if (rule.includes('|')) {
         return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
     }
-    let ruleStr = createPattern(rule, customRules).ruleStr;
+    let ruleStr = createPattern(rule, customRules).rule.str;
     if (ruleStr.includes('/')) {
         let parts = ruleStr.split('/');
         parts[0] = parts[0];

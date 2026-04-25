@@ -7,7 +7,7 @@ We index the trs variables like this to make it faster:
 The rest of this file assumes you are familiar with the INT notation (https://conwaylife.com/wiki/Isotropic_non-totalistic_rule). */
 
 import {RuleError} from './util.js';
-import {DataPattern, RuleSymmetry, SYMMETRY_MEET, getRuleSymmetryFromBases} from './pattern.js';
+import {DataPattern, RuleSymmetry, getRuleSymmetryFromBases, Rule} from './pattern.js';
 
 
 /** Each INT transition's mapping to a 9-bit number. */
@@ -281,45 +281,48 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
-    let out = new Uint8Array(64);
-    let j = 0;
+    let out: number[] = [];
     for (let i = 0; i < data.length; i += 4) {
         let a = BASE64.indexOf(data[i]);
         let b = BASE64.indexOf(data[i + 1]);
         let c = BASE64.indexOf(data[i + 2]);
         let d = BASE64.indexOf(data[i + 3]);
+        out.push((a << 2) | (b >> 4));
         if (c === -1) {
-            out[j++] = (a << 2) | (b >> 4);
             break;
         }
         if (d === -1) {
-            out[j++] = (a << 2) | (b >> 4);
-            if (j === out.length) {
-                break;
+            out.push(((b & 15) << 4) | (c >> 2));
+            break;
+        }
+        out.push(((b & 15) << 4) | (c >> 2));
+        out.push(((c & 3) << 6) | d);
+    }
+    let trs = new Uint8Array(512);
+    if (data.length === 86) {
+        for (let i = 0; i < 512; i++) {
+            if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
+                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
             }
-            out[j++] = ((b & 15) << 4) | (c >> 2);
-            break;
         }
-        out[j++] = (a << 2) | (b >> 4);
-        if (j === out.length) {
-            break;
+    } else if (data.length === 6) {
+        for (let i = 0; i < 512; i++) {
+            let j = ((i & 0b010000000) >> 3) | ((i & 0b000111000) >> 2) | ((i & 0b00000010) >> 1);
+            if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+            }
         }
-        out[j++] = ((b & 15) << 4) | (c >> 2);
-        if (j === out.length) {
-            break;
+    } else if (data.length === 22) {
+        for (let i = 0; i < 512; i++) {
+            let j = (i & 0b011_111_110) >> 1;
+            if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+            }
         }
-        out[j++] = ((c & 3) << 6) | d;
-        if (j === out.length) {
-            break;
-        }
+    } else {
+        throw new RuleError(`MAP string must be 86, 6, or 22 characters long`);
     }
-    let actualOut = new Uint8Array(512);
-    for (let i = 0; i < 512; i++) {
-        if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
-            actualOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
-        }
-    }
-    return actualOut;
+    return trs;
 }
 
 export function unparseMAP(trs: Uint8Array): string {
@@ -333,232 +336,6 @@ export function unparseMAP(trs: Uint8Array): string {
 }
 
 
-export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
-    let C2 = true;
-    let C4 = true;
-    let D2h = true;
-    let D2v = true;
-    let D2s = true;
-    let D2b = true;
-    for (let i = 0; i < 512; i++) {
-        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
-        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
-        if (trs[i] !== trs[j]) {
-            C2 = false;
-            C4 = false;
-            break;
-        }
-    }
-    if (C2) {
-        for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
-                C4 = false;
-                break;
-            }
-        }
-    }
-    for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
-            D2h = false;
-            break;
-        }
-    }
-    for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
-            D2v = false;
-            break;
-        }
-    }
-    for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            D2s = false;
-            break;
-        }
-    }
-    for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[(i & 341) | ((i >> 2) & 136) | ((i << 2) & 34)]) {
-            D2b = false;
-            break;
-        }
-    }
-    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
-}
-
-
-/** Bad, very incomplete, QuickLife implementation. */
-
-// function create16Trs(trs: Uint8Array): Uint8Array {
-//     let out = new Uint8Array(65536);
-//     for (let i = 0; i < 65536; i++) {
-//         out[i] |= trs[((i >> 5) & 7) | ((i >> 6) & 56) | ((i >> 7) & 448)] << 7;
-//         out[i] |= trs[((i >> 4) & 7) | ((i >> 5) & 56) | ((i >> 6) & 448)] << 6;
-//         out[i] |= trs[((i >> 1) & 7) | ((i >> 2) & 56) | ((i >> 3) & 448)] << 2;
-//         out[i] |= trs[(i & 7) | ((i >> 1) & 56) | ((i >> 2) & 448)] << 1;
-//     }
-//     return out;
-// }
-
-/** Represents a 16x16 region. a and b contain the allocations that are swapped on every generation. */
-// interface Chunk {
-//     a: Uint32Array;
-//     b?: Uint32Array;
-//     pop: number;
-// }
-/* Chunk format:
-0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
-0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
-0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
-0 0 0 0 0 0 0 0 4 4 4 4 4 4 4 4
-1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
-1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
-1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
-1 1 1 1 1 1 1 1 5 5 5 5 5 5 5 5
-2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
-2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
-2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
-2 2 2 2 2 2 2 2 6 6 6 6 6 6 6 6
-3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
-3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
-3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
-3 3 3 3 3 3 3 3 7 7 7 7 7 7 7 7
-Bits for each one:
-31 27 23 19 15 11 07 03
-30 26 22 18 14 10 06 02
-29 25 21 17 13 09 05 01
-28 24 20 16 12 08 04 00
-*/
-
-// interface Tile {
-//     super: false;
-//     nw: Chunk | null;
-//     ne: Chunk | null;
-//     sw: Chunk | null;
-//     se: Chunk | null;
-// }
-
-// interface SuperTile {
-//     super: true;
-//     nw: Tile | SuperTile;
-//     ne: Tile | SuperTile;
-//     sw: Tile | SuperTile;
-//     se: Tile | SuperTile;
-// }
-
-// const POPCOUNT_TABLE = new Uint8Array(256);
-// for (let i = 0; i < 256; i++) {
-//     POPCOUNT_TABLE[i] = (i & 1) + ((i >> 1) & 1) + ((i >> 2) & 1) + ((i >> 3) & 1) + ((i >> 4) & 1) + ((i >> 5) & 1) + ((i >> 6) & 1) + ((i >> 7) & 1);
-// }
-
-/** Run a single chunk by 1 generation. */
-// function runChunk(c: Chunk, trs: Uint32Array): void {
-//     if (!c.b) {
-//         c.b = new Uint32Array(256);
-//     }
-//     for (let i = 0; i < 8; i += 2) {
-//         let m = trs[((c.a[i] & 0x3333) << 2) | ((c.a[i + 1] & 0xcccc) >>> 2)] | (trs[(((c.a[i] >>> 8) & 0x3333) << 2) | (((c.a[i + 1] >>> 8) & 0xcccc) >>> 2)] << 8) | (trs[((c.a[i] >>> 6) & 0xcccc) | ((c.a[i + 1] >>> 10) & 0x3333)] << 16);
-//         c.b[i] = trs[c.a[i] & 0xffff] | (trs[(c.a[i] >>> 8) & 0xffff] << 8) | (trs[c.a[i] >>> 16] << 16) | ((m & 0x4444) >>> 2);
-//         c.b[i + 1] = trs[c.a[i + 1] & 0xffff] | (trs[(c.a[i + 1] >>> 8) & 0xffff] << 8) | (trs[c.a[i + 1] >>> 16] << 16) | ((m & 0x2222) << 2);
-//     }
-//     let m0 = trs[((c.a[0] & 0xff) << 8) | (c.a[4] >>> 24)];
-//     let m1 = trs[((c.a[0] & 0x33) << 12) | ((c.a[4] >>> 26) & 0x00cc) | ((c.a[1] >> 2) & 0x3300) | ((c.a[5] >> 28) & 0x33)];
-//     let m2 = trs[((c.a[1] & 0xff) << 8) | (c.a[5] >>> 24)];
-//     let temp = c.b;
-//     c.b = c.a;
-//     c.a = temp;
-// }
-
-// function runTile(t: Tile, trs: Uint8Array): void {
-//     if (t.nw) {
-//         runChunk(t.nw, trs);
-//     }
-//     if (t.ne) {
-//         runChunk(t.ne, trs);
-//     }
-//     if (t.sw) {
-//         runChunk(t.sw, trs);
-//     }
-//     if (t.se) {
-//         runChunk(t.se, trs);
-//     }
-//     if (t.nw) {
-//         if (t.ne) {
-//             let v1 = trs[((t.nw.a & 255) << 8) | ((t.ne.a >>> 24) & 255)];
-//             let v2 = trs[((t.nw.b & 255) << 8) | ((t.ne.b >>> 24) & 255)];
-//             t.nw.c |= v1 >>> 4;
-//             t.nw.d |= v2 >>> 4;
-//             t.ne.c |= v1 << 28;
-//             t.ne.d |= v2 << 28;
-//         } else {
-//             let v1 = trs[(t.nw.a & 255) << 8];
-//             let v2 = trs[(t.nw.b & 255) << 8];
-//             t.nw.c |= v1 >>> 4;
-//             t.nw.d |= v2 >>> 4;
-//             if ((v1 & 15) || (v2 & 15)) {
-//                 t.ne = {
-//                     a: 0,
-//                     b: 0,
-//                     c: (v1 & 15) << 28,
-//                     d: (v2 & 15) << 28,
-//                     pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-//                 };
-//             }
-//         }
-//     } else if (t.ne) {
-//         let v1 = trs[t.ne.a >>> 24];
-//         let v2 = trs[t.ne.b >>> 24];
-//         t.ne.c |= v1 << 24;
-//         t.ne.d |= v2 << 24;
-//         if ((v1 & 15) || (v2 & 15)) {
-//             t.nw = {
-//                 a: 0,
-//                 b: 0,
-//                 c: v1 >> 4,
-//                 d: v2 >> 4,
-//                 pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-//             };
-//         }
-//     }
-//     if (t.sw) {
-//         if (t.se) {
-//             let v1 = trs[((t.sw.a & 255) << 8) | ((t.se.a >>> 24) & 255)];
-//             let v2 = trs[((t.sw.b & 255) << 8) | ((t.se.b >>> 24) & 255)];
-//             t.sw.c |= v1 >>> 4;
-//             t.sw.d |= v2 >>> 4;
-//             t.se.c |= v1 << 28;
-//             t.se.d |= v2 << 28;
-//         } else {
-//             let v1 = trs[(t.sw.a & 255) << 8];
-//             let v2 = trs[(t.sw.b & 255) << 8];
-//             t.sw.c |= v1 >>> 4;
-//             t.sw.d |= v2 >>> 4;
-//             if ((v1 & 15) || (v2 & 15)) {
-//                 t.se = {
-//                     a: 0,
-//                     b: 0,
-//                     c: (v1 & 15) << 28,
-//                     d: (v2 & 15) << 28,
-//                     pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-//                 };
-//             }
-//         }
-//     } else if (t.se) {
-//         let v1 = trs[t.se.a >>> 24];
-//         let v2 = trs[t.se.b >>> 24];
-//         t.se.c |= v1 << 24;
-//         t.se.d |= v2 << 24;
-//         if ((v1 & 15) || (v2 & 15)) {
-//             t.sw = {
-//                 a: 0,
-//                 b: 0,
-//                 c: v1 >> 4,
-//                 d: v2 >> 4,
-//                 pop: POPCOUNT_TABLE[((v1 & 15) << 4) | (v2 & 15)],
-//             };
-//         }
-//     }
-// }
-
-
 /** Implements the 2**511 2-state range-1 Moore-neighborhood cellular automata without B0, which includes Conway's Game of Life and most other studied rules. */
 export class MAPPattern extends DataPattern {
 
@@ -569,16 +346,10 @@ export class MAPPattern extends DataPattern {
      * 630
      */
     trs: Uint8Array;
-    states: 2 = 2;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, trs: Uint8Array) {
+        super(height, width, data, rule);
         this.trs = trs;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -882,7 +653,7 @@ export class MAPPattern extends DataPattern {
     }
 
     copy(): MAPPattern {
-        let out = new MAPPattern(this.height, this.width, this.data.slice(), this.trs, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPPattern(this.height, this.width, this.data.slice(), this.rule, this.trs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -890,7 +661,7 @@ export class MAPPattern extends DataPattern {
     }
 
     clearedCopy(): MAPPattern {
-        return new MAPPattern(0, 0, new Uint8Array(0), this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs);
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPPattern {
@@ -900,17 +671,17 @@ export class MAPPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPPattern(height, width, data, this.rule, this.trs);
     }
 
     loadApgcode(code: string): MAPPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPPattern(height, width, data, this.rule, this.trs);
     }
 
     loadRLE(rle: string): MAPPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPPattern(height, width, data, this.trs, this.ruleStr, this.ruleSymmetry);
+        return new MAPPattern(height, width, data, this.rule, this.trs);
     }
 
 }
@@ -933,17 +704,11 @@ export class MAPB0Pattern extends DataPattern {
      * 630
      */
     oddTrs: Uint8Array;
-    states: 2 = 2;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 2 = 2;
 
-    constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, evenTrs: Uint8Array, oddTrs: Uint8Array) {
+        super(height, width, data, rule);
         this.evenTrs = evenTrs;
         this.oddTrs = oddTrs;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -1207,7 +972,7 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     copy(): MAPB0Pattern {
-        let out = new MAPB0Pattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPB0Pattern(this.height, this.width, this.data.slice(), this.rule, this.evenTrs, this.oddTrs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -1215,7 +980,7 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     clearedCopy(): MAPB0Pattern {
-        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenTrs, this.oddTrs);
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPB0Pattern {
@@ -1225,17 +990,17 @@ export class MAPB0Pattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
 
     loadApgcode(code: string): MAPB0Pattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
 
     loadRLE(rle: string): MAPB0Pattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.ruleStr, this.ruleSymmetry);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
 
 }
@@ -1251,17 +1016,10 @@ export class MAPGenPattern extends DataPattern {
      * 630
      */
     trs: Uint8Array;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(height: number, width: number, data: Uint8Array, trs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, trs: Uint8Array) {
+        super(height, width, data, rule);
         this.trs = trs;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -1269,7 +1027,7 @@ export class MAPGenPattern extends DataPattern {
         let width = this.width;
         let height = this.height;
         let size = this.size;
-        let states = this.states;
+        let states = this.rule.states;
         let data = this.data;
         let alive = this.data.map(x => x === 1 ? 1 : 0);
         let trs = this.trs;
@@ -1596,7 +1354,7 @@ export class MAPGenPattern extends DataPattern {
     }
 
     copy(): MAPGenPattern {
-        let out = new MAPGenPattern(this.height, this.width, this.data.slice(), this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPGenPattern(this.height, this.width, this.data.slice(), this.rule, this.trs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -1604,7 +1362,7 @@ export class MAPGenPattern extends DataPattern {
     }
 
     clearedCopy(): MAPGenPattern {
-        return new MAPGenPattern(0, 0, new Uint8Array(0), this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(0, 0, new Uint8Array(0), this.rule, this.trs);
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPGenPattern {
@@ -1614,17 +1372,17 @@ export class MAPGenPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs);
     }
 
     loadApgcode(code: string): MAPGenPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs);
     }
 
     loadRLE(rle: string): MAPGenPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPGenPattern(height, width, data, this.trs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs);
     }
 
 }
@@ -1647,18 +1405,11 @@ export class MAPGenB0Pattern extends DataPattern {
      * 630
      */
     oddTrs: Uint8Array;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 2 = 2;
 
-    constructor(height: number, width: number, data: Uint8Array, evenTrs: Uint8Array, oddTrs: Uint8Array, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, evenTrs: Uint8Array, oddTrs: Uint8Array) {
+        super(height, width, data, rule);
         this.evenTrs = evenTrs;
         this.oddTrs = oddTrs;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
@@ -1666,7 +1417,7 @@ export class MAPGenB0Pattern extends DataPattern {
         let width = this.width;
         let height = this.height;
         let size = this.size;
-        let states = this.states;
+        let states = this.rule.states;
         let data = this.data;
         let alive = this.data.map(x => x === 1 ? 1 : 0);
         let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
@@ -1993,7 +1744,7 @@ export class MAPGenB0Pattern extends DataPattern {
     }
 
     copy(): MAPGenB0Pattern {
-        let out = new MAPGenB0Pattern(this.height, this.width, this.data.slice(), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new MAPGenB0Pattern(this.height, this.width, this.data.slice(), this.rule, this.evenTrs, this.oddTrs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -2001,7 +1752,7 @@ export class MAPGenB0Pattern extends DataPattern {
     }
 
     clearedCopy(): MAPGenB0Pattern {
-        return new MAPGenB0Pattern(0, 0, new Uint8Array(0), this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenTrs, this.oddTrs);
     }
 
     copyPart(x: number, y: number, height: number, width: number): MAPGenB0Pattern {
@@ -2011,21 +1762,94 @@ export class MAPGenB0Pattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
 
     loadApgcode(code: string): MAPGenB0Pattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
     
     loadRLE(rle: string): MAPGenB0Pattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPGenB0Pattern(height, width, data, this.evenTrs, this.oddTrs, this.states, this.ruleStr, this.ruleSymmetry);
+        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
     }
 
 }
 
+
+
+export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
+    let C2 = true;
+    let C4 = true;
+    let D2h = true;
+    let D2v = true;
+    let D2s = true;
+    let D2b = true;
+    for (let i = 0; i < 512; i++) {
+        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
+        if (trs[i] !== trs[j]) {
+            C2 = false;
+            C4 = false;
+            break;
+        }
+    }
+    if (C2) {
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                C4 = false;
+                break;
+            }
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+            D2h = false;
+            break;
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+            D2v = false;
+            break;
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            D2s = false;
+            break;
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[(i & 341) | ((i >> 2) & 136) | ((i << 2) & 34)]) {
+            D2b = false;
+            break;
+        }
+    }
+    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
+}
+
+export function findTransitionsNeighborhood(trs: Uint8Array): [number, number][] {
+    let out: [number, number][] = [];
+    let bit = 0;
+    for (let y = -1; y <= 1; y++) {
+        for (let x = -1; x <= 1; x++) {
+            let found = false;
+            for (let i = 0; i < 512; i++) {
+                if (trs[i] !== trs[i ^ (1 << bit)]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                out.push([x, y]);
+            }
+            bit++;
+        }
+    }
+    return out;
+}
 
 /** The mapping of von Neumann neighorhood rules to INT transitions. */
 export const VON_NEUMANN: string[][] = [
@@ -2040,39 +1864,9 @@ export const VON_NEUMANN: string[][] = [
 export function createMAPPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pattern {
     let ruleStr: string;
     let trs = new Uint8Array(512);
-    let neighborhood: 'M' | 'V' | 'H' | 'L' = 'M';
+    let nhLetter: 'M' | 'V' | 'H' | 'L' = 'M';
     let states = 2;
     let match: RegExpMatchArray | null;
-    let end = rule[rule.length - 1];
-    if (end === 'V' || end === 'H') {
-        neighborhood = end;
-        rule = rule.slice(0, -1);
-    } else if (end === 'v') {
-        neighborhood = 'V';
-        rule = rule.slice(0, -1);
-    } else if (end === 'h') {
-        neighborhood = 'H';
-        rule = rule.slice(0, -1);
-    }
-    if (match = rule.match(/^[gG]([0-9]+)/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(match[0].length);
-    }
-    if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
-        states = parseInt(match[1]);
-        rule = rule.slice(0, -match[0].length);
-    }
-    end = rule[rule.length - 1];
-    if (end === 'V' || end === 'H') {
-        neighborhood = end;
-        rule = rule.slice(0, -1);
-    } else if (end === 'v') {
-        neighborhood = 'V';
-        rule = rule.slice(0, -1);
-    } else if (end === 'h') {
-        neighborhood = 'H';
-        rule = rule.slice(0, -1);
-    }
     if (rule.startsWith('MAP')) {
         trs = parseMAP(rule.slice(3));
         ruleStr = 'MAP' + unparseMAP(trs);
@@ -2094,6 +1888,36 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         }
         ruleStr = 'W' + num;
     } else {
+        let end = rule[rule.length - 1];
+        if (end === 'V' || end === 'H') {
+            nhLetter = end;
+            rule = rule.slice(0, -1);
+        } else if (end === 'v') {
+            nhLetter = 'V';
+            rule = rule.slice(0, -1);
+        } else if (end === 'h') {
+            nhLetter = 'H';
+            rule = rule.slice(0, -1);
+        }
+        if (match = rule.match(/^[gG]([0-9]+)/)) {
+            states = parseInt(match[1]);
+            rule = rule.slice(match[0].length);
+        }
+        if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+            states = parseInt(match[1]);
+            rule = rule.slice(0, -match[0].length);
+        }
+        end = rule[rule.length - 1];
+        if (end === 'V' || end === 'H') {
+            nhLetter = end;
+            rule = rule.slice(0, -1);
+        } else if (end === 'v') {
+            nhLetter = 'V';
+            rule = rule.slice(0, -1);
+        } else if (end === 'h') {
+            nhLetter = 'H';
+            rule = rule.slice(0, -1);
+        }
         let b = '';
         let s = '';
         let sections: string[];
@@ -2140,7 +1964,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 }
             }
         }
-        if (neighborhood === 'V') {
+        if (nhLetter === 'V') {
             let newB = '';
             for (let char of b) {
                 let value = parseInt(char);
@@ -2159,12 +1983,12 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 newS += VON_NEUMANN[value].join('');
             }
             s = newS;
-            neighborhood = 'M';
+            nhLetter = 'M';
         }
         let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
-        if (neighborhood === 'M') {
+        if (nhLetter === 'M') {
             out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS);
-        } else if (neighborhood === 'H') {
+        } else if (nhLetter === 'H') {
             out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
         } else {
             return `R1,C${states},B${b},S${s},NL`;
@@ -2177,7 +2001,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         } else {
             ruleStr = `B${b}/S${s}`;
         }
-        if (neighborhood === 'H') {
+        if (nhLetter === 'H') {
             ruleStr += 'H';
         }
     }
@@ -2192,10 +2016,10 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             } else {
                 ruleStr = `B${b}/S${s}`;
             }
-        } else if (symmetry === 'D4x') {
-
         }
     }
+    let neighborhood = findTransitionsNeighborhood(trs);
+    let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 1 : 0;
     if (trs[0]) {
         if (trs[511]) {
             let out = new Uint8Array(512);
@@ -2228,16 +2052,32 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 evenTrs[i] = 1 - trs[i];
                 oddTrs[i] = trs[511 - i];
             }
+            let ruleData: Rule = {
+                str: ruleStr,
+                states,
+                symmetry,
+                period: 2,
+                range,
+                neighborhood,
+            };
             if (states > 2) {
-                return new MAPGenB0Pattern(height, width, data, evenTrs, oddTrs, states, ruleStr, symmetry);
+                return new MAPGenB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
             } else {
-                return new MAPB0Pattern(height, width, data, evenTrs, oddTrs, ruleStr, symmetry);
+                return new MAPB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
             }
         }
     }
+    let ruleData: Rule = {
+        str: ruleStr,
+        states,
+        symmetry,
+        period: 2,
+        range,
+        neighborhood,
+    };
     if (states > 2) {
-        return new MAPGenPattern(height, width, data, trs, states, ruleStr, symmetry);
+        return new MAPGenPattern(height, width, data, ruleData, trs);
     } else {
-        return new MAPPattern(height, width, data, trs, ruleStr, symmetry);
+        return new MAPPattern(height, width, data, ruleData, trs);
     }
 }

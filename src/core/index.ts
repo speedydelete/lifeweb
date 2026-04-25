@@ -1,8 +1,8 @@
 
 /* The main file, exporting everything and also implementing many utility functions. */
 
-import {RuleError} from './util.js';
-import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {RuleError, lcm} from './util.js';
+import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
@@ -203,16 +203,23 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.includes('|')) {
         let patterns = rule.split('|').map(x => createPattern(x, namedRules, height, width, data, undefined));
-        let states = Math.max(...patterns.map(x => x.states));
-        let ruleStr = patterns.map(x => x.ruleStr).join('|');
-        let symmetry = patterns[0].ruleSymmetry;
-        for (let q of patterns.slice(1)) {
-            symmetry = SYMMETRY_MEET[symmetry][q.ruleSymmetry];
-            if (symmetry === 'C1') {
-                break;
+        let str = patterns.map(x => x.rule.str).join('|');
+        let states = 1;
+        let symmetry: RuleSymmetry = 'D8';
+        let period = 1;
+        let range = 0;
+        let neighborhood: [number, number][] = [];
+        for (let p of patterns) {
+            symmetry = SYMMETRY_MEET[symmetry][p.rule.symmetry];
+            period = lcm(period, p.rule.period);
+            range = Math.max(range, p.rule.range);
+            for (let [x, y] of p.rule.neighborhood) {
+                if (!neighborhood.some(value => x === value[0] && y === value[1])) {
+                    neighborhood.push([x, y]);
+                }
             }
         }
-        return new AlternatingPattern(height, width, data, patterns, states, ruleStr, symmetry);
+        return new AlternatingPattern(height, width, data, {str, states, symmetry, period, range, neighborhood}, patterns);
     }
     let lower = rule.toLowerCase();
     if (namedRules && lower in namedRules) {
@@ -388,7 +395,7 @@ export function getBlackWhiteReversal(rule: string): string {
         } else {
             trs = p.evenTrs.reverse();
         }
-        if (p.ruleSymmetry === 'D8') {
+        if (p.rule.symmetry === 'D8') {
             let bStr: string;
             let sStr: string;
             if (rule.endsWith('H')) {
@@ -429,18 +436,18 @@ export function getBlackWhiteReversal(rule: string): string {
         }
         return out;
     } else if (p instanceof DataHistoryPattern || p instanceof CoordHistoryPattern) {
-        return getBlackWhiteReversal(p.ruleStr.slice(0, -7)) + 'History';
+        return getBlackWhiteReversal(p.rule.str.slice(0, -7)) + 'History';
     } else if (p instanceof DataSuperPattern || p instanceof CoordSuperPattern) {
-        return getBlackWhiteReversal(p.ruleStr.slice(0, -5)) + 'Super';
+        return getBlackWhiteReversal(p.rule.str.slice(0, -5)) + 'Super';
     } else if (p instanceof InvestigatorPattern) {
-        return getBlackWhiteReversal(p.ruleStr.slice(0, -12)) + 'Investigator';
+        return getBlackWhiteReversal(p.rule.str.slice(0, -12)) + 'Investigator';
     } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
-        let index = p.ruleStr.lastIndexOf(':');
-        return getBlackWhiteReversal(p.ruleStr.slice(0, index)) + p.ruleStr.slice(index);
+        let index = p.rule.str.lastIndexOf(':');
+        return getBlackWhiteReversal(p.rule.str.slice(0, index)) + p.rule.str.slice(index);
     } else if (p instanceof TreePattern) {
         throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
     } else if (p instanceof AlternatingPattern) {
-        return p.ruleStr.split('|').map(getBlackWhiteReversal).join('|');
+        return p.rule.str.split('|').map(getBlackWhiteReversal).join('|');
     } else {
         throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }

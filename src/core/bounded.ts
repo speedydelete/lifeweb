@@ -21,8 +21,8 @@ export class FiniteDataPattern extends DataPattern {
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
         this.states = p.states;
-        this.ruleStr = p.ruleStr + ':P' + width + ',' + height;
-        this.ruleSymmetry = p.ruleSymmetry;
+        this.rule.str = p.rule.str + ':P' + width + ',' + height;
+        this.rule.symmetry = p.rule.symmetry;
         this.rulePeriod = p.rulePeriod;
     }
 
@@ -112,8 +112,8 @@ export class FiniteCoordPattern extends CoordPattern {
         this.bbHeight = bbHeight;
         this.bbWidth = bbWidth;
         this.states = p.states;
-        this.ruleStr = p.ruleStr + ':P' + bbWidth + ',' + bbHeight;
-        this.ruleSymmetry = p.ruleSymmetry;
+        this.rule.str = p.rule.str + ':P' + bbWidth + ',' + bbHeight;
+        this.rule.symmetry = p.rule.symmetry;
         this.rulePeriod = p.rulePeriod;
     }
 
@@ -190,8 +190,8 @@ export class TorusDataPattern extends DataPattern {
         }
         this.pattern = p;
         this.states = p.states;
-        this.ruleStr = p.ruleStr + ':T' + width + ',' + height;
-        this.ruleSymmetry = p.ruleSymmetry;
+        this.rule.str = p.rule.str + ':T' + width + ',' + height;
+        this.rule.symmetry = p.rule.symmetry;
         this.rulePeriod = p.rulePeriod;
     }
 
@@ -311,8 +311,8 @@ export class TorusCoordPattern extends CoordPattern {
         this.minY = -Math.ceil(torusHeight / 2);
         this.maxY = Math.floor(torusHeight / 2);
         this.states = p.states;
-        this.ruleStr = p.ruleStr + ':P' + torusWidth + ',' + torusHeight;
-        this.ruleSymmetry = p.ruleSymmetry;
+        this.rule.str = p.rule.str + ':P' + torusWidth + ',' + torusHeight;
+        this.rule.symmetry = p.rule.symmetry;
         this.rulePeriod = p.rulePeriod;
     }
 

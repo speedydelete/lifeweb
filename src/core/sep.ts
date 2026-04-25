@@ -20,10 +20,6 @@ import {RuleSymmetry, DataPattern} from './pattern.js';
 /** Implements object seperation for range-1 rules. */
 export class R1Separator<T extends DataPattern = DataPattern> extends DataPattern {
 
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
     p: T;
     /** The group number of each live cell. */
     groups: Uint32Array;
@@ -34,14 +30,10 @@ export class R1Separator<T extends DataPattern = DataPattern> extends DataPatter
         let height = p.height;
         let width = p.width;
         let data = p.data.slice();
-        super(height, width, data);
+        super(height, width, data, p.rule);
         this.xOffset = p.xOffset;
         this.yOffset = p.yOffset;
         this.generation = p.generation;
-        this.states = p.states;
-        this.ruleStr = p.ruleStr;
-        this.ruleSymmetry = p.ruleSymmetry;
-        this.rulePeriod = p.rulePeriod;
         this.p = p;
         // we need to assign the initial group numbers
         // we do this for every contiguous group of cells, as described above
