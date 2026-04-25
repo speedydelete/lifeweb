@@ -191,8 +191,6 @@ export class TorusDataPattern extends DataPattern {
         this.pattern = p;
         this.states = p.states;
         this.rule.str = p.rule.str + ':T' + width + ',' + height;
-        this.rule.symmetry = p.rule.symmetry;
-        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
