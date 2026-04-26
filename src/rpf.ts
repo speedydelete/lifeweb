@@ -212,44 +212,44 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
 import {inspect} from 'node:util';
 
 export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>): T {
-    throw new Error('```\n\n```ansi\n' + inspect(file, {colors: true, depth: Infinity}) + '```');
-    // if (!rpf) {
-    //     rpf = file.data['main'];
-    //     if (!rpf) {
-    //         throw new RPFFileError(`Missing main object in RPF file`);
-    //     }
-    // }
-    // let xOffset = 0;
-    // let yOffset = 0;
-    // let maxX = 0;
-    // let maxY = 0;
-    // let patterns: T[] = [];
-    // for (let value of rpf.data) {
-    //     let p: T;
-    //     if (value.value[0]) {
-    //         p = rpfToPattern(file, value.value[1]);
-    //     } else {
-    //         p = value.value[1].clearedCopy() as T;
-    //     }
-    //     applyRotation(p, value.rotation);
-    //     p.run(value.time);
-    //     p.shrinkToFit();
-    //     p.xOffset = value.x;
-    //     p.yOffset = value.y;
-    //     xOffset = Math.min(xOffset, value.x);
-    //     yOffset = Math.min(yOffset, value.y);
-    //     maxX = Math.max(maxX, value.x + p.width);
-    //     maxY = Math.max(maxY, value.y + p.height);
-    //     patterns.push(p);
-    // }
-    // let width = maxX - xOffset + 1;
-    // let height = maxY - yOffset + 1;
-    // let p = file.base.clearedCopy() as T;
-    // p.ensure(width, height);
-    // p.xOffset = xOffset;
-    // p.yOffset = yOffset;
-    // for (let q of patterns) {
-    //     p.insert(q, q.xOffset, q.yOffset);
-    // }
-    // return p;
+    if (!rpf) {
+        rpf = file.data['main'];
+        if (!rpf) {
+            throw new RPFFileError(`Missing main object in RPF file`);
+        }
+    }
+    let xOffset = 0;
+    let yOffset = 0;
+    let maxX = 0;
+    let maxY = 0;
+    let patterns: T[] = [];
+    for (let value of rpf.data) {
+        let p: T;
+        if (value.value[0]) {
+            p = rpfToPattern(file, value.value[1]);
+        } else {
+            p = value.value[1].clearedCopy() as T;
+        }
+        applyRotation(p, value.rotation);
+        p.run(value.time);
+        p.shrinkToFit();
+        p.xOffset = value.x;
+        p.yOffset = value.y;
+        xOffset = Math.min(xOffset, value.x);
+        yOffset = Math.min(yOffset, value.y);
+        maxX = Math.max(maxX, value.x + p.width);
+        maxY = Math.max(maxY, value.y + p.height);
+        patterns.push(p);
+    }
+    throw new Error('```\n\n```ansi\n' + inspect({xOffset, yOffset, maxX, maxY, patterns}, {colors: true, depth: Infinity}) + '```');
+    let width = maxX - xOffset + 1;
+    let height = maxY - yOffset + 1;
+    let p = file.base.clearedCopy() as T;
+    p.ensure(width, height);
+    p.xOffset = xOffset;
+    p.yOffset = yOffset;
+    for (let q of patterns) {
+        p.insert(q, q.xOffset, q.yOffset);
+    }
+    return p;
 }
