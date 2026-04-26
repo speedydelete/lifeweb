@@ -177,7 +177,7 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
     };
     for (let group of groups) {
         let key = group[0].slice(0, -1);
-        let rpf: RPF = {
+        let rpf: RPF<T> = {
             key,
             path: join(key, basePath),
             data: [],
@@ -200,9 +200,10 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
                     rotation: parts[3] === undefined ? 'F' : parts[3] as Rotation,
                     time: parts[4] === undefined ? 0 : Number(parts[4]),
-                })
+                });
             }
         }
+        out.data[key] = rpf;
     }
     return out;
 }
