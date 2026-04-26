@@ -14,16 +14,23 @@ export function parseHROTRange(data: string): number[] {
     if (!data.match(/^\d+((-|\.\.)\d+)?$/)) {
         throw new RuleError(`Invalid HROT range: ${data}`);
     }
-    let start = Number(data);
-    let end = start;
+    let start: number;
+    let end: number | undefined = undefined;
     let index = data.indexOf('-');
     if (index !== -1) {
+        start = Number(data.slice(0, index));
         end = Number(data.slice(index + 1));
     } else {
         index = data.indexOf('..');
         if (index !== -1) {
+            start = Number(data.slice(0, index));
             end = Number(data.slice(index + 2));
+        } else {
+            start = Number(data);
         }
+    }
+    if (end === undefined) {
+        end = start;
     }
     if (Number.isNaN(start) || Number.isNaN(end)) {
         throw new RuleError(`Invalid HROT range: ${data}`);
