@@ -1,20 +1,10 @@
 
-import {MAPPattern, findType, getKnots, INTSeparator, createPattern} from './core/index.js';
+import {MAPPattern, createMAPPattern} from './map.js';
+import {findType} from './identify.js';
+import {getKnots, INTSeparator} from './intsep.js';
 
-
-const VERSION = '1.0';
 
 const CONDUIT_OBJECT_LOOKAHEAD_GENS = 32;
-
-const MAX_REPEAT_TIME = 512;
-
-const CREATE_PARTIAL_MAX_SEP_GENS = 16;
-
-const IDENTIFY_MAX_TIME = 512;
-const IDENTIFY_CONDUIT_SEP_GENS = 0;
-const IDENTIFY_IDENTIFY_GENS = 30;
-
-const UPDATE_INTERVAL = 3;
 
 
 export type Direction = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
@@ -24,10 +14,8 @@ export type XWSSDirection = 'N' | 'S' | 'E' | 'W';
 
 export type Symmetry = 'C1' | 'C2' | 'C4' | 'D2+' | 'D2x' | 'D4+' | 'D4x' | 'D8';
 
-export type CatalystType = 'block' | 'custom' | `custom_p${number}`;
-
 export interface Catalyst {
-    type: CatalystType;
+    period: number;
     p: MAPPattern;
     x: number;
     y: number;
@@ -179,11 +167,9 @@ const REVERSE_GLIDERS: {[key: string]: [rle: string, x: number, y: number]} = {
 const INTENTIONAL_SPARKS = ['32e', '167', '296', '16', '3'];
 
 
-let base = createPattern('B3/S23') as MAPPattern;
+let base = createMAPPattern('B3/S23') as MAPPattern;
 
 let knots = getKnots(base.trs);
-
-const BLOCK = base.loadApgcode('33').shrinkToFit();
 
 let reverseGliders: {[key: string]: [p: MAPPattern, x: number, y: number]} = {};
 for (let [key, [rle, x, y]] of Object.entries(REVERSE_GLIDERS)) {
@@ -325,6 +311,39 @@ for (let [width, height] of SMALL_OBJECT_DIMENSIONS) {
 }
 
 
+export function catalystsAreFine(p: MAPPattern, cats: Catalyst[]): boolean {
+    for (let cat of cats) {
+        let x = cat.x - p.xOffset;
+        let y = cat.y - p.yOffset;
+        let i = y * p.width + x;
+        if (cat.period === 1) {
+            let j = 0;
+            for (let y2 = 0; y2 < cat.p.height; y2++) {
+                for (let x2 = 0; x2 < cat.p.width; x2++) {
+                    if (cat.p.data[j++] !== p.data[i + x2]) {
+                        return false;
+                    }
+                }
+                i += p.width;
+            }
+        } else {
+            let q = cat.p.copy().run(p.generation % cat.period).shrinkToFit();
+            let i = (y + q.yOffset) * p.width + (x + q.xOffset);
+            let j = 0;
+            for (let y2 = 0; y2 < cat.p.height; y2++) {
+                for (let x2 = 0; x2 < cat.p.width; x2++) {
+                    if (q.data[j++] !== p.data[i + x2]) {
+                        return false;
+                    }
+                }
+                i += p.width;
+            }
+        }
+    }
+    return true;
+}
+
+
 export function getObjectInfo(obj: string | ConduitObject): ConduitObjectInfo {
     if (typeof obj === 'string') {
         if ((obj + 'F0') in conduitObjects) {
@@ -342,27 +361,27 @@ export function getObjectInfo(obj: string | ConduitObject): ConduitObjectInfo {
     }
 }
 
-export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
+export function createPartial(p: MAPPattern, sepGens: number, identifyGens: number): [Partial, ConduitObject] {
     let sep = new INTSeparator(p, knots);
     sep.resolveKnots();
     let startP: MAPPattern | undefined = undefined;
     let cats: Catalyst[] = [];
-    for (let i = 0; i < CREATE_PARTIAL_MAX_SEP_GENS; i++) {
+    for (let i = 0; i < sepGens; i++) {
         startP = undefined;
         cats = [];
         for (let p of sep.getObjects()) {
-            let type = findType(p, IDENTIFY_IDENTIFY_GENS);
+            let type = findType(p, identifyGens);
             type.pops = [];
             type.hashes = [];
             type.phases = [];
             if (type.disp && type.stabilizedAt === 0 && type.disp[0] === 0 && type.disp[1] === 0) {
-                cats.push({type: type.period === 1 ? 'custom' : `custom_p${type.period}`, p, x: p.xOffset, y: p.yOffset});
+                cats.push({period: type.period, p, x: p.xOffset, y: p.yOffset});
             } else {
                 if (startP !== undefined) {
                     if (INTENTIONAL_SPARKS.includes(p.toCanonicalApgcode())) {
                         continue;
                     }
-                    if (i === CREATE_PARTIAL_MAX_SEP_GENS - 1) {
+                    if (i === sepGens - 1) {
                         throw new Error(`More than 1 start object! (If there isn't, there is a bug, please tell speedydelete)`);
                     }
                 }
@@ -395,7 +414,7 @@ export function createPartial(p: MAPPattern): [Partial, ConduitObject] {
             if (dir[1] === 'x') {
                 p.flipVertical();
             }
-            return createPartial(p);
+            return createPartial(p, sepGens, identifyGens);
         }
         start = {obj: data.obj, dir: data.dir, time: data.time};
         p.xOffset -= startP.xOffset + data.x;
@@ -668,7 +687,7 @@ function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObject
     return Boolean(found === data.output.length + data.gliders.length + data.otherOutputs.length && catalystsAreFine(p, cats));
 }
 
-function getConduitInfo(data: Partial, input: ConduitObject, time: number, output: Conduit['output'], gliders: Glider[], otherOutputs: (ObjData & {code: string})[], reconstruct: boolean = false): Conduit {
+function getConduitInfo(data: Partial, input: ConduitObject, time: number, output: Conduit['output'], gliders: Glider[], otherOutputs: (ObjData & {code: string})[], maxRT: number, reconstruct: boolean = false): Conduit {
     for (let x of output) {
         x.time += input.time;
     }
@@ -714,7 +733,7 @@ function getConduitInfo(data: Partial, input: ConduitObject, time: number, outpu
         removeFNG = 21 - input.time;
     }
     let worksAt: boolean[] = [false];
-    for (let rt = 1; rt < MAX_REPEAT_TIME; rt++) {
+    for (let rt = 1; rt < maxRT; rt++) {
         worksAt.push(worksAtRepeatTime(out, data.cats, start, rt, removeFNG));
     }
     let rt = worksAt.length - 1;
@@ -810,7 +829,7 @@ function partitions<T>(data: T[], index: number = 0, groups: T[][] = []): T[][][
     return out;
 }
 
-export function checkConduit(data: Partial, sepGens: number, start: ConduitObject, maxStables?: number, maxUnstables?: number): false | Conduit {
+export function checkConduit(data: Partial, sepGens: number, start: ConduitObject, maxRT: number): false | Conduit {
     // first we remove the catalysts (we assume that all catalysts are restored)
     let p = data.p.copy();
     for (let cat of data.cats) {
@@ -833,7 +852,7 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         if (time >= 0) {
             let time2 = p.generation - time;
             if (!(x === 0 && y === 0 && time2 === 0)) {
-                return getConduitInfo(data, start, time, [{obj, dir, time: time2, x, y, p: q, objTime: time}], [], [], true);
+                return getConduitInfo(data, start, time, [{obj, dir, time: time2, x, y, p: q, objTime: time}], [], [], maxRT, true);
             }
         }
     }
@@ -908,19 +927,13 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
         });
         if (code) {
             stableCount++;
-            if (maxStables !== undefined && stableCount > maxStables) {
-                return false;
-            }
         } else {
             unstableCount++;
-            if (maxUnstables !== undefined && unstableCount > maxUnstables) {
-                return false;
-            }
         }
     }
     // if there are no unstables then it's a factory
     if (unstableCount === 0) {
-        return getConduitInfo(data, start, sep.generation, [], gliders, objs as (ObjData & {code: string})[], true);
+        return getConduitInfo(data, start, sep.generation, [], gliders, objs as (ObjData & {code: string})[], maxRT, true);
     }
     // now we check every combination and see if it's a conduit
     for (let groups of partitions(objs)) {
@@ -983,491 +996,25 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
             }
         }
         if (!found) {
-            return getConduitInfo(data, start, sep.generation, outputs, gliders, otherOutputs, true);
+            return getConduitInfo(data, start, sep.generation, outputs, gliders, otherOutputs, maxRT, true);
         }
     }
     return false;
 }
 
 
-export const ALL_ALLOWED_CATALYSTS: string[] = ['block'];
-
-export function catalystsAreFine(p: MAPPattern, cats: Catalyst[]): false | true | 'restored' {
-    let height = p.height;
-    let width = p.width;
-    let data = p.data;
-    let restored = true;
-    for (let cat of cats) {
-        let x = cat.x - p.xOffset;
-        let y = cat.y - p.yOffset;
-        let i = y * p.width + x;
-        if (cat.type === 'block') {
-            let pop = data[i] + data[i + 1] + data[i + width] + data[i + width + 1];
-            if (pop < 2) {
-                // only 1 cell remains in the block, so it has failed
-                return false;
-            } else if (pop === 2) {
-                restored = false;
-                if (data[i]) {
-                    if (data[i + 1]) {
-                        // there is a domino on the top, so there must be a grin facing downwards, or the catalyst has failed
-                        if (!(data[i + width - 1] && data[i + width + 2])) {
-                            return false;
-                        }
-                    } else if (data[i + width]) {
-                        // there is a domino on the left
-                        if (!(data[i - width + 1] && data[i + 2 * width + 1])) {
-                            return false;
-                        }
-                    } else {
-                        // there is a duoplet
-                        return false;
-                    }
-                } else if (data[i + width + 1]) {
-                    if (data[i + 1]) {
-                        // there is a domino on the right
-                        if (!(data[i - width] && data[i + 2 * width])) {
-                            return false;
-                        }
-                    } else if (data[i + width]) {
-                        // there is a domino on the bottom
-                        if (!(data[i - 1] && data[i + 2])) {
-                            return false;
-                        }
-                    } else {
-                        // there is a duoplet
-                        return false;
-                    }
-                }
-            } else if (pop === 3) {
-                restored = false;
-            } // else the population is 4 so it is restored
-        } else if (cat.type === 'custom') {
-            let j = 0;
-            for (let y2 = 0; y2 < cat.p.height; y2++) {
-                for (let x2 = 0; x2 < cat.p.width; x2++) {
-                    if (cat.p.data[j++] !== p.data[i + x2]) {
-                        return false;
-                    }
-                }
-                i += p.width;
-            }
-        } else if (cat.type.startsWith('custom_p')) {
-            let period = parseInt(cat.type.slice('custom_p'.length));
-            let q = cat.p.copy().run(p.generation % period).shrinkToFit();
-            let i = (y + q.yOffset) * p.width + (x + q.xOffset);
-            let j = 0;
-            for (let y2 = 0; y2 < cat.p.height; y2++) {
-                for (let x2 = 0; x2 < cat.p.width; x2++) {
-                    if (q.data[j++] !== p.data[i + x2]) {
-                        return false;
-                    }
-                }
-                i += p.width;
-            }
-        } else {
-            throw new Error(`Unrecognized catalyst type: '${cat.type}'`);
-        }
-    }
-    return restored ? 'restored' : true;
-}
-
-function checkIfBlockWorks(p: MAPPattern, x: number, y: number, dir: string): boolean {
-    // in the first generation the block should be intact
-    p.runGeneration();
-    let i = y * p.width + x;
-    if (!(p.data[i] && p.data[i + 1] && p.data[i + p.width] && p.data[i + p.width + 1])) {
-        return false;
-    }
-    // in the second generation there should be a grin
-    p.runGeneration();
-    i = y * p.width + x;
-    if (dir === 'top') {
-        if (!(p.data[i] && p.data[i + 1] && !p.data[i + p.width] && !p.data[i + p.width + 1] && p.data[i + p.width - 1] && p.data[i + p.width + 2])) {
-            return false;
-        }
-    } else if (dir === 'bottom') {
-        if (!(p.data[i - 1] && !p.data[i] && !p.data[i + 1] && p.data[i + 2] && p.data[i + p.width] && p.data[i + p.width + 1])) {
-            return false;
-        }
-    } else if (dir === 'left') {
-        if (!(p.data[i - p.width] && !p.data[i] && p.data[i + 1] && !p.data[i + p.width] && p.data[i + p.width + 1] && p.data[i + 2 * p.width])) {
-            return false;
-        }
-    } else if (dir === 'right') {
-        if (!(p.data[i - p.width + 1] && p.data[i] && !p.data[i + 1] && p.data[i + p.width] && !p.data[i + p.width + 1] && p.data[i + 2 * p.width + 1])) {
-            return false;
-        }
-    } else {
-        throw new Error(`Unrecognized direction for block: '${dir}'`);
-    }
-    // in the third and fourth generations there should be a pre-block
-    for (let j = 0; j < 2; j++) {
-        p.runGeneration();
-        i = y * p.width + x;
-        if (p.data[i] + p.data[i + 1] + p.data[i + p.width] + p.data[i + p.width + 1] !== 3) {
-            return false;
-        }
-    }
-    // in the fith generation the block should be restored
-    p.runGeneration();
-    i = y * p.width + x;
-    if (!(p.data[i] && p.data[i + 1] && p.data[i + p.width] && p.data[i + p.width + 1])) {
-        return false;
-    }
-    return true;
-}
-
-function addCatalyst(out: Partial[], {p, cats, p2Prev}: Partial, type: CatalystType, newCat: MAPPattern, x: number, y: number, dir: string): void {
-    x -= p.xOffset;
-    y -= p.yOffset;
-    // we have to ensure there are no overlaps with other catalysts
-    let height = newCat.height;
-    let width = newCat.width;
-    for (let cat of cats) {
-        let minX = Math.min(x, cat.x);
-        let minY = Math.min(y, cat.y);
-        let maxX = Math.max(x + width, cat.x + cat.p.width);
-        let maxY = Math.max(y + height, cat.y + cat.p.height)
-        let dx = maxX - minX - (width + cat.p.width);
-        let dy = maxY - minY - (width + cat.p.height);
-        if (dx <= 0 && dy <= 0) {
-            // maybe replace with an auto-welder?
-            return;
-        // only works if no B2ikn
-        } else if (dx >= 2 && dy >= 2) {
-            continue;
-        } else {
-            // we have to test it to know if the still lifes collide
-            let p = base.copy();
-            p.height = maxX - minX + 1;
-            p.width = maxY - minY + 1;
-            p.size = p.height * p.width;
-            p.data = new Uint8Array(p.size);
-            p.insert(newCat, x - minX, y - minY);
-            p.insert(cat.p, cat.x - minX, cat.y - minY);
-            let q = p.copy();
-            q.runGeneration();
-            if (p.height !== q.height || p.width !== q.width || !p.data.every((x, i) => x === q.data[i])) {
-                // maybe replace with an auto-welder?
-                return;
-            }
-        }
-    }
-    // add the new catalyst in
-    let newCats = cats.slice();
-    newCats.push({type, p: newCat, x, y});
-    p = p.copy();
-    x += p.xOffset;
-    y += p.yOffset;
-    if (x < 0 || x + width >= p.width || y < 0 || y + height >= p.height) {
-        p.expand(
-            y < 0 ? -y : 0,
-            y + height >= p.height ? y + height - p.height : 0,
-            x < 0 ? -x : 0,
-            x + width >= p.width ? x + width - p.width : 0,
-        );
-    }
-    p.insert(newCat, x + p.xOffset, y + p.yOffset);
-    // make sure the new catalyst actually works
-    let q = p.copy();
-    if (type === 'block') {
-        if (!checkIfBlockWorks(q, x, y, dir)) {
-            return;
-        }
-    } else {
-        throw new Error(`Unrecognized catalyst type: '${type}'`);
-    }
-    out.push({p, cats, p2Prev, prevPs: []});
-}
-
-export interface SearchOptions {
-    start: ConduitObject;
-    allowedCatalysts: Set<string>;
-    maxCatalysts?: number;
-    maxStables?: number;
-    maxUnstables?: number;
-}
-
-export function searchSingleObject(data: Partial, options: SearchOptions): false | Partial[] {
-    let {p, p2Prev} = data;
-    let prevHash = p.hash32();
-    let prevPop = p.population;
-    let prevData = p.data;
-    let oldP = p.copy();
-    p.runGeneration();
-    // check if it died, is period 1, or is period 2
-    if (p.population === 0 || (p.data.length === prevData.length && p.population === prevPop && p.hash32() === prevHash && p.data.every((x, i) => prevData[i] === x)) || (p2Prev && (p.data.length === p2Prev.data.length && p.population === p2Prev.pop && p.hash32() === p2Prev.hash && p.data.every((x, i) => p2Prev.data[i] === x)))) {
-        return false;
-    }
-    // make sure the previous catalysts aren't destroyed
-    let fine = catalystsAreFine(p, data.cats);
-    if (!fine) {
-        return false;
-    }
-    let prevPs = data.prevPs.slice();
-    prevPs.push(oldP);
-    data = {p, cats: data.cats, prevPs: data.prevPs.slice(), p2Prev: {pop: prevPop, hash: prevHash, data: prevData}};
-    // check if it's a conduit
-    if (fine === 'restored' && data.cats.length > 0) {
-        let x = checkConduit(data, 0, options.start, options.maxStables, options.maxUnstables);
-        if (x) {
-            console.log(`\x1b[92mConduit found:\x1b[0m`);
-            let str = removeHIfPossible(getConduitName(x));
-            if (x.repeatTime) {
-                str += `, rt ${x.repeatTime}`;
-                if (x.overclock) {
-                    str += ` (overclock: ${toRanges(x.overclock)})`;
-                }
-            }
-            str += ':';
-            console.log(str);
-            console.log(p.toRLE());
-            return false;
-        }
-    }
-    // try to add catalysts
-    let out: Partial[] = [data];
-    if (options.maxCatalysts && data.cats.length < options.maxCatalysts) {
-        return out;
-    }
-    let height = p.height;
-    let width = p.width;
-    // these 4 variables contain the leading edges
-    let top = p.data;
-    let bottom = p.data.slice(p.size - width);
-    let left = new Uint8Array(height);
-    let right = new Uint8Array(height);
-    for (let i = 0; i < height; i++) {
-        left[i] = p.data[i * width];
-        right[i] = p.data[i * (width + 1) - 1];
-    }
-    // block
-    if (options.allowedCatalysts.has('block')) {
-        for (let x = 1; x < p.width - 1; x++) {
-            if (top[x] && !top[x - 1] && !top[x + 1]) {
-                addCatalyst(out, data, 'block', BLOCK, x - 1, -3, 'down');
-                addCatalyst(out, data, 'block', BLOCK, x, -3, 'down');
-            }
-            if (bottom[x] && !bottom[x - 1] && !bottom[x + 1]) {
-                addCatalyst(out, data, 'block', BLOCK, x - 1, height + 2, 'up');
-                addCatalyst(out, data, 'block', BLOCK, x , height + 2, 'up');
-            }
-        }
-        for (let y = 1; y < p.height - 1; y++) {
-            if (left[y] && !left[y - 1] && !left[y + 1]) {
-                addCatalyst(out, data, 'block', BLOCK, -3, y - 1, 'right');
-                addCatalyst(out, data, 'block', BLOCK, -3, y, 'right');
-            }
-            if (right[y] && !right[y - 1] && !right[y + 1]) {
-                addCatalyst(out, data, 'block', BLOCK, width + 2, y - 1, 'left');
-                addCatalyst(out, data, 'block', BLOCK, width + 2, y, 'left');
-            }
-        }
-    }
-    return out;
-}
-
-
-export function run(): void {
-
-
-const HELP_MESSAGE = `
-CatAsk ${VERSION} - searches for conduits in Conway's Game of Life
-
-Usage:
-    ./catask <rle> [options]
-    ./catask identify <rle>
-    ./catask (help|version|-h|--help|-v|--version)
-
-Options:
-    -h, --help: Show this message and exit
-    -v, --version: Show the program version and exit
-    -c <values>, --catalysts <values>: Set the allowed catalysts, valid values are ${ALL_ALLOWED_CATALYSTS.join(', ')}
-    -m <amount>, --max-catalysts <amount>: Set the maximum number of catalysts
-    -s <amount>, --max-stables <amount>: Set the maximum amount of stable objects in a result
-    -u <amount>, --max-unstables <amount>: Set the maximum amount of unstable objects in a result
-`;
-
-let args = process.argv.slice(2);
-
-if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
-    console.log(HELP_MESSAGE);
-    process.exit(0);
-} else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
-    console.log(`CatAsk ${VERSION}`);
-    process.exit(0);
-}
-
-if (args[0] === 'identify') {
-    let p = base.loadRLE(args[1]).shrinkToFit();
-    let [partial, start] = createPartial(p);
+export function identifyConduit(p: MAPPattern, maxTime: number, maxRT: number, sepGens: number, identifyGens: number): false | Conduit {
+    let [partial, start] = createPartial(p, sepGens, identifyGens);
     p = partial.p;
-    for (let i = 0; i < IDENTIFY_MAX_TIME; i++) {
-        if (catalystsAreFine(p, partial.cats) === 'restored') {
-            let data = checkConduit(partial, IDENTIFY_CONDUIT_SEP_GENS, start);
-            if (data) {
-                console.log(`\x1b[92m${removeHIfPossible(getConduitName(data))}\x1b[0m`);
-                if (data.input in CONDUIT_OBJECTS) {
-                    let name = CONDUIT_OBJECTS[data.input][0];
-                    name = name[0].toUpperCase() + name.slice(1);
-                    console.log(`Input: ${name}`);
-                } else {
-                    console.log(`Input: ${data.input}`);
-                }
-                for (let obj of data.output) {
-                    let suffix = `at generation ${obj.time} and position (${obj.x}, ${obj.y})`;
-                    if (obj.obj in CONDUIT_OBJECTS) {
-                        let name = CONDUIT_OBJECTS[obj.obj][0];
-                        name = name[0].toUpperCase() + name.slice(1);
-                        console.log(`Output: ${name} ${suffix}`);
-                    } else {
-                        console.log(`Output: ${obj.obj} ${suffix}`);
-                    }
-                }
-                for (let glider of data.gliders) {
-                    console.log(`Output: ${glider.dir} glider lane ${glider.lane} timing ${glider.timing}`);
-                }
-                for (let obj of data.otherOutputs) {
-                    console.log(`Output: ${obj.code} (${obj.x}, ${obj.y})`);
-                }
-                if (data.repeatTime !== undefined) {
-                    console.log(`Repeat time: ${data.repeatTime}`);
-                    if (data.overclock) {
-                        if (data.overclock.length === 0) {
-                            console.log('No overclock');
-                        } else {
-                            console.log(`Overclock: ${toRanges(data.overclock)}`);
-                        }
-                    }
-                }
-                process.exit(0);
+    for (let i = 0; i < maxTime; i++) {
+        if (catalystsAreFine(p, partial.cats)) {
+            let value = checkConduit(partial, sepGens, start, maxRT);
+            if (value) {
+                return value;
             }
         }
         partial.prevPs.push(p.copy());
         p.runGeneration();
     }
-    console.log('Error: Not a conduit');
-    process.exit(0);
-}
-
-
-let p: MAPPattern;
-if (args[0].endsWith('!')) {
-    p = base.loadRLE(args[0]);
-} else if (args[0] in CONDUIT_OBJECTS) {
-    p = base.loadApgcode(CONDUIT_OBJECTS[args[0]][1]);
-} else {
-    throw new Error(`Invalid start object: '${args[0]}'`);
-}
-p.shrinkToFit();
-
-let start: ConduitObject;
-let startApgcode = p.toApgcode();
-if (startApgcode in conduitObjects) {
-    let data = conduitObjects[startApgcode];
-    start = data;
-    p.xOffset -= data.x;
-    p.yOffset -= data.y;
-} else {
-    start = {obj: `(${startApgcode})`, dir: 'F', time: 0};
-}
-
-
-const ALLOWED_FLAGS = ['--help', '-h', '--version', '-v', '--catalysts', '-c', '--max-catalysts', '-m', '--max-stables', '-s', '--max-unstables', '-u'];
-const FLAG_ALIASES: {[key: string]: string} = {
-    'c': 'catalysts',
-    'm': 'max-catalysts',
-    's': 'max-stables',
-    'u': 'max-unstables',
-};
-let flags: {[key: string]: string[]} = {};
-let prevFlag: string | undefined = undefined;
-for (let arg of args.slice(1)) {
-    if (arg.startsWith('-')) {
-        if (!ALLOWED_FLAGS.includes(arg)) {
-            console.error(`Error: Unrecognized flag: '${arg}'`);
-            process.exit(1);
-        }
-        prevFlag = arg.startsWith('--') ? arg.slice(2) : arg.slice(1);
-    } else {
-        if (prevFlag === undefined) {
-            console.error(`Error: Maximum 1 positional argument`);
-            process.exit(1);
-        }
-        flags[prevFlag in FLAG_ALIASES ? FLAG_ALIASES[prevFlag] : prevFlag].push(arg);
-    }
-}
-
-if (flags['help']) {
-    console.log(HELP_MESSAGE);
-    process.exit(0);
-} else if (flags['version']) {
-    console.log(`CatAsk ${VERSION}`);
-    process.exit(0);
-}
-
-let allowedCatalysts = new Set(ALL_ALLOWED_CATALYSTS);
-if (flags.allowedCatalysts) {
-    allowedCatalysts = new Set(flags.allowedCatalysts);
-    for (let catalyst of allowedCatalysts) {
-        if (!ALL_ALLOWED_CATALYSTS.includes(catalyst)) {
-            console.error(`Error: Invalid catalyst: '${catalyst}' (valid catalysts: ${ALL_ALLOWED_CATALYSTS.join(', ')})`);
-        }
-    }
-}
-
-function validateNumber(option: string): number | undefined {
-    if (flags[option]) {
-        let out = parseInt(flags[option][flags[option].length - 1]);
-        if (Number.isNaN(out)) {
-            console.error(`Error: Invalid value for ${option}: '${flags[option].join(' ')}', must be a number`);
-            process.exit(1);
-        }
-        return out;
-    }
-}
-
-let options: SearchOptions = {
-    start,
-    allowedCatalysts,
-    maxCatalysts: validateNumber('max-catalysts'),
-    maxStables: validateNumber('max-stables'),
-    maxUnstables: validateNumber('max-unstables'),
-};
-
-
-console.log(`This is CatAsk ${VERSION} searching for conduits with input '${start.obj}'`);
-let depth = 1;
-let data: Partial[] = [{p, cats: [], prevPs: []}];
-let startTime = performance.now();
-let prevUpdateTime = startTime;
-let totalPartialsChecked = 0;
-while (true) {
-    console.log(`Searching depth ${depth} (${data.length} partials)`);
-    prevUpdateTime = performance.now();
-    let newData: Partial[] = [];
-    let prevPartialsChecked = 0;
-    for (let i = 0; i < data.length; i++) {
-        let value = searchSingleObject(data[i], options);
-        if (value) {
-            newData.push(...value);
-        }
-        totalPartialsChecked++;
-        let now = performance.now();
-        if ((now - prevUpdateTime) / 1000 > UPDATE_INTERVAL) {
-            console.log(`${i}/${data.length} (${(i / data.length * 100).toFixed(3)}%) complete (${((i - prevPartialsChecked)/((now - prevPartialsChecked) / 1000)).toFixed(3)} partials/second current, ${(totalPartialsChecked / ((now - startTime) / 1000)).toFixed(3)} overall)`);
-            prevUpdateTime = now;
-            prevPartialsChecked = i;
-        }
-    }
-    data = newData;
-}
-
-
-}
-
-
-if (import.meta.main) {
-    run();
+    return false;
 }
