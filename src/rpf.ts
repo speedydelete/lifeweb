@@ -75,7 +75,7 @@ export function join(...paths: string[]): string {
 
 export class RPFFileError extends Error {};
 
-export function rpfFileToString(file: RPFFile): string {
+export function rpfToString(file: RPFFile): string {
     let map = new Map<string, Set<string>>();
     for (let key in file.data) {
         let value = new Set<string>();
