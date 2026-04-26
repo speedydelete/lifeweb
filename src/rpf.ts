@@ -175,7 +175,8 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
         base,
         data: {},
     };
-    for (let group of groups) {
+    for (let i = 1; i < groups.length; i++) {
+        let group = groups[i];
         let key = group[0].slice(0, -1);
         let rpf: RPF<T> = {
             key,
@@ -211,7 +212,7 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
 import {inspect} from 'node:util';
 
 export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>): T {
-    throw new Error('```\n\n```ansi' + inspect(file, {colors: true}) + '```\n\n```');
+    throw new Error('```\n\n```ansi\n' + inspect(file, {colors: true, depth: Infinity}) + '```');
     // if (!rpf) {
     //     rpf = file.data['main'];
     //     if (!rpf) {
