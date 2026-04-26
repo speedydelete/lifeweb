@@ -61,7 +61,7 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
                 maxY = obj.bb[3];
             }
         }
-        let p = base.copy();
+        let p = base.clearedCopy();
         p.height = maxY - minY + 1;
         p.width = maxX - minX + 1;
         p.size = p.height * p.width;
@@ -135,7 +135,7 @@ export function combineAllStableObjects(objs: ForCombining[]): false | ForCombin
             maxY = obj.bb[3];
         }
     }
-    let p = base.copy();
+    let p = base.clearedCopy();
     p.height = maxY - minY + 1;
     p.width = maxX - minX + 1;
     p.size = p.height * p.width;

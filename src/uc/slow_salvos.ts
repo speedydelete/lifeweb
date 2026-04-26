@@ -14,7 +14,7 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
         }
     }
     let shipPattern = shipPatterns[info.ship.code][0];
-    let p = base.copy();
+    let p = base.clearedCopy();
     for (let i = 0; i < lanes.length; i++) {
         let [lane, timing] = lanes[i];
         if (timing === -1) {

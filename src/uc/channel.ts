@@ -21,7 +21,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | Pick<Elb
         }
     }
     phaseOffset = (info.ship.period - (phaseOffset % info.ship.period)) % info.ship.period;
-    let p = base.copy();
+    let p = base.clearedCopy();
     let total = 0;
     let timingOffset = elbow.timing;
     while (recipe.length > 0 && recipe[0][1] === -2) {

@@ -54,7 +54,7 @@ export let base = createPattern(c.RULE) as MAPPattern;
 export let shipPatterns: {[key: string]: MAPPattern[]} = {};
 
 for (let [key, value] of Object.entries(c.SPACESHIPS)) {
-    let p = base.copy();
+    let p = base.clearedCopy();
     p.height = value.height;
     p.width = value.width;
     p.size = value.height * value.width;

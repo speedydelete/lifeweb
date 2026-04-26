@@ -18,7 +18,6 @@ export * from './super.js';
 export * from './ruleloader.js';
 export * from './alternating.js';
 export * from './bounded.js';
-export * from './rpf.js';
 export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';

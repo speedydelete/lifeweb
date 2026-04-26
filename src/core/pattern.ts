@@ -449,7 +449,7 @@ export interface Pattern {
     /** Gets the canonicalized apgcode of the pattern. */
     toCanonicalApgcode(period?: number, prefix?: string): string;
     /** Gets the RLE of the pattern. */
-    toRLE(): string;
+    toRLE(header?: boolean): string;
     /** Loads an apgcode and returns a new pattern running the same rule. */
     loadApgcode(code: string): Pattern;
     /** Loads a RLE and returns a new pattern running the same rule. */
@@ -1084,8 +1084,8 @@ export abstract class DataPattern implements Pattern {
         return prefix + out;
     }
 
-    toRLE(): string {
-        let out = `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n`;
+    toRLE(header: boolean = true): string {
+        let out = header ? `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n` : '';
         let prevChar = '';
         let num = 0;
         let i = 0;
@@ -1885,10 +1885,10 @@ export abstract class CoordPattern implements Pattern {
         return prefix + out;
     }
 
-    toRLE(): string {
+    toRLE(header: boolean = true): string {
         let data = this.getData();
         let {height, width} = this.getRect();
-        let out = `x = ${width}, y = ${height}, rule = ${this.rule.str}\n`;
+        let out = header ? `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n` : '';
         let prevChar = '';
         let num = 0;
         let i = 0;
