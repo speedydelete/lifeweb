@@ -209,8 +209,6 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
     return out;
 }
 
-import {inspect} from 'node:util';
-
 export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>): T {
     if (!rpf) {
         rpf = file.data['main'];
@@ -228,7 +226,7 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
         if (value.value[0]) {
             p = rpfToPattern(file, value.value[1]);
         } else {
-            p = value.value[1].clearedCopy() as T;
+            p = value.value[1].copy() as T;
         }
         applyRotation(p, value.rotation);
         p.run(value.time);
@@ -241,7 +239,6 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
         maxY = Math.max(maxY, value.y + p.height);
         patterns.push(p);
     }
-    throw new Error('```\n\n```ansi\n' + inspect({xOffset, yOffset, maxX, maxY, patterns}, {colors: true, depth: Infinity}) + '```');
     let width = maxX - xOffset + 1;
     let height = maxY - yOffset + 1;
     let p = file.base.clearedCopy() as T;
