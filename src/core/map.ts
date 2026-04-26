@@ -120,7 +120,7 @@ export function parseTransitions(data: string, validTrs: string[]): string[] {
     if (!DIGITS.includes(data[0])) {
         throw new RuleError(`Expected digit, got '${data[0]}'`);
     }
-    let num = parseInt(data[0]);
+    let num = Number(data[0]);
     if (num >= validTrs.length) {
         throw new RuleError(`No transitions with ${num} neighbors`);
     }
@@ -143,7 +143,7 @@ export function parseTransitions(data: string, validTrs: string[]): string[] {
             }
             minus = false;
             chars = '';
-            num = parseInt(char);
+            num = Number(char);
             if (num >= validTrs.length) {
                 throw new RuleError(`No transitions with ${num} neighbors`);
             }
@@ -191,7 +191,7 @@ export function unparseTransitions(trs: string[], validTrs: string[], preferMinu
         sorted.push('');
     }
     for (let tr of trs) {
-        sorted[parseInt(tr[0])] += tr[1];
+        sorted[Number(tr[0])] += tr[1];
     }
     let out = '';
     for (let i = 0; i < validTrs.length; i++) {
@@ -1874,7 +1874,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         if (!rule.match(/^W\d+$/)) {
             throw new RuleError('Invalid W rule');
         }
-        let num = parseInt(rule.slice(1));
+        let num = Number(rule.slice(1));
         if (Number.isNaN(num)) {
             throw new RuleError('Invalid W rule');
         }
@@ -1900,11 +1900,11 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             rule = rule.slice(0, -1);
         }
         if (match = rule.match(/^[gG]([0-9]+)/)) {
-            states = parseInt(match[1]);
+            states = Number(match[1]);
             rule = rule.slice(match[0].length);
         }
         if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
-            states = parseInt(match[1]);
+            states = Number(match[1]);
             rule = rule.slice(0, -match[0].length);
         }
         end = rule[rule.length - 1];
@@ -1967,7 +1967,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         if (nhLetter === 'V') {
             let newB = '';
             for (let char of b) {
-                let value = parseInt(char);
+                let value = Number(char);
                 if (!(value >= 0 && value < VON_NEUMANN.length)) {
                     throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
                 }
@@ -1976,7 +1976,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             b = newB;
             let newS = '';
             for (let char of s) {
-                let value = parseInt(char);
+                let value = Number(char);
                 if (!(value >= 0 && value < VON_NEUMANN.length)) {
                     throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
                 }

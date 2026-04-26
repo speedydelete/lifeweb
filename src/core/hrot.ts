@@ -2,7 +2,7 @@
 /* Implements higher-range outer-totalistic rules (https://conwaylife.com/wiki/Larger_than_Life). */
 
 import {RuleError} from './util.js';
-import {CoordPattern, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH} from './pattern.js';
+import {CoordPattern, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule} from './pattern.js';
 import {unparseMAP} from './map.js';
 
 
@@ -14,15 +14,15 @@ export function parseHROTRange(data: string): number[] {
     if (!data.match(/^\d+((-|\.\.)\d+)?$/)) {
         throw new RuleError(`Invalid HROT range: ${data}`);
     }
-    let start = parseInt(data);
+    let start = Number(data);
     let end = start;
     let index = data.indexOf('-');
     if (index !== -1) {
-        end = parseInt(data.slice(index + 1));
+        end = Number(data.slice(index + 1));
     } else {
         index = data.indexOf('..');
         if (index !== -1) {
-            end = parseInt(data.slice(index + 2));
+            end = Number(data.slice(index + 2));
         }
     }
     if (Number.isNaN(start) || Number.isNaN(end)) {
@@ -93,9 +93,9 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
                 b.push(...parseHROTRange(section));
             }
         } else if (section[0] === 'R') {
-            r = parseInt(section.slice(1));
+            r = Number(section.slice(1));
         } else if (section[0] === 'C') {
-            c = parseInt(section.slice(1));
+            c = Number(section.slice(1));
             if (c === 0) {
                 c = 2;
             }
@@ -103,9 +103,9 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             sFound = true;
             s.push(...parseHROTRange(section.slice(1)));
         } else if (section[0] === 'M') {
-            m = parseInt(section.slice(1)) === 0 ? false : true;
+            m = Number(section.slice(1)) === 0 ? false : true;
         } else if (section[0] === 'W') {
-            w = parseInt(section.slice(1));
+            w = Number(section.slice(1));
         } else {
             throw new RuleError(`Invalid HROT section: '${section}'`);
         }
@@ -157,8 +157,49 @@ const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number
     }
 };
 
+function getCustomNeighborhoodSymmetry(range: number, nhArray: number[][]): RuleSymmetry {
+    let nh: {[key: string]: number} = {};
+    for (let y = -range; y <= range; y++) {
+        let row = nhArray[y + range];
+        for (let x = -range; x <= range; x++) {
+            nh[y + ',' + x] = row[x + range];
+        }
+    }
+    let C2 = true;
+    let C4 = true;
+    let D2h = true;
+    let D2v = true;
+    let D2s = true;
+    let D2b = true;
+    for (let y = -range; y <= range; y++) {
+        for (let x = -range; x <= range; x++) {
+            let value = nh[y + ',' + x];
+            if (C2) {
+                if (value !== nh[(-y) + ',' + (-x)]) {
+                    C2 = false;
+                } else if (C4 && (value !== nh[(-x) + ',' + y] || value !== nh[x + ',' + (-y)])) {
+                    C4 = false;
+                }
+            }
+            if (D2h && value !== nh[y + ',' + (-x)]) {
+                D2h = false;
+            }
+            if (D2v && value !== nh[(-y) + ',' + x]) {
+                D2v = false;
+            }
+            if (D2s && value !== nh[(-x) + ',' + (-y)]) {
+                D2s = false;
+            }
+            if (D2b && value !== nh[(-x) + ',' + (-y)]) {
+                D2b = false;
+            }
+        }
+    }
+    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
+}
+
 /** Parses a HROT rulestring into a lot of data. */
-export function parseHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
+export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array, s: Uint8Array, nh: Int8Array | null} {
     let {r, c, m, s, b, n, w} = parseSections(rule);
     if (c < 2) {
         c = 2;
@@ -170,33 +211,33 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
     //     return {func, extra, states: c, isotropic: true, ruleStr};
     // }
     let size = 2 * r + 1;
-    let n2: number[][] | null;
+    let nh: number[][] | null;
     if (n === 'M') {
-        n2 = null;
+        nh = null;
     } else if (n in NEIGHBORHOODS) {
         let func = NEIGHBORHOODS[n];
-        n2 = [];
+        nh = [];
         for (let y = -r; y <= r; y++) {
             let row: number[] = [];
             for (let x = -r; x <= r; x++) {
                 row.push(func(x, y, r) ? 1 : 0);
             }
-            n2.push(row);
+            nh.push(row);
         }
     } else if (n.startsWith('@')) {
-        n2 = [];
+        nh = [];
     } else if (n.startsWith('W')) {
         let digits = n.slice(1);
         if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
             throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${r}`);
         }
-        n2 = [];
+        nh = [];
         let isBig = n.length === size**2 * 2;
         let i = 0;
         for (let y = 0; y < size; y++) {
             let row: number[] = [];
             for (let x = 0; x < size; x++) {
-                let value = parseInt(digits[i]);
+                let value = Number(digits[i]);
                 if (isBig) {
                     if (value > 127) {
                         row.push(value - 256);
@@ -212,26 +253,26 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
                 }
                 i += isBig ? 2 : 1;
             }
-            n2.push(row);
+            nh.push(row);
         }
     } else {
         throw new RuleError(`Invalid HROT neighborhood: '${n}'`);
     }
     if (m) {
-        if (n2 === null) {
+        if (nh === null) {
             s = s.map(x => x + 1);
         } else {
-            n2[r + 1][r + 1] = 1;
+            nh[r + 1][r + 1] = 1;
         }
     }
-    if (n2 && n2.length === 0) {
+    if (nh && nh.length === 0) {
         throw new RuleError(`Invalid HROT neighborhood: '${n}'`);
     }
     if (r === 1) {
-        if (n2) {
+        if (nh) {
             let trs = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                let value = n2[2][2] * (i & 1) + n2[2][1] * ((i >> 1) & 1) + n2[2][0] * ((i >> 2) & 1) + n2[1][2] * ((i >> 3) & 1) + n2[1][0] * ((i >> 5) & 1) + n2[2][0] * ((i >> 6) & 1) + n2[1][0] * ((i >> 7) & 1) + n2[0][0] * ((i >> 8) & 1);
+                let value = nh[2][2] * (i & 1) + nh[2][1] * ((i >> 1) & 1) + nh[2][0] * ((i >> 2) & 1) + nh[1][2] * ((i >> 3) & 1) + nh[1][0] * ((i >> 5) & 1) + nh[2][0] * ((i >> 6) & 1) + nh[1][0] * ((i >> 7) & 1) + nh[0][0] * ((i >> 8) & 1);
                 if (i & (1 << 4)) {
                     if (value in s) {
                         trs[i] = 1;
@@ -250,7 +291,7 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
 
         }
     }
-    let length = (n2 ? n2.flat().reduce((x, y) => x + y) : (2*r + 1)**2 - 1) + 1;
+    let length = (nh ? nh.flat().reduce((x, y) => x + y) : (2*r + 1)**2 - 1) + 1;
     let outB = new Uint8Array(length);
     for (let value of b) {
         outB[value] = 1;
@@ -272,22 +313,42 @@ export function parseHROTRule(rule: string): string | {range: number, b: Uint8Ar
             ruleStr += n;
         }
     }
-    return {range: r, b: outB, s: outS, nh: n2 ? new Int8Array(n2.flat()) : null, states: c, ruleStr, ruleSymmetry: n2 === null ? 'D8' : 'C1'};
+    let neighborhood: [number, number][] = [];
+    for (let y = -r; y <= r; y++) {
+        for (let x = -r; x <= r; x++) {
+            if (!nh || nh[y][x] !== 0) {
+                neighborhood.push([x, y]);
+            }
+        }
+    }
+    return {
+        rule: {
+            str: ruleStr,
+            states: c,
+            symmetry: nh ? getCustomNeighborhoodSymmetry(r, nh) : 'D8',
+            period: b[0] ? 2 : 1,
+            range: r,
+            neighborhood,
+        },
+        b: outB,
+        s: outS,
+        nh: nh ? new Int8Array(nh.flat()) : null,
+    };
 }
 
 const HEX_CHARS = '0123456789abcdef';
 
 /** Parses a Catagolue-format HROT rulestring into a bunch of data. */
-export function parseCatagolueHROTRule(rule: string): string | {range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry} {
+export function parseCatagolueHROTRule(rule: string): string | {rule: Rule, b: Uint8Array, s: Uint8Array, nh: Int8Array | null} {
     let states = 2;
     if (rule.startsWith('x')) {
         rule = rule.slice(1);
     }
     if (rule.startsWith('g')) {
-        states = parseInt(rule.slice(1));
+        states = Number(rule.slice(1));
         rule = rule.slice(rule.indexOf('r'));
     }
-    let r = parseInt(rule.slice(1));
+    let r = Number(rule.slice(1));
     let out = `R${r},C${states},B`;
     rule = rule.slice(rule.indexOf('b') + 1);
     let n: string | null = null;
@@ -341,23 +402,16 @@ export class HROTPattern extends CoordPattern {
     b: Uint8Array;
     s: Uint8Array;
     nh: Int8Array | null;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 1 = 1;
 
-    constructor(coords: Map<number, number>, range: number, b: Uint8Array, s: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, b: Uint8Array, s: Uint8Array, nh: Int8Array | null) {
+        super(coords, rule);
         this.b = b;
         this.s = s;
         this.nh = nh;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
-        let range = this.range;
+        let range = this.rule.range;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
         minX = minX - range + BIAS;
         maxX = maxX + range + BIAS;
@@ -405,13 +459,13 @@ export class HROTPattern extends CoordPattern {
                     if (this.s[count]) {
                         out.set(key, 1);
                     } else {
-                        let newValue = (value + 1) % this.states;
+                        let newValue = (value + 1) % this.rule.states;
                         if (newValue !== 0) {
                             out.set(key, newValue);
                         }
                     }
                 } else {
-                    let newValue = (value + 1) % this.states;
+                    let newValue = (value + 1) % this.rule.states;
                     if (newValue !== 0) {
                         out.set(key, newValue);
                     }
@@ -423,7 +477,7 @@ export class HROTPattern extends CoordPattern {
     }
 
     copy(): HROTPattern {
-        let out = new HROTPattern(new Map(this.coords), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new HROTPattern(new Map(this.coords), this.rule, this.b, this.s, this.nh);
         out.generation = this.generation;
         return out;
     }
@@ -437,21 +491,21 @@ export class HROTPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new HROTPattern(out, this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        let p = new HROTPattern(out, this.rule, this.b, this.s, this.nh);
         p.generation = this.generation;
         return p;
     }
 
     clearedCopy(): HROTPattern {
-        return new HROTPattern(new Map(), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTPattern(new Map(), this.rule, this.b, this.s, this.nh);
     }
 
     loadApgcode(code: string): HROTPattern {
-        return new HROTPattern(this._loadApgcode(code), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTPattern(this._loadApgcode(code), this.rule, this.b, this.s, this.nh);
     }
 
     loadRLE(rle: string): HROTPattern {
-        return new HROTPattern(this._loadRLE(rle), this.range, this.b, this.s, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTPattern(this._loadRLE(rle), this.rule, this.b, this.s, this.nh);
     }
 
 }
@@ -465,25 +519,18 @@ export class HROTB0Pattern extends CoordPattern {
     oddB: Uint8Array;
     oddS: Uint8Array;
     nh: Int8Array | null;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: 2 = 2;
 
-    constructor(coords: Map<number, number>, range: number, evenB: Uint8Array, evenS: Uint8Array, oddB: Uint8Array, oddS: Uint8Array, nh: Int8Array | null, states: number, ruleStr: string, ruleSymmetry: RuleSymmetry) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, evenB: Uint8Array, evenS: Uint8Array, oddB: Uint8Array, oddS: Uint8Array, nh: Int8Array | null) {
+        super(coords, rule);
         this.evenB = evenB;
         this.evenS = evenS;
         this.oddB = oddB;
         this.oddS = oddS;
         this.nh = nh;
-        this.states = states;
-        this.ruleStr = ruleStr;
-        this.ruleSymmetry = ruleSymmetry;
     }
 
     runGeneration(): void {
-        let range = this.range;
+        let range = this.rule.range;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
         minX = minX - range + BIAS;
         maxX = maxX + range + BIAS;
@@ -533,13 +580,13 @@ export class HROTB0Pattern extends CoordPattern {
                     if (s[count]) {
                         out.set(key, 1);
                     } else {
-                        let newValue = (value + 1) % this.states;
+                        let newValue = (value + 1) % this.rule.states;
                         if (newValue !== 0) {
                             out.set(key, newValue);
                         }
                     }
                 } else {
-                    let newValue = (value + 1) % this.states;
+                    let newValue = (value + 1) % this.rule.states;
                     if (newValue !== 0) {
                         out.set(key, newValue);
                     }
@@ -551,7 +598,7 @@ export class HROTB0Pattern extends CoordPattern {
     }
 
     copy(): HROTB0Pattern {
-        let out = new HROTB0Pattern(new Map(this.coords), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        let out = new HROTB0Pattern(new Map(this.coords), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
         out.generation = this.generation;
         return out;
     }
@@ -565,21 +612,21 @@ export class HROTB0Pattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        let p = new HROTB0Pattern(out, this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        let p = new HROTB0Pattern(out, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
         p.generation = this.generation;
         return p;
     }
 
     clearedCopy(): HROTB0Pattern {
-        return new HROTB0Pattern(new Map(), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTB0Pattern(new Map(), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
     }
 
     loadApgcode(code: string): HROTB0Pattern {
-        return new HROTB0Pattern(this._loadApgcode(code), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTB0Pattern(this._loadApgcode(code), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
     }
 
     loadRLE(rle: string): HROTB0Pattern {
-        return new HROTB0Pattern(this._loadRLE(rle), this.range, this.evenB, this.evenS, this.oddB, this.oddS, this.nh, this.states, this.ruleStr, this.ruleSymmetry);
+        return new HROTB0Pattern(this._loadRLE(rle), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
     }
 
 }
@@ -591,7 +638,7 @@ export function createHROTPattern(rule: string, height: number, width: number, d
     if (typeof out === 'string') {
         return out;
     }
-    let {range, b, s, nh, states, ruleStr, ruleSymmetry} = out;
+    let {rule: ruleData, b, s, nh} = out;
     let coords = new Map<number, number>();
     let i = 0;
     for (let y = 0; y < height; y++) {
@@ -603,7 +650,7 @@ export function createHROTPattern(rule: string, height: number, width: number, d
         }
     }
     if (b[0]) {
-        if (s[range**2]) {
+        if (s[ruleData.range**2]) {
             let temp = s;
             s = b.reverse().map(x => 1 - x);
             b = temp.reverse().map(x => 1 - x);
@@ -612,8 +659,8 @@ export function createHROTPattern(rule: string, height: number, width: number, d
             let evenS = s.map(x => 1 - x);
             let oddB = s.reverse();
             let oddS = b.reverse();
-            return new HROTB0Pattern(coords, range, evenB, evenS, oddB, oddS, nh, states, ruleStr, ruleSymmetry);
+            return new HROTB0Pattern(coords, ruleData, evenB, evenS, oddB, oddS, nh);
         }
     }
-    return new HROTPattern(coords, range, b, s, nh, states, ruleStr, ruleSymmetry);
+    return new HROTPattern(coords, ruleData, b, s, nh);
 }

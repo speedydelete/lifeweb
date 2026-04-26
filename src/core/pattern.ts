@@ -1351,7 +1351,7 @@ export abstract class DataPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
@@ -1363,7 +1363,7 @@ export abstract class DataPattern implements Pattern {
                 out.push(currentLine);
                 currentLine = [];
                 if (num !== '') {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 1; i < count; i++) {
                         out.push([]);
                     }
@@ -1373,7 +1373,7 @@ export abstract class DataPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(0);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(0);
                     }
@@ -1387,7 +1387,7 @@ export abstract class DataPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
@@ -2156,7 +2156,7 @@ export abstract class CoordPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
@@ -2168,7 +2168,7 @@ export abstract class CoordPattern implements Pattern {
                 out.push(currentLine);
                 currentLine = [];
                 if (num !== '') {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 1; i < count; i++) {
                         out.push([]);
                     }
@@ -2178,7 +2178,7 @@ export abstract class CoordPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(0);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(0);
                     }
@@ -2192,7 +2192,7 @@ export abstract class CoordPattern implements Pattern {
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }

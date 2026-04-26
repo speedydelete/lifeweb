@@ -1,7 +1,7 @@
 
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
-import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
 
 
 /** A DataPattern-based implementation of rules running on finite planes.
@@ -10,20 +10,12 @@ import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPat
 export class FiniteDataPattern extends DataPattern {
 
     pattern: Pattern;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
 
-    constructor(height: number, width: number, data: Uint8Array, p: Pattern) {
-        super(height, width, data);
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, p: Pattern) {
+        super(height, width, data, rule);
         this.pattern = p;
         this.xOffset = -Math.floor(this.width / 2);
         this.yOffset = -Math.floor(this.height / 2);
-        this.states = p.states;
-        this.rule.str = p.rule.str + ':P' + width + ',' + height;
-        this.rule.symmetry = p.rule.symmetry;
-        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
@@ -51,13 +43,13 @@ export class FiniteDataPattern extends DataPattern {
     }
 
     copy(): FiniteDataPattern {
-        let out = new FiniteDataPattern(this.height, this.width, this.data, this.pattern);
+        let out = new FiniteDataPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         return out;
     }
 
     clearedCopy(): FiniteDataPattern {
-        return new FiniteDataPattern(this.height, this.width, new Uint8Array(this.size), this.pattern);
+        return new FiniteDataPattern(this.height, this.width, new Uint8Array(this.size), this.rule, this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): FiniteDataPattern {
@@ -67,7 +59,7 @@ export class FiniteDataPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new FiniteDataPattern(this.height, this.width, data, this.pattern);
+        return new FiniteDataPattern(this.height, this.width, data, this.rule, this.pattern);
     }
 
     loadApgcode(code: string): FiniteDataPattern {
@@ -76,7 +68,7 @@ export class FiniteDataPattern extends DataPattern {
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FiniteDataPattern(this.height, this.width, out, this.pattern);
+        return new FiniteDataPattern(this.height, this.width, out, this.rule, this.pattern);
     }
 
     loadRLE(rle: string): FiniteDataPattern {
@@ -85,7 +77,7 @@ export class FiniteDataPattern extends DataPattern {
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FiniteDataPattern(this.height, this.width, out, this.pattern);
+        return new FiniteDataPattern(this.height, this.width, out, this.rule, this.pattern);
     }
 
 }
@@ -101,20 +93,12 @@ export class FiniteCoordPattern extends CoordPattern {
     bbHeight: number;
     /** The width of the bounding box. */
     bbWidth: number;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
 
-    constructor(coords: Map<number, number>, range: number, p: Pattern, bbWidth: number, bbHeight: number) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, p: Pattern, bbWidth: number, bbHeight: number) {
+        super(coords, rule);
         this.pattern = p;
         this.bbHeight = bbHeight;
         this.bbWidth = bbWidth;
-        this.states = p.states;
-        this.rule.str = p.rule.str + ':P' + bbWidth + ',' + bbHeight;
-        this.rule.symmetry = p.rule.symmetry;
-        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
@@ -133,7 +117,7 @@ export class FiniteCoordPattern extends CoordPattern {
     }
 
     copy(): FiniteCoordPattern {
-        let out = new FiniteCoordPattern(this.coords, this.range, this.pattern, this.bbHeight, this.bbWidth);
+        let out = new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -141,7 +125,7 @@ export class FiniteCoordPattern extends CoordPattern {
     }
 
     clearedCopy(): FiniteCoordPattern {
-        return new FiniteCoordPattern(this.coords, this.range, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
     copyPart(x: number, y: number, height: number, width: number): FiniteCoordPattern {
@@ -153,33 +137,29 @@ export class FiniteCoordPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        return new FiniteCoordPattern(this.coords, this.range, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
     loadApgcode(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadApgcode(code), this.range, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this._loadApgcode(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
     loadRLE(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadRLE(code), this.range, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this._loadRLE(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
 }
 
 
-/** A DataPattern-based implementation of rules running on toruses, broken.
+/** A DataPattern-based implementation of rules running on toruses.
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
 export class TorusDataPattern extends DataPattern {
 
     pattern: Pattern;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
 
-    constructor(height: number, width: number, dataHeight: number, dataWidth: number, data: Uint8Array, p: Pattern) {
-        super(dataHeight, dataWidth, data);
+    constructor(height: number, width: number, dataHeight: number, dataWidth: number, data: Uint8Array, rule: Rule, p: Pattern) {
+        super(dataHeight, dataWidth, data, rule);
         if (dataHeight !== height || dataWidth !== width) {
             if (dataHeight > height || dataWidth > width) {
                 throw new Error('Pattern too big for torus!');
@@ -189,8 +169,6 @@ export class TorusDataPattern extends DataPattern {
             this.yOffset = 0;
         }
         this.pattern = p;
-        this.states = p.states;
-        this.rule.str = p.rule.str + ':T' + width + ',' + height;
     }
 
     runGeneration(): void {
@@ -236,7 +214,7 @@ export class TorusDataPattern extends DataPattern {
     }
 
     copy(): TorusDataPattern {
-        let out = new TorusDataPattern(this.height, this.width, this.height, this.width, this.data, this.pattern);
+        let out = new TorusDataPattern(this.height, this.width, this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -244,7 +222,7 @@ export class TorusDataPattern extends DataPattern {
     }
 
     clearedCopy(): TorusDataPattern {
-        return new TorusDataPattern(0, 0, 0, 0, new Uint8Array(0), this.pattern);
+        return new TorusDataPattern(0, 0, 0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
     copyPart(x: number, y: number, height: number, width: number): TorusDataPattern {
@@ -254,17 +232,17 @@ export class TorusDataPattern extends DataPattern {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new TorusDataPattern(height, width, height, width, data, this.pattern);
+        return new TorusDataPattern(height, width, height, width, data, this.rule, this.pattern);
     }
 
     loadApgcode(code: string): TorusDataPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new TorusDataPattern(this.height, this.width, height, width, data, this.pattern);
+        return new TorusDataPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
     }
 
     loadRLE(rle: string): TorusDataPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new TorusDataPattern(this.height, this.width, height, width, data, this.pattern);
+        return new TorusDataPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
     }
 
 }
@@ -288,13 +266,9 @@ export class TorusCoordPattern extends CoordPattern {
     maxX: number;
     /** The maximum Y value of live cells. */
     maxY: number;
-    states: number;
-    ruleStr: string;
-    ruleSymmetry: RuleSymmetry;
-    rulePeriod: number;
 
-    constructor(coords: Map<number, number>, range: number, p: Pattern, torusWidth: number, torusHeight: number) {
-        super(coords, range);
+    constructor(coords: Map<number, number>, rule: Rule, p: Pattern, torusWidth: number, torusHeight: number) {
+        super(coords, rule);
         this.pattern = p;
         if (torusHeight === 0) {
             torusHeight = Infinity;
@@ -308,14 +282,10 @@ export class TorusCoordPattern extends CoordPattern {
         this.maxX = Math.floor(torusWidth / 2);
         this.minY = -Math.ceil(torusHeight / 2);
         this.maxY = Math.floor(torusHeight / 2);
-        this.states = p.states;
-        this.rule.str = p.rule.str + ':P' + torusWidth + ',' + torusHeight;
-        this.rule.symmetry = p.rule.symmetry;
-        this.rulePeriod = p.rulePeriod;
     }
 
     runGeneration(): void {
-        let range = this.range;
+        let range = this.rule.range;
         let torusHeight = this.torusHeight;
         let torusWidth = this.torusWidth;
         let p = this.pattern;
@@ -362,7 +332,7 @@ export class TorusCoordPattern extends CoordPattern {
     }
 
     copy(): TorusCoordPattern {
-        let out = new TorusCoordPattern(this.coords, this.range, this.pattern, this.torusHeight, this.torusWidth);
+        let out = new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
@@ -370,7 +340,7 @@ export class TorusCoordPattern extends CoordPattern {
     }
 
     clearedCopy(): TorusCoordPattern {
-        return new TorusCoordPattern(this.coords, this.range, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
     copyPart(x: number, y: number, height: number, width: number): TorusCoordPattern {
@@ -382,15 +352,15 @@ export class TorusCoordPattern extends CoordPattern {
                 out.set(key, value);
             }
         }
-        return new TorusCoordPattern(this.coords, this.range, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
     loadApgcode(code: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadApgcode(code), this.range, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this._loadApgcode(code), this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
     loadRLE(rle: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadRLE(rle), this.range, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this._loadRLE(rle), this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
 

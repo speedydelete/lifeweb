@@ -2,7 +2,7 @@
 /* The main file, exporting everything and also implementing many utility functions. */
 
 import {RuleError, lcm} from './util.js';
-import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
+import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
 import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
@@ -80,7 +80,24 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                     }
                 }
             }
-            return new TreePattern(coords, out.tree.neighborhood, out.tree.data, out.tree.states, prevName ?? rule, out);
+            let range = out.tree.range;
+            let neighborhood: [number, number][] = [];
+            i = 0;
+            for (let y = -range; y <= range; y++) {
+                for (let x = -range; x <= range; x++) {
+                    if (out.tree.neighborhood[i++] !== 0) {
+                        neighborhood.push([x, y]);
+                    }
+                }
+            }
+            return new TreePattern(coords, {
+                str: prevName ?? rule,
+                states: out.tree.states,
+                symmetry: 'C1',
+                period: 1,
+                range,
+                neighborhood,
+            }, out.tree.neighborhood, out.tree.data, out);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
@@ -92,13 +109,14 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('History')) {
         try {
             let p = createPattern(rule.slice(0, -7), namedRules, height, width, data, undefined);
-            if (p.states !== 2) {
+            if (p.rule.states !== 2) {
                 throw new RuleError('History is only supported for 2-state rules');
             }
+            let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'History', states: 7});
             if (p instanceof DataPattern) {
-                return new DataHistoryPattern(height, width, data, p);
+                return new DataHistoryPattern(height, width, data, ruleData, p);
             } else if (p instanceof CoordPattern) {
-                return new CoordHistoryPattern(p.coords, p.range, p);
+                return new CoordHistoryPattern(p.coords, ruleData, p);
             } else {
                 throw new RuleError(`Unknown Pattern subclass: ${p}`);
             }
@@ -113,13 +131,14 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('Super')) {
         try {
             let p = createPattern(rule.slice(0, -5), namedRules, height, width, data, undefined);
-            if (p.states !== 2) {
+            if (p.rule.states !== 2) {
                 throw new RuleError('Super is only supported for 2-state rules');
             }
+            let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Super', states: 26})
             if (p instanceof DataPattern) {
-                return new DataSuperPattern(height, width, data, p);
+                return new DataSuperPattern(height, width, data, ruleData, p);
             } else if (p instanceof CoordPattern) {
-                return new CoordSuperPattern(p.coords, p.range, p);
+                return new CoordSuperPattern(p.coords, ruleData, p);
             } else {
                 throw new RuleError(`Unknown Pattern subclass: ${p}`);
             }
@@ -134,11 +153,11 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('Investigator')) {
         try {
             let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -12), namedRules, height, width, data, undefined);
-            if (p.states !== 2) {
+            if (p.rule.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
             if (p instanceof DataPattern) {
-                return new InvestigatorPattern(height, width, data, p);
+                return new InvestigatorPattern(height, width, data, Object.assign({}, p.rule, {str: p.rule.str + 'Investigator', states: 21}), p);
             } else if (p instanceof CoordPattern) {
                 throw new RuleError(`Investigator is not supported for CoordPatterns`);
             } else {
@@ -161,13 +180,14 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             let p = createPattern(parts[0], namedRules, height, width, data, prevName);
             let spec = parts[1];
             let type = spec[0];
-            let [y, x] = spec.slice(1).split(',').map(x => parseInt(x));
+            let [y, x] = spec.slice(1).split(',').map(x => Number(x));
             if (Number.isNaN(x) || Number.isNaN(y)) {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
             }
+            let ruleData: Rule = Object.assign({}, p.rule, {str: `${p.rule.str}:${type}${y},${x}`});
             if (type === 'P') {
                 if (p instanceof CoordPattern) {
-                    return new FiniteCoordPattern(p.coords, p.range, p, x, y);
+                    return new FiniteCoordPattern(p.coords, ruleData, p, x, y);
                 } else {
                     if (x !== width || y !== height) {
                         let newData = new Uint8Array(x * y);
@@ -182,13 +202,13 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                         height = y;
                         width = x;
                     }
-                    return new FiniteDataPattern(height, width, data, p);
+                    return new FiniteDataPattern(height, width, data, ruleData, p);
                 }
             } else if (type === 'T') {
                 if (p instanceof CoordPattern) {
-                    return new TorusCoordPattern(p.coords, p.range, p, x, y);
+                    return new TorusCoordPattern(p.coords, ruleData, p, x, y);
                 } else {
-                    return new TorusDataPattern(y, x, height, width, p.getData(), p);
+                    return new TorusDataPattern(y, x, height, width, p.getData(), ruleData, p);
                 }
             } else {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
@@ -253,18 +273,18 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
                     if (index !== -1) {
                         let data = line.slice(index + 4);
                         let [x, y] = data.split(',');
-                        xOffset = parseInt(x);
-                        yOffset = parseInt(y);
+                        xOffset = Number(x);
+                        yOffset = Number(y);
                     }
                     index = line.indexOf('Gen=');
                     if (index !== -1) {
-                        generation = parseInt(line.slice(index + 4));
+                        generation = Number(line.slice(index + 4));
                     }
                 }
             } else if (char === 'P' || char === 'p') {
                 let [x, y] = line.slice(2).split(' ').filter(x => x !== '');
-                xOffset = parseInt(x);
-                yOffset = parseInt(y);
+                xOffset = Number(x);
+                yOffset = Number(y);
             } else if (char === 'r') {
                 rule = line.slice(2);
             }
@@ -312,8 +332,8 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
                     let char = line[1];
                     if (char === 'P' || char === 'p') {
                         let [x, y] = line.slice(2).split(' ').filter(x => x !== '');
-                        xOffset = parseInt(x);
-                        yOffset = parseInt(y);
+                        xOffset = Number(x);
+                        yOffset = Number(y);
                     } else if (char === 'R' || char === 'r') {
                         rule = line.slice(2);
                     } else {
@@ -326,8 +346,8 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
             yOffset = 0;
             for (let line of lines.slice(1)) {
                 let [xStr, yStr] = line.split(' ');
-                let x = parseInt(xStr) + xOffset;
-                let y = parseInt(yStr) + yOffset;
+                let x = Number(xStr) + xOffset;
+                let y = Number(yStr) + yOffset;
                 while (y < 0) {
                     yOffset--;
                     y++;
@@ -408,7 +428,7 @@ export function getBlackWhiteReversal(rule: string): string {
                 sStr = unparseTransitions(sTrs, VALID_TRANSITIONS, true);
             }
             if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
-                return `${sStr}/${bStr}/${p.states}`;
+                return `${sStr}/${bStr}/${p.rule.states}`;
             } else {
                 return `B${bStr}/S${sStr}`;
             }
@@ -425,7 +445,7 @@ export function getBlackWhiteReversal(rule: string): string {
             b = p.evenS.toReversed();
             s = p.evenB.toReversed();
         }
-        let out = `R${p.range},C${p.states},S${unparseHROTRanges(s)},B${unparseHROTRanges(b)}`;
+        let out = `R${p.rule.range},C${p.rule.states},S${unparseHROTRanges(s)},B${unparseHROTRanges(b)}`;
         if (p.nh) {
             out += ',NW';
             if (p.nh.every(x => x > -9 && x < 8)) {

@@ -251,7 +251,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
@@ -263,7 +263,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
                 raw.push(currentLine);
                 currentLine = [];
                 if (num !== '') {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 1; i < count; i++) {
                         raw.push([]);
                     }
@@ -273,7 +273,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
                 if (num === '') {
                     currentLine.push(0);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(0);
                     }
@@ -287,7 +287,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
                 if (num === '') {
                     currentLine.push(value);
                 } else {
-                    let count = parseInt(num);
+                    let count = Number(num);
                     for (let i = 0; i < count; i++) {
                         currentLine.push(value);
                     }
@@ -395,8 +395,8 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         }
     } else if (ruleStr.startsWith('R')) {
         let parts = ruleStr.split(',');
-        let r = parseInt(parts[0].slice(1));
-        let c = parseInt(parts[1].slice(1));
+        let r = Number(parts[0].slice(1));
+        let c = Number(parts[1].slice(1));
         if (parts[2].startsWith('W')) {
             let w = parts[2].slice(1);
             if (c > 2) {
@@ -421,9 +421,9 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
                 continue;
             }
             if (parsingB) {
-                b.push(parseInt(part));
+                b.push(Number(part));
             } else {
-                s.push(parseInt(part));
+                s.push(Number(part));
             }
         }
         let out = 'r' + r + 'b';
@@ -480,7 +480,7 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         }
         let out = 'map' + ruleStr.slice(3, 88);
         if (ruleStr.length > 89 && ruleStr[89] === '/') {
-            out = 'g' + parseInt(ruleStr.slice(90)) + out;
+            out = 'g' + Number(ruleStr.slice(90)) + out;
         }
         if (out.endsWith('h')) {
             out += 'x';

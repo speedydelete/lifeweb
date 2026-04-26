@@ -11,6 +11,7 @@ export type Tree = (number | Tree)[];
 /** Associated information for a rule tree. */
 export interface RuleTree {
     states: number;
+    range: number;
     /** The weighted HROT neighborhood. */
     neighborhood: Int8Array;
     data: Tree;
@@ -357,7 +358,7 @@ function parseJSONLoose(data: string): number[][] {
             level--;
         } else if (char === ',') {
             if (level > 1) {
-                section.push(parseInt(num));
+                section.push(Number(num));
             } else {
                 out.push(section);
                 section = [];
@@ -369,7 +370,7 @@ function parseJSONLoose(data: string): number[][] {
         }
     }
     if (num.trim() !== '') {
-        section.push(parseInt(num));
+        section.push(Number(num));
     }
     if (section.length > 0) {
         out.push(section);
@@ -393,14 +394,14 @@ function parseTree(data: string): RuleTree {
                     throw new RuleError(`Invalid neighborhood: '${arg}'`);
                 }
             } else if (cmd === 'num_neighbors') {
-                if (parseInt(arg) === 4) {
+                if (Number(arg) === 4) {
                     nh = [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]];
                 } else {
                     nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
                 }
             }
         } else {
-            let [depth, ...data] = line.split(' ').map(x => parseInt(x));
+            let [depth, ...data] = line.split(' ').map(x => Number(x));
             if (depth === 1) {
                 let newStates = Math.max(...data);
                 if (newStates > states) {
@@ -414,6 +415,7 @@ function parseTree(data: string): RuleTree {
     }
     return {
         states: states + 1,
+        range: Math.max(...nh.map(x => Math.max(Math.abs(x[0]), Math.abs(x[1])))),
         neighborhood: new Int8Array(nh.flat()),
         data: nodes[nodes.length - 1],
     };
@@ -440,9 +442,9 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
             if (value !== '') {
                 if (value.match(/^\d+$/)) {
                     if (inBind) {
-                        section.push({bind: true, index: parseInt(value)});
+                        section.push({bind: true, index: Number(value)});
                     } else {
-                        section.push(parseInt(value));
+                        section.push(Number(value));
                     }
                 } else {
                     if (inBind) {
@@ -483,9 +485,9 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
             if (value !== '') {
                 if (value.match(/^\d+$/)) {
                     if (inBind) {
-                        section.push({bind: true, index: parseInt(value)});
+                        section.push({bind: true, index: Number(value)});
                     } else {
-                        section.push(parseInt(value));
+                        section.push(Number(value));
                     }
                 } else {
                     if (inBind) {
@@ -523,9 +525,9 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
     if (value !== '') {
         if (value.match(/^\d+$/)) {
             if (inBind) {
-                section.push({bind: true, index: parseInt(value)});
+                section.push({bind: true, index: Number(value)});
             } else {
-                section.push(parseInt(value));
+                section.push(Number(value));
             }
         } else {
             if (inBind) {
@@ -662,7 +664,7 @@ function parseTable(data: string): RuleTree {
             }
             vars[name] = {bind, value: parseBraceList(value, vars)};
         } else if (line.match(/^\d+$/)) {
-            lines.push({value: Array.from(line).map(x => [parseInt(x)]), nh, sym});
+            lines.push({value: Array.from(line).map(x => [Number(x)]), nh, sym});
         } else {
             let value = parseBraceList(line, vars);
             lines.push({value, nh, sym});
@@ -776,6 +778,7 @@ function parseTable(data: string): RuleTree {
     }
     return {
         states,
+        range: Math.max(...totalNh.map(x => Math.max(Math.abs(x[0]), Math.abs(x[1])))),
         neighborhood: new Int8Array(totalNh.flat()),
         data: trsToTree(trs, states),
     };
@@ -819,13 +822,13 @@ export function parseAtRule(rule: string): AtRule {
                 if (index === -1) {
                     continue;
                 }
-                out.names[parseInt(line.slice(0, index))] = line.slice(index + 1);
+                out.names[Number(line.slice(0, index))] = line.slice(index + 1);
             }
         } else if (section === '@COLORS') {
             out.colors = {};
             for (let line of data.split('\n')) {
                 let [state, r, g, b] = line.split(' ').filter(x => x);
-                out.colors[parseInt(state)] = [parseInt(r), parseInt(g), parseInt(b)];
+                out.colors[Number(state)] = [Number(r), Number(g), Number(b)];
             }
         } else if (section === '@ICONS') {
             out.icons = data;

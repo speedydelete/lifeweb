@@ -486,7 +486,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
     if (elbowType !== 'normal') {
         throw new Error(`Provided elbow '${elbow.timingStr}' is not of type normal, type is ${elbowType}`);
     }
-    let msg = `\n${type} search in ${base.ruleStr} with elbow ${elbow.timingStr}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
+    let msg = `\n${type} search in ${base.rule.str} with elbow ${elbow.timingStr}, max spacing ${maxSpacing}, and max generations ${maxGenerations}:\n`;
     if (existsSync('possible_useful.txt')) {
         let stat = await fs.stat('possible_useful.txt');
         if (stat.size > 0) {

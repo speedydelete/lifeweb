@@ -189,14 +189,14 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     } else if (speed.includes('/')) {
         [disp, period] = speed.split('/');
     } else if (speed.startsWith('p')) {
-        return {dx: 0, dy: 0, period: parseInt(speed.slice(1))};
+        return {dx: 0, dy: 0, period: Number(speed.slice(1))};
     } else {
         throw new Error('Invalid speed!');
     }
-    let p = parseInt(period);
+    let p = Number(period);
     let x: number;
     let y: number;
-    let num = parseInt(disp);
+    let num = Number(disp);
     if (!Number.isNaN(num)) {
         x = num;
         if (period.endsWith('d')) {
@@ -206,8 +206,8 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
         }
     } else if (disp.startsWith('(')) {
         let parts = disp.slice(1, -1).split(',');
-        x = parseInt(parts[0]);
-        y = parseInt(parts[1]);
+        x = Number(parts[0]);
+        y = Number(parts[1]);
         if (Number.isNaN(x) || Number.isNaN(y) || parts.length !== 2) {
             throw new Error('Invalid speed!');
         }
