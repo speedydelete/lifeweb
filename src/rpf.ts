@@ -251,6 +251,8 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
     return p;
 }
 
-export function runRPF<T extends Pattern>(file: RPFFile<T>): RPFFile<T> {
-    throw new RPFFileError(`Cannot run RPFs yet!`);
+
+// @ts-ignore
+export class RPFPattern extends Pattern {
+
 }
