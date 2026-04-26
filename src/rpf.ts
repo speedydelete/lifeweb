@@ -245,6 +245,7 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
     p.xOffset = xOffset;
     p.yOffset = yOffset;
     for (let q of patterns) {
+        console.log(q);
         p.insert(q, q.xOffset, q.yOffset);
     }
     return p;
