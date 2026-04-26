@@ -11,9 +11,6 @@ export function parseHROTRange(data: string): number[] {
     if (data.length === 0) {
         return [];
     }
-    if (!data.match(/^\d+((-|\.\.)\d+)?$/)) {
-        throw new RuleError(`Invalid HROT range: ${data}`);
-    }
     let start: number;
     let end: number | undefined = undefined;
     let index = data.indexOf('-');
