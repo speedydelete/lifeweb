@@ -1,16 +1,16 @@
 
-import {Pattern, createPattern} from './core/index.js';
+import {Pattern, Rect, Rule, createPattern} from './core/index.js';
 
 
 export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
 const ROTATIONS: string[] = ['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx'];
 
-export interface RPF<T extends Pattern = Pattern> {
+export interface RPFObject<T extends Pattern = Pattern> {
     key: string;
     path: string;
     name?: string;
     data: ({
-        value: [false, T] | [true, RPF<T>];
+        value: [false, T] | [true, RPFObject<T>];
         x: number;
         y: number;
         rotation: Rotation;
@@ -18,9 +18,9 @@ export interface RPF<T extends Pattern = Pattern> {
     })[];
 }
 
-export interface RPFFile<T extends Pattern = Pattern> {
+export interface RPF<T extends Pattern = Pattern> {
     base: T;
-    data: {[key: string]: RPF<T>};
+    data: {[key: string]: RPFObject<T>};
 }
 
 
@@ -75,7 +75,7 @@ export function join(...paths: string[]): string {
 
 export class RPFFileError extends Error {};
 
-export function rpfToString(file: RPFFile): string {
+export function rpfToString(file: RPF): string {
     let map = new Map<string, Set<string>>();
     for (let key in file.data) {
         let value = new Set<string>();
@@ -139,7 +139,7 @@ export function rpfToString(file: RPFFile): string {
     return out;
 }
 
-export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: string): RPFFile<T> {
+export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: string): RPF<T> {
     let groups: string[][] = [];
     let currentGroup: string[] = [];
     for (let line of data.split('\n')) {
@@ -171,14 +171,14 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
     if (!base) {
         throw new RPFFileError(`No #rule line found in RPF!`);
     }
-    let out: RPFFile<T> = {
+    let out: RPF<T> = {
         base,
         data: {},
     };
     for (let i = 1; i < groups.length; i++) {
         let group = groups[i];
         let key = group[0].slice(0, -1);
-        let rpf: RPF<T> = {
+        let rpf: RPFObject<T> = {
             key,
             path: join(key, basePath),
             data: [],
@@ -191,7 +191,7 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
                     rpf.name = parts.slice(1).join(' ');
                 }
             } else {
-                let value = parts[0].endsWith('!') ? [false, base.loadRLE(parts[0]) as T] as [false, T] : [true, out.data[parts[0]]] as [true, RPF<T>];
+                let value = parts[0].endsWith('!') ? [false, base.loadRLE(parts[0]) as T] as [false, T] : [true, out.data[parts[0]]] as [true, RPFObject<T>];
                 if (!value[1]) {
                     throw new RPFFileError(`RPF object '${parts[0]}' was never defined`);
                 }
@@ -209,7 +209,7 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
     return out;
 }
 
-export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>): T {
+export function rpfToPattern<T extends Pattern>(file: RPF<T>, rpf?: RPFObject<T>): T {
     if (!rpf) {
         rpf = file.data['main'];
         if (!rpf) {
@@ -248,15 +248,114 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
     for (let q of patterns) {
         p.insert(q, q.xOffset, q.yOffset);
     }
+    p.shrinkToFit();
+    p.xOffset = 0;
+    p.yOffset = 0;
     return p;
 }
 
 
-// @ts-ignore
-export class RPFPattern implements Pattern {
+function _copyRPF<T extends Pattern>(value: RPFObject<T>, out: {[key: string]: RPFObject<T>}): RPFObject<T> {
+    if (value.key in out) {
+        return out[value.key];
+    }
+    out[value.key] = {
+        key: value.key,
+        path: value.path,
+        name: value.name,
+        data: value.data.map(x => {
+            let value: RPFObject<T>['data'][number]['value'];
+            if (x.value[0]) {
+                value = [true, _copyRPF(x.value[1], out)],
+            } else {
+                value = [false, x.value[1].copy() as T];
+            }
+            return {value, x: x.x, y: x.y, rotation: x.rotation, time: x.time};
+        }),
+    };
+    return out[value.key];
+}
 
-    constructor(value: RPFFile) {
+export function copyRPF<T extends Pattern>(file: RPF<T>): RPF<T> {
+    let out: {[key: string]: RPFObject<T>} = {};
+    for (let key in file.data) {
+        _copyRPF(file.data[key], out);
+    }
+    return {
+        base: file.base,
+        data: out,
+    };
+}
 
+
+export class RPFPattern<T extends Pattern> implements Pattern {
+
+    file: RPF<T>;
+    height: number;
+    width: number;
+    xOffset: number = 0;
+    yOffset: number = 0;
+    generation: number = 0;
+    rule: Rule;
+    population: number;
+
+    constructor(file: RPF<T>, data?: {height: number, width: number, rule: Rule, population: number}) {
+        this.file = file;
+        if (data) {
+            this.height = data.height;
+            this.width = data.width;
+            this.rule = data.rule;
+            this.population = data.population;
+        } else {
+            let p = rpfToPattern(file);
+            this.height = p.height;
+            this.width = p.width;
+            this.rule = p.rule;
+            this.population = p.population;
+        }
+    }
+
+    run(gens: number): this {
+        for (let i = 0; i < gens; i++) {
+            this.runGeneration();
+        }
+        return this;
+    }
+
+    runGeneration(): this {
+        return this.run(1);
+    }
+
+    getRect(): Rect {
+        return {height: this.height, width: this.width, xOffset: this.xOffset, yOffset: this.yOffset};
+    }
+
+    getFullOffset(): [number, number] {
+        return [this.xOffset, this.yOffset];
+    }
+
+    isEmpty(): boolean {
+        return this.population === 0;
+    }
+
+    copy(): RPFPattern<T> {
+        return new RPFPattern(copyRPF(this.file), this);
+    }
+
+    clearedCopy(): RPFPattern<T> {
+        return new RPFPattern({
+            base: this.file.base,
+            data: {},
+        }, this);
+    }
+
+    ensure(x: number, y: number): this {
+        return this;
+    }
+
+    offsetBy(x: number, y: number): this {
+        this.xOffset += x;
+        this.yOffset += y;
     }
 
 }

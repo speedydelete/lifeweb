@@ -480,8 +480,8 @@ export abstract class DataPattern implements Pattern {
 
     abstract runGeneration(): any;
 
-    run(n: number): this {
-        for (let i = 0; i < n; i++) {
+    run(gens: number): this {
+        for (let i = 0; i < gens; i++) {
             this.runGeneration();
         }
         return this;
