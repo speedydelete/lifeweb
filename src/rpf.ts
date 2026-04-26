@@ -356,6 +356,7 @@ export class RPFPattern<T extends Pattern> implements Pattern {
     offsetBy(x: number, y: number): this {
         this.xOffset += x;
         this.yOffset += y;
+        return this;
     }
 
 }
