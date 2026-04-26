@@ -24,6 +24,7 @@ export * from './identify.js';
 export * from './intsep.js';
 export * from './sep.js';
 export * from './catagolue.js';
+export * from './conduits.js';
 
 
 /** Creates a pattern from a rulestring.
