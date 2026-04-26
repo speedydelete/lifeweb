@@ -253,6 +253,10 @@ export function rpfToPattern<T extends Pattern>(file: RPFFile<T>, rpf?: RPF<T>):
 
 
 // @ts-ignore
-export class RPFPattern extends Pattern {
+export class RPFPattern implements Pattern {
+
+    constructor(value: RPFFile) {
+
+    }
 
 }
