@@ -144,8 +144,8 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
                 maxY = Math.max(maxY, value.y + p.height);
                 this.population += p.population;
             }
-            this.height = maxY - this.yOffset + 1;
-            this.width = maxX - this.xOffset + 1;
+            this.height = maxY - this.minY;
+            this.width = maxX - this.minX;
         } else {
             this.minX = 0;
             this.minY = 0;
@@ -276,7 +276,7 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
             let minY = Math.max(y, value.y);
             let maxY = Math.min(y + height, value.y + value.p.height);
             if ((maxX - minX) < 0 || (maxY - minY) < 0) {
-                value.p.clearPart(minX, minY, maxY - minY + 1, maxX - minX + 1);
+                value.p.clearPart(minX, minY, maxY - minY, maxX - minX);
             }
         }
         return this;
