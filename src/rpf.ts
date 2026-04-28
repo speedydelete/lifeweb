@@ -135,10 +135,11 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
             for (let value of data) {
                 this.minX = Math.min(this.minX, value.x);
                 this.minY = Math.min(this.minY, value.y);
-                let p = value.p.copy();
+                let p = value.p.copy() as T;
                 applyRotation(p, value.rotation);
                 p.run(value.time);
                 p.shrinkToFit();
+                value.p = p;
                 maxX = Math.max(maxX, value.x + p.width);
                 maxY = Math.max(maxY, value.y + p.height);
                 this.population += p.population;
