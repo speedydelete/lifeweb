@@ -581,6 +581,24 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         return new RPFPattern(this.base, this.key, this.path, [{p, x: 0, y: 0, rotation: 'F', time: 0}]);
     }
 
+    _toRPFFile(out: {[key: string]: RPFPattern<T>}): void {
+        out[this.key] = this;
+        for (let value of this.data) {
+            if (value.p instanceof RPFPattern) {
+                value.p._toRPFFile(out);
+            }
+        }
+    }
+
+    toRPFFile(): RPFFile<T> {
+        let data: {[key: string]: RPFPattern<T>} = {};
+        this._toRPFFile(data);
+        return {
+            base: this.base,
+            data,
+        };
+    }
+
 }
 
 
