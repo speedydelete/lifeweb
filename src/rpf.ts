@@ -691,20 +691,21 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
     for (let i = 1; i < groups.length; i++) {
         let group = groups[i];
         let key = group[0].slice(0, -1);
-        let rpf = new RPFPattern<T>(base, key, join(basePath, key), []);
+        let name: string | undefined = undefined;
+        let data: RPFPattern<T>['data'] = [];
         for (let i = 1; i < group.length; i++) {
             let line = group[i];
             let parts = line.split(' ');
             if (parts[0].startsWith('#')) {
                 if (parts[0] === '#name') {
-                    rpf.name = parts.slice(1).join(' ');
+                    name = parts.slice(1).join(' ');
                 }
             } else {
                 let p = parts[0].endsWith('!') ? base.loadRLE(parts[0]) as T : out.data[parts[0]];
                 if (!p) {
                     throw new RPFError(`RPF object '${parts[0]}' was never defined`);
                 }
-                rpf.data.push({
+                data.push({
                     p,
                     x: parts[1] === undefined ? 0 : Number(parts[1]),
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
@@ -712,6 +713,10 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
                     time: parts[4] === undefined ? 0 : Number(parts[4]),
                 });
             }
+        }
+        let rpf = new RPFPattern<T>(base, key, join(basePath, key), data);
+        if (name !== undefined) {
+            rpf.name = name;
         }
         out.data[key] = rpf;
     }
