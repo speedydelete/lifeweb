@@ -126,10 +126,10 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         this.key = key;
         this.path = path;
         this.data = data;
-        this.minX = 0;
-        this.minY = 0;
-        let maxX = 0;
-        let maxY = 0;
+        this.minX = Infinity;
+        this.minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
         this.population = 0;
         for (let value of data) {
             this.minX = Math.min(this.minX, value.x);
