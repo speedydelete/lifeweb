@@ -641,7 +641,7 @@ export function rpfToString(file: RPFFile): string {
             }
         }
     }
-    let out = `\n${file.base.rule.str}\n`;
+    let out = `\n#rule ${file.base.rule.str}\n`;
     for (let layer of layers) {
         for (let key of layer.sort()) {
             let rpf = file.data[key];
