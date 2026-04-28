@@ -25,8 +25,7 @@ export class AlternatingPattern extends DataPattern {
         p.runGeneration();
         this.setData(p.height, p.width, p.getData());
         this.generation = p.generation;
-        this.xOffset = p.xOffset;
-        this.yOffset = p.yOffset;
+        [this.xOffset, this.yOffset] = p.getFullOffset();
     }
 
     copy(): AlternatingPattern {
