@@ -12,4 +12,6 @@
 /*.md
 /*.dot
 /backup
-/sc256
+/editor/*.js
+/editor/*.map
+/*.zip

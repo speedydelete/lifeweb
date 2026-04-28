@@ -1,5 +1,5 @@
 
-import {Pattern, createPattern, parse} from '../core/index.js';
+import {Pattern, createPattern, parse} from './core/index.js';
 
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
