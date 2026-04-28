@@ -302,7 +302,10 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         let p = this.base.clearedCopy() as T;
         p.ensure(this.width, this.height);
         for (let value of this.data) {
-            p.insert(value.p, value.x - this.minX, value.y - this.minY);
+            let q = value.p;
+            applyRotation(q, value.rotation);
+            q.run(value.time);
+            p.insert(q, value.x - this.minX, value.y - this.minY);
         }
         return p;
     }
