@@ -142,16 +142,16 @@ let ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 function updateSizes() {
     let bb = canvas.getBoundingClientRect();
-    canvas.height = bb.height;
-    canvas.width = bb.width;
+    canvas.height = Math.min(bb.bottom, window.innerHeight) - bb.top;
+    canvas.width = Math.min(bb.right, window.innerWidth) - bb.left;
 }
 
 window.addEventListener('resize', updateSizes);
 
 function editCell(event: MouseEvent, overridePrev: boolean): void {
     let rect = canvas.getBoundingClientRect();
-    let x = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale + p.xOffset);
-    let y = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale + p.yOffset);
+    let x = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale - p.xOffset);
+    let y = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale - p.yOffset);
     if (!overridePrev && x === prevEditX && y === prevEditY) {
         return;
     }
@@ -163,10 +163,6 @@ function editCell(event: MouseEvent, overridePrev: boolean): void {
         p.offsetBy(x2, y2);
         x = Math.max(x, 0);
         y = Math.max(y, 0);
-        topLeftX -= x2 * 2;
-        topLeftY -= y2 * 2;
-        prevEditX += x2;
-        prevEditY += y2;
     }
     p.ensure(x + 1, y + 1);
     p.set(x, y, p.get(x, y) === drawState ? 0 : drawState);
@@ -246,7 +242,8 @@ function frame() {
     requestAnimationFrame(frame);
 }
 
-requestAnimationFrame(frame);
-
-updateSizes();
-loadPattern(parse(`x = 3, y = 3, rule = B3/S23\nbo$2bo$3o!`));
+window.addEventListener('load', () => setTimeout(() => {
+    requestAnimationFrame(frame);
+    updateSizes();
+    loadPattern(parse(`x = 3, y = 3, rule = B3/S23\nbo$2bo$3o!`));
+}, 100));

@@ -16,7 +16,3 @@ esbuild.build({
     minify: true,
     sourcemap: true,
 });
-
-if (target === 'editor' && process.argv[3] === 'serve') {
-    console.log();
-}
