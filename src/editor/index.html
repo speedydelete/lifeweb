@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>lifeweb</title>
+        <meta charset="utf-8">
+        <style>
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: row;
+    background-color: #000000;
+}
+
+#left {
+    flex: 0 0 20%;
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+}
+
+#left button, input:not([type=checkbox]) {
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid #000000;
+}
+
+noscript {
+    padding: 0.5em;
+}
+
+#rle-wrapper {
+    margin-top: auto;
+    padding: 0.5em;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 0.5em;
+}
+
+textarea {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8em;
+    resize: none;
+    border: 1px solid #000000;
+}
+
+textarea:hover, textarea:focus {
+    outline: none;
+    border: 1px solid #000000;
+}
+
+#rle {
+    width: 100%;
+}
+
+#right {
+    flex: 0 0 80%;
+    display: flex;
+    flex-direction: column;
+}
+
+#top {
+    min-height: 0;
+    flex: 1 1 auto;
+    padding: 0.75em;
+    display: flex;
+    flex-direction: row;
+    gap: 0.75em;
+    border-bottom: 1px solid #ffffff;
+}
+
+#top button {
+    height: 3em;
+    width: 3em;
+    padding: 0.5em;
+    border: 1px solid #ffffff;
+    background-color: #000000;
+}
+
+#top button.selected {
+    background-color: #001fdf;
+}
+
+#top .spacer {
+    flex: 0 0 1.5em;
+}
+
+#main {
+    border-left: 1px solid #000000;
+    min-height: 0;
+    flex: 1 1 auto;
+    image-rendering: pixelated;
+}
+
+        </style>
+    </head>
+    <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
+        <div id="left">
+            <noscript>You must enable JavaScript to use this.</noscript>
+            <div id="rle-wrapper">
+                <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
+bo$2bo$3o!</textarea>
+                <button id="view-rle">View</button>
+            </div>
+        </div>
+        <div id="right">
+            <div id="top">
+                <button id="reset">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <polygon points="15,0 5,8 15,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="step">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <polygon points="8,0 16,8 8,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="run">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <polygon points="1,0 15,8 1,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="pause" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <rect x="11" y="0" width="4" height="16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <div class="spacer"></div>
+                <button id="cursor-main" class="selected">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <polygon points="3,0 3,14 6,11 8,15 10,14 8,11 13,11" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <button id="cursor-edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <line x1="0" y1="16" x2="4" y2="8" stroke="#ffffff" />
+                        <line x1="0" y1="16" x2="8" y2="12" stroke="#ffffff" />
+                        <line x1="2" y1="12" x2="4" y2="14" stroke="#ffffff" />
+                        <line x1="4" y1="8" x2="8" y2="12" stroke="#ffffff" />
+                        <line x1="4" y1="8" x2="12" y2="0" stroke="#ffffff" />
+                        <line x1="8" y1="12" x2="16" y2="4" stroke="#ffffff" />
+                        <line x1="6" y1="10" x2="12" y2="4" stroke="#ffffff" />
+                        <line x1="10" y1="2" x2="14" y2="6" stroke="#ffffff" />
+                        <line x1="12" y1="0" x2="16" y2="4" stroke="#ffffff" />
+                    </svg>
+                </button>
+                <button id="cursor-select">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" image-rendering="crispEdges">
+                        <line x1="0" y1="0" x2="2" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="4" y1="0" x2="7" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="9" y1="0" x2="12" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="14" y1="0" x2="16" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="0" x2="0" y2="2" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="4" x2="0" y2="7" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="9" x2="0" y2="12" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="14" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="16" x2="2" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="4" y1="16" x2="7" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="9" y1="16" x2="12" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="14" y1="16" x2="16" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="16" y1="0" x2="16" y2="2" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="4" x2="16" y2="7" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="9" x2="16" y2="12" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="14" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                    </svg>
+                </button>
+                <div class="spacer"></div>
+                <button id="undo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <path d="M 6 15 A 7 7 0 1 0 2 6" fill="transparent" stroke="#ffffff" />
+                        <polygon points="0,3 5,8 0,8" fill="#ffffff" stroke="#ffffff" />
+                    </svg>
+                </button>
+                <button id="redo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                        <path d="M 8 15 A 7 7 0 1 1 14 6" fill="transparent" stroke="#ffffff" />
+                        <polygon points="16,3 11,8 16,8" fill="#ffffff" stroke="#ffffff" />
+                    </svg>
+                </button>
+            </div>
+            <canvas id="main"></canvas>
+        </div>
+        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousemove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
+        <script type="module" src="index.js"></script>
+    </body>
+</html>
