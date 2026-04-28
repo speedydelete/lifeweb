@@ -126,24 +126,32 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         this.key = key;
         this.path = path;
         this.data = data;
-        this.minX = Infinity;
-        this.minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
-        this.population = 0;
-        for (let value of data) {
-            this.minX = Math.min(this.minX, value.x);
-            this.minY = Math.min(this.minY, value.y);
-            let p = value.p.copy();
-            applyRotation(p, value.rotation);
-            p.run(value.time);
-            p.shrinkToFit();
-            maxX = Math.max(maxX, value.x + p.width);
-            maxY = Math.max(maxY, value.y + p.height);
-            this.population += p.population;
+        if (data.length > 0) {
+            this.minX = Infinity;
+            this.minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            this.population = 0;
+            for (let value of data) {
+                this.minX = Math.min(this.minX, value.x);
+                this.minY = Math.min(this.minY, value.y);
+                let p = value.p.copy();
+                applyRotation(p, value.rotation);
+                p.run(value.time);
+                p.shrinkToFit();
+                maxX = Math.max(maxX, value.x + p.width);
+                maxY = Math.max(maxY, value.y + p.height);
+                this.population += p.population;
+            }
+            this.height = maxY - this.yOffset + 1;
+            this.width = maxX - this.xOffset + 1;
+        } else {
+            this.minX = 0;
+            this.minY = 0;
+            this.height = 0;
+            this.width = 0;
+            this.population = 0;
         }
-        this.height = maxY - this.yOffset + 1;
-        this.width = maxX - this.xOffset + 1;
         this.rule = base.rule;
     }
 
