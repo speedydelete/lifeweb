@@ -16,6 +16,8 @@ let scale = 10;
 let topLeftX = 0;
 let topLeftY = 0;
 
+let zoomStrength = 0.3;
+
 let step = 1;
 let stepEvery = 1;
 let running = false;
@@ -194,27 +196,38 @@ function mouseUpEvent(): void {
 canvas.addEventListener('mouseup', mouseUpEvent);
 canvas.addEventListener('mouseleave', mouseUpEvent);
 
-let zoomStrength = 0.2;
+let wheelEvent: WheelEvent | undefined = undefined;
+let totalDeltaY = 0;
 
 canvas.addEventListener('wheel', event => {
     event.preventDefault();
-    let rect = canvas.getBoundingClientRect();
-    let mouseX = event.clientX - rect.left;
-    let mouseY = event.clientY - rect.top;
-    let zoomAmount = event.deltaY < 0 ? (1 + zoomStrength) : (1 - zoomStrength);
-    let newScale = scale * zoomAmount;
-    let worldX = (mouseX - topLeftX * scale) / scale;
-    let worldY = (mouseY - topLeftY * scale) / scale;
-    topLeftX = (mouseX - worldX * newScale) / newScale;
-    topLeftY = (mouseY - worldY * newScale) / newScale;
-    scale = newScale;
+    totalDeltaY += event.deltaY;
+    console.log(event.deltaY);
+    wheelEvent = event;
 });
 
 let frameCount = 0;
 
+let fps = 0;
+let startTime = performance.now();
+
 function frame() {
     if (running && frameCount % stepEvery === 0) {
         p.run(step);
+    }
+    if (wheelEvent && Math.abs(totalDeltaY) > 50) {
+        let rect = canvas.getBoundingClientRect();
+        let mouseX = wheelEvent.clientX - rect.left;
+        let mouseY = wheelEvent.clientY - rect.top;
+        let zoomAmount = totalDeltaY < 0 ? (1 + zoomStrength) : (1 - zoomStrength);
+        let newScale = scale * zoomAmount;
+        let x = (mouseX - topLeftX * scale) / scale;
+        let y = (mouseY - topLeftY * scale) / scale;
+        topLeftX = (mouseX - x * newScale) / newScale;
+        topLeftY = (mouseY - y * newScale) / newScale;
+        scale = newScale;
+        totalDeltaY = 0;
+        wheelEvent = undefined;
     }
     ctx.fillStyle = theme.states[0];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -239,6 +252,7 @@ function frame() {
     }
     ctx.restore();
     frameCount++;
+    fps = frameCount / (performance.now() - startTime) * 1000;
     requestAnimationFrame(frame);
 }
 
