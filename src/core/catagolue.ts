@@ -501,5 +501,4 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         }
         return out + end;
     }
-    return '';
 }

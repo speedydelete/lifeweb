@@ -22,13 +22,14 @@ body {
     display: flex;
     flex-direction: row;
     background-color: #000000;
+    color: #ffffff;
 }
 
 #left {
     flex: 1 0 20%;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff;
+    border-right: 1px solid #ffffff;
 }
 
 #left button, input:not([type=checkbox]) {
@@ -37,36 +38,45 @@ body {
     font-size: inherit;
     background-color: inherit;
     color: inherit;
-    border: 1px solid #000000;
+    border: 1px solid #ffffff;
 }
 
 noscript {
-    padding: 0.5em;
+    padding: 0.5rem;
+}
+
+#debug {
+    padding: 0.5rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 16px;
+    white-space: pre-wrap;
 }
 
 #rle-wrapper {
     margin-top: auto;
-    padding: 0.5em;
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
     align-items: start;
-    gap: 0.5em;
+    gap: 0.5rem;
 }
 
 textarea {
     font-family: 'Courier New', Courier, monospace;
-    font-size: 0.8em;
+    font-size: 0.8rem;
     resize: none;
-    border: 1px solid #000000;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid #ffffff;
 }
 
 textarea:hover, textarea:focus {
     outline: none;
-    border: 1px solid #000000;
+    border: 1px solid #ffffff;
 }
 
 #rle {
-    width: calc(100% - 1em);
+    width: 100%;
 }
 
 #right {
@@ -76,32 +86,43 @@ textarea:hover, textarea:focus {
 }
 
 #top {
-    height: 4em;
-    padding: 0.75em;
+    height: 3.5rem;
+    padding: 0.5rem;
     display: flex;
     flex-direction: row;
-    gap: 0.75em;
+    gap: 0.5rem;
     border-bottom: 1px solid #ffffff;
 }
 
-#top button {
-    height: 3em;
-    width: 3em;
-    padding: 0.5em;
+#top > button {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.5rem;
     border: 1px solid #ffffff;
     background-color: #000000;
 }
 
-#top button.selected {
+#top > button.selected {
     background-color: #001fdf;
 }
 
+#top > div:not(.spacer) {
+    padding: 0 0.5rem;
+    font-size: 1.5rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
 #top .spacer {
-    flex: 0 0 1.5em;
+    flex: 0 0 1.5rem;
+}
+
+#top > div.less-padding {
+    padding: 0 0.25rem;
 }
 
 #main {
-    height: calc(100% - 4em);
     flex: 1 0 auto;
     border-left: 1px solid #000000;
     image-rendering: pixelated;
@@ -112,6 +133,7 @@ textarea:hover, textarea:focus {
     <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
         <div id="left">
             <noscript>You must enable JavaScript to use this.</noscript>
+            <div id="debug"></div>
             <div id="rle-wrapper">
                 <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
 bo$2bo$3o!</textarea>
@@ -120,6 +142,7 @@ bo$2bo$3o!</textarea>
         </div>
         <div id="right">
             <div id="top">
+                <div id="speed" class="less-padding">1x</div>
                 <button id="reset">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
@@ -195,10 +218,15 @@ bo$2bo$3o!</textarea>
                         <polygon points="16,3 11,8 16,8" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
+                <div class="spacer"></div>
+                <div>Z =&nbsp;<span id="zoom">10.0</span></div>
+                <div>T =&nbsp;<span id="gens">0</span></div>
+                <div>C =&nbsp;<span id="pop">0</span></div>
+                <div id="position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
             <canvas id="main"></canvas>
         </div>
-        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousemove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
+        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElrement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousremove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
         <script type="module" src="index.js"></script>
     </body>
 </html>
