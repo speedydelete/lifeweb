@@ -1,5 +1,9 @@
 
 import {Pattern, createPattern, parse} from './core/index.js';
+import * as lifeweb from './core/index.js';
+
+
+Object.assign(globalThis, lifeweb);
 
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -11,61 +15,58 @@ interface Theme {
     twoState: string[];
     multiState(states: number): string[];
     selection: string;
-};
+}
 
-const THEMES: {[key: string]: Theme} = {
-
-    'default': {
-        twoState: ['#000000', '#ffffff'],
-        multiState(states: number): string[] {
-            let out: string[] = ['#000000'];
-            for (let i = 1; i < states; i++) {
-                out.push(`#ff` + Math.floor((states - i) * (256 / (states - 1))).toString(16).padStart(2, '0') + '00');
-            }
-            return out;
-        },
-        selection: `rgba(0, 255, 0, 0.5)`,
+var theme = {
+    twoState: ['#000000', '#ffffff'],
+    multiState(states: number): string[] {
+        let out: string[] = ['#000000'];
+        for (let i = 1; i < states; i++) {
+            out.push(`#ff` + Math.floor((states - i) * (256 / (states - 1))).toString(16).padStart(2, '0') + '00');
+        }
+        return out;
     },
-
+    selection: `rgba(0, 255, 0, 0.5)`,
 };
 
-let theme: Theme = THEMES['default'];
-
-
-let p = createPattern('B3/S23');
 
 interface UndoState {
     p: Pattern;
     hasRan: boolean;
 }
 
-let undoBuffer: UndoState[] = [];
-let redoBuffer: UndoState[] = [];
-let beforeRunning = p;
-let hasRan = false;
+var p = createPattern('B3/S23');
 
-let scale = 10;
-let topLeftX = 0;
-let topLeftY = 0;
+var undoBuffer: UndoState[] = [];
+var redoBuffer: UndoState[] = [];
+var beforeRunning = p;
+var hasRan = false;
 
-let zoomStrength = 0.3;
+var scale = 10;
+var topLeftX = 0;
+var topLeftY = 0;
 
-let step = 1;
-let stepEvery = 1;
-let running = false;
+var zoomStrength = 0.3;
 
-let isDragging = false;
-let dragStart = [0, 0];
-let dragOffsetStart = [0, 0];
-let dragSelectStart = [0, 0];
+var step = 1;
+var stepEvery = 1;
+var running = false;
 
-let cursorMode: 'main' | 'edit' | 'select' = 'main';
-let drawState = 1;
-let drawDeleteMode = false;
-let prevEditX: number | undefined = undefined;
-let prevEditY: number | undefined = undefined;
+var isDragging = false;
+var dragStart = [0, 0];
+var dragOffsetStart = [0, 0];
+var dragSelectStart = [0, 0];
 
-let selection: {x: number, y: number, height: number, width: number} | undefined = undefined;
+var cursorMode: 'main' | 'edit' | 'select' = 'main';
+var drawState = 1;
+var drawDeleteMode = false;
+var prevEditX: number | undefined = undefined;
+var prevEditY: number | undefined = undefined;
+
+var selection: {x: number, y: number, height: number, width: number} | undefined = undefined;
+
+var canvas = getElement<HTMLCanvasElement>('main');
+var ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 
 let runButton = getElement('run');
@@ -75,10 +76,31 @@ let resetButton = getElement('reset');
 
 let zoomElt = getElement('zoom');
 
+function updateZoom(): void {
+    if (scale < 0.5) {
+        if (scale < 0.00005) {
+            zoomElt.textContent = scale.toExponential();
+        } else if (scale < 0.0005) {
+            zoomElt.textContent = scale.toFixed(5);
+        } else if (scale < 0.005) {
+            zoomElt.textContent = scale.toFixed(4);
+        } else if (scale < 0.05) {
+            zoomElt.textContent = scale.toFixed(3);
+        } else {
+            zoomElt.textContent = scale.toFixed(2);
+        }
+    } else if (scale < 10**10) {
+        zoomElt.textContent = scale.toFixed(1);
+        return;
+    } else {
+        zoomElt.textContent = scale.toExponential();
+    }
+}
+
 function loadPattern(q: Pattern): void {
     p = q;
     scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
-    zoomElt.textContent = scale.toFixed(1);
+    updateZoom();
     topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
     topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
     beforeRunning = p.copy();
@@ -148,6 +170,28 @@ resetButton.addEventListener('click', () => {
     resetButton.className = 'selected';
 });
 
+let speedElt = getElement('speed');
+speedElt.addEventListener('click', () => {
+    let value = prompt('Enter speed (as a positive integer n or a fraction of the form 1/n):');
+    if (!value) {
+        return;
+    }
+    if (value.match(/^\d+x?$/)) {
+        step = parseInt(value);
+        stepEvery = 1;
+        speedElt.textContent = `${step}x`;
+    } else if (value.match(/^1\/\d+x?$/)) {
+        step = 1;
+        stepEvery = parseInt(value.slice(2));
+        speedElt.textContent = `1/${stepEvery}x`;
+    } else if (value === '') {
+        step = 1;
+        stepEvery = 1;
+    } else {
+        alert(`Error: Invalid speed: ${value}`);
+    }
+});
+
 let cursorMainButton = getElement('cursor-main');
 let cursorEditButton = getElement('cursor-edit');
 let cursorSelectButton = getElement('cursor-select');
@@ -195,11 +239,16 @@ getElement('redo').addEventListener('click', () => {
     }
 });
 
+zoomElt.addEventListener('click', () => {
+    let value = prompt('Enter zoom:');
+    if (!value) {
+        return;
+    }
+    scale = Number(value);
+});
+
 getElement('view-rle').addEventListener('click', () => loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value)));
 
-
-let canvas = getElement<HTMLCanvasElement>('main');
-let ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 function updateSizes() {
     let bb = canvas.getBoundingClientRect();
@@ -312,36 +361,13 @@ canvas.addEventListener('wheel', event => {
     wheelEvent = event;
 });
 
-let speedElt = getElement('speed');
-speedElt.addEventListener('click', () => {
-    let value = prompt('Enter speed (as a positive integer n or a fraction of the form 1/n):');
-    if (!value) {
-        return;
-    }
-    if (value.match(/^\d+x?$/)) {
-        step = parseInt(value);
-        stepEvery = 1;
-        speedElt.textContent = `${step}x`;
-    } else if (value.match(/^1\/\d+x?$/)) {
-        step = 1;
-        stepEvery = parseInt(value.slice(2));
-        speedElt.textContent = `1/${stepEvery}x`;
-    } else if (value === '') {
-        step = 1;
-        stepEvery = 1;
-    } else {
-        alert(`Error: Invalid speed: ${value}`);
-    }
-});
-
 
 let gensElt = getElement('gens');
 let popElt = getElement('pop');
 
 let frameCount = 0;
 
-let fps = 0;
-let startTime = performance.now();
+// let startTime = performance.now();
 
 function frame() {
     if (running && frameCount % stepEvery === 0) {
@@ -363,7 +389,7 @@ function frame() {
         topLeftX = (mouseX - x * newScale) / newScale;
         topLeftY = (mouseY - y * newScale) / newScale;
         scale = newScale;
-        zoomElt.textContent = scale.toFixed(1);
+        updateZoom();
         totalDeltaY = 0;
         wheelEvent = undefined;
     }
@@ -401,7 +427,7 @@ function frame() {
     }
     ctx.restore();
     frameCount++;
-    fps = frameCount / (performance.now() - startTime) * 1000;
+    // fps = frameCount / (performance.now() - startTime) * 1000;
     requestAnimationFrame(frame);
 }
 

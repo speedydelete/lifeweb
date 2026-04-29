@@ -15,4 +15,5 @@ esbuild.build({
     outfile: out,
     minify: true,
     sourcemap: true,
+    format: 'esm',
 });

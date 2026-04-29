@@ -16,6 +16,7 @@ html, body {
     width: 100%;
     padding: 0;
     margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
@@ -95,6 +96,7 @@ textarea:hover, textarea:focus {
 }
 
 #top > button {
+    flex: 0 0 2.5rem;
     width: 2.5rem;
     height: 2.5rem;
     padding: 0.5rem;
@@ -227,6 +229,6 @@ bo$2bo$3o!</textarea>
             <canvas id="main"></canvas>
         </div>
         <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElrement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousremove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
-        <script type="module" src="index.js"></script>
+        <script src="index.js"></script>
     </body>
 </html>
