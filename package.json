@@ -16,14 +16,9 @@
         "typescript": "^5.9.3"
     },
     "wrecked": {
-        "html": "test.html",
-        "showErrors": true,
-        "imports": {
-            "./lib/index.js": "src/index.ts",
-            "./lib/uc/index.js": "src/uc/index.ts"
-        },
-        "workerPaths": {
-            "./channel_searcher.js": "src/uc/channel_searcher.ts"
+        "html": "src/editor/index.html",
+        "files": {
+            "<script type=\"module\" src=\"index.js\"></script>": "src/editor/index.ts"
         }
     }
 }
