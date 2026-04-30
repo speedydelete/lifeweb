@@ -13,7 +13,8 @@ esbuild.build({
     entryPoints: [entry],
     bundle: true,
     outfile: out,
-    minify: true,
+    minifyWhitespace: true,
+    minifySyntax: true,
     sourcemap: true,
     format: 'esm',
 });

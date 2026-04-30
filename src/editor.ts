@@ -63,16 +63,15 @@ var drawDeleteMode = false;
 var prevEditX: number | undefined = undefined;
 var prevEditY: number | undefined = undefined;
 
-var selection: {x: number, y: number, height: number, width: number} | undefined = undefined;
+var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
 
 var canvas = getElement<HTMLCanvasElement>('main');
 var ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 
-let runButton = getElement('run');
-let pauseButton = getElement('pause');
-let stepButton = getElement('step');
-let resetButton = getElement('reset');
+function pushUndo(): void {
+    undoBuffer.push({p: p.copy(), hasRan});
+}
 
 let zoomElt = getElement('zoom');
 
@@ -105,150 +104,12 @@ function loadPattern(q: Pattern): void {
     topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
     beforeRunning = p.copy();
     hasRan = false;
-    selection = undefined;
+    sel = undefined;
     runButton.className = '';
     pauseButton.className = '';
     stepButton.className = '';
     resetButton.className = 'selected';
 }
-
-
-runButton.addEventListener('click', () => {
-    undoBuffer.push({p: p.copy(), hasRan});
-    if (!hasRan) {
-        beforeRunning = p.copy();
-        hasRan = true;
-    }
-    running = true;
-    runButton.style.display = 'none';
-    pauseButton.style.display = 'block';
-    runButton.className = 'selected';
-    pauseButton.className = 'selected';
-    stepButton.className = '';
-    resetButton.className = '';
-});
-
-pauseButton.addEventListener('click', () => {
-    running = false;
-    runButton.style.display = 'block';
-    pauseButton.style.display = 'none';
-    runButton.className = 'selected';
-    pauseButton.className = 'selected';
-    stepButton.className = '';
-    resetButton.className = '';
-});
-
-stepButton.addEventListener('click', () => {
-    if (running) {
-        running = false;
-        runButton.style.display = 'block';
-        pauseButton.style.display = 'none';
-    }
-    if (!hasRan) {
-        beforeRunning = p.copy();
-        hasRan = true;
-    }
-    undoBuffer.push({p: p.copy(), hasRan});
-    p.runGeneration();
-    p.shrinkToFit();
-    runButton.className = '';
-    pauseButton.className = '';
-    stepButton.className = 'selected';
-    resetButton.className = '';
-});
-
-resetButton.addEventListener('click', () => {
-    undoBuffer.push({p: p.copy(), hasRan});
-    hasRan = false;
-    running = false;
-    p = beforeRunning;
-    runButton.style.display = 'block';
-    pauseButton.style.display = 'none';
-    runButton.className = '';
-    pauseButton.className = '';
-    stepButton.className = '';
-    resetButton.className = 'selected';
-});
-
-let speedElt = getElement('speed');
-speedElt.addEventListener('click', () => {
-    let value = prompt('Enter speed (as a positive integer n or a fraction of the form 1/n):');
-    if (!value) {
-        return;
-    }
-    if (value.match(/^\d+x?$/)) {
-        step = parseInt(value);
-        stepEvery = 1;
-        speedElt.textContent = `${step}x`;
-    } else if (value.match(/^1\/\d+x?$/)) {
-        step = 1;
-        stepEvery = parseInt(value.slice(2));
-        speedElt.textContent = `1/${stepEvery}x`;
-    } else if (value === '') {
-        step = 1;
-        stepEvery = 1;
-    } else {
-        alert(`Error: Invalid speed: ${value}`);
-    }
-});
-
-let cursorMainButton = getElement('cursor-main');
-let cursorEditButton = getElement('cursor-edit');
-let cursorSelectButton = getElement('cursor-select');
-
-cursorMainButton.addEventListener('click', () => {
-    cursorMode = 'main';
-    cursorMainButton.className = 'selected';
-    cursorEditButton.className = '';
-    cursorSelectButton.className = '';
-});
-
-cursorEditButton.addEventListener('click', () => {
-    cursorMode = 'edit';
-    cursorMainButton.className = '';
-    cursorEditButton.className = 'selected';
-    cursorSelectButton.className = '';
-    prevEditX = undefined;
-    prevEditY = undefined;
-});
-
-cursorSelectButton.addEventListener('click', () => {
-    cursorMode = 'select';
-    cursorMainButton.className = '';
-    cursorEditButton.className = '';
-    cursorSelectButton.className = 'selected';
-});
-
-getElement('undo').addEventListener('click', () => {
-    redoBuffer.push({p: p.copy(), hasRan});
-    let state = undoBuffer.pop();
-    if (state) {
-        running = false;
-        p = state.p.copy();
-        hasRan = state.hasRan;
-    }
-});
-
-getElement('redo').addEventListener('click', () => {
-    let state = redoBuffer.pop();
-    if (state) {
-        undoBuffer.push({p: p.copy(), hasRan});
-        running = false;
-        p = state.p.copy();
-        hasRan = state.hasRan;
-    }
-});
-
-zoomElt.addEventListener('click', () => {
-    let value = prompt('Enter zoom:');
-    if (!value) {
-        return;
-    }
-    scale = Number(value);
-});
-
-getElement('view-rle').addEventListener('click', () => loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value)));
-
 
 function updateSizes() {
     let bb = canvas.getBoundingClientRect();
@@ -291,6 +152,216 @@ function editCell(event: MouseEvent, isStart: boolean): void {
     p.set(x, y, drawDeleteMode ? 0 : drawState);
 }
 
+
+type DefaultAction = 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'viewRLE' | 'click';
+
+let runButton = getElement('run');
+let pauseButton = getElement('pause');
+let stepButton = getElement('step');
+let resetButton = getElement('reset');
+let speedElt = getElement('speed');
+
+let cursorMainButton = getElement('cursor-main');
+let cursorEditButton = getElement('cursor-edit');
+let cursorSelectButton = getElement('cursor-select');
+
+var actions: {[K in DefaultAction]: () => void} = {
+
+    run(): void {
+        pushUndo();
+        if (!hasRan) {
+            beforeRunning = p.copy();
+            hasRan = true;
+        }
+        running = true;
+        runButton.style.display = 'none';
+        pauseButton.style.display = 'block';
+        runButton.className = 'selected';
+        pauseButton.className = 'selected';
+        stepButton.className = '';
+        resetButton.className = '';
+    },
+
+    pause(): void {
+        running = false;
+        runButton.style.display = 'block';
+        pauseButton.style.display = 'none';
+        runButton.className = 'selected';
+        pauseButton.className = 'selected';
+        stepButton.className = '';
+        resetButton.className = '';
+    },
+
+    step(): void {
+        if (running) {
+            running = false;
+            runButton.style.display = 'block';
+            pauseButton.style.display = 'none';
+        }
+        if (!hasRan) {
+            beforeRunning = p.copy();
+            hasRan = true;
+        }
+        pushUndo();
+        p.runGeneration();
+        p.shrinkToFit();
+        runButton.className = '';
+        pauseButton.className = '';
+        stepButton.className = 'selected';
+        resetButton.className = '';
+    },
+
+    reset(): void {
+        pushUndo();
+        hasRan = false;
+        running = false;
+        p = beforeRunning;
+        runButton.style.display = 'block';
+        pauseButton.style.display = 'none';
+        runButton.className = '';
+        pauseButton.className = '';
+        stepButton.className = '';
+        resetButton.className = 'selected';
+    },
+
+    setSpeed(): void {
+        let value = prompt('Enter speed (as a positive integer n or a fraction of the form 1/n):');
+        if (!value) {
+            return;
+        }
+        if (value.match(/^\d+x?$/)) {
+            step = parseInt(value);
+            stepEvery = 1;
+            speedElt.textContent = `${step}x`;
+        } else if (value.match(/^1\/\d+x?$/)) {
+            step = 1;
+            stepEvery = parseInt(value.slice(2));
+            speedElt.textContent = `1/${stepEvery}x`;
+        } else if (value === '') {
+            step = 1;
+            stepEvery = 1;
+        } else {
+            alert(`Error: Invalid speed: ${value}`);
+        }
+    },
+
+    setCursorToMain(): void {
+        cursorMode = 'main';
+        cursorMainButton.className = 'selected';
+        cursorEditButton.className = '';
+        cursorSelectButton.className = '';
+        canvas.style.cursor = 'default';
+    },
+
+    setCursorToEdit(): void {
+        cursorMode = 'edit';
+        cursorMainButton.className = '';
+        cursorEditButton.className = 'selected';
+        cursorSelectButton.className = '';
+        prevEditX = undefined;
+        prevEditY = undefined;
+        canvas.style.cursor = 'default';
+    },
+
+    setCursorToSelect(): void {
+        cursorMode = 'select';
+        cursorMainButton.className = '';
+        cursorEditButton.className = '';
+        cursorSelectButton.className = 'selected';
+        canvas.style.cursor = 'crosshair';
+    },
+
+    undo(): void {
+        redoBuffer.push({p: p.copy(), hasRan});
+        let state = undoBuffer.pop();
+        if (state) {
+            running = false;
+            p = state.p.copy();
+            hasRan = state.hasRan;
+        }
+    },
+
+    redo(): void {
+        let state = redoBuffer.pop();
+        if (state) {
+            pushUndo();
+            running = false;
+            p = state.p.copy();
+            hasRan = state.hasRan;
+        }
+    },
+
+    setZoom(): void {
+        let value = prompt('Enter zoom:');
+        if (!value) {
+            return;
+        }
+        scale = Number(value);
+    },
+
+    viewRLE(): void {
+        loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value));
+    },
+
+};
+
+
+var events: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} = {
+    'run': {'click': 'run'},
+    'pause': {'click': 'pause'},
+    'step': {'click': 'step'},
+    'reset': {'click': 'reset'},
+    'speed': {'click': 'setSpeed'},
+    'cursor-main': {'click': 'setCursorToMain'},
+    'cursor-edit': {'click': 'setCursorToEdit'},
+    'cursor-select': {'click': 'setCursorToSelect'},
+    'undo': {'click': 'undo'},
+    'redo': {'click': 'redo'},
+    'zoom': {'click': 'setZoom'},
+};
+
+function changeAction(action: DefaultAction, func: () => void): void {
+    if (!actions[action]) {
+        actions[action] = func;
+        return;
+    }
+    for (let [id, value] of Object.entries(events)) {
+        for (let [event, action2] of Object.entries(value)) {
+            if (action === action2) {
+                let elt = getElement(id);
+                elt.removeEventListener(event, actions[action]);
+                elt.addEventListener(event, func);
+            }
+        }
+    }
+    actions[action] = func;
+}
+
+function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultAction): void {
+    let elt = getElement(id);
+    if (id in events) {
+        if (event in events[id]) {
+            elt.removeEventListener(event, actions[events[id][event]]);
+        }
+    }
+}
+
+function updateAllEvents(): void {
+    for (let [key, value] of Object.entries(events)) {
+        let old = getElement(key);
+        let elt = old.cloneNode(true);
+        (old.parentNode as HTMLElement).replaceChild(old, elt);
+        for (let [event, action] of value) {
+            elt.addEventListener(event, actions[action]);
+        }
+    }
+}
+
+var keybinds: {[key: string]: string} = {
+
+};
+
+
 let posElt = getElement('position');
 let xElt = getElement('x');
 let yElt = getElement('y');
@@ -301,12 +372,12 @@ canvas.addEventListener('mousedown', event => {
     dragStart = [event.clientX, event.clientY];
     dragOffsetStart = [topLeftX, topLeftY];
     if (cursorMode === 'edit') {
-        undoBuffer.push({p: p.copy(), hasRan});
+        pushUndo();
         editCell(event, true);
     } else if (cursorMode === 'select') {
         let [x, y] = getMouseXY(event);
         dragSelectStart = [x, y];
-        selection = undefined;
+        sel = undefined;
     }
 });
 
@@ -326,12 +397,11 @@ canvas.addEventListener('mousemove', event => {
             let minY = Math.min(y, dragSelectStart[1]);
             let maxX = Math.max(x, dragSelectStart[0]);
             let maxY = Math.max(y, dragSelectStart[1]);
-            selection = {x: minX, y: minY, height: maxY - minY + 1, width: maxX - minX + 1};
+            sel = {x: minX, y: minY, height: maxY - minY + 1, width: maxX - minX + 1};
         }
     }
 
 });
-
 
 function mouseUpEvent(): void {
     isDragging = false;
@@ -361,9 +431,116 @@ canvas.addEventListener('wheel', event => {
     wheelEvent = event;
 });
 
+getElement('select-flip-horizontal').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.flipHorizontal(), x, y);
+});
+
+getElement('select-flip-vertical').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.flipVertical(), x, y);
+});
+
+getElement('select-rotate-left').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.rotateLeft(), x, y);
+});
+
+getElement('select-rotate-right').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.rotateRight(), x, y);
+});
+
+getElement('select-rotate-180').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.rotate180(), x, y);
+});
+
+getElement('select-flip-diagonal').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.flipDiagonal(), x, y);
+});
+
+getElement('select-flip-anti-diagonal').addEventListener('click', () => {
+    if (!sel) {
+        return;
+    }
+    pushUndo();
+    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+    let x = sel.x - p.xOffset;
+    let y = sel.y - p.yOffset;
+    p.ensure(x + sel.width, y + sel.height);
+    let q = p.copyPart(x, y, sel.height, sel.width);
+    p.clearPart(x, y, sel.height, sel.width);
+    p.insert(q.flipAntiDiagonal(), x, y);
+});
+
+
+window.addEventListener('keydown', event => {
+    if (event.key === '==') {
+
+    }
+});
+
 
 let gensElt = getElement('gens');
 let popElt = getElement('pop');
+
+let selectMenuElt = getElement('select-menu');
 
 let frameCount = 0;
 
@@ -421,9 +598,12 @@ function frame() {
             }
         }
     }
-    if (selection) {
+    if (sel) {
         ctx.fillStyle = theme.selection;
-        ctx.fillRect(selection.x + topLeftX + xMod, selection.y + topLeftY + yMod, selection.width, selection.height);
+        ctx.fillRect(sel.x + topLeftX + xMod, sel.y + topLeftY + yMod, sel.width, sel.height);
+        selectMenuElt.style.display = 'flex';
+    } else {
+        selectMenuElt.style.display = 'flex';
     }
     ctx.restore();
     frameCount++;
@@ -432,6 +612,7 @@ function frame() {
 }
 
 window.addEventListener('load', () => setTimeout(() => {
+    updateAllMappings();
     requestAnimationFrame(frame);
     updateSizes();
     loadPattern(parse(`x = 3, y = 3, rule = B3/S23\nbo$2bo$3o!`));

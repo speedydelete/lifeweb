@@ -16,9 +16,9 @@
         "typescript": "^5.9.3"
     },
     "wrecked": {
-        "html": "src/editor/index.html",
+        "html": "editor/index.html",
         "files": {
-            "<script type=\"module\" src=\"index.js\"></script>": "src/editor/index.ts"
+            "<script src=\"index.js\"></script>": "src/editor.ts"
         }
     }
 }

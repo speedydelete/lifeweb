@@ -81,9 +81,23 @@ textarea:hover, textarea:focus {
 }
 
 #right {
+    position: relative;
     flex: 0 1 80%;
     display: flex;
     flex-direction: column;
+}
+
+#right button {
+    flex: 0 0 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.35rem;
+    border: 1px solid #ffffff;
+    background-color: #000000;
+}
+
+#right button.selected {
+    background-color: #001fdf;
 }
 
 #top {
@@ -93,19 +107,7 @@ textarea:hover, textarea:focus {
     flex-direction: row;
     gap: 0.5rem;
     border-bottom: 1px solid #ffffff;
-}
-
-#top > button {
-    flex: 0 0 2.5rem;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0.5rem;
-    border: 1px solid #ffffff;
-    background-color: #000000;
-}
-
-#top > button.selected {
-    background-color: #001fdf;
+    user-select: none;
 }
 
 #top > div:not(.spacer) {
@@ -128,6 +130,23 @@ textarea:hover, textarea:focus {
     flex: 1 0 auto;
     border-left: 1px solid #000000;
     image-rendering: pixelated;
+}
+
+#select-menu {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    background-color: transparent;
+}
+
+#select-menu > div {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
 }
 
         </style>
@@ -210,14 +229,14 @@ bo$2bo$3o!</textarea>
                 <div class="spacer"></div>
                 <button id="undo">
                     <svg viewBox="0 0 16 16">
-                        <path d="M 6 15 A 7 7 0 1 0 2 6" fill="transparent" stroke="#ffffff" />
-                        <polygon points="0,3 5,8 0,8" fill="#ffffff" stroke="#ffffff" />
+                        <path d="M 8 15 A 7 7 0 1 0 2 6" fill="transparent" stroke="#ffffff" />
+                        <polygon points="0,2 5,7 0,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
                 <button id="redo">
                     <svg viewBox="0 0 16 16">
                         <path d="M 8 15 A 7 7 0 1 1 14 6" fill="transparent" stroke="#ffffff" />
-                        <polygon points="16,3 11,8 16,8" fill="#ffffff" stroke="#ffffff" />
+                        <polygon points="16,2 11,7 16,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
                 <div class="spacer"></div>
@@ -227,6 +246,70 @@ bo$2bo$3o!</textarea>
                 <div id="position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
             <canvas id="main"></canvas>
+            <div id="select-menu">
+                <div>
+                    <button id="select-cancel">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                            <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                </div>
+                <div>
+                    <button id="select-flip-horizontal">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="4,0 0,4 4,8" fill="#ffffff" />
+                            <line x1="4" y1="4" x2="16" y2="4" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="12,8 16,12 12,16" fill="#ffffff" />
+                            <line x1="0" y1="12" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="select-flip-vertical">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="0,4 4,0 8,4" fill="#ffffff" />
+                            <line x1="4" y1="4" x2="4" y2="16" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="8,12 12,16 16,12" fill="#ffffff" />
+                            <line x1="12" y1="0" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="select-rotate-left">
+                        <svg viewBox="0 0 16 16">
+                            <polyline points="8,14 13,14 13,2 3,2 3,8" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="6,8 0,8 3,12" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="select-rotate-right">
+                        <svg viewBox="0 0 16 16">
+                            <polyline points="8,14 3,14 3,2 13,2 13,8" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="10,8 16,8 13,12" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="select-rotate-180">
+                        <svg viewBox="0 0 16 16">
+                            <path d="M 1 6 A 7 7 0 0 1 14 5" fill="transparent" stroke="#ffffff" />
+                            <polygon points="16,1 11,6 16,6" fill="#ffffff" stroke="#ffffff" />
+                            <path d="M 15 10 A 7 7 0 0 1 2 11" fill="transparent" stroke="#ffffff" />
+                            <polygon points="0,15 5,10 0,10" fill="#ffffff" stroke="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="select-flip-diagonal">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="1" y1="10" x2="10" y2="1" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="5,0 11,0 11,6" fill="#ffffff" />
+                            <line x1="15" y1="6" x2="7" y2="13" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="11,15 5,15 5,9" fill="#ffffff" />
+                        </svg>
+                    </button>
+                        <button id="select-flip-anti-diagonal">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="15" y1="10" x2="6" y2="1" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="11,0 5,0 5,6" fill="#ffffff" />
+                            <line x1="1" y1="6" x2="9" y2="13" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="5,15 11,15 11,9" fill="#ffffff" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
         <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElrement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousremove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
         <script src="index.js"></script>
