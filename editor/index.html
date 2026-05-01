@@ -245,10 +245,10 @@ bo$2bo$3o!</textarea>
                 <div>C =&nbsp;<span id="pop">0</span></div>
                 <div id="position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
-            <canvas id="main"></canvas>
+            <canvas id="canvas"></canvas>
             <div id="select-menu">
                 <div>
-                    <button id="select-cancel">
+                    <button id="sel-cancel">
                         <svg viewBox="0 0 16 16">
                             <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
                             <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
@@ -256,7 +256,7 @@ bo$2bo$3o!</textarea>
                     </button>
                 </div>
                 <div>
-                    <button id="select-flip-horizontal">
+                    <button id="sel-flip-horizontal">
                         <svg viewBox="0 0 16 16">
                             <polygon points="4,0 0,4 4,8" fill="#ffffff" />
                             <line x1="4" y1="4" x2="16" y2="4" stroke="#ffffff" stroke-width="2" />
@@ -264,7 +264,7 @@ bo$2bo$3o!</textarea>
                             <line x1="0" y1="12" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="select-flip-vertical">
+                    <button id="sel-flip-vertical">
                         <svg viewBox="0 0 16 16">
                             <polygon points="0,4 4,0 8,4" fill="#ffffff" />
                             <line x1="4" y1="4" x2="4" y2="16" stroke="#ffffff" stroke-width="2" />
@@ -272,19 +272,19 @@ bo$2bo$3o!</textarea>
                             <line x1="12" y1="0" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="select-rotate-left">
+                    <button id="sel-rotate-left">
                         <svg viewBox="0 0 16 16">
                             <polyline points="8,14 13,14 13,2 3,2 3,8" stroke="#ffffff" stroke-width="2" />
                             <polygon points="6,8 0,8 3,12" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="select-rotate-right">
+                    <button id="sel-rotate-right">
                         <svg viewBox="0 0 16 16">
                             <polyline points="8,14 3,14 3,2 13,2 13,8" stroke="#ffffff" stroke-width="2" />
                             <polygon points="10,8 16,8 13,12" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="select-rotate-180">
+                    <button id="sel-rotate-180">
                         <svg viewBox="0 0 16 16">
                             <path d="M 1 6 A 7 7 0 0 1 14 5" fill="transparent" stroke="#ffffff" />
                             <polygon points="16,1 11,6 16,6" fill="#ffffff" stroke="#ffffff" />
@@ -292,7 +292,7 @@ bo$2bo$3o!</textarea>
                             <polygon points="0,15 5,10 0,10" fill="#ffffff" stroke="#ffffff" />
                         </svg>
                     </button>
-                    <button id="select-flip-diagonal">
+                    <button id="sel-flip-diagonal">
                         <svg viewBox="0 0 16 16">
                             <line x1="1" y1="10" x2="10" y2="1" stroke="#ffffff" stroke-width="2" />
                             <polygon points="5,0 11,0 11,6" fill="#ffffff" />
@@ -300,7 +300,7 @@ bo$2bo$3o!</textarea>
                             <polygon points="11,15 5,15 5,9" fill="#ffffff" />
                         </svg>
                     </button>
-                        <button id="select-flip-anti-diagonal">
+                        <button id="sel-flip-anti-diagonal">
                         <svg viewBox="0 0 16 16">
                             <line x1="15" y1="10" x2="6" y2="1" stroke="#ffffff" stroke-width="2" />
                             <polygon points="11,0 5,0 5,6" fill="#ffffff" />
@@ -311,7 +311,7 @@ bo$2bo$3o!</textarea>
                 </div>
             </div>
         </div>
-        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);}let t=document.createElrement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onmousremove=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
+        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);return;}document.body.replaceChildren([]);let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
         <script src="index.js"></script>
     </body>
 </html>

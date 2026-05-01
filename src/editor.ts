@@ -17,7 +17,7 @@ interface Theme {
     selection: string;
 }
 
-var theme = {
+var theme: Theme = {
     twoState: ['#000000', '#ffffff'],
     multiState(states: number): string[] {
         let out: string[] = ['#000000'];
@@ -65,8 +65,10 @@ var prevEditY: number | undefined = undefined;
 
 var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
 
-var canvas = getElement<HTMLCanvasElement>('main');
+var canvas = getElement<HTMLCanvasElement>('canvas');
 var ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+
+var frameHooks: (() => void)[] = [];
 
 
 function pushUndo(): void {
@@ -90,7 +92,6 @@ function updateZoom(): void {
         }
     } else if (scale < 10**10) {
         zoomElt.textContent = scale.toFixed(1);
-        return;
     } else {
         zoomElt.textContent = scale.toExponential();
     }
@@ -153,7 +154,7 @@ function editCell(event: MouseEvent, isStart: boolean): void {
 }
 
 
-type DefaultAction = 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'viewRLE' | 'click';
+type DefaultAction = 'clickCanvas' | 'moveMouseOverCanvas' | 'unclickCanvas' | 'moveMouseOntoCanvas' | 'moveMouseOffOfCanvas' | 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'viewRLE' | 'selCancel' | 'selFlipHorizontal' | 'selFlipVertical' | 'selRotateLeft' | 'selRotateRight' | 'selRotate180' | 'selFlipDiagonal' | 'selFlipAntiDiagonal';
 
 let runButton = getElement('run');
 let pauseButton = getElement('pause');
@@ -165,7 +166,68 @@ let cursorMainButton = getElement('cursor-main');
 let cursorEditButton = getElement('cursor-edit');
 let cursorSelectButton = getElement('cursor-select');
 
-var actions: {[K in DefaultAction]: () => void} = {
+let posElt = getElement('position');
+let xElt = getElement('x');
+let yElt = getElement('y');
+let stateElt = getElement('state');
+
+type ActionFunction = (() => void) | ((event: Event) => void) | ((event: MouseEvent) => void);
+
+var actions: {[K in DefaultAction]: ActionFunction} = {
+
+    clickCanvas(event: MouseEvent): void {
+        isDragging = true;
+        dragStart = [event.clientX, event.clientY];
+        dragOffsetStart = [topLeftX, topLeftY];
+        if (cursorMode === 'edit') {
+            pushUndo();
+            editCell(event, true);
+        } else if (cursorMode === 'select') {
+            let [x, y] = getMouseXY(event);
+            dragSelectStart = [x, y];
+            sel = undefined;
+        }
+    },
+
+    moveMouseOverCanvas(event: MouseEvent): void {
+        let [x, y] = getMouseXY(event);
+        xElt.textContent = String(x);
+        yElt.textContent = String(y);
+        stateElt.textContent = String(p.get(x - p.xOffset, y - p.yOffset));
+        if (isDragging) {
+            if (cursorMode === 'main') {
+                topLeftX = dragOffsetStart[0] + (event.clientX - dragStart[0]) / scale;
+                topLeftY = dragOffsetStart[1] + (event.clientY - dragStart[1]) / scale;
+            } else if (cursorMode === 'edit') {
+                editCell(event, false);
+            } else if (cursorMode === 'select') {
+                let minX = Math.min(x, dragSelectStart[0]);
+                let minY = Math.min(y, dragSelectStart[1]);
+                let maxX = Math.max(x, dragSelectStart[0]);
+                let maxY = Math.max(y, dragSelectStart[1]);
+                sel = {x: minX, y: minY, height: maxY - minY + 1, width: maxX - minX + 1};
+            }
+        }
+    },
+
+    unclickCanvas(): void {
+        isDragging = false;
+        prevEditX = undefined;
+        prevEditY = undefined;
+        drawDeleteMode = false;
+    },
+
+    moveMouseOntoCanvas(): void {
+        posElt.style.display = 'flex';
+    },
+
+    moveMouseOffOfCanvas(): void {
+        isDragging = false;
+        prevEditX = undefined;
+        prevEditY = undefined;
+        drawDeleteMode = false;
+        posElt.style.display = 'none';
+    },
 
     run(): void {
         pushUndo();
@@ -303,10 +365,113 @@ var actions: {[K in DefaultAction]: () => void} = {
         loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value));
     },
 
+    selCancel(): void {
+        sel = undefined;
+    },
+
+    selFlipHorizontal(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.flipHorizontal(), x, y);
+    },
+
+    selFlipVertical(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.flipVertical(), x, y);
+    },
+
+    selRotateLeft(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.rotateLeft(), x, y);
+    },
+
+    selRotateRight(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.rotateRight(), x, y);
+    },
+
+    selRotate180(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.rotate180(), x, y);
+    },
+
+    selFlipDiagonal(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.flipDiagonal(), x, y);
+    },
+
+    selFlipAntiDiagonal(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height, sel.width);
+        p.insert(q.flipAntiDiagonal(), x, y);
+    },
+
 };
 
 
 var events: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} = {
+    'canvas': {'mousedown': 'clickCanvas', 'mousemove': 'moveMouseOverCanvas', 'mouseup': 'unclickCanvas', 'mouseenter': 'moveMouseOntoCanvas', 'mouseleave': 'moveMouseOffOfCanvas'},
     'run': {'click': 'run'},
     'pause': {'click': 'pause'},
     'step': {'click': 'step'},
@@ -318,9 +483,17 @@ var events: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} 
     'undo': {'click': 'undo'},
     'redo': {'click': 'redo'},
     'zoom': {'click': 'setZoom'},
+    'sel-cancel': {'click': 'selCancel'},
+    'sel-flip-horizontal': {'click': 'selFlipHorizontal'},
+    'sel-flip-vertical': {'click': 'selFlipVertical'},
+    'sel-rotate-left': {'click': 'selRotateLeft'},
+    'sel-rotate-right': {'click': 'selRotateRight'},
+    'sel-rotate-180': {'click': 'selRotate180'},
+    'sel-flip-diagonal': {'click': 'selFlipDiagonal'},
+    'sel-flip-anti-diagonal': {'click': 'selFlipAntiDiagonal'},
 };
 
-function changeAction(action: DefaultAction, func: () => void): void {
+function changeAction(action: DefaultAction, func: (() => void) | ((event: Event) => void)): void {
     if (!actions[action]) {
         actions[action] = func;
         return;
@@ -329,7 +502,7 @@ function changeAction(action: DefaultAction, func: () => void): void {
         for (let [event, action2] of Object.entries(value)) {
             if (action === action2) {
                 let elt = getElement(id);
-                elt.removeEventListener(event, actions[action]);
+                elt.removeEventListener(event, actions[action] as () => void);
                 elt.addEventListener(event, func);
             }
         }
@@ -340,199 +513,20 @@ function changeAction(action: DefaultAction, func: () => void): void {
 function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultAction): void {
     let elt = getElement(id);
     if (id in events) {
-        if (event in events[id]) {
-            elt.removeEventListener(event, actions[events[id][event]]);
+        if (event in events[id] && events[id][event] !== undefined) {
+            elt.removeEventListener(event, actions[events[id][event] as DefaultAction] as () => void);
         }
     }
 }
 
-function updateAllEvents(): void {
-    for (let [key, value] of Object.entries(events)) {
-        let old = getElement(key);
-        let elt = old.cloneNode(true);
-        (old.parentNode as HTMLElement).replaceChild(old, elt);
-        for (let [event, action] of value) {
-            elt.addEventListener(event, actions[action]);
-        }
-    }
-}
 
-var keybinds: {[key: string]: string} = {
+var keybinds: {[key: string]: DefaultAction} = {
 
 };
 
-
-let posElt = getElement('position');
-let xElt = getElement('x');
-let yElt = getElement('y');
-let stateElt = getElement('state');
-
-canvas.addEventListener('mousedown', event => {
-    isDragging = true;
-    dragStart = [event.clientX, event.clientY];
-    dragOffsetStart = [topLeftX, topLeftY];
-    if (cursorMode === 'edit') {
-        pushUndo();
-        editCell(event, true);
-    } else if (cursorMode === 'select') {
-        let [x, y] = getMouseXY(event);
-        dragSelectStart = [x, y];
-        sel = undefined;
-    }
-});
-
-canvas.addEventListener('mousemove', event => {
-    let [x, y] = getMouseXY(event);
-    xElt.textContent = String(x);
-    yElt.textContent = String(y);
-    stateElt.textContent = String(p.get(x - p.xOffset, y - p.yOffset));
-    if (isDragging) {
-        if (cursorMode === 'main') {
-            topLeftX = dragOffsetStart[0] + (event.clientX - dragStart[0]) / scale;
-            topLeftY = dragOffsetStart[1] + (event.clientY - dragStart[1]) / scale;
-        } else if (cursorMode === 'edit') {
-            editCell(event, false);
-        } else if (cursorMode === 'select') {
-            let minX = Math.min(x, dragSelectStart[0]);
-            let minY = Math.min(y, dragSelectStart[1]);
-            let maxX = Math.max(x, dragSelectStart[0]);
-            let maxY = Math.max(y, dragSelectStart[1]);
-            sel = {x: minX, y: minY, height: maxY - minY + 1, width: maxX - minX + 1};
-        }
-    }
-
-});
-
-function mouseUpEvent(): void {
-    isDragging = false;
-    prevEditX = undefined;
-    prevEditY = undefined;
-    drawDeleteMode = false;
-}
-
-canvas.addEventListener('mouseup', mouseUpEvent);
-
-canvas.addEventListener('mouseleave', () => {
-    mouseUpEvent();
-    posElt.style.display = 'none';
-});
-
-canvas.addEventListener('mouseenter', () => {
-    posElt.style.display = 'flex';
-});
-
-let wheelEvent: WheelEvent | undefined = undefined;
-let totalDeltaY = 0;
-
-canvas.addEventListener('wheel', event => {
-    event.preventDefault();
-    totalDeltaY += event.deltaY;
-    console.log(event.deltaY);
-    wheelEvent = event;
-});
-
-getElement('select-flip-horizontal').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.flipHorizontal(), x, y);
-});
-
-getElement('select-flip-vertical').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.flipVertical(), x, y);
-});
-
-getElement('select-rotate-left').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.rotateLeft(), x, y);
-});
-
-getElement('select-rotate-right').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.rotateRight(), x, y);
-});
-
-getElement('select-rotate-180').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.rotate180(), x, y);
-});
-
-getElement('select-flip-diagonal').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.flipDiagonal(), x, y);
-});
-
-getElement('select-flip-anti-diagonal').addEventListener('click', () => {
-    if (!sel) {
-        return;
-    }
-    pushUndo();
-    p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-    let x = sel.x - p.xOffset;
-    let y = sel.y - p.yOffset;
-    p.ensure(x + sel.width, y + sel.height);
-    let q = p.copyPart(x, y, sel.height, sel.width);
-    p.clearPart(x, y, sel.height, sel.width);
-    p.insert(q.flipAntiDiagonal(), x, y);
-});
-
-
 window.addEventListener('keydown', event => {
-    if (event.key === '==') {
-
+    if (event.key in keybinds) {
+        actions[keybinds[event.key]](event as any);
     }
 });
 
@@ -543,6 +537,16 @@ let popElt = getElement('pop');
 let selectMenuElt = getElement('select-menu');
 
 let frameCount = 0;
+
+let wheelEvent: WheelEvent | undefined = undefined;
+let totalDeltaY = 0;
+
+canvas.addEventListener('wheel', event => {
+    event.preventDefault();
+    totalDeltaY += event.deltaY;
+    console.log(event.deltaY);
+    wheelEvent = event;
+});
 
 // let startTime = performance.now();
 
@@ -603,7 +607,10 @@ function frame() {
         ctx.fillRect(sel.x + topLeftX + xMod, sel.y + topLeftY + yMod, sel.width, sel.height);
         selectMenuElt.style.display = 'flex';
     } else {
-        selectMenuElt.style.display = 'flex';
+        selectMenuElt.style.display = 'none';
+    }
+    for (let hook of frameHooks) {
+        hook();
     }
     ctx.restore();
     frameCount++;
@@ -612,8 +619,13 @@ function frame() {
 }
 
 window.addEventListener('load', () => setTimeout(() => {
-    updateAllMappings();
-    requestAnimationFrame(frame);
+    for (let [key, value] of Object.entries(events)) {
+        let elt = getElement(key);
+        for (let [event, action] of Object.entries(value)) {
+            elt.addEventListener(event, actions[action] as () => void);
+        }
+    }
     updateSizes();
     loadPattern(parse(`x = 3, y = 3, rule = B3/S23\nbo$2bo$3o!`));
+    requestAnimationFrame(frame);
 }, 100));
