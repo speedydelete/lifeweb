@@ -209,6 +209,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                 if (p instanceof CoordPattern) {
                     return new TorusCoordPattern(p.coords, ruleData, p, x, y);
                 } else {
+                    throw new Error([height, width, x, y].join(', '));
                     return new TorusDataPattern(y, x, height, width, p.getData(), ruleData, p);
                 }
             } else {
@@ -227,7 +228,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
         let str = patterns.map(x => x.rule.str).join('|');
         let states = 1;
         let symmetry: RuleSymmetry = 'D8';
-        let period = 1;
+        let period = patterns.length;
         let range = 0;
         let neighborhood: [number, number][] = [];
         for (let p of patterns) {

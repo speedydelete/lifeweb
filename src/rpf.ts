@@ -218,7 +218,7 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
 
     deepCopy(): RPFPattern<T> {
         let out = new RPFPattern(this.base, this.key, this.path, this.data.map(x => ({
-            p: x.p.copy() as T,
+            p: x.p instanceof RPFPattern ? x.p.deepCopy() : x.p.copy() as T,
             x: x.x,
             y: x.y,
             rotation: x.rotation,
