@@ -185,7 +185,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             if (Number.isNaN(x) || Number.isNaN(y)) {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
             }
-            let ruleData: Rule = Object.assign({}, p.rule, {str: `${p.rule.str}:${type}${y},${x}`});
+            let ruleData: Rule = Object.assign({}, p.rule, {str: `${p.rule.str}:${type}${x},${y}`});
             if (type === 'P') {
                 if (p instanceof CoordPattern) {
                     return new FiniteCoordPattern(p.coords, ruleData, p, x, y);
