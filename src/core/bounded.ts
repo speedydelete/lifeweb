@@ -242,6 +242,7 @@ export class TorusDataPattern extends DataPattern {
 
     loadRLE(rle: string): TorusDataPattern {
         let [height, width, data] = this._loadRLE(rle);
+        throw new Error([height, width].join(', '));
         return new TorusDataPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
     }
 
