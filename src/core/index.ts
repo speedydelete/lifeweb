@@ -206,11 +206,11 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                     return new FiniteDataPattern(height, width, data, ruleData, p);
                 }
             } else if (type === 'T') {
-                if (p instanceof CoordPattern) {
-                    return new TorusCoordPattern(p.coords, ruleData, p, x, y);
-                } else {
+                // if (p instanceof CoordPattern) {
+                //     return new TorusCoordPattern(p.coords, ruleData, p, x, y);
+                // } else {
                     return new TorusDataPattern(y, x, height, width, p.getData(), ruleData, p);
-                }
+                // }
             } else {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
             }
