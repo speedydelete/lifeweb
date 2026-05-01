@@ -154,7 +154,7 @@ function editCell(event: MouseEvent, isStart: boolean): void {
 }
 
 
-type DefaultAction = 'clickCanvas' | 'moveMouseOverCanvas' | 'unclickCanvas' | 'moveMouseOntoCanvas' | 'moveMouseOffOfCanvas' | 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'viewRLE' | 'selCancel' | 'selFlipHorizontal' | 'selFlipVertical' | 'selRotateLeft' | 'selRotateRight' | 'selRotate180' | 'selFlipDiagonal' | 'selFlipAntiDiagonal';
+type DefaultAction = 'clickCanvas' | 'moveMouseOverCanvas' | 'unclickCanvas' | 'moveMouseOntoCanvas' | 'moveMouseOffOfCanvas' | 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'selCancel' | 'selFlipHorizontal' | 'selFlipVertical' | 'selRotateLeft' | 'selRotateRight' | 'selRotate180' | 'selFlipDiagonal' | 'selFlipAntiDiagonal' | 'viewRLE';
 
 let runButton = getElement('run');
 let pauseButton = getElement('pause');
@@ -361,10 +361,6 @@ var actions: {[K in DefaultAction]: ActionFunction} = {
         scale = Number(value);
     },
 
-    viewRLE(): void {
-        loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value));
-    },
-
     selCancel(): void {
         sel = undefined;
     },
@@ -467,6 +463,10 @@ var actions: {[K in DefaultAction]: ActionFunction} = {
         p.insert(q.flipAntiDiagonal(), x, y);
     },
 
+    viewRLE(): void {
+        loadPattern(parse(getElement<HTMLTextAreaElement>('rle').value));
+    },
+
 };
 
 
@@ -491,6 +491,7 @@ var events: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} 
     'sel-rotate-180': {'click': 'selRotate180'},
     'sel-flip-diagonal': {'click': 'selFlipDiagonal'},
     'sel-flip-anti-diagonal': {'click': 'selFlipAntiDiagonal'},
+    'view-rle': {'click': 'viewRLE'},
 };
 
 function changeAction(action: DefaultAction, func: (() => void) | ((event: Event) => void)): void {
