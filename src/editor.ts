@@ -103,13 +103,17 @@ function loadPattern(q: Pattern): void {
     updateZoom();
     topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
     topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
-    beforeRunning = p.copy();
-    hasRan = false;
-    sel = undefined;
     runButton.className = '';
     pauseButton.className = '';
     stepButton.className = '';
     resetButton.className = 'selected';
+    beforeRunning = p.copy();
+    hasRan = false;
+    cursorMode = 'main';
+    cursorMainButton.className = 'selected';
+    cursorEditButton.className = '';
+    cursorSelectButton.className = '';
+    sel = undefined;
 }
 
 function updateSizes() {
