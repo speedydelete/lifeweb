@@ -231,6 +231,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
         let range = 0;
         let neighborhood: [number, number][] = [];
         for (let p of patterns) {
+            states = Math.max(states, p.rule.states);
             symmetry = SYMMETRY_MEET[symmetry][p.rule.symmetry];
             period = lcm(period, p.rule.period);
             range = Math.max(range, p.rule.range);
