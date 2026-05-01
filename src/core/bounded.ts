@@ -162,7 +162,7 @@ export class TorusDataPattern extends DataPattern {
         super(dataHeight, dataWidth, data, rule);
         if (dataHeight !== height || dataWidth !== width) {
             if (dataHeight > height || dataWidth > width) {
-                throw new Error(`Pattern too big for torus! (${dataHeight}x${dataWidth} does not fit into ${height}x${width})`);
+                throw new Error(`Pattern too big for torus! (${dataWidth}x${dataHeight} does not fit into ${width}x${height})`);
             }
             this.ensure(width, height);
             this.xOffset = 0;
