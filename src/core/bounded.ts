@@ -159,6 +159,7 @@ export class TorusDataPattern extends DataPattern {
     pattern: Pattern;
 
     constructor(height: number, width: number, dataHeight: number, dataWidth: number, data: Uint8Array, rule: Rule, p: Pattern) {
+        throw new Error([height, width, dataHeight, dataWidth].join(', '));
         super(dataHeight, dataWidth, data, rule);
         if (dataHeight !== height || dataWidth !== width) {
             if (dataHeight > height || dataWidth > width) {

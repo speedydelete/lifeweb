@@ -209,7 +209,6 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                 if (p instanceof CoordPattern) {
                     return new TorusCoordPattern(p.coords, ruleData, p, x, y);
                 } else {
-                    throw new Error([height, width, x, y].join(', '));
                     return new TorusDataPattern(y, x, height, width, p.getData(), ruleData, p);
                 }
             } else {
