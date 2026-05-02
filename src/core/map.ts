@@ -332,7 +332,7 @@ export function unparseMAP(trs: Uint8Array): string {
             out[Math.floor(i / 8)] |= (1 << (7 - i % 8));
         }
     }
-    return btoa(String.fromCharCode(...out));
+    return btoa(String.fromCharCode(...out)).replaceAll('=', '');
 }
 
 
