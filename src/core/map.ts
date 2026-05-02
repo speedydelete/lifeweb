@@ -312,7 +312,7 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
                 trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
             }
         }
-    } else if (data.length === 22) {
+    } else if (data.length === 20) {
         for (let i = 0; i < 512; i++) {
             let j = (i & 0b011_111_110) >> 1;
             if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
@@ -320,7 +320,7 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
             }
         }
     } else {
-        throw new RuleError(`MAP string must be 86, 6, or 22 characters long`);
+        throw new RuleError(`MAP string must be 86, 6, or 20 characters long`);
     }
     return trs;
 }
