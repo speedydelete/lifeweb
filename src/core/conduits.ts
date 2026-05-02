@@ -366,14 +366,11 @@ export function createPartial(p: MAPPattern, sepGens: number, identifyGens: numb
     sep.resolveKnots();
     let startP: MAPPattern | undefined = undefined;
     let cats: Catalyst[] = [];
-    for (let i = 0; i < sepGens; i++) {
+    for (let i = 0; i <= sepGens; i++) {
         startP = undefined;
         cats = [];
         for (let p of sep.getObjects()) {
             let type = findType(p, identifyGens);
-            type.pops = [];
-            type.hashes = [];
-            type.phases = [];
             if (type.disp && type.stabilizedAt === 0 && type.disp[0] === 0 && type.disp[1] === 0) {
                 cats.push({period: type.period, p, x: p.xOffset, y: p.yOffset});
             } else {
