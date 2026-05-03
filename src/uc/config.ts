@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B3/S23';
+const RULE = 'B38/S23';
 
 // don't change this
 // the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
