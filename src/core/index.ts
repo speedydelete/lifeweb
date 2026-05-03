@@ -49,9 +49,6 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             throw error;
         }
     }
-    if (rule === 'Life') {
-        return createPattern('B3/S23', namedRules, height, width, data, prevName);
-    }
     if (rule.startsWith('R') || rule.startsWith('r')) {
         try {
             let out = createHROTPattern(rule, height, width, data);
