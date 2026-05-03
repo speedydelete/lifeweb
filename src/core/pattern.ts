@@ -615,7 +615,7 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number, y: number, mode: number = 7): this {
+    insert(p: Pattern, x: number, y: number, mode: number = INSERT_OR): this {
         for (let y2 = 0; y2 < p.height; y2++) {
             let i = (y + y2) * this.width + x;
             for (let x2 = 0; x2 < p.width; x2++) {
@@ -1523,7 +1523,7 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number, y: number, mode: number = 7): this {
+    insert(p: Pattern, x: number, y: number, mode: number = INSERT_OR): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, newState] of p.getCoords()) {
             let oldState = this.coords.get(key + offset);
