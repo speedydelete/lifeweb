@@ -1000,11 +1000,11 @@ export function checkConduit(data: Partial, sepGens: number, start: ConduitObjec
 }
 
 
-export function identifyConduit(p: MAPPattern, maxTime: number, maxRT: number, sepGens: number, identifyGens: number): false | Conduit {
+export function identifyConduit(p: MAPPattern, minTime: number, maxTime: number, maxRT: number, sepGens: number, identifyGens: number): false | Conduit {
     let [partial, start] = createPartial(p, sepGens, identifyGens);
     p = partial.p;
     for (let i = 0; i < maxTime; i++) {
-        if (catalystsAreFine(p, partial.cats)) {
+        if (i >= minTime && catalystsAreFine(p, partial.cats)) {
             let value = checkConduit(partial, sepGens, start, maxRT);
             if (value) {
                 return value;
