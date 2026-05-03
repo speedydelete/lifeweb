@@ -453,62 +453,63 @@ export function toRanges(data: number[]): string {
 
 export function getConduitName(data: Conduit, removeH: boolean = false): string {
     let out: string[] = [];
-    removeH &&= data.input === 'H' && data.inputTime === 0 && data.output.every(x => x.obj === 'H');
-    for (let obj of data.output) {
-        if (removeH) {
-            out.push(obj.dir + obj.time);
-            continue;
-        }
-        let objStr: string;
-        if (obj.objTime !== 0) {
-            if (obj.obj.startsWith('(')) {
-                objStr = `(${obj.obj.slice(1, -1)}+${obj.objTime})`;
-            } else {
-                objStr = `(${obj.obj}+${obj.objTime})`;
-            }
-        } else {
-            objStr = obj.obj;
-        }
-        out.push(obj.dir + obj.time + objStr);
-    }
-    for (let obj of data.gliders) {
-        out.push(obj.dir + obj.lane + 'T' + obj.timing);
-    }
-    if (data.otherOutputs.length > 0) {
-        out.push(data.time + 'X');
-        let counts: {[key: string]: number} = {};
-        for (let obj of data.otherOutputs) {
-            if (obj.code in counts) {
-                counts[obj.code]++;
-            } else {
-                counts[obj.code] = 1;
-            }
-        }
-        for (let [obj, count] of Object.entries(counts).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
-            out.push(`${count === 1 ? '' : count + 'x'}(${obj})`);   
-        }
-    }
-    let input: string;
-    if (data.inputTime) {
-        let inputTimeStr: string;
-        if (data.inputTime < 0) {
-            inputTimeStr = '-' + data.inputTime;
-        } else {
-            inputTimeStr = '+' + data.inputTime;
-        }
-        if (data.input.startsWith('(')) {
-            input = `(${data.input.slice(1, -1)}${inputTimeStr})`;
-        } else {
-            input = `(${data.input}${inputTimeStr})`;
-        }
-    } else {
-        input = data.input;
-    }
-    if (out.length === 0) {
-        return input + data.time + 'X';
-    } else {
-        return input + out.join('_');
-    }
+    throw new Error([removeH, data.input === 'H', data.inputTime === 0, data.output.every(x => x.obj === 'H' && x.objTime === 0)].join('_'));
+    // removeH &&= data.input === 'H' && data.inputTime === 0 && data.output.every(x => x.obj === 'H' && x.objTime === 0);
+    // for (let obj of data.output) {
+    //     if (removeH) {
+    //         out.push(obj.dir + obj.time);
+    //         continue;
+    //     }
+    //     let objStr: string;
+    //     if (obj.objTime !== 0) {
+    //         if (obj.obj.startsWith('(')) {
+    //             objStr = `(${obj.obj.slice(1, -1)}+${obj.objTime})`;
+    //         } else {
+    //             objStr = `(${obj.obj}+${obj.objTime})`;
+    //         }
+    //     } else {
+    //         objStr = obj.obj;
+    //     }
+    //     out.push(obj.dir + obj.time + objStr);
+    // }
+    // for (let obj of data.gliders) {
+    //     out.push(obj.dir + obj.lane + 'T' + obj.timing);
+    // }
+    // if (data.otherOutputs.length > 0) {
+    //     out.push(data.time + 'X');
+    //     let counts: {[key: string]: number} = {};
+    //     for (let obj of data.otherOutputs) {
+    //         if (obj.code in counts) {
+    //             counts[obj.code]++;
+    //         } else {
+    //             counts[obj.code] = 1;
+    //         }
+    //     }
+    //     for (let [obj, count] of Object.entries(counts).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+    //         out.push(`${count === 1 ? '' : count + 'x'}(${obj})`);   
+    //     }
+    // }
+    // let input: string;
+    // if (data.inputTime) {
+    //     let inputTimeStr: string;
+    //     if (data.inputTime < 0) {
+    //         inputTimeStr = '-' + data.inputTime;
+    //     } else {
+    //         inputTimeStr = '+' + data.inputTime;
+    //     }
+    //     if (data.input.startsWith('(')) {
+    //         input = `(${data.input.slice(1, -1)}${inputTimeStr})`;
+    //     } else {
+    //         input = `(${data.input}${inputTimeStr})`;
+    //     }
+    // } else {
+    //     input = data.input;
+    // }
+    // if (out.length === 0) {
+    //     return input + data.time + 'X';
+    // } else {
+    //     return input + out.join('_');
+    // }
 }
 
 
