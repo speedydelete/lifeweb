@@ -451,9 +451,14 @@ export function toRanges(data: number[]): string {
     return out.join(', ');
 }
 
-export function getConduitName(data: Conduit): string {
+export function getConduitName(data: Conduit, removeH: boolean = false): string {
     let out: string[] = [];
+    removeH &&= data.input === 'H' && data.inputTime === 0 && data.output.every(x => x.obj === 'H');
     for (let obj of data.output) {
+        if (removeH) {
+            out.push(obj.dir + obj.time);
+            continue;
+        }
         let objStr: string;
         if (obj.objTime !== 0) {
             if (obj.obj.startsWith('(')) {
@@ -503,26 +508,6 @@ export function getConduitName(data: Conduit): string {
         return input + data.time + 'X';
     } else {
         return input + out.join('_');
-    }
-}
-
-export function removeHIfPossible(name: string): string {
-    if (!name.startsWith('H')) {
-        return name;
-    }
-    let index = name.indexOf('_');
-    if (index === -1) {
-        if (name[name.length - 1] === 'H') {
-            return name.slice(1, -1);
-        } else {
-            return name;
-        }
-    } else if (name[index - 1] === 'H') {
-        return name.slice(1, index - 1) + name.slice(index);
-    } else if (name.startsWith('HNW') || name.startsWith('HNE') || name.startsWith('HSW') || name.startsWith('HSE')) {
-        return name.slice(1);
-    } else {
-        return name;
     }
 }
 
