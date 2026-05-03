@@ -1481,7 +1481,7 @@ export abstract class CoordPattern implements Pattern {
 
     getFullOffset(): [number, number] {
         let {minX, minY} = this.getMinMaxCoords();
-        return [minX, minY];
+        return [minX + this.xOffset, minY + this.yOffset];
     }
 
     get height(): number {
