@@ -158,7 +158,7 @@ function editCell(event: MouseEvent, isStart: boolean): void {
 }
 
 
-type DefaultAction = 'clickCanvas' | 'moveMouseOverCanvas' | 'unclickCanvas' | 'moveMouseOntoCanvas' | 'moveMouseOffOfCanvas' | 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'selCancel' | 'selFlipHorizontal' | 'selFlipVertical' | 'selRotateLeft' | 'selRotateRight' | 'selRotate180' | 'selFlipDiagonal' | 'selFlipAntiDiagonal' | 'viewRLE';
+type DefaultAction = 'clickCanvas' | 'moveMouseOverCanvas' | 'unclickCanvas' | 'moveMouseOntoCanvas' | 'moveMouseOffOfCanvas' | 'run' | 'pause' | 'step' | 'reset' | 'setSpeed' | 'setCursorToMain' | 'setCursorToEdit' | 'setCursorToSelect' | 'undo' | 'redo' | 'setZoom' | 'selCancel' | 'selMoveUp' | 'selMoveDown' | 'selMoveLeft' | 'selMoveRight' | 'selFlipHorizontal' | 'selFlipVertical' | 'selRotateLeft' | 'selRotateRight' | 'selRotate180' | 'selFlipDiagonal' | 'selFlipAntiDiagonal' | 'viewRLE';
 
 let runButton = getElement('run');
 let pauseButton = getElement('pause');
@@ -369,6 +369,66 @@ var actions: {[K in DefaultAction]: ActionFunction} = {
         sel = undefined;
     },
 
+    selMoveUp(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset - 1);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y - 1, sel.height + 1, sel.width);
+        p.insert(q, x, y - 1);
+        sel.y--;
+    },
+
+    selMoveDown(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height + 1);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height + 1, sel.width);
+        p.insert(q, x, y + 1);
+        sel.y++;
+    },
+
+    selMoveLeft(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset - 1, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x - 1, y, sel.height, sel.width + 1);
+        p.insert(q, x - 1, y);
+        sel.x--;
+    },
+
+    selMoveRight(): void {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
+        p.ensure(sel.x - p.xOffset + 1, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width + 1, y + sel.height);
+        let q = p.copyPart(x, y, sel.height, sel.width);
+        p.clearPart(x, y, sel.height + 1, sel.width);
+        p.insert(q, x + 1, y);
+        sel.x++;
+    },
+
     selFlipHorizontal(): void {
         if (!sel) {
             return;
@@ -488,6 +548,10 @@ var events: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} 
     'redo': {'click': 'redo'},
     'zoom': {'click': 'setZoom'},
     'sel-cancel': {'click': 'selCancel'},
+    'sel-move-up': {'click': 'selMoveUp'},
+    'sel-move-down': {'click': 'selMoveDown'},
+    'sel-move-left': {'click': 'selMoveLeft'},
+    'sel-move-right': {'click': 'selMoveRight'},
     'sel-flip-horizontal': {'click': 'selFlipHorizontal'},
     'sel-flip-vertical': {'click': 'selFlipVertical'},
     'sel-rotate-left': {'click': 'selRotateLeft'},
@@ -612,7 +676,7 @@ function frame() {
         ctx.fillRect(sel.x + topLeftX + xMod, sel.y + topLeftY + yMod, sel.width, sel.height);
         selectMenuElt.style.display = 'flex';
     } else {
-        selectMenuElt.style.display = 'none';
+        selectMenuElt.style.display = 'flex';
     }
     for (let hook of frameHooks) {
         hook();
