@@ -128,8 +128,14 @@ textarea:hover, textarea:focus {
 
 #canvas {
     flex: 1 0 auto;
-    border-left: 1px solid #000000;
+}
+
+#canvas {
     image-rendering: pixelated;
+}
+
+#canvas {
+    image-rendering: crisp-edges;
 }
 
 #select-menu {
@@ -147,6 +153,29 @@ textarea:hover, textarea:focus {
     display: flex;
     flex-direction: row;
     gap: 0.5rem;
+}
+
+#command-wrapper {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    height: 2rem;
+    flex-direction: row;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #000000;
+    overflow-x: auto;
+}
+
+#command {
+    flex: 1 0 auto;
+    outline: none;
+}
+
+#command:focus {
+    outline: none;
 }
 
         </style>
@@ -278,6 +307,23 @@ bo$2bo$3o!</textarea>
                             <polygon points="11,3 16,8 11,13" fill="#ffffff" />
                         </svg>
                     </button>
+                    <button id="sel-clear">
+                        <svg viewBox="0 0 16 16" image-rendering="crispEdges">
+                            <polygon points="1,1 15,1 15,15 1,15" stroke="#ffffff" stroke-width="2" />
+                            <line x1="4" y1="4" x2="6" y2="4" stroke="#ffffff" />
+                            <line x1="7" y1="4" x2="9" y2="4" stroke="#ffffff" />
+                            <line x1="10" y1="4" x2="12" y2="4" stroke="#ffffff" />
+                            <line x1="4" y1="4" x2="4" y2="6" stroke="#ffffff" />
+                            <line x1="4" y1="7" x2="4" y2="9" stroke="#ffffff" />
+                            <line x1="4" y1="10" x2="4" y2="12" stroke="#ffffff" />
+                            <line x1="4" y1="12" x2="6" y2="12" stroke="#ffffff" />
+                            <line x1="7" y1="12" x2="9" y2="12" stroke="#ffffff" />
+                            <line x1="10" y1="12" x2="12" y2="12" stroke="#ffffff" />
+                            <line x1="12" y1="4" x2="12" y2="6" stroke="#ffffff" />
+                            <line x1="12" y1="7" x2="12" y2="9" stroke="#ffffff" />
+                            <line x1="12" y1="10" x2="12" y2="12" stroke="#ffffff" />
+                        </svg>
+                    </button>
                 </div>
                 <div>
                     <button id="sel-flip-horizontal">
@@ -334,8 +380,9 @@ bo$2bo$3o!</textarea>
                     </button>
                 </div>
             </div>
+            <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
         </div>
-        <script>'use strict';(()=>{function printError(e){let x=String(e instanceof Error?('stack' in e?e.stack:e):e).replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}if(document.readyState!=='complete'){alert(x);return;}document.body.replaceChildren([]);let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;document.body.appendChild(t);document.body.style.overflowY='auto';let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});})()</script>
+        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
         <script src="index.js"></script>
     </body>
 </html>

@@ -332,6 +332,18 @@ export function getRuleSymmetryFromBases(C2: boolean, C4: boolean, D2h: boolean,
 }
 
 
+// insertion modes
+export const INSERT_CLEAR = 0b0000;
+export const INSERT_COPY = 0b0101;
+export const INSERT_AND = 0b0001;
+export const INSERT_OR = 0b0111;
+export const INSERT_XOR = 0b0110;
+export const INSERT_NAND = 0b1110;
+export const INSERT_XNOR = 0b1001;
+export const INSERT_CHANGE_LIVE = 0b0011;
+export const INSERT_COPY_TO_DEAD = 0b1100;
+
+
 /** Returned by Pattern.getRect(). */
 export interface Rect {
     height: number;
@@ -398,14 +410,8 @@ export interface Pattern {
     clear(): this;
     /** Clears part of the pattern. */
     clearPart(x: number, y: number, height: number, width: number): this;
-    /** Inserts a different pattern using OR insertion. */
-    insert(p: Pattern, x: number, y: number): this;
-    /** Inserts a different pattern, clearing all dead cells in the pattern. */
-    insertCopy(p: Pattern, x: number, y: number): this;
-    /** Inserts a different pattern using AND insertion. */
-    insertAnd(p: Pattern, x: number, y: number): this;
-    /** Inserts a different pattern using XOR insertion. */
-    insertXor(p: Pattern, x: number, y: number): this;
+    /** Inserts a different pattern, the mode is a 4-bit number representing the logical operation (bit 0 = old state, bit 1 = new state, 00 -> 8, 01 -> 4, 10 -> 2, 11 -> 1), default value 7 (which means OR insertion). */
+    insert(p: Pattern, x: number, y: number, mode?: number): this;
     /** Extracts part of the pattern into a new one. */
     copyPart(x: number, y: number, height: number, width: number): Pattern;
     /** Gets the pattern data as an array. */
@@ -609,47 +615,14 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number, y: number): this {
+    insert(p: Pattern, x: number, y: number, mode: number = 7): this {
         for (let y2 = 0; y2 < p.height; y2++) {
+            let i = (y + y2) * this.width + x;
             for (let x2 = 0; x2 < p.width; x2++) {
-                let value = p.get(x2, y2);
-                if (value) {
-                    this.data[(y + y2) * this.width + x + x2] = value;
-                }
-            }
-        }
-        return this;
-    }
-
-    insertCopy(p: Pattern, x: number, y: number): this {
-        let index = 0;
-        let pData = p.getData();
-        for (let i = 0; i < p.height; i++) {
-            this.data.set(pData.slice(index, index + p.width), (y + i) * this.width + x);
-            index += p.width;
-        }
-        return this;
-    }
-
-    insertAnd(p: Pattern, x: number, y: number): this {
-        for (let y2 = 0; y2 < p.height; y2++) {
-            for (let x2 = 0; x2 < p.width; x2++) {
-                let value = p.get(x2, y2);
-                if (value) {
-                    this.data[(y + y2) * this.width + x + x2] &= value;
-                }
-            }
-        }
-        return this;
-    }
-
-    insertXor(p: Pattern, x: number, y: number): this {
-        for (let y2 = 0; y2 < p.height; y2++) {
-            for (let x2 = 0; x2 < p.width; x2++) {
-                let value = p.get(x2, y2);
-                if (value) {
-                    this.data[(y + y2) * this.width + x + x2] ^= value;
-                }
+                let oldState = this.data[i];
+                let newState = p.get(x2, y2);
+                this.data[i] = (mode & (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))) ? (newState === 0 ? oldState : newState) : 0;
+                i++;
             }
         }
         return this;
@@ -1550,32 +1523,15 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    insert(p: Pattern, x: number, y: number): this {
+    insert(p: Pattern, x: number, y: number, mode: number = 7): this {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
-        for (let [key, value] of p.getCoords()) {
-            this.coords.set(key + offset, value);
-        }
-        return this;
-    }
-
-    insertCopy(p: Pattern, x: number, y: number): this {
-        this.clearPart(x, y, p.height, p.width);
-        this.insert(p, x, y);
-        return this;
-    }
-
-    insertAnd(p: Pattern, x: number, y: number): this {
-        let offset = (x + BIAS) * WIDTH + (y + BIAS);
-        for (let [key, value] of p.getCoords()) {
-            this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) & value);
-        }
-        return this;
-    }
-
-    insertXor(p: Pattern, x: number, y: number): this {
-        let offset = (x + BIAS) * WIDTH + (y + BIAS);
-        for (let [key, value] of p.getCoords()) {
-            this.coords.set(key + offset, (this.coords.get(key + offset) ?? 0) ^ value);
+        for (let [key, newState] of p.getCoords()) {
+            let oldState = this.coords.get(key + offset);
+            if (mode & (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))) {
+                this.coords.set(key + offset, newState);
+            } else {
+                this.coords.delete(key + offset);
+            }
         }
         return this;
     }
