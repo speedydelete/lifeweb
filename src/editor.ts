@@ -741,6 +741,7 @@ function removeHook(action: DefaultAction, hook: (() => void) | ((event: Event) 
 
 var keybinds: {[key: string]: DefaultAction} = {
     '/': 'open-command',
+    'Backspace': 'sel-clear',
 };
 
 window.addEventListener('keydown', event => {
