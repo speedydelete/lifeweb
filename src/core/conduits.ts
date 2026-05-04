@@ -501,6 +501,8 @@ export function getConduitName(data: Conduit, removeH: boolean = false): string 
         } else {
             input = `(${data.input}${inputTimeStr})`;
         }
+    } else if (removeH) {
+        input = '';
     } else {
         input = data.input;
     }
