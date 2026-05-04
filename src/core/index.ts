@@ -31,7 +31,7 @@ export * from './conduits.js';
  */
 export function createPattern(rule: string, namedRules?: {[key: string]: string}, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0), prevName?: string): Pattern {
     rule = rule.trim();
-    if (rule.toLowerCase() === 'Life' && !(namedRules && 'life' in namedRules)) {
+    if (rule.toLowerCase() === 'life' && !(namedRules && 'life' in namedRules)) {
         return createPattern('B3/S23', namedRules, height, width, data, prevName);
     }
     let errors: string[] = [];
