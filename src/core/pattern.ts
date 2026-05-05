@@ -937,13 +937,14 @@ export abstract class DataPattern implements Pattern {
         let width = this.width * times;
         let out = new Uint8Array(height * width);
         let i = 0;
-        for (let y = 0; y < height; y += 2) {
-            for (let x = 0; x < width; x += 2) {
+        for (let y = 0; y < height; y += times) {
+            for (let x = 0; x < width; x += times) {
                 let value = this.data[i++];
-                out[y * width + x] = value;
-                out[y * width + x + 1] = value;
-                out[(y + 1) * width + x] = value;
-                out[(y + 1) * width + x + 1] = value;
+                for (let y2 = 0; y2 <= times; y2++) {
+                    for (let x2 = 0; x2 <= times; x2++) {
+                        out[(y + y2) * width + (x + x2)] = value;
+                    }
+                }
             }
         }
         this.data = out;
@@ -1743,10 +1744,11 @@ export abstract class CoordPattern implements Pattern {
         for (let y = 0; y < height; y += times) {
             for (let x = 0; x < width; x += times) {
                 let value = data[i++];
-                out[y * width + x] = value;
-                out[y * width + x + 1] = value;
-                out[(y + 1) * width + x] = value;
-                out[(y + 1) * width + x + 1] = value;
+                for (let y2 = 0; y2 <= times; y2++) {
+                    for (let x2 = 0; x2 <= times; x2++) {
+                        out[(y + y2) * width + (x + x2)] = value;
+                    }
+                }
             }
         }
         this.setData(height, width, out);
