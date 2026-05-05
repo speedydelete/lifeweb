@@ -450,6 +450,8 @@ export interface Pattern {
     flipDiagonal(): this;
     /** Flips the pattern along the line y = x. */
     flipAntiDiagonal(): this;
+    /** Inflates a pattern by the specified amount. */
+    inflate(times: number): this;
     /** Gets the apgcode of the pattern. */
     toApgcode(prefix?: string): string;
     /** Gets the canonicalized apgcode of the pattern. */
@@ -928,6 +930,24 @@ export abstract class DataPattern implements Pattern {
 
     flipAntiDiagonal(): this {
         return this.transpose().rotate180();
+    }
+
+    inflate(times: number): this {
+        let height = this.height * times;
+        let width = this.width * times;
+        let out = new Uint8Array(height * width);
+        let i = 0;
+        for (let y = 0; y < height; y += 2) {
+            for (let x = 0; x < width; x += 2) {
+                let value = this.data[i++];
+                out[y * width + x] = value;
+                out[y * width + x + 1] = value;
+                out[(y + 1) * width + x] = value;
+                out[(y + 1) * width + x + 1] = value;
+            }
+        }
+        this.data = out;
+        return this;
     }
 
     _toApgcode(data: Uint8Array): string {
@@ -1712,6 +1732,25 @@ export abstract class CoordPattern implements Pattern {
 
     flipAntiDiagonal(): this {
         return this.rotateLeft().flipHorizontal();
+    }
+
+    inflate(times: number): this {
+        let data = this.getData();
+        let height = this.height * times;
+        let width = this.width * times;
+        let out = new Uint8Array(height * width);
+        let i = 0;
+        for (let y = 0; y < height; y += times) {
+            for (let x = 0; x < width; x += times) {
+                let value = data[i++];
+                out[y * width + x] = value;
+                out[y * width + x + 1] = value;
+                out[(y + 1) * width + x] = value;
+                out[(y + 1) * width + x + 1] = value;
+            }
+        }
+        this.setData(height, width, out);
+        return this;
     }
 
     _toApgcode(data: Uint8Array, height: number, width: number): string {

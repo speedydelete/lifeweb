@@ -526,6 +526,10 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         return this;
     }
 
+    inflate(times: number): never {
+        throw new Error(`Cannot use inflate with RPFPattern`);
+    }
+
     toApgcode(prefix?: string): string {
         return this.toPattern().toApgcode(prefix);
     }
