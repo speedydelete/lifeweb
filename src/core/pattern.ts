@@ -1,7 +1,7 @@
 
 /* Contains abstract base classes for patterns. */
 
-import {InspectOptions} from 'node:util';
+import type {InspectOptions} from 'node:util';
 
 
 /** A symmetry for a rule. */
@@ -369,104 +369,557 @@ export interface Rule {
 }
 
 /** Represents a pattern in a cellular automata. */
-export interface Pattern {
+export abstract class Pattern {
+
     /** The height of the pattern. */
-    height: number;
+    abstract height: number;
     /** The width of the pattern. */
-    width: number;
+    abstract width: number;
     /** Keeps track of how far it is offset in the X direction. */
-    xOffset: number;
+    abstract xOffset: number;
     /** Keeps track of how far it is offset in the Y direction. */
-    yOffset: number;
+    abstract yOffset: number;
     /** The generation it is on, this value is used by AlternatingPattern and B0 rules. */
-    generation: number;
+    abstract generation: number;
     /** An object representing the rule. */
-    rule: Rule;
+    abstract rule: Rule;
+
     /** Runs a single generation. */
-    runGeneration(): unknown;
+    abstract runGeneration(): unknown;
     /** Runs one or more generations. */
-    run(generations?: number): this;
+    abstract run(generations?: number): this;
     /** The number of non-state-0 cells. This may be implemented as a getter, so don't change it unless you're sure. */
-    population: number;
+    abstract population: number;
     /** Gets the bounding box of the pattern, like g.getrect(). */
-    getRect(): Rect;
+    abstract getRect(): Rect;
     /** Gets the "actual" x and y offsets (only different from `[xOffset, yOffset]` if the implementation supports negative coordinates). */
-    getFullOffset(): [number, number];
+    abstract getFullOffset(): [number, number];
     /** Checks if the pattern consists of dead cells. */
-    isEmpty(): boolean;
+    abstract isEmpty(): boolean;
+
     /** Copies the pattern, including the rule and the data. */
-    copy(): Pattern;
+    abstract copy(): Pattern;
     /** Copies the pattern, including the rule, but not including the data. */
-    clearedCopy(): Pattern;
+    abstract clearedCopy(): Pattern;
+
     /** Ensures the pattern can hold at least a x by y value, does nothing in `CoordPattern`. */
-    ensure(x: number, y: number): this;
+    abstract ensure(x: number, y: number): this;
     /** Offsets the pattern data by x and y. */
-    offsetBy(x: number, y: number): this;
+    abstract offsetBy(x: number, y: number): this;
+
     /** Gets the value at the provided coordinates. */
-    get(x: number, y: number): number;
+    abstract get(x: number, y: number): number;
     /** Sets the value at the provided coordinates. */
-    set(x: number, y: number, value: number): this;
+    abstract set(x: number, y: number, value: number): this;
     /** Clears the data of the pattern. */
-    clear(): this;
+    abstract clear(): this;
     /** Clears part of the pattern. */
-    clearPart(x: number, y: number, height: number, width: number): this;
+    abstract clearPart(x: number, y: number, height: number, width: number): this;
+
     /** Inserts a different pattern, the mode is a 4-bit number representing the logical operation (bit 0 = old state, bit 1 = new state, 00 -> 8, 01 -> 4, 10 -> 2, 11 -> 1), default value 7 (which means OR insertion). */
-    insert(p: Pattern, x: number, y: number, mode?: number): this;
+    abstract insert(p: Pattern, x: number, y: number, mode?: number): this;
     /** Extracts part of the pattern into a new one. */
-    copyPart(x: number, y: number, height: number, width: number): Pattern;
+    abstract copyPart(x: number, y: number, height: number, width: number): Pattern;
     /** Gets the pattern data as an array. */
-    getData(): Uint8Array;
+    abstract getData(): Uint8Array;
     /** Sets the pattern data using a height, width, and array. */
-    setData(height: number, width: number, data: Uint8Array): this;
+    abstract setData(height: number, width: number, data: Uint8Array): this;
     /** Gets the pattern data as a Map. */
-    getCoords(): Map<number, number>;
+    abstract getCoords(): Map<number, number>;
     /** Sets the pattern data using a Map. */
-    setCoords(coords: Map<number, number>): this;
+    abstract setCoords(coords: Map<number, number>): this;
+
     /** Checks if 2 patterns are exactly equal. */
-    isEqual(other: Pattern): boolean;
+    abstract isEqual(other: Pattern): boolean;
     /** Checks if 2 patterns are equal, but with optional translation. (You should generally call `shrinkToFit` before calling this.) Also returns how much it is translated. */
-    isEqualWithTranslate(other: Pattern): false | [number, number];
+    abstract isEqualWithTranslate(other: Pattern): false | [number, number];
     /** Hashes the pattern into a 32-bit number. */
-    hash32(): number;
+    abstract hash32(): number;
     /** Hashes the pattern into a 64-bit number. */
-    hash64(): bigint;
+    abstract hash64(): bigint;
+
     /** Shrinks the pattern so there are cells touching every edge, does nothing in `CoordPattern`. */
-    shrinkToFit(): this;
+    abstract shrinkToFit(): this;
     /** Expands the pattern by the given amounts, does nothing in `CoordPattern`. */
-    expand(up: number, down: number, left: number, right: number): this;
+    abstract expand(up: number, down: number, left: number, right: number): this;
+
     /** Flips the pattern along the line y = 0. */
-    flipHorizontal(): this;
+    abstract flipHorizontal(): this;
     /** Flips the pattern along the line x = 0. */
-    flipVertical(): this;
+    abstract flipVertical(): this;
     /** Swaps the x and y coordinates of every live cell. */
-    transpose(): this;
+    abstract transpose(): this;
     /** Rotates the entire pattern right by 90 degrees. */
-    rotateRight(): this;
+    abstract rotateRight(): this;
     /** Rotates the entire pattern left by 90 degrees. */
-    rotateLeft(): this;
+    abstract rotateLeft(): this;
     /** Flips the pattern by 180 degrees. */
-    rotate180(): this;
+    abstract rotate180(): this;
     /** Flips the pattern along the line y = -x, alias for `transpose`. */
-    flipDiagonal(): this;
+    abstract flipDiagonal(): this;
     /** Flips the pattern along the line y = x. */
-    flipAntiDiagonal(): this;
+    abstract flipAntiDiagonal(): this;
     /** Inflates a pattern by the specified amount. */
-    inflate(times: number): this;
+    abstract inflate(times: number): this;
+
+    _toApgcode(data: Uint8Array): string {
+        let height = this.height;
+        let width = this.width;
+        let out = '';
+        for (let stripNum = 0; stripNum < Math.ceil(height / 5); stripNum++) {
+            let zeros = 0;
+            let start = stripNum * width * 5;
+            for (let x = 0; x < width; x++) {
+                let char = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4)];
+                if (char === '0') {
+                    zeros++;
+                } else {
+                    if (zeros > 0) {
+                        if (zeros === 1) {
+                            out += '0'; 
+                        } else if (zeros === 2) {
+                            out += 'w';
+                        } else if (zeros === 3) {
+                            out += 'x';
+                        } else {
+                            while (zeros > 39) {
+                                zeros -= 39;
+                                out += 'yz';
+                            }
+                            if (zeros > 0) {
+                                if (zeros === 1) {
+                                    out += '0';
+                                } else if (zeros === 2) {
+                                    out += 'w';
+                                } else if (zeros === 3) {
+                                    out += 'x';
+                                } else {
+                                    out += 'y' + APGCODE_CHARS[zeros - 4];
+                                }
+                            }
+                        }
+                        zeros = 0;
+                    }
+                    out += char;
+                }
+            }
+            out += 'z';
+        }
+        return out.slice(0, -1);
+    }
+
     /** Gets the apgcode of the pattern. */
-    toApgcode(prefix?: string): string;
-    /** Gets the canonicalized apgcode of the pattern. */
-    toCanonicalApgcode(period?: number, prefix?: string): string;
-    /** Gets the RLE of the pattern. */
-    toRLE(header?: boolean): string;
+    abstract toApgcode(prefix?: string): string;
+
+    toCanonicalApgcode(period: number = 1, prefix?: string): string {
+        let p = this.copy();
+        p.shrinkToFit();
+        let codes: string[] = [];
+        for (let j = 0; j < period; j++) {
+            if (j > 0) {
+                p.runGeneration();
+                p.shrinkToFit();
+            }
+            codes.push(p.toApgcode());
+            if (this.rule.symmetry !== 'C1') {
+                let q = p.copy();
+                if (this.rule.symmetry === 'D8') {
+                    codes.push(q.rotateLeft().toApgcode());
+                    for (let i = 0; i < 2; i++) {
+                        for (let j = 0; j < 4; j++) {
+                            codes.push(q.rotateLeft().toApgcode());
+                        }
+                        q.flipHorizontal();
+                    }
+                } else if (this.rule.symmetry === 'C2') {
+                    codes.push(q.rotate180().toApgcode());
+                } else if (this.rule.symmetry === 'C4') {
+                    for (let i = 0; i < 4; i++) {
+                        codes.push(q.rotateLeft().toApgcode());
+                    }
+                } else if (this.rule.symmetry === 'D2-') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else if (this.rule.symmetry === 'D2|') {
+                    codes.push(q.flipVertical().toApgcode());
+                } else if (this.rule.symmetry === 'D2/') {
+                    codes.push(q.flipDiagonal().toApgcode());
+                } else if (this.rule.symmetry === 'D2\\') {
+                    codes.push(q.transpose().toApgcode());
+                } else if (this.rule.symmetry === 'D4+') {
+                    codes.push(q.flipHorizontal().toApgcode());
+                    codes.push(q.flipVertical().toApgcode());
+                    codes.push(q.flipHorizontal().toApgcode());
+                } else {
+                    codes.push(q.flipDiagonal().toApgcode());
+                    codes.push(q.transpose().toApgcode());
+                    codes.push(q.flipDiagonal().toApgcode());
+                }
+            }
+        }
+        let out = codes[0];
+        for (let code of codes.slice(1)) {
+            if (code.length < out.length || (code.length === out.length && code < out)) {
+                out = code;
+            }
+        }
+        if (prefix === undefined) {
+            prefix = '';
+        } else {
+            prefix += '_';
+        }
+        return prefix + out;
+    }
+
+    toRLE(header: boolean = true): string {
+        let height = this.height;
+        let width = this.width;
+        let out = header ? `x = ${width}, y = ${height}, rule = ${this.rule.str}\n` : '';
+        let data = this.getData();
+        let prevChar = '';
+        let num = 0;
+        let i = 0;
+        let line = '';
+        let $count = 0;
+        let isStart = true;
+        for (let y = 0; y < height; y++) {
+            if (data.slice(i, i + width).every(x => x === 0)) {
+                $count++;
+                i += width;
+                continue;
+            }
+            if (!isStart) {
+                let prevLineLength = line.length;
+                if ($count > 0) {
+                    line += $count + 1;
+                    $count = 0;
+                }
+                line += '$';
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
+            } else if ($count > 0) {
+                let prevLineLength = line.length;
+                line += $count + '$';
+                $count = 0;
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
+            }
+            isStart = false;
+            for (let x = 0; x < width; x++) {
+                let char: string;
+                if (this.rule.states > 2) {
+                    char = RLE_CHARS[data[i]];
+                } else if (data) {
+                    char = 'o';
+                } else {
+                    char = 'b';
+                }
+                if (char === prevChar) {
+                    num++;
+                } else {
+                    let prevLineLength = line.length;
+                    if (num > 1) {
+                        line += num;
+                    }
+                    line += prevChar;
+                    if (line.length > 69) {
+                        out += line.slice(0, prevLineLength) + '\n';
+                        line = line.slice(prevLineLength);
+                    }
+                    prevChar = char;
+                    num = 1;
+                }
+                i++;
+            }
+            if (prevChar !== 'b' && prevChar !== '.') {
+                let prevLineLength = line.length;
+                if (num > 1) {
+                    line += num;
+                }
+                line += prevChar;
+                if (line.length > 69) {
+                    out += line.slice(0, prevLineLength) + '\n';
+                    line = line.slice(prevLineLength);
+                }
+            }
+            prevChar = '';
+            num = 1;
+        }
+        out += line + '!';
+        return out;
+    }
+
+   _loadApgcode(code: string): [number, number, Uint8Array] {
+        if (this.rule.states === 2) {
+            let strips: string[] = [];
+            if (code.includes('yz')) {
+                let prev = '';
+                let current = '';
+                for (let char of code) {
+                    if (char === 'z' && prev !== 'y') {
+                        strips.push(current);
+                        current = '';
+                        prev = char;
+                        continue;
+                    }
+                    current += char;
+                    prev = char;
+                }
+                strips.push(current);
+            } else {
+                strips = code.split('z');
+            }
+            let data: number[][] = [];
+            let width = 0;
+            for (let strip of strips) {
+                let stripData: number[] = [];
+                for (let i = 0; i < strip.length; i++) {
+                    let char = strip[i];
+                    let index = APGCODE_CHARS.indexOf(char);
+                    if (index >= 32) {
+                        if (char === 'w') {
+                            stripData.push(0, 0);
+                        } else if (char === 'x') {
+                            stripData.push(0, 0, 0);
+                        } else {
+                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
+                            for (let i = 0; i < count; i++) {
+                                stripData.push(0);
+                            }
+                            i++;
+                        }
+                    } else {
+                        stripData.push(index);
+                    }
+                }
+                if (stripData.length > width) {
+                    width = stripData.length;
+                }
+                data.push(stripData);
+            }
+            let height = data.length * 5;
+            let out = new Uint8Array(height * width);
+            for (let y = 0; y < data.length; y++) {
+                let loc = width * y * 5;
+                for (let value of data[y]) {
+                    out[loc] = value & 1;
+                    out[loc + width] = (value >> 1) & 1;
+                    out[loc + 2 * width] = (value >> 2) & 1;
+                    out[loc + 3 * width] = (value >> 3) & 1;
+                    out[loc + 4 * width] = (value >> 4) & 1;
+                    loc++;
+                }
+            }
+            return [height, width, out];
+        }
+        let data: number[][][] = [];
+        let width = 0;
+        let height = 0;
+        for (let layer of code.split('_')) {
+            let layerData: number[][] = [];
+            for (let strip of layer.split('z')) {
+                let stripData: number[] = [];
+                for (let i = 0; i < strip.length; i++) {
+                    let char = strip[i];
+                    let index = APGCODE_CHARS.indexOf(char);
+                    if (index >= 32) {
+                        if (char === 'w') {
+                            stripData.push(0, 0);
+                        } else if (char === 'x') {
+                            stripData.push(0, 0, 0);
+                        } else {
+                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
+                            for (let i = 0; i < count; i++) {
+                                stripData.push(0);
+                            }
+                            i++;
+                        }
+                    } else {
+                        stripData.push(index);
+                    }
+                }
+                if (stripData.length > width) {
+                    width = stripData.length;
+                }
+                layerData.push(stripData);
+            }
+            let planeHeight = layerData.length * 5;
+            if (planeHeight > height) {
+                height = planeHeight;
+            }
+            data.push(layerData);
+        }
+        let out = new Uint8Array(height * width);
+        for (let y = 0; y < data[0].length; y++) {
+            let loc = width * y * 5;
+            for (let part of data[0][y]) {
+                out[loc] = part & 1;
+                out[loc + width] = (part >> 1) & 1;
+                out[loc + 2 * width] = (part >> 2) & 1;
+                out[loc + 3 * width] = (part >> 3) & 1;
+                out[loc + 4 * width] = (part >> 4) & 1;
+                loc++;
+            }
+        }
+        if (data.length === 2) {
+            for (let y = 0; y < data[1].length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[1][y]) {
+                    if (part & 1) {
+                        out[loc] = 2;
+                    }
+                    if ((part >> 1) & 1) {
+                        out[loc + width] = 2;
+                    }
+                    if ((part >> 2) & 1) {
+                        out[loc + 2 * width] = 2;
+                    }
+                    if ((part >> 3) & 1) {
+                        out[loc + 3 * width] = 2;
+                    }
+                    if ((part >> 4) & 1) {
+                        out[loc + 4 * width] = 2;
+                    }
+                    loc++;
+                }
+            }
+        } else if (data.length > 2) {
+            for (let i = 2; i < data.length; i++) {
+                for (let y = 0; y < data[i].length; y++) {
+                    let loc = width * y * 5;
+                    for (let part of data[i][y]) {
+                        out[loc] |= (part & 1) << (i - 2);
+                        out[loc + width] |= ((part >> 1) & 1) << (i - 2);
+                        out[loc + 2 * width] |= ((part >> 2) & 1) << (i - 2);
+                        out[loc + 3 * width] |= ((part >> 3) & 1) << (i - 2);
+                        out[loc + 4 * width] |= ((part >> 4) & 1) << (i - 2);
+                        loc++;
+                    }
+                }
+            }
+            let states = Math.max(...out);
+            for (let y = 0; y < data[1].length; y++) {
+                let loc = width * y * 5;
+                for (let part of data[1][y]) {
+                    if (part & 1) {
+                        out[loc] = states - out[loc] + 2;
+                    }
+                    if ((part >> 1) & 1) {
+                        out[loc + width] = states - out[loc + width] + 2;
+                    }
+                    if ((part >> 2) & 1) {
+                        out[loc + 2 * width] = states - out[loc + 2 * width] + 2;
+                    }
+                    if ((part >> 3) & 1) {
+                        out[loc + 3 * width] = states - out[loc + 3 * width] + 2;
+                    }
+                    if ((part >> 4) & 1) {
+                        out[loc + 4 * width] = states - out[loc + 4 * width] + 2;
+                    }
+                    loc++;
+                }
+            }
+        }
+        return [height, width, out];
+    }
+
+    _loadRLE(rle: string): [number, number, Uint8Array] {
+        let out: number[][] = [];
+        let currentLine: number[] = [];
+        let num = '';
+        let prefix = '';
+        for (let i = 0; i < rle.length; i++) {
+            let char = rle[i];
+            if (char === 'b' || char === 'o') {
+                let value = char === 'o' ? 1 : 0;
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = Number(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('0123456789'.includes(char)) {
+                num += char;
+            } else if (char === '\u0024') {
+                out.push(currentLine);
+                currentLine = [];
+                if (num !== '') {
+                    let count = Number(num);
+                    for (let i = 1; i < count; i++) {
+                        out.push([]);
+                    }
+                    num = '';
+                }
+            } else if (char === '.') {
+                if (num === '') {
+                    currentLine.push(0);
+                } else {
+                    let count = Number(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(0);
+                    }
+                    num = '';
+                }
+            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
+                if (prefix) {
+                    char = prefix + char;
+                }
+                let value = RLE_CHARS.indexOf(char);
+                if (num === '') {
+                    currentLine.push(value);
+                } else {
+                    let count = Number(num);
+                    for (let i = 0; i < count; i++) {
+                        currentLine.push(value);
+                    }
+                    num = '';
+                }
+            } else if ('pqrstuvwxy'.includes(char)) {
+                prefix = char;
+            }
+        }
+        out.push(currentLine);
+        let height = out.length;
+        let width = Math.max(...out.map(x => x.length));
+        let data = new Uint8Array(height * width);
+        for (let y = 0; y < out.length; y++) {
+            let i = y * width;
+            let line = out[y];
+            for (let x = 0; x < line.length; x++) {
+                data[i] = line[x];
+                i++;
+            }
+        }
+        return [height, width, data];
+    }
+
     /** Loads an apgcode and returns a new pattern running the same rule. */
-    loadApgcode(code: string): Pattern;
+    abstract loadApgcode(code: string): Pattern;
     /** Loads a RLE and returns a new pattern running the same rule. */
-    loadRLE(data: string): Pattern;
+    abstract loadRLE(data: string): Pattern;
+    
+    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
+        return `${this.constructor.name} ${inspect({
+            height: this.height,
+            width: this.width,
+            xOffset: this.xOffset,
+            yOffset: this.yOffset,
+            generation: this.generation,
+            rule: this.rule,
+        }, options)} ${this.toRLE()}`;
+    }
+
 }
 
 
 /** Implements Pattern while storing the internal data as a Uint8Array. Should only be used for range-1 rules. */
-export abstract class DataPattern implements Pattern {
+export abstract class DataPattern extends Pattern {
 
     /** Stores the pattern data in row-major order. */
     data: Uint8Array;
@@ -479,9 +932,10 @@ export abstract class DataPattern implements Pattern {
     rule: Rule;
 
     constructor(height: number, width: number, data: Uint8Array, rule: Rule) {
+        super();
         this.height = height;
         this.width = width;
-        this.size = this.height * this.width;
+        this.size = height * width;
         this.data = data;
         this.rule = rule;
     }
@@ -951,52 +1405,6 @@ export abstract class DataPattern implements Pattern {
         return this;
     }
 
-    _toApgcode(data: Uint8Array): string {
-        let height = this.height;
-        let width = this.width;
-        let out = '';
-        for (let stripNum = 0; stripNum < Math.ceil(height / 5); stripNum++) {
-            let zeros = 0;
-            let start = stripNum * width * 5;
-            for (let x = 0; x < width; x++) {
-                let char = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4)];
-                if (char === '0') {
-                    zeros++;
-                } else {
-                    if (zeros > 0) {
-                        if (zeros === 1) {
-                            out += '0'; 
-                        } else if (zeros === 2) {
-                            out += 'w';
-                        } else if (zeros === 3) {
-                            out += 'x';
-                        } else {
-                            while (zeros > 39) {
-                                zeros -= 39;
-                                out += 'yz';
-                            }
-                            if (zeros > 0) {
-                                if (zeros === 1) {
-                                    out += '0';
-                                } else if (zeros === 2) {
-                                    out += 'w';
-                                } else if (zeros === 3) {
-                                    out += 'x';
-                                } else {
-                                    out += 'y' + APGCODE_CHARS[zeros - 4];
-                                }
-                            }
-                        }
-                        zeros = 0;
-                    }
-                    out += char;
-                }
-            }
-            out += 'z';
-        }
-        return out.slice(0, -1);
-    }
-
     toApgcode(prefix?: string): string {
         if (prefix === undefined) {
             prefix = '';
@@ -1019,411 +1427,14 @@ export abstract class DataPattern implements Pattern {
         }
     }
 
-    toCanonicalApgcode(period: number = 1, prefix?: string): string {
-        let p = this.copy();
-        p.shrinkToFit();
-        let codes: string[] = [];
-        for (let j = 0; j < period; j++) {
-            if (j > 0) {
-                p.runGeneration();
-                p.shrinkToFit();
-            }
-            codes.push(p.toApgcode());
-            if (this.rule.symmetry !== 'C1') {
-                let q = p.copy();
-                if (this.rule.symmetry === 'D8') {
-                    codes.push(q.rotateLeft().toApgcode());
-                    for (let i = 0; i < 2; i++) {
-                        for (let j = 0; j < 4; j++) {
-                            codes.push(q.rotateLeft().toApgcode());
-                        }
-                        q.flipHorizontal();
-                    }
-                } else if (this.rule.symmetry === 'C2') {
-                    codes.push(q.rotate180().toApgcode());
-                } else if (this.rule.symmetry === 'C4') {
-                    for (let i = 0; i < 4; i++) {
-                        codes.push(q.rotateLeft().toApgcode());
-                    }
-                } else if (this.rule.symmetry === 'D2-') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.rule.symmetry === 'D2|') {
-                    codes.push(q.flipVertical().toApgcode());
-                } else if (this.rule.symmetry === 'D2/') {
-                    codes.push(q.flipDiagonal().toApgcode());
-                } else if (this.rule.symmetry === 'D2\\') {
-                    codes.push(q.transpose().toApgcode());
-                } else if (this.rule.symmetry === 'D4+') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                    codes.push(q.flipVertical().toApgcode());
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else {
-                    codes.push(q.flipDiagonal().toApgcode());
-                    codes.push(q.transpose().toApgcode());
-                    codes.push(q.flipDiagonal().toApgcode());
-                }
-            }
-        }
-        let out = codes[0];
-        for (let code of codes.slice(1)) {
-            if (code.length < out.length || (code.length === out.length && code < out)) {
-                out = code;
-            }
-        }
-        if (prefix === undefined) {
-            prefix = '';
-        } else {
-            prefix += '_';
-        }
-        return prefix + out;
-    }
-
-    toRLE(header: boolean = true): string {
-        let out = header ? `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n` : '';
-        let prevChar = '';
-        let num = 0;
-        let i = 0;
-        let line = '';
-        let $count = 0;
-        let isStart = true;
-        for (let y = 0; y < this.height; y++) {
-            if (this.data.slice(i, i + this.width).every(x => x === 0)) {
-                $count++;
-                i += this.width;
-                continue;
-            }
-            if (!isStart) {
-                let prevLineLength = line.length;
-                if ($count > 0) {
-                    line += $count + 1;
-                    $count = 0;
-                }
-                line += '$';
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            } else if ($count > 0) {
-                let prevLineLength = line.length;
-                line += $count + '$';
-                $count = 0;
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            }
-            isStart = false;
-            for (let x = 0; x < this.width; x++) {
-                let char: string;
-                if (this.rule.states > 2) {
-                    char = RLE_CHARS[this.data[i]];
-                } else if (this.data[i]) {
-                    char = 'o';
-                } else {
-                    char = 'b';
-                }
-                if (char === prevChar) {
-                    num++;
-                } else {
-                    let prevLineLength = line.length;
-                    if (num > 1) {
-                        line += num;
-                    }
-                    line += prevChar;
-                    if (line.length > 69) {
-                        out += line.slice(0, prevLineLength) + '\n';
-                        line = line.slice(prevLineLength);
-                    }
-                    prevChar = char;
-                    num = 1;
-                }
-                i++;
-            }
-            if (prevChar !== 'b' && prevChar !== '.') {
-                let prevLineLength = line.length;
-                if (num > 1) {
-                    line += num;
-                }
-                line += prevChar;
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            }
-            prevChar = '';
-            num = 1;
-        }
-        out += line + '!';
-        return out;
-    }
-
-    _loadApgcode(code: string): [number, number, Uint8Array] {
-        if (this.rule.states === 2) {
-            let strips: string[] = [];
-            if (code.includes('yz')) {
-                let prev = '';
-                let current = '';
-                for (let char of code) {
-                    if (char === 'z' && prev !== 'y') {
-                        strips.push(current);
-                        current = '';
-                        prev = char;
-                        continue;
-                    }
-                    current += char;
-                    prev = char;
-                }
-                strips.push(current);
-            } else {
-                strips = code.split('z');
-            }
-            let data: number[][] = [];
-            let width = 0;
-            for (let strip of strips) {
-                let stripData: number[] = [];
-                for (let i = 0; i < strip.length; i++) {
-                    let char = strip[i];
-                    let index = APGCODE_CHARS.indexOf(char);
-                    if (index >= 32) {
-                        if (char === 'w') {
-                            stripData.push(0, 0);
-                        } else if (char === 'x') {
-                            stripData.push(0, 0, 0);
-                        } else {
-                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
-                            for (let i = 0; i < count; i++) {
-                                stripData.push(0);
-                            }
-                            i++;
-                        }
-                    } else {
-                        stripData.push(index);
-                    }
-                }
-                if (stripData.length > width) {
-                    width = stripData.length;
-                }
-                data.push(stripData);
-            }
-            let height = data.length * 5;
-            let out = new Uint8Array(height * width);
-            for (let y = 0; y < data.length; y++) {
-                let loc = width * y * 5;
-                for (let value of data[y]) {
-                    out[loc] = value & 1;
-                    out[loc + width] = (value >> 1) & 1;
-                    out[loc + 2 * width] = (value >> 2) & 1;
-                    out[loc + 3 * width] = (value >> 3) & 1;
-                    out[loc + 4 * width] = (value >> 4) & 1;
-                    loc++;
-                }
-            }
-            return [height, width, out];
-        }
-        let data: number[][][] = [];
-        let width = 0;
-        let height = 0;
-        for (let layer of code.split('_')) {
-            let layerData: number[][] = [];
-            for (let strip of layer.split('z')) {
-                let stripData: number[] = [];
-                for (let i = 0; i < strip.length; i++) {
-                    let char = strip[i];
-                    let index = APGCODE_CHARS.indexOf(char);
-                    if (index >= 32) {
-                        if (char === 'w') {
-                            stripData.push(0, 0);
-                        } else if (char === 'x') {
-                            stripData.push(0, 0, 0);
-                        } else {
-                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
-                            for (let i = 0; i < count; i++) {
-                                stripData.push(0);
-                            }
-                            i++;
-                        }
-                    } else {
-                        stripData.push(index);
-                    }
-                }
-                if (stripData.length > width) {
-                    width = stripData.length;
-                }
-                layerData.push(stripData);
-            }
-            let planeHeight = layerData.length * 5;
-            if (planeHeight > height) {
-                height = planeHeight;
-            }
-            data.push(layerData);
-        }
-        let out = new Uint8Array(height * width);
-        for (let y = 0; y < data[0].length; y++) {
-            let loc = width * y * 5;
-            for (let part of data[0][y]) {
-                out[loc] = part & 1;
-                out[loc + width] = (part >> 1) & 1;
-                out[loc + 2 * width] = (part >> 2) & 1;
-                out[loc + 3 * width] = (part >> 3) & 1;
-                out[loc + 4 * width] = (part >> 4) & 1;
-                loc++;
-            }
-        }
-        if (data.length === 2) {
-            for (let y = 0; y < data[1].length; y++) {
-                let loc = width * y * 5;
-                for (let part of data[1][y]) {
-                    if (part & 1) {
-                        out[loc] = 2;
-                    }
-                    if ((part >> 1) & 1) {
-                        out[loc + width] = 2;
-                    }
-                    if ((part >> 2) & 1) {
-                        out[loc + 2 * width] = 2;
-                    }
-                    if ((part >> 3) & 1) {
-                        out[loc + 3 * width] = 2;
-                    }
-                    if ((part >> 4) & 1) {
-                        out[loc + 4 * width] = 2;
-                    }
-                    loc++;
-                }
-            }
-        } else if (data.length > 2) {
-            for (let i = 2; i < data.length; i++) {
-                for (let y = 0; y < data[i].length; y++) {
-                    let loc = width * y * 5;
-                    for (let part of data[i][y]) {
-                        out[loc] |= (part & 1) << (i - 2);
-                        out[loc + width] |= ((part >> 1) & 1) << (i - 2);
-                        out[loc + 2 * width] |= ((part >> 2) & 1) << (i - 2);
-                        out[loc + 3 * width] |= ((part >> 3) & 1) << (i - 2);
-                        out[loc + 4 * width] |= ((part >> 4) & 1) << (i - 2);
-                        loc++;
-                    }
-                }
-            }
-            let states = Math.max(...out);
-            for (let y = 0; y < data[1].length; y++) {
-                let loc = width * y * 5;
-                for (let part of data[1][y]) {
-                    if (part & 1) {
-                        out[loc] = states - out[loc] + 2;
-                    }
-                    if ((part >> 1) & 1) {
-                        out[loc + width] = states - out[loc + width] + 2;
-                    }
-                    if ((part >> 2) & 1) {
-                        out[loc + 2 * width] = states - out[loc + 2 * width] + 2;
-                    }
-                    if ((part >> 3) & 1) {
-                        out[loc + 3 * width] = states - out[loc + 3 * width] + 2;
-                    }
-                    if ((part >> 4) & 1) {
-                        out[loc + 4 * width] = states - out[loc + 4 * width] + 2;
-                    }
-                    loc++;
-                }
-            }
-        }
-        return [height, width, out];
-    }
-
     abstract loadApgcode(code: string): DataPattern;
-
-    _loadRLE(rle: string): [number, number, Uint8Array] {
-        let out: number[][] = [];
-        let currentLine: number[] = [];
-        let num = '';
-        let prefix = '';
-        for (let i = 0; i < rle.length; i++) {
-            let char = rle[i];
-            if (char === 'b' || char === 'o') {
-                let value = char === 'o' ? 1 : 0;
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('0123456789'.includes(char)) {
-                num += char;
-            } else if (char === '\u0024') {
-                out.push(currentLine);
-                currentLine = [];
-                if (num !== '') {
-                    let count = Number(num);
-                    for (let i = 1; i < count; i++) {
-                        out.push([]);
-                    }
-                    num = '';
-                }
-            } else if (char === '.') {
-                if (num === '') {
-                    currentLine.push(0);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(0);
-                    }
-                    num = '';
-                }
-            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
-                if (prefix) {
-                    char = prefix + char;
-                }
-                let value = RLE_CHARS.indexOf(char);
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('pqrstuvwxy'.includes(char)) {
-                prefix = char;
-            }
-        }
-        out.push(currentLine);
-        let height = out.length;
-        let width = Math.max(...out.map(x => x.length));
-        let data = new Uint8Array(height * width);
-        for (let y = 0; y < out.length; y++) {
-            let i = y * width;
-            let line = out[y];
-            for (let x = 0; x < line.length; x++) {
-                data[i] = line[x];
-                i++;
-            }
-        }
-        return [height, width, data];
-    }
-
     abstract loadRLE(code: string): DataPattern;
-
-    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
-        return `${this.constructor.name} ${inspect({
-            height: this.height,
-            width: this.width,
-            xOffset: this.xOffset,
-            yOffset: this.yOffset,
-            generation: this.generation,
-            rule: this.rule,
-        }, options)} ${this.toRLE()}`;
-    }
 
 }
 
 
 /** Implements CA by storing the pattern data in a Map. Much more general than `DataPattern`, but slower. */
-export abstract class CoordPattern implements Pattern {
+export abstract class CoordPattern extends Pattern {
 
     /** Stores the pattern data in a Map. We pack 26-bit signed integers into a 52-bit integer, which is then used as a double. */
     coords: Map<number, number>;
@@ -1433,6 +1444,7 @@ export abstract class CoordPattern implements Pattern {
     rule: Rule;
 
     constructor(coords: Map<number, number>, rule: Rule) {
+        super();
         this.coords = coords;
         this.rule = rule;
     }
@@ -1755,50 +1767,6 @@ export abstract class CoordPattern implements Pattern {
         return this;
     }
 
-    _toApgcode(data: Uint8Array, height: number, width: number): string {
-        let out = '';
-        for (let stripNum = 0; stripNum < Math.ceil(height / 5); stripNum++) {
-            let zeros = 0;
-            let start = stripNum * width * 5;
-            for (let x = 0; x < width; x++) {
-                let char = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2 * width + x] << 2) | (data[start + 3 * width + x] << 3) | (data[start + 4 * width + x] << 4)];
-                if (char === '0') {
-                    zeros++;
-                } else {
-                    if (zeros > 0) {
-                        if (zeros === 1) {
-                            out += '0'; 
-                        } else if (zeros === 2) {
-                            out += 'w';
-                        } else if (zeros === 3) {
-                            out += 'x';
-                        } else {
-                            while (zeros > 39) {
-                                zeros -= 40;
-                                out += 'yz';
-                            }
-                            if (zeros > 0) {
-                                if (zeros === 1) {
-                                    out += '0';
-                                } else if (zeros === 2) {
-                                    out += 'w';
-                                } else if (zeros === 3) {
-                                    out += 'x';
-                                } else {
-                                    out += 'y' + APGCODE_CHARS[zeros - 4];
-                                }
-                            }
-                        }
-                        zeros = 0;
-                    }
-                    out += char;
-                }
-            }
-            out += 'z';
-        }
-        return out.slice(0, -1);
-    }
-
     toApgcode(prefix?: string): string {
         if (prefix === undefined) {
             prefix = '';
@@ -1806,17 +1774,16 @@ export abstract class CoordPattern implements Pattern {
             prefix += '_';
         }
         let data = this.getData();
-        let {height, width} = this.getRect();
         if (this.rule.states < 3) {
-            return prefix + this._toApgcode(data, height, width);
+            return prefix + this._toApgcode(data);
         } else {
-            let out = prefix + this._toApgcode(data.map(x => x === 1 ? 1 : 0), height, width);
-            out += '_' + this._toApgcode(data.map(x => x > 1 ? 1 : 0), height, width);
+            let out = prefix + this._toApgcode(data.map(x => x === 1 ? 1 : 0));
+            out += '_' + this._toApgcode(data.map(x => x > 1 ? 1 : 0));
             let layers = Math.ceil(Math.log2(this.rule.states - 2));
             if (layers > 0) {
                 let data2 = data.map(x => x < 2 ? 0 : (this.rule.states - x) * 4 - 2);
                 for (let i = 0; i < layers; i++) {
-                    out += '_' + this._toApgcode(data2.map(x => x & (1 << i)), height, width);
+                    out += '_' + this._toApgcode(data2.map(x => x & (1 << i)));
                 }
             }
             return out;
@@ -1963,255 +1930,36 @@ export abstract class CoordPattern implements Pattern {
         return out;
     }
 
-    _loadApgcode(code: string): Map<number, number> {
-        if (this.rule.states === 2) {
-            let data: number[][] = [];
-            let width = 0;
-            for (let strip of code.split('z')) {
-                let stripData: number[] = [];
-                for (let i = 0; i < strip.length; i++) {
-                    let char = strip[i];
-                    let index = APGCODE_CHARS.indexOf(char);
-                    if (index >= 32) {
-                        if (char === 'w') {
-                            stripData.push(0, 0);
-                        } else if (char === 'x') {
-                            stripData.push(0, 0, 0);
-                        } else {
-                            let count = APGCODE_CHARS.indexOf(strip[i + 1]) + 4;
-                            for (let i = 0; i < count; i++) {
-                                stripData.push(0);
-                            }
-                            i++;
-                        }
-                    } else {
-                        stripData.push(index);
-                    }
-                }
-                if (stripData.length > width) {
-                    width = stripData.length;
-                }
-                data.push(stripData);
-            }
-            let height = data.length * 5;
-            let out = new Uint8Array(height * width);
-            for (let y = 0; y < data.length; y++) {
-                let loc = width * y * 5;
-                for (let part of data[y]) {
-                    out[loc] = part & 1;
-                    out[loc + width] = (part >> 1) & 1;
-                    out[loc + 2 * width] = (part >> 2) & 1;
-                    out[loc + 3 * width] = (part >> 3) & 1;
-                    out[loc + 4 * width] = (part >> 4) & 1;
-                    loc++;
-                }
-            }
-            let coords = new Map<number, number>();
-            let i = 0;
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    let value = out[i++];
-                    if (value) {
-                        coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
-                    }
-                }
-            }
-            return coords;
-        }
-        let data: number[][][] = [];
-        let width = 0;
-        let height = 0;
-        for (let layer of code.split('_')) {
-            let layerData: number[][] = [];
-            for (let strip of layer.split('z')) {
-                let stripData: number[] = [];
-                for (let i = 0; i < strip.length; i++) {
-                    let char = strip[i];
-                    let index = APGCODE_CHARS.indexOf(char);
-                    if (index >= 32) {
-                        if (char === 'w') {
-                            stripData.push(0, 0);
-                        } else if (char === 'x') {
-                            stripData.push(0, 0, 0);
-                        } else {
-                            let letter = strip[i + 1];
-                            let count = APGCODE_CHARS.indexOf(letter) + 4;
-                            for (let i = 0; i < count; i++) {
-                                stripData.push(0);
-                            }
-                        }
-                    } else {
-                        stripData.push(index);
-                    }
-                }
-                if (stripData.length > width) {
-                    width = stripData.length;
-                }
-                layerData.push(stripData);
-            }
-            let planeHeight = layerData.length * 5;
-            if (planeHeight > height) {
-                height = planeHeight;
-            }
-            data.push(layerData);
-        }
-        let out = new Uint8Array(height * width);
-        for (let y = 0; y < data[0].length; y++) {
-            let loc = width * y * 5;
-            for (let part of data[0][y]) {
-                out[loc] = part & 1;
-                out[loc + width] = (part >> 1) & 1;
-                out[loc + 2 * width] = (part >> 2) & 1;
-                out[loc + 3 * width] = (part >> 3) & 1;
-                out[loc + 4 * width] = (part >> 4) & 1;
-                loc++;
-            }
-        }
-        if (data.length === 2) {
-            for (let y = 0; y < data[1].length; y++) {
-                let loc = width * y * 5;
-                for (let part of data[1][y]) {
-                    if (part & 1) {
-                        out[loc] = 2;
-                    }
-                    if ((part >> 1) & 1) {
-                        out[loc + width] = 2;
-                    }
-                    if ((part >> 2) & 1) {
-                        out[loc + 2 * width] = 2;
-                    }
-                    if ((part >> 3) & 1) {
-                        out[loc + 3 * width] = 2;
-                    }
-                    if ((part >> 4) & 1) {
-                        out[loc + 4 * width] = 2;
-                    }
-                    loc++;
-                }
-            }
-        } else if (data.length > 2) {
-            for (let i = 2; i < data.length; i++) {
-                for (let y = 0; y < data[i].length; y++) {
-                    let loc = width * y * 5;
-                    for (let part of data[i][y]) {
-                        out[loc] |= (part & 1) << (i - 2);
-                        out[loc + width] |= ((part >> 1) & 1) << (i - 2);
-                        out[loc + 2 * width] |= ((part >> 2) & 1) << (i - 2);
-                        out[loc + 3 * width] |= ((part >> 3) & 1) << (i - 2);
-                        out[loc + 4 * width] |= ((part >> 4) & 1) << (i - 2);
-                        loc++;
-                    }
-                }
-            }
-            let states = Math.max(...out);
-            for (let y = 0; y < data[1].length; y++) {
-                let loc = width * y * 5;
-                for (let part of data[1][y]) {
-                    if (part & 1) {
-                        out[loc] = states - out[loc] + 2;
-                    }
-                    if ((part >> 1) & 1) {
-                        out[loc + width] = states - out[loc + width] + 2;
-                    }
-                    if ((part >> 2) & 1) {
-                        out[loc + 2 * width] = states - out[loc + 2 * width] + 2;
-                    }
-                    if ((part >> 3) & 1) {
-                        out[loc + 3 * width] = states - out[loc + 3 * width] + 2;
-                    }
-                    if ((part >> 4) & 1) {
-                        out[loc + 4 * width] = states - out[loc + 4 * width] + 2;
-                    }
-                    loc++;
-                }
-            }
-        }
-        let coords = new Map<number, number>();
+    _loadApgcode2(code: string): Map<number, number> {
+        let [height, width, data] = super._loadApgcode(code);
+        let out = new Map<number, number>();
         let i = 0;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                let value = out[i++];
+                let value = data[i++];
                 if (value) {
-                    coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                    out.set((x + BIAS) * WIDTH + (y + BIAS), value);
                 }
             }
         }
-        return coords;
+        return out;
     }
 
     abstract loadApgcode(code: string): CoordPattern;
 
-    _loadRLE(rle: string): Map<number, number> {
-        let out: number[][] = [];
-        let currentLine: number[] = [];
-        let num = '';
-        let prefix = '';
-        for (let i = 0; i < rle.length; i++) {
-            let char = rle[i];
-            if (char === 'b' || char === 'o') {
-                let value = char === 'o' ? 1 : 0;
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('0123456789'.includes(char)) {
-                num += char;
-            } else if (char === '\u0024') {
-                out.push(currentLine);
-                currentLine = [];
-                if (num !== '') {
-                    let count = Number(num);
-                    for (let i = 1; i < count; i++) {
-                        out.push([]);
-                    }
-                    num = '';
-                }
-            } else if (char === '.') {
-                if (num === '') {
-                    currentLine.push(0);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(0);
-                    }
-                    num = '';
-                }
-            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
-                if (prefix) {
-                    char = prefix + char;
-                }
-                let value = RLE_CHARS.indexOf(char);
-                if (num === '') {
-                    currentLine.push(value);
-                } else {
-                    let count = Number(num);
-                    for (let i = 0; i < count; i++) {
-                        currentLine.push(value);
-                    }
-                    num = '';
-                }
-            } else if ('pqrstuvwxy'.includes(char)) {
-                prefix = char;
-            }
-        }
-        out.push(currentLine);
-        let height = out.length;
-        let width = Math.max(...out.map(x => x.length));
-        let coords = new Map<number, number>();
+    _loadRLE2(rle: string): Map<number, number> {
+        let [height, width, data] = super._loadRLE(rle);
+        let out = new Map<number, number>();
+        let i = 0;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                let value = out[y][x];
+                let value = data[i++];
                 if (value) {
-                    coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
+                    out.set((x + BIAS) * WIDTH + (y + BIAS), value);
                 }
             }
         }
-        return coords;
+        return out;
     }
 
     abstract loadRLE(code: string): CoordPattern;

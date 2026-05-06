@@ -141,11 +141,11 @@ export class FiniteCoordPattern extends CoordPattern {
     }
 
     loadApgcode(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadApgcode(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this._loadApgcode2(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
     loadRLE(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadRLE(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
+        return new FiniteCoordPattern(this._loadRLE2(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
     }
 
 }
@@ -356,11 +356,11 @@ export class TorusCoordPattern extends CoordPattern {
     }
 
     loadApgcode(code: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadApgcode(code), this.rule, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this._loadApgcode2(code), this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
     loadRLE(rle: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadRLE(rle), this.rule, this.pattern, this.torusHeight, this.torusWidth);
+        return new TorusCoordPattern(this._loadRLE2(rle), this.rule, this.pattern, this.torusHeight, this.torusWidth);
     }
 
 

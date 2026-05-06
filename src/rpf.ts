@@ -98,7 +98,7 @@ export function join(...paths: string[]): string {
 }
 
 
-export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
+export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     base: T;
     key: string;
@@ -110,6 +110,8 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
         rotation: Rotation;
         time: number;
     })[];
+    // we set optional values to undefined so the V8 hidden classes are the same
+    name?: string = undefined;
     minX: number;
     minY: number;
     height: number;
@@ -121,6 +123,7 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
     rule: Rule;
 
     constructor(base: T, key: string, path: string, data: RPFPattern<T>['data']) {
+        super();
         this.base = base;
         this.key = key;
         this.path = path;
@@ -157,6 +160,9 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
 
     toString(): string {
         let out = `${this.key}:\n`;
+        if (this.name) {
+            out += `#name ${this.name}\n`;
+        }
         for (let value of this.data) {
             let start = value.p instanceof RPFPattern ? value.p.key : '!' + value.p.toRLE(false);
             if (value.time === 0) {
@@ -179,17 +185,20 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
     static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
         let lines = data.split('\n');
         let key = lines[0].slice(0, -1);
-        let values: RPFPattern<T>['data'] = [];
+        let out = new RPFPattern(file.base, key, join(file.path, key), []);
         for (let i = 1; i < lines.length; i++) {
             let line = lines[i];
             let parts = line.split(' ');
             if (parts[0].startsWith('#')) {
+                if (parts[0] === '#name') {
+                    out.name = parts.slice(1).join(' ');
+                }
             } else {
                 let p = parts[0].endsWith('!') ? file.base.loadRLE(parts[0]) as T : file.data[parts[0]];
                 if (!p) {
                     throw new RPFError(`RPF object '${parts[0]}' was never defined`);
                 }
-                values.push({
+                out.data.push({
                     p,
                     x: parts[1] === undefined ? 0 : Number(parts[1]),
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
@@ -198,7 +207,6 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
                 });
             }
         }
-        let out = new RPFPattern(file.base, key, join(file.path, key), values);
         return out;
     }
 
@@ -234,6 +242,7 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
             rotation: x.rotation,
             time: x.time,
         })));
+        out.name = this.name;
         return out;
     }
 
@@ -245,6 +254,7 @@ export class RPFPattern<T extends Pattern = Pattern> implements Pattern {
             rotation: x.rotation,
             time: x.time,
         })));
+        out.name = this.name;
         return out;
     }
 

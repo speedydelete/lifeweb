@@ -1,12 +1,9 @@
 
-/* A broken implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
+/* An implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
 
 import {RuleError} from './util.js';
-import {CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS, Rule} from './pattern.js';
+import {DataPattern, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS, Rule} from './pattern.js';
 
-
-/** Stores a compiled rule tree data. */
-export type Tree = (number | Tree)[];
 
 /** Associated information for a rule tree. */
 export interface RuleTree {
@@ -14,7 +11,7 @@ export interface RuleTree {
     range: number;
     /** The weighted HROT neighborhood. */
     neighborhood: Int8Array;
-    data: Tree;
+    data: Uint8Array;
 }
 
 /** A parsed @ RULE rule. */
@@ -381,8 +378,9 @@ function parseJSONLoose(data: string): number[][] {
 /** Parses a rule tree. This function is probably broken. */
 function parseTree(data: string): RuleTree {
     let nh: [number, number][] = [];
-    let nodes: Tree[] = [];
-    let states = 0;
+    let tree: [boolean, number[]][] = [];
+    let length = 0;
+    let states = 1;
     for (let line of data.split('\n')) {
         if (line.includes('=')) {
             let [cmd, arg] = line.split('=');
@@ -403,21 +401,27 @@ function parseTree(data: string): RuleTree {
         } else {
             let [depth, ...data] = line.split(' ').map(x => Number(x));
             if (depth === 1) {
-                let newStates = Math.max(...data);
+                let newStates = Math.max(...data) + 1;
                 if (newStates > states) {
                     states = newStates;
                 }
-                nodes.push(data);
-            } else {
-                nodes.push(data.map(x => nodes[x]));
             }
+            tree.push([depth === 1, data]);
+            length += data.length;
+        }
+    }
+    let out = new Uint8Array(length);
+    let i = 0;
+    for (let [isLeaf, data] of tree) {
+        for (let value of data) {
+            out[i++] = isLeaf ? value * states : value;
         }
     }
     return {
-        states: states + 1,
+        states,
         range: Math.max(...nh.map(x => Math.max(Math.abs(x[0]), Math.abs(x[1])))),
         neighborhood: new Int8Array(nh.flat()),
-        data: nodes[nodes.length - 1],
+        data: out,
     };
 }
 
@@ -558,21 +562,7 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
     return out;
 }
 
-/** Turns a rule table line into a rule tree. */
-function trsToTree(trs: number[][], states: number, center: number | null = null): Tree {
-    if (trs[0].length === 2) {
-        let out: Tree = [];
-        for (let state = 0; state < states; state++) {
-            // -1 means any
-            let value = trs.find(x => x[0] === state || x[0] === -1);
-            if (value) {
-                out.push(value[1]);
-            } else {
-                out.push(center ?? state);
-            }
-        }
-        return out;
-    }
+function _trsToTree(trs: number[][], states: number, center: number | null = null): number[][] {
     let groups: number[][][] = [];
     for (let i = 0; i < states; i++) {
         groups.push([]);
@@ -590,7 +580,6 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
             groups[state] = [tr];
         }
     }
-    let out: Tree = [];
     for (let state = 0; state < states; state++) {
         let trs = groups[state];
         if (trs.length === 0) {
@@ -600,6 +589,11 @@ function trsToTree(trs: number[][], states: number, center: number | null = null
         }
     }
     return out;
+}
+
+/** Turns a rule table line into a rule tree. */
+function trsToTree(trs: number[][], states: number, center: number | null = null): number[][] {
+
 }
 
 /** Parses a rule table. */
@@ -687,6 +681,7 @@ function parseTable(data: string): RuleTree {
         }
     }
     states++;
+    // Format of trs variable is an array of (neighborhood length + 1) length array of numbers specifying the transitions
     let trs: number[][] = [];
     let done = new Set<string>();
     for (let {value: line, nh, sym} of lines) {
@@ -785,7 +780,7 @@ function parseTable(data: string): RuleTree {
 }
 
 /** Parses an @ RULE rule. */
-export function parseAtRule(rule: string): AtRule {
+function parseAtRule(rule: string): AtRule {
     let section = '';
     let out: Omit<AtRule, 'tree'> = {};
     let tree: RuleTree | null = null;
@@ -849,7 +844,7 @@ export function parseAtRule(rule: string): AtRule {
 }
 
 /** Turns a parsed @ RULE into a canonicalized rulestring. */
-export function atRuleToString(rule: AtRule): string {
+function atRuleToString(rule: AtRule): string {
     let out = '';
     if (rule.name || rule.desc) {
         out += '@RULE';
@@ -875,14 +870,65 @@ export function atRuleToString(rule: AtRule): string {
 }
 
 
-/** The most general built-in pattern class, can implement any rule, but is probably broken in some way. */
+/** Can implement any range-1 Moore-neighborhood rule. */
+export class R1TreePattern extends DataPattern {
+
+    tree: Uint8Array;
+    atRule: AtRule;
+
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, tree: Uint8Array, atRule: AtRule) {
+        super(height, width, data, rule);
+        this.tree = tree;
+        this.atRule = atRule;
+    }
+
+    runGeneration(): void {
+        
+    }
+
+    copy(): R1TreePattern {
+        let out = new R1TreePattern(this.height, this.width, this.data.slice(), this.rule, this.tree, this.atRule);
+        out.generation = this.generation;
+        out.xOffset = this.xOffset;
+        out.yOffset = this.yOffset;
+        return out;
+    }
+
+    clearedCopy(): R1TreePattern {
+        return new R1TreePattern(0, 0, new Uint8Array(0), this.rule, this.tree, this.atRule);
+    }
+
+    copyPart(x: number, y: number, height: number, width: number): R1TreePattern {
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
+            loc += width;
+        }
+        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+    }
+
+    loadApgcode(code: string): R1TreePattern {
+        let [height, width, data] = this._loadApgcode(code);
+        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+    }
+
+    loadRLE(rle: string): R1TreePattern {
+        let [height, width, data] = this._loadRLE(rle);
+        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+    }
+
+}
+
+
+/** The most general built-in pattern class, can implement any rule. */
 export class TreePattern extends CoordPattern {
     
     nh: Int8Array;
-    tree: Tree;
+    tree: Uint8Array;
     atRule: AtRule;
 
-    constructor(coords: Map<number, number>, rule: Rule, nh: Int8Array, tree: Tree, atRule: AtRule) {
+    constructor(coords: Map<number, number>, rule: Rule, nh: Int8Array, tree: Uint8Array, atRule: AtRule) {
         super(coords, rule);
         this.nh = nh;
         this.tree = tree;
@@ -940,11 +986,11 @@ export class TreePattern extends CoordPattern {
     }
 
     loadApgcode(code: string): TreePattern {
-        return new TreePattern(this._loadApgcode(code), this.rule, this.nh, this.tree, this.atRule);
+        return new TreePattern(this._loadApgcode2(code), this.rule, this.nh, this.tree, this.atRule);
     }
 
     loadRLE(rle: string): TreePattern {
-        return new TreePattern(this._loadRLE(rle), this.rule, this.nh, this.tree, this.atRule);
+        return new TreePattern(this._loadRLE2(rle), this.rule, this.nh, this.tree, this.atRule);
     }
 
 }

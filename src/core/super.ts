@@ -240,11 +240,11 @@ export class CoordHistoryPattern extends CoordPattern {
     }
 
     loadApgcode(code: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadApgcode(code), this.rule, this.pattern);
+        return new CoordHistoryPattern(this._loadApgcode2(code), this.rule, this.pattern);
     }
 
     loadRLE(rle: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadRLE(rle), this.rule, this.pattern);
+        return new CoordHistoryPattern(this._loadRLE2(rle), this.rule, this.pattern);
     }
 
 }
@@ -639,11 +639,11 @@ export class CoordSuperPattern extends CoordPattern {
     }
 
     loadApgcode(code: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadApgcode(code), this.rule, this.pattern);
+        return new CoordSuperPattern(this._loadApgcode2(code), this.rule, this.pattern);
     }
 
     loadRLE(rle: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadRLE(rle), this.rule, this.pattern);
+        return new CoordSuperPattern(this._loadRLE2(rle), this.rule, this.pattern);
     }
 
 }
