@@ -67,7 +67,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.startsWith('@')) {
         try {
-            return createTreePattern(rule, height, width, data);
+            return createTreePattern(rule, height, width, data, prevName);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);

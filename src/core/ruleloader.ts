@@ -754,7 +754,6 @@ function tableCellLookup(table: TableData, cells: number[]): number {
 export function parseAtRule(rule: string): AtRule {
     let section = '';
     let out: AtRule = {};
-    let tree: TreeData | undefined = undefined;
     let data = '';
     for (let line of (rule + '\n@END').split('\n')) {
         line = line.trim();
@@ -769,6 +768,7 @@ export function parseAtRule(rule: string): AtRule {
             }
             continue;
         }
+        console.log(section);
         if (section === '@TABLE') {
             if (out.table || out.tree) {
                 continue;
@@ -1177,14 +1177,14 @@ export class TreePattern extends DataPattern {
 }
 
 
-export function createTreePattern(rule: string, height: number, width: number, data: Uint8Array): TreePattern {
+export function createTreePattern(rule: string, height: number, width: number, data: Uint8Array, ruleStr?: string): TreePattern {
     let atRule = parseAtRule(rule);
     if (!atRule.tree) {
         throw new RuleError(`No @TABLE or @TREE present`);
     }
     let tree = atRule.tree;
     let ruleData: Rule = {
-        str: atRuleToString(atRule),
+        str: ruleStr ?? atRuleToString(atRule),
         states: tree.states,
         neighborhood: tree.neighborhood,
         symmetry: tree.symmetry,
