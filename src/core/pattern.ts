@@ -612,7 +612,7 @@ export abstract class Pattern {
                 let char: string;
                 if (this.rule.states > 2) {
                     char = RLE_CHARS[data[i]];
-                } else if (data) {
+                } else if (data[i]) {
                     char = 'o';
                 } else {
                     char = 'b';
