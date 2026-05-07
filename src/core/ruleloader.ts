@@ -694,7 +694,7 @@ function parseTable(data: string): TableData {
         i += array.length;
     }
     return {
-        neighborhood,
+        neighborhood: fullNeighborhood,
         states,
         symmetry: ruleSymmetry,
         trs,
