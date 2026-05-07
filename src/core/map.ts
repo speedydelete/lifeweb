@@ -1981,7 +1981,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         }
     }
     let neighborhood = findTransitionsNeighborhood(trs);
-    let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 1 : 0;
+    let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 0 : 1;
     if (trs[0]) {
         if (trs[511]) {
             let out = new Uint8Array(512);
