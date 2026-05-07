@@ -280,7 +280,39 @@ export function parseIsotropic(b: string, s: string, trs: {[key: string]: number
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
+export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
+    let original = data;
+    if (data.startsWith('MAP')) {
+        data = data.slice(3);
+    } else if (data.startsWith('xmap')) {
+        data = data.slice(4);
+    } else {
+        throw new RuleError(`Invalid MAP string: '${original}'`);
+    }
+    data = data.slice(3).replaceAll('=', '');
+    let type: 'normal' | 'vn' | 'hex';
+    let states = 2;
+    if (data.length !== 86 && data.length !== 6 && data.length !== 20) {
+        let index = data.lastIndexOf('/');
+        if (index === -1) {
+            throw new RuleError(`Invalid MAP string: '${original}'`);
+        }
+        let value = data.slice(index + 1);
+        if (!value.match(/^\d+$/)) {
+            throw new RuleError(`Invalid MAP string: '${original}'`);
+        }
+        states = parseInt(value);
+        data = data.slice(0, index);
+    }
+    if (data.length === 86) {
+        type = 'normal';
+    } else if (data.length === 6) {
+        type = 'vn';
+    } else if (data.length === 20) {
+        type = 'hex';
+    } else {
+        throw new RuleError(`Invalid MAP string: '${original}'`);
+    }
     let out: number[] = [];
     for (let i = 0; i < data.length; i += 4) {
         let a = BASE64.indexOf(data[i]);
@@ -299,40 +331,42 @@ export function parseMAP(data: string): Uint8Array<ArrayBuffer> {
         out.push(((c & 3) << 6) | d);
     }
     let trs = new Uint8Array(512);
-    if (data.length === 86) {
+    if (type === 'normal') {
         for (let i = 0; i < 512; i++) {
             if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
                 trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
             }
         }
-    } else if (data.length === 6) {
+    } else if (type === 'vn') {
         for (let i = 0; i < 512; i++) {
             let j = ((i & 0b010000000) >> 3) | ((i & 0b000111000) >> 2) | ((i & 0b00000010) >> 1);
             if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
                 trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
             }
         }
-    } else if (data.length === 20) {
+    } else {
         for (let i = 0; i < 512; i++) {
             let j = (i & 0b011_111_110) >> 1;
             if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
                 trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
             }
         }
-    } else {
-        throw new RuleError(`MAP string must be 86, 6, or 20 characters long`);
     }
-    return trs;
+    return [trs, states];
 }
 
-export function unparseMAP(trs: Uint8Array): string {
+export function unparseMAP(trs: Uint8Array, states: number): string {
     let out = new Uint8Array(64);
     for (let i = 0; i < 512; i++) {
         if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
             out[Math.floor(i / 8)] |= (1 << (7 - i % 8));
         }
     }
-    return btoa(String.fromCharCode(...out)).replaceAll('=', '');
+    let str = 'MAP' + btoa(String.fromCharCode(...out)).replaceAll('=', '');
+    if (states !== 2) {
+        str += '/' + states;
+    }
+    return str;
 }
 
 
@@ -425,15 +459,6 @@ export class MAPPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
-        } else {
-            if (trs[(tr1 << 3) & 63]) {
-                expandUp = 1;
-                upExpands[width - 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 63]) {
-                expandDown = 1;
-                downExpands[width - 1] = 1;
-            }
         }
         // we then compute how it should expand to the left and right
         let expandLeft = 0;
@@ -486,15 +511,6 @@ export class MAPPattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
-                expandRight = 1;
-                rightExpands[height - 1] = 1;
-            }
-        } else {
-            if (trs[(tr1 << 1) & 219]) {
-                expandLeft = 1;
-                leftExpands[height - 1] = 1;
-            }
-            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -771,15 +787,6 @@ export class MAPB0Pattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
-        } else {
-            if (trs[(tr1 << 3) & 63]) {
-                expandUp = 1;
-                upExpands[width - 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 63]) {
-                expandDown = 1;
-                downExpands[width - 1] = 1;
-            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -827,15 +834,6 @@ export class MAPB0Pattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
-                expandRight = 1;
-                rightExpands[height - 1] = 1;
-            }
-        } else {
-            if (trs[(tr1 << 1) & 219]) {
-                expandLeft = 1;
-                leftExpands[height - 1] = 1;
-            }
-            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -1084,15 +1082,6 @@ export class MAPGenPattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
-        } else {
-            if (trs[(tr1 << 3) & 63]) {
-                expandUp = 1;
-                upExpands[width - 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 63]) {
-                expandDown = 1;
-                downExpands[width - 1] = 1;
-            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1140,15 +1129,6 @@ export class MAPGenPattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
-                expandRight = 1;
-                rightExpands[height - 1] = 1;
-            }
-        } else {
-            if (trs[(tr1 << 1) & 219]) {
-                expandLeft = 1;
-                leftExpands[height - 1] = 1;
-            }
-            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -1474,15 +1454,6 @@ export class MAPGenB0Pattern extends DataPattern {
                 expandDown = 1;
                 downExpands[width - 1] = 1;
             }
-        } else {
-            if (trs[(tr1 << 3) & 63]) {
-                expandUp = 1;
-                upExpands[width - 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 63]) {
-                expandDown = 1;
-                downExpands[width - 1] = 1;
-            }
         }
         let expandLeft = 0;
         let expandRight = 0;
@@ -1530,15 +1501,6 @@ export class MAPGenB0Pattern extends DataPattern {
                 leftExpands[height - 1] = 1;
             }
             if (trs[(tr2 << 1) & 511]) {
-                expandRight = 1;
-                rightExpands[height - 1] = 1;
-            }
-        } else {
-            if (trs[(tr1 << 1) & 219]) {
-                expandLeft = 1;
-                leftExpands[height - 1] = 1;
-            }
-            if (trs[(tr2 << 1) & 219]) {
                 expandRight = 1;
                 rightExpands[height - 1] = 1;
             }
@@ -1867,9 +1829,9 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
     let nhLetter: 'M' | 'V' | 'H' | 'L' = 'M';
     let states = 2;
     let match: RegExpMatchArray | null;
-    if (rule.startsWith('MAP')) {
-        trs = parseMAP(rule.slice(3));
-        ruleStr = 'MAP' + unparseMAP(trs);
+    if (rule.startsWith('MAP') || rule.startsWith('xmap')) {
+        [trs, states] = parseMAP(rule);
+        ruleStr = unparseMAP(trs, states);
     } else if (rule.startsWith('W')) {
         if (!rule.match(/^W\d+$/)) {
             throw new RuleError('Invalid W rule');
@@ -2027,8 +1989,8 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 out[i] = 1 - trs[511 - i];
             }
             trs = out;
-            if (ruleStr.startsWith('MAP')) {
-                ruleStr = 'MAP' + unparseMAP(trs);
+            if (ruleStr.startsWith('MAP') || ruleStr.startsWith('xmap')) {
+                ruleStr = unparseMAP(trs, states);
             } else {
                 let isHex = ruleStr.endsWith('H');
                 let allTrs = isHex ? HEX_TRANSITIONS : TRANSITIONS;
@@ -2070,10 +2032,10 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
     let ruleData: Rule = {
         str: ruleStr,
         states,
+        neighborhood,
         symmetry,
         period: 1,
         range,
-        neighborhood,
     };
     if (states > 2) {
         return new MAPGenPattern(height, width, data, ruleData, trs);

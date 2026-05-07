@@ -2,7 +2,7 @@
 /* Implements higher-range outer-totalistic rules (https://conwaylife.com/wiki/Larger_than_Life). */
 
 import {RuleError} from './util.js';
-import {CoordPattern, RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule} from './pattern.js';
+import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule, DataPattern, CoordPattern} from './pattern.js';
 import {unparseMAP} from './map.js';
 
 
@@ -276,16 +276,16 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
         if (nh) {
             let trs = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                let value = nh[2][2] * (i & 1) + nh[2][1] * ((i >> 1) & 1) + nh[2][0] * ((i >> 2) & 1) + nh[1][2] * ((i >> 3) & 1) + nh[1][0] * ((i >> 5) & 1) + nh[2][0] * ((i >> 6) & 1) + nh[1][0] * ((i >> 7) & 1) + nh[0][0] * ((i >> 8) & 1);
+                let value = nh[2][2] * (i & 1) + nh[1][2] * ((i >> 1) & 1) + nh[0][2] * ((i >> 2) & 1) + nh[2][1] * ((i >> 3) & 1) + nh[0][1] * ((i >> 5) & 1) + nh[2][0] * ((i >> 6) & 1) + nh[1][0] * ((i >> 7) & 1) + nh[0][0] * ((i >> 8) & 1);
                 if (i & (1 << 4)) {
-                    if (value in s) {
+                    if (s.includes(value)) {
                         trs[i] = 1;
                     }
-                } else if (value in b) {
+                } else if (b.includes(value)) {
                     trs[i] = 1;
                 }
             }
-            return 'MAP' + unparseMAP(trs);
+            return unparseMAP(trs, c);
         } else {
             if (c === 2) {
                 return `B${b.join('')}/S${s.join('')}`;
@@ -329,10 +329,10 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
         rule: {
             str: ruleStr,
             states: c,
+            neighborhood,
             symmetry: nh ? getCustomNeighborhoodSymmetry(r, nh) : 'D8',
             period: b[0] ? 2 : 1,
             range: r,
-            neighborhood,
         },
         b: outB,
         s: outS,

@@ -8,7 +8,7 @@ import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from '
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
-import {parseAtRule, TreePattern} from './ruleloader.js';
+import {TreePattern, createTreePattern} from './ruleloader.js';
 
 export * from './util.js';
 export * from './pattern.js';
@@ -67,35 +67,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.startsWith('@')) {
         try {
-            let out = parseAtRule(rule);
-            let coords = new Map<number, number>();
-            let i = 0;
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    let value = data[i++];
-                    if (value) {
-                        coords.set((x + BIAS) * WIDTH + (y + BIAS), value);
-                    }
-                }
-            }
-            let range = out.tree.range;
-            let neighborhood: [number, number][] = [];
-            i = 0;
-            for (let y = -range; y <= range; y++) {
-                for (let x = -range; x <= range; x++) {
-                    if (out.tree.neighborhood[i++] !== 0) {
-                        neighborhood.push([x, y]);
-                    }
-                }
-            }
-            return new TreePattern(coords, {
-                str: prevName ?? rule,
-                states: out.tree.states,
-                symmetry: 'C1',
-                period: 1,
-                range,
-                neighborhood,
-            }, out.tree.neighborhood, out.tree.data, out);
+            return createTreePattern(rule, height, width, data);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
@@ -432,7 +404,7 @@ export function getBlackWhiteReversal(rule: string): string {
                 return `B${bStr}/S${sStr}`;
             }
         } else {
-            return 'MAP' + unparseMAP(trs);
+            return unparseMAP(trs, p.rule.states);
         }
     } else if (p instanceof HROTPattern || p instanceof HROTB0Pattern) {
         let b: Uint8Array;

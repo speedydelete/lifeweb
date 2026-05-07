@@ -1,345 +1,63 @@
 
-/* An implemetation of the RuleLoader algorithm, described in detail at https://golly.sourceforge.io/Help/formats.html#rule. Also implements parts of Nutshell (https://github.com/supposedly/nutshell), and the lifelib/CAViewer-specific unbounded neighborhoods. */
-
-import {RuleError} from './util.js';
-import {DataPattern, CoordPattern, COORD_WIDTH as WIDTH, COORD_BIAS as BIAS, Rule} from './pattern.js';
+import {RuleError, permutations} from './util.js';
+import {RuleSymmetry, SYMMETRY_JOIN, Rule, DataPattern} from './pattern.js';
 
 
-/** Associated information for a rule tree. */
-export interface RuleTree {
+type Symmetry = RuleSymmetry | 'C8' | 'D16' | 'permute';
+
+export interface TreeData {
     states: number;
-    range: number;
-    /** The weighted HROT neighborhood. */
-    neighborhood: Int8Array;
-    data: Uint8Array;
+    neighborhood: [number, number][];
+    symmetry: RuleSymmetry;
+    data: Uint32Array;
+    originalData: number[][];
 }
 
-/** A parsed @ RULE rule. */
+export interface TableData {
+    states: number;
+    neighborhood: [number, number][];
+    symmetry: RuleSymmetry;
+    trs: Uint8Array;
+}
+
 export interface AtRule {
     name?: string;
     desc?: string;
-    tree: RuleTree;
+    tree?: TreeData;
+    table?: TableData;
     names?: {[key: number]: string};
     colors?: {[key: number]: [number, number, number]};
     icons?: string;
 }
 
-
-/** The valid neighorhoods. */
-const RULELOADER_NEIGHBORHOODS: {[key: string]: [number, number][]} = {
+const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]],
     'vonneumann': [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]],
     'hexagonal': [[0, 0], [0, -1], [1, 0], [1, 1], [0, 1], [-1, 0], [-1, -1]],
     'onedimensional': [[0, 0], [-1, 0], [1, 0]],
 };
 
-
-// These functions are symmetry generators for a given neighborhood.
-// I honestly forget how exactly the symmetries are stored in it.
-
-function symC1(nh: [number, number][]): number[][] {
-    return [];
-}
-
-function symC2(nh: [number, number][]): number[][] {
-    let out: number[] = [];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === -x && p[1] === -y);
-        if (j === -1) {
-            throw new RuleError('Invalid neighborhood for C2 symmetry');
-        }
-        out.push(j);
-    }
-    return [out];
-}
-
-function symC4(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === y && p[1] === -x);
-        let k = nh.findIndex(p => p[0] === -x && p[1] === -y);
-        let l = nh.findIndex(p => p[0] === -y && p[1] === x);
-        if (j === -1 || k === -1 || l === -1) {
-            throw new RuleError('Invalid neighborhood for C4 symmetry');
-        }
-        out[0].push(j);
-        out[1].push(k);
-        out[2].push(l);
-    }
-    return out;
-}
-
-function symC8(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], [], [], [], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
-            throw new RuleError('Invalid neighborhood for C8 symmetry');
-        }
-        for (let j = 0; j < 7; j++) {
-            if (x === 0) {
-                y = x;
-            } else if (y === 0) {
-                x = -y;
-            } else if (x > 0) {
-                x = 0;
-                y *= 2;
-            } else {
-                x *= 2;
-                y = 0;
-            }
-            let k = nh.findIndex(p => p[0] === x && p[1] === y);
-            if (k === -1) {
-                throw new RuleError('Invalid neighborhood for C8 symmetry');
-            }
-            out[j].push(k);
-        }
-    }
-    return out;
-}
-
-function symC8alt(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], [], [], [], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
-            throw new RuleError('Invalid neighborhood for C8alt symmetry');
-        }
-        for (let j = 0; j < 7; j++) {
-            if (x === 0) {
-                y = x;
-            } else if (y === 0) {
-                x = -y;
-            } else if (x > 0) {
-                x = 0;
-            } else {
-                y = 0;
-            }
-            let k = nh.findIndex(p => p[0] === x && p[1] === y);
-            if (k === -1) {
-                throw new RuleError('Invalid neighborhood for C8alt symmetry');
-            }
-            out[j].push(k);
-        }
-    }
-    return out;
-}
-
-function symD2h(nh: [number, number][]): number[][] {
-    let out: number[] = [];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
-        if (j === -1) {
-            throw new RuleError('Invalid neighborhood for D2- symmetry');
-        }
-        out.push(j);
-    }
-    return [out];
-}
-
-function symD2v(nh: [number, number][]): number[][] {
-    let out: number[] = [];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === -x && p[1] === y);
-        if (j === -1) {
-            throw new RuleError('Invalid neighborhood for D2| symmetry');
-        }
-        out.push(j);
-    }
-    return [out];
-}
-
-function symD2x(nh: [number, number][]): number[][] {
-    let out: number[] = [];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === y && p[1] === x);
-        if (j === -1) {
-            throw new RuleError('Invalid neighborhood for D2x symmetry');
-        }
-        out.push(j);
-    }
-    return [out];
-}
-
-function symD4p(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
-        let k = nh.findIndex(p => p[0] === -x && p[1] === y);
-        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
-        if (j === -1 || k === -1 || l === -1) {
-            throw new RuleError('Invalid neighborhood for D4+ symmetry');
-        }
-        out[0].push(j);
-        out[1].push(k);
-        out[2].push(l);
-    }
-    return out;
-}
-
-function symD4x(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === y && p[1] === x);
-        let k = nh.findIndex(p => p[0] === -y && p[1] === -x);
-        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
-        if (j === -1 || k === -1 || l === -1) {
-            throw new RuleError('Invalid neighborhood for D4x  symmetry');
-        }
-        out[0].push(j);
-        out[1].push(k);
-        out[2].push(l);
-    }
-    return out;
-}
-
-function symD8(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], [], [], [], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        let j = nh.findIndex(p => p[0] === x && p[1] === -y);
-        let k = nh.findIndex(p => p[0] === -x && p[1] === y);
-        let l = nh.findIndex(p => p[0] === -x && p[1] === -y);
-        let m = nh.findIndex(p => p[0] === y && p[1] === x);
-        let n = nh.findIndex(p => p[0] === y && p[1] === -x);
-        let o = nh.findIndex(p => p[0] === -y && p[1] === x);
-        let p = nh.findIndex(p => p[0] === -y && p[1] === -x);
-        if (j === -1 || k === -1 || l === -1) {
-            throw new RuleError('Invalid neighborhood for D4x  symmetry');
-        }
-        out[0].push(j);
-        out[1].push(k);
-        out[2].push(l);
-        out[3].push(m);
-        out[4].push(n);
-        out[5].push(o);
-        out[6].push(p);
-    }
-    return out;
-}
-
-function symD16(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
-            throw new RuleError('Invalid neighborhood for D16 symmetry');
-        }
-        for (let f = 0; f < 2; f++) {
-            for (let j = 0; j < 7; j++) {
-                if (x === 0) {
-                    y = x;
-                } else if (y === 0) {
-                    x = -y;
-                } else if (x > 0) {
-                    x = 0;
-                    y *= 2;
-                } else {
-                    x *= 2;
-                    y = 0;
-                }
-                let k = nh.findIndex(p => p[0] === x && p[1] === y);
-                if (k === -1) {
-                    throw new RuleError('Invalid neighborhood for D16 symmetry');
-                }
-                out[j].push(k);
-            }
-            let temp = x;
-            x = y;
-            y = temp;
-        }
-    }
-    return out;
-}
-
-function symD16alt(nh: [number, number][]): number[][] {
-    let out: number[][] = [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []];
-    for (let i = 0; i < nh.length; i++) {
-        let [x, y] = nh[i];
-        if (Math.abs(x) !== Math.abs(y) && !(x === 0 || y === 0)) {
-            throw new RuleError('Invalid neighborhood for D16 symmetry');
-        }
-        for (let f = 0; f < 2; f++) {
-            for (let j = 0; j < 7; j++) {
-                if (x === 0) {
-                    y = x;
-                } else if (y === 0) {
-                    x = -y;
-                } else if (x > 0) {
-                    x = 0;
-                } else {
-                    y = 0;
-                }
-                let k = nh.findIndex(p => p[0] === x && p[1] === y);
-                if (k === -1) {
-                    throw new RuleError('Invalid neighborhood for D16 symmetry');
-                }
-                out[j].push(k);
-            }
-            let temp = x;
-            x = y;
-            y = temp;
-        }
-    }
-    return out;
-}
-
-function permutations<T>(data: T[]): T[][] {
-    let out: T[][] = [];
-    for (let i = 0; i < data.length; i = i + 1) {
-        let rest = permutations(data.slice(0, i).concat(data.slice(i + 1)));
-        if (rest.length === 0) {
-            out.push([data[i]]);
-        } else {
-            for (let j = 0; j < rest.length; j = j + 1) {
-                out.push([data[i]].concat(rest[j]));
-            }
-        }
-    }
-    return out;
-}
-
-function symPermute(nh: [number, number][]): number[][] {
-    return permutations(nh.slice(1).map((_, i) => i + 1)).map(x => [0].concat(x));
-}
-
-/** Every valid symmetry in RuleLoader. */
-const SYMMETRIES: {[key: string]: (nh: [number, number][]) => number[][]} = {
-    C1: symC1,
-    C2: symC2,
-    C4: symC4,
-    C8: symC8,
-    C8alt: symC8alt,
-    D2h: symD2h,
-    'D2|': symD2h,
-    D2v: symD2v,
-    'D2-': symD2v,
-    D2x: symD2x,
-    D4p: symD4p,
-    'D4+': symD4p,
-    D4x: symD4x,
-    D8: symD8,
-    D16: symD16,
-    D16alt: symD16alt,
-    none: symC1,
-    rotate2: symC2,
-    rotate2reflect: symD4p,
-    rotate4: symC4,
-    rotate4reflect: symD8,
-    rotate8: symC8alt,
-    rotate8reflect: symD16alt,
-    permute: symPermute,
+const SYMMETRIES: {[key: string]: Symmetry} = {
+    'c1': 'C1',
+    'c2': 'C2',
+    'c4': 'C4',
+    'c8': 'C8',
+    'd2|': 'D2|',
+    'd2-': 'D2-',
+    'd2/': 'D2/',
+    'd2\\': 'D2\\',
+    'd4+': 'D4+',
+    'd4x': 'D4x',
+    'd8': 'D8',
+    'd16': 'D16',
+    'permute': 'permute',
+    'rotate2': 'C2',
+    'rotate2reflect': 'D4+',
+    'rotate4': 'C4',
+    'rotate4reflect': 'D8',
+    'rotate8': 'C8',
+    'rotate8reflect': 'D16',
 };
-
-/** The default symmetry for rules. */
-const MOORE_PERMUTE = symPermute(RULELOADER_NEIGHBORHOODS['moore']);
 
 
 /** Parses JSON loosely. Lifelib uses literal_eval for this, which is probably unsafe and doesn't exist in JS anyway. */
@@ -375,31 +93,42 @@ function parseJSONLoose(data: string): number[][] {
     return out;
 }
 
-/** Parses a rule tree. This function is probably broken. */
-function parseTree(data: string): RuleTree {
-    let nh: [number, number][] = [];
+function parseTree(data: string): TreeData {
+    let neighborhood: [number, number][] = NEIGHBORHOODS['moore'];
     let tree: [boolean, number[]][] = [];
+    let originalData: number[][] = [];
     let length = 0;
     let states = 1;
+    let symmetry: RuleSymmetry = 'C1';
     for (let line of data.split('\n')) {
         if (line.includes('=')) {
             let [cmd, arg] = line.split('=');
             cmd = cmd.trim();
             arg = arg.trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
-                nh = parseJSONLoose(arg) as [number, number][];
-                if (!nh.every(x => x.length === 2)) {
+                neighborhood = parseJSONLoose(arg) as [number, number][];
+                if (!neighborhood.every(x => x.length === 2)) {
                     throw new RuleError(`Invalid neighborhood: '${arg}'`);
                 }
             } else if (cmd === 'num_neighbors') {
-                if (Number(arg) === 4) {
-                    nh = [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]];
+                let value = Number(arg);
+                if (value === 4) {
+                    neighborhood = NEIGHBORHOODS['vonneumann'];
+                } else if (value === 8) {
+                    neighborhood = NEIGHBORHOODS['moore'];
                 } else {
-                    nh = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]
+                    throw new RuleError(`Invalid num_neighbors value: '${arg}'`);
                 }
+            } else if (cmd === 'symmetry') {
+                if (!(arg in SYMMETRY_JOIN)) {
+                    throw new RuleError(`Invalid rule symmetry: '${arg}'`);
+                }
+                symmetry = arg as RuleSymmetry;
             }
         } else {
-            let [depth, ...data] = line.split(' ').map(x => Number(x));
+            let values = line.split(' ').map(x => Number(x));
+            originalData.push(values);
+            let [depth, ...data] = values;
             if (depth === 1) {
                 let newStates = Math.max(...data) + 1;
                 if (newStates > states) {
@@ -410,7 +139,7 @@ function parseTree(data: string): RuleTree {
             length += data.length;
         }
     }
-    let out = new Uint8Array(length);
+    let out = new Uint32Array(length);
     let i = 0;
     for (let [isLeaf, data] of tree) {
         for (let value of data) {
@@ -418,24 +147,32 @@ function parseTree(data: string): RuleTree {
         }
     }
     return {
+        neighborhood,
         states,
-        range: Math.max(...nh.map(x => Math.max(Math.abs(x[0]), Math.abs(x[1])))),
-        neighborhood: new Int8Array(nh.flat()),
+        symmetry,
         data: out,
+        originalData,
     };
 }
 
-/** A single line in a rule table. */
-type TableValue = (number | {bind: true, index: number})[][];
+const ANY = -1;
+const LIVE = -2;
 
-/** Stores the current variables in a rule table. */
-type TableVars = {[key: string]: {value: TableValue, bind: boolean}};
+// the new center cell is the last value, the rest is in the neighborhood
+type TableLine = (number | {bind: true, index: number} | (number | {bind: true, index: number})[])[];
 
-/** Parses a brace list. These can be used inside rule table entries, unlike Golly, but like Nutshell. */
-function parseBraceList(data: string, vars: TableVars): TableValue {
+type TableVars = {[key: string]: {value: TableLine, bind: boolean}};
+
+interface TableSection {
+    values: TableLine[];
+    neighborhood: [number, number][];
+    symmetry: Symmetry;
+}
+
+function parseBraceList(data: string, vars: TableVars): TableLine {
     let braceLevel = 0;
-    let out: TableValue = [];
-    let section: TableValue[number] = [];
+    let out: TableLine = [];
+    let section: TableLine[number] = [];
     let value = '';
     let boundVars: {[key: string]: number} = {};
     let inBind = false;
@@ -474,7 +211,11 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
                 value = '';
             }
             if (section.length > 0) {
-                out.push(Array.from(new Set(section)));
+                if (section.length === 1) {
+                    out.push(section[0]);
+                } else {
+                    out.push(Array.from(new Set(section)));
+                }
             }
             braceLevel--;
             if (braceLevel < 0) {
@@ -562,87 +303,329 @@ function parseBraceList(data: string, vars: TableVars): TableValue {
     return out;
 }
 
-function _trsToTree(trs: number[][], states: number, center: number | null = null): number[][] {
-    let groups: number[][][] = [];
-    for (let i = 0; i < states; i++) {
-        groups.push([]);
-    }
-    for (let tr of trs) {
-        let state = tr[0];
-        tr = tr.slice(1);
-        if (state === -1) {
-            for (let group of groups) {
-                group.push(tr);
-            }
-        } else if (state in groups) {
-            groups[state].push(tr);
+type Remapping<T> = ({ref: false, value: T} | {ref: true, value: number})[];
+
+function combineRemappings<T>(a: Remapping<T>, b: Remapping<T>): Remapping<T> {
+    let out: Remapping<T> = [];
+    for (let i = 0; i < b.length; i++) {
+        let value = b[i];
+        if (value.ref) {
+            out.push(a[value.value]);
         } else {
-            groups[state] = [tr];
-        }
-    }
-    for (let state = 0; state < states; state++) {
-        let trs = groups[state];
-        if (trs.length === 0) {
-            out.push(center ?? state);
-        } else {
-            out.push(trsToTree(trs, states, center ?? state));
+            out.push(value);
         }
     }
     return out;
 }
 
-/** Turns a rule table line into a rule tree. */
-function trsToTree(trs: number[][], states: number, center: number | null = null): number[][] {
-
+function applyRemapping<T>(data: T[], remapping: Remapping<T>): T[] {
+    let out: T[] = [];
+    for (let i = 0; i < remapping.length; i++) {
+        let value = remapping[i];
+        if (value.ref) {
+            out.push(data[value.value]);
+        } else {
+            out.push(value.value);
+        }
+    }
+    out.push(data[data.length - 1]);
+    return out;
 }
 
-/** Parses a rule table. */
-function parseTable(data: string): RuleTree {
-    // First, we resolve all variables and generate a normalized transition list in the lines variable.
-    let nh: [number, number][] = RULELOADER_NEIGHBORHOODS['moore'];
-    let sym: number[][] = MOORE_PERMUTE;
-    let symString = 'permute';
-    let vars: TableVars = {};
-    let lines: {value: TableValue, nh: [number, number][], sym: number[][]}[] = [];
+function getNeighborhoodRemapping(old: [number, number][], nh: [number, number][]): Remapping<number> {
+    let out: Remapping<number> = [];
+    for (let i = 0; i < nh.length; i++) {
+        out.push({ref: false, value: ANY});
+    }
+    for (let i = 0; i < old.length; i++) {
+        let index = nh.findIndex(x => x[0] === old[i][0] && x[1] === old[i][1]);
+        if (index === -1) {
+            throw new RuleError(`Cannot use coordinate (${old[i][0]}, ${old[i][1]})`);
+        }
+        out[index] = {ref: true, value: i};
+    }
+    return out;
+}
+
+function getSymmetryRemapping(nh: [number, number][], f: (x: number, y: number) => [number, number]): Remapping<number> {
+    let out: Remapping<number> = [];
+    for (let i = 0; i < nh.length; i++) {
+        let cell = nh[i];
+        let cell2 = f(cell[0], cell[1]);
+        let index = nh.findIndex(x => x[0] === cell2[0] && x[1] === cell2[1]);
+        if (index === -1) {
+            out.push({ref: false, value: ANY});
+        } else {
+            out.push({ref: true, value: index});
+        }
+    }
+    return out;
+}
+
+function rotateC8(x: number, y: number): [number, number] {
+    if (x === 0) {
+        x = y;
+    } else if (y === 0) {
+        y = -x;
+    } else if (Math.sign(x) !== Math.sign(y)) {
+        x = 0;
+    } else {
+        y = 0;
+    }
+    return [x, y];
+}
+
+function getSymmetryRemappings(nh: [number, number][], symmetry: Symmetry): Remapping<number>[] {
+    let out: Remapping<number>[] = [];
+    if (symmetry === 'permute') {
+        let center = nh.findIndex(([x, y]) => x === 0 && y === 0);
+        let map: number[] = [center];
+        for (let i = 0; i < nh.length; i++) {
+            if (i !== center) {
+                map.push(i);
+            }
+        }
+        for (let perm of permutations(map.slice(1))) {
+            perm.unshift(center);
+            out.push(perm.map(x => ({ref: true, value: x})));
+        }
+        return out;
+    }
+    if (symmetry === 'C2' || symmetry === 'C4' || symmetry === 'C8' || symmetry === 'D4+' || symmetry === 'D4x' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [-x, -y]));
+    }
+    if (symmetry === 'C4' || symmetry === 'C8' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [y, -x]));
+        out.push(getSymmetryRemapping(nh, (x, y) => [-y, x]));
+    }
+    if (symmetry === 'D2|' || symmetry === 'D4+' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [-x, y]));
+    }
+    if (symmetry === 'D2-' || symmetry === 'D4+' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [x, -y]));
+    }
+    if (symmetry === 'D2/' || symmetry === 'D4+' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [y, x]));
+    }
+    if (symmetry === 'D2\\' || symmetry === 'D4+' || symmetry === 'D8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => [-y, -x]));
+    }
+    if (symmetry === 'C8' || symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, rotateC8));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [y, -x];
+        }));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [-x, -y];
+        }));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [-y, x];
+        }));
+    }
+    if (symmetry === 'D16') {
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [x, -y];
+        }));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [y, x];
+        }));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [-x, y];
+        }));
+        out.push(getSymmetryRemapping(nh, (x, y) => {
+            [x, y] = rotateC8(x, y);
+            return [-y, -x];
+        }));
+    }
+    return out;
+}
+
+function expandBinds(data: TableLine, states: number, index: number = 0, prevBinds?: {[key: number]: number[]}): number[][] {
+    let out: number[][] = [];
+    if (Array.isArray(data[index])) {
+        for (let value of data[index]) {
+            let data2 = structuredClone(data);
+            data2[index] = value;
+            if (index === data.length - 1) {
+                out.push(data2 as number[]);
+            } else {
+                out.push(...expandBinds(data2, states, index, prevBinds));
+            }
+        }
+    } else if (typeof data[index] === 'number') {
+        let value = data[index];
+        if (value === ANY || value === LIVE) {
+            for (let state = value === ANY ? 0 : 1; state < states; state++) {
+                let data2 = structuredClone(data);
+                data2[index] = state;
+                if (prevBinds && index in prevBinds) {
+                    for (let index2 of prevBinds[index]) {
+                        data2[index2] = state;
+                    }
+                }
+                if (index === data.length - 1) {
+                    out.push(data2 as number[]);
+                } else {
+                    out.push(...expandBinds(data2, states, index + 1, prevBinds));
+                }
+            }
+        } else {
+            let data2 = structuredClone(data);
+            data2[index] = value;
+            if (prevBinds && index in prevBinds) {
+                for (let index2 of prevBinds[index]) {
+                    data2[index2] = value;
+                }
+            }
+            if (index === data.length - 1) {
+                out.push(data2 as number[]);
+            } else {
+                out.push(...expandBinds(data2, states, index + 1, prevBinds));
+            }
+        }
+    } else {
+        let value = data[index].index;
+        if (value < index) {
+            let data2 = structuredClone(data);
+            data2[index] = data[value];
+            if (index === data.length - 1) {
+                throw new RuleError(`Unresolved bind`);
+            } else {
+                out.push(...expandBinds(data2, states, index + 1, prevBinds));
+            }
+            out.push(data2 as number[]);
+        } else if (value === index) {
+            throw new RuleError(`Recursive bind`);
+        } else {
+            if (!prevBinds) {
+                prevBinds = [];
+            }
+            if (value in prevBinds) {
+                prevBinds[value].push(index);
+            } else {
+                prevBinds[value] = [index];
+            }
+            if (index === data.length - 1) {
+                throw new RuleError(`Unresolved bind`);
+            } else {
+                out.push(...expandBinds(data, states, index + 1, prevBinds));
+            }
+        }
+    }
+    return out;
+}
+
+function expandAny(data: number[], states: number, index: number = 0): number[][] {
+    if (index >= data.length - 1) {
+        return [data];
+    } else if (data[index] === ANY) {
+        let out: number[][] = [];
+        for (let state = 0; state < states; state++) {
+            let data2 = data.slice();
+            data2[index] = state;
+            out.push(...expandAny(data, states, index + 1));
+        }
+        return out;
+    } else {
+        return expandAny(data, states, index + 1);
+    }
+}
+
+function resolveTableSection(data: TableSection, neighborhood: [number, number][], states: number): Uint8Array {
+    let nhRemapping = getNeighborhoodRemapping(data.neighborhood, neighborhood);
+    let remappings: Remapping<number>[] = [nhRemapping];
+    for (let remapping of getSymmetryRemappings(neighborhood, data.symmetry)) {
+        remappings.push(combineRemappings(nhRemapping, remapping));
+    }
+    let out: number[] = [];
+    for (let unresolved of data.values) {
+        for (let value of expandBinds(unresolved, states)) {
+            for (let remapping of remappings) {
+                for (let value2 of expandAny(applyRemapping(value, remapping), states)) {
+                    out.push(...value2);
+                }
+            }
+        }
+    }
+    return new Uint8Array(out);
+}
+
+function parseTable(data: string): TableData {
+    let vars: TableVars = {'any': {value: [[ANY]], bind: false}, 'live': {value: [[LIVE]], bind: false}};
+    let sections: TableSection[] = [];
+    let current: TableLine[] = [];
+    let neighborhood: [number, number][] = NEIGHBORHOODS['moore'];
+    let symmetry: Symmetry = 'D8';
+    let fullNeighborhood: [number, number][] = NEIGHBORHOODS['moore'].slice();
+    let states = 0;
     for (let line of data.split('\n')) {
         if (line.includes(':')) {
             let index = line.indexOf(':');
             let cmd = line.slice(0, index);
             let arg = line.slice(index + 1).trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
+                sections.push({values: current, neighborhood, symmetry});
                 if (arg.startsWith('(')) {
                     let list = parseJSONLoose(arg);
                     if (!list.every(x => x.length === 2)) {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
-                    nh = list as [number, number][];
+                    neighborhood = list as [number, number][];
                 } else {
                     let lower = arg.toLowerCase();
-                    if (lower in RULELOADER_NEIGHBORHOODS) {
-                        nh = RULELOADER_NEIGHBORHOODS[lower];
+                    if (lower in NEIGHBORHOODS) {
+                        neighborhood = NEIGHBORHOODS[lower];
+                        if (current.length === 0) {
+                            fullNeighborhood = neighborhood;
+                        } else {
+                            for (let [x, y] of neighborhood) {
+                                if (!fullNeighborhood.some(cell => x === cell[0] && y === cell[1])) {
+                                    fullNeighborhood.push([x, y]);
+                                }
+                            }
+                        }
                     } else {
                         throw new RuleError(`Invalid neighborhood: '${arg}'`);
                     }
                 }
-                sym = SYMMETRIES[symString](nh);
                 continue;
             } else if (cmd === 'symmetry' || cmd === 'symmetries') {
-                let newSym: number[][];
-                if (arg.startsWith('[')) {
-                    if (arg.startsWith('[[')) {
-                        arg = arg.slice(1);
+                sections.push({values: current, neighborhood, symmetry});
+                symmetry = 'C1';
+                for (let value of arg.split(',') as Symmetry[]) {
+                    value = value.trim() as Symmetry;
+                    let original = value;
+                    value = value.toLowerCase() as Symmetry;
+                    if (!(value in SYMMETRIES)) {
+                        throw new RuleError(`Invalid symmetry: '${original}'`);
                     }
-                    newSym = parseJSONLoose(arg);
-                } else {
-                    let lower = arg.toLowerCase();
-                    if (lower in SYMMETRIES) {
-                        symString = lower;
-                        newSym = SYMMETRIES[lower](nh);
+                    value = SYMMETRIES[value];
+                    if (symmetry === 'permute') {
+                        continue;
+                    } else if (value === 'permute' || value === 'D16') {
+                        symmetry = value;
+                    } else if (symmetry === 'D16') {
+                        continue;
+                    } else if (value === 'C8') {
+                        if (symmetry.startsWith('D')) {
+                            symmetry = 'D16';
+                        } else {
+                            symmetry = value;
+                        }
+                    } else if (symmetry === 'C8') {
+                        if (value.startsWith('D')) {
+                            symmetry = 'D16';
+                        }
                     } else {
-                        throw new RuleError(`Invalid symmetry: '${arg}'`);
+                        symmetry = SYMMETRY_JOIN[symmetry][value];
                     }
                 }
-                sym = newSym;
                 continue;
             } else if (cmd === 'n_states' || cmd === 'states' || cmd === 'num_states') {
                 continue;
@@ -658,132 +641,120 @@ function parseTable(data: string): RuleTree {
             }
             vars[name] = {bind, value: parseBraceList(value, vars)};
         } else if (line.match(/^\d+$/)) {
-            lines.push({value: Array.from(line).map(x => [Number(x)]), nh, sym});
+            let data = Array.from(line).map(Number);
+            for (let value of data) {
+                if (value + 1 > states) {
+                    states = value + 1;
+                }
+            }
+            current.push(data);
         } else {
-            let value = parseBraceList(line, vars);
-            lines.push({value, nh, sym});
-        }
-    }
-    let states = 0;
-    let totalNh: [number, number][] = [[0, 0]];
-    for (let {value, nh} of lines) {
-        for (let section of value) {
-            for (let x of section) {
-                if (typeof x === 'number' && x > states) {
-                    states = x;
-                }
-            }
-        }
-        for (let [x, y] of nh) {
-            if (!totalNh.some(p => p[0] === x && p[1] === y)) {
-                totalNh.push([x, y]);
-            }
-        }
-    }
-    states++;
-    // Format of trs variable is an array of (neighborhood length + 1) length array of numbers specifying the transitions
-    let trs: number[][] = [];
-    let done = new Set<string>();
-    for (let {value: line, nh, sym} of lines) {
-        let data: number[][] = [];
-        if (line.length === 0) {
-            continue;
-        }
-        for (let x of line[0]) {
-            if (typeof x === 'number') {
-                data.push([x]);
-            }
-        }
-        for (let i = 1; i < line.length; i++) {
-            let section = line[i];
-            if (section.length === 1) {
-                let value = section[0];
+            let data = parseBraceList(line, vars);
+            for (let value of data) {
                 if (typeof value === 'number') {
-                    for (let tr of data) {
-                        tr.push(value);
+                    if (value + 1 > states) {
+                        states = value + 1;
                     }
-                } else {
-                    for (let tr of data) {
-                        tr.push(tr[value.index]);
-                    }
-                }
-            } else if (section.length === states) {
-                for (let tr of data) {
-                    tr.push(-1);
-                }
-            } else {
-                let start = data;
-                data = [];
-                for (let value of section) {
-                    let trs = structuredClone(start);
-                    if (typeof value === 'number') {
-                        for (let tr of trs) {
-                            tr.push(value);
-                        }
-                    } else {
-                        for (let tr of trs) {
-                            tr.push(tr[value.index]);
+                } else if (Array.isArray(value)) {
+                    for (let x of value) {
+                        if (typeof x === 'number' && x + 1 > states) {
+                            states = x + 1;
                         }
                     }
-                    data.push(...trs);
                 }
             }
+            current.push(data);
         }
-        // We need to remap the neighborhoods, because you can change the neighborhood within the rule table.
-        let remap: number[] = [];
-        for (let [x, y] of totalNh) {
-            remap.push(nh.findIndex(p => p[0] === x && p[1] === y));
+    }
+    if (current.length > 0) {
+        sections.push({values: current, neighborhood, symmetry});
+    }
+    let out: Uint8Array[] = [];
+    let length = 0;
+    let ruleSymmetry: RuleSymmetry = 'C1';
+    for (let section of sections) {
+        if (section.symmetry === 'permute' || section.symmetry === 'D16') {
+            ruleSymmetry = 'D8';
+        } else if (section.symmetry === 'C8') {
+            ruleSymmetry = 'C4';
+        } else {
+            ruleSymmetry = SYMMETRY_JOIN[ruleSymmetry][section.symmetry];
         }
-        for (let tr of data) {
-            let tr2: number[] = [];
-            for (let i of remap) {
-                if (i === -1) {
-                    tr2.push(-1);
-                } else {
-                    tr2.push(tr[i]);
-                }
-            }
-            tr2.push(tr[tr.length - 1]);
-            let str = tr2.join(' ');
-            if (!done.has(str)) {
-                done.add(str);
-                trs.push(tr2);
-            }
-            for (let remap2 of sym) {
-                let tr3: number[] = [];
-                for (let i of remap2) {
-                    tr3.push(tr[i]);
-                }
-                let tr4: number[] = [];
-                for (let i of remap) {
-                    if (i === -1) {
-                        tr4.push(-1);
-                    } else {
-                        tr4.push(tr3[i]);
-                    }
-                }
-                tr4.push(tr[tr.length - 1]);
-                let str2 = tr4.join(' ');
-                if (!done.has(str2)) {
-                    done.add(str2);
-                    trs.push(tr4);
-                }
-            }
-        }
+        let value = resolveTableSection(section, fullNeighborhood, states);
+        out.push(value);
+        length += value.length;
+    }
+    let trs = new Uint8Array(length);
+    let i = 0;
+    for (let array of out) {
+        trs.set(array, i);
+        i += array.length;
     }
     return {
+        neighborhood,
         states,
-        range: Math.max(...totalNh.map(x => Math.max(Math.abs(x[0]), Math.abs(x[1])))),
-        neighborhood: new Int8Array(totalNh.flat()),
-        data: trsToTree(trs, states),
+        symmetry: ruleSymmetry,
+        trs,
     };
 }
 
-/** Parses an @ RULE rule. */
-function parseAtRule(rule: string): AtRule {
+
+function _functionToTree(cache: Map<string, number>, out: string[], nhLength: number, states: number, f: (cells: number[]) => number, prev: number[], index: number): number {
+    if (prev.length === nhLength) {
+        return f(prev);
+    }
+    let str = String(index);
+    for (let i = 0; i < states; i++) {
+        prev[index] = i;
+        str += ' ' + _functionToTree(cache, out, nhLength, states, f, prev, index + 1);
+    }
+    let value = cache.get(str);
+    if (value !== undefined) {
+        return value;
+    } else {
+        let num = out.length;
+        out.push(str);
+        cache.set(str, num);
+        return num;
+    }
+}
+
+export function functionToTree(neighborhood: 'moore' | [number, number][], states: number, symmetry: RuleSymmetry, f: (cells: number[]) => number): string {
+    let data: string[] = [];
+    _functionToTree(new Map(), data, neighborhood.length, states, f, new Array(neighborhood.length), 0);
+    let out = `@TREE\n\nnum_states = ${states}\n`;
+    if (neighborhood === 'moore') {
+        out += `num_neighbors = 8\n`;
+    } else {
+        out += `neighborhood = [${neighborhood.map(x => `(${x[0]}, ${x[1]})`).join(', ')}]\n`;
+    }
+    out += `num_nodes = ${data.length}\nsymmetry = ${symmetry}\n`;
+    out += '\n' + data.map(x => x + '\n').join('');
+    return out;
+}
+
+
+function tableCellLookup(table: TableData, cells: number[]): number {
+    let nhLength = table.neighborhood.length;
+    for (let i = 0; i < table.trs.length; i += nhLength + 1) {
+        let found = false;
+        for (let cell = 0; cell <= nhLength; cell++) {
+            if (table.trs[i + cell] !== cells[i]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return table.trs[i + nhLength];
+        }
+    }
+    return cells.at(table.neighborhood.findIndex(x => x[0] === 0 && x[1] === 0)) ?? 0;
+}
+
+export function parseAtRule(rule: string): AtRule {
     let section = '';
-    let out: Omit<AtRule, 'tree'> = {};
-    let tree: RuleTree | null = null;
+    let out: AtRule = {};
+    let tree: TreeData | undefined = undefined;
     let data = '';
     for (let line of (rule + '\n@END').split('\n')) {
         line = line.trim();
@@ -799,17 +770,17 @@ function parseAtRule(rule: string): AtRule {
             continue;
         }
         if (section === '@TABLE') {
-            if (tree) {
+            if (out.table || out.tree) {
                 continue;
             }
-            tree = parseTable(data);
+            let table = parseTable(data);
+            out.table = table;
+            out.tree = parseTree(functionToTree(table.neighborhood, table.states, table.symmetry, cells => tableCellLookup(table, cells)));
         } else if (section === '@TREE') {
-            if (tree) {
+            if (out.table || out.tree) {
                 continue;
             }
-            tree = parseTree(data);
-        } else if (section === '@XTREE') {
-            tree = JSON.parse(data);
+            out.tree = parseTree(data);
         } else if (section ==='@NAMES') {
             out.names = {};
             for (let line of data.split('\n')) {
@@ -837,14 +808,10 @@ function parseAtRule(rule: string): AtRule {
         }
         data = '';
     }
-    if (tree === null) {
-        throw new RuleError('At least one @TABLE or @TREE expected');
-    }
-    return {...out, tree};
+    return out;
 }
 
-/** Turns a parsed @ RULE into a canonicalized rulestring. */
-function atRuleToString(rule: AtRule): string {
+export function atRuleToString(rule: AtRule): string {
     let out = '';
     if (rule.name || rule.desc) {
         out += '@RULE';
@@ -856,7 +823,16 @@ function atRuleToString(rule: AtRule): string {
             out += rule.desc + '\n';
         }
     }
-    out += `@XTREE\n${JSON.stringify(rule.tree)}\n`;
+    if (rule.tree) {
+        out += `@TREE\n\nnum_states = ${rule.tree.states}\n`;
+        if (JSON.stringify(rule.tree.neighborhood) !== JSON.stringify(NEIGHBORHOODS['moore'])) {
+            out += `neighborhood = [${rule.tree.neighborhood.map(x => `(${x[0]}, ${x[1]})`).join(', ')}]\n`;
+        } else {
+            out += `num_neighbors = 8\n`;
+        }
+        out += `num_nodes = ${rule.tree.originalData.length}\nsymmetry = ${rule.tree.symmetry}\n\n`;
+        out += rule.tree.originalData.map(x => x.join(' ') + '\n').join('') + '\n';
+    }
     if (rule.names) {
         out += `@NAMES\n${Object.entries(rule.names).map(x => x[0] + x[1]).join('\n')}\n`;
     }
@@ -870,127 +846,350 @@ function atRuleToString(rule: AtRule): string {
 }
 
 
-/** Can implement any range-1 Moore-neighborhood rule. */
-export class R1TreePattern extends DataPattern {
+export class TreePattern extends DataPattern {
 
-    tree: Uint8Array;
+    tree: Uint32Array;
     atRule: AtRule;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: Rule, tree: Uint8Array, atRule: AtRule) {
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, tree: Uint32Array, atRule: AtRule) {
         super(height, width, data, rule);
         this.tree = tree;
         this.atRule = atRule;
     }
 
-    runGeneration(): void {
-        
+    lookupCell(nw: number, n: number, ne: number, w: number, c: number, e: number, sw: number, s: number, se: number): number {
+        return this.tree[nw + this.tree[ne + this.tree[sw + this.tree[se + this.tree[n + this.tree[w + this.tree[e + this.tree[s + this.tree[c]]]]]]]]];
     }
 
-    copy(): R1TreePattern {
-        let out = new R1TreePattern(this.height, this.width, this.data.slice(), this.rule, this.tree, this.atRule);
+    runGeneration(): void {
+        // we first compute how it should expand, if at all
+        // then we run the interior of the pattern
+        let width = this.width;
+        let height = this.height;
+        let size = this.size;
+        let data = this.data;
+        let trs = this.tree;
+        let width2 = width << 1;
+        let lastRow = size - width;
+        let secondLastRow = size - width2;
+        let expandUp = 0;
+        let expandDown = 0;
+        let upExpands = new Uint8Array(width);
+        let downExpands = new Uint8Array(width);
+        let cell: number;
+        // this part is only for B1e and B2a rules
+        if (width > 1) {
+            cell = this.lookupCell(0, 0, 0, 0, 0, 0, 0, data[0], data[1]);
+            if (cell) {
+                expandUp = 1;
+                upExpands[0] = cell;
+            }
+            cell = this.lookupCell(0, data[lastRow], data[lastRow + 1], 0, 0, 0, 0, 0, 0);
+            if (cell) {
+                expandDown = 1;
+                downExpands[0] = cell;
+            }
+        } else {
+            cell = this.lookupCell(0, 0, 0, 0, 0, 0, 0, data[0], 0);
+            if (cell) {
+                expandUp = 1;
+                upExpands[0] = cell;
+            }
+            cell = this.lookupCell(0, data[lastRow], 0, 0, 0, 0, 0, 0, 0);
+            if (cell) {
+                expandDown = 1;
+                downExpands[0] = cell;
+            }
+        }
+        let i = 0;
+        let j = lastRow;
+        for (let loc = 1; loc < width - 1; loc++) {
+            i++;
+            j++;
+            cell = this.lookupCell(0, 0, 0, 0, 0, 0, data[i - 1], data[i], data[i + 1]);
+            if (cell) {
+                expandUp = 1;
+                upExpands[loc] = cell;
+            }
+            cell = this.lookupCell(data[j - 1], data[j], data[j + 1], 0, 0, 0, 0, 0, 0);
+            if (cell) {
+                expandUp = 1;
+                upExpands[loc] = cell;
+            }
+        }
+        // this part is only for B1e and B2a rules
+        if (width > 1) {
+            cell = this.lookupCell(0, 0, 0, 0, 0, 0, data[width - 2], data[width - 1], 0);
+            if (cell) {
+                expandUp = 1;
+                upExpands[width - 1] = cell;
+            }
+            cell = this.lookupCell(data[size - 2], data[size - 1], 0, 0, 0, 0, 0, 0, 0);
+            if (cell) {
+                expandDown = 1;
+                downExpands[width - 1] = cell;
+            }
+        }
+        // we then compute how it should expand to the left and right
+        let expandLeft = 0;
+        let expandRight = 0;
+        let leftExpands = new Uint8Array(height);
+        let rightExpands = new Uint8Array(height);
+        // this part is only for B1e and B2a rules
+        if (height > 1) {
+            cell = this.lookupCell(0, 0, 0, 0, 0, data[0], 0, 0, data[width]);
+            if (cell) {
+                expandLeft = 1;
+                leftExpands[0] = cell;
+            }
+            cell = this.lookupCell(0, 0, 0, data[width - 1], 0, 0, 0, 0, data[width2 - 1]);
+            if (cell) {
+                expandRight = 1;
+                rightExpands[0] = cell;
+            }
+        } else {
+            cell = this.lookupCell(0, 0, 0, 0, 0, data[0], 0, 0, 0);
+            if (cell) {
+                expandLeft = 1;
+                leftExpands[0] = cell;
+            }
+            cell = this.lookupCell(0, 0, 0, data[width - 1], 0, 0, 0, 0, 0);
+            if (cell) {
+                expandRight = 1;
+                rightExpands[0] = cell;
+            }
+        }
+        let loc = 0;
+        for (i = width; i < size - width; i += width) {
+            loc++;
+            cell = this.lookupCell(0, 0, data[i - width], 0, 0, data[i], 0, 0, data[i + width]);
+            if (cell) {
+                expandLeft = 1;
+                leftExpands[loc] = cell;
+            }
+            cell = this.lookupCell(data[i - 1], 0, 0, data[i + width - 1], 0, 0, data[i + width2 - 1], 0, 0);
+            if (cell) {
+                expandRight = 1;
+                rightExpands[loc] = cell;
+            }
+        }
+        // this part is only for B1c, B1e, or B2a rules
+        if (height > 1) {
+            cell = this.lookupCell(0, 0, data[size - width2 - 1], 0, 0, data[size - width - 1], 0, 0, data[size - 1]);
+            if (cell) {
+                expandLeft = 1;
+                leftExpands[height - 1] = cell;
+            }
+            cell = this.lookupCell(data[lastRow - width2], 0, 0, data[lastRow - width], 0, 0, data[lastRow], 0, 0);
+            if (cell) {
+                expandRight = 1;
+                rightExpands[height - 1] = cell;
+            }
+        }
+        // special B1c checks
+        let b1cnw = (trs[1] && data[0]) ? 1 : 0;
+        let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
+        let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
+        let b1cse = (trs[256] && data[size - 1]) ? 1 : 0;
+        if (b1cnw || b1cne) {
+            expandUp = 1;
+        }
+        if (b1csw || b1cse) {
+            expandDown = 1;
+        }
+        if (b1cnw || b1csw) {
+            expandLeft = 1;
+        }
+        if (b1cne || b1cse) {
+            expandRight = 1;
+        }
+        /** The offset for each row, how many new elements are between each row. */
+        let oX = expandLeft + expandRight;
+        /** The offset between the start of `data` and the start of `out`. */
+        let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        /** The offset between the end of `data` and the end of `out`. */
+        let oSize = oStart + oX * height;
+        /** The width of each row of `out`. */
+        let newWidth = width + oX;
+        /** The height of `out`. */
+        let newHeight = height + expandUp + expandDown;
+        /** The length of `out`. */
+        let newSize = newWidth * newHeight;
+        /** The output pattern data, after running the generation. */
+        let out = new Uint8Array(newSize);
+        // putting the expansion data into the output
+        out[0] = b1cnw;
+        out[newWidth - 1] = b1cne;
+        out[newSize - newWidth] = b1csw;
+        out[newSize - 1] = b1cse;
+        if (expandUp) {
+            out.set(upExpands, expandLeft);
+        }
+        if (expandDown) {
+            out.set(downExpands, size + oSize);
+        }
+        if (expandLeft) {
+            let loc = oStart - width - oX - 1;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = leftExpands[i];
+            }
+        }
+        if (expandRight) {
+            let loc = oStart - oX;
+            for (i = 0; i < height; i++) {
+                loc += width + oX;
+                out[loc] = rightExpands[i];
+            }
+        }
+        // we need to do a special case for when width === 1, the basic method breaks in that case
+        if (width <= 1) {
+            if (width === 1) {
+                let loc = oStart;
+                // top
+                cell = this.lookupCell(0, 0, 0, 0, data[0], 0, 0, data[1], 0);
+                if (cell) {
+                    out[loc] = cell;
+                }
+                loc += oX + 1;
+                for (i = 1; i < height - 1; i++) {
+                    // middle
+                    cell = this.lookupCell(0, data[i - 1], 0, 0, data[i], 0, 0, data[i + 1], 0);
+                    if (cell) {
+                        out[loc] = cell;
+                    }
+                    loc += oX + 1;
+                }
+                // bottom
+                cell = this.lookupCell(0, data[height - 2], 0, 0, data[height - 1], 0, 0, 0, 0);
+                if (cell) {
+                    out[loc] = cell;
+                }
+            }
+        } else {
+            let loc1 = oStart;
+            let loc2 = lastRow + oSize - oX;
+            // top-left
+            cell = this.lookupCell(0, 0, 0, 0, data[0], data[1], 0, data[width], data[width + 1]);
+            if (cell) {
+                out[loc1] = cell;
+            }
+            // bottom-left
+            cell = this.lookupCell(0, data[lastRow - width], data[lastRow - width + 1], 0, data[lastRow], data[lastRow + 1], 0, 0, 0);
+            if (cell) {
+                out[loc2] = cell;
+            }
+            j = lastRow;
+            for (i = 1; i < width - 1; i++) {
+                j++;
+                loc1++;
+                loc2++;
+                // top row
+                cell = this.lookupCell(0, 0, 0, data[i - 1], data[i], data[i + 1], data[i + width - 1], data[i + width], data[i + width + 1]);
+                if (cell) {
+                    out[loc1] = cell;
+                }
+                // bottom row
+                cell = this.lookupCell(data[j - width - 1], data[j - width], data[j - width + 1], data[j - 1], data[j], data[j + 1], 0, 0, 0);
+                if (cell) {
+                    out[loc2] = cell;
+                }
+            }
+            // top-right
+            cell = this.lookupCell(0, 0, 0, data[width - 2], data[width - 1], 0, data[width2 - 2], data[width2 - 1], 0);
+            if (cell) {
+                out[loc1 + 1] = cell;
+            }
+            // bottom-right
+            cell = this.lookupCell(data[size - width - 2], data[size - width - 1], 0, data[size - 2], data[size - 1], 0, 0, 0, 0);
+            if (cell) {
+                out[loc2 + 1] = cell;
+            }
+            loc = oStart + width;
+            for (let y = 1; y < height - 1; y++) {
+                loc += oX;
+                // left column
+                let i = y * width;
+                cell = this.lookupCell(0, data[i - width], data[i - width + 1], 0, data[i], data[i + 1], 0, data[i + width], data[i + width + 1]);
+                if (cell) {
+                    out[loc] = cell;
+                }
+                loc++;
+                for (let x = 1; x < width - 1; x++) {
+                    // middle
+                    i = y * width + x;
+                    cell = this.lookupCell(data[i - width - 1], data[i - width], data[i - width + 1], data[i - 1], data[i], data[i + 1], data[i + width - 1], data[i + width], data[i + width + 1]);
+                    if (cell) {
+                        out[loc] = cell;
+                    }
+                    loc++;
+                }
+                // right column
+                i = (y + 1) * width - 1;
+                cell = this.lookupCell(data[i - width - 1], data[i - width], 0, data[i - 1], data[i], 0, data[i + width - 1], data[i + width], 0);
+                if (cell) {
+                    out[loc] = cell;
+                }
+                loc++;
+            }
+        }
+        this.height = newHeight;
+        this.width = newWidth;
+        this.size = newSize;
+        this.data = out;
+        this.xOffset -= expandLeft;
+        this.yOffset -= expandUp;
+        this.generation++;
+    }
+
+    copy(): TreePattern {
+        let out = new TreePattern(this.height, this.width, this.data.slice(), this.rule, this.tree, this.atRule);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): R1TreePattern {
-        return new R1TreePattern(0, 0, new Uint8Array(0), this.rule, this.tree, this.atRule);
+    clearedCopy(): TreePattern {
+        return new TreePattern(0, 0, new Uint8Array(0), this.rule, this.tree, this.atRule);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): R1TreePattern {
+    copyPart(x: number, y: number, height: number, width: number): TreePattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
     }
 
-    loadApgcode(code: string): R1TreePattern {
+    loadApgcode(code: string): TreePattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
     }
-
-    loadRLE(rle: string): R1TreePattern {
+    
+    loadRLE(rle: string): TreePattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new R1TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
     }
 
 }
 
 
-/** The most general built-in pattern class, can implement any rule. */
-export class TreePattern extends CoordPattern {
-    
-    nh: Int8Array;
-    tree: Uint8Array;
-    atRule: AtRule;
-
-    constructor(coords: Map<number, number>, rule: Rule, nh: Int8Array, tree: Uint8Array, atRule: AtRule) {
-        super(coords, rule);
-        this.nh = nh;
-        this.tree = tree;
-        this.atRule = atRule;
+export function createTreePattern(rule: string, height: number, width: number, data: Uint8Array): TreePattern {
+    let atRule = parseAtRule(rule);
+    if (!atRule.tree) {
+        throw new RuleError(`No @TABLE or @TREE present`);
     }
-
-    runGeneration(): void {
-        let range = this.rule.range;
-        let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
-        minX = minX - range + BIAS;
-        maxX = maxX + range + BIAS;
-        minY = minY - range + BIAS;
-        maxY = maxY + range + BIAS;
-        let out = new Map<number, number>();
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-                let value: Tree | number = this.tree;
-                for (let i = 0; i < this.nh.length; i += 2) {
-                    value = value[this.coords.get((x + this.nh[i]) * WIDTH + (y + this.nh[i + 1])) ?? 0];
-                    if (typeof value === 'number') {
-                        break;
-                    }
-                }
-                if (value) {
-                    out.set(x * WIDTH + y, value as number);
-                }
-            }
-        }
-        this.generation++;
-        this.coords = out;
-    }
-
-    copy(): TreePattern {
-        let out = new TreePattern(new Map(this.coords), this.rule, this.nh, this.tree, this.atRule);
-        out.generation = this.generation;
-        return out;
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): TreePattern {
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let px = Math.floor(key / WIDTH) - BIAS;
-            let py = (key & (WIDTH - 1)) - BIAS;
-            if (px >= x && px < x + width && py >= y && py < y + height) {
-                out.set(key, value);
-            }
-        }
-        let p = new TreePattern(out, this.rule, this.nh, this.tree, this.atRule);
-        p.generation = this.generation;
-        return p;
-    }
-
-    clearedCopy(): TreePattern {
-        return new TreePattern(new Map(), this.rule, this.nh, this.tree, this.atRule);
-    }
-
-    loadApgcode(code: string): TreePattern {
-        return new TreePattern(this._loadApgcode2(code), this.rule, this.nh, this.tree, this.atRule);
-    }
-
-    loadRLE(rle: string): TreePattern {
-        return new TreePattern(this._loadRLE2(rle), this.rule, this.nh, this.tree, this.atRule);
-    }
-
+    let tree = atRule.tree;
+    let ruleData: Rule = {
+        str: atRuleToString(atRule),
+        states: tree.states,
+        neighborhood: tree.neighborhood,
+        symmetry: tree.symmetry,
+        period: 1,
+        range: 1
+    };
+    return new TreePattern(height, width, data, ruleData, tree.data, atRule);
 }

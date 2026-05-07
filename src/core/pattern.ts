@@ -358,14 +358,14 @@ export interface Rule {
     str: string;
     /** The number of states the rule has. */
     states: number;
+    /** The neighborhood as a list of [x, y] coordinates. */
+    neighborhood: [number, number][];
     /** The symmetry that the rule follows. */
     symmetry: RuleSymmetry;
     /** The period of the rule. This is 1 for most rules, 2 for B0 rules, and the number of alternations for alternating-time rules. */
     period: number;
     /** The maximum number of cells away (in any direction, even diagonally) that can be affected by a cell change in a single generation. */
     range: number;
-    /** The neighborhood as a list of [x, y] coordinates. */
-    neighborhood: [number, number][];
 }
 
 /** Represents a pattern in a cellular automata. */

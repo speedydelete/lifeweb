@@ -138,3 +138,19 @@ export function numericSorter(a: string, b: string): number {
     }
     return a.length - b.length;
 }
+
+
+export function permutations<T>(data: T[]): T[][] {
+    let out: T[][] = [];
+    for (let i = 0; i < data.length; i = i + 1) {
+        let rest = permutations(data.slice(0, i).concat(data.slice(i + 1)));
+        if (rest.length === 0) {
+            out.push([data[i]]);
+        } else {
+            for (let j = 0; j < rest.length; j = j + 1) {
+                out.push([data[i]].concat(rest[j]));
+            }
+        }
+    }
+    return out;
+}
