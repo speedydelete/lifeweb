@@ -540,7 +540,6 @@ function expandAny(data: number[], states: number, index: number = 0): number[][
 }
 
 function resolveTableSection(data: TableSection, neighborhood: [number, number][], states: number): Uint8Array {
-    neighborhood = TREE_NEIGHBORHOOD;
     let nhRemapping = getNeighborhoodRemapping(data.neighborhood, neighborhood);
     let remappings: Remapping<number>[] = [nhRemapping];
     for (let remapping of getSymmetryRemappings(neighborhood, data.symmetry)) {
@@ -672,6 +671,7 @@ function parseTable(data: string): TableData {
     if (current.length > 0) {
         sections.push({values: current, neighborhood, symmetry});
     }
+    fullNeighborhood = TREE_NEIGHBORHOOD;
     let out: Uint8Array[] = [];
     let length = 0;
     let ruleSymmetry: RuleSymmetry = 'C1';
