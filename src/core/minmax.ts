@@ -170,7 +170,7 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
         }
         q.trs[i] = 1 - q.trs[i];
     }
-    return [unparseMAP(min), unparseMAP(max)];
+    return [unparseMAP(min, p.rule.states), unparseMAP(max, p.rule.states)];
 }
 
 /** Finds minimum and maximum rules for MAP string rules (https://conwaylife.com/wiki/Non-isotropic_rule) with B0. */
@@ -191,7 +191,7 @@ function mapB0StringMinmax(p: MAPB0Pattern | MAPGenB0Pattern, data: PhaseData, g
         q.evenTrs[i] = 1 - q.evenTrs[i];
         q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
     }
-    return [unparseMAP(min), unparseMAP(max)];
+    return [unparseMAP(min, p.rule.states), unparseMAP(max, p.rule.states)];
 }
 
 /** Finds minimum and maximum rules for patterns in the 2**512 2-state range-1 Moore-neighborhood rules. */
