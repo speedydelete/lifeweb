@@ -37,6 +37,8 @@ const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'onedimensional': [[0, 0], [-1, 0], [1, 0]],
 };
 
+const TREE_NEIGHBORHOOD: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1], [0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]];
+
 const SYMMETRIES: {[key: string]: Symmetry} = {
     'c1': 'C1',
     'c2': 'C2',
@@ -538,6 +540,7 @@ function expandAny(data: number[], states: number, index: number = 0): number[][
 }
 
 function resolveTableSection(data: TableSection, neighborhood: [number, number][], states: number): Uint8Array {
+    neighborhood = TREE_NEIGHBORHOOD;
     let nhRemapping = getNeighborhoodRemapping(data.neighborhood, neighborhood);
     let remappings: Remapping<number>[] = [nhRemapping];
     for (let remapping of getSymmetryRemappings(neighborhood, data.symmetry)) {
