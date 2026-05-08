@@ -3,7 +3,7 @@
 // #5bcefa
 
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, createPattern, parse as parseRLE} from './core/index.js';
-import {ROTATION_COMBINE, RPFPattern, RPFFile, parseRPF} from './rpf.js';
+import {Rotation, ROTATION_COMBINE, RPFPattern, RPFFile, parseRPF} from './rpf.js';
 import * as lifeweb from './core/index.js';
 
 
@@ -147,6 +147,7 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     hasRan = false;
     cursorMode = 'main';
     sel = undefined;
+    getElement('cursor-select').style.display = p instanceof RPFPattern ? 'none' : 'block';
 }
 
 function updateSizes() {
@@ -182,7 +183,7 @@ function editCell(isStart: boolean): void {
     p.set(x, y, drawDeleteMode ? 0 : drawState);
 }
 
-function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
+function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
     ctx.save();
     let pixelWidth = canvas.width / scale;
     let pixelHeight = canvas.height / scale;
@@ -192,15 +193,43 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     let yMod = yOffset % 1;
     ctx.scale(scale, scale);
     ctx.translate(-xMod, -yMod);
-    xOffset -= xMod;
-    yOffset -= yMod;
+    xOffset = Math.round(xOffset - xMod);
+    yOffset = Math.round(yOffset - yMod);
     let startY = Math.max(0, -yOffset);
     let endY = Math.max(pixelHeight, p.height - yOffset);
     let startX = Math.max(0, -xOffset);
     let endX = Math.max(pixelWidth, p.width - xOffset);
     for (let y = startY; y <= endY; y++) {
         for (let x = startX; x <= endX; x++) {
-            let cell = p.get(x + xOffset, y + yOffset);
+            let x2 = x + xOffset;
+            let y2 = y + yOffset;
+            if (rotation && rotation !== 'F') {
+                if (rotation === 'Fx') {
+                    y2 = p.height - y2 - 1;
+                } else if (rotation === 'L') {
+                    let temp = x2;
+                    x2 = p.height - y2 - 1;
+                    y2 = temp;
+                } else if (rotation === 'Lx') {
+                    let temp = x2;
+                    x2 = y2;
+                    y2 = temp;
+                } else if (rotation === 'B') {
+                    x2 = p.width - x2 - 1;
+                    y2 = p.height - y2 - 1;
+                } else if (rotation === 'Bx') {
+                    x2 = p.width - x2 - 1;
+                } else if (rotation === 'R') {
+                    let temp = x2;
+                    x2 = y2;
+                    y2 = p.width - temp - 1;
+                } else {
+                    let temp = x2;
+                    x2 = p.height - y2 - 1;
+                    y2 = p.width - temp - 1;
+                }
+            }
+            let cell = p.get(x2, y2);
             if (cell !== 0) {
                 ctx.fillStyle = states[cell];
                 ctx.fillRect(x - fillOffset, y - fillOffset, 1 + fillExpand, 1 + fillExpand);
@@ -216,14 +245,14 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
 
 type DefaultAction = 
     | 'frame'
-    | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
+    | 'scroll-canvas' | 'click-canvas' | 'double-click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
     | 'run' | 'pause' | 'step' | 'reset' | 'set-speed'
     | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
     | 'undo' | 'redo'
     | 'set-scale' | 'faster' | 'slower'
     | 'sel-cancel' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
     | 'copy' | 'start-paste' | 'end-paste' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
-    | 'open-command' | 'command-keypress' | 'run-command'
+    | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
     | 'viewRLE';
 
 let runButton = getElement('run');
@@ -595,6 +624,10 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         commandHistory.push(cmd);
     }],
 
+    'click-off-command': [() => {
+        commandElt.style.display = 'none';
+    }],
+
     'viewRLE': [() => {
         let q = parse(getElement<HTMLTextAreaElement>('rle').value);
         if (q === undefined) {
@@ -618,7 +651,7 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         }
         ctx.fillStyle = states[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        let {xMod, yMod} = drawPattern(p, states, undefined, undefined, false);
+        let {xMod, yMod} = drawPattern(p, states, undefined, undefined, undefined, false);
         if (sel) {
             ctx.fillStyle = theme.selection;
             ctx.fillRect(sel.x + topLeftX + xMod - fillOffset, sel.y + topLeftY + yMod - fillOffset, sel.width + fillExpand, sel.height + fillExpand);
@@ -630,7 +663,7 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         if (pasting) {
             pasting.xOffset = mouseX;
             pasting.yOffset = mouseY;
-            let {xOffset, yOffset} = drawPattern(pasting, states, undefined, undefined, false);
+            let {xOffset, yOffset} = drawPattern(pasting, states, undefined, undefined, undefined, false);
             ctx.fillStyle = theme.pasting;
             ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
             ctx.restore();
@@ -946,7 +979,8 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         let data = (p as RPFPattern).data;
         for (let i = 0; i < data.length; i++) {
-            drawPattern(data[i].p, rpfSel.has(i) ? selectedStates : states, data[i].x, data[i].y);
+            let value = data[i];
+            drawPattern(value.p, rpfSel.has(i) ? selectedStates : states, value.x, value.y, value.rotation);
         }
         ctx.restore();
         if (rpfSel.size > 0) {
@@ -964,26 +998,33 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         isDragging = true;
         dragStart = [event.clientX, event.clientY];
         dragOffsetStart = [topLeftX, topLeftY];
+        if (pasting) {
+            run('end-paste');
+            return;
+        }
         if (cursorMode === 'edit') {
             pushUndo();
             editCell(true);
-        } else if (cursorMode === 'select') {
-            if (pasting) {
-                run('end-paste');
-            } else {
-                if (p.get(mouseX, mouseY)) {
-                    let data = (p as RPFPattern).data;
-                    for (let i = 0; i < data.length; i++) {
-                        if (data[i].p.get(mouseX - data[i].x, mouseY - data[i].y)) {
-                            if (rpfSel.has(i)) {
-                                rpfSel.delete(i);
-                            } else {
-                                rpfSel.add(i);
-                            }
-                        }
+        }
+    }],
+
+    'double-click-canvas': [event => {
+        if (event) {
+            event.preventDefault();
+        }
+        if (p.get(mouseX, mouseY)) {
+            let data = (p as RPFPattern).data;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].p.get(mouseX - data[i].x, mouseY - data[i].y)) {
+                    if (rpfSel.has(i)) {
+                        rpfSel.delete(i);
+                    } else {
+                        rpfSel.add(i);
                     }
                 }
             }
+        } else {
+            rpfSel.clear();
         }
     }],
 
@@ -1073,92 +1114,56 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         pushUndo();
         for (let i of rpfSel) {
             let value = (p as RPFPattern).data[i];
-            value.rotation = ROTATION_COMBINE[value.rotation]['Fx'];
+            value.rotation = ROTATION_COMBINE[value.rotation]['Bx'];
         }
     }],
 
     'sel-flip-vertical': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.flipVertical(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['Fx'];
+        }
     }],
 
     'sel-rotate-left': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.rotateLeft(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['L'];
+        }
     }],
 
     'sel-rotate-right': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.rotateRight(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['R'];
+        }
     }],
 
     'sel-rotate-180': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.rotate180(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['B'];
+        }
     }],
 
     'sel-flip-diagonal': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.flipDiagonal(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['Lx'];
+        }
     }],
 
     'sel-flip-anti-diagonal': [() => {
-        if (!sel) {
-            return;
-        }
         pushUndo();
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        let q = p.copyPart(x, y, sel.height, sel.width);
-        p.clearPart(x, y, sel.height, sel.width);
-        p.insert(q.flipAntiDiagonal(), x, y, INSERT_COPY);
+        for (let i of rpfSel) {
+            let value = (p as RPFPattern).data[i];
+            value.rotation = ROTATION_COMBINE[value.rotation]['Rx'];
+        }
     }],
 
     'copy': [() => {
@@ -1259,7 +1264,7 @@ function removeHook<T extends DefaultAction>(actions: {[K in T]: Hook[]}, action
 
 
 let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} = {
-    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
+    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'dblclick': 'double-click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
     'run': {'click': 'run'},
     'pause': {'click': 'pause'},
     'step': {'click': 'step'},
@@ -1288,7 +1293,7 @@ let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultActi
     'sel-rotate-180': {'click': 'sel-rotate-180'},
     'sel-flip-diagonal': {'click': 'sel-flip-diagonal'},
     'sel-flip-anti-diagonal': {'click': 'sel-flip-anti-diagonal'},
-    'command': {'keydown': 'command-keypress'},
+    'command': {'keydown': 'command-keypress', 'blur': 'click-off-command'},
     'view-rle': {'click': 'viewRLE'},
 };
 
@@ -1318,7 +1323,7 @@ var keybinds: {[key: string]: DefaultAction} = {
     '/': 'open-command',
 };
 
-canvas.addEventListener('keydown', event => {
+window.addEventListener('keydown', event => {
     if (commandWrapperElt.style.display === 'flex') {
         run('command-keypress', event);
     } else {

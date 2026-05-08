@@ -315,7 +315,36 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     get(x: number, y: number): number {
         for (let value of this.data) {
             if (isInside(x, y, value)) {
-                return value.p.get(x, y);
+                let x2 = x - value.x;
+                let y2 = y - value.y;
+                if (value.rotation === 'Fx') {
+                    y2 = value.p.height - y2 - 1;
+                } else if (value.rotation === 'L') {
+                    let temp = x2;
+                    x2 = value.p.height - y2 - 1;
+                    y2 = temp;
+                } else if (value.rotation === 'Lx') {
+                    let temp = x2;
+                    x2 = y2;
+                    y2 = temp;
+                } else if (value.rotation === 'B') {
+                    x2 = value.p.width - x2 - 1;
+                    y2 = value.p.height - y2 - 1;
+                } else if (value.rotation === 'Bx') {
+                    x2 = value.p.width - x2 - 1;
+                } else if (value.rotation === 'R') {
+                    let temp = x2;
+                    x2 = y2;
+                    y2 = value.p.width - temp - 1;
+                } else if (value.rotation === 'Rx') {
+                    let temp = x2;
+                    x2 = value.p.height - y2 - 1;
+                    y2 = value.p.width - temp - 1;
+                }
+                let cell = value.p.get(x2, y2);
+                if (cell) {
+                    return cell;
+                }
             }
         }
         return 0;
