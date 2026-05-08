@@ -983,22 +983,10 @@ export abstract class DataPattern extends Pattern {
         if (x < 0 || y < 0 || x > this.width || y > this.height) {
             let height = this.height;
             let width = this.width;
-            let expandUp = -y;
-            if (expandUp < 0) {
-                expandUp = 0;
-            }
-            let expandDown = y - this.height;
-            if (expandDown < 0) {
-                expandDown = 0;
-            }
-            let expandLeft = -x;
-            if (expandLeft < 0) {
-                expandLeft = 0;
-            }
-            let expandRight = x - this.width;
-            if (expandRight < 0) {
-                expandRight = 0;
-            }
+            let expandUp = Math.max(-y, 0);
+            let expandDown = Math.max(y - this.height, 0);
+            let expandLeft = Math.max(-x, 0);
+            let expandRight = Math.max(x - this.width, 0);
             let oX = expandLeft + expandRight;
             let newWidth = width + oX;
             let newHeight = height + expandUp + expandDown;
@@ -1077,7 +1065,7 @@ export abstract class DataPattern extends Pattern {
             for (let x2 = 0; x2 < p.width; x2++) {
                 let oldState = this.data[i];
                 let newState = p.get(x2, y2);
-                this.data[i] = (mode & (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))) ? (newState === 0 ? oldState : newState) : 0;
+                this.data[i] = (mode & (1 << (3 - (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))))) ? (newState === 0 ? oldState : newState) : 0;
                 i++;
             }
         }
@@ -1560,7 +1548,7 @@ export abstract class CoordPattern extends Pattern {
         let offset = (x + BIAS) * WIDTH + (y + BIAS);
         for (let [key, newState] of p.getCoords()) {
             let oldState = this.coords.get(key + offset);
-            if (mode & (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))) {
+            if (mode & (1 << (3 - (((oldState ? 1 : 0) << 1) | (newState ? 1 : 0))))) {
                 this.coords.set(key + offset, newState);
             } else {
                 this.coords.delete(key + offset);

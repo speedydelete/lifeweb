@@ -94,10 +94,11 @@ textarea:hover, textarea:focus {
     padding: 0.35rem;
     border: 1px solid #ffffff;
     background-color: #000000;
+    color: #ffffff;
 }
 
 #right button.selected {
-    background-color: #001fdf;
+    background-color: #5bcefa;
 }
 
 #top {
@@ -136,6 +137,17 @@ textarea:hover, textarea:focus {
 
 #canvas {
     image-rendering: crisp-edges;
+}
+
+#paste-mode-menu {
+    display: none;
+    position: absolute;
+    top: 3.5rem;
+    right: 0;
+    padding: 0.5rem;
+    flex-direction: row;
+    gap: 0.5rem;
+    background-color: transparent;
 }
 
 #select-menu {
@@ -269,12 +281,18 @@ bo$2bo$3o!</textarea>
                     </svg>
                 </button>
                 <div class="spacer"></div>
-                <div>Z =&nbsp;<span id="zoom">10.0</span></div>
+                <div>Z =&nbsp;<span id="scale">10.0</span></div>
                 <div>T =&nbsp;<span id="gens">0</span></div>
                 <div>C =&nbsp;<span id="pop">0</span></div>
                 <div id="position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
-            <canvas id="canvas"></canvas>
+            <canvas id="canvas" tabindex="-1"></canvas>
+            <div id="paste-mode-menu">
+                <button id="paste-or" class="selected">OR</button>
+                <button id="paste-copy">CPY</button>
+                <button id="paste-and">AND</button>
+                <button id="paste-xor">XOR</button>
+            </div>
             <div id="select-menu">
                 <div>
                     <button id="sel-cancel">

@@ -222,10 +222,12 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
 /** Parses a RLE. 
  * @param namedRules An object mapping aliases to rules.
 */
-export function parse(rle: string, namedRules?: {[key: string]: string}): Pattern {
+export function parse(rle: string, namedRules?: {[key: string]: string}, preserveSizes: boolean = false): Pattern {
     let rule = 'B3/S23';
-    let xOffset: number | null = null;
-    let yOffset: number | null = null;
+    let height: number | undefined = undefined;
+    let width: number | undefined = undefined;
+    let xOffset: number | undefined = undefined;
+    let yOffset: number | undefined = undefined;
     let generation = 0;
     let data = '';
     let headerFound = false;
@@ -262,27 +264,32 @@ export function parse(rle: string, namedRules?: {[key: string]: string}): Patter
         } else {
             headerFound = true;
             line = line.trim();
-            if (line[0] !== 'x') {
-                data += line;
-            } else {
-                let match = line.match(/x\s*=\s*\d+\s*,?\s*y\s*=\s*\d+\s*,?\s*(?:rule\s*=\s*(.*))?/);
-                if (!match) {
-                    throw new Error(`Invaid header line: '${line}'`);
-                }
-                if (match[1]) {
-                    rule = match[1];
-                }
+            let match = line.match(/x\s*=\s*(\d+)\s*,?\s*y\s*=\s*(\d+)\s*,?\s*(?:rule\s*=\s*(.*))?/);
+            if (!match) {
+                throw new Error(`Invaid header line: '${line}'`);
+            }
+            if (typeof match[1] === 'string') {
+                height = parseInt(match[1]);
+            }
+            if (typeof match[2] === 'string') {
+                width = parseInt(match[2]);
+            }
+            if (typeof match[3] === 'string') {
+                rule = match[3];
             }
         }
     }
     let out = createPattern(rule, namedRules).loadRLE(data);
-    if (xOffset !== null) {
+    if (xOffset !== undefined) {
         out.xOffset = xOffset;
     }
-    if (yOffset !== null) {
+    if (yOffset !== undefined) {
         out.yOffset = yOffset;
     }
     out.generation = generation;
+    if (preserveSizes && height !== undefined && width !== undefined) {
+        out.offsetBy(height - out.height, width - out.width);
+    }
     return out;
 }
 
