@@ -1,5 +1,5 @@
 
-import {RLE_CHARS, APGCODE_CHARS, Rect, Rule, Pattern, createPattern} from './core/index.js';
+import {Rect, Rule, Pattern, createPattern} from './core/index.js';
 
 
 export class RPFError extends Error {};
@@ -98,18 +98,20 @@ export function join(...paths: string[]): string {
 }
 
 
+export interface RPFObjectData<T extends Pattern = Pattern> {
+    p: T | RPFPattern<T>;
+    x: number;
+    y: number;
+    rotation: Rotation;
+    time: number;
+}
+
 export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     base: T;
     key: string;
     path: string;
-    data: ({
-        p: T | RPFPattern<T>;
-        x: number;
-        y: number;
-        rotation: Rotation;
-        time: number;
-    })[];
+    data: RPFObjectData[];
     // we set optional values to undefined so the V8 hidden classes are the same
     name?: string = undefined;
     minX: number;
@@ -164,7 +166,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             out += `#name ${this.name}\n`;
         }
         for (let value of this.data) {
-            let start = value.p instanceof RPFPattern ? value.p.key : '!' + value.p.toRLE(false);
+            let start = value.p instanceof RPFPattern ? value.p.key : '*' + value.p.toApgcode();
             if (value.time === 0) {
                 if (value.rotation === 'F') {
                     if (value.x === 0 && value.y === 0) {
@@ -194,11 +196,11 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                     out.name = parts.slice(1).join(' ');
                 }
             } else {
-                let p = parts[0].endsWith('!') ? file.base.loadRLE(parts[0]) as T : file.data[parts[0]];
+                let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() as T : file.data[parts[0]];
                 if (!p) {
                     throw new RPFError(`RPF object '${parts[0]}' was never defined`);
                 }
-                out.data.push({
+                out.addObject({
                     p,
                     x: parts[1] === undefined ? 0 : Number(parts[1]),
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
@@ -208,6 +210,39 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             }
         }
         return out;
+    }
+
+    addObject(obj: RPFObjectData<T>): this {
+        this.data.push(obj);
+        this.population += obj.p.population;
+        this.width = Math.max(this.minX + this.width, obj.x + obj.p.width) - this.minX;
+        this.height = Math.max(this.minY + this.height, obj.y + obj.p.height) - this.minY;
+        this.minX = Math.min(this.minX, obj.x);
+        this.minY = Math.min(this.minY, obj.y);
+        return this;
+    }
+
+    recomputeSizes(): this {
+        this.minX = Infinity;
+        this.minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        this.population = 0;
+        for (let value of this.data) {
+            this.minX = Math.min(this.minX, value.x);
+            this.minY = Math.min(this.minY, value.y);
+            let p = value.p.copy() as T;
+            applyRotation(p, value.rotation);
+            p.run(value.time);
+            p.shrinkToFit();
+            value.p = p;
+            maxX = Math.max(maxX, value.x + p.width);
+            maxY = Math.max(maxY, value.y + p.height);
+            this.population += p.population;
+        }
+        this.height = maxY - this.minY;
+        this.width = maxX - this.minX;
+        return this;
     }
 
     runGeneration(): number {
@@ -704,22 +739,7 @@ export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: st
         }
     }
     groups.push(currentGroup.join('\n'));
-    let base: T | undefined;
-    for (let line of groups[0]) {
-        if (line.startsWith('#')) {
-            let parts = line.split(' ');
-            if (parts[0] === '#rule') {
-                base = createPattern(parts.slice(1).join(' ')) as T;
-            } else {
-                throw new RPFError(`Invalid RPF header line: '${line}'`);
-            }
-        } else {
-            throw new RPFError(`Invalid RPF header line: '${line}'`);
-        }
-    }
-    if (!base) {
-        throw new RPFError(`No #rule line found in RPF!`);
-    }
+    let base = createPattern(groups[0]) as T;
     let out: RPFFile<T> = {
         base,
         path: basePath,
