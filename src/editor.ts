@@ -43,6 +43,7 @@ var theme: Theme = {
 interface UndoState {
     p: Pattern;
     hasRan: boolean;
+    rpfEditing?: RPFObjectData;
 }
 
 var p = createPattern('B3/S23');
@@ -97,20 +98,62 @@ var beforeHistoryCommand = '/';
 var rpfEditing: RPFObjectData | undefined = undefined;
 
 
-function parse(data: string, preserveSizes?: boolean): Pattern | undefined {
+let runButton = getElement('run');
+let pauseButton = getElement('pause');
+let stepButton = getElement('step');
+let resetButton = getElement('reset');
+let speedElt = getElement('speed');
+
+let cursorMainButton = getElement('cursor-main');
+let cursorEditButton = getElement('cursor-edit');
+let cursorSelectButton = getElement('cursor-select');
+
+let scaleElt = getElement('scale');
+
+let gensElt = getElement('gens');
+let popElt = getElement('pop');
+
+let posElt = getElement('position');
+let xElt = getElement('x');
+let yElt = getElement('y');
+let stateElt = getElement('state');
+
+let pasteOrButton = getElement('paste-or');
+let pasteCopyButton = getElement('paste-copy');
+let pasteAndButton = getElement('paste-and');
+let pasteXorButton = getElement('paste-xor');
+
+let commandWrapperElt = getElement('command-wrapper');
+let commandElt = getElement('command');
+
+let selectMenuElt = getElement('select-menu');
+let pasteModeMenuElt = getElement('paste-mode-menu');
+
+let selGroupButton = getElement('sel-group');
+let selUngroupButton = getElement('sel-ungroup');
+
+
+function parse(data: string, preserveSizes?: boolean): Pattern | [string, string] {
     try {
         return parseRLE(data, undefined, preserveSizes);
     } catch (error) {
         try {
             return RPFPattern.fromString(data, structuredClone(emptyRPF));
-        } catch (error) {
-            return undefined;
+        } catch (error2) {
+            return [String(error), String(error2)];
         }
     }
 }
 
 function pushUndo(): void {
-    undoBuffer.push({p: p.copy(), hasRan});
+    undoBuffer.push({p: p.copy(), hasRan, rpfEditing});
+}
+
+function applyUndo(state: UndoState): void {
+    running = false;
+    p = state.p.copy();
+    hasRan = state.hasRan;
+    rpfEditing = state.rpfEditing;
 }
 
 function loadPattern(q: string | RPFFile | Pattern): void {
@@ -120,8 +163,8 @@ function loadPattern(q: string | RPFFile | Pattern): void {
         } catch (error) {
             try {
                 q = parseRPF(q as string, '/main');
-            } catch (error) {
-                alert('Invalid pattern!');
+            } catch (error2) {
+                alert(`Invalid pattern!:\n\n${error}\n\n${error2}`);
                 return;
             }
         }
@@ -140,9 +183,14 @@ function loadPattern(q: string | RPFFile | Pattern): void {
             return;
         }
     }
+    p.xOffset = 0;
+    p.yOffset = 0;
     scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
     topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
     topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
+    let offset = p.getFullOffset();
+    topLeftX -= offset[0];
+    topLeftY -= offset[1];
     runButton.className = '';
     pauseButton.className = '';
     stepButton.className = '';
@@ -151,7 +199,16 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     hasRan = false;
     cursorMode = 'main';
     sel = undefined;
-    getElement('cursor-select').style.display = p instanceof RPFPattern ? 'none' : 'block';
+    rpfSel.clear();
+    if (p instanceof RPFPattern) {
+        cursorSelectButton.style.display = 'none';
+        selGroupButton.style.display = 'block';
+        selUngroupButton.style.display = 'block';
+    } else {
+        cursorSelectButton.style.display = 'block';
+        selGroupButton.style.display = 'none';
+        selUngroupButton.style.display = 'none';
+    }
 }
 
 function updateSizes() {
@@ -200,18 +257,25 @@ function editCellRPF(isStart: boolean): void {
     prevEditY = y;
     x -= rpfEditing.x;
     y -= rpfEditing.y;
+    let q = rpfEditing.p;
     if (x < 0 || y < 0) {
-        rpfEditing.x += Math.min(x, 0);
-        rpfEditing.y += Math.min(y, 0);
+        let x2 = -Math.min(x, 0);
+        let y2 = -Math.min(y, 0);
+        q.offsetBy(x2, y2);
         x = Math.max(x, 0);
         y = Math.max(y, 0);
     }
-    let cell = rpfEditing.p.get(x, y);
+    let cell = q.get(x, y);
     if (isStart) {
         drawDeleteMode = cell === drawState;
     }
-    rpfEditing.p.ensure(x + 1, y + 1);
-    rpfEditing.p.set(x, y, drawDeleteMode ? 0 : drawState);
+    q.ensure(x + 1, y + 1);
+    q.set(x, y, drawDeleteMode ? 0 : drawState);
+    q.shrinkToFit();
+    rpfEditing.x += q.xOffset;
+    rpfEditing.y += q.yOffset;
+    q.xOffset = 0;
+    q.yOffset = 0;
 }
 
 function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
@@ -281,48 +345,18 @@ type DefaultAction =
     | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
     | 'undo' | 'redo'
     | 'set-scale' | 'faster' | 'slower'
-    | 'sel-cancel' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
+    | 'sel-cancel' | 'sel-group' | 'sel-ungroup' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
     | 'copy' | 'start-paste' | 'end-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
     | 'viewRLE';
 
-let runButton = getElement('run');
-let pauseButton = getElement('pause');
-let stepButton = getElement('step');
-let resetButton = getElement('reset');
-let speedElt = getElement('speed');
+type Hook = (event?: Event) => void;
 
-let cursorMainButton = getElement('cursor-main');
-let cursorEditButton = getElement('cursor-edit');
-let cursorSelectButton = getElement('cursor-select');
-
-let scaleElt = getElement('scale');
-
-let gensElt = getElement('gens');
-let popElt = getElement('pop');
-
-let posElt = getElement('position');
-let xElt = getElement('x');
-let yElt = getElement('y');
-let stateElt = getElement('state');
-
-let pasteOrButton = getElement('paste-or');
-let pasteCopyButton = getElement('paste-copy');
-let pasteAndButton = getElement('paste-and');
-let pasteXorButton = getElement('paste-xor');
-
-let commandWrapperElt = getElement('command-wrapper');
-let commandElt = getElement('command');
-
-let selectMenuElt = getElement('select-menu');
-let pasteModeMenuElt = getElement('paste-mode-menu');
 
 let frameCount = 0;
 
 let wheelEvent: WheelEvent | undefined = undefined;
 let totalDeltaY = 0;
-
-type Hook = (event?: Event) => void;
 
 
 var sharedActions: {[K in DefaultAction]?: Hook[]} = {
@@ -401,7 +435,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         let rect = canvas.getBoundingClientRect();
         mouseX = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale);
         mouseY = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale);
-        posElt.style.display = 'flex'
+        posElt.style.display = 'flex';
     }],
 
     'run': [() => {
@@ -484,9 +518,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         redoBuffer.push({p: p.copy(), hasRan});
         let state = undoBuffer.pop();
         if (state) {
-            running = false;
-            p = state.p.copy();
-            hasRan = state.hasRan;
+            applyUndo(state);
         }
     }],
 
@@ -494,9 +526,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         let state = redoBuffer.pop();
         if (state) {
             pushUndo();
-            running = false;
-            p = state.p.copy();
-            hasRan = state.hasRan;
+            applyUndo(state);
         }
     }],
 
@@ -636,12 +666,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'viewRLE': [() => {
-        let q = parse(getElement<HTMLTextAreaElement>('rle').value);
-        if (q === undefined) {
-            alert('Invalid pattern!');
-            return;
-        }
-        loadPattern(q);
+        loadPattern(getElement<HTMLTextAreaElement>('rle').value);
     }],
 
 };
@@ -727,6 +752,9 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'unclick-canvas': [() => {
+        if (cursorMode === 'select' && sel !== undefined) {
+            pushUndo();
+        }
         isDragging = false;
         prevEditX = undefined;
         prevEditY = undefined;
@@ -768,6 +796,10 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'sel-cancel': [() => {
+        if (!sel) {
+            return;
+        }
+        pushUndo();
         sel = undefined;
     }],
 
@@ -957,7 +989,8 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
             event.preventDefault();
         }
         let text = await navigator.clipboard.readText();
-        pasting = parse(text, true);
+        let q = parse(text, true);
+        pasting = Array.isArray(q) ? undefined : q;
         run('set-cursor-to-select');
     }],
 
@@ -1030,7 +1063,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         if (rpfSel.size > 0) {
             selectMenuElt.style.display = 'flex';
         } else {
-            selectMenuElt.style.display = 'flex';
+            selectMenuElt.style.display = 'none';
         }
         frameCount++;
     }],
@@ -1109,8 +1142,11 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'set-cursor-to-main': [() => {
-        if (cursorMode === 'edit' && rpfEditing && rpfEditing.p.population === 0) {
-            (p as RPFPattern).removeObject(rpfEditing);
+        if (cursorMode === 'edit' && rpfEditing) {
+            rpfSel.delete((p as RPFPattern).data.indexOf(rpfEditing));
+            if (rpfEditing.p.population === 0) {
+                (p as RPFPattern).removeObject(rpfEditing);
+            }
         }
         cursorMode = 'main';
         cursorMainButton.className = 'selected';
@@ -1128,6 +1164,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
                 rotation: 'F',
                 time: 0,
             };
+            rpfSel.add((p as RPFPattern).data.length);
             (p as RPFPattern).addObject(rpfEditing);
         } else if (rpfSel.size === 1) {
             rpfEditing = (p as RPFPattern).data[Array.from(rpfSel)[0]];
@@ -1149,8 +1186,76 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'sel-cancel': [() => {
+        if (rpfSel.size === 0) {
+            return;
+        }
         pushUndo();
         rpfSel.clear();
+    }],
+
+    'sel-group': [() => {
+        if (rpfSel.size === 0) {
+            return;
+        }
+        let key = prompt('Enter new object ID:');
+        if (!key) {
+            return;
+        }
+        pushUndo();
+        let q = p.copy() as RPFPattern;
+        q.setKey(key);
+        let deleted = 0;
+        for (let i = 0; i < q.data.length; i++) {
+            if (!rpfSel.has(i)) {
+                q.data.splice(i - deleted, 1);
+                deleted++;
+            }
+        }
+        let minX = Infinity;
+        let minY = Infinity;
+        for (let obj of q.data) {
+            minX = Math.min(minX, obj.x);
+            minY = Math.min(minY, obj.y);
+        }
+        for (let obj of q.data) {
+            obj.x -= minX;
+            obj.y -= minY;
+        }
+        deleted = 0;
+        for (let i of rpfSel) {
+            (p as RPFPattern).data.splice(i - deleted, 1);
+            deleted++;
+        }
+        rpfSel.clear();
+        rpfSel.add((p as RPFPattern).data.length);
+        (p as RPFPattern).addObject({
+            p: q,
+            x: minX,
+            y: minY,
+            rotation: 'F',
+            time: 0,
+        });
+        (rpfFile as RPFFile).data[q.key] = q;
+    }],
+
+    'sel-ungroup': [() => {
+        if (rpfSel.size === 0) {
+            return;
+        }
+        pushUndo();
+        let deleted = 0;
+        let objs: RPFObjectData[] = [];
+        for (let i of rpfSel) {
+            objs.push(...(p as RPFPattern).data.splice(i - deleted, 1));
+            deleted++;
+        }
+        objs = objs.map(x => x.p instanceof RPFPattern ? x.p.data.map(y => ({p: y.p, x: y.x + x.x, y: y.y + x.y, rotation: y.rotation, time : y.time})) : x).flat();
+        console.log(deleted);
+        rpfSel.clear();
+        for (let obj of objs) {
+            rpfSel.add((p as RPFPattern).data.length);
+            (p as RPFPattern).addObject(obj);
+        }
     }],
 
     'sel-move-up': [() => {
@@ -1192,6 +1297,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             (p as RPFPattern).data.splice(i - deleted, 1);
             deleted++;
         }
+        rpfSel.clear();
         (p as RPFPattern).recomputeSizes();
     }],
 
@@ -1259,12 +1365,11 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'copy': [() => {
-        let toCopy: string;
         if (rpfSel.size === (p as RPFPattern).data.length) {
             if (!rpfFile) {
                 throw new Error(`No rpfFile when copying everything!`);
             }
-            toCopy = rpfToString(rpfFile);
+            navigator.clipboard.writeText(rpfToString(rpfFile));
         } else if (rpfSel.size > 0) {
             let q = p.copy() as RPFPattern;
             let deleted = 0;
@@ -1274,11 +1379,8 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
                     deleted++;
                 }
             }
-            toCopy = q.toString();
-        } else {
-            return;
+            navigator.clipboard.writeText(q.toString());
         }
-        navigator.clipboard.writeText(toCopy);
     }],
 
     'start-paste': [async event => {
@@ -1286,7 +1388,8 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             event.preventDefault();
         }
         let text = await navigator.clipboard.readText();
-        pasting = parse(text, true);
+        let q = parse(text, true);
+        pasting = Array.isArray(q) ? undefined : q;
         run('set-cursor-to-select');
     }],
 
@@ -1397,6 +1500,8 @@ let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultActi
     'paste-and': {'click': 'set-paste-mode-to-and'},
     'paste-xor': {'click': 'set-paste-mode-to-xor'},
     'sel-cancel': {'click': 'sel-cancel'},
+    'sel-group': {'click': 'sel-group'},
+    'sel-ungroup': {'click': 'sel-ungroup'},
     'sel-move-up': {'click': 'sel-move-up'},
     'sel-move-down': {'click': 'sel-move-down'},
     'sel-move-left': {'click': 'sel-move-left'},

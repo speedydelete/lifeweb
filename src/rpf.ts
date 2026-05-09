@@ -259,6 +259,12 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return this;
     }
 
+    setKey(key: string): this {
+        this.key = key;
+        this.path = join(this.path.slice(0, this.path.lastIndexOf('/')), key);
+        return this;
+    }
+
     runGeneration(): number {
         // TO IMPLEMENT
         return 0;
