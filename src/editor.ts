@@ -1,13 +1,11 @@
 
-// #f5a9b8
-// #5bcefa
-
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, createPattern, parse as parseRLE} from './core/index.js';
-import {Rotation, ROTATION_COMBINE, RPFPattern, RPFFile, parseRPF} from './rpf.js';
-import * as lifeweb from './core/index.js';
+import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, RPFFile, parseRPF, rpfToString} from './rpf.js';
 
-
-Object.assign(globalThis, lifeweb);
+// import * as lifeweb from './core/index.js';
+// import * as lifewebRPF from './rpf.js';
+// Object.assign(globalThis, lifeweb);
+// Object.assign(globalThis, lifewebRPF);
 
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -21,6 +19,8 @@ interface Theme {
     selection: string;
     rpfSelection: string;
     pasting: string;
+    envelope: string;
+    intermediateObjects: string;
 }
 
 var theme: Theme = {
@@ -33,8 +33,10 @@ var theme: Theme = {
         return out;
     },
     selection: `rgba(0, 255, 0, 0.5)`,
-    rpfSelection: `#00ff00`,
+    rpfSelection: `#ffb3e3`,
     pasting: `rgba(255, 0, 0, 0.5)`,
+    envelope: `#0000cf`,
+    intermediateObjects: `#ff0000`,
 };
 
 
@@ -44,7 +46,7 @@ interface UndoState {
 }
 
 var p = createPattern('B3/S23');
-var rpf: RPFFile | undefined = undefined;
+var rpfFile: RPFFile | undefined = undefined;
 
 var emptyRPF: RPFFile = {base: p, path: '/main', data: {}};
 
@@ -92,6 +94,8 @@ var commandHistory: string[] = [];
 var commandHistoryPos: number | undefined = undefined;
 var beforeHistoryCommand = '/';
 
+var rpfEditing: RPFObjectData | undefined = undefined;
+
 
 function parse(data: string, preserveSizes?: boolean): Pattern | undefined {
     try {
@@ -125,12 +129,12 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     if (q instanceof Pattern) {
         p = q;
         if (p instanceof RPFPattern) {
-            rpf = structuredClone(emptyRPF);
-            rpf.data['main'] = p;
+            rpfFile = structuredClone(emptyRPF);
+            rpfFile.data['main'] = p;
         }
     } else {
-        rpf = q;
-        p = rpf.data['main'];
+        rpfFile = q;
+        p = rpfFile.data['main'];
         if (!p) {
             alert(`No 'main' entry present in loaded RPF`);
             return;
@@ -181,6 +185,33 @@ function editCell(isStart: boolean): void {
     }
     p.ensure(x + 1, y + 1);
     p.set(x, y, drawDeleteMode ? 0 : drawState);
+}
+
+function editCellRPF(isStart: boolean): void {
+    if (!rpfEditing) {
+        throw new Error(`editCellRPF called with no rpfEditing`);
+    }
+    let x = mouseX - p.xOffset;
+    let y = mouseY - p.yOffset;
+    if (!isStart && x === prevEditX && y === prevEditY) {
+        return;
+    }
+    prevEditX = x;
+    prevEditY = y;
+    x -= rpfEditing.x;
+    y -= rpfEditing.y;
+    if (x < 0 || y < 0) {
+        rpfEditing.x += Math.min(x, 0);
+        rpfEditing.y += Math.min(y, 0);
+        x = Math.max(x, 0);
+        y = Math.max(y, 0);
+    }
+    let cell = rpfEditing.p.get(x, y);
+    if (isStart) {
+        drawDeleteMode = cell === drawState;
+    }
+    rpfEditing.p.ensure(x + 1, y + 1);
+    rpfEditing.p.set(x, y, drawDeleteMode ? 0 : drawState);
 }
 
 function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
@@ -245,13 +276,13 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
 
 type DefaultAction = 
     | 'frame'
-    | 'scroll-canvas' | 'click-canvas' | 'double-click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
+    | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
     | 'run' | 'pause' | 'step' | 'reset' | 'set-speed'
     | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
     | 'undo' | 'redo'
     | 'set-scale' | 'faster' | 'slower'
     | 'sel-cancel' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
-    | 'copy' | 'start-paste' | 'end-paste' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
+    | 'copy' | 'start-paste' | 'end-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
     | 'viewRLE';
 
@@ -449,32 +480,6 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         }
     }],
 
-    'set-cursor-to-main': [() => {
-        cursorMode = 'main';
-        cursorMainButton.className = 'selected';
-        cursorEditButton.className = '';
-        cursorSelectButton.className = '';
-        canvas.style.cursor = 'default';
-    }],
-
-    'set-cursor-to-edit': [() => {
-        cursorMode = 'edit';
-        prevEditX = undefined;
-        prevEditY = undefined;
-        cursorMainButton.className = '';
-        cursorEditButton.className = 'selected';
-        cursorSelectButton.className = '';
-        canvas.style.cursor = 'default';
-    }],
-
-    'set-cursor-to-select': [() => {
-        cursorMode = 'select';
-        cursorMainButton.className = '';
-        cursorEditButton.className = '';
-        cursorSelectButton.className = 'selected';
-        canvas.style.cursor = 'crosshair';
-    }],
-
     'undo': [() => {
         redoBuffer.push({p: p.copy(), hasRan});
         let state = undoBuffer.pop();
@@ -587,6 +592,8 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
                     commandElt.textContent = commandHistory[commandHistoryPos];
                 }
             }
+        } else if (key === 'Backspace' && commandElt.textContent.length === 0) {
+            commandWrapperElt.style.display = 'none';
         }
     }],
 
@@ -625,7 +632,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'click-off-command': [() => {
-        commandElt.style.display = 'none';
+        commandWrapperElt.style.display = 'none';
     }],
 
     'viewRLE': [() => {
@@ -733,6 +740,33 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         drawDeleteMode = false;
         posElt.style.display = 'none';
     }],
+
+    'set-cursor-to-main': [() => {
+        cursorMode = 'main';
+        cursorMainButton.className = 'selected';
+        cursorEditButton.className = '';
+        cursorSelectButton.className = '';
+        canvas.style.cursor = 'default';
+    }],
+
+    'set-cursor-to-edit': [() => {
+        cursorMode = 'edit';
+        prevEditX = undefined;
+        prevEditY = undefined;
+        cursorMainButton.className = '';
+        cursorEditButton.className = 'selected';
+        cursorSelectButton.className = '';
+        canvas.style.cursor = 'default';
+    }],
+
+    'set-cursor-to-select': [() => {
+        cursorMode = 'select';
+        cursorMainButton.className = '';
+        cursorEditButton.className = '';
+        cursorSelectButton.className = 'selected';
+        canvas.style.cursor = 'crosshair';
+    }],
+
     'sel-cancel': [() => {
         sel = undefined;
     }],
@@ -908,17 +942,14 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'copy': [() => {
-        let toCopy: Pattern;
-        if (sel) {
-            p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-            let x = sel.x - p.xOffset;
-            let y = sel.y - p.yOffset;
-            p.ensure(x + sel.width, y + sel.height);
-            toCopy = p.copyPart(x, y, sel.height, sel.width);
-        } else {
-            toCopy = p;
+        if (!sel) {
+            return;
         }
-        navigator.clipboard.writeText(toCopy.toRLE());
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        navigator.clipboard.writeText(p.copyPart(x, y, sel.height, sel.width).toRLE());
     }],
 
     'start-paste': [async event => {
@@ -951,6 +982,19 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         }
         p.insert(pasting, x, y, mode);
         pasting = undefined;
+    }],
+
+    'cut': [() => {
+        if (!sel) {
+            return;
+        }
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        navigator.clipboard.writeText(p.copyPart(x, y, sel.height, sel.width).toRLE());
+        p.clearPart(x, y, sel.height, sel.width);
+        p.shrinkToFit();
     }],
 
     'select-all': [event => {
@@ -986,7 +1030,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         if (rpfSel.size > 0) {
             selectMenuElt.style.display = 'flex';
         } else {
-            selectMenuElt.style.display = 'none';
+            selectMenuElt.style.display = 'flex';
         }
         frameCount++;
     }],
@@ -1004,27 +1048,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         }
         if (cursorMode === 'edit') {
             pushUndo();
-            editCell(true);
-        }
-    }],
-
-    'double-click-canvas': [event => {
-        if (event) {
-            event.preventDefault();
-        }
-        if (p.get(mouseX, mouseY)) {
-            let data = (p as RPFPattern).data;
-            for (let i = 0; i < data.length; i++) {
-                if (data[i].p.get(mouseX - data[i].x, mouseY - data[i].y)) {
-                    if (rpfSel.has(i)) {
-                        rpfSel.delete(i);
-                    } else {
-                        rpfSel.add(i);
-                    }
-                }
-            }
-        } else {
-            rpfSel.clear();
+            editCellRPF(true);
         }
     }],
 
@@ -1040,7 +1064,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
                 topLeftX = dragOffsetStart[0] + (event.clientX - dragStart[0]) / scale;
                 topLeftY = dragOffsetStart[1] + (event.clientY - dragStart[1]) / scale;
             } else if (cursorMode === 'edit') {
-                editCell(false);
+                editCellRPF(false);
             } else if (cursorMode === 'select') {
                 if (!pasting) {
                     let minX = Math.min(mouseX, dragSelectStart[0]);
@@ -1053,11 +1077,27 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         }
     }],
 
-    'unclick-canvas': [() => {
+    'unclick-canvas': [event => {
+        if (!(event instanceof MouseEvent)) {
+            throw new Error(`unclick-canvas called with non-MouseEvent value`);
+        }
         isDragging = false;
         prevEditX = undefined;
         prevEditY = undefined;
         drawDeleteMode = false;
+        if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
+            let data = (p as RPFPattern).data;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].p.get(mouseX - data[i].x, mouseY - data[i].y)) {
+                    if (rpfSel.has(i)) {
+                        rpfSel.delete(i);
+                    } else {
+                        rpfSel.add(i);
+                    }
+                }
+            }
+            (p as RPFPattern).recomputeSizes();
+        }
     }],
 
     'move-mouse-off-of-canvas': [() => {
@@ -1066,6 +1106,46 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         prevEditY = undefined;
         drawDeleteMode = false;
         posElt.style.display = 'none';
+    }],
+
+    'set-cursor-to-main': [() => {
+        if (cursorMode === 'edit' && rpfEditing && rpfEditing.p.population === 0) {
+            (p as RPFPattern).removeObject(rpfEditing);
+        }
+        cursorMode = 'main';
+        cursorMainButton.className = 'selected';
+        cursorEditButton.className = '';
+        cursorSelectButton.className = '';
+        canvas.style.cursor = 'default';
+    }],
+
+    'set-cursor-to-edit': [() => {
+        if (rpfSel.size === 0) {
+            rpfEditing = {
+                p: (p as RPFPattern).base.clearedCopy(),
+                x: 0,
+                y: 0,
+                rotation: 'F',
+                time: 0,
+            };
+            (p as RPFPattern).addObject(rpfEditing);
+        } else if (rpfSel.size === 1) {
+            rpfEditing = (p as RPFPattern).data[Array.from(rpfSel)[0]];
+        } else {
+            alert(`Cannot edit multiple objects at once!`);
+            return;
+        }
+        cursorMode = 'edit';
+        prevEditX = undefined;
+        prevEditY = undefined;
+        cursorMainButton.className = '';
+        cursorEditButton.className = 'selected';
+        cursorSelectButton.className = '';
+        canvas.style.cursor = 'default';
+    }],
+
+    'set-cursor-to-select': [() => {
+        throw new Error(`Cannot set cursor to select in RPF mode`);
     }],
 
     'sel-cancel': [() => {
@@ -1078,6 +1158,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         for (let i of rpfSel) {
             (p as RPFPattern).data[i].y--;
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-move-down': [() => {
@@ -1085,6 +1166,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         for (let i of rpfSel) {
             (p as RPFPattern).data[i].y++;
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-move-left': [() => {
@@ -1092,6 +1174,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         for (let i of rpfSel) {
             (p as RPFPattern).data[i].x--;
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-move-right': [() => {
@@ -1099,15 +1182,17 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         for (let i of rpfSel) {
             (p as RPFPattern).data[i].x++;
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-clear': [() => {
         pushUndo();
         let deleted = 0;
         for (let i of rpfSel) {
-            (p as RPFPattern).data.splice(i, 1);
+            (p as RPFPattern).data.splice(i - deleted, 1);
             deleted++;
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-flip-horizontal': [() => {
@@ -1116,6 +1201,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['Bx'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-flip-vertical': [() => {
@@ -1124,6 +1210,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['Fx'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-rotate-left': [() => {
@@ -1132,6 +1219,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['L'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-rotate-right': [() => {
@@ -1140,6 +1228,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['R'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-rotate-180': [() => {
@@ -1148,6 +1237,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['B'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-flip-diagonal': [() => {
@@ -1156,6 +1246,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['Lx'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'sel-flip-anti-diagonal': [() => {
@@ -1164,20 +1255,30 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             let value = (p as RPFPattern).data[i];
             value.rotation = ROTATION_COMBINE[value.rotation]['Rx'];
         }
+        (p as RPFPattern).recomputeSizes();
     }],
 
     'copy': [() => {
-        let toCopy: Pattern;
-        if (sel) {
-            p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-            let x = sel.x - p.xOffset;
-            let y = sel.y - p.yOffset;
-            p.ensure(x + sel.width, y + sel.height);
-            toCopy = p.copyPart(x, y, sel.height, sel.width);
+        let toCopy: string;
+        if (rpfSel.size === (p as RPFPattern).data.length) {
+            if (!rpfFile) {
+                throw new Error(`No rpfFile when copying everything!`);
+            }
+            toCopy = rpfToString(rpfFile);
+        } else if (rpfSel.size > 0) {
+            let q = p.copy() as RPFPattern;
+            let deleted = 0;
+            for (let i = 0; i < q.data.length; i++) {
+                if (!rpfSel.has(i)) {
+                    q.data.splice(i - deleted, 1);
+                    deleted++;
+                }
+            }
+            toCopy = q.toString();
         } else {
-            toCopy = p;
+            return;
         }
-        navigator.clipboard.writeText(toCopy.toRLE());
+        navigator.clipboard.writeText(toCopy);
     }],
 
     'start-paste': [async event => {
@@ -1212,12 +1313,27 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         pasting = undefined;
     }],
 
+    'cut': [() => {
+        if (!sel) {
+            return;
+        }
+        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
+        let x = sel.x - p.xOffset;
+        let y = sel.y - p.yOffset;
+        p.ensure(x + sel.width, y + sel.height);
+        navigator.clipboard.writeText(p.copyPart(x, y, sel.height, sel.width).toRLE());
+        p.clearPart(x, y, sel.height, sel.width);
+        p.shrinkToFit();
+    }],
+
     'select-all': [event => {
         if (event) {
             event.preventDefault();
         }
-        cursorMode = 'select';
-        sel = {x: p.xOffset, y: p.yOffset, height: p.height, width: p.width}; 
+        let data = (p as RPFPattern).data;
+        for (let i = 0; i < data.length; i++) {
+            rpfSel.add(i);
+        }
     }],
 
 };
@@ -1264,7 +1380,7 @@ function removeHook<T extends DefaultAction>(actions: {[K in T]: Hook[]}, action
 
 
 let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} = {
-    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'dblclick': 'double-click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
+    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
     'run': {'click': 'run'},
     'pause': {'click': 'pause'},
     'step': {'click': 'step'},
@@ -1311,36 +1427,46 @@ function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultA
 }
 
 
+let leftElt = getElement('left');
+
 var keybinds: {[key: string]: DefaultAction} = {
     '=': 'faster',
     '-': 'slower',
-    'ctrl-z': 'undo',
-    'ctrl-shift-r': 'redo',
+    'Ctrl-z': 'undo',
+    'Ctrl-R': 'redo',
     'Backspace': 'sel-clear',
-    'ctrl-c': 'copy',
-    'ctrl-v': 'start-paste',
-    'ctrl-a': 'select-all',
+    'Ctrl-c': 'copy',
+    'Ctrl-v': 'start-paste',
+    'Ctrl-x': 'cut',
+    'Ctrl-a': 'select-all',
     '/': 'open-command',
 };
 
 window.addEventListener('keydown', event => {
+    if (leftElt.contains(document.activeElement)) {
+        return;
+    }
     if (commandWrapperElt.style.display === 'flex') {
         run('command-keypress', event);
     } else {
         let key = event.key;
         if (event.metaKey) {
-            key = 'meta-' + key;
+            key = 'Meta-' + key;
         }
         if (event.altKey) {
-            key = 'alt-' + key;
+            key = 'Alt-' + key;
         }
         if (event.ctrlKey) {
-            key = 'ctrl-' + key;
+            key = 'Ctrl-' + key;
         }
         if (key in keybinds) {
             run(keybinds[key], event);
         }
     }
+});
+
+canvas.addEventListener('click', () => {
+    canvas.focus();
 });
 
 

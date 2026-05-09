@@ -161,27 +161,27 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     toString(): string {
-        let out = `${this.key}:\n`;
+        let out: string[] = [`${this.key}:`];
         if (this.name) {
-            out += `#name ${this.name}\n`;
+            out.push(`#name ${this.name}`);
         }
         for (let value of this.data) {
             let start = value.p instanceof RPFPattern ? value.p.key : '*' + value.p.toApgcode();
             if (value.time === 0) {
                 if (value.rotation === 'F') {
                     if (value.x === 0 && value.y === 0) {
-                        out += `${start}\n`;
+                        out.push(`${start}`);
                     } else {
-                        out += `${start} ${value.x} ${value.y}\n`;
+                        out.push(`${start} ${value.x} ${value.y}`);
                     }
                 } else {
-                    out += `${start} ${value.x} ${value.y} ${value.rotation}\n`;
+                    out.push(`${start} ${value.x} ${value.y} ${value.rotation}`);
                 }
             } else {
-                out += `${start} ${value.x} ${value.y} ${value.rotation} ${value.time}\n`;
+                out.push(`${start} ${value.x} ${value.y} ${value.rotation} ${value.time}`);
             }
         }
-        return out;
+        return out.join('\n');
     }
  
     static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
@@ -222,7 +222,18 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return this;
     }
 
-    recomputeSizes(): this {
+    removeObject(obj: RPFObjectData<T>): this {
+        for (let i = 0; i < this.data.length; i++) {
+            if (this.data[i] === obj) {
+                this.data.splice(i, 1);
+                this.recomputeSizes();
+                return this;
+            }
+        }
+        return this;
+    }
+
+    recomputeSizes(recursive: boolean = false): this {
         this.minX = Infinity;
         this.minY = Infinity;
         let maxX = -Infinity;
@@ -231,6 +242,9 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         for (let value of this.data) {
             this.minX = Math.min(this.minX, value.x);
             this.minY = Math.min(this.minY, value.y);
+            if (recursive && value.p instanceof RPFPattern) {
+                value.p.recomputeSizes();
+            }
             let p = value.p.copy() as T;
             applyRotation(p, value.rotation);
             p.run(value.time);
@@ -377,18 +391,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     insert(p: T, x: number, y: number): never {
         throw new Error(`Cannot use insert with RPFPattern`);
-    }
-
-    insertCopy(p: T, x: number, y: number): never {
-        throw new Error(`Cannot use insertCopy with RPFPattern`);
-    }
-
-    insertAnd(p: T, x: number, y: number): never {
-        throw new Error(`Cannot use insertAnd with RPFPattern`);
-    }
-
-    insertXor(p: T, x: number, y: number): never {
-        throw new Error(`Cannot use insertXor with RPFPattern`);
     }
 
     toPattern(): T {
@@ -709,7 +711,7 @@ export interface RPFFile<T extends Pattern = Pattern> {
     data: {[key: string]: RPFPattern<T>};
 }
 
-export function rpfToString(file: RPFFile): string {
+export function rpfToString<T extends Pattern>(file: RPFFile<T>): string {
     let map = new Map<string, Set<string>>();
     for (let key in file.data) {
         let value = new Set<string>();
@@ -743,10 +745,10 @@ export function rpfToString(file: RPFFile): string {
             }
         }
     }
-    let out = `\n#rule ${file.base.rule.str}\n`;
+    let out = `\n${file.base.rule.str}\n`;
     for (let layer of layers) {
         for (let key of layer.sort()) {
-            out += '\n' + file.data[key].toString();
+            out += '\n' + file.data[key].toString() + '\n';
         }
     }
     return out;
