@@ -497,12 +497,12 @@ export class HROTPattern extends CoordPattern {
         let debug: string[] = [];
         for (let [key, value] of this.coords) {
             let x = Math.floor(key / WIDTH) - BIAS;
-            let y = (key & (WIDTH - 1)) - BIAS;
+            let y = (key & (WIDTH - 1));
             while (y >= WIDTH) {
                 y -= WIDTH;
             }
             debug.push(`(${x}, ${y})`);
-            out.set((x + BIAS) * WIDTH + (y + BIAS), value);
+            out.set((x + BIAS) * WIDTH + y, value);
         }
         if (this.generation === 0) {
             throw new Error(debug.join(', '));    
