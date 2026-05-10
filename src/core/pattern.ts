@@ -1438,7 +1438,7 @@ export abstract class CoordPattern extends Pattern {
     }
 
     /** Gets the bounding box of the pattern. */
-    getMinMaxCoords(): {minX: number, maxX: number, minY: number, maxY: number} {
+    getMinMaxCoords(debug?: boolean): {minX: number, maxX: number, minY: number, maxY: number} {
         if (this.coords.size === 0) {
             return {minX: 0, maxX: 0, minY: 0, maxY: 0};
         }
@@ -1446,9 +1446,11 @@ export abstract class CoordPattern extends Pattern {
         let maxX = -Infinity;
         let minY = Infinity;
         let maxY = -Infinity;
+        let out: string[] = [];
         for (let key of this.coords.keys()) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
+            out.push(`(${x}, ${y})`);
             if (x < minX) {
                 minX = x;
             }
@@ -1461,6 +1463,9 @@ export abstract class CoordPattern extends Pattern {
             if (y > maxY) {
                 maxY = y;
             }
+        }
+        if (debug) {
+            throw new Error(out.join(', '));
         }
         return {minX, minY, maxX, maxY};
     }
