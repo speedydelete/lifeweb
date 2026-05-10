@@ -1571,6 +1571,9 @@ export abstract class CoordPattern extends Pattern {
             while (y - minY >= WIDTH / 2) {
                 y -= WIDTH;
             }
+            if (y - minY >= WIDTH / 2) {
+                throw new Error((x - minX) + ' ' + (y - minY));
+            }
             out[(y - minY) * width + (x - minX)] = value;
         }
         return out;
