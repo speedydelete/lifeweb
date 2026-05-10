@@ -193,6 +193,9 @@ export class TorusDataPattern extends DataPattern {
         let [xOffset, yOffset] = p.getFullOffset();
         // xOffset %= this.width;
         // yOffset %= this.height;
+        xOffset %= this.width;
+        yOffset = 40 - (yOffset % this.height + this.height);
+        p.offsetBy(xOffset, yOffset);
         let pData = p.getData();
         this.data = new Uint8Array(height * width);
         let i = p.width + 1;
