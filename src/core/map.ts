@@ -1861,11 +1861,11 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             nhLetter = 'H';
             rule = rule.slice(0, -1);
         }
-        if (match = rule.match(/^[gG]([0-9]+)/)) {
+        if (match = rule.match(/^[gG]([0-9.e]+|-?NaN|-?Infinity)/)) {
             states = Number(match[1]);
             rule = rule.slice(match[0].length);
         }
-        if (match = rule.match(/\/[GgCc]?(\d+)$/)) {
+        if (match = rule.match(/\/[GgCc]?([0-9.e]+|-?NaN|-?Infinity)$/)) {
             states = Number(match[1]);
             rule = rule.slice(0, -match[0].length);
         }
