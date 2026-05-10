@@ -1900,11 +1900,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 index = rule.indexOf('S');
             }
             let index2 = rule.indexOf('/');
-            if (index2 !== -1 && rule.includes('S')) {
-                sections = [rule.slice(0, index2), rule.slice(index)];
-            } else {
-                sections = [rule.slice(0, index), rule.slice(index)];
-            }
+            sections = [rule.slice(0, index), rule.slice(index)];
             bs = true;
         } else {
             sections = [rule];
