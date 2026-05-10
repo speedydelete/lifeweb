@@ -2,7 +2,6 @@
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
-import {createMAPPattern, MAPPattern} from './map.js';
 
 
 /** A DataPattern-based implementation of rules running on finite planes.
@@ -151,8 +150,6 @@ export class FiniteCoordPattern extends CoordPattern {
 }
 
 
-let lifePattern = createMAPPattern('B3/S23') as MAPPattern;
-
 /** A DataPattern-based implementation of rules running on toruses.
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
@@ -191,42 +188,20 @@ export class TorusDataPattern extends DataPattern {
         data[data.length - 1] = this.data[0];
         p.setData(height + 2, width + 2, data);
         p.runGeneration();
-        // xOffset %= this.width;
-        // yOffset %= this.height;
-        if (p instanceof CoordPattern) {
-            let [xOffset, yOffset] = p.getFullOffset();
-            xOffset = xOffset % width;
-            yOffset = yOffset % height;
-            if (yOffset < 0) {
-                yOffset = 40 - (yOffset + 80);
-            }
-            this.setData(p.height, p.width, p.getData());
-            this.offsetBy(xOffset, yOffset);
-            this.ensure(width, height);
-            this.xOffset = 0;
-            this.yOffset = 0;
-            // throw new Error(lifePattern.toRLE());
-            // pData = lifePattern.getData();
-            // p.xOffset = lifePattern.xOffset;
-            // p.yOffset = lifePattern.yOffset;
-            // lifePattern.xOffset = 0;
-            // lifePattern.yOffset = 0;
-        } else {
-            let pData = p.getData();
-            this.data = new Uint8Array(height * width);
-            let i = p.width + 1;
-            if (p.xOffset < 0) {
-                i -= p.xOffset;
-            }
-            if (p.yOffset < 0) {
-                i -= p.width * p.yOffset;
-            }
-            let loc = 0;
-            for (let y = 0; y < height; y++) {
-                this.data.set(pData.slice(i, i + width), loc);
-                i += p.width;
-                loc += width;
-            }
+        let pData = p.getData();
+        this.data = new Uint8Array(height * width);
+        let i = p.width + 1;
+        if (p.xOffset < 0) {
+            i -= p.xOffset;
+        }
+        if (p.yOffset < 0) {
+            i -= p.width * p.yOffset;
+        }
+        let loc = 0;
+        for (let y = 0; y < height; y++) {
+            this.data.set(pData.slice(i, i + width), loc);
+            i += p.width;
+            loc += width;
         }
         p.xOffset = 0;
         p.yOffset = 0;
