@@ -494,19 +494,19 @@ export class HROTPattern extends CoordPattern {
         }
         this.coords = out;
         out = new Map<number, number>();
-        let debug: string[] = [];
+        // let debug: string[] = [];
         for (let [key, value] of this.coords) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
             while (y >= WIDTH / 4) {
                 y -= WIDTH;
             }
-            debug.push(`(${x}, ${y})`);
+            // debug.push(`(${x}, ${y})`);
             out.set((x + BIAS) * WIDTH + (y + BIAS), value);
         }
-        if (this.generation === 2) {
-            throw new Error(debug.join(', '));    
-        }
+        // if (this.generation === 2) {
+        //     throw new Error(debug.join(', '));    
+        // }
         this.coords = out;
         this.generation++;
     }
