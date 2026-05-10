@@ -210,6 +210,7 @@ export class TorusDataPattern extends DataPattern {
         }
         p.xOffset = 0;
         p.yOffset = 0;
+        throw new Error(xOffset + ' ' + yOffset);
         // this.xOffset = xOffset;
         // this.yOffset = yOffset;
         this.generation++;
