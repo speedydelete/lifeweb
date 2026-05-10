@@ -414,6 +414,19 @@ export class HROTPattern extends CoordPattern {
         this.nh = nh;
     }
 
+    getFullOffset(): [number, number] {
+        let [x, y] = super.getFullOffset();
+        if (this.rule.range === Math.round(this.rule.range) || Math.abs(y) < 2**24) {
+            return [x, y];
+        } else {
+            y %= WIDTH;
+            if (y < 0) {
+                y += WIDTH;
+            }
+            return [x, y];
+        }
+    }
+
     runGeneration(): void {
         let range = this.rule.range;
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
