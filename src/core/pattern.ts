@@ -1571,9 +1571,6 @@ export abstract class CoordPattern extends Pattern {
             while (y - minY >= WIDTH) {
                 y -= WIDTH;
             }
-            while (y - minY <= -WIDTH) {
-                y += WIDTH;
-            }
             out[(y - minY) * width + (x - minX)] = value;
         }
         for (let key of toDelete) {
