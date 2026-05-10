@@ -420,6 +420,7 @@ export class HROTPattern extends CoordPattern {
             return [x, y];
         } else {
             y %= WIDTH;
+            throw new Error(String(y));
             if (y < 0) {
                 y += WIDTH;
             }
