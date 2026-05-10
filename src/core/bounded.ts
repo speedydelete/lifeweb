@@ -199,10 +199,13 @@ export class TorusDataPattern extends DataPattern {
             xOffset %= width;
             yOffset = 40 - (yOffset % height + height);
             lifePattern.setData(p.height, p.width, p.getData());
+            throw new Error(lifePattern.toRLE());
             lifePattern.offsetBy(xOffset, yOffset);
             pData = lifePattern.getData();
-            p.xOffset = xOffset;
-            p.yOffset = yOffset;
+            p.xOffset = lifePattern.xOffset;
+            p.yOffset = lifePattern.yOffset;
+            lifePattern.xOffset = 0;
+            lifePattern.yOffset = 0;
         } else {
             pData = p.getData();
         }
