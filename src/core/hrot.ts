@@ -470,6 +470,9 @@ export class HROTPattern extends CoordPattern {
                 }
                 let key = x * WIDTH + y;
                 // let key = Math.round(x) * WIDTH + Math.round(y);
+                if (Math.abs(y - BIAS) > WIDTH / 4) {
+                    continue;
+                }
                 let value = this.coords.get(key);
                 if (value === undefined) {
                     if (this.b[count]) {
