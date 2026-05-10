@@ -431,7 +431,7 @@ export class HROTPattern extends CoordPattern {
                         for (let x2 = -range; x2 <= range; x2++) {
                             let weight = this.nh[i++];
                             if (weight > 0) {
-                                let key = (x + x2) * WIDTH + (y + y2);
+                                let key = Math.round(x + x2) * WIDTH + (y + y2);
                                 let value = this.coords.get(key);
                                 if (value === 1) {
                                     count += weight;
@@ -445,7 +445,7 @@ export class HROTPattern extends CoordPattern {
                             if (x2 === 0 && y2 === 0) {
                                 continue;
                             }
-                            let key = (x + x2) * WIDTH + (y + y2);
+                            let key = Math.round(x + x2) * WIDTH + (y + y2);
                             let value = this.coords.get(key);
                             if (value === 1) {
                                 count++;
