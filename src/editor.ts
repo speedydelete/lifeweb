@@ -135,6 +135,8 @@ let pasteModeMenuElt = getElement('paste-mode-menu');
 let selGroupButton = getElement('sel-group');
 let selUngroupButton = getElement('sel-ungroup');
 
+let helpElt = getElement('help');
+
 
 function parse(data: string, preserveSizes?: boolean): Pattern | [string, string] {
     try {
@@ -194,10 +196,10 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     let offset = p.getFullOffset();
     topLeftX -= offset[0];
     topLeftY -= offset[1];
-    runButton.className = '';
-    pauseButton.className = '';
-    stepButton.className = '';
-    resetButton.className = 'selected';
+    runButton.classList.remove('selected');
+    pauseButton.classList.remove('selected');
+    stepButton.classList.remove('selected');
+    resetButton.classList.add('selected');
     beforeRunning = p.copy();
     hasRan = false;
     cursorMode = 'main';
@@ -208,12 +210,14 @@ function loadPattern(q: string | RPFFile | Pattern): void {
         cursorSelectButton.style.display = 'none';
         selGroupButton.style.display = 'block';
         selUngroupButton.style.display = 'block';
+        cursorMainButton.dataset.title = 'pan/select';
     } else {
         // @ts-ignore
         rpfP = undefined;
         cursorSelectButton.style.display = 'block';
         selGroupButton.style.display = 'none';
         selUngroupButton.style.display = 'none';
+        cursorMainButton.dataset.title = 'pan';
     }
 }
 
@@ -379,7 +383,9 @@ type DefaultAction =
     | 'sel-cancel' | 'sel-group' | 'sel-ungroup' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
     | 'copy' | 'start-paste' | 'end-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
-    | 'viewRLE';
+    | 'view-rle'
+    | 'show-help' | 'hide-help'
+;
 
 type Hook = (event?: Event) => void;
 
@@ -478,20 +484,20 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         running = true;
         runButton.style.display = 'none';
         pauseButton.style.display = 'block';
-        runButton.className = 'selected';
-        pauseButton.className = 'selected';
-        stepButton.className = '';
-        resetButton.className = '';
+        runButton.classList.add('selected');
+        pauseButton.classList.add('selected');
+        stepButton.classList.remove('selected');
+        resetButton.classList.remove('selected');
     }],
 
     'pause': [() => {
         running = false;
         runButton.style.display = 'block';
         pauseButton.style.display = 'none';
-        runButton.className = 'selected';
-        pauseButton.className = 'selected';
-        stepButton.className = '';
-        resetButton.className = '';
+        runButton.classList.add('selected');
+        pauseButton.classList.add('selected');
+        stepButton.classList.remove('selected');
+        resetButton.classList.remove('selected');
     }],
 
     'step': [() => {
@@ -507,10 +513,10 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         pushUndo();
         p.runGeneration();
         p.shrinkToFit();
-        runButton.className = '';
-        pauseButton.className = '';
-        stepButton.className = 'selected';
-        resetButton.className = '';
+        runButton.classList.remove('selected');
+        pauseButton.classList.remove('selected');
+        stepButton.classList.add('selected');
+        resetButton.classList.remove('selected');
     }],
 
     'reset': [() => {
@@ -520,10 +526,10 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         p = beforeRunning;
         runButton.style.display = 'block';
         pauseButton.style.display = 'none';
-        runButton.className = '';
-        pauseButton.className = '';
-        stepButton.className = '';
-        resetButton.className = 'selected';
+        runButton.classList.remove('selected');
+        pauseButton.classList.remove('selected');
+        stepButton.classList.remove('selected');
+        resetButton.classList.add('selected');
     }],
 
     'set-speed': [() => {
@@ -696,8 +702,16 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         commandWrapperElt.style.display = 'none';
     }],
 
-    'viewRLE': [() => {
+    'view-rle': [() => {
         loadPattern(getElement<HTMLTextAreaElement>('rle').value);
+    }],
+
+    'show-help': [() => {
+        helpElt.style.display = 'block';
+    }],
+
+    'hide-help': [() => {
+        helpElt.style.display = 'none';
     }],
 
 };
@@ -802,9 +816,9 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
 
     'set-cursor-to-main': [() => {
         cursorMode = 'main';
-        cursorMainButton.className = 'selected';
-        cursorEditButton.className = '';
-        cursorSelectButton.className = '';
+        cursorMainButton.classList.add('selected');
+        cursorEditButton.classList.remove('selected');
+        cursorSelectButton.classList.remove('selected');
         canvas.style.cursor = 'default';
     }],
 
@@ -812,17 +826,17 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         cursorMode = 'edit';
         prevEditX = undefined;
         prevEditY = undefined;
-        cursorMainButton.className = '';
-        cursorEditButton.className = 'selected';
-        cursorSelectButton.className = '';
+        cursorMainButton.classList.remove('selected');
+        cursorEditButton.classList.add('selected');
+        cursorSelectButton.classList.remove('selected');
         canvas.style.cursor = 'default';
     }],
 
     'set-cursor-to-select': [() => {
         cursorMode = 'select';
-        cursorMainButton.className = '';
-        cursorEditButton.className = '';
-        cursorSelectButton.className = 'selected';
+        cursorMainButton.classList.remove('selected');
+        cursorEditButton.classList.remove('selected');
+        cursorSelectButton.classList.add('selected');
         canvas.style.cursor = 'crosshair';
     }],
 
@@ -1174,9 +1188,9 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             }
         }
         cursorMode = 'main';
-        cursorMainButton.className = 'selected';
-        cursorEditButton.className = '';
-        cursorSelectButton.className = '';
+        cursorMainButton.classList.add('selected');
+        cursorEditButton.classList.remove('selected');
+        cursorSelectButton.classList.remove('selected');
         canvas.style.cursor = 'default';
     }],
 
@@ -1200,9 +1214,9 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         cursorMode = 'edit';
         prevEditX = undefined;
         prevEditY = undefined;
-        cursorMainButton.className = '';
-        cursorEditButton.className = 'selected';
-        cursorSelectButton.className = '';
+        cursorMainButton.classList.remove('selected');
+        cursorEditButton.classList.add('selected');
+        cursorSelectButton.classList.remove('selected');
         canvas.style.cursor = 'default';
     }],
 
@@ -1497,7 +1511,7 @@ let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultActi
     'cursor-select': {'click': 'set-cursor-to-select'},
     'undo': {'click': 'undo'},
     'redo': {'click': 'redo'},
-    'scale': {'click': 'set-scale'},
+    'scale-wrapper': {'click': 'set-scale'},
     'paste-or': {'click': 'set-paste-mode-to-or'},
     'paste-copy': {'click': 'set-paste-mode-to-copy'},
     'paste-and': {'click': 'set-paste-mode-to-and'},
@@ -1518,7 +1532,9 @@ let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultActi
     'sel-flip-diagonal': {'click': 'sel-flip-diagonal'},
     'sel-flip-anti-diagonal': {'click': 'sel-flip-anti-diagonal'},
     'command': {'keydown': 'command-keypress', 'blur': 'click-off-command'},
-    'view-rle': {'click': 'viewRLE'},
+    'view-rle': {'click': 'view-rle'},
+    'help-button': {'click': 'show-help'},
+    'help-x': {'click': 'hide-help'},
 };
 
 var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]} = {};
@@ -1575,6 +1591,17 @@ window.addEventListener('keydown', event => {
 
 canvas.addEventListener('click', () => {
     canvas.focus();
+});
+
+document.querySelectorAll('[data-title]').forEach(elt => {
+    elt.addEventListener('mouseenter', () => {
+        let rect = elt.getBoundingClientRect();
+        if (rect.bottom > window.innerHeight/2) {
+            elt.classList.add('tooltip-top');
+        } else {
+            elt.classList.remove('tooltip-top');
+        }
+    });
 });
 
 

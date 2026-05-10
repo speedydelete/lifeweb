@@ -26,6 +26,38 @@ body {
     color: #ffffff;
 }
 
+[data-title] {
+    position: relative;
+}
+
+[data-title]::after {
+    content: attr(data-title);
+    display: block;
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    z-index: 10;
+    top: 100%;
+    transform: translateX(-20%);
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+[data-title].tooltip-top::after {
+    top: -75%;
+}
+
+[data-title]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0.5s;
+}
+
 #left {
     flex: 1 0 20%;
     display: flex;
@@ -42,20 +74,18 @@ body {
     border: 1px solid #ffffff;
 }
 
-noscript {
+#left > * {
     padding: 0.5rem;
 }
 
-#debug {
-    padding: 0.5rem;
+/* #debug {
     font-family: 'Courier New', Courier, monospace;
     font-size: 16px;
     white-space: pre-wrap;
-}
+} */
 
 #rle-wrapper {
     margin-top: auto;
-    padding: 0.5rem;
     display: flex;
     flex-direction: column;
     align-items: start;
@@ -194,12 +224,48 @@ textarea:hover, textarea:focus {
     outline: none;
 }
 
+#help {
+    display: none;
+    position: absolute;
+    top: min(10%, 100px);
+    bottom: min(10%, 100px);
+    left: max(10%, calc(50% - 250px));
+    right: max(10%, calc(50% - 250px));
+    z-index: 20;
+    background-color: #000000;
+    padding: 1rem;
+    border: 1px solid #ffffff;
+}
+
+#help-x {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    height: 1rem;
+    width: 1rem;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+#help a, #help a:visited {
+    text-decoration: none;
+    color: #5bcefa;
+}
+
+#help h1 {
+    text-align: center;
+}
+
         </style>
     </head>
     <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
         <div id="left">
             <noscript>You must enable JavaScript to use this.</noscript>
-            <div id="debug"></div>
+            <div><button id="help-button">Help</button></div>
             <div id="rle-wrapper">
                 <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
 bo$2bo$3o!</textarea>
@@ -208,37 +274,37 @@ bo$2bo$3o!</textarea>
         </div>
         <div id="right">
             <div id="top">
-                <div id="speed" class="less-padding">1x</div>
-                <button id="reset">
+                <div id="speed" class="less-padding" data-title="speed (click to change)">1x</div>
+                <button id="reset" data-title="reset">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <polygon points="15,0 5,8 15,16" fill="#ffffff" />
                     </svg>
                 </button>
-                <button id="step">
+                <button id="step" data-title="step">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <polygon points="8,0 16,8 8,16" fill="#ffffff" />
                     </svg>
                 </button>
-                <button id="run">
+                <button id="run" data-title="run">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                         <polygon points="1,0 15,8 1,16" fill="#ffffff" />
                     </svg>
                 </button>
-                <button id="pause" style="display: none;">
+                <button id="pause" style="display: none;" data-title="pause">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <rect x="11" y="0" width="4" height="16" fill="#ffffff" />
                     </svg>
                 </button>
                 <div class="spacer"></div>
-                <button id="cursor-main" class="selected">
+                <button id="cursor-main" class="selected" data-title="pan">
                     <svg viewBox="0 0 16 16">
                         <polygon points="3,0 3,14 6,11 8,15 10,14 8,11 13,11" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <button id="cursor-edit">
+                <button id="cursor-edit" data-title="edit">
                     <svg viewBox="0 0 16 16">
                         <line x1="0" y1="16" x2="4" y2="8" stroke="#ffffff" />
                         <line x1="0" y1="16" x2="8" y2="12" stroke="#ffffff" />
@@ -251,7 +317,7 @@ bo$2bo$3o!</textarea>
                         <line x1="12" y1="0" x2="16" y2="4" stroke="#ffffff" />
                     </svg>
                 </button>
-                <button id="cursor-select">
+                <button id="cursor-select" data-title="select">
                     <svg viewBox="0 0 16 16" image-rendering="crispEdges">
                         <line x1="0" y1="0" x2="2" y2="0" stroke="#ffffff" stroke-width="2" />
                         <line x1="4" y1="0" x2="7" y2="0" stroke="#ffffff" stroke-width="2" />
@@ -272,23 +338,23 @@ bo$2bo$3o!</textarea>
                     </svg>
                 </button>
                 <div class="spacer"></div>
-                <button id="undo">
+                <button id="undo" data-title="undo">
                     <svg viewBox="0 0 16 16">
                         <path d="M 8 15 A 7 7 0 1 0 2 6" fill="transparent" stroke="#ffffff" />
                         <polygon points="0,2 5,7 0,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
-                <button id="redo">
+                <button id="redo" data-title="redo">
                     <svg viewBox="0 0 16 16">
                         <path d="M 8 15 A 7 7 0 1 1 14 6" fill="transparent" stroke="#ffffff" />
                         <polygon points="16,2 11,7 16,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
                 <div class="spacer"></div>
-                <div>Z =&nbsp;<span id="scale">10.0</span></div>
-                <div>T =&nbsp;<span id="gens">0</span></div>
-                <div>C =&nbsp;<span id="pop">0</span></div>
-                <div id="position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
+                <div id="scale-wrapper" data-title="zoom (click to change)">Z =&nbsp;<span id="scale">10.0</span></div>
+                <div data-title="generation">T =&nbsp;<span id="gens">0</span></div>
+                <div data-title="population">C =&nbsp;<span id="pop">0</span></div>
+                <div id="position" data-title="cell state at cursor position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
             <canvas id="canvas" tabindex="-1"></canvas>
             <div id="paste-mode-menu">
@@ -299,13 +365,13 @@ bo$2bo$3o!</textarea>
             </div>
             <div id="select-menu">
                 <div>
-                    <button id="sel-cancel">
+                    <button id="sel-cancel" data-title="cancel" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
                             <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="sel-group" image-rendering="crispEdges">
+                    <button id="sel-group" image-rendering="crispEdges" data-title="group" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <rect x="1" y="1" height="5" width="5" stroke="#ffffff" stroke-width="1" />
                             <rect x="10" y="1" height="5" width="5" stroke="#ffffff" stroke-width="1" />
@@ -314,7 +380,7 @@ bo$2bo$3o!</textarea>
                             <rect x="5.5" y="11" height="5" width="5" fill="#ffffff" stroke="#ffffff" stroke-width="1" />
                         </svg>
                     </button>
-                    <button id="sel-ungroup" image-rendering="crispEdges">
+                    <button id="sel-ungroup" image-rendering="crispEdges" data-title="ungroup" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <rect x="5.5" y="1" height="5" width="5" fill="#ffffff" stroke="#ffffff" stroke-width="1" />
                             <line x1="6" y1="6" x2="3" y2="11" stroke="#ffffff" stroke-width="1" />
@@ -325,31 +391,31 @@ bo$2bo$3o!</textarea>
                     </button>
                 </div>
                 <div>
-                    <button id="sel-move-up">
+                    <button id="sel-move-up" data-title="move up" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polygon points="3,5 8,0 13,5" fill="#ffffff" />
                             <line x1="8" y1="4" x2="8" y2="16" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="sel-move-down">
+                    <button id="sel-move-down" data-title="move down" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <line x1="8" y1="0" x2="8" y2="12" stroke="#ffffff" stroke-width="2" />
                             <polygon points="3,11 8,16 13,11" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="sel-move-left">
+                    <button id="sel-move-left" data-title="move left" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polygon points="5,3 0,8 5,13" fill="#ffffff" />
                             <line x1="4" y1="8" x2="16" y2="8" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="sel-move-right">
+                    <button id="sel-move-right" data-title="move right" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <line x1="0" y1="8" x2="12" y2="8" stroke="#ffffff" stroke-width="2" />
                             <polygon points="11,3 16,8 11,13" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="sel-clear">
+                    <button id="sel-clear" data-title="clear" class="tooltip-top">
                         <svg viewBox="0 0 16 16" image-rendering="crispEdges">
                             <polygon points="1,1 15,1 15,15 1,15" stroke="#ffffff" stroke-width="2" />
                             <line x1="4" y1="4" x2="6" y2="4" stroke="#ffffff" />
@@ -368,7 +434,7 @@ bo$2bo$3o!</textarea>
                     </button>
                 </div>
                 <div>
-                    <button id="sel-flip-horizontal">
+                    <button id="sel-flip-horizontal" data-title="flip horizontal" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polygon points="4,0 0,4 4,8" fill="#ffffff" />
                             <line x1="4" y1="4" x2="16" y2="4" stroke="#ffffff" stroke-width="2" />
@@ -376,7 +442,7 @@ bo$2bo$3o!</textarea>
                             <line x1="0" y1="12" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="sel-flip-vertical">
+                    <button id="sel-flip-vertical" data-title="flip vertical" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polygon points="0,4 4,0 8,4" fill="#ffffff" />
                             <line x1="4" y1="4" x2="4" y2="16" stroke="#ffffff" stroke-width="2" />
@@ -384,19 +450,19 @@ bo$2bo$3o!</textarea>
                             <line x1="12" y1="0" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
                         </svg>
                     </button>
-                    <button id="sel-rotate-left">
+                    <button id="sel-rotate-left" data-title="rotate left" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polyline points="8,14 13,14 13,2 3,2 3,8" stroke="#ffffff" stroke-width="2" />
                             <polygon points="6,8 0,8 3,12" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="sel-rotate-right">
+                    <button id="sel-rotate-right" data-title="rotate right" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <polyline points="8,14 3,14 3,2 13,2 13,8" stroke="#ffffff" stroke-width="2" />
                             <polygon points="10,8 16,8 13,12" fill="#ffffff" />
                         </svg>
                     </button>
-                    <button id="sel-rotate-180">
+                    <button id="sel-rotate-180" data-title="rotate 180" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <path d="M 1 6 A 7 7 0 0 1 14 5" fill="transparent" stroke="#ffffff" />
                             <polygon points="16,1 11,6 16,6" fill="#ffffff" stroke="#ffffff" />
@@ -404,7 +470,7 @@ bo$2bo$3o!</textarea>
                             <polygon points="0,15 5,10 0,10" fill="#ffffff" stroke="#ffffff" />
                         </svg>
                     </button>
-                    <button id="sel-flip-diagonal">
+                    <button id="sel-flip-diagonal" data-title="flip diagonal" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <line x1="1" y1="10" x2="10" y2="1" stroke="#ffffff" stroke-width="2" />
                             <polygon points="5,0 11,0 11,6" fill="#ffffff" />
@@ -412,7 +478,7 @@ bo$2bo$3o!</textarea>
                             <polygon points="11,15 5,15 5,9" fill="#ffffff" />
                         </svg>
                     </button>
-                        <button id="sel-flip-anti-diagonal">
+                        <button id="sel-flip-anti-diagonal" data-title="flip anti-diagonal" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
                             <line x1="15" y1="10" x2="6" y2="1" stroke="#ffffff" stroke-width="2" />
                             <polygon points="11,0 5,0 5,6" fill="#ffffff" />
@@ -424,7 +490,17 @@ bo$2bo$3o!</textarea>
             </div>
             <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
         </div>
-        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'|!String(location).startsWith('file:')){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});var BUILD_NUMBER = 101;</script>
+        <div id="help">
+            <button id="help-x">
+                <svg viewBox="0 0 16 16">
+                    <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                    <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                </svg>
+            </button>
+            <h1>Pattern Editor</h1>
+            <div><a href="https://github.com/speedydelete/lifeweb">Source code</a></div>
+        </div>
+        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'|!String(location).startsWith('file:')){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});var BUILD_NUMBER = 130;</script>
         <script src="index.js"></script>
     </body>
 </html>
