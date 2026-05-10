@@ -502,6 +502,7 @@ export class HROTPattern extends CoordPattern {
             }
             out.set((x + BIAS) * WIDTH + (y + BIAS), value);
         }
+        throw new Error(JSON.stringify(Array.from(out)));
         this.coords = out;
         this.generation++;
     }
