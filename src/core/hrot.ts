@@ -504,9 +504,9 @@ export class HROTPattern extends CoordPattern {
             debug.push(`(${x}, ${y})`);
             out.set((x + BIAS) * WIDTH + y, value);
         }
-        // if (this.generation === 0) {
-        //     throw new Error(debug.join(', '));    
-        // }
+        if (this.generation === 2) {
+            throw new Error(debug.join(', '));    
+        }
         this.coords = out;
         this.generation++;
     }
