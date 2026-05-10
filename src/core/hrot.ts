@@ -228,7 +228,6 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             }
             nh.push(row);
         }
-        throw new Error(JSON.stringify(nh));
     } else if (n.startsWith('@')) {
         nh = [];
     } else if (n.startsWith('W')) {
@@ -321,7 +320,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     let neighborhood: [number, number][] = [];
     for (let y = -r; y <= r; y++) {
         for (let x = -r; x <= r; x++) {
-            if (!nh || nh[y][x] !== 0) {
+            if (!nh || nh[y + r][x + r] !== 0) {
                 neighborhood.push([x, y]);
             }
         }
