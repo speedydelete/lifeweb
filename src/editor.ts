@@ -14,7 +14,8 @@ function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
 
 
 interface Theme {
-    twoState: string[];
+    empty: string;
+    twoState: string;
     multiState(states: number): string[];
     selection: string;
     rpfSelection: string;
@@ -24,9 +25,10 @@ interface Theme {
 }
 
 var theme: Theme = {
-    twoState: ['#000000', '#ffffff'],
+    empty: '#000000',
+    twoState: '#ffffff',
     multiState(states: number): string[] {
-        let out: string[] = ['#000000'];
+        let out: string[] = [];
         for (let i = 1; i < states; i++) {
             out.push(`#ff` + Math.floor((states - i) * (256 / (states - 1))).toString(16).padStart(2, '0') + '00');
         }
@@ -720,11 +722,11 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
 var normalActions: {[K in DefaultAction]?: Hook[]} = {
 
     'frame': [() => {
-        let states: string[];
+        let states = [theme.empty];
         if (p.rule.states === 2) {
-            states = theme.twoState;
+            states.push(theme.twoState);
         } else {
-            states = theme.multiState(p.rule.states);
+            states.push(...theme.multiState(p.rule.states));
         }
         ctx.fillStyle = states[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1089,11 +1091,11 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
 var rpfActions: {[K in DefaultAction]?: Hook[]} = {
 
     'frame': [() => {
-        let states: string[];
+        let states = [theme.empty];
         if (p.rule.states === 2) {
-            states = theme.twoState;
+            states.push(theme.twoState);
         } else {
-            states = theme.multiState(p.rule.states);
+            states.push(...theme.multiState(p.rule.states));
         }
         let selectedStates = states.slice();
         selectedStates[1] = theme.rpfSelection;
