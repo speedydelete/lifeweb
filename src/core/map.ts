@@ -21,6 +21,7 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '2a': [6, 384, 3, 9, 72, 36, 192, 288],
     '2i': [130, 40],
     '2n': [68, 257],
+    '2o': [389],
     '3c': [69, 321, 261, 324],
     '3e': [42, 168, 138, 162],
     '3k': [98, 161, 266, 140],
@@ -60,6 +61,7 @@ export const TRANSITIONS: {[key: string]: number[]} = {
     '6a': [489, 111, 492, 486, 423, 459, 303, 207],
     '6i': [365, 455],
     '6n': [427, 238],
+    '6o': [122],
     '7c': [491, 239, 494, 431],
     '7e': [493, 367, 487, 463],
     '8c': [495],
@@ -69,12 +71,12 @@ export const TRANSITIONS: {[key: string]: number[]} = {
 export const VALID_TRANSITIONS: string[] = [
     'c',
     'ce',
-    'aceikn',
+    'aceikno',
     'aceijknqry',
     'aceijknqrtwyz',
     'aceijknqry',
     'aceikn',
-    'ce',
+    'ceo',
     'c'
 ];
 
