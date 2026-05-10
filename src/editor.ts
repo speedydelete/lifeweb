@@ -621,6 +621,11 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         pasteMode = 'xor';
     }],
 
+    'cut': [() => {
+        run('copy');
+        run('sel-clear');
+    }],
+
     'open-command': [event => {
         if (event) {
             event.preventDefault();
@@ -1064,19 +1069,6 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         pasting = undefined;
     }],
 
-    'cut': [() => {
-        if (!sel) {
-            return;
-        }
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        navigator.clipboard.writeText(p.copyPart(x, y, sel.height, sel.width).toRLE());
-        p.clearPart(x, y, sel.height, sel.width);
-        p.shrinkToFit();
-    }],
-
     'select-all': [event => {
         if (event) {
             event.preventDefault();
@@ -1434,19 +1426,6 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         }
         p.insert(pasting, x, y, mode);
         pasting = undefined;
-    }],
-
-    'cut': [() => {
-        if (!sel) {
-            return;
-        }
-        p.ensure(sel.x - p.xOffset, sel.y - p.yOffset);
-        let x = sel.x - p.xOffset;
-        let y = sel.y - p.yOffset;
-        p.ensure(x + sel.width, y + sel.height);
-        navigator.clipboard.writeText(p.copyPart(x, y, sel.height, sel.width).toRLE());
-        p.clearPart(x, y, sel.height, sel.width);
-        p.shrinkToFit();
     }],
 
     'select-all': [event => {
