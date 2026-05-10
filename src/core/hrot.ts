@@ -454,24 +454,25 @@ export class HROTPattern extends CoordPattern {
                     }
                 }
                 let key = x * WIDTH + y;
+                let setKey = (Math.round(x) * WIDTH) + y;
                 let value = this.coords.get(key);
                 if (value === undefined) {
                     if (this.b[count]) {
-                        out.set(key, 1);
+                        out.set(setKey, 1);
                     }
                 } else if (value === 1) {
                     if (this.s[count]) {
-                        out.set(key, 1);
+                        out.set(setKey, 1);
                     } else {
                         let newValue = (value + 1) % this.rule.states;
                         if (newValue !== 0) {
-                            out.set(key, newValue);
+                            out.set(setKey, newValue);
                         }
                     }
                 } else {
                     let newValue = (value + 1) % this.rule.states;
                     if (newValue !== 0) {
-                        out.set(key, newValue);
+                        out.set(setKey, newValue);
                     }
                 }
             }

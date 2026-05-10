@@ -1402,7 +1402,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         let text = await navigator.clipboard.readText();
         let q = parse(text, true);
         pasting = Array.isArray(q) ? undefined : q;
-        run('set-cursor-to-select');
+        run('set-cursor-to-main');
     }],
 
     'end-paste': [() => {
