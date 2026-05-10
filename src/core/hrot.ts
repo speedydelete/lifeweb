@@ -228,6 +228,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             }
             nh.push(row);
         }
+        throw new Error(JSON.stringify(nh));
     } else if (n.startsWith('@')) {
         nh = [];
     } else if (n.startsWith('W')) {
