@@ -431,7 +431,7 @@ export class HROTPattern extends CoordPattern {
                         for (let x2 = -range; x2 <= range; x2++) {
                             let weight = this.nh[i++];
                             if (weight > 0) {
-                                let key = Math.round(x + x2) * WIDTH + (y + y2);
+                                let key = Math.round(x + x2) * WIDTH + Math.round(y + y2);
                                 let value = this.coords.get(key);
                                 if (value === 1) {
                                     count += weight;
@@ -445,7 +445,7 @@ export class HROTPattern extends CoordPattern {
                             if (x2 === 0 && y2 === 0) {
                                 continue;
                             }
-                            let key = Math.round(x + x2) * WIDTH + (y + y2);
+                            let key = Math.round(x + x2) * WIDTH + Math.round(y + y2);
                             let value = this.coords.get(key);
                             if (value === 1) {
                                 count++;
@@ -453,26 +453,25 @@ export class HROTPattern extends CoordPattern {
                         }
                     }
                 }
-                let key = x * WIDTH + y;
-                let setKey = Math.round(x) * WIDTH + y;
+                let key = Math.round(x) * WIDTH + Math.round(y);
                 let value = this.coords.get(key);
                 if (value === undefined) {
                     if (this.b[count]) {
-                        out.set(setKey, 1);
+                        out.set(key, 1);
                     }
                 } else if (value === 1) {
                     if (this.s[count]) {
-                        out.set(setKey, 1);
+                        out.set(key, 1);
                     } else {
                         let newValue = (value + 1) % this.rule.states;
                         if (newValue !== 0) {
-                            out.set(setKey, newValue);
+                            out.set(key, newValue);
                         }
                     }
                 } else {
                     let newValue = (value + 1) % this.rule.states;
                     if (newValue !== 0) {
-                        out.set(setKey, newValue);
+                        out.set(key, newValue);
                     }
                 }
             }
