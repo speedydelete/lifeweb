@@ -201,6 +201,7 @@ export class TorusDataPattern extends DataPattern {
             lifePattern.setData(p.height, p.width, p.getData());
             lifePattern.offsetBy(xOffset, yOffset);
             lifePattern.ensure(this.width, this.height);
+            throw new Error(lifePattern.toRLE());
             pData = lifePattern.getData();
             p.xOffset = lifePattern.xOffset;
             p.yOffset = lifePattern.yOffset;
