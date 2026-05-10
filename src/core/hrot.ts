@@ -507,7 +507,6 @@ export class HROTPattern extends CoordPattern {
         if (this.generation === 2) {
             throw new Error(debug.join(', '));    
         }
-        throw new Error(JSON.stringify(Array.from(out)));
         this.coords = out;
         this.generation++;
     }
