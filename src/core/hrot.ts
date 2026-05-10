@@ -497,7 +497,7 @@ export class HROTPattern extends CoordPattern {
         for (let [key, value] of this.coords) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
-            while (y - minY >= WIDTH / 2) {
+            while (y >= WIDTH / 2) {
                 y -= WIDTH;
             }
             out.set((x + BIAS) * WIDTH + (y + BIAS), value);
