@@ -202,6 +202,9 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     pauseButton.classList.remove('selected');
     stepButton.classList.remove('selected');
     resetButton.classList.add('selected');
+    cursorMainButton.classList.add('selected');
+    cursorEditButton.classList.remove('selected');
+    cursorSelectButton.classList.remove('selected');
     beforeRunning = p.copy();
     hasRan = false;
     cursorMode = 'main';

@@ -193,11 +193,13 @@ export class TorusDataPattern extends DataPattern {
         p.runGeneration();
         // xOffset %= this.width;
         // yOffset %= this.height;
-        let pData: Uint8Array;
         if (p instanceof CoordPattern) {
             let [xOffset, yOffset] = p.getFullOffset();
-            xOffset %= width;
-            yOffset = 40 - (yOffset % height + height);
+            xOffset = xOffset % width;
+            yOffset = yOffset % height;
+            if (yOffset < 0) {
+                yOffset = 40 - (yOffset + 80);
+            }
             this.setData(p.height, p.width, p.getData());
             this.offsetBy(xOffset, yOffset);
             this.ensure(width, height);
