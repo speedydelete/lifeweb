@@ -1564,10 +1564,18 @@ export abstract class CoordPattern extends Pattern {
         let height = maxY - minY + 1;
         let width = maxX - minX + 1;
         let out = new Uint8Array(height * width);
+        let toDelete: number[] = [];
         for (let [key, value] of this.coords) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
+            if (Math.abs(y - minY) > WIDTH / 4) {
+                toDelete.push(key);
+                continue;
+            }
             out[(y - minY) * width + (x - minX)] = value;
+        }
+        for (let key of toDelete) {
+            this.coords.delete(key);
         }
         return out;
     }
