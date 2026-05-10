@@ -239,8 +239,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         let maxY = -Infinity;
         this.population = 0;
         for (let value of this.data) {
-            this.minX = Math.min(this.minX, value.x);
-            this.minY = Math.min(this.minY, value.y);
             if (recursive && value.p instanceof RPFPattern) {
                 value.p.recomputeSizes();
             }
@@ -248,7 +246,8 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             applyRotation(p, value.rotation);
             p.run(value.time);
             p.shrinkToFit();
-            value.p = p;
+            this.minX = Math.min(this.minX, value.x + p.xOffset);
+            this.minY = Math.min(this.minY, value.y + p.yOffset);
             maxX = Math.max(maxX, value.x + p.width);
             maxY = Math.max(maxY, value.y + p.height);
             this.population += p.population;
