@@ -197,7 +197,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     let x: number;
     let y: number;
     let num = Number(disp);
-    if (!Number.isNaN(num)) {
+    if (!Number.isNaN(num) && disp !== '') {
         x = num;
         if (period.endsWith('d')) {
             y = num;
