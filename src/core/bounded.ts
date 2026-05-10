@@ -198,31 +198,33 @@ export class TorusDataPattern extends DataPattern {
             let [xOffset, yOffset] = p.getFullOffset();
             xOffset %= width;
             yOffset = 40 - (yOffset % height + height);
-            lifePattern.setData(p.height, p.width, p.getData());
-            lifePattern.offsetBy(xOffset, yOffset);
-            lifePattern.ensure(this.width, this.height);
-            throw new Error(lifePattern.toRLE());
-            pData = lifePattern.getData();
-            p.xOffset = lifePattern.xOffset;
-            p.yOffset = lifePattern.yOffset;
-            lifePattern.xOffset = 0;
-            lifePattern.yOffset = 0;
+            this.setData(p.height, p.width, p.getData());
+            this.offsetBy(xOffset, yOffset);
+            this.ensure(width, height);
+            this.xOffset = 0;
+            this.yOffset = 0;
+            // throw new Error(lifePattern.toRLE());
+            // pData = lifePattern.getData();
+            // p.xOffset = lifePattern.xOffset;
+            // p.yOffset = lifePattern.yOffset;
+            // lifePattern.xOffset = 0;
+            // lifePattern.yOffset = 0;
         } else {
-            pData = p.getData();
-        }
-        this.data = new Uint8Array(height * width);
-        let i = p.width + 1;
-        if (p.xOffset < 0) {
-            i -= p.xOffset;
-        }
-        if (p.yOffset < 0) {
-            i -= p.width * p.yOffset;
-        }
-        let loc = 0;
-        for (let y = 0; y < height; y++) {
-            this.data.set(pData.slice(i, i + width), loc);
-            i += p.width;
-            loc += width;
+            let pData = p.getData();
+            this.data = new Uint8Array(height * width);
+            let i = p.width + 1;
+            if (p.xOffset < 0) {
+                i -= p.xOffset;
+            }
+            if (p.yOffset < 0) {
+                i -= p.width * p.yOffset;
+            }
+            let loc = 0;
+            for (let y = 0; y < height; y++) {
+                this.data.set(pData.slice(i, i + width), loc);
+                i += p.width;
+                loc += width;
+            }
         }
         p.xOffset = 0;
         p.yOffset = 0;
