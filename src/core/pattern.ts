@@ -26,9 +26,9 @@ export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
 
 
 /** Used to convert 26-bit signed integers into 26-bit unsigned integers. */
-export const COORD_BIAS = 1 << 25;
+export const COORD_BIAS = 1 << 8;
 /** Used to pack 2 26-bit unsigned integers into a double. */
-export const COORD_WIDTH = 1 << 26;
+export const COORD_WIDTH = 1 << 9;
 
 const BIAS = COORD_BIAS;
 const WIDTH = COORD_WIDTH
