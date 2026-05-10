@@ -419,12 +419,10 @@ export class HROTPattern extends CoordPattern {
         if (this.rule.range === Math.round(this.rule.range) || Math.abs(y) < 2**24) {
             return [x, y];
         } else {
-            y %= WIDTH;
-            throw new Error(String(y));
+            y %= WIDTH / 2;
             if (y < 0) {
-                y += WIDTH;
+                y += WIDTH / 2;
             }
-            throw new Error(x + ' ' + y);
             return [x, y];
         }
     }
