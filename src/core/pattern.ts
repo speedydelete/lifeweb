@@ -1568,13 +1568,10 @@ export abstract class CoordPattern extends Pattern {
         for (let [key, value] of this.coords) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
-            while (y - minY >= WIDTH) {
+            while (y - minY >= WIDTH / 2) {
                 y -= WIDTH;
             }
             out[(y - minY) * width + (x - minX)] = value;
-        }
-        for (let key of toDelete) {
-            this.coords.delete(key);
         }
         return out;
     }
