@@ -2,6 +2,7 @@
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {createMAPPattern, MAPPattern} from './map.js';
 
 
 /** A DataPattern-based implementation of rules running on finite planes.
@@ -150,6 +151,8 @@ export class FiniteCoordPattern extends CoordPattern {
 }
 
 
+let lifePattern = createMAPPattern('B3/S23') as MAPPattern;
+
 /** A DataPattern-based implementation of rules running on toruses.
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
@@ -188,22 +191,28 @@ export class TorusDataPattern extends DataPattern {
         data[data.length - 1] = this.data[0];
         p.setData(height + 2, width + 2, data);
         p.runGeneration();
-        p.xOffset = this.xOffset;
-        p.yOffset = this.yOffset;
-        let [xOffset, yOffset] = p.getFullOffset();
         // xOffset %= this.width;
         // yOffset %= this.height;
-        xOffset %= width;
-        yOffset = 40 - (yOffset % height + height);
-        p.offsetBy(xOffset, yOffset);
-        let pData = p.getData();
+        let pData: Uint8Array;
+        if (p instanceof CoordPattern) {
+            let [xOffset, yOffset] = p.getFullOffset();
+            xOffset %= width;
+            yOffset = 40 - (yOffset % height + height);
+            lifePattern.setData(p.height, p.width, p.getData());
+            lifePattern.offsetBy(xOffset, yOffset);
+            pData = lifePattern.getData();
+            p.xOffset = xOffset;
+            p.yOffset = yOffset;
+        } else {
+            pData = p.getData();
+        }
         this.data = new Uint8Array(height * width);
         let i = p.width + 1;
         if (p.xOffset < 0) {
-            i -= xOffset;
+            i -= p.xOffset;
         }
         if (p.yOffset < 0) {
-            i -= p.width * yOffset;
+            i -= p.width * p.yOffset;
         }
         let loc = 0;
         for (let y = 0; y < height; y++) {
@@ -213,7 +222,6 @@ export class TorusDataPattern extends DataPattern {
         }
         p.xOffset = 0;
         p.yOffset = 0;
-        throw new Error(xOffset + ' ' + yOffset + ' ' + this.toRLE());
         this.generation++;
     }
 
