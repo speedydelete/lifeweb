@@ -193,7 +193,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     } else {
         throw new Error('Invalid speed!');
     }
-    let p = Number(period);
+    let p = Number(period.endsWith('o') || period.endsWith('d') ? period.slice(0, -1) : period);
     let x: number;
     let y: number;
     let num = Number(disp);
