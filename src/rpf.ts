@@ -111,7 +111,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     base: T;
     key: string;
     path: string;
-    data: RPFObjectData[];
+    data: Set<RPFObjectData>;
     // we set optional values to undefined so the V8 hidden classes are the same
     name?: string = undefined;
     minX: number;
@@ -124,13 +124,13 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     population: number;
     rule: Rule;
 
-    constructor(base: T, key: string, path: string, data: RPFPattern<T>['data']) {
+    constructor(base: T, key: string, path: string, data: Set<RPFObjectData>) {
         super();
         this.base = base;
         this.key = key;
         this.path = path;
         this.data = data;
-        if (data.length > 0) {
+        if (data.size > 0) {
             this.minX = Infinity;
             this.minY = Infinity;
             let maxX = -Infinity;
@@ -187,7 +187,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
         let lines = data.split('\n');
         let key = lines[0].slice(0, -1);
-        let out = new RPFPattern(file.base, key, join(file.path, key), []);
+        let out = new RPFPattern(file.base, key, join(file.path, key), new Set());
         for (let i = 1; i < lines.length; i++) {
             let line = lines[i];
             let parts = line.split(' ');
@@ -213,7 +213,10 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     addObject(obj: RPFObjectData<T>): this {
-        this.data.push(obj);
+        if (this.data.has(obj)) {
+            return this;
+        }
+        this.data.add(obj);
         this.population += obj.p.population;
         this.width = Math.max(this.minX + this.width, obj.x + obj.p.width) - this.minX;
         this.height = Math.max(this.minY + this.height, obj.y + obj.p.height) - this.minY;
@@ -223,12 +226,8 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     removeObject(obj: RPFObjectData<T>): this {
-        for (let i = 0; i < this.data.length; i++) {
-            if (this.data[i] === obj) {
-                this.data.splice(i, 1);
-                this.recomputeSizes();
-                return this;
-            }
+        if (this.data.delete(obj)) {
+            this.recomputeSizes();
         }
         return this;
     }
@@ -286,35 +285,53 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     isEmpty(): boolean {
-        return this.data.every(x => x.p.isEmpty());
+        for (let value of this.data) {
+            if (!value.p.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    assignMetadata(p: RPFPattern<T>): void {
+        p.name = this.name;
     }
 
     copy(): RPFPattern<T> {
-        let out = new RPFPattern(this.base, this.key, this.path, this.data.map(x => ({
-            p: x.p,
-            x: x.x,
-            y: x.y,
-            rotation: x.rotation,
-            time: x.time,
-        })));
-        out.name = this.name;
+        let data = new Set<RPFObjectData>();
+        for (let value of this.data) {
+            data.add({
+                p: value.p,
+                x: value.x,
+                y: value.y,
+                rotation: value.rotation,
+                time: value.time,
+            });
+        }
+        let out = new RPFPattern(this.base, this.key, this.path, data);
+        this.assignMetadata(out);
         return out;
     }
 
     deepCopy(): RPFPattern<T> {
-        let out = new RPFPattern(this.base, this.key, this.path, this.data.map(x => ({
-            p: x.p instanceof RPFPattern ? x.p.deepCopy() : x.p.copy() as T,
-            x: x.x,
-            y: x.y,
-            rotation: x.rotation,
-            time: x.time,
-        })));
-        out.name = this.name;
+        let data = new Set<RPFObjectData>();
+        for (let value of this.data) {
+            data.add({
+                p: value.p instanceof RPFPattern ? value.p.deepCopy() : value.p.copy() as T,
+                x: value.x,
+                y: value.y,
+                rotation: value.rotation,
+                time: value.time,
+            });
+        }
+        let out = new RPFPattern(this.base, this.key, this.path, data);
+        this.assignMetadata(out);
         return out;
     }
 
     clearedCopy(): RPFPattern<T> {
-        let out = new RPFPattern(this.base, this.key, this.path, []);
+        let out = new RPFPattern(this.base, this.key, this.path, new Set());
+        this.assignMetadata(out);
         return out;
     }
 
@@ -327,8 +344,10 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     offsetBy(x: number, y: number): this {
-        this.xOffset += x;
-        this.yOffset += y;
+        for (let value of this.data) {
+            value.x += x;
+            value.y += y;
+        }
         return this;
     }
 
@@ -375,7 +394,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     clear(): this {
-        this.data = [];
+        this.data = new Set();
         this.height = 0;
         this.width = 0;
         this.population = 0;
@@ -486,7 +505,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                 out = (out + 0x00000100000001b3n) % (2n ** 64n);
             }
         } else {
-            for (let i = 0; i < this.data.length; i++) {
+            for (let i = 0; i < data.length; i++) {
                 out ^= BigInt(data[i]);
                 out = (out + 0x00000100000001b3n) % (2n ** 64n);
             }
@@ -681,12 +700,12 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     loadApgcode(code: string): RPFPattern<T> {
         let p = this.base.loadApgcode(code) as T;
-        return new RPFPattern(this.base, this.key, this.path, [{p, x: 0, y: 0, rotation: 'F', time: 0}]);
+        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}]));
     }
 
     loadRLE(rle: string): RPFPattern<T> {
         let p = this.base.loadRLE(rle) as T;
-        return new RPFPattern(this.base, this.key, this.path, [{p, x: 0, y: 0, rotation: 'F', time: 0}]);
+        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}]));
     }
 
     _toRPFFile(out: {[key: string]: RPFPattern<T>}): void {

@@ -48,8 +48,9 @@ interface UndoState {
 
 var p = createPattern('B3/S23');
 var rpfFile: RPFFile | undefined = undefined;
-
 var emptyRPF: RPFFile = {base: p, path: '/main', data: {}};
+// @ts-ignore
+var rpfP: RPFPattern = undefined;
 
 var mouseX: number;
 var mouseY: number;
@@ -68,6 +69,8 @@ var hasRan = false;
 var scale = 10;
 var topLeftX = 0;
 var topLeftY = 0;
+var pixelHeight = 0;
+var pixelWidth = 0;
 
 var scaleStrength = 0.3;
 
@@ -89,7 +92,7 @@ var pasting: Pattern | undefined = undefined;
 var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
 
 var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
-var rpfSel = new Set<number>();
+var rpfSel = new Set<RPFObjectData>();
 
 var commandHistory: string[] = [];
 var commandHistoryPos: number | undefined = undefined;
@@ -201,10 +204,13 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     sel = undefined;
     rpfSel.clear();
     if (p instanceof RPFPattern) {
+        rpfP = p;
         cursorSelectButton.style.display = 'none';
         selGroupButton.style.display = 'block';
         selUngroupButton.style.display = 'block';
     } else {
+        // @ts-ignore
+        rpfP = undefined;
         cursorSelectButton.style.display = 'block';
         selGroupButton.style.display = 'none';
         selUngroupButton.style.display = 'none';
@@ -216,6 +222,8 @@ function updateSizes() {
     canvas.height = Math.min(bb.bottom, window.innerHeight) - bb.top;
     canvas.width = Math.min(bb.right, window.innerWidth) - bb.left;
     ctx.imageSmoothingEnabled = false;
+    pixelHeight = canvas.height / scale;
+    pixelWidth = canvas.width / scale;
 }
 
 window.addEventListener('resize', updateSizes);
@@ -279,9 +287,9 @@ function editCellRPF(isStart: boolean): void {
 }
 
 function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
+    // console.log(`drawing pattern`, p);
+    // console.log(`x = ${x}, y = ${y}, rotation = ${rotation}`);
     ctx.save();
-    let pixelWidth = canvas.width / scale;
-    let pixelHeight = canvas.height / scale;
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
     let xMod = xOffset % 1;
@@ -294,40 +302,40 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     let endY = Math.max(pixelHeight, p.height - yOffset);
     let startX = Math.max(0, -xOffset);
     let endX = Math.max(pixelWidth, p.width - xOffset);
-    for (let y = startY; y <= endY; y++) {
-        for (let x = startX; x <= endX; x++) {
-            let x2 = x + xOffset;
-            let y2 = y + yOffset;
+    for (let screenY = startY; screenY <= endY; screenY++) {
+        for (let screenX = startX; screenX <= endX; screenX++) {
+            let x = screenX + xOffset;
+            let y = screenY + yOffset;
             if (rotation && rotation !== 'F') {
                 if (rotation === 'Fx') {
-                    y2 = p.height - y2 - 1;
+                    y = p.height - y - 1;
                 } else if (rotation === 'L') {
-                    let temp = x2;
-                    x2 = p.height - y2 - 1;
-                    y2 = temp;
+                    let temp = x;
+                    x = p.height - y - 1;
+                    y = temp;
                 } else if (rotation === 'Lx') {
-                    let temp = x2;
-                    x2 = y2;
-                    y2 = temp;
+                    let temp = x;
+                    x = y;
+                    y = temp;
                 } else if (rotation === 'B') {
-                    x2 = p.width - x2 - 1;
-                    y2 = p.height - y2 - 1;
+                    x = p.width - x - 1;
+                    y = p.height - y - 1;
                 } else if (rotation === 'Bx') {
-                    x2 = p.width - x2 - 1;
+                    x = p.width - x - 1;
                 } else if (rotation === 'R') {
-                    let temp = x2;
-                    x2 = y2;
-                    y2 = p.width - temp - 1;
+                    let temp = x;
+                    x = y;
+                    y = p.width - temp - 1;
                 } else {
-                    let temp = x2;
-                    x2 = p.height - y2 - 1;
-                    y2 = p.width - temp - 1;
+                    let temp = x;
+                    x = p.height - y - 1;
+                    y = p.width - temp - 1;
                 }
             }
-            let cell = p.get(x2, y2);
+            let cell = p.get(x, y);
             if (cell !== 0) {
                 ctx.fillStyle = states[cell];
-                ctx.fillRect(x - fillOffset, y - fillOffset, 1 + fillExpand, 1 + fillExpand);
+                ctx.fillRect(screenX - fillOffset, screenY - fillOffset, 1 + fillExpand, 1 + fillExpand);
             }
         }
     }
@@ -335,6 +343,29 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
         ctx.restore();
     }
     return {xOffset, yOffset, xMod, yMod};
+}
+
+function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos: number, yPos: number, startRotation: Rotation, selected: boolean): void {
+    // console.log('drawing rpf', p);
+    // console.log(`x = ${xPos}, y = ${yPos}, rotation = ${startRotation}, selected = ${selected}`);
+    for (let value of p.data) {
+        let p = value.p;
+        let selected2 = selected || rpfSel.has(value);
+        let rotation = ROTATION_COMBINE[startRotation][value.rotation];
+        let xOffset = xPos + value.x;
+        let yOffset = yPos + value.y;
+        let [minX, minY] = p.getFullOffset();
+        minX += xOffset;
+        minY += yOffset;
+        if (minX < -topLeftX || minY < -topLeftY || minX + p.width > -topLeftX + pixelWidth || minY + p.height > -topLeftY + pixelHeight) {
+            continue;
+        }
+        if (p instanceof RPFPattern) {
+            drawRPF(p, states, selectedStates, xOffset, yOffset, rotation, selected2);
+        } else {
+            drawPattern(p, selected2 ? selectedStates : states, xOffset, yOffset, rotation);
+        }
+    }
 }
 
 
@@ -1054,12 +1085,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         selectedStates[1] = theme.rpfSelection;
         ctx.fillStyle = states[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        let data = (p as RPFPattern).data;
-        for (let i = 0; i < data.length; i++) {
-            let value = data[i];
-            drawPattern(value.p, rpfSel.has(i) ? selectedStates : states, value.x, value.y, value.rotation);
-        }
-        ctx.restore();
+        drawRPF(rpfP, states, selectedStates, 0, 0, 'F', false);
         if (rpfSel.size > 0) {
             selectMenuElt.style.display = 'flex';
         } else {
@@ -1119,17 +1145,16 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         prevEditY = undefined;
         drawDeleteMode = false;
         if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
-            let data = (p as RPFPattern).data;
-            for (let i = 0; i < data.length; i++) {
-                if (data[i].p.get(mouseX - data[i].x, mouseY - data[i].y)) {
-                    if (rpfSel.has(i)) {
-                        rpfSel.delete(i);
+            for (let value of rpfP.data) {
+                if (value.p.get(mouseX - value.x, mouseY - value.y)) {
+                    if (rpfSel.has(value)) {
+                        rpfSel.delete(value);
                     } else {
-                        rpfSel.add(i);
+                        rpfSel.add(value);
                     }
                 }
             }
-            (p as RPFPattern).recomputeSizes();
+            rpfP.recomputeSizes();
         }
     }],
 
@@ -1143,9 +1168,9 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
 
     'set-cursor-to-main': [() => {
         if (cursorMode === 'edit' && rpfEditing) {
-            rpfSel.delete((p as RPFPattern).data.indexOf(rpfEditing));
+            rpfSel.delete(rpfEditing);
             if (rpfEditing.p.population === 0) {
-                (p as RPFPattern).removeObject(rpfEditing);
+                rpfP.removeObject(rpfEditing);
             }
         }
         cursorMode = 'main';
@@ -1158,16 +1183,16 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     'set-cursor-to-edit': [() => {
         if (rpfSel.size === 0) {
             rpfEditing = {
-                p: (p as RPFPattern).base.clearedCopy(),
+                p: rpfP.base.clearedCopy(),
                 x: 0,
                 y: 0,
                 rotation: 'F',
                 time: 0,
             };
-            rpfSel.add((p as RPFPattern).data.length);
-            (p as RPFPattern).addObject(rpfEditing);
+            rpfP.addObject(rpfEditing);
+            rpfSel.add(rpfEditing);
         } else if (rpfSel.size === 1) {
-            rpfEditing = (p as RPFPattern).data[Array.from(rpfSel)[0]];
+            rpfEditing = Array.from(rpfSel)[0];
         } else {
             alert(`Cannot edit multiple objects at once!`);
             return;
@@ -1202,14 +1227,10 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             return;
         }
         pushUndo();
-        let q = p.copy() as RPFPattern;
+        let q = rpfP.clearedCopy();
         q.setKey(key);
-        let deleted = 0;
-        for (let i = 0; i < q.data.length; i++) {
-            if (!rpfSel.has(i)) {
-                q.data.splice(i - deleted, 1);
-                deleted++;
-            }
+        for (let value of rpfSel) {
+            q.addObject(value);
         }
         let minX = Infinity;
         let minY = Infinity;
@@ -1221,20 +1242,20 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             obj.x -= minX;
             obj.y -= minY;
         }
-        deleted = 0;
-        for (let i of rpfSel) {
-            (p as RPFPattern).data.splice(i - deleted, 1);
-            deleted++;
+        for (let value of rpfSel) {
+            rpfP.data.delete(value);
         }
-        rpfSel.clear();
-        rpfSel.add((p as RPFPattern).data.length);
-        (p as RPFPattern).addObject({
+        rpfP.recomputeSizes();
+        let obj: RPFObjectData = {
             p: q,
             x: minX,
             y: minY,
             rotation: 'F',
             time: 0,
-        });
+        };
+        rpfP.addObject(obj);
+        rpfSel.clear();
+        rpfSel.add(obj);
         (rpfFile as RPFFile).data[q.key] = q;
     }],
 
@@ -1243,142 +1264,125 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             return;
         }
         pushUndo();
-        let deleted = 0;
         let objs: RPFObjectData[] = [];
-        for (let i of rpfSel) {
-            objs.push(...(p as RPFPattern).data.splice(i - deleted, 1));
-            deleted++;
+        for (let value of rpfSel) {
+            objs.push(value);
+            rpfP.data.delete(value);
         }
-        objs = objs.map(x => x.p instanceof RPFPattern ? x.p.data.map(y => ({p: y.p, x: y.x + x.x, y: y.y + x.y, rotation: y.rotation, time : y.time})) : x).flat();
-        console.log(deleted);
+        objs = objs.map(x => x.p instanceof RPFPattern ? Array.from(x.p.data).map(y => ({p: y.p, x: y.x + x.x, y: y.y + x.y, rotation: y.rotation, time : y.time})) : x).flat();
         rpfSel.clear();
         for (let obj of objs) {
-            rpfSel.add((p as RPFPattern).data.length);
-            (p as RPFPattern).addObject(obj);
+            rpfP.addObject(obj);
+            rpfSel.add(obj);
         }
     }],
 
     'sel-move-up': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            (p as RPFPattern).data[i].y--;
+        for (let value of rpfSel) {
+            value.y--;
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-move-down': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            (p as RPFPattern).data[i].y++;
+        for (let value of rpfSel) {
+            value.y++;
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-move-left': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            (p as RPFPattern).data[i].x--;
+        for (let value of rpfSel) {
+            value.x--;
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-move-right': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            (p as RPFPattern).data[i].x++;
+        for (let value of rpfSel) {
+            value.x++;
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-clear': [() => {
         pushUndo();
-        let deleted = 0;
-        for (let i of rpfSel) {
-            (p as RPFPattern).data.splice(i - deleted, 1);
-            deleted++;
+        for (let value of rpfSel) {
+            rpfP.data.delete(value);
         }
         rpfSel.clear();
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-flip-horizontal': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['Bx'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-flip-vertical': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['Fx'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-rotate-left': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['L'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-rotate-right': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['R'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-rotate-180': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['B'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-flip-diagonal': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['Lx'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'sel-flip-anti-diagonal': [() => {
         pushUndo();
-        for (let i of rpfSel) {
-            let value = (p as RPFPattern).data[i];
+        for (let value of rpfSel) {
             value.rotation = ROTATION_COMBINE[value.rotation]['Rx'];
         }
-        (p as RPFPattern).recomputeSizes();
+        rpfP.recomputeSizes();
     }],
 
     'copy': [() => {
-        if (rpfSel.size === (p as RPFPattern).data.length) {
+        if (rpfSel.size === rpfP.data.size) {
             if (!rpfFile) {
                 throw new Error(`No rpfFile when copying everything!`);
             }
             navigator.clipboard.writeText(rpfToString(rpfFile));
         } else if (rpfSel.size > 0) {
-            let q = p.copy() as RPFPattern;
-            let deleted = 0;
-            for (let i = 0; i < q.data.length; i++) {
-                if (!rpfSel.has(i)) {
-                    q.data.splice(i - deleted, 1);
-                    deleted++;
-                }
-            }
+            let q = rpfP.clearedCopy();
+            q.data = rpfSel;
             navigator.clipboard.writeText(q.toString());
         }
     }],
@@ -1433,9 +1437,8 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         if (event) {
             event.preventDefault();
         }
-        let data = (p as RPFPattern).data;
-        for (let i = 0; i < data.length; i++) {
-            rpfSel.add(i);
+        for (let value of rpfP.data) {
+            rpfSel.add(value);
         }
     }],
 
@@ -1588,7 +1591,7 @@ glider:
 *456
 
 main:
-glider
+glider 0 0
 
 `;
 
