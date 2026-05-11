@@ -476,7 +476,7 @@ export class HROTPattern extends CoordPattern {
                 }
                 let key = Math.floor(x) * WIDTH + y;
                 // let key = Math.round(x) * WIDTH + Math.round(y);
-                let value = this.coords.get(Math.floor(x) * WIDTH + Math.floor(y));
+                let value = this.coords.get(this.generation % 2 === 0 ? Math.floor(x) * WIDTH + Math.ceil(y) : Math.ceil(x) * WIDTH + Math.floor(y));
                 if (value === undefined || value === 0) {
                     if (this.b[count]) {
                         out.set(key, 1);
