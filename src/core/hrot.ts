@@ -444,10 +444,6 @@ export class HROTPattern extends CoordPattern {
     getFullOffset(): [number, number] {
         let [x, y] = super.getFullOffset();
         let isStupid = this.rule.range !== Math.round(this.rule.range);
-        // if (isStupid) {
-        //     x -= 0.5;
-        //     y += 0.5;
-        // }
         if (!isStupid || Math.abs(y) < 2**24) {
             return [x, y];
         } else {
@@ -527,27 +523,13 @@ export class HROTPattern extends CoordPattern {
             }
         }
         this.coords = out;
-        this.xOffset += 0.5;
-        this.yOffset += 0.5;
-        // out = new Map<number, number>();
-        // // let debug: string[] = [];
-        // for (let [key, value] of this.coords) {
-        //     let x = Math.round(key / WIDTH) - BIAS;
-        //     let y = (key & (WIDTH - 1)) - BIAS;
-        //     while (y >= WIDTH / 4) {
-        //         y -= WIDTH;
-        //     }
-        //     // debug.push(`(${x}, ${y})`);
-        //     if (isStupid && this.generation % 2 === 0) {
-        //         x--;
-        //         y--;
-        //     }
-        //     out.set((x + BIAS) * WIDTH + (y + BIAS), value);
-        // }
-        // if (this.generation === 2) {
-        //     throw new Error(debug.join(', '));
-        // }
-        // this.coords = out;
+        if (isStupid) {
+            this.xOffset -= 0.5;
+            this.yOffset -= 0.5;
+            let data = this.getData();
+            let {height, width} = this.getRect();
+            this.setData(height, width, data);
+        }
         this.generation++;
     }
 

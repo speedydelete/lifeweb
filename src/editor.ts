@@ -1,5 +1,5 @@
 
-import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, createPattern, parse as parseRLE} from './core/index.js';
+import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from './core/index.js';
 import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, RPFFile, parseRPF, rpfToString} from './rpf.js';
 
 // import * as lifeweb from './core/index.js';
@@ -147,6 +147,8 @@ function parse(data: string, preserveSizes?: boolean): Pattern | [string, string
         try {
             return RPFPattern.fromString(data, structuredClone(emptyRPF));
         } catch (error2) {
+            console.log(error instanceof Error ? error.stack : String(error));
+            console.log(error2 instanceof Error ? error2.stack : String(error2));
             return [String(error), String(error2)];
         }
     }
@@ -171,6 +173,8 @@ function loadPattern(q: string | RPFFile | Pattern): void {
             try {
                 q = parseRPF(q as string, '/main');
             } catch (error2) {
+                console.log(error instanceof Error ? error.stack : String(error));
+                console.log(error2 instanceof Error ? error2.stack : String(error2));
                 alert(`Invalid pattern!:\n\n${error}\n\n${error2}`);
                 return;
             }
@@ -249,7 +253,7 @@ function editCell(isStart: boolean): void {
     }
     prevEditX = x;
     prevEditY = y;
-    if (x < 0 || y < 0) {
+    if ((x < 0 || y < 0) && !(p instanceof CoordPattern)) {
         let x2 = -Math.min(x, 0);
         let y2 = -Math.min(y, 0);
         p.offsetBy(x2, y2);
@@ -302,6 +306,7 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     // console.log(`drawing pattern`, p);
     // console.log(`x = ${x}, y = ${y}, rotation = ${rotation}`);
     ctx.save();
+    let [pXOffset, pYOffset] = p.getFullOffset();
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
     // if (p.rule.range !== Math.round(p.rule.range) && p.generation % 2 === 1) {
@@ -314,9 +319,9 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     ctx.translate(-xMod, -yMod);
     xOffset = Math.round(xOffset - xMod);
     yOffset = Math.round(yOffset - yMod);
-    let startY = Math.max(0, -yOffset);
+    let startY = Math.max(0, -yOffset) + (pYOffset - p.yOffset);
     let endY = Math.max(pixelHeight, p.height - yOffset);
-    let startX = Math.max(0, -xOffset);
+    let startX = Math.max(0, -xOffset) + (pXOffset - p.xOffset);
     let endX = Math.max(pixelWidth, p.width - xOffset);
     for (let screenY = startY; screenY <= endY; screenY++) {
         for (let screenX = startX; screenX <= endX; screenX++) {
@@ -1051,10 +1056,12 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
             event.preventDefault();
         }
         let text = await navigator.clipboard.readText();
-        console.log(text);
         let q = parse(text, true);
-        pasting = Array.isArray(q) ? undefined : q;
-        console.log(q);
+        if (Array.isArray(q)) {
+            alert(`Invalid pattern:\n\n${q[0]}\n\n${q[1]}`);
+            return;
+        }
+        pasting = q;
         run('set-cursor-to-select');
     }],
 

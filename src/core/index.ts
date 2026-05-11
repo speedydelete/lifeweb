@@ -269,10 +269,10 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, preserv
                 throw new Error(`Invaid header line: '${line}'`);
             }
             if (typeof match[1] === 'string') {
-                height = parseInt(match[1]);
+                width = parseInt(match[1]);
             }
             if (typeof match[2] === 'string') {
-                width = parseInt(match[2]);
+                height = parseInt(match[2]);
             }
             if (typeof match[3] === 'string') {
                 rule = match[3];

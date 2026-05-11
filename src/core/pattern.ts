@@ -1519,6 +1519,8 @@ export abstract class CoordPattern extends Pattern {
     }
 
     offsetBy(x: number, y: number): this {
+        this.xOffset += x;
+        this.yOffset += y;
         return this;
     }
 
