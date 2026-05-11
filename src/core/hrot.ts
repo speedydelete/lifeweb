@@ -267,21 +267,23 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
         for (let y = 0; y < size; y++) {
             let row: number[] = [];
             for (let x = 0; x < size; x++) {
-                let value = Number(digits[i]);
                 if (isBig) {
+                    let value = Number(digits[i] + digits[i + 1]);
                     if (value > 127) {
                         row.push(value - 256);
                     } else {
                         row.push(value);
                     }
+                    i += 2;
                 } else {
+                    let value = Number(digits[i]);
                     if (value > 7) {
                         row.push(value - 16);
                     } else {
                         row.push(value);
                     }
+                    i++;
                 }
-                i += isBig ? 2 : 1;
             }
             nh.push(row);
         }
