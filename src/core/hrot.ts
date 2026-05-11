@@ -418,8 +418,8 @@ export class HROTPattern extends CoordPattern {
         let [x, y] = super.getFullOffset();
         let isStupid = this.rule.range !== Math.round(this.rule.range);
         if (isStupid) {
-            x--;
-            y++;
+            x -= 0.5;
+            y += 0.5;
         }
         if (!isStupid || Math.abs(y) < 2**24) {
             return [x, y];
