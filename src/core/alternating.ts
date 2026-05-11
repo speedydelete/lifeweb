@@ -19,9 +19,9 @@ export class AlternatingPattern extends DataPattern {
     runGeneration(): void {
         let p = this.patterns[this.generation % this.patterns.length];
         p.setData(this.height, this.width, this.data);
-        p.generation = this.generation;
         p.xOffset = this.xOffset;
         p.yOffset = this.yOffset;
+        p.generation = this.generation;
         p.runGeneration();
         let data = p.getData();
         this.setData(p.height, p.width, data);
