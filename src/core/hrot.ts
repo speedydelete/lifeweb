@@ -4,6 +4,7 @@
 import {RuleError} from './util.js';
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule, DataPattern, CoordPattern} from './pattern.js';
 import {unparseMAP} from './map.js';
+import {threadId} from 'node:worker_threads';
 
 
 /** Parses a HROT range, such as "3-4" or "1". */
@@ -476,7 +477,7 @@ export class HROTPattern extends CoordPattern {
                 }
                 let key = Math.floor(x) * WIDTH + y;
                 // let key = Math.round(x) * WIDTH + Math.round(y);
-                let value = this.coords.get(this.generation % 2 === 0 ? Math.floor(x) * WIDTH + Math.ceil(y) : Math.ceil(x) * WIDTH + Math.floor(y));
+                let value = this.coords.get(Math.ceil(x) * WIDTH + Math.ceil(y));
                 if (value === undefined || value === 0) {
                     if (this.b[count]) {
                         out.set(key, 1);
@@ -500,14 +501,18 @@ export class HROTPattern extends CoordPattern {
         }
         this.coords = out;
         out = new Map<number, number>();
-        let debug: string[] = [];
+        // let debug: string[] = [];
         for (let [key, value] of this.coords) {
             let x = Math.round(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
             while (y >= WIDTH / 4) {
                 y -= WIDTH;
             }
-            debug.push(`(${x}, ${y})`);
+            // debug.push(`(${x}, ${y})`);
+            if (isStupid && this.generation % 2 === 0) {
+                x++;
+                y++;
+            }
             out.set((x + BIAS) * WIDTH + (y + BIAS), value);
         }
         // if (this.generation === 2) {
