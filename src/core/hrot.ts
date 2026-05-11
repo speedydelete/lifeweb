@@ -416,14 +416,19 @@ export class HROTPattern extends CoordPattern {
 
     getFullOffset(): [number, number] {
         let [x, y] = super.getFullOffset();
-        if (this.rule.range === Math.round(this.rule.range) || Math.abs(y) < 2**24) {
+        let isStupid = this.rule.range !== Math.round(this.rule.range);
+        if (isStupid) {
+            x--;
+            y++;
+        }
+        if (!isStupid || Math.abs(y) < 2**24) {
             return [x, y];
         } else {
             y %= WIDTH / 2;
             if (y < 0) {
                 y += WIDTH / 2;
             }
-            return [x - 1, y + 1];
+            return [x, y];
         }
     }
 
