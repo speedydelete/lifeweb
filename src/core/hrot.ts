@@ -4,7 +4,6 @@
 import {RuleError} from './util.js';
 import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule, DataPattern, CoordPattern} from './pattern.js';
 import {unparseMAP} from './map.js';
-import {threadId} from 'node:worker_threads';
 
 
 /** Parses a HROT range, such as "3-4" or "1". */
@@ -258,7 +257,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             nh.push(row);
         }
     } else if (n.startsWith('W')) {
-        let digits = n.slice(1);
+        let digits = n.slice(1).replaceAll('/', '');
         if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
             throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${r}`);
         }
