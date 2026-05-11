@@ -457,7 +457,7 @@ export class HROTPattern extends CoordPattern {
 
     runGeneration(): void {
         let range = this.rule.range;
-        let isStupid = range !== Math.round(range);
+        // let isStupid = range !== Math.round(range);
         let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
         minX = minX - range + BIAS;
         maxX = maxX + range + BIAS;
@@ -497,16 +497,16 @@ export class HROTPattern extends CoordPattern {
                         }
                     }
                 }
-                let key = Math.floor(x) * WIDTH + y;
+                // console.log((x - BIAS), (y - BIAS), count);
+                let key = x * WIDTH + y;
                 // let key = Math.round(x) * WIDTH + Math.round(y);
-                // let value = this.coords.get(Math.floor(x) * WIDTH + Math.floor(y));
-                let value = 0;
+                let value = this.coords.get(Math.floor(x) * WIDTH + Math.floor(y));
                 if (value === undefined || value === 0) {
                     if (this.b[count]) {
                         out.set(key, 1);
                     }
                 } else if (value === 1) {
-                    if (this.s[count] || (isStupid && this.b[count])) {
+                    if (this.s[count]/* || (isStupid && this.b[count])*/) {
                         out.set(key, 1);
                     } else {
                         let newValue = (value + 1) % this.rule.states;
@@ -523,13 +523,13 @@ export class HROTPattern extends CoordPattern {
             }
         }
         this.coords = out;
-        if (isStupid) {
-            this.xOffset -= 0.5;
-            this.yOffset -= 0.5;
-            let data = this.getData();
-            let {height, width} = this.getRect();
-            this.setData(height, width, data);
-        }
+        // if (isStupid) {
+        //     this.xOffset -= 0.5;
+        //     this.yOffset -= 0.5;
+        //     let data = this.getData();
+        //     let {height, width} = this.getRect();
+        //     this.setData(height, width, data);
+        // }
         this.generation++;
     }
 

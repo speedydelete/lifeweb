@@ -450,3 +450,9 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }
 }
+
+
+let p = parse(`x = 5, y = 5, rule = R2,C2,S14,21,B21,NW7070700000700070000070707
+2bo2$4bo2$obobo!`);
+p.runGeneration();
+console.log(p.toRLE());
