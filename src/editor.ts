@@ -304,10 +304,10 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     ctx.save();
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
-    if (p.rule.range !== Math.round(p.rule.range) && p.generation % 2 === 1) {
-        xOffset += 0.5;
-        yOffset += 0.5;
-    }
+    // if (p.rule.range !== Math.round(p.rule.range) && p.generation % 2 === 1) {
+    //     xOffset += 0.5;
+    //     yOffset += 0.5;
+    // }
     let xMod = xOffset % 1;
     let yMod = yOffset % 1;
     ctx.scale(scale, scale);
