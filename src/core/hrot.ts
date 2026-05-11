@@ -423,7 +423,7 @@ export class HROTPattern extends CoordPattern {
             if (y < 0) {
                 y += WIDTH / 2;
             }
-            return [x, y];
+            return [x - 1, y + 1];
         }
     }
 
