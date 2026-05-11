@@ -417,7 +417,7 @@ export class HROTPattern extends CoordPattern {
     getFullOffset(): [number, number] {
         let [x, y] = super.getFullOffset();
         let isStupid = this.rule.range !== Math.round(this.rule.range);
-        if (isStupid && this.generation % 2 === 1) {
+        if (isStupid) {
             x -= 1;
             y += 1;
         }
