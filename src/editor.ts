@@ -1051,8 +1051,10 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
             event.preventDefault();
         }
         let text = await navigator.clipboard.readText();
+        console.log(text);
         let q = parse(text, true);
         pasting = Array.isArray(q) ? undefined : q;
+        console.log(q);
         run('set-cursor-to-select');
     }],
 

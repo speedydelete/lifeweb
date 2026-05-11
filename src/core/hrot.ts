@@ -230,7 +230,33 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             nh.push(row);
         }
     } else if (n.startsWith('@')) {
+        let bits: number[] = [];
+        for (let char of n.slice(1)) {
+            let value = parseInt(char, 16);
+            if (Number.isNaN(value)) {
+                throw new RuleError(`Invalid custom neighborhood: '${n}'`);
+            }
+            bits.push((value & (1 << 3)) ? 1 : 0);
+            bits.push((value & (1 << 2)) ? 1 : 0);
+            bits.push((value & (1 << 1)) ? 1 : 0);
+            bits.push((value & 1) ? 1 : 0);
+        }
+        if ((r * 2 + 1)**2 !== bits.length) {
+            throw new RuleError(`Invalid custom neighborhood: '${n}'`);
+        }
         nh = [];
+        let i = 0;
+        for (let y = -r; y <= r; y++) {
+            let row: number[] = [];
+            for (let x = -r; x <= r; x++) {
+                if (x === 0 && y === 0) {
+                    row.push(0);
+                    continue;
+                }
+                row.push(bits[i++]);
+            }
+            nh.push(row);
+        }
     } else if (n.startsWith('W')) {
         let digits = n.slice(1);
         if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
@@ -418,10 +444,10 @@ export class HROTPattern extends CoordPattern {
     getFullOffset(): [number, number] {
         let [x, y] = super.getFullOffset();
         let isStupid = this.rule.range !== Math.round(this.rule.range);
-        if (isStupid) {
-            x -= 0.5;
-            y += 0.5;
-        }
+        // if (isStupid) {
+        //     x -= 0.5;
+        //     y += 0.5;
+        // }
         if (!isStupid || Math.abs(y) < 2**24) {
             return [x, y];
         } else {
@@ -477,7 +503,8 @@ export class HROTPattern extends CoordPattern {
                 }
                 let key = Math.floor(x) * WIDTH + y;
                 // let key = Math.round(x) * WIDTH + Math.round(y);
-                let value = this.coords.get(Math.floor(x) * WIDTH + Math.floor(y));
+                // let value = this.coords.get(Math.floor(x) * WIDTH + Math.floor(y));
+                let value = 0;
                 if (value === undefined || value === 0) {
                     if (this.b[count]) {
                         out.set(key, 1);
@@ -500,25 +527,27 @@ export class HROTPattern extends CoordPattern {
             }
         }
         this.coords = out;
-        out = new Map<number, number>();
-        // let debug: string[] = [];
-        for (let [key, value] of this.coords) {
-            let x = Math.round(key / WIDTH) - BIAS;
-            let y = (key & (WIDTH - 1)) - BIAS;
-            while (y >= WIDTH / 4) {
-                y -= WIDTH;
-            }
-            // debug.push(`(${x}, ${y})`);
-            if (isStupid && this.generation % 2 === 0) {
-                x--;
-                y--;
-            }
-            out.set((x + BIAS) * WIDTH + (y + BIAS), value);
-        }
+        this.xOffset += 0.5;
+        this.yOffset += 0.5;
+        // out = new Map<number, number>();
+        // // let debug: string[] = [];
+        // for (let [key, value] of this.coords) {
+        //     let x = Math.round(key / WIDTH) - BIAS;
+        //     let y = (key & (WIDTH - 1)) - BIAS;
+        //     while (y >= WIDTH / 4) {
+        //         y -= WIDTH;
+        //     }
+        //     // debug.push(`(${x}, ${y})`);
+        //     if (isStupid && this.generation % 2 === 0) {
+        //         x--;
+        //         y--;
+        //     }
+        //     out.set((x + BIAS) * WIDTH + (y + BIAS), value);
+        // }
         // if (this.generation === 2) {
         //     throw new Error(debug.join(', '));
         // }
-        this.coords = out;
+        // this.coords = out;
         this.generation++;
     }
 
