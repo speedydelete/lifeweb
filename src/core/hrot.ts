@@ -262,7 +262,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${r}`);
         }
         nh = [];
-        let isBig = n.length === size**2 * 2;
+        let isBig = digits.length === size**2 * 2;
         let i = 0;
         for (let y = 0; y < size; y++) {
             let row: number[] = [];
