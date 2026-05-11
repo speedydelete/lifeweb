@@ -1449,7 +1449,7 @@ export abstract class CoordPattern extends Pattern {
         // let out: string[] = [];
         for (let key of this.coords.keys()) {
             let x = Math.floor(key / WIDTH) - BIAS;
-            let y = ((key & (WIDTH - 1)) % WIDTH);
+            let y = (key & (WIDTH - 1)) - BIAS;
             // if (y > WIDTH / 4) {
             //     y -= WIDTH;
             // }
