@@ -496,7 +496,7 @@ export class HROTPattern extends CoordPattern {
         out = new Map<number, number>();
         let debug: string[] = [];
         for (let [key, value] of this.coords) {
-            let x = Math.floor(key / WIDTH) - BIAS;
+            let x = Math.round(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
             while (y >= WIDTH / 4) {
                 y -= WIDTH;
