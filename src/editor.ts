@@ -199,9 +199,12 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     topLeftX -= offset[0];
     topLeftY -= offset[1];
     runButton.classList.remove('selected');
+    runButton.style.display = 'block';
     pauseButton.classList.remove('selected');
+    pauseButton.style.display = 'none';
     stepButton.classList.remove('selected');
     resetButton.classList.add('selected');
+    running = false;
     cursorMainButton.classList.add('selected');
     cursorEditButton.classList.remove('selected');
     cursorSelectButton.classList.remove('selected');
@@ -301,6 +304,10 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     ctx.save();
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
+    if (p.rule.range !== Math.round(p.rule.range) && p.generation % 2 === 1) {
+        xOffset += 0.5;
+        yOffset += 0.5;
+    }
     let xMod = xOffset % 1;
     let yMod = yOffset % 1;
     ctx.scale(scale, scale);
