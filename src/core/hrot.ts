@@ -241,23 +241,22 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             bits.push((value & (1 << 1)) ? 1 : 0);
             bits.push((value & 1) ? 1 : 0);
         }
-        throw new Error(bits.length + ' ' + (r * 2 + 1)**2);
-        // if ((r * 2 + 1)**2 !== bits.length) {
-        //     throw new RuleError(`Invalid custom neighborhood: '${n}'`);
-        // }
-        // nh = [];
-        // let i = 0;
-        // for (let y = -r; y <= r; y++) {
-        //     let row: number[] = [];
-        //     for (let x = -r; x <= r; x++) {
-        //         if (x === 0 && y === 0) {
-        //             row.push(0);
-        //             continue;
-        //         }
-        //         row.push(bits[i++]);
-        //     }
-        //     nh.push(row);
-        // }
+        if ((r * 2 + 1)**2 - 1 !== bits.length) {
+            throw new RuleError(`Invalid custom neighborhood: '${n}'`);
+        }
+        nh = [];
+        let i = 0;
+        for (let y = -r; y <= r; y++) {
+            let row: number[] = [];
+            for (let x = -r; x <= r; x++) {
+                if (x === 0 && y === 0) {
+                    row.push(0);
+                    continue;
+                }
+                row.push(bits[i++]);
+            }
+            nh.push(row);
+        }
     } else if (n.startsWith('W')) {
         let digits = n.slice(1);
         if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
