@@ -1,5 +1,5 @@
 
-declare var path: (typeof import('node:path'))['posix'];
+var path: (typeof import('node:path'))['posix'];
 if (typeof window === 'object' && window === globalThis) {
     // @ts-ignore
     path = (await import('https://esm.sh/path')).posix;
