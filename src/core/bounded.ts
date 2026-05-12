@@ -37,7 +37,11 @@ export class FiniteDataPattern extends DataPattern {
         let widthAdd = Math.min(p.width, this.width);
         this.data = new Uint8Array(this.size);
         for (let y = 0; y < this.height; y++) {
-            this.data.set(data.slice(y * p.width, y * p.width + widthAdd), y * this.width);
+            let i = (y - p.yOffset) * p.width;
+            if (i < 0 || i > data.length) {
+                continue;
+            }
+            this.data.set(data.slice(i, i + widthAdd), y * this.width + p.xOffset);
         }
         this.generation++;
     }
