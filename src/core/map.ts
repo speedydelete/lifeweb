@@ -289,13 +289,13 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     } else {
         throw new RuleError(`Invalid MAP string: '${original}'`);
     }
-    data = data.slice(3).replaceAll('=', '');
+    data = data.replaceAll('=', '');
     let type: 'normal' | 'vn' | 'hex';
     let states = 2;
     if (data.length !== 86 && data.length !== 6 && data.length !== 20) {
         let index = data.lastIndexOf('/');
         if (index === -1) {
-            throw new RuleError(`Invalid MAP string (bad length and no /): '${data}'`);
+            throw new RuleError(`Invalid MAP string (bad length and no /): '${original}'`);
         }
         let value = data.slice(index + 1);
         if (!value.match(/^\d+$/)) {
