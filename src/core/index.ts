@@ -156,9 +156,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             }
             let ruleData: Rule = Object.assign({}, p.rule, {str: `${p.rule.str}:${type}${x},${y}`});
             if (type === 'P') {
-                if (p instanceof CoordPattern) {
-                    return new FiniteCoordPattern(p.coords, ruleData, p, x, y);
-                } else {
+                // if (p instanceof CoordPattern) {
+                //     return new FiniteCoordPattern(p.coords, ruleData, p, x, y);
+                // } else {
                     if (x !== width || y !== height) {
                         let newData = new Uint8Array(x * y);
                         let i = 0;
@@ -173,7 +173,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                         width = x;
                     }
                     return new FiniteDataPattern(height, width, data, ruleData, p);
-                }
+                // }
             } else if (type === 'T') {
                 // if (p instanceof CoordPattern) {
                 //     return new TorusCoordPattern(p.coords, ruleData, p, x, y);

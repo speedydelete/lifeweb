@@ -24,13 +24,15 @@ export class FiniteDataPattern extends DataPattern {
         p.xOffset = 0;
         p.yOffset = 0;
         p.runGeneration();
+        p.shrinkToFit();
         if (p.xOffset < 0) {
             p.clearPart(0, 0, p.height, -p.xOffset);
+            p.shrinkToFit();
         }
         if (p.yOffset < 0) {
             p.clearPart(0, 0, p.width, -p.yOffset);
+            p.shrinkToFit();
         }
-        p.shrinkToFit();
         let data = p.getData();
         let widthAdd = Math.min(p.width, this.width);
         this.data = new Uint8Array(this.size);
