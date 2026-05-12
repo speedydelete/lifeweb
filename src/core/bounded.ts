@@ -30,7 +30,7 @@ export class FiniteDataPattern extends DataPattern {
             p.shrinkToFit();
         }
         if (p.yOffset < 0) {
-            p.clearPart(0, 0, p.width, -p.yOffset);
+            p.clearPart(0, 0, -p.yOffset, p.width);
             p.shrinkToFit();
         }
         let data = p.getData();
