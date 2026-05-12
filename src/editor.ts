@@ -1,6 +1,8 @@
 
+// @ts-ignore
+import {showDirectoryPicker} from 'https://esm.sh/file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from './core/index.js';
-import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, RPFFile, parseRPF, rpfToString} from './rpf.js';
+import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, Directory, RPFFile} from './rpf.js';
 
 // import * as lifeweb from './core/index.js';
 // import * as lifewebRPF from './rpf.js';
@@ -50,7 +52,7 @@ interface UndoState {
 
 var p = createPattern('B3/S23');
 var rpfFile: RPFFile | undefined = undefined;
-var emptyRPF: RPFFile = {base: p, path: '/main', data: {}};
+var emptyRPF = RPFFile.fromString(`B3/S23\n\nmain:\n`, '/main');
 // @ts-ignore
 var rpfP: RPFPattern = undefined;
 
@@ -91,6 +93,7 @@ var drawDeleteMode = false;
 var prevEditX: number | undefined = undefined;
 var prevEditY: number | undefined = undefined;
 var pasting: Pattern | undefined = undefined;
+var rpfPasting: RPFPattern | undefined = undefined;
 var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
 
 var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
@@ -101,6 +104,9 @@ var commandHistoryPos: number | undefined = undefined;
 var beforeHistoryCommand = '/';
 
 var rpfEditing: RPFObjectData | undefined = undefined;
+
+var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
+var fs = new Directory();
 
 
 let runButton = getElement('run');
@@ -140,16 +146,26 @@ let selUngroupButton = getElement('sel-ungroup');
 let helpElt = getElement('help');
 
 
-function parse(data: string, preserveSizes?: boolean): Pattern | [string, string] {
+function parse(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
     try {
         return parseRLE(data, undefined, preserveSizes);
     } catch (error) {
         try {
-            return RPFPattern.fromString(data, structuredClone(emptyRPF));
+            return RPFPattern.fromString(data, rpfFile ?? structuredClone(emptyRPF));
         } catch (error2) {
-            console.log(error instanceof Error ? error.stack : String(error));
-            console.log(error2 instanceof Error ? error2.stack : String(error2));
-            return [String(error), String(error2)];
+            try {
+                let out = RPFFile.fromString(data, '/main');
+                if (!out.data['main']) {
+                    throw new Error(`No 'main' entry presented in loaded RPF!`);
+                } else {
+                    return out.data['main'];
+                }
+            } catch (error3) {
+                console.log(error instanceof Error ? error.stack : String(error));
+                console.log(error2 instanceof Error ? error2.stack : String(error2));
+                console.log(error3 instanceof Error ? error3.stack : String(error3));
+                return [String(error), String(error2), String(error3)];
+            }
         }
     }
 }
@@ -171,7 +187,7 @@ function loadPattern(q: string | RPFFile | Pattern): void {
             q = parseRLE(q);
         } catch (error) {
             try {
-                q = parseRPF(q as string, '/main');
+                q = RPFFile.fromString(q as string, '/main');
             } catch (error2) {
                 console.log(error instanceof Error ? error.stack : String(error));
                 console.log(error2 instanceof Error ? error2.stack : String(error2));
@@ -216,6 +232,9 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     hasRan = false;
     cursorMode = 'main';
     sel = undefined;
+    pasting = undefined;
+    rpfPasting = undefined;
+    pasteModeMenuElt.style.display = 'none';
     rpfSel.clear();
     if (p instanceof RPFPattern) {
         rpfP = p;
@@ -390,6 +409,47 @@ function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos
 }
 
 
+async function updateFileSystem(dir: FileSystemDirectoryHandle, out: Directory): Promise<void> {
+    let names = new Set(Object.keys(out.data));
+    // @ts-ignore
+    for await (let [name, value] of dir.entries()) {
+        names.delete(name);
+        if (value instanceof FileSystemDirectoryHandle) {
+            if (name in out.data) {
+                if (out.data[name] instanceof Directory) {
+                    await updateFileSystem(value, out.data[name]);
+                    continue;
+                } else {
+                    out.rm(name);
+                }
+            }
+            let subDir = out.mkdir(name);
+            await updateFileSystem(value, subDir);
+        } else {
+            let file = await value.getFile();
+            if (name in out.data) {
+                if (out.data[name] instanceof Directory) {
+                    out.rm(name);
+                } else if (file.lastModified < out.data[name].lastModified) {
+                    continue;
+                }
+            }
+            out.write(name, await file.text());
+        }
+    }
+    for (let name of names) {
+        out.rm(name);
+    }
+}
+
+async function loadFileSystem(): Promise<void> {
+    let dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
+    rootDirHandle = dir;
+    await updateFileSystem(dir, fs);
+}
+
+
+
 type DefaultAction = 
     | 'frame'
     | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
@@ -398,7 +458,7 @@ type DefaultAction =
     | 'undo' | 'redo'
     | 'set-scale' | 'faster' | 'slower'
     | 'sel-cancel' | 'sel-group' | 'sel-ungroup' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
-    | 'copy' | 'start-paste' | 'end-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
+    | 'copy' | 'start-paste' | 'end-paste' | 'exit-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
     | 'view-rle'
     | 'show-help' | 'hide-help'
@@ -462,6 +522,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
             totalDeltaY = 0;
             wheelEvent = undefined;
         }
+        frameCount++;
     }],
 
     'scroll-canvas': [event => {
@@ -620,6 +681,16 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         }
     }],
 
+    'exit-paste': [() => {
+        pasting = undefined;
+        rpfPasting = undefined;
+    }],
+
+    'cut': [() => {
+        run('copy');
+        run('sel-clear');
+    }],
+
     'set-paste-mode-to-or': [() => {
         pasteMode = 'or';
     }],
@@ -634,11 +705,6 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
 
     'set-paste-mode-to-xor': [() => {
         pasteMode = 'xor';
-    }],
-
-    'cut': [() => {
-        run('copy');
-        run('sel-clear');
     }],
 
     'open-command': [event => {
@@ -766,11 +832,7 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
             ctx.fillStyle = theme.pasting;
             ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
             ctx.restore();
-            pasteModeMenuElt.style.display = 'flex';
-        } else {
-            pasteModeMenuElt.style.display = 'none';
         }
-        frameCount++;
     }],
 
     'click-canvas': [event => {
@@ -1058,7 +1120,7 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
         let text = await navigator.clipboard.readText();
         let q = parse(text, true);
         if (Array.isArray(q)) {
-            alert(`Invalid pattern:\n\n${q[0]}\n\n${q[1]}`);
+            alert(`Invalid pattern:\n\n${q[0]}\n\n${q[1]}\n\n${q[2]}`);
             return;
         }
         pasting = q;
@@ -1118,7 +1180,21 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         } else {
             selectMenuElt.style.display = 'none';
         }
-        frameCount++;
+        if (rpfPasting) {
+            drawRPF(rpfPasting, states, selectedStates, mouseX, mouseY, 'F', false);
+            ctx.save();
+            let xOffset = -rpfPasting.xOffset - topLeftX - mouseX;
+            let yOffset = -rpfPasting.yOffset - topLeftY - mouseY;
+            let xMod = xOffset % 1;
+            let yMod = yOffset % 1;
+            ctx.scale(scale, scale);
+            ctx.translate(-xMod, -yMod);
+            xOffset = Math.round(xOffset - xMod);
+            yOffset = Math.round(yOffset - yMod);
+            ctx.fillStyle = theme.pasting;
+            ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, rpfPasting.width + fillExpand, rpfPasting.height + fillExpand);
+            ctx.restore();
+        }
     }],
 
     'click-canvas': [event => {
@@ -1128,7 +1204,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         isDragging = true;
         dragStart = [event.clientX, event.clientY];
         dragOffsetStart = [topLeftX, topLeftY];
-        if (pasting) {
+        if (rpfPasting) {
             run('end-paste');
             return;
         }
@@ -1145,20 +1221,12 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         xElt.textContent = String(mouseX);
         yElt.textContent = String(mouseY);
         stateElt.textContent = String(p.get(mouseX - p.xOffset, mouseY - p.yOffset));
-        if (isDragging) {
+        if (isDragging && !rpfPasting) {
             if (cursorMode === 'main') {
                 topLeftX = dragOffsetStart[0] + (event.clientX - dragStart[0]) / scale;
                 topLeftY = dragOffsetStart[1] + (event.clientY - dragStart[1]) / scale;
             } else if (cursorMode === 'edit') {
                 editCellRPF(false);
-            } else if (cursorMode === 'select') {
-                if (!pasting) {
-                    let minX = Math.min(mouseX, dragSelectStart[0]);
-                    let minY = Math.min(mouseY, dragSelectStart[1]);
-                    let maxX = Math.max(mouseX, dragSelectStart[0]);
-                    let maxY = Math.max(mouseY, dragSelectStart[1]);
-                    sel = {x: minX, y: minY, height: maxY - minY + 1, width: maxX - minX + 1};
-                }
             }
         }
     }],
@@ -1402,14 +1470,22 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'copy': [() => {
-        if (rpfSel.size === rpfP.data.size) {
+        if (rpfSel.size === 0) {
             if (!rpfFile) {
                 throw new Error(`No rpfFile when copying everything!`);
             }
-            navigator.clipboard.writeText(rpfToString(rpfFile));
-        } else if (rpfSel.size > 0) {
+            navigator.clipboard.writeText(rpfFile.toString());
+        } else if (rpfSel.size === 1) {
+            navigator.clipboard.writeText(Array.from(rpfSel)[0].p.toString(true));
+        } else {
             let q = rpfP.clearedCopy();
-            q.data = rpfSel;
+            q.key = '__copy__';
+            q.data = new Set();
+            for (let value of rpfSel) {
+                q.data.add({p: value.p, x: value.x, y: value.y, rotation: value.rotation, time: value.time});
+            }
+            q.recomputeSizes();
+            q.offsetBy(-q.minX, -q.minY);
             navigator.clipboard.writeText(q.toString());
         }
     }],
@@ -1420,31 +1496,47 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         }
         let text = await navigator.clipboard.readText();
         let q = parse(text, true);
-        pasting = Array.isArray(q) ? undefined : q;
+        if (Array.isArray(q)) {
+            alert(`Invalid pattern:\n\n${q[0]}\n\n${q[1]}\n\n${q[2]}`);
+            return;
+        }
+        if (!(q instanceof RPFPattern)) {
+            if (!rpfFile) {
+                alert(`No rpfFile when running RPF start-paste!`);
+                return;
+            }
+            let key = prompt(`Enter key:`);
+            if (!key) {
+                return;
+            }
+            q = rpfP.fromPattern(key, rpfFile, q);
+        }
+        if (!(q instanceof RPFPattern)) {
+            alert(`This error should not occur (please check devtools and report the traceback)`);
+            throw new Error(`This error should not occur`);
+        }
+        if (q.key === 'main') {
+            q.key = '__copy__';
+        }
+        rpfPasting = q;
         run('set-cursor-to-main');
     }],
 
     'end-paste': [() => {
-        if (!pasting) {
+        if (!rpfPasting) {
             return;
         }
         pushUndo();
-        p.ensure(mouseX - p.xOffset, mouseY - p.yOffset);
-        let x = mouseX - p.xOffset;
-        let y = mouseY - p.yOffset;
-        p.ensure(x + pasting.width, y + pasting.height);
-        let mode: number;
-        if (pasteMode === 'or') {
-            mode = INSERT_OR;
-        } else if (pasteMode === 'copy') {
-            mode = INSERT_COPY;
-        } else if (pasteMode === 'and') {
-            mode = INSERT_AND;
+        if (rpfPasting.key === '__copy__') {
+            for (let value of rpfPasting.data) {
+                value.x += mouseX;
+                value.y += mouseY;
+                rpfP.addObject(value);
+            }
         } else {
-            mode = INSERT_XOR;
+            rpfP.addObject({p: rpfPasting, x: mouseX, y: mouseY, rotation: 'F', time: 0});
         }
-        p.insert(pasting, x, y, mode);
-        pasting = undefined;
+        rpfPasting = undefined;
     }],
 
     'select-all': [event => {
@@ -1563,6 +1655,7 @@ var keybinds: {[key: string]: DefaultAction} = {
     'Ctrl-v': 'start-paste',
     'Ctrl-x': 'cut',
     'Ctrl-a': 'select-all',
+    'Escape': 'exit-paste',
     '/': 'open-command',
 };
 
@@ -1609,6 +1702,11 @@ function frame() {
     run('frame');
     requestAnimationFrame(frame);
 }
+
+window.onbeforeunload = event => {
+    event.preventDefault();
+    return `Are you sure you want to leave? Patterns may not be saved yet.`;
+};
 
 let start = `
 

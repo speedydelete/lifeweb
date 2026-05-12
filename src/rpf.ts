@@ -1,4 +1,12 @@
 
+declare var path: (typeof import('node:path'))['posix'];
+if (typeof window === 'object' && window === globalThis) {
+    // @ts-ignore
+    path = (await import('https://esm.sh/path')).posix;
+} else {
+    path = (await import('node:path')).posix;
+}
+
 import {Rect, Rule, Pattern, createPattern} from './core/index.js';
 
 
@@ -65,37 +73,52 @@ function getOverlap(a: RPFRect, b: RPFRect): {overlap: boolean, x: number, y: nu
 }
 
 
-export function normalize(path: string): string {
-    let out: string[] = [];
-    for (let part of path.split('/')) {
-        if (part === '' || part === '.') {
-            continue;
-        } else if (part === '..') {
-            if (out.length === 0) {
-                throw new Error(`Path goes back too far: '${path}'`);
-            }
-            out.pop();
-        } else {
-            out.push(part);
-        }
-    }
-    return (path.startsWith('/') ? '/' : '') + out.join('/');
-}
+// export function normalize(path: string): string {
+//     let out: string[] = [];
+//     for (let part of path.split('/')) {
+//         if (part === '' || part === '.') {
+//             continue;
+//         } else if (part === '..') {
+//             if (out.length === 0) {
+//                 throw new Error(`Path goes back too far: '${path}'`);
+//             }
+//             out.pop();
+//         } else {
+//             out.push(part);
+//         }
+//     }
+//     return (path.startsWith('/') ? '/' : '') + out.join('/');
+// }
 
-export function resolve(start: string, ...paths: string[]): string {
-    let out = '';
-    for (let i = paths.length - 1; i >= 0; i--) {
-        out += '/' + paths[i];
-        if (paths[i].startsWith('/')) {
-            return out;
-        }
-    }
-    return start + out;
-}
+// export function resolve(start: string, ...paths: string[]): string {
+//     let out = '';
+//     for (let i = paths.length - 1; i >= 0; i--) {
+//         out += '/' + paths[i];
+//         if (paths[i].startsWith('/')) {
+//             return out;
+//         }
+//     }
+//     return start + out;
+// }
 
-export function join(...paths: string[]): string {
-    return normalize(paths.join('/'));
-}
+// export function join(...paths: string[]): string {
+//     return normalize(paths.join('/'));
+// }
+
+// export function dirname(path: string): string {
+//     if (path.includes('/')) {
+//         if (path.endsWith('/')) {
+//             path = path.slice(0, -1);
+//         }
+//         return path.slice(0, path.lastIndexOf('/'));
+//     } else {
+//         return path;
+//     }
+// }
+
+// export function relative(a: string, b: string): string {
+
+// }
 
 
 export interface RPFObjectData<T extends Pattern = Pattern> {
@@ -112,8 +135,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     key: string;
     path: string;
     data: Set<RPFObjectData>;
-    // we set optional values to undefined so the V8 hidden classes are the same
-    name?: string = undefined;
     minX: number;
     minY: number;
     height: number;
@@ -123,6 +144,10 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     generation: number = 0;
     population: number;
     rule: Rule;
+    // we set optional values to undefined so the V8 hidden classes are the same
+    name?: string = undefined;
+    periodic?: [number, number, number] = undefined;
+    creates?: {p: T | RPFPattern<T>, x: number, y: number, rotation: Rotation, times: number[]} = undefined;
 
     constructor(base: T, key: string, path: string, data: Set<RPFObjectData>) {
         super();
@@ -160,10 +185,19 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         this.rule = base.rule;
     }
 
-    toString(): string {
+    toString(pasting?: boolean): string {
         let out: string[] = [`${this.key}:`];
+        if (pasting) {
+            out.push(`#pasting ${this.key}`);
+        }
         if (this.name) {
             out.push(`#name ${this.name}`);
+        }
+        if (this.periodic) {
+            out.push(`#periodic ${this.periodic.join(' ')}`);
+        }
+        if (this.creates) {
+            out.push(`#creates ${this.creates.p instanceof RPFPattern}`)
         }
         for (let value of this.data) {
             let start = value.p instanceof RPFPattern ? value.p.key : '*' + value.p.toApgcode();
@@ -185,20 +219,38 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
  
     static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
-        let lines = data.split('\n');
+        data = data.trim();
+        let lines = data.split('\n').map(x => x.trim()).filter(x => x !== '' && !x.startsWith('//'));
+        if (!lines[0].endsWith(':')) {
+            throw new RPFError(`Invalid first line of RPF object: '${lines[0]}'`);
+        }
         let key = lines[0].slice(0, -1);
-        let out = new RPFPattern(file.base, key, join(file.path, key), new Set());
+        let out = new RPFPattern(file.base, key, path.join(file.path, key), new Set());
         for (let i = 1; i < lines.length; i++) {
             let line = lines[i];
             let parts = line.split(' ');
             if (parts[0].startsWith('#')) {
                 if (parts[0] === '#name') {
                     out.name = parts.slice(1).join(' ');
+                } else if (parts[0] === '#pasting') {
+                    let key = parts.slice(1).join(' ');
+                    if (key in file.data) {
+                        return file.data[key];
+                    }
+                } else if (parts[0] === '#periodic') {
+                    if (parts.length < 4) {
+                        throw new RPFError(`Invalid #periodic: '${line}'`);
+                    }
+                    let [dx, dy, period] = parts.slice(1).map(parseInt);
+                    if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
+                        throw new RPFError(`Invalid #periodic: '${line}'`);
+                    }
+                    out.periodic = [dx, dy, period];
                 }
             } else {
-                let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() as T : file.data[parts[0]];
+                let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() as T : file.lookupName(parts[0]);
                 if (!p) {
-                    throw new RPFError(`RPF object '${parts[0]}' was never defined`);
+                    throw new RPFError(`Cannot find RPF object '${parts[0]}'`);
                 }
                 out.addObject({
                     p,
@@ -210,6 +262,10 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             }
         }
         return out;
+    }
+
+    fromPattern(key: string, file: RPFFile<T>, p: T): RPFPattern<T> {
+        return new RPFPattern(this.base, key, path.join(file.path, key), new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}]));
     }
 
     addObject(obj: RPFObjectData<T>): this {
@@ -259,7 +315,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     setKey(key: string): this {
         this.key = key;
-        this.path = join(this.path.slice(0, this.path.lastIndexOf('/')), key);
+        this.path = path.join(path.dirname(this.path), key);
         return this;
     }
 
@@ -294,6 +350,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     assignMetadata(p: RPFPattern<T>): void {
         p.name = this.name;
+        p.periodic = this.periodic;
     }
 
     copy(): RPFPattern<T> {
@@ -719,90 +776,292 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     toRPFFile(): RPFFile<T> {
         let data: {[key: string]: RPFPattern<T>} = {};
         this._toRPFFile(data);
-        return {
-            base: this.base,
-            path: this.path.slice(0, this.path.lastIndexOf('/')),
-            data,
-        };
+        return new RPFFile(this.base, this.path.slice(0, this.path.lastIndexOf('/')), data);
     }
 
 }
 
 
-export interface RPFFile<T extends Pattern = Pattern> {
-    base: T;
-    path: string;
-    data: {[key: string]: RPFPattern<T>};
+export class FSError extends Error {
+    name: 'FSError' = 'FSError';
 }
 
-export function rpfToString<T extends Pattern>(file: RPFFile<T>): string {
-    let map = new Map<string, Set<string>>();
-    for (let key in file.data) {
-        let value = new Set<string>();
-        for (let item of file.data[key].data) {
-            if (item.p instanceof RPFPattern) {
-                if (item.p.key in file.data) {
-                    value.add(item.p.key);
+export interface FileEntry {
+    value: string;
+    rpf?: RPFFile;
+    lastModified: number;
+}
+
+export class Directory {
+
+    data: {[key: string]: Directory | FileEntry};
+
+    constructor(data: Directory['data'] = {}) {
+        this.data = data;
+    }
+
+    exists(name: string): boolean {
+        name = path.normalize(name);
+        if (name.includes('/')) {
+            let index = name.indexOf('/');
+            let start = name.slice(0, index);
+            let dir = this.data[start];
+            if (dir instanceof Directory) {
+                return dir.exists(name.slice(index + 1));
+            } else {
+                return false;
+            }
+        }
+        return name in this.data;
+    }
+
+    read(name: string): Directory | FileEntry {
+        name = path.normalize(name);
+        if (name.includes('/')) {
+            let index = name.indexOf('/');
+            let start = name.slice(0, index);
+            let dir = this.data[start];
+            if (!dir) {
+                throw new FSError(`Directory '${start}' does not exist`);
+            } else if (dir instanceof Directory) {
+                return dir.read(name.slice(index + 1));
+            } else {
+                throw new FSError(`File '${start}' is not a directory`);
+            }
+        }
+        if (name in this.data) {
+            return this.data[name];
+        } else {
+            throw new FSError(`File '${name}' does not exist`);
+        }
+    }
+
+    write(name: string, value: string | RPFFile | FileEntry): void {
+        name = path.normalize(name);
+        if (name.includes('/')) {
+            let index = name.indexOf('/');
+            let start = name.slice(0, index);
+            let dir = this.data[start];
+            if (!dir) {
+                throw new FSError(`Directory '${start}' does not exist`);
+            } else if (dir instanceof Directory) {
+                dir.write(name.slice(index + 1), value);
+                return;
+            } else {
+                throw new FSError(`File '${start}' is not a directory`);
+            }
+        }
+        if (name in this.data) {
+            let file = this.data[name];
+            if (file instanceof Directory) {
+                throw new FSError(`Cannot write to file '${name}', is a directory`);
+            }
+            if (typeof value === 'string') {
+                file.value = value;
+                if (file.rpf) {
+                    delete file.rpf;
+                }
+            } else if (value instanceof RPFFile) {
+                file.value = value.toString();
+                file.rpf = value;
+            } else {
+                file = value;
+            }
+            file.lastModified = Date.now();
+        }
+    }
+
+    mkdir(name: string): Directory {
+        name = path.normalize(name);
+        if (name.includes('/')) {
+            let index = name.indexOf('/');
+            let start = name.slice(0, index);
+            let dir = this.data[start];
+            if (!dir) {
+                throw new FSError(`Directory '${start}' does not exist`);
+            } else if (dir instanceof Directory) {
+                return dir.mkdir(name.slice(index + 1));
+            } else {
+                throw new FSError(`File '${start}' is not a directory`);
+            }
+        }
+        if (!(name in this.data)) {
+            let out = new Directory();
+            this.data[name] = out;
+            return out;
+        } else {
+            throw new FSError(`File '${name}' already exists`);
+        }
+    }
+
+    rm(name: string): void {
+        name = path.normalize(name);
+        if (name.includes('/')) {
+            let index = name.indexOf('/');
+            let start = name.slice(0, index);
+            let dir = this.data[start];
+            if (!dir) {
+                throw new FSError(`Directory '${start}' does not exist`);
+            } else if (dir instanceof Directory) {
+                dir.rm(name.slice(index + 1));
+                return;
+            } else {
+                throw new FSError(`File '${start}' is not a directory`);
+            }
+        }
+        if (name in this.data) {
+            delete this.data[name];
+        } else {
+            throw new FSError(`File '${name}' does not exist`);
+        }
+    }
+
+}
+
+
+export class RPFFile<T extends Pattern = Pattern> {
+
+    base: T;
+    path: string;
+    imports: {[key: string]: RPFFile<T>} = {};
+    starImports: RPFFile<T>[] = [];
+    data: {[key: string]: RPFPattern<T>};
+
+    constructor(base: T, path: string, data: {[key: string]: RPFPattern<T>}) {
+        this.base = base;
+        this.path = path;
+        this.data = data;
+    }
+
+    toString(): string {
+        let map = new Map<string, Set<string>>();
+        for (let key in this.data) {
+            let value = new Set<string>();
+            for (let item of this.data[key].data) {
+                if (item.p instanceof RPFPattern) {
+                    if (item.p.key in this.data) {
+                        value.add(item.p.key);
+                    }
+                }
+            }
+            map.set(key, value);
+        }
+        let layers: string[][] = [];
+        while (map.size > 0) {
+            let currentLayer: string[] = [];
+            for (let [key, value] of map) {
+                if (value.size === 0) {
+                    currentLayer.push(key);
+                }
+            }
+            if (currentLayer.length === 0) {
+                throw new RPFError(`Cycle detected while serializing RPF:\n\n${layers.map(x => x.join(', ')).join('\n')}\n\n${Array.from(map.entries()).map(x => x[0] + ': ' + Array.from(x[1]).join(', ')).join('\n')}\n`);
+            }
+            layers.push(currentLayer);
+            for (let key of currentLayer) {
+                map.delete(key);
+            }
+            for (let value of map.values()) {
+                for (let key of currentLayer) {
+                    value.delete(key);
                 }
             }
         }
-        map.set(key, value);
-    }
-    let layers: string[][] = [];
-    while (map.size > 0) {
-        let currentLayer: string[] = [];
-        for (let [key, value] of map) {
-            if (value.size === 0) {
-                currentLayer.push(key);
+        let out = `\n${this.base.rule.str}\n`;
+        for (let layer of layers) {
+            for (let key of layer.sort()) {
+                out += '\n' + this.data[key].toString() + '\n';
             }
         }
-        if (currentLayer.length === 0) {
-            throw new RPFError('Cycle detected while serializing RPF');
-        }
-        layers.push(currentLayer);
-        for (let key of currentLayer) {
-            map.delete(key);
-        }
-        for (let value of map.values()) {
-            for (let key of currentLayer) {
-                value.delete(key);
-            }
-        }
+        return out;
     }
-    let out = `\n${file.base.rule.str}\n`;
-    for (let layer of layers) {
-        for (let key of layer.sort()) {
-            out += '\n' + file.data[key].toString() + '\n';
-        }
-    }
-    return out;
-}
 
-export function parseRPF<T extends Pattern = Pattern>(data: string, basePath: string): RPFFile<T> {
-    let groups: string[] = [];
-    let currentGroup: string[] = [];
-    for (let line of data.split('\n')) {
-        line = line.trim();
-        if (line === '') {
-            continue;
+    static fromString<T extends Pattern = Pattern>(data: string, basePath: string, fs?: Directory): RPFFile<T> {
+        let groups: string[] = [];
+        let currentGroup: string[] = [];
+        for (let line of data.split('\n')) {
+            line = line.trim();
+            if (line === '' || line.startsWith('//')) {
+                continue;
+            }
+            if (line.endsWith(':')) {
+                groups.push(currentGroup.join('\n'));
+                currentGroup = [line];
+            } else {
+                currentGroup.push(line);
+            }
         }
-        if (line.endsWith(':')) {
-            groups.push(currentGroup.join('\n'));
-            currentGroup = [line];
+        groups.push(currentGroup.join('\n'));
+        let headerLines = groups[0].split('\n');
+        let base = createPattern(headerLines[0]) as T;
+        let out = new RPFFile(base, basePath, {});
+        for (let line of headerLines.slice(1)) {
+            if (line.startsWith('import ')) {
+                if (!fs) {
+                    throw new RPFError(`Import statement in RPF but no file system given`);
+                }
+                let rename: string | undefined;
+                let specifier: string;
+                if (line.startsWith('import * from ')) {
+                    rename = undefined;
+                    specifier = line.slice('import * from '.length);
+                } else {
+                    let match = line.match(/import \* as (\S+) from /);
+                    if (!match) {
+                        throw new RPFError(`Invalid import (unrecognized format): '${line}'`);
+                    }
+                    rename = match[1];
+                    specifier = line.slice(match[0].length);
+                }
+                if (!path.isAbsolute(specifier)) {
+                    specifier = path.join(out.path, specifier);
+                }
+                let value = fs.read(specifier);
+                let rpf: RPFFile<T>;
+                if (value instanceof Directory) {
+                    throw new RPFError(`Cannot import from '${specifier}' (is a directory)`);
+                } else if (value.rpf) {
+                    rpf = value.rpf as RPFFile<T>;
+                } else {
+                    rpf = RPFFile.fromString<T>(value.value, basePath);
+                    value.rpf = rpf;
+                }
+                if (rename === undefined) {
+                    out.starImports.push(rpf);
+                } else {
+                    out.imports[rename] = rpf;
+                }
+            } else {
+                throw new RPFError(`Invalid header line: '${line}'`);
+            }
+        }
+        for (let i = 1; i < groups.length; i++) {
+            let p = RPFPattern.fromString(groups[i], out);
+            out.data[p.key] = p;
+        }
+        return out;
+    }
+
+    lookupName(name: string): RPFPattern<T> | undefined {
+        if (name in this.data) {
+            return this.data[name];
+        }
+        if (name.includes('.')) {
+            let index = name.indexOf('.');
+            let module = name.slice(0, index);
+            if (!(module in this.imports)) {
+                throw new RPFError(`Unrecognized module: '${module}'`);
+            }
+            return this.imports[module].lookupName(name.slice(index + 1));
         } else {
-            currentGroup.push(line);
+            for (let file of this.starImports) {
+                let value = file.lookupName(name);
+                if (value) {
+                    return value;
+                }
+            }
         }
+        return undefined;
     }
-    groups.push(currentGroup.join('\n'));
-    let base = createPattern(groups[0]) as T;
-    let out: RPFFile<T> = {
-        base,
-        path: basePath,
-        data: {},
-    };
-    for (let i = 1; i < groups.length; i++) {
-        let p = RPFPattern.fromString(groups[i], out);
-        out.data[p.key] = p;
-    }
-    return out;
+
 }

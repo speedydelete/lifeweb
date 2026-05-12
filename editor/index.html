@@ -78,6 +78,12 @@ body {
     padding: 0.5rem;
 }
 
+#left-top {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+}
+
 /* #debug {
     font-family: 'Courier New', Courier, monospace;
     font-size: 16px;
@@ -131,7 +137,7 @@ textarea:hover, textarea:focus {
     background-color: #5bcefa;
 }
 
-#top {
+#right-top {
     height: 3.5rem;
     padding: 0.5rem;
     display: flex;
@@ -141,7 +147,7 @@ textarea:hover, textarea:focus {
     user-select: none;
 }
 
-#top > div:not(.spacer) {
+#right-top > div:not(.spacer) {
     padding: 0 0.5rem;
     font-size: 1.5rem;
     display: flex;
@@ -149,11 +155,11 @@ textarea:hover, textarea:focus {
     align-items: center;
 }
 
-#top .spacer {
+#right-top .spacer {
     flex: 0 0 1.5rem;
 }
 
-#top > div.less-padding {
+#right-top > div.less-padding {
     padding: 0 0.25rem;
 }
 
@@ -265,7 +271,10 @@ textarea:hover, textarea:focus {
     <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
         <div id="left">
             <noscript>You must enable JavaScript to use this.</noscript>
-            <div><button id="help-button">Help</button></div>
+            <div id="left-top">
+                <button id="help-button">Help</button>
+                <button id="open-folder">Open folder</button>
+            </div>
             <div id="rle-wrapper">
                 <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
 bo$2bo$3o!</textarea>
@@ -273,7 +282,7 @@ bo$2bo$3o!</textarea>
             </div>
         </div>
         <div id="right">
-            <div id="top">
+            <div id="right-top">
                 <div id="speed" class="less-padding" data-title="speed (click to change)">1x</div>
                 <button id="reset" data-title="reset">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
