@@ -1,7 +1,7 @@
 
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
-import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
 
 
 /** A DataPattern-based implementation of rules running on finite planes.

@@ -14,7 +14,7 @@ intsep.ts contains a special implementation for non-B01c INT rules, to speed it 
 
 */
 
-import {RuleSymmetry, DataPattern} from './pattern.js';
+import {DataPattern} from './pattern.js';
 
 
 /** Implements object seperation for range-1 rules. */
