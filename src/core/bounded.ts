@@ -41,6 +41,10 @@ export class FiniteDataPattern extends DataPattern {
         this.generation++;
     }
 
+    shrinkToFit(): this {
+        return this;
+    }
+
     copy(): FiniteDataPattern {
         let out = new FiniteDataPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
