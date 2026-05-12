@@ -295,11 +295,11 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     if (data.length !== 86 && data.length !== 6 && data.length !== 20) {
         let index = data.lastIndexOf('/');
         if (index === -1) {
-            throw new RuleError(`Invalid MAP string: '${original}'`);
+            throw new RuleError(`Invalid MAP string (bad length and no /): '${original}'`);
         }
         let value = data.slice(index + 1);
         if (!value.match(/^\d+$/)) {
-            throw new RuleError(`Invalid MAP string: '${original}'`);
+            throw new RuleError(`Invalid MAP string (bad length and invalid state count): '${original}'`);
         }
         states = parseInt(value);
         data = data.slice(0, index);
@@ -311,7 +311,7 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     } else if (data.length === 20) {
         type = 'hex';
     } else {
-        throw new RuleError(`Invalid MAP string: '${original}'`);
+        throw new RuleError(`Invalid MAP string (bad length: ${data.length}): '${original}'`);
     }
     let out: number[] = [];
     for (let i = 0; i < data.length; i += 4) {
