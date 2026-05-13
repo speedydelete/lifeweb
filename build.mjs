@@ -9,11 +9,11 @@ const TARGETS = {
     'editor': ['src/editor.ts', 'editor/index.js', () => {
         let path = `${import.meta.dirname}/editor/index.html`;
         let data = String(fs.readFileSync(path));
-        let match = data.match(/var BUILD_NUMBER = (\d+);/);
+        let match = data.match(/var BUILD_NUMBER=(\d+);/);
         if (!match) {
             throw new Error(`No build number!`);
         }
-        data = data.replace(match[0], `var BUILD_NUMBER = ${parseInt(match[1]) + 1};`);
+        data = data.replace(match[0], `var BUILD_NUMBER=${parseInt(match[1]) + 1};`);
         fs.writeFileSync(path, data);
     }],
 
