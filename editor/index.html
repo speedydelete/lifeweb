@@ -2,7 +2,8 @@
 <html>
     <head>
         <title>lifeweb</title>
-        <meta charset="utf-8">
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
 
 * {
@@ -17,11 +18,10 @@ html, body {
     padding: 0;
     margin: 0;
     font-family: Arial, Helvetica, sans-serif;
+    overflow: hidden;
 }
 
 body {
-    display: flex;
-    flex-direction: row;
     background-color: #000000;
     color: #ffffff;
 }
@@ -36,11 +36,11 @@ body {
     opacity: 0;
     visibility: hidden;
     position: absolute;
-    z-index: 10;
+    z-index: 2;
     top: 100%;
     transform: translateX(-20%);
     padding: 5px 10px;
-    font-size: 0.8rem;
+    font-size: 1rem;
     background-color: #000000;
     color: #ffffff;
     border: 1px solid #ffffff;
@@ -59,10 +59,19 @@ body {
 }
 
 #left {
-    flex: 1 0 20%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 80%;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid #ffffff;
+}
+
+#file-system {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 #left button, input:not([type=checkbox]) {
@@ -84,15 +93,9 @@ body {
     gap: 0.5rem;
 }
 
-/* #debug {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 16px;
-    white-space: pre-wrap;
-} */
-
 #rle-wrapper {
     margin-top: auto;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: start;
     gap: 0.5rem;
@@ -116,9 +119,38 @@ textarea:hover, textarea:focus {
     width: 100%;
 }
 
+#left-right-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 20%;
+    width: 1rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    cursor: ew-resize;
+}
+
+#left-right-resizer-bar {
+    width: 1px;
+    background-color: #ffffff;
+}
+
+#left-right-resizer-fake-border-elt {
+    position: absolute;
+    top: 0;
+    left: calc(0.5rem + 0.5px);
+    right: 0;
+    height: 3.5rem;
+    border-bottom: 1px solid #ffffff;
+}
+
 #right {
-    position: relative;
-    flex: 0 1 80%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(20% + 1rem);
+    right: 0;
     display: flex;
     flex-direction: column;
 }
@@ -165,6 +197,8 @@ textarea:hover, textarea:focus {
 
 #canvas {
     flex: 1 0 auto;
+    position: relative;
+    z-index: 0;
 }
 
 #canvas {
@@ -199,12 +233,42 @@ textarea:hover, textarea:focus {
     flex-direction: column;
     gap: 0.5rem;
     background-color: transparent;
+    pointer-events: none;
 }
 
 #select-menu > div {
     display: flex;
     flex-direction: row;
     gap: 0.5rem;
+}
+
+#select-menu button {
+    pointer-events: auto;
+}
+
+#interaction-level-menu {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 1;
+    padding: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #000000;
+    border-top: 1px solid #ffffff;
+    border-left: 1px solid #ffffff;
+}
+
+#interaction-level-menu button {
+    border: none;
+    background-color: transparent;
+}
+
+#interaction-level {
+    font-size: 2rem;
+    user-select: none;
 }
 
 #command-wrapper {
@@ -237,7 +301,7 @@ textarea:hover, textarea:focus {
     bottom: min(10%, 100px);
     left: max(10%, calc(50% - 250px));
     right: max(10%, calc(50% - 250px));
-    z-index: 20;
+    z-index: 3;
     background-color: #000000;
     padding: 1rem;
     border: 1px solid #ffffff;
@@ -267,13 +331,71 @@ textarea:hover, textarea:focus {
 }
 
         </style>
+            <template id="fs-folder-template">
+                <style>
+                    
+:host {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    user-select: none;
+}
+
+#top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+#icon-open, #icon-closed {
+    height: 0.8rem;
+    width: 0.8rem;
+}
+
+#icon-open {
+    display: none;
+}
+
+#contents {
+    display: none;
+    margin-left: 1rem;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+            </style>
+            <div id="top">
+                <svg id="icon-open" viewBox="0 0 16 16">
+                    <path d="M2,8 L8,14 M8,14" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                    <!-- <line x1="2" y1="8" x2="8" y2="14" stroke="#ffffff" stroke-width="2" />
+                    <line x1="14" y1="8" x2="8" y2="14" stroke="#ffffff" stroke-width="2" /> -->
+                </svg>
+                <svg id="icon-closed" viewBox="0 0 16 16">
+                    <line x1="4" y1="2" x2="12" y2="8" stroke="#ffffff" stroke-width="2" />
+                    <line x1="4" y1="14" x2="12" y2="8" stroke="#ffffff" stroke-width="2" />
+                </svg>
+                <slot name="name"></slot>
+            </div>
+            <slot id="contents" name="contents"></slot>
+        </template>
     </head>
     <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
         <div id="left">
             <noscript>You must enable JavaScript to use this.</noscript>
             <div id="left-top">
                 <button id="help-button">Help</button>
+            </div>
+            <div>
                 <button id="open-folder">Open folder</button>
+            </div>
+            <div id="file-system">
+                <fs-folder>
+                    <span slot="name">test</span>
+                    <div slot="contents">
+                        <div>hi</div>
+                    </div>
+                </fs-folder>
             </div>
             <div id="rle-wrapper">
                 <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
@@ -281,28 +403,32 @@ bo$2bo$3o!</textarea>
                 <button id="view-rle">View</button>
             </div>
         </div>
+        <div id="left-right-resizer">
+            <div id="left-right-resizer-bar"></div>
+            <div id="left-right-resizer-fake-border-elt"></div>
+        </div>
         <div id="right">
             <div id="right-top">
                 <div id="speed" class="less-padding" data-title="speed (click to change)">1x</div>
                 <button id="reset" data-title="reset">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                    <svg viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <polygon points="15,0 5,8 15,16" fill="#ffffff" />
                     </svg>
                 </button>
                 <button id="step" data-title="step">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                    <svg viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <polygon points="8,0 16,8 8,16" fill="#ffffff" />
                     </svg>
                 </button>
                 <button id="run" data-title="run">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                    <svg viewBox="0 0 16 16">
                         <polygon points="1,0 15,8 1,16" fill="#ffffff" />
                     </svg>
                 </button>
                 <button id="pause" style="display: none;" data-title="pause">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                    <svg viewBox="0 0 16 16">
                         <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
                         <rect x="11" y="0" width="4" height="16" fill="#ffffff" />
                     </svg>
@@ -349,13 +475,13 @@ bo$2bo$3o!</textarea>
                 <div class="spacer"></div>
                 <button id="undo" data-title="undo">
                     <svg viewBox="0 0 16 16">
-                        <path d="M 8 15 A 7 7 0 1 0 2 6" fill="transparent" stroke="#ffffff" />
+                        <path d="M8,15 A7,7,0,1,0,2,6" fill="transparent" stroke="#ffffff" />
                         <polygon points="0,2 5,7 0,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
                 <button id="redo" data-title="redo">
                     <svg viewBox="0 0 16 16">
-                        <path d="M 8 15 A 7 7 0 1 1 14 6" fill="transparent" stroke="#ffffff" />
+                        <path d="M8,15 A7,7,0,1,1,14,6" fill="transparent" stroke="#ffffff" />
                         <polygon points="16,2 11,7 16,7" fill="#ffffff" stroke="#ffffff" />
                     </svg>
                 </button>
@@ -473,9 +599,9 @@ bo$2bo$3o!</textarea>
                     </button>
                     <button id="sel-rotate-180" data-title="rotate 180" class="tooltip-top">
                         <svg viewBox="0 0 16 16">
-                            <path d="M 1 6 A 7 7 0 0 1 14 5" fill="transparent" stroke="#ffffff" />
+                            <path d="M1,6 A7,7,0,0,1,14,5" fill="transparent" stroke="#ffffff" />
                             <polygon points="16,1 11,6 16,6" fill="#ffffff" stroke="#ffffff" />
-                            <path d="M 15 10 A 7 7 0 0 1 2 11" fill="transparent" stroke="#ffffff" />
+                            <path d="M15,10 A7,7,0,0,1,2,11" fill="transparent" stroke="#ffffff" />
                             <polygon points="0,15 5,10 0,10" fill="#ffffff" stroke="#ffffff" />
                         </svg>
                     </button>
@@ -496,6 +622,19 @@ bo$2bo$3o!</textarea>
                         </svg>
                     </button>
                 </div>
+            </div>
+            <div id="interaction-level-menu">
+                <button id="dec-interaction-level">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="1,8 15,0 15,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <div id="interaction-level" data-title="interaction level">0</div>
+                <button id="inc-interaction-level">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="1,0 15,8 1,16" fill="#ffffff" />
+                    </svg>
+                </button>
             </div>
             <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
         </div>

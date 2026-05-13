@@ -4,8 +4,11 @@ if (typeof window === 'object' && window === globalThis) {
     // @ts-ignore
     path = (await import('https://esm.sh/path')).posix;
 } else {
+    // @ts-ignore
     path = (await import('node:path')).posix;
 }
+
+// import {posix as path} from 'path';
 
 import {Rect, Rule, Pattern, createPattern} from './core/index.js';
 
@@ -20,11 +23,11 @@ export const ROTATION_COMBINE: {[K in Rotation]: {[K in Rotation]: Rotation}} = 
     F: {F: 'F', Fx: 'Fx', L: 'L', Lx: 'Lx', B: 'B', Bx: 'Bx', R: 'R', Rx: 'Rx'},
     Fx: {F: 'Fx', Fx: 'F', L: 'Lx', Lx: 'L', B: 'Bx', Bx: 'B', R: 'Rx', Rx: 'R'},
     L: {F: 'L', Fx: 'Lx', L: 'B', Lx: 'Bx', B: 'R', Bx: 'Rx', R: 'F', Rx: 'Fx'},
-    Lx: {F: 'Lx', Fx: 'L', L: 'Bx', Lx: 'B', B: 'Rx', Bx: 'R', R: 'Fx', Rx: 'F'},
+    Lx: {F: 'Lx', Fx: 'L', L: 'Bx', Lx: 'F', B: 'Rx', Bx: 'R', R: 'Fx', Rx: 'B'},
     B: {F: 'B', Fx: 'Bx', L: 'R', Lx: 'Rx', B: 'F', Bx: 'Fx', R: 'L', Rx: 'Lx'},
     Bx: {F: 'Bx', Fx: 'B', L: 'Rx', Lx: 'R', B: 'Fx', Bx: 'F', R: 'Lx', Rx: 'L'},
     R: {F: 'R', Fx: 'Rx', L: 'F', Lx: 'Fx', B: 'L', Bx: 'Lx', R: 'B', Rx: 'Bx'},
-    Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'F', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'B'},
+    Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'B', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'F'},
 };
 
 
@@ -58,7 +61,7 @@ interface RPFRect {
     };
 }
 
-function isInside(x: number, y: number, value: RPFRect): boolean {
+export function isInside(x: number, y: number, value: RPFRect): boolean {
     return x >= value.x && y >= value.y && x < value.x + value.p.width && y < value.y + value.p.height;
 }
 

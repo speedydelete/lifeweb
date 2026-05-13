@@ -1,8 +1,9 @@
 
 // @ts-ignore
 import {showDirectoryPicker} from 'https://esm.sh/file-system-access';
+// import {showDirectoryPicker} from 'file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from './core/index.js';
-import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, Directory, RPFFile} from './rpf.js';
+import {Rotation, ROTATION_COMBINE, isInside, RPFObjectData, RPFPattern, Directory, RPFFile} from './rpf.js';
 
 // import * as lifeweb from './core/index.js';
 // import * as lifewebRPF from './rpf.js';
@@ -11,7 +12,11 @@ import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, Directory, RPFFil
 
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
-    return document.getElementById(id) as T;
+    let out = document.getElementById(id);
+    if (!out) {
+        throw new Error(`Missing element: '${id}'`);
+    }
+    return out as T;
 }
 
 
@@ -92,22 +97,29 @@ var drawState = 1;
 var drawDeleteMode = false;
 var prevEditX: number | undefined = undefined;
 var prevEditY: number | undefined = undefined;
-var pasting: Pattern | undefined = undefined;
-var rpfPasting: RPFPattern | undefined = undefined;
-var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
+var interactionLevel = 0;
+var rpfEditing: RPFObjectData | undefined = undefined;
 
 var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
 var rpfSel = new Set<RPFObjectData>();
+var pasting: Pattern | undefined = undefined;
+var rpfPasting: RPFPattern | undefined = undefined;
+var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
 
 var commandHistory: string[] = [];
 var commandHistoryPos: number | undefined = undefined;
 var beforeHistoryCommand = '/';
 
-var rpfEditing: RPFObjectData | undefined = undefined;
+var leftRightResizing = false;
+var leftRightResizeOffset = 0;
 
 var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
 var fs = new Directory();
 
+
+let leftElt = getElement('left');
+let leftRightResizerElt = getElement('left-right-resizer');
+let rightElt = getElement('right');
 
 let runButton = getElement('run');
 let pauseButton = getElement('pause');
@@ -134,16 +146,74 @@ let pasteCopyButton = getElement('paste-copy');
 let pasteAndButton = getElement('paste-and');
 let pasteXorButton = getElement('paste-xor');
 
-let commandWrapperElt = getElement('command-wrapper');
-let commandElt = getElement('command');
+let interactionLevelElt = getElement('interaction-level');
 
 let selectMenuElt = getElement('select-menu');
 let pasteModeMenuElt = getElement('paste-mode-menu');
+let interactionLevelMenuElt = getElement('interaction-level-menu');
 
 let selGroupButton = getElement('sel-group');
 let selUngroupButton = getElement('sel-ungroup');
 
+let commandWrapperElt = getElement('command-wrapper');
+let commandElt = getElement('command');
+
 let helpElt = getElement('help');
+
+let rleElt = getElement<HTMLTextAreaElement>('rle');
+
+
+let fsFolderTemplate = getElement<HTMLTemplateElement>('fs-folder-template').content;
+
+customElements.define('fs-folder', class FSFolderElement extends HTMLElement {
+
+    constructor() {
+        super();
+        let root = this.attachShadow({mode: 'open'});
+        root.appendChild(document.importNode(fsFolderTemplate, true));
+        this.addEventListener('click', this.toggle.bind(this));
+    }
+
+    getElement<T extends HTMLElement = HTMLElement>(id: string): T {
+        // @ts-ignore
+        let out = this.shadowRoot.getElementById(id);
+        if (!out) {
+            throw new Error(`Missing element: '${id}'`);
+        }
+        return out as T;
+    }
+
+    get state(): 'open' | 'closed' {
+        return this.getAttribute('state') === 'open' ? 'open' : 'closed';
+    }
+
+    set state(value: 'open' | 'closed') {
+        this.setAttribute('state', value);
+    }
+
+    open(): void {
+        this.getElement('icon-open').style.display = 'block';
+        this.getElement('icon-closed').style.display = 'none';
+        this.getElement('contents').style.display = 'flex';
+        this.state = 'open';
+    }
+
+    close(): void {
+        this.getElement('icon-open').style.display = 'none';
+        this.getElement('icon-closed').style.display = 'block';
+        this.getElement('contents').style.display = 'none';
+        this.state = 'closed';
+    }
+
+    toggle(): void {
+        if (this.state === 'open') {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+
+});
 
 
 function parse(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
@@ -218,38 +288,13 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     let offset = p.getFullOffset();
     topLeftX -= offset[0];
     topLeftY -= offset[1];
-    runButton.classList.remove('selected');
-    runButton.style.display = 'block';
-    pauseButton.classList.remove('selected');
-    pauseButton.style.display = 'none';
-    stepButton.classList.remove('selected');
-    resetButton.classList.add('selected');
-    running = false;
-    cursorMainButton.classList.add('selected');
-    cursorEditButton.classList.remove('selected');
-    cursorSelectButton.classList.remove('selected');
-    beforeRunning = p.copy();
-    hasRan = false;
-    cursorMode = 'main';
-    sel = undefined;
-    pasting = undefined;
-    rpfPasting = undefined;
-    pasteModeMenuElt.style.display = 'none';
-    rpfSel.clear();
     if (p instanceof RPFPattern) {
         rpfP = p;
-        cursorSelectButton.style.display = 'none';
-        selGroupButton.style.display = 'block';
-        selUngroupButton.style.display = 'block';
-        cursorMainButton.dataset.title = 'pan/select';
     } else {
         // @ts-ignore
         rpfP = undefined;
-        cursorSelectButton.style.display = 'block';
-        selGroupButton.style.display = 'none';
-        selUngroupButton.style.display = 'none';
-        cursorMainButton.dataset.title = 'pan';
     }
+    run('load-pattern');
 }
 
 function updateSizes() {
@@ -397,7 +442,7 @@ function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos
         let [minX, minY] = p.getFullOffset();
         minX += xOffset;
         minY += yOffset;
-        if (minX < -topLeftX || minY < -topLeftY || minX + p.width > -topLeftX + pixelWidth || minY + p.height > -topLeftY + pixelHeight) {
+        if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
             continue;
         }
         if (p instanceof RPFPattern) {
@@ -408,6 +453,25 @@ function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos
     }
 }
 
+function selectRPF(p: RPFPattern, x: number, y: number, level: number): boolean {
+    for (let value of p.data) {
+        if (isInside(x, y, value)) {
+            if (interactionLevel === level) {
+                if (rpfSel.has(value)) {
+                    rpfSel.delete(value);
+                } else {
+                    rpfSel.add(value);
+                }
+                return true;
+            } else if (value.p instanceof RPFPattern) {
+                if (selectRPF(value.p, x + value.x, y + value.y, level + 1)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
 
 async function updateFileSystem(dir: FileSystemDirectoryHandle, out: Directory): Promise<void> {
     let names = new Set(Object.keys(out.data));
@@ -442,16 +506,10 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, out: Directory):
     }
 }
 
-async function loadFileSystem(): Promise<void> {
-    let dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
-    rootDirHandle = dir;
-    await updateFileSystem(dir, fs);
-}
-
-
 
 type DefaultAction = 
     | 'frame'
+    | 'window-visibilitychange'
     | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
     | 'run' | 'pause' | 'step' | 'reset' | 'set-speed'
     | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
@@ -459,9 +517,11 @@ type DefaultAction =
     | 'set-scale' | 'faster' | 'slower'
     | 'sel-cancel' | 'sel-group' | 'sel-ungroup' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
     | 'copy' | 'start-paste' | 'end-paste' | 'exit-paste' | 'cut' | 'select-all' | 'set-paste-mode-to-or' | 'set-paste-mode-to-copy' | 'set-paste-mode-to-and' | 'set-paste-mode-to-xor'
+    | 'inc-interaction-level' | 'dec-interaction-level'
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
-    | 'view-rle'
+    | 'load-pattern' | 'view-rle'
     | 'show-help' | 'hide-help'
+    | 'open-folder' | 'render-file-system'
 ;
 
 type Hook = (event?: Event) => void;
@@ -474,6 +534,13 @@ let totalDeltaY = 0;
 
 
 var sharedActions: {[K in DefaultAction]?: Hook[]} = {
+
+    'window-visibilitychange': [() => {
+        if (document.visibilityState === 'visible' && rootDirHandle) {
+            updateFileSystem(rootDirHandle, fs);
+            run('render-file-system');
+        }
+    }],
 
     'frame': [() => {
         if (running && frameCount % stepEvery === 0) {
@@ -790,8 +857,42 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         commandWrapperElt.style.display = 'none';
     }],
 
+    'load-pattern': [() => {
+        runButton.classList.remove('selected');
+        runButton.style.display = 'block';
+        pauseButton.classList.remove('selected');
+        pauseButton.style.display = 'none';
+        stepButton.classList.remove('selected');
+        resetButton.classList.add('selected');
+        running = false;
+        cursorMainButton.classList.add('selected');
+        cursorEditButton.classList.remove('selected');
+        cursorSelectButton.classList.remove('selected');
+        beforeRunning = p.copy();
+        hasRan = false;
+        cursorMode = 'main';
+        sel = undefined;
+        pasting = undefined;
+        rpfPasting = undefined;
+        pasteModeMenuElt.style.display = 'none';
+        rpfSel.clear();
+        if (p instanceof RPFPattern) {
+            cursorSelectButton.style.display = 'none';
+            selGroupButton.style.display = 'block';
+            selUngroupButton.style.display = 'block';
+            cursorMainButton.dataset.title = 'pan/select';
+            interactionLevelMenuElt.style.display = 'flex';
+        } else {
+            cursorSelectButton.style.display = 'block';
+            selGroupButton.style.display = 'none';
+            selUngroupButton.style.display = 'none';
+            cursorMainButton.dataset.title = 'pan';
+            interactionLevelMenuElt.style.display = 'none';
+        }
+    }],
+
     'view-rle': [() => {
-        loadPattern(getElement<HTMLTextAreaElement>('rle').value);
+        loadPattern(rleElt.value);
     }],
 
     'show-help': [() => {
@@ -800,6 +901,20 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
 
     'hide-help': [() => {
         helpElt.style.display = 'none';
+    }],
+
+    'open-folder': [async () => {
+        let dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
+        rootDirHandle = dir;
+        await updateFileSystem(dir, fs);
+        getElement('open-folder').style.display = 'none';
+        getElement('file-system').style.display = 'flex';
+        getElement('rle-wrapper').style.display = 'none';
+        run('render-file-system');
+    }],
+
+    'render-file-system': [() => {
+
     }],
 
 };
@@ -1164,6 +1279,7 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
 var rpfActions: {[K in DefaultAction]?: Hook[]} = {
 
     'frame': [() => {
+        interactionLevelElt.textContent = String(interactionLevel);
         let states = [theme.empty];
         if (p.rule.states === 2) {
             states.push(theme.twoState);
@@ -1240,15 +1356,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         prevEditY = undefined;
         drawDeleteMode = false;
         if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
-            for (let value of rpfP.data) {
-                if (value.p.get(mouseX - value.x, mouseY - value.y)) {
-                    if (rpfSel.has(value)) {
-                        rpfSel.delete(value);
-                    } else {
-                        rpfSel.add(value);
-                    }
-                }
-            }
+            selectRPF(rpfP, mouseX, mouseY, 0);
             rpfP.recomputeSizes();
         }
     }],
@@ -1548,6 +1656,18 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         }
     }],
 
+    'inc-interaction-level': [() => {
+        interactionLevel++;
+    }],
+
+
+    'dec-interaction-level': [() => {
+        interactionLevel--;
+        if (interactionLevel < 0) {
+            interactionLevel = 0;
+        }
+    }],
+
 };
 
 
@@ -1591,7 +1711,8 @@ function removeHook<T extends DefaultAction>(actions: {[K in T]: Hook[]}, action
 }
 
 
-let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultAction}} = {
+let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibilitychange')]?: DefaultAction}} = {
+    'window': {'visibilitychange': 'window-visibilitychange'},
     'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
     'run': {'click': 'run'},
     'pause': {'click': 'pause'},
@@ -1623,16 +1744,19 @@ let startEvents: {[key: string]: {[K in keyof HTMLElementEventMap]?: DefaultActi
     'sel-rotate-180': {'click': 'sel-rotate-180'},
     'sel-flip-diagonal': {'click': 'sel-flip-diagonal'},
     'sel-flip-anti-diagonal': {'click': 'sel-flip-anti-diagonal'},
+    'dec-interaction-level': {'click': 'dec-interaction-level'},
+    'inc-interaction-level': {'click': 'inc-interaction-level'},
     'command': {'keydown': 'command-keypress', 'blur': 'click-off-command'},
     'view-rle': {'click': 'view-rle'},
     'help-button': {'click': 'show-help'},
     'help-x': {'click': 'hide-help'},
+    'open-folder': {'click': 'open-folder'},
 };
 
 var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]} = {};
 
 function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultAction): void {
-    let elt = getElement(id);
+    let elt = id === 'window' ? window : getElement(id);
     let key = id + '\n' + event;
     if (key in eventListeners) {
         elt.removeEventListener(event, eventListeners[key][1]);
@@ -1642,8 +1766,6 @@ function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultA
     eventListeners[key] = [action, listener];
 }
 
-
-let leftElt = getElement('left');
 
 var keybinds: {[key: string]: DefaultAction} = {
     '=': 'faster',
@@ -1686,6 +1808,11 @@ canvas.addEventListener('click', () => {
     canvas.focus();
 });
 
+window.onbeforeunload = event => {
+    event.preventDefault();
+    return `Are you sure you want to leave? Patterns may not be saved yet.`;
+};
+
 document.querySelectorAll('[data-title]').forEach(elt => {
     elt.addEventListener('mouseenter', () => {
         let rect = elt.getBoundingClientRect();
@@ -1697,19 +1824,34 @@ document.querySelectorAll('[data-title]').forEach(elt => {
     });
 });
 
+leftRightResizerElt.addEventListener('mousedown', event => {
+    leftRightResizing = true;
+    let rect = leftRightResizerElt.getBoundingClientRect();
+    leftRightResizeOffset = event.clientX - rect.left;
+});
+
+window.addEventListener('mousemove', event => {
+    if (!leftRightResizing) {
+        return;
+    }
+    let newPos = event.clientX - leftRightResizeOffset;
+    leftElt.style.right = `${window.innerWidth - newPos}px`;
+    leftRightResizerElt.style.left = `${newPos}px`;
+    rightElt.style.left = `calc(${newPos}px + 1rem)`;
+    updateSizes();
+});
+
+window.addEventListener('mouseup', () => {
+    leftRightResizing = false;
+});
+
 
 function frame() {
     run('frame');
     requestAnimationFrame(frame);
 }
 
-window.onbeforeunload = event => {
-    event.preventDefault();
-    return `Are you sure you want to leave? Patterns may not be saved yet.`;
-};
-
 let start = `
-
 B3/S23
 
 glider:
@@ -1729,6 +1871,7 @@ window.addEventListener('load', () => setTimeout(() => {
     updateSizes();
     // loadPattern(`x = 3, y = 3, rule = B3/S23\nbo$2bo$3o!`);
     loadPattern(start);
+    rleElt.value = start;
     requestAnimationFrame(frame);
     canvas.focus();
 }, 100));
