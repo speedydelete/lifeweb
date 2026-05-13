@@ -8,7 +8,7 @@ var path: (typeof import('node:path'))['posix'];
         // @ts-ignore
         path = (await import('node:path')).posix;
     }
-})
+})()
 
 // import {posix as path} from 'path';
 
