@@ -57,7 +57,7 @@ interface UndoState {
 
 var p = createPattern('B3/S23');
 var rpfFile: RPFFile | undefined = undefined;
-var emptyRPF = RPFFile.fromString(`B3/S23\n\nmain:\n`, '/main');
+var emptyRPF = new RPFFile(p, '/', {});
 // @ts-ignore
 var rpfP: RPFPattern = undefined;
 
@@ -188,21 +188,25 @@ customElements.define('fs-folder', class FSFolderElement extends HTMLElement {
     }
 
     set state(value: 'open' | 'closed') {
-        this.setAttribute('state', value);
+        if (value === 'open') {
+            this.open();
+        } else {
+            this.close();
+        }
     }
 
     open(): void {
         this.getElement('icon-open').style.display = 'block';
         this.getElement('icon-closed').style.display = 'none';
         this.getElement('contents').style.display = 'flex';
-        this.state = 'open';
+        this.setAttribute('state', 'open');
     }
 
     close(): void {
         this.getElement('icon-open').style.display = 'none';
         this.getElement('icon-closed').style.display = 'block';
         this.getElement('contents').style.display = 'none';
-        this.state = 'closed';
+        this.setAttribute('state', 'closed');
     }
 
     toggle(): void {

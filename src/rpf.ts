@@ -8,7 +8,7 @@ var path: (typeof import('node:path'))['posix'];
         // @ts-ignore
         path = (await import('node:path')).posix;
     }
-})()
+})();
 
 // import {posix as path} from 'path';
 
@@ -76,54 +76,6 @@ function getOverlap(a: RPFRect, b: RPFRect): {overlap: boolean, x: number, y: nu
     let y = maxY - minY;
     return {overlap: x < 0 || y < 0, x, y, minX, maxX, minY, maxY};
 }
-
-
-// export function normalize(path: string): string {
-//     let out: string[] = [];
-//     for (let part of path.split('/')) {
-//         if (part === '' || part === '.') {
-//             continue;
-//         } else if (part === '..') {
-//             if (out.length === 0) {
-//                 throw new Error(`Path goes back too far: '${path}'`);
-//             }
-//             out.pop();
-//         } else {
-//             out.push(part);
-//         }
-//     }
-//     return (path.startsWith('/') ? '/' : '') + out.join('/');
-// }
-
-// export function resolve(start: string, ...paths: string[]): string {
-//     let out = '';
-//     for (let i = paths.length - 1; i >= 0; i--) {
-//         out += '/' + paths[i];
-//         if (paths[i].startsWith('/')) {
-//             return out;
-//         }
-//     }
-//     return start + out;
-// }
-
-// export function join(...paths: string[]): string {
-//     return normalize(paths.join('/'));
-// }
-
-// export function dirname(path: string): string {
-//     if (path.includes('/')) {
-//         if (path.endsWith('/')) {
-//             path = path.slice(0, -1);
-//         }
-//         return path.slice(0, path.lastIndexOf('/'));
-//     } else {
-//         return path;
-//     }
-// }
-
-// export function relative(a: string, b: string): string {
-
-// }
 
 
 export interface RPFObjectData<T extends Pattern = Pattern> {
