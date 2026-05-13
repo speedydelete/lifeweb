@@ -1,12 +1,14 @@
 
 var path: (typeof import('node:path'))['posix'];
-if (typeof window === 'object' && window === globalThis) {
-    // @ts-ignore
-    path = (await import('https://esm.sh/path')).posix;
-} else {
-    // @ts-ignore
-    path = (await import('node:path')).posix;
-}
+(async () => {
+    if (typeof window === 'object' && window === globalThis) {
+        // @ts-ignore
+        path = (await import('https://esm.sh/path')).posix;
+    } else {
+        // @ts-ignore
+        path = (await import('node:path')).posix;
+    }
+})
 
 // import {posix as path} from 'path';
 
