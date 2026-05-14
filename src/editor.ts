@@ -371,22 +371,16 @@ function editCellRPF(isStart: boolean): void {
 }
 
 function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
-    // console.log(`drawing pattern`, p);
-    // console.log(`x = ${x}, y = ${y}, rotation = ${rotation}`);
     ctx.save();
     let [pXOffset, pYOffset] = p.getFullOffset();
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
-    // if (p.rule.range !== Math.round(p.rule.range) && p.generation % 2 === 1) {
-    //     xOffset += 0.5;
-    //     yOffset += 0.5;
-    // }
     let xMod = xOffset % 1;
     let yMod = yOffset % 1;
     ctx.scale(scale, scale);
     ctx.translate(-xMod, -yMod);
-    xOffset = Math.round(xOffset - xMod);
-    yOffset = Math.round(yOffset - yMod);
+    xOffset -= xMod;
+    yOffset -= yMod;
     let startY = Math.max(0, -yOffset) + (pYOffset - p.yOffset);
     let endY = Math.max(pixelHeight, p.height - yOffset);
     let startX = Math.max(0, -xOffset) + (pXOffset - p.xOffset);
@@ -435,8 +429,6 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
 }
 
 function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos: number, yPos: number, startRotation: Rotation, selected: boolean): void {
-    // console.log('drawing rpf', p);
-    // console.log(`x = ${xPos}, y = ${yPos}, rotation = ${startRotation}, selected = ${selected}`);
     for (let value of p.data) {
         let p = value.p;
         let selected2 = selected || rpfSel.has(value);
