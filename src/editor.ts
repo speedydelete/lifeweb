@@ -1209,7 +1209,16 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
     }],
 
     'open-folder': [async () => {
-        let dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
+        let dir: FileSystemDirectoryHandle;
+        try {
+            dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                return;
+            } else {
+                throw error;
+            }
+        }
         rootDirHandle = dir;
         await updateFileSystem(dir, fs);
         getElement('open-folder').style.display = 'none';
