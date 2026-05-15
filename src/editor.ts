@@ -3,12 +3,22 @@
 import {showDirectoryPicker} from 'https://esm.sh/file-system-access';
 // import {showDirectoryPicker} from 'file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from './core/index.js';
-import {Rotation, ROTATION_COMBINE, isInside, RPFObjectData, RPFPattern, Directory, RPFFile} from './rpf.js';
+import {RPFError, Rotation, ROTATION_COMBINE, transformCoordinates, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+
 
 // import * as lifeweb from './core/index.js';
 // import * as lifewebRPF from './rpf.js';
 // Object.assign(globalThis, lifeweb);
 // Object.assign(globalThis, lifewebRPF);
+
+
+declare global {
+
+    interface FileSystemDirectoryHandle {
+        entries(): FileSystemDirectoryHandleAsyncIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>;
+    }
+
+}
 
 
 function getElement<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -26,6 +36,7 @@ interface Theme {
     multiState(states: number): string[];
     selection: string;
     rpfSelection: string;
+    rpfHover: string;
     pasting: string;
     envelope: string;
     intermediateObjects: string;
@@ -42,7 +53,8 @@ var theme: Theme = {
         return out;
     },
     selection: `rgba(0, 255, 0, 0.5)`,
-    rpfSelection: `#ffb3e3`,
+    rpfSelection: `#ff93d3`,
+    rpfHover: `#ffc3d3`,
     pasting: `rgba(255, 0, 0, 0.5)`,
     envelope: `#0000cf`,
     intermediateObjects: `#ff0000`,
@@ -56,8 +68,7 @@ interface UndoState {
 }
 
 var p = createPattern('B3/S23');
-var rpfFile: RPFFile | undefined = undefined;
-var emptyRPF = new RPFFile(p, '/', {});
+var rpfFile: RPFFile = new RPFFile(p, '/', {});
 // @ts-ignore
 var rpfP: RPFPattern = undefined;
 
@@ -67,8 +78,8 @@ var mouseY: number;
 var canvas = getElement<HTMLCanvasElement>('canvas');
 var ctx = canvas.getContext('2d', {alpha: false}) as CanvasRenderingContext2D;
 
-var fillOffset = -0.01;
-var fillExpand = 0.02;
+var fillOffset = -0.02;
+var fillExpand = 0.04;
 
 var undoBuffer: UndoState[] = [];
 var redoBuffer: UndoState[] = [];
@@ -102,9 +113,12 @@ var rpfEditing: RPFObjectData | undefined = undefined;
 
 var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
 var rpfSel = new Set<RPFObjectData>();
+var rpfHover: RPFObjectData | undefined = undefined;
 var pasting: Pattern | undefined = undefined;
-var rpfPasting: RPFPattern | undefined = undefined;
+var rpfPasting: [RPFPattern, Rotation] | undefined = undefined;
 var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
+
+var rpfCMShown = false;
 
 var commandHistory: string[] = [];
 var commandHistoryPos: number | undefined = undefined;
@@ -114,7 +128,8 @@ var leftRightResizing = false;
 var leftRightResizeOffset = 0;
 
 var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
-var fs = new Directory();
+var fs = new Directory('', '/');
+var currentFile: File | undefined = undefined;
 
 
 let leftElt = getElement('left');
@@ -155,69 +170,44 @@ let interactionLevelMenuElt = getElement('interaction-level-menu');
 let selGroupButton = getElement('sel-group');
 let selUngroupButton = getElement('sel-ungroup');
 
+let rpfCMElt = getElement('rpf-context-menu');
+let rpfCMNameElt = getElement('cm-name');
+let rpfCMPathElt = getElement('cm-path');
+let rpfCMDescElt = getElement('cm-desc');
+
 let commandWrapperElt = getElement('command-wrapper');
 let commandElt = getElement('command');
 
-let helpElt = getElement('help');
+let searchWrapperElt = getElement('search-wrapper');
+let searchElt = getElement('search');
+
+let fsWrapperElt = getElement('file-system');
 
 let rleElt = getElement<HTMLTextAreaElement>('rle');
 
+let helpElt = getElement('help');
 
-let fsFolderTemplate = getElement<HTMLTemplateElement>('fs-folder-template').content;
 
-customElements.define('fs-folder', class FSFolderElement extends HTMLElement {
+function pushUndo(): void {
+    undoBuffer.push({p: p.copy(), hasRan, rpfEditing});
+}
 
-    constructor() {
-        super();
-        let root = this.attachShadow({mode: 'open'});
-        root.appendChild(document.importNode(fsFolderTemplate, true));
-        this.addEventListener('click', this.toggle.bind(this));
-    }
+function applyUndo(state: UndoState): void {
+    running = false;
+    p = state.p.copy();
+    hasRan = state.hasRan;
+    rpfEditing = state.rpfEditing;
+}
 
-    getElement<T extends HTMLElement = HTMLElement>(id: string): T {
-        // @ts-ignore
-        let out = this.shadowRoot.getElementById(id);
-        if (!out) {
-            throw new Error(`Missing element: '${id}'`);
-        }
-        return out as T;
-    }
 
-    get state(): 'open' | 'closed' {
-        return this.getAttribute('state') === 'open' ? 'open' : 'closed';
-    }
-
-    set state(value: 'open' | 'closed') {
-        if (value === 'open') {
-            this.open();
-        } else {
-            this.close();
-        }
-    }
-
-    open(): void {
-        this.getElement('icon-open').style.display = 'block';
-        this.getElement('icon-closed').style.display = 'none';
-        this.getElement('contents').style.display = 'flex';
-        this.setAttribute('state', 'open');
-    }
-
-    close(): void {
-        this.getElement('icon-open').style.display = 'none';
-        this.getElement('icon-closed').style.display = 'block';
-        this.getElement('contents').style.display = 'none';
-        this.setAttribute('state', 'closed');
-    }
-
-    toggle(): void {
-        if (this.state === 'open') {
-            this.close();
-        } else {
-            this.open();
-        }
-    }
-
-});
+function updateSizes() {
+    let bb = canvas.getBoundingClientRect();
+    canvas.height = Math.min(bb.bottom, window.innerHeight) - bb.top;
+    canvas.width = Math.min(bb.right, window.innerWidth) - bb.left;
+    ctx.imageSmoothingEnabled = false;
+    pixelHeight = canvas.height / scale;
+    pixelWidth = canvas.width / scale;
+}
 
 
 function parse(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
@@ -225,7 +215,7 @@ function parse(data: string, preserveSizes?: boolean): Pattern | [string, string
         return parseRLE(data, undefined, preserveSizes);
     } catch (error) {
         try {
-            return RPFPattern.fromString(data, rpfFile ?? structuredClone(emptyRPF));
+            return RPFPattern.fromString(data, rpfFile ?? new RPFFile(p, '/', {}));
         } catch (error2) {
             try {
                 let out = RPFFile.fromString(data, '/main');
@@ -242,17 +232,6 @@ function parse(data: string, preserveSizes?: boolean): Pattern | [string, string
             }
         }
     }
-}
-
-function pushUndo(): void {
-    undoBuffer.push({p: p.copy(), hasRan, rpfEditing});
-}
-
-function applyUndo(state: UndoState): void {
-    running = false;
-    p = state.p.copy();
-    hasRan = state.hasRan;
-    rpfEditing = state.rpfEditing;
 }
 
 function loadPattern(q: string | RPFFile | Pattern): void {
@@ -273,15 +252,14 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     if (q instanceof Pattern) {
         p = q;
         if (p instanceof RPFPattern) {
-            rpfFile = structuredClone(emptyRPF);
+            rpfFile = new RPFFile(p, '/', {});
             rpfFile.data['main'] = p;
         }
     } else {
         rpfFile = q;
         p = rpfFile.data['main'];
         if (!p) {
-            alert(`No 'main' entry present in loaded RPF`);
-            return;
+            throw new Error(`No 'main' entry present in loaded RPF`);
         }
     }
     p.xOffset = 0;
@@ -301,17 +279,6 @@ function loadPattern(q: string | RPFFile | Pattern): void {
     run('load-pattern');
 }
 
-function updateSizes() {
-    let bb = canvas.getBoundingClientRect();
-    canvas.height = Math.min(bb.bottom, window.innerHeight) - bb.top;
-    canvas.width = Math.min(bb.right, window.innerWidth) - bb.left;
-    ctx.imageSmoothingEnabled = false;
-    pixelHeight = canvas.height / scale;
-    pixelWidth = canvas.width / scale;
-}
-
-window.addEventListener('resize', updateSizes);
-canvas.addEventListener('resize', updateSizes);
 
 function editCell(isStart: boolean): void {
     let x = mouseX - p.xOffset;
@@ -370,6 +337,7 @@ function editCellRPF(isStart: boolean): void {
     q.yOffset = 0;
 }
 
+
 function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
     ctx.save();
     let [pXOffset, pYOffset] = p.getFullOffset();
@@ -390,30 +358,7 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
             let x = screenX + xOffset;
             let y = screenY + yOffset;
             if (rotation && rotation !== 'F') {
-                if (rotation === 'Fx') {
-                    y = p.height - y - 1;
-                } else if (rotation === 'L') {
-                    let temp = x;
-                    x = p.height - y - 1;
-                    y = temp;
-                } else if (rotation === 'Lx') {
-                    let temp = x;
-                    x = y;
-                    y = temp;
-                } else if (rotation === 'B') {
-                    x = p.width - x - 1;
-                    y = p.height - y - 1;
-                } else if (rotation === 'Bx') {
-                    x = p.width - x - 1;
-                } else if (rotation === 'R') {
-                    let temp = x;
-                    x = y;
-                    y = p.width - temp - 1;
-                } else {
-                    let temp = x;
-                    x = p.height - y - 1;
-                    y = p.width - temp - 1;
-                }
+                [x, y] = transformCoordinates(x, y, p.width, p.height, rotation);
             }
             let cell = p.get(x, y);
             if (cell !== 0) {
@@ -428,10 +373,23 @@ function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0,
     return {xOffset, yOffset, xMod, yMod};
 }
 
-function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos: number, yPos: number, startRotation: Rotation, selected: boolean): void {
+interface RPFDrawStateData {
+    normal: string[];
+    selected: string[];
+    hover: string[];
+}
+
+function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover'): void {
     for (let value of p.data) {
         let p = value.p;
-        let selected2 = selected || rpfSel.has(value);
+        let mode2: typeof mode;
+        if (mode === 'selected' || rpfSel.has(value)) {
+            mode2 = 'selected';
+        } else if (mode === 'hover' || value === rpfHover) {
+            mode2 = 'hover';
+        } else {
+            mode2 = 'normal';
+        }
         let rotation = ROTATION_COMBINE[startRotation][value.rotation];
         let xOffset = xPos + value.x;
         let yOffset = yPos + value.y;
@@ -442,59 +400,305 @@ function drawRPF(p: RPFPattern, states: string[], selectedStates: string[], xPos
             continue;
         }
         if (p instanceof RPFPattern) {
-            drawRPF(p, states, selectedStates, xOffset, yOffset, rotation, selected2);
+            drawRPF(p, states, xOffset, yOffset, rotation, mode2);
         } else {
-            drawPattern(p, selected2 ? selectedStates : states, xOffset, yOffset, rotation);
+            drawPattern(p, states[mode2], xOffset, yOffset, rotation);
         }
     }
 }
 
-function selectRPF(p: RPFPattern, x: number, y: number, level: number): boolean {
-    for (let value of p.data) {
-        if (isInside(x, y, value)) {
-            if (interactionLevel === level) {
-                if (rpfSel.has(value)) {
-                    rpfSel.delete(value);
-                } else {
-                    rpfSel.add(value);
-                }
-                return true;
-            } else if (value.p instanceof RPFPattern) {
-                if (selectRPF(value.p, x + value.x, y + value.y, level + 1)) {
-                    return true;
-                }
+
+let fsFolderTemplate = getElement<HTMLTemplateElement>('fs-folder-template').content;
+
+class FSFolderElement extends HTMLElement {
+
+    static observedAttributes = ['name', 'open'];
+    
+    file: Directory;
+
+    _iconOpenElt: HTMLElement;
+    _iconClosedElt: HTMLElement;
+    _nameElt: HTMLElement;
+    _mainElt: HTMLElement;
+
+    constructor(file: Directory, name: string, showLeftBar: boolean = true) {
+        super();
+        this.file = file;
+        let root = this.attachShadow({mode: 'open'});
+        root.appendChild(document.importNode(fsFolderTemplate, true));
+        this._iconOpenElt = root.getElementById('icon-open') as HTMLElement;
+        this._iconClosedElt = root.getElementById('icon-closed') as HTMLElement;
+        this._nameElt = root.getElementById('name') as HTMLElement;
+        this._mainElt = root.getElementById('main') as HTMLElement;
+        (root.getElementById('top') as HTMLElement).addEventListener('click', () => {
+            this.open = !this.open;
+        });
+        if (this.getAttribute('open') !== null) {
+            this._iconOpenElt.style.display = 'block';
+            this._iconClosedElt.style.display = 'none';
+            this._mainElt.style.display = 'flex';
+        }
+        this.setAttribute('name', name);
+        if (!showLeftBar) {
+            (root.getElementById('left-bar') as HTMLElement).style.display = 'none';
+        }
+    }
+
+    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+        if (name === 'name') {
+            this._nameElt.textContent = newValue;
+        } else if (name === 'open') {
+            if (newValue !== null) {
+                this._iconOpenElt.style.display = 'block';
+                this._iconClosedElt.style.display = 'none';
+                this._mainElt.style.display = 'flex';
+            } else {
+                this._iconOpenElt.style.display = 'none';
+                this._iconClosedElt.style.display = 'block';
+                this._mainElt.style.display = 'none';
             }
         }
     }
-    return false;
+
+    get open(): boolean {
+        return this.getAttribute('open') !== null;
+    }
+
+    set open(value: boolean) {
+        if (value) {
+            this.setAttribute('open', 'open');
+        } else {
+            this.removeAttribute('open');
+        }
+    }
+
+    get name(): string {
+        return this.getAttribute('name') ?? '';
+    }
+
+    set name(value: string) {
+        this.setAttribute('name', value);
+    }
+
 }
 
-async function updateFileSystem(dir: FileSystemDirectoryHandle, out: Directory): Promise<void> {
+customElements.define('fs-folder', FSFolderElement);
+
+
+let fsFileTemplate = getElement<HTMLTemplateElement>('fs-file-template').content;
+
+class FSFileElement extends HTMLElement {
+
+    static observedAttributes = ['name'];
+
+    file: File;
+
+    _nameElt: HTMLElement;
+
+    constructor(file: File, name: string) {
+        super();
+        this.file = file;
+        let root = this.attachShadow({mode: 'open'});
+        root.appendChild(document.importNode(fsFileTemplate, true));
+        this._nameElt = root.getElementById('name') as HTMLElement;
+        this.addEventListener('dblclick', () => {
+            run('open-file', new CustomEvent('open-file', {detail: {name: this.name, file: this.file}}));
+        });
+        this.setAttribute('name', name);
+    }
+
+    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+        if (name === 'name') {
+            this._nameElt.textContent = newValue;
+        }
+    }
+
+    get name(): string {
+        return this.getAttribute('name') ?? '';
+    }
+
+    set name(value: string) {
+        this.setAttribute('name', value);
+    }
+
+}
+
+customElements.define('fs-file', FSFileElement);
+
+
+class FSRPFItemElement extends HTMLElement {
+
+    file: RPFFile;
+    p: RPFPattern;
+
+    constructor(file: RPFFile, p: RPFPattern) {
+        super();
+        this.file = file;
+        this.p = p;
+        let name = p.getName();
+        this.textContent = name;
+        this.draggable = true;
+        this.addEventListener('dragstart', event => {
+            let transfer = event.dataTransfer as DataTransfer;
+            transfer.dropEffect = 'copy';
+            transfer.setData('application/x-lifeweb-editor-drag', file.path + '\n' + p.key);
+            let parent = this.parentElement as HTMLElement;
+            let old = parent.style.overflowY;
+            parent.style.overflowY = 'visible';
+            this.style.width = 'fit-content';
+            requestAnimationFrame(() => {
+                let rect = this.getBoundingClientRect();
+                transfer.setDragImage(this, rect.width / 2, rect.height / 2);
+                requestAnimationFrame(() => {
+                    parent.style.overflowY = old;
+                    this.style.removeProperty('width');
+                });
+            });
+        });
+    }
+
+}
+
+customElements.define('fs-rpf-item', FSRPFItemElement);
+
+canvas.addEventListener('dragover', event => {
+    event.preventDefault();
+});
+
+
+class FSRPFFileElement extends HTMLElement {
+
+    static observedAttributes = ['name', 'open'];
+    
+    file: File & {rpf: RPFFile};
+
+    _iconOpenElt: HTMLElement;
+    _iconClosedElt: HTMLElement;
+    _nameElt: HTMLElement;
+    _mainElt: HTMLElement;
+
+    constructor(file: File & {rpf: RPFFile}, name: string) {
+        super();
+        this.file = file;
+        let root = this.attachShadow({mode: 'open'});
+        root.appendChild(document.importNode(fsFolderTemplate, true));
+        this._iconOpenElt = root.getElementById('icon-open') as HTMLElement;
+        this._iconClosedElt = root.getElementById('icon-closed') as HTMLElement;
+        this._nameElt = root.getElementById('name') as HTMLElement;
+        this._mainElt = root.getElementById('main') as HTMLElement;
+        this._mainElt.style.maxHeight = '200px';
+        this._mainElt.style.overflowY = 'auto';
+        let topElt = root.getElementById('top') as HTMLElement;
+        topElt.addEventListener('click', () => {
+            this.open = !this.open;
+        });
+        (root.getElementById('left-bar') as HTMLElement).style.display = 'none';
+        if (this.getAttribute('open') !== null) {
+            this._iconOpenElt.style.display = 'block';
+            this._iconClosedElt.style.display = 'none';
+            this._mainElt.style.display = 'flex';
+        }
+        this.setAttribute('name', name);
+        this.updateContents();
+    }
+
+    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+        if (name === 'name') {
+            this._nameElt.textContent = newValue;
+        } else if (name === 'open') {
+            if (newValue !== null) {
+                this._iconOpenElt.style.display = 'block';
+                this._iconClosedElt.style.display = 'none';
+                this._mainElt.style.display = 'flex';
+            } else {
+                this._iconOpenElt.style.display = 'none';
+                this._iconClosedElt.style.display = 'block';
+                this._mainElt.style.display = 'none';
+            }
+        }
+    }
+
+    get open(): boolean {
+        return this.getAttribute('open') !== null;
+    }
+
+    set open(value: boolean) {
+        if (value) {
+            this.setAttribute('open', 'open');
+        } else {
+            this.removeAttribute('open');
+        }
+    }
+
+    get name(): string {
+        return this.getAttribute('name') ?? '';
+    }
+
+    set name(value: string) {
+        this.setAttribute('name', value);
+    }
+
+    updateContents(): void {
+        let rpf = this.file.rpf;
+        let out: HTMLElement[] = [];
+        for (let value of Object.values(rpf.data)) {
+            out.push(new FSRPFItemElement(this.file.rpf, value));
+        }
+        this.replaceChildren(...out);
+    }
+
+}
+
+customElements.define('fs-rpf-file', FSRPFFileElement);
+
+
+async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directory): Promise<void> {
+    let out: Directory;
+    let value = toAddTo.data[dir.name];
+    if (value) {
+        if (value instanceof Directory) {
+            out = value;
+        } else {
+            toAddTo.rm(dir.name);
+            out = toAddTo.mkdir(dir.name);
+        }
+    } else {
+        out = toAddTo.mkdir(dir.name);
+    }
     let names = new Set(Object.keys(out.data));
-    // @ts-ignore
     for await (let [name, value] of dir.entries()) {
         names.delete(name);
         if (value instanceof FileSystemDirectoryHandle) {
-            if (name in out.data) {
-                if (out.data[name] instanceof Directory) {
-                    await updateFileSystem(value, out.data[name]);
-                    continue;
-                } else {
-                    out.rm(name);
-                }
+            if (name in out.data && !(out.data[name] instanceof Directory)) {
+                out.rm(name);
             }
-            let subDir = out.mkdir(name);
-            await updateFileSystem(value, subDir);
+            await updateFileSystem(value, out);
+            out.data[name].handle = value;
         } else {
-            let file = await value.getFile();
+            let fileBlob = await value.getFile();
             if (name in out.data) {
                 if (out.data[name] instanceof Directory) {
                     out.rm(name);
-                } else if (file.lastModified < out.data[name].lastModified) {
+                } else if (fileBlob.lastModified < out.data[name].lastModified) {
                     continue;
                 }
             }
-            out.write(name, await file.text());
+            out.write(name, await fileBlob.text());
+            let file = out.data[name] as File;
+            file.handle = value;
+            if (fileBlob.name.endsWith('.rpf')) {
+                let rpf: RPFFile;
+                try {
+                    rpf = RPFFile.fromString(file.value, file.path);
+                } catch (error) {
+                    if (error instanceof RPFError) {
+                        continue;
+                    } else {
+                        throw error;
+                    }
+                }
+                file.rpf = rpf;
+            }
         }
     }
     for (let name of names) {
@@ -502,11 +706,112 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, out: Directory):
     }
 }
 
+function renderFileSystem(dir: Directory, elt: HTMLElement | FSFolderElement, depth: number = 0): void {
+    let sorted = Object.entries(dir.data).sort((a, b) => {
+        if (a[1] instanceof Directory) {
+            if (b[1] instanceof Directory) {
+                return a[0] < b[0] ? -1 : 1;
+            } else {
+                return -1;
+            }
+        } else {
+            if (b[1] instanceof Directory) {
+                return 1;
+            } else {
+                return a[0] < b[0] ? -1 : 1;
+            }
+        }
+    }).map(x => x[0]);
+    let newChildren: (HTMLElement | undefined)[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+        newChildren.push(undefined);
+    }
+    for (let value of Array.from(elt.children).filter(x => x instanceof FSFolderElement || x instanceof FSFileElement || x instanceof FSRPFFileElement)) {
+        if (value.name in dir.data) {
+            let file = dir.data[value.name];
+            if (file instanceof Directory) {
+                if (value instanceof FSFileElement || value instanceof FSRPFFileElement) {
+                    value = new FSFolderElement(file, value.name, depth > 0);
+                }
+                renderFileSystem(file, value, depth + 1);
+            } else if (value instanceof FSRPFFileElement) {
+                value.updateContents();
+            } else {
+                if (value instanceof FSFolderElement || value instanceof FSRPFFileElement) {
+                    value = new FSFileElement(file, value.name);
+                }
+            }
+        }
+        newChildren[sorted.indexOf(value.name)] = value;
+    }
+    elt.replaceChildren(...newChildren.map((value, i) => {
+        if (value === undefined) {
+            let name = sorted[i];
+            let file = dir.data[name];
+            let out: FSFileElement | FSFolderElement | FSRPFFileElement;
+            if (file instanceof Directory) {
+                out = new FSFolderElement(file, name, depth > 0);
+                // alert(name + ': ' + Object.keys(file.data).join(', '));
+                renderFileSystem(file, out, depth + 1);
+            } else if (file.rpf) {
+                let newFile = new FSRPFFileElement(file as File & {rpf: RPFFile}, name);
+                out = newFile;
+            } else {
+                out = new FSFileElement(file, name);
+            }
+            out.name = name;
+            return out;
+        } else {
+            return value;
+        }
+    }));
+}
+
+
+function loadFile(name: string, file: File): void {
+    if (file.rpf) {
+        loadPattern(file.rpf);
+    } else {
+        loadPattern(file.value);
+        if (p instanceof RPFFile) {
+            file.rpf = rpfFile;
+        }
+    }
+    currentFile = file;
+}
+
+function runFile(name: string, file: File): void {
+    try {
+        (new Function(`(async()=>{${file.value})()`))();
+    } catch (error) {
+        let msg: string;
+        // @ts-ignore
+        if (typeof globalThis.formatError === 'function') {
+            // @ts-ignore
+            msg = globalThis.formatError(error);
+        } else {
+            msg = String(error);
+        }
+        alert(msg);
+    }
+}
+
+var extensions: {[key: string]: (name: string, file: File) => void} = {
+
+    '.rle': loadFile,
+    '.rpf': loadFile,
+
+    '.js': runFile,
+    '.mjs': runFile,
+    '.cjs': runFile,
+
+};
+
 
 type DefaultAction = 
     | 'frame'
-    | 'window-visibilitychange'
-    | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas'
+    | 'window-click' | 'window-visibilitychange'
+    | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas' | 'right-click-canvas'
     | 'run' | 'pause' | 'step' | 'reset' | 'set-speed'
     | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
     | 'undo' | 'redo'
@@ -517,7 +822,7 @@ type DefaultAction =
     | 'open-command' | 'command-keypress' | 'run-command' | 'click-off-command'
     | 'load-pattern' | 'view-rle'
     | 'show-help' | 'hide-help'
-    | 'open-folder' | 'render-file-system'
+    | 'open-folder' | 'render-file-system' | 'open-file' | 'canvas-drop'
 ;
 
 type Hook = (event?: Event) => void;
@@ -531,9 +836,9 @@ let totalDeltaY = 0;
 
 var sharedActions: {[K in DefaultAction]?: Hook[]} = {
 
-    'window-visibilitychange': [() => {
+    'window-visibilitychange': [async () => {
         if (document.visibilityState === 'visible' && rootDirHandle) {
-            updateFileSystem(rootDirHandle, fs);
+            await updateFileSystem(rootDirHandle, fs);
             run('render-file-system');
         }
     }],
@@ -872,6 +1177,8 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         rpfPasting = undefined;
         pasteModeMenuElt.style.display = 'none';
         rpfSel.clear();
+        rpfCMShown = false;
+        rpfCMElt.style.display = 'none';
         if (p instanceof RPFPattern) {
             cursorSelectButton.style.display = 'none';
             selGroupButton.style.display = 'block';
@@ -907,10 +1214,30 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         getElement('file-system').style.display = 'flex';
         getElement('rle-wrapper').style.display = 'none';
         run('render-file-system');
+        for (let elt of fsWrapperElt.children) {
+            if (elt instanceof FSFolderElement) {
+                elt.open = true;
+            }
+        }
+        searchWrapperElt.style.display = 'flex';
     }],
 
     'render-file-system': [() => {
+        renderFileSystem(fs, fsWrapperElt);
+    }],
 
+    'open-file': [event => {
+        if (!(event instanceof CustomEvent)) {
+            throw new Error(`command-keypress called with non-CustomEvent value`);
+        }
+        let {name, file}: {name: string, file: File} = event.detail;
+        for (let key in extensions) {
+            if (name.endsWith(key)) {
+                extensions[key](name, file);
+                return;
+            }
+        }
+        alert('No file handlers found');
     }],
 
 };
@@ -949,6 +1276,9 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
     'click-canvas': [event => {
         if (!(event instanceof MouseEvent)) {
             throw new Error(`click-canvas called with non-MouseEvent value`);
+        }
+        if (event.buttons !== 1) {
+            return;
         }
         isDragging = true;
         dragStart = [event.clientX, event.clientY];
@@ -1274,37 +1604,51 @@ var normalActions: {[K in DefaultAction]?: Hook[]} = {
 
 var rpfActions: {[K in DefaultAction]?: Hook[]} = {
 
+    'window-click': [event => {
+        if (!(event instanceof MouseEvent)) {
+            throw new Error(`click-canvas called with non-MouseEvent value`);
+        }
+        if (rpfCMShown && event.target instanceof HTMLElement && !rpfCMElt.contains(event.target)) {
+            rpfCMShown = false;
+            rpfCMElt.style.display = 'none';
+        }
+    }],
+
     'frame': [() => {
         interactionLevelElt.textContent = String(interactionLevel);
-        let states = [theme.empty];
+        let normal = [theme.empty];
         if (p.rule.states === 2) {
-            states.push(theme.twoState);
+            normal.push(theme.twoState);
         } else {
-            states.push(...theme.multiState(p.rule.states));
+            normal.push(...theme.multiState(p.rule.states));
         }
-        let selectedStates = states.slice();
-        selectedStates[1] = theme.rpfSelection;
-        ctx.fillStyle = states[0];
+        let selected = normal.slice();
+        selected[1] = theme.rpfSelection;
+        let hover = normal.slice();
+        hover[1] = theme.rpfHover;
+        let states = {normal, selected, hover};
+        ctx.fillStyle = normal[0];
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawRPF(rpfP, states, selectedStates, 0, 0, 'F', false);
+        drawRPF(rpfP, states, 0, 0, 'F', 'normal');
         if (rpfSel.size > 0) {
             selectMenuElt.style.display = 'flex';
         } else {
             selectMenuElt.style.display = 'none';
         }
         if (rpfPasting) {
-            drawRPF(rpfPasting, states, selectedStates, mouseX, mouseY, 'F', false);
+            let q = rpfPasting[0];
+            drawRPF(q, states, mouseX, mouseY, rpfPasting[1], 'normal');
             ctx.save();
-            let xOffset = -rpfPasting.xOffset - topLeftX - mouseX;
-            let yOffset = -rpfPasting.yOffset - topLeftY - mouseY;
+            let xOffset = -topLeftX - mouseX;
+            let yOffset = -topLeftY - mouseY;
             let xMod = xOffset % 1;
             let yMod = yOffset % 1;
             ctx.scale(scale, scale);
             ctx.translate(-xMod, -yMod);
-            xOffset = Math.round(xOffset - xMod);
-            yOffset = Math.round(yOffset - yMod);
+            xOffset -= xMod;
+            yOffset -= yMod;
             ctx.fillStyle = theme.pasting;
-            ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, rpfPasting.width + fillExpand, rpfPasting.height + fillExpand);
+            ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, q.width + fillExpand, q.height + fillExpand);
             ctx.restore();
         }
     }],
@@ -1312,6 +1656,9 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
     'click-canvas': [event => {
         if (!(event instanceof MouseEvent)) {
             throw new Error(`click-canvas called with non-MouseEvent value`);
+        }
+        if (event.buttons !== 1) {
+            return;
         }
         isDragging = true;
         dragStart = [event.clientX, event.clientY];
@@ -1333,13 +1680,18 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         xElt.textContent = String(mouseX);
         yElt.textContent = String(mouseY);
         stateElt.textContent = String(p.get(mouseX - p.xOffset, mouseY - p.yOffset));
-        if (isDragging && !rpfPasting) {
+        if (isDragging) {
+            if (rpfPasting) {
+                return;
+            }
             if (cursorMode === 'main') {
                 topLeftX = dragOffsetStart[0] + (event.clientX - dragStart[0]) / scale;
                 topLeftY = dragOffsetStart[1] + (event.clientY - dragStart[1]) / scale;
             } else if (cursorMode === 'edit') {
                 editCellRPF(false);
             }
+        } else {
+            rpfHover = rpfP.getObjectAt(mouseX, mouseY, interactionLevel);
         }
     }],
 
@@ -1352,7 +1704,14 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         prevEditY = undefined;
         drawDeleteMode = false;
         if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
-            selectRPF(rpfP, mouseX, mouseY, 0);
+            let value = rpfP.getObjectAt(mouseX, mouseY, interactionLevel);
+            if (value) {
+                if (rpfSel.has(value)) {
+                    rpfSel.delete(value);
+                } else {
+                    rpfSel.add(value);
+                }
+            }
             rpfP.recomputeSizes();
         }
     }],
@@ -1363,6 +1722,45 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         prevEditY = undefined;
         drawDeleteMode = false;
         posElt.style.display = 'none';
+    }],
+
+    'right-click-canvas': [event => {
+        if (!(event instanceof MouseEvent)) {
+            throw new Error(`right-click-canvas called with non-MouseEvent value`);
+        }
+        if (event.shiftKey) {
+            return;
+        }
+        event.preventDefault();
+        if (rpfCMShown) {
+            rpfCMShown = false;
+            rpfCMElt.style.display = 'none';
+        } else {
+            if (!rpfHover) {
+                return;
+            }
+            let q = rpfHover.p;
+            if (!(q instanceof RPFPattern)) {
+                return;
+            }
+            rpfCMShown = true;
+            let rect = rightElt.getBoundingClientRect();
+            let x = event.clientX - rect.left + 4;
+            let y = event.clientY - rect.top + 4;
+            rpfCMElt.style.display = 'flex';
+            rpfCMElt.style.left = x + 'px';
+            rpfCMElt.style.top = y + 'px';
+            rpfCMNameElt.textContent = q.getName(true);
+            rpfCMPathElt.textContent = q.path;
+            let desc = '';
+            if (q.periodic) {
+                desc += q.getTypeDescription() + '\n';
+            }
+            if (q.desc !== undefined) {
+                desc += q.desc;
+            }
+            rpfCMDescElt.textContent = desc;
+        }
     }],
 
     'set-cursor-to-main': [() => {
@@ -1575,12 +1973,9 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
 
     'copy': [() => {
         if (rpfSel.size === 0) {
-            if (!rpfFile) {
-                throw new Error(`No rpfFile when copying everything!`);
-            }
             navigator.clipboard.writeText(rpfFile.toString());
         } else if (rpfSel.size === 1) {
-            navigator.clipboard.writeText(Array.from(rpfSel)[0].p.toString(true));
+            navigator.clipboard.writeText(Array.from(rpfSel)[0].p.toString(rpfFile, true));
         } else {
             let q = rpfP.clearedCopy();
             q.key = '__copy__';
@@ -1610,19 +2005,20 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
                 return;
             }
             let key = prompt(`Enter key:`);
-            if (!key) {
+            if (key === null) {
                 return;
             }
             q = rpfP.fromPattern(key, rpfFile, q);
         }
         if (!(q instanceof RPFPattern)) {
-            alert(`This error should not occur (please check devtools and report the traceback)`);
-            throw new Error(`This error should not occur`);
+            throw new Error(`This error should not occur (please check devtools and report the traceback)`);
         }
         if (q.key === 'main') {
             q.key = '__copy__';
         }
-        rpfPasting = q;
+        q.offsetBy(-q.minX, -q.minY);
+        alert(q.width + ' ' + q.height);
+        rpfPasting = [q, 'F'];
         run('set-cursor-to-main');
     }],
 
@@ -1631,14 +2027,15 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             return;
         }
         pushUndo();
-        if (rpfPasting.key === '__copy__') {
-            for (let value of rpfPasting.data) {
+        let q = rpfPasting[0];
+        if (q.key === '__copy__') {
+            for (let value of q.data) {
                 value.x += mouseX;
                 value.y += mouseY;
                 rpfP.addObject(value);
             }
         } else {
-            rpfP.addObject({p: rpfPasting, x: mouseX, y: mouseY, rotation: 'F', time: 0});
+            rpfP.addObject({p: q, x: mouseX, y: mouseY, rotation: rpfPasting[1], time: 0});
         }
         rpfPasting = undefined;
     }],
@@ -1662,6 +2059,27 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
         if (interactionLevel < 0) {
             interactionLevel = 0;
         }
+    }],
+
+    'canvas-drop': [event => {
+        if (!(event instanceof DragEvent)) {
+            throw new Error(`canvas-drop called with non-DragEvent value`);
+        }
+        if (!(event.dataTransfer)) {
+            throw new Error(`canvas-drop called with no data transfer`);
+        }
+        let [path, key] = event.dataTransfer.getData('application/x-lifeweb-editor-drag').split('\n');
+        alert(path + '\n\n' + key);
+        let file = fs.read(path);
+        if (!(file instanceof File) || !file.rpf) {
+            throw new Error(`This error should not occur (please check devtools and report the traceback)`);
+        }
+        let rpf = file.rpf;
+        if (!(file.name in rpfFile.imports)) {
+            rpfFile.imports[file.name] = rpf;
+        }
+        rpfPasting = [rpf.data[key], 'F'];
+        run('set-cursor-to-main');
     }],
 
 };
@@ -1708,8 +2126,8 @@ function removeHook<T extends DefaultAction>(actions: {[K in T]: Hook[]}, action
 
 
 let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibilitychange')]?: DefaultAction}} = {
-    'window': {'visibilitychange': 'window-visibilitychange'},
-    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas'},
+    'window': {'click': 'window-click', 'visibilitychange': 'window-visibilitychange'},
+    'canvas': {'wheel': 'scroll-canvas', 'mousedown': 'click-canvas', 'mousemove': 'move-mouse-over-canvas', 'mouseup': 'unclick-canvas', 'mouseenter': 'move-mouse-onto-canvas', 'mouseleave': 'move-mouse-off-of-canvas', 'contextmenu': 'right-click-canvas', 'drop': 'canvas-drop'},
     'run': {'click': 'run'},
     'pause': {'click': 'pause'},
     'step': {'click': 'step'},
@@ -1800,14 +2218,17 @@ window.addEventListener('keydown', event => {
     }
 });
 
-canvas.addEventListener('click', () => {
-    canvas.focus();
-});
 
 window.onbeforeunload = event => {
     event.preventDefault();
     return `Are you sure you want to leave? Patterns may not be saved yet.`;
 };
+
+window.addEventListener('resize', updateSizes);
+
+canvas.addEventListener('click', () => {
+    canvas.focus();
+});
 
 document.querySelectorAll('[data-title]').forEach(elt => {
     elt.addEventListener('mouseenter', () => {
@@ -1851,6 +2272,7 @@ let start = `
 B3/S23
 
 glider:
+#periodic 1 1 4
 *456
 
 main:

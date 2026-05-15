@@ -371,6 +371,12 @@ export interface Rule {
 /** Represents a pattern in a cellular automata. */
 export abstract class Pattern {
 
+    
+    toString(): string {
+        let [x, y] = this.getFullOffset();
+        return `${this.constructor.name} at ${x} ${y} generation ${this.generation}: ${this.toRLE()}`;
+    }
+
     /** The height of the pattern. */
     abstract height: number;
     /** The width of the pattern. */
@@ -905,11 +911,12 @@ export abstract class Pattern {
     abstract loadRLE(data: string): Pattern;
     
     [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
+        let [x, y] = this.getFullOffset();
         return `${this.constructor.name} ${inspect({
             height: this.height,
             width: this.width,
-            xOffset: this.xOffset,
-            yOffset: this.yOffset,
+            xOffset: x,
+            yOffset: y,
             generation: this.generation,
             rule: this.rule,
         }, options)} ${this.toRLE()}`;

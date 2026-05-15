@@ -12,7 +12,7 @@ var path: (typeof import('node:path'))['posix'];
 
 // import {posix as path} from 'path';
 
-import {Rect, Rule, Pattern, createPattern} from './core/index.js';
+import {Rect, Rule, Pattern, speedToString, createPattern} from './core/index.js';
 
 
 export class RPFError extends Error {};
@@ -32,8 +32,7 @@ export const ROTATION_COMBINE: {[K in Rotation]: {[K in Rotation]: Rotation}} = 
     Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'B', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'F'},
 };
 
-
-function applyRotation<T extends Pattern>(p: T, rotation: Rotation): T {
+export function applyRotation<T extends Pattern>(p: T, rotation: Rotation): T {
     if (rotation === 'F') {
         return p;
     } else if (rotation === 'Fx') {
@@ -53,8 +52,28 @@ function applyRotation<T extends Pattern>(p: T, rotation: Rotation): T {
     }
 }
 
+export function transformCoordinates(x: number, y: number, width: number, height: number, rotation: Rotation): [number, number] {
+    if (rotation === 'F') {
+        return [x, y];
+    } else if (rotation === 'Fx') {
+        return [x, height - y - 1];
+    } else if (rotation === 'L') {
+        return [height - y - 1, x];
+    } else if (rotation === 'Lx') {
+        return [y, x];
+    } else if (rotation === 'B') {
+        return [width - x - 1, height - y - 1];
+    } else if (rotation === 'Bx') {
+        return [width - x - 1, y];
+    } else if (rotation === 'R') {
+        return [y, width - x - 1];
+    } else {
+        return [height - y - 1, width - x - 1];
+    }
+}
 
-interface RPFRect {
+
+export interface RPFRect {
     x: number;
     y: number;
     p: {
@@ -67,7 +86,7 @@ export function isInside(x: number, y: number, value: RPFRect): boolean {
     return x >= value.x && y >= value.y && x < value.x + value.p.width && y < value.y + value.p.height;
 }
 
-function getOverlap(a: RPFRect, b: RPFRect): {overlap: boolean, x: number, y: number, minX: number, maxX: number, minY: number, maxY: number} {
+export function getOverlap(a: RPFRect, b: RPFRect): {overlap: boolean, x: number, y: number, minX: number, maxX: number, minY: number, maxY: number} {
     let minX = Math.max(a.x, b.x);
     let maxX = Math.min(a.x + a.p.width, b.x + b.p.width);
     let minY = Math.max(a.y, b.y);
@@ -103,6 +122,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     rule: Rule;
     // we set optional values to undefined so the V8 hidden classes are the same
     name?: string = undefined;
+    desc?: string = undefined;
     periodic?: [number, number, number] = undefined;
     creates?: {p: T | RPFPattern<T>, x: number, y: number, rotation: Rotation, times: number[]} = undefined;
 
@@ -119,19 +139,22 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             let maxY = -Infinity;
             this.population = 0;
             for (let value of data) {
-                this.minX = Math.min(this.minX, value.x);
-                this.minY = Math.min(this.minY, value.y);
                 let p = value.p.copy() as T;
                 applyRotation(p, value.rotation);
                 p.run(value.time);
                 p.shrinkToFit();
-                value.p = p;
-                maxX = Math.max(maxX, value.x + p.width);
-                maxY = Math.max(maxY, value.y + p.height);
                 this.population += p.population;
+                let offset = p.getFullOffset();
+                let x = value.x + offset[0];
+                let y = value.y + offset[1];
+                this.minX = Math.min(this.minX, x);
+                this.minY = Math.min(this.minY, y);
+                maxX = Math.max(maxX, x + p.width);
+                maxY = Math.max(maxY, y + p.height);
             }
             this.height = maxY - this.minY;
             this.width = maxX - this.minX;
+            // alert(this.minX + ' ' + this.minY + ' ' + this.height + ' ' + this.width);
         } else {
             this.minX = 0;
             this.minY = 0;
@@ -142,7 +165,8 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         this.rule = base.rule;
     }
 
-    toString(pasting?: boolean): string {
+    toString(file?: RPFFile<T>, pasting?: boolean): string {
+        let dir = path.dirname(this.path);
         let out: string[] = [`${this.key}:`];
         if (pasting) {
             out.push(`#pasting ${this.key}`);
@@ -150,27 +174,53 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         if (this.name) {
             out.push(`#name ${this.name}`);
         }
+        if (this.desc) {
+            out.push(`#desc ${this.desc.replaceAll('\\', '\\\\').replaceAll('\n', '\\n')}`);
+        }
         if (this.periodic) {
             out.push(`#periodic ${this.periodic.join(' ')}`);
         }
         if (this.creates) {
-            out.push(`#creates ${this.creates.p instanceof RPFPattern}`)
+            out.push(`#creates ${this.creates.p instanceof RPFPattern}`);
         }
         for (let value of this.data) {
-            let start = value.p instanceof RPFPattern ? value.p.key : '*' + value.p.toApgcode();
-            if (value.time === 0) {
-                if (value.rotation === 'F') {
-                    if (value.x === 0 && value.y === 0) {
-                        out.push(`${start}`);
-                    } else {
-                        out.push(`${start} ${value.x} ${value.y}`);
-                    }
+            let str: string | undefined = undefined;
+            if (value.p instanceof RPFPattern) {
+                let dir2 = path.dirname(value.p.path);
+                if (!file || dir === dir2) {
+                    str = value.p.key;
                 } else {
-                    out.push(`${start} ${value.x} ${value.y} ${value.rotation}`);
+                    for (let imported of file.starImports) {
+                        if (dir2 === imported.path) {
+                            str = value.p.key;
+                            break;
+                        }
+                    }
+                    if (str === undefined) {
+                        for (let [key, imported] of Object.entries(file.imports)) {
+                            if (dir2 === imported.path) {
+                                str = `${key}.${value.p.key}`;
+                                break;
+                            }
+                        }
+                    }
+                    if (str === undefined) {
+                        str = value.p.path;
+                    }
                 }
             } else {
-                out.push(`${start} ${value.x} ${value.y} ${value.rotation} ${value.time}`);
+                str = '*' + value.p.toApgcode();
             }
+            if (value.x !== 0 || value.y !== 0 || value.rotation !== 'F' || value.time !== 0) {
+                str += ` ${value.x} ${value.y}`;
+                if (value.rotation !== 'F' || value.time !== 0) {
+                    str += ` ${value.rotation}`;
+                    if (value.time !== 0) {
+                        str += ` ${value.time}`;
+                    }
+                }
+            }
+            out.push(str);
         }
         return out.join('\n');
     }
@@ -187,18 +237,20 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             let line = lines[i];
             let parts = line.split(' ');
             if (parts[0].startsWith('#')) {
-                if (parts[0] === '#name') {
-                    out.name = parts.slice(1).join(' ');
-                } else if (parts[0] === '#pasting') {
+                if (parts[0] === '#pasting') {
                     let key = parts.slice(1).join(' ');
                     if (key in file.data) {
                         return file.data[key];
                     }
+                } else if (parts[0] === '#name') {
+                    out.name = parts.slice(1).join(' ');
+                } else if (parts[0] === '#desc') {
+                    out.desc = parts.slice(1).join(' ').replaceAll('\\n', '\n').replaceAll('\\\\', '\\');
                 } else if (parts[0] === '#periodic') {
                     if (parts.length < 4) {
                         throw new RPFError(`Invalid #periodic: '${line}'`);
                     }
-                    let [dx, dy, period] = parts.slice(1).map(parseInt);
+                    let [dx, dy, period] = parts.slice(1).map(Number);
                     if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
                         throw new RPFError(`Invalid #periodic: '${line}'`);
                     }
@@ -209,15 +261,19 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                 if (!p) {
                     throw new RPFError(`Cannot find RPF object '${parts[0]}'`);
                 }
-                out.addObject({
+                if (parts[3] !== undefined && !ROTATIONS.includes(parts[3])) {
+                    throw new RPFError(`Invalid rotation: '${parts[3]}'`);
+                }
+                out.data.add({
                     p,
                     x: parts[1] === undefined ? 0 : Number(parts[1]),
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
                     rotation: parts[3] === undefined ? 'F' : parts[3] as Rotation,
                     time: parts[4] === undefined ? 0 : Number(parts[4]),
-                });
+                })
             }
         }
+        out.recomputeSizes();
         return out;
     }
 
@@ -230,11 +286,18 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             return this;
         }
         this.data.add(obj);
-        this.population += obj.p.population;
-        this.width = Math.max(this.minX + this.width, obj.x + obj.p.width) - this.minX;
-        this.height = Math.max(this.minY + this.height, obj.y + obj.p.height) - this.minY;
-        this.minX = Math.min(this.minX, obj.x);
-        this.minY = Math.min(this.minY, obj.y);
+        let p = obj.p.copy() as T;
+        applyRotation(p, obj.rotation);
+        p.run(obj.time);
+        p.shrinkToFit();
+        let offset = p.getFullOffset();
+        let x = obj.x + offset[0];
+        let y = obj.y + offset[1];
+        this.population += p.population;
+        this.width = Math.max(this.minX + this.width, x + obj.p.width) - this.minX;
+        this.height = Math.max(this.minY + this.height, y + obj.p.height) - this.minY;
+        this.minX = Math.min(this.minX, x);
+        this.minY = Math.min(this.minY, y);
         return this;
     }
 
@@ -259,11 +322,14 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             applyRotation(p, value.rotation);
             p.run(value.time);
             p.shrinkToFit();
-            this.minX = Math.min(this.minX, value.x + p.xOffset);
-            this.minY = Math.min(this.minY, value.y + p.yOffset);
-            maxX = Math.max(maxX, value.x + p.width);
-            maxY = Math.max(maxY, value.y + p.height);
             this.population += p.population;
+            let offset = p.getFullOffset();
+            let x = value.x + offset[0];
+            let y = value.y + offset[1];
+            this.minX = Math.min(this.minX, x);
+            this.minY = Math.min(this.minY, y);
+            maxX = Math.max(maxX, x + p.width);
+            maxY = Math.max(maxY, y + p.height);
         }
         this.height = maxY - this.minY;
         this.width = maxX - this.minX;
@@ -274,6 +340,78 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         this.key = key;
         this.path = path.join(path.dirname(this.path), key);
         return this;
+    }
+
+    getObjectAt(x: number, y: number, level: number, depth: number = 0): RPFObjectData | undefined {
+        for (let value of this.data) {
+            let [x2, y2] = transformCoordinates(x - value.x, y - value.y, value.p.width, value.p.height, value.rotation);
+            if (value.p.get(x2, y2)) {
+                if (level === depth) {
+                    return value;
+                } else if (value.p instanceof RPFPattern) {
+                    let out = value.p.getObjectAt(x2, y2, level, depth + 1);
+                    if (out) {
+                        return out;
+                    }
+                }
+            }
+        }
+    }
+
+    getName(capitalize: boolean = false): string {
+        let out = this.name ?? this.key.replaceAll('_', ' ');
+        if (capitalize) {
+            out = out[0].toUpperCase() + out.slice(1);
+        }
+        return out;
+    }
+
+    getTypeDescription(): string | undefined {
+        if (!this.periodic) {
+            return;
+        }
+        let [dx, dy, period] = this.periodic;
+        let moves = dx !== 0 || dy !== 0;
+        if (this.creates) {
+            let prefix = speedToString(dx, dy, period) + ' ';
+            let q = this.creates.p;
+            if (!(q instanceof RPFPattern)) {
+                return `${prefix} ${moves ? 'puffer' : 'factory'}`;
+            } 
+            prefix += q.getName() + ' ';
+            if (!q.periodic) {
+                return `${prefix} ${moves ? 'puffer' : 'factory'}`;
+            }
+            let qMoves = q.periodic[0] !== 0 || q.periodic[1] !== 0;
+            if (q.creates) {
+                prefix = speedToString(dx, dy, period) + ' ';
+                prefix += moves ? 'M' : 'S';
+                prefix += qMoves ? 'M' : 'S';
+                let r = q.creates.p;
+                if (r instanceof RPFPattern && r.periodic) {
+                    prefix += (r.periodic[0] !== 0 || r.periodic[1] !== 0) ? 'M' : 'S';
+                } else {
+                    prefix += '?';
+                }
+                return `${prefix} ${q.getName()} breeder`;
+            } else {
+                if (moves) {
+                    return `${prefix} ${qMoves ? 'rake' : 'puffer'}`;
+                } else {
+                    return `${prefix} ${qMoves ? 'gun' : 'factory'}`;
+                }
+            }
+        } else {
+            if (dx === 0 && dy === 0) {
+                if (period === 1) {
+                    return `still life`;
+                } else {
+                    return `p${period} oscillator`;
+                }
+            } else {
+                return `${speedToString(dx, dy, period)} spaceship`;
+            }
+        }
     }
 
     runGeneration(): number {
@@ -361,6 +499,8 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             value.x += x;
             value.y += y;
         }
+        this.minX += x;
+        this.minY += y;
         return this;
     }
 
@@ -743,18 +883,75 @@ export class FSError extends Error {
     name: 'FSError' = 'FSError';
 }
 
-export interface FileEntry {
+export class File {
+
+    name: string;
+    path: string;
     value: string;
     rpf?: RPFFile;
     lastModified: number;
+    handle?: FileSystemFileHandle;
+
+    constructor(name: string, path: string, value: string | RPFFile) {
+        this.name = name;
+        this.path = path;
+        if (typeof value === 'string') {
+            this.value = value;
+        } else {
+            this.value = value.toString();
+            this.rpf = value;
+        }
+        this.lastModified = Date.now();
+    }
+
+    write(value: string | RPFFile): void {
+        if (typeof value === 'string') {
+            this.value = value;
+            this.rpf = undefined;
+        } else {
+            this.value = value.toString();
+            this.rpf = value;
+        }
+        this.lastModified = Date.now();
+    }
+
+    getRPF(basePath: string): RPFFile {
+        if (this.rpf) {
+            return this.rpf;
+        }
+        this.rpf = RPFFile.fromString(this.value, basePath);
+        return this.rpf;
+    }
+    
+    async sync(): Promise<void> {
+        if (!this.handle) {
+            return;
+        }
+        let file = await this.handle.getFile();
+        if (file.lastModified > this.lastModified) {
+            this.value = await file.text();
+        } else {
+            let stream = await this.handle.createWritable();
+            await stream.write(this.value);
+            await stream.close();
+        }
+    }
+
 }
+
 
 export class Directory {
 
-    data: {[key: string]: Directory | FileEntry};
+    name: string;
+    path: string;
+    data: {[key: string]: Directory | File};
+    handle?: FileSystemDirectoryHandle;
 
-    constructor(data: Directory['data'] = {}) {
+    constructor(name: string, path: string, data: Directory['data'] = {}, handle?: FileSystemDirectoryHandle) {
+        this.name = name;
+        this.path = path;
         this.data = data;
+        this.handle = handle;
     }
 
     exists(name: string): boolean {
@@ -772,7 +969,7 @@ export class Directory {
         return name in this.data;
     }
 
-    read(name: string): Directory | FileEntry {
+    read(name: string): Directory | File {
         name = path.normalize(name);
         if (name.includes('/')) {
             let index = name.indexOf('/');
@@ -793,7 +990,7 @@ export class Directory {
         }
     }
 
-    write(name: string, value: string | RPFFile | FileEntry): void {
+    write(name: string, value: string | RPFFile | File): void {
         name = path.normalize(name);
         if (name.includes('/')) {
             let index = name.indexOf('/');
@@ -813,18 +1010,22 @@ export class Directory {
             if (file instanceof Directory) {
                 throw new FSError(`Cannot write to file '${name}', is a directory`);
             }
-            if (typeof value === 'string') {
-                file.value = value;
-                if (file.rpf) {
-                    delete file.rpf;
-                }
-            } else if (value instanceof RPFFile) {
-                file.value = value.toString();
-                file.rpf = value;
+            if (value instanceof File) {
+                this.data[name] = value;
             } else {
-                file = value;
+                file.write(value);
             }
-            file.lastModified = Date.now();
+        } else {
+            if (typeof value === 'string') {
+                this.data[name] = new File(name, path.join(this.path, name), value);
+            } else if (value instanceof RPFFile) {
+                let file = new File(name, path.join(this.path, name), value.toString());
+                file.rpf = value;
+                this.data[name] = file;
+            } else {
+                value.lastModified = Date.now();
+                this.data[name] = value;
+            }
         }
     }
 
@@ -843,7 +1044,7 @@ export class Directory {
             }
         }
         if (!(name in this.data)) {
-            let out = new Directory();
+            let out = new Directory(name, path.join(this.path, name));
             this.data[name] = out;
             return out;
         } else {
@@ -927,7 +1128,7 @@ export class RPFFile<T extends Pattern = Pattern> {
         let out = `\n${this.base.rule.str}\n`;
         for (let layer of layers) {
             for (let key of layer.sort()) {
-                out += '\n' + this.data[key].toString() + '\n';
+                out += '\n' + this.data[key].toString(this) + '\n';
             }
         }
         return out;
