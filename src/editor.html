@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>lifeweb</title>
+        <title>Editor</title>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
@@ -55,7 +55,7 @@ body {
 [data-title]:hover::after {
     opacity: 1;
     visibility: visible;
-    transition-delay: 0.5s;
+    transition-delay: 0.75s;
 }
 
 #left {
@@ -64,14 +64,10 @@ body {
     bottom: 0;
     left: 0;
     right: 80%;
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
-}
-
-#file-system {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.5rem;
 }
 
 #left button, input:not([type=checkbox]) {
@@ -83,19 +79,66 @@ body {
     border: 1px solid #ffffff;
 }
 
-#left > * {
-    padding: 0.5rem;
-}
-
 #left-top {
+    margin-bottom: 0.5rem;
     display: flex;
     flex-direction: row;
     gap: 0.5rem;
 }
 
+#search-wrapper {
+    display: none;
+    width: 100%;
+    padding: 2px 5px;
+    flex-direction: row;
+    align-items: center;
+    font-size: 0.95rem;
+    border: 1px solid #ffffff;
+}
+
+#search-wrapper svg {
+    flex: 0 0 1em;
+    height: 1em;
+    width: 1em;
+}
+
+#search {
+    flex: 1 0 auto;
+    appearance: none;
+    border: none;
+    padding: none;
+}
+
+#search:focus {
+    appearance: none;
+    outline: none;
+}
+
+#file-system {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    overflow-y: auto;
+    font-size: 0.95em;
+}
+
+fs-rpf-item {
+    width: 100%;
+    padding: 0.2em;
+}
+
+fs-rpf-item:hover {
+    background-color: #2f2f2f;
+}
+
+#open-folder {
+    margin-top: 0.5rem;
+}
+
 #rle-wrapper {
     margin-top: auto;
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: start;
     gap: 0.5rem;
@@ -271,6 +314,38 @@ textarea:hover, textarea:focus {
     user-select: none;
 }
 
+#rpf-context-menu {
+    display: none;
+    position: absolute;
+    z-index: 3;
+    padding: 0.5rem 0;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #7f7f7f;
+    border-radius: 0.5rem;
+}
+
+#rpf-context-menu > * {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.0625rem 0.5rem;
+    border: none;
+    background-color: inherit;
+    color: inherit;
+}
+
+#cm-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* #right #rpf-context-menu > button:hover {
+    background-color: #cfcfcf;
+} */
+
 #command-wrapper {
     display: none;
     position: absolute;
@@ -301,7 +376,7 @@ textarea:hover, textarea:focus {
     bottom: min(10%, 100px);
     left: max(10%, calc(50% - 250px));
     right: max(10%, calc(50% - 250px));
-    z-index: 3;
+    z-index: 4;
     background-color: #000000;
     padding: 1rem;
     border: 1px solid #ffffff;
@@ -331,50 +406,108 @@ textarea:hover, textarea:focus {
 }
 
         </style>
-            <template id="fs-folder-template">
-                <style>
-                    
+        <template id="fs-folder-template">
+            <style>
+
+* {
+    box-sizing: border-box;
+}
+
 :host {
+    display: block;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
     user-select: none;
 }
 
 #top {
+    padding: 0.2em;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.25em;
+}
+
+#top:hover {
+    background-color: #2f2f2f;
 }
 
 #icon-open, #icon-closed {
-    height: 0.8rem;
-    width: 0.8rem;
+    height: 1em;
+    width: 1em;
 }
 
 #icon-open {
     display: none;
 }
 
-#contents {
+#main {
+    width: 100%;
     display: none;
-    margin-left: 1rem;
+    flex-direction: row;
+}
+
+#left-bar-wrapper {
+    width: 1em;
+    display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+}
+
+#left-bar {
+    margin-left: 50%;
+    width: 1px;
+    height: 100%;
+    background-color: #7f7f7f;
+}
+
+#contents {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
 }
 
             </style>
             <div id="top">
                 <svg id="icon-open" viewBox="0 0 16 16">
-                    <path d="M2,8 L8,14 L14,8" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                    <path d="M2,5 L8,11 L14,5" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" stroke-linecap="round" fill="none" />
                 </svg>
                 <svg id="icon-closed" viewBox="0 0 16 16">
-                    <path d="M4,2 L12,8 L4,14" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                    <path d="M5,2 L11,8 L5,14" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" stroke-linecap="round" fill="none" />
                 </svg>
-                <slot name="name"></slot>
+                <div id="name"></div>
             </div>
-            <slot id="contents" name="contents"></slot>
+            <div id="main">
+                <div id="left-bar-wrapper">
+                    <div id="left-bar"></div>
+                </div>
+                <slot id="contents"></slot>
+            </div>
+        </template>
+        <template id="fs-file-template">
+            <style>
+
+* {
+    box-sizing: border-box;
+}
+
+:host {
+    display: block;
+    width: 100%;
+}
+
+#name {
+    width: 100%;
+    height: 100%;
+    padding: 0.2em;
+}
+
+#name:hover {
+    background-color: #2f2f2f;
+}
+
+            </style>
+            <div id="name"></div>
         </template>
     </head>
     <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
@@ -383,16 +516,16 @@ textarea:hover, textarea:focus {
             <div id="left-top">
                 <button id="help-button">Help</button>
             </div>
+            <div id="search-wrapper">
+                <svg viewBox="0 0 16 16">
+                    <circle cx="6" cy="6" r="4" stroke="#ffffff" fill="none" />
+                    <line x1="7.83" y1="7.83" x2="14" y2="14" stroke="#ffffff" />
+                </svg>
+                <input type="text" id="search" autocomplete="off" />
+            </div>
+            <div id="file-system"></div>
             <div>
                 <button id="open-folder">Open folder</button>
-            </div>
-            <div id="file-system">
-                <fs-folder>
-                    <span slot="name">test</span>
-                    <div slot="contents">
-                        <div>hi</div>
-                    </div>
-                </fs-folder>
             </div>
             <div id="rle-wrapper">
                 <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
@@ -633,6 +766,11 @@ bo$2bo$3o!</textarea>
                     </svg>
                 </button>
             </div>
+            <div id="rpf-context-menu">
+                <div id="cm-name"></div>
+                <div id="cm-path"></div>
+                <div id="cm-desc"></div>
+            </div>
             <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
         </div>
         <div id="help">
@@ -645,7 +783,7 @@ bo$2bo$3o!</textarea>
             <h1>Pattern Editor</h1>
             <div><a href="https://github.com/speedydelete/lifeweb">Source code</a></div>
         </div>
-        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'|!String(location).startsWith('file:')){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});var BUILD_NUMBER=336;</script>
+        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'||true){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});var BUILD_NUMBER=351;</script>
         <script type="module" src="index.js"></script>
     </body>
 </html>

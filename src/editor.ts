@@ -130,6 +130,13 @@ var leftRightResizeOffset = 0;
 var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
 var fs = new Directory('', '/');
 var currentFile: File | undefined = undefined;
+var stdlib = rpfFile;
+setTimeout(async () => {
+    stdlib = RPFFile.fromString(await (await fetch('stdlib.rpf')).text(), '/stdlib.rpf', fs);
+    fs.write('stdlib.rpf', stdlib);
+    run('render-file-system');
+}, 200);
+
 
 
 let leftElt = getElement('left');
@@ -540,7 +547,7 @@ class FSRPFItemElement extends HTMLElement {
         this.draggable = true;
         this.addEventListener('dragstart', event => {
             let transfer = event.dataTransfer as DataTransfer;
-            transfer.dropEffect = 'copy';
+            transfer.dropEffect = 'link';
             transfer.setData('application/x-lifeweb-editor-drag', file.path + '\n' + p.key);
             let parent = this.parentElement as HTMLElement;
             let old = parent.style.overflowY;
@@ -668,13 +675,14 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
     let names = new Set(Object.keys(out.data));
     for await (let [name, value] of dir.entries()) {
         names.delete(name);
-        if (value instanceof FileSystemDirectoryHandle) {
+        if (value.kind === 'directory') {
             if (name in out.data && !(out.data[name] instanceof Directory)) {
                 out.rm(name);
             }
             await updateFileSystem(value, out);
             out.data[name].handle = value;
         } else {
+            console.log(value);
             let fileBlob = await value.getFile();
             if (name in out.data) {
                 if (out.data[name] instanceof Directory) {
@@ -2069,8 +2077,7 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             throw new Error(`canvas-drop called with no data transfer`);
         }
         let [path, key] = event.dataTransfer.getData('application/x-lifeweb-editor-drag').split('\n');
-        alert(path + '\n\n' + key);
-        let file = fs.read(path);
+        let file = fs.read(path.slice(1));
         if (!(file instanceof File) || !file.rpf) {
             throw new Error(`This error should not occur (please check devtools and report the traceback)`);
         }
