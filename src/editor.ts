@@ -1,6 +1,5 @@
 
-// @ts-ignore
-import {showDirectoryPicker} from 'https://esm.sh/file-system-access';
+let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', startIn?: string | FileSystemFileHandle}) => Promise<FileSystemDirectoryHandle>;
 // import {showDirectoryPicker} from 'file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from './core/index.js';
 import {RPFError, Rotation, ROTATION_COMBINE, transformCoordinates, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
@@ -131,11 +130,6 @@ var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
 var fs = new Directory('', '/');
 var currentFile: File | undefined = undefined;
 var stdlib = rpfFile;
-setTimeout(async () => {
-    stdlib = RPFFile.fromString(await (await fetch('stdlib.rpf')).text(), '/stdlib.rpf', fs);
-    fs.write('stdlib.rpf', stdlib);
-    run('render-file-system');
-}, 200);
 
 
 
@@ -225,16 +219,16 @@ function parse(data: string, preserveSizes?: boolean): Pattern | [string, string
             return RPFPattern.fromString(data, rpfFile ?? new RPFFile(p, '/', {}));
         } catch (error2) {
             try {
-                let out = RPFFile.fromString(data, '/main');
+                let out = RPFFile.fromString(data, '/main', fs);
                 if (!out.data['main']) {
                     throw new Error(`No 'main' entry presented in loaded RPF!`);
                 } else {
                     return out.data['main'];
                 }
             } catch (error3) {
-                console.log(error instanceof Error ? error.stack : String(error));
-                console.log(error2 instanceof Error ? error2.stack : String(error2));
-                console.log(error3 instanceof Error ? error3.stack : String(error3));
+                console.error(error);
+                console.error(error2);
+                console.error(error3);
                 return [String(error), String(error2), String(error3)];
             }
         }
@@ -247,10 +241,10 @@ function loadPattern(q: string | RPFFile | Pattern): void {
             q = parseRLE(q);
         } catch (error) {
             try {
-                q = RPFFile.fromString(q as string, '/main');
+                q = RPFFile.fromString(q as string, '/main', fs);
             } catch (error2) {
-                console.log(error instanceof Error ? error.stack : String(error));
-                console.log(error2 instanceof Error ? error2.stack : String(error2));
+                console.error(error);
+                console.error(error2);
                 alert(`Invalid pattern!:\n\n${error}\n\n${error2}`);
                 return;
             }
@@ -697,7 +691,7 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
             if (fileBlob.name.endsWith('.rpf')) {
                 let rpf: RPFFile;
                 try {
-                    rpf = RPFFile.fromString(file.value, file.path);
+                    rpf = RPFFile.fromString(file.value, file.path, fs);
                 } catch (error) {
                     if (error instanceof RPFError) {
                         continue;
@@ -2077,13 +2071,16 @@ var rpfActions: {[K in DefaultAction]?: Hook[]} = {
             throw new Error(`canvas-drop called with no data transfer`);
         }
         let [path, key] = event.dataTransfer.getData('application/x-lifeweb-editor-drag').split('\n');
-        let file = fs.read(path.slice(1));
+        let file = fs.read(path);
         if (!(file instanceof File) || !file.rpf) {
             throw new Error(`This error should not occur (please check devtools and report the traceback)`);
         }
         let rpf = file.rpf;
         if (!(file.name in rpfFile.imports)) {
             rpfFile.imports[file.name] = rpf;
+        }
+        if (file.name === '/stdlib.rpf' && !rpfFile.starImports.includes(stdlib)) {
+            rpfFile.starImports.push(stdlib);
         }
         rpfPasting = [rpf.data[key], 'F'];
         run('set-cursor-to-main');
@@ -2278,16 +2275,18 @@ function frame() {
 let start = `
 B3/S23
 
-glider:
-#periodic 1 1 4
-*456
+import * from stdlib.rpf
 
 main:
 glider 0 0
-
 `;
 
-window.addEventListener('load', () => setTimeout(() => {
+window.addEventListener('load', () => setTimeout(async () => {
+    // @ts-ignore
+    showDirectoryPicker = (await import('https://esm.sh/file-system-access')).showDirectoryPicker;
+    stdlib = RPFFile.fromString(await (await fetch('stdlib.rpf')).text(), '/stdlib.rpf', fs);
+    fs.write('stdlib.rpf', stdlib);
+    run('render-file-system');
     for (let [key, value] of Object.entries(startEvents)) {
         for (let [event, action] of Object.entries(value)) {
             setEvent(key, event as keyof HTMLElementEventMap, action);

@@ -266,7 +266,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, preserv
             line = line.trim();
             let match = line.match(/x\s*=\s*(\d+)\s*,?\s*y\s*=\s*(\d+)\s*,?\s*(?:rule\s*=\s*(.*))?/);
             if (!match) {
-                throw new Error(`Invaid header line: '${line}'`);
+                throw new Error(`Invalid header line: '${line}'`);
             }
             if (typeof match[1] === 'string') {
                 width = parseInt(match[1]);

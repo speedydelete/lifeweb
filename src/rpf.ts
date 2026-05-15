@@ -956,6 +956,9 @@ export class Directory {
 
     exists(name: string): boolean {
         name = path.normalize(name);
+        if (name.startsWith('/')) {
+            name = name.slice(1);
+        }
         if (name.includes('/')) {
             let index = name.indexOf('/');
             let start = name.slice(0, index);
@@ -971,6 +974,9 @@ export class Directory {
 
     read(name: string): Directory | File {
         name = path.normalize(name);
+        if (name.startsWith('/')) {
+            name = name.slice(1);
+        }
         if (name.includes('/')) {
             let index = name.indexOf('/');
             let start = name.slice(0, index);
@@ -992,6 +998,9 @@ export class Directory {
 
     write(name: string, value: string | RPFFile | File): void {
         name = path.normalize(name);
+        if (name.startsWith('/')) {
+            name = name.slice(1);
+        }
         if (name.includes('/')) {
             let index = name.indexOf('/');
             let start = name.slice(0, index);
@@ -1031,6 +1040,9 @@ export class Directory {
 
     mkdir(name: string): Directory {
         name = path.normalize(name);
+        if (name.startsWith('/')) {
+            name = name.slice(1);
+        }
         if (name.includes('/')) {
             let index = name.indexOf('/');
             let start = name.slice(0, index);
@@ -1054,6 +1066,9 @@ export class Directory {
 
     rm(name: string): void {
         name = path.normalize(name);
+        if (name.startsWith('/')) {
+            name = name.slice(1);
+        }
         if (name.includes('/')) {
             let index = name.indexOf('/');
             let start = name.slice(0, index);
@@ -1172,7 +1187,7 @@ export class RPFFile<T extends Pattern = Pattern> {
                     specifier = line.slice(match[0].length);
                 }
                 if (!path.isAbsolute(specifier)) {
-                    specifier = path.join(out.path, specifier);
+                    specifier = path.join(path.dirname(out.path), specifier);
                 }
                 let value = fs.read(specifier);
                 let rpf: RPFFile<T>;
@@ -1190,6 +1205,7 @@ export class RPFFile<T extends Pattern = Pattern> {
                     out.imports[rename] = rpf;
                 }
             } else {
+                console.log('SERIOUSLY');
                 throw new RPFError(`Invalid header line: '${line}'`);
             }
         }
