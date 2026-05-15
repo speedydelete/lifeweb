@@ -13,6 +13,7 @@ const TARGETS = {
             throw new Error(`No build number!`);
         }
         data = data.replace(match[0], `var BUILD_NUMBER=${parseInt(match[1]) + 1};`);
+        fs.writeFileSync('src/editor.html', data);
         fs.writeFileSync('editor/index.html', data);
     }],
 
