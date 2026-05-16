@@ -712,7 +712,7 @@ export function createHROTPattern(rule: string, height: number = 0, width: numbe
         }
     }
     if (b[0]) {
-        if (s[ruleData.range**2]) {
+        if (s[s.length - 1]) {
             let temp = s;
             s = b.reverse().map(x => 1 - x);
             b = temp.reverse().map(x => 1 - x);
