@@ -3,79 +3,13 @@ let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', s
 // import {showDirectoryPicker} from 'file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from '../core/index.js';
 import {RPFError, Rotation, ROTATION_COMBINE, transformCoordinates, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+
 import './base.js';
 
 // import * as lifeweb from './core/index.js';
 // import * as lifewebRPF from './rpf.js';
 // Object.assign(globalThis, lifeweb);
 // Object.assign(globalThis, lifewebRPF);
-
-
-var p = createPattern('B3/S23');
-var rpfFile: RPFFile = new RPFFile(p, '/', {});
-// @ts-ignore
-var rpfP: RPFPattern = undefined;
-
-var mouseX: number;
-var mouseY: number;
-
-var canvas = getElement<HTMLCanvasElement>('canvas');
-var ctx = canvas.getContext('2d', {alpha: false}) as CanvasRenderingContext2D;
-
-var fillOffset = -0.02;
-var fillExpand = 0.04;
-
-var undoBuffer: UndoState[] = [];
-var redoBuffer: UndoState[] = [];
-var beforeRunning = p;
-var hasRan = false;
-
-var scale = 10;
-var topLeftX = 0;
-var topLeftY = 0;
-var pixelHeight = 0;
-var pixelWidth = 0;
-
-var scaleStrength = 0.3;
-
-var step = 1;
-var stepEvery = 1;
-var running = false;
-
-var isDragging = false;
-var dragStart = [0, 0];
-var dragOffsetStart = [0, 0];
-var dragSelectStart = [0, 0];
-
-var cursorMode: 'main' | 'edit' | 'select' = 'main';
-var drawState = 1;
-var drawDeleteMode = false;
-var prevEditX: number | undefined = undefined;
-var prevEditY: number | undefined = undefined;
-var interactionLevel = 0;
-var rpfEditing: RPFObjectData | undefined = undefined;
-
-var sel: {x: number, y: number, height: number, width: number} | undefined = undefined;
-var rpfSel = new Set<RPFObjectData>();
-var rpfHover: RPFObjectData | undefined = undefined;
-var pasting: Pattern | undefined = undefined;
-var rpfPasting: [RPFPattern, Rotation] | undefined = undefined;
-var pasteMode: 'or' | 'copy' | 'and' | 'xor' = 'or';
-
-var rpfCMShown = false;
-
-var commandHistory: string[] = [];
-var commandHistoryPos: number | undefined = undefined;
-var beforeHistoryCommand = '/';
-
-var leftRightResizing = false;
-var leftRightResizeOffset = 0;
-
-var rootDirHandle: FileSystemDirectoryHandle | undefined = undefined;
-var fs = new Directory('', '/');
-var currentFile: File | undefined = undefined;
-var stdlib = rpfFile;
-
 
 
 let leftElt = getElement('left');
@@ -129,7 +63,7 @@ let searchElt = getElement('search');
 
 let fsWrapperElt = getElement('file-system');
 
-let rleElt = getElement<HTMLTextAreaElement>('rle');
+let rleElt = getElement('rle', 'textarea');
 
 let helpElt = getElement('help');
 
@@ -354,7 +288,7 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
 }
 
 
-let fsFolderTemplate = getElement<HTMLTemplateElement>('fs-folder-template').content;
+let fsFolderTemplate = getElement('fs-folder-template', 'template').content;
 
 class FSFolderElement extends HTMLElement {
 
@@ -431,7 +365,7 @@ class FSFolderElement extends HTMLElement {
 customElements.define('fs-folder', FSFolderElement);
 
 
-let fsFileTemplate = getElement<HTMLTemplateElement>('fs-file-template').content;
+let fsFileTemplate = getElement('fs-file-template', 'template').content;
 
 class FSFileElement extends HTMLElement {
 
