@@ -70,14 +70,14 @@ export function unparseHROTRanges(data: Uint8Array): string {
 }
 
 /** Parses a HROT rule into sections. */
-function parseSections(rule: string): {r: number, c: number, m: boolean, s: number[], b: number[], n: string, w: number | null} {
-    let r = 1;
-    let c = 2;
-    let m = false;
+function parseSections(rule: string): {range: number, states: number, middle: boolean, s: number[], b: number[], nh: string, wolfram?: number} {
+    let range = 1;
+    let states = 2;
+    let middle = false;
     let s: number[] = [];
     let b: number[] = [];
-    let n: string = 'M';
-    let w: number | null = null;
+    let nh: string = 'M';
+    let wolfram: number | undefined = undefined;
     let bFound = false;
     let sFound = false;
     for (let section of rule.split(',')) {
@@ -91,30 +91,30 @@ function parseSections(rule: string): {r: number, c: number, m: boolean, s: numb
             }
         } else if (bFound) {
             if (section[0] === 'N') {
-                n = section.slice(1);
+                nh = section.slice(1);
                 break;
             } else {
                 b.push(...parseHROTRange(section));
             }
         } else if (section[0] === 'R') {
-            r = Number(section.slice(1));
+            range = Number(section.slice(1));
         } else if (section[0] === 'C') {
-            c = Number(section.slice(1));
-            if (c === 0) {
-                c = 2;
+            states = Number(section.slice(1));
+            if (states === 0) {
+                states = 2;
             }
         } else if (section[0] === 'S') {
             sFound = true;
             s.push(...parseHROTRange(section.slice(1)));
         } else if (section[0] === 'M') {
-            m = Number(section.slice(1)) === 0 ? false : true;
+            middle = Number(section.slice(1)) === 0 ? false : true;
         } else if (section[0] === 'W') {
-            w = Number(section.slice(1));
+            wolfram = Number(section.slice(1));
         } else {
             throw new RuleError(`Invalid HROT section: '${section}'`);
         }
     }
-    return {r, c, m, s, b, n, w};
+    return {range, states, middle, s, b, nh, wolfram};
 }
 
 
@@ -204,64 +204,68 @@ function getCustomNeighborhoodSymmetry(range: number, nhArray: number[][]): Rule
 
 /** Parses a HROT rulestring into a lot of data. */
 export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array, s: Uint8Array, nh: Int8Array | null} {
-    let {r, c, m, s, b, n, w} = parseSections(rule);
-    if (c < 2) {
-        c = 2;
+    let {range, states, middle, s, b, nh, wolfram} = parseSections(rule);
+    if (states < 2) {
+        states = 2;
     }
-    // if (w !== null) {
-    //     let extra = parse1dRule(r, w);
-    //     let func = c === 2 ? run1d : run1dGen;
-    //     let ruleStr = (r === 1 && c === 2) ? 'W' + w : `R${r},C${c},W${w}`;
-    //     return {func, extra, states: c, isotropic: true, ruleStr};
-    // }
-    let size = 2 * r + 1;
-    let nh: number[][] | null;
-    if (n === 'M') {
-        nh = null;
-    } else if (n in NEIGHBORHOODS) {
-        let func = NEIGHBORHOODS[n];
-        nh = [];
-        for (let y = -r; y <= r; y++) {
-            let row: number[] = [];
-            for (let x = -r; x <= r; x++) {
-                row.push(func(x, y, r) ? 1 : 0);
-            }
-            nh.push(row);
+    if (wolfram !== undefined) {
+        if (range === 1) {
+            return `W${wolfram}/${states}`;
+        } else {
+            throw new RuleError(`Higher-range 1D rules are not supported yet`);
         }
-    } else if (n.startsWith('@')) {
+    }
+    let size = 2 * range + 1;
+    let nhArray: number[][] | null;
+    if (nh === 'M') {
+        nhArray = null;
+    } else if (nh in NEIGHBORHOODS) {
+        let func = NEIGHBORHOODS[nh];
+        nhArray = [];
+        for (let y = -range; y <= range; y++) {
+            let row: number[] = [];
+            for (let x = -range; x <= range; x++) {
+                row.push(func(x, y, range) ? 1 : 0);
+            }
+            nhArray.push(row);
+        }
+    } else if (nh.startsWith('@')) {
         let bits: number[] = [];
-        for (let char of n.slice(1)) {
+        for (let char of nh.slice(1)) {
             let value = parseInt(char, 16);
             if (Number.isNaN(value)) {
-                throw new RuleError(`Invalid custom neighborhood: '${n}'`);
+                throw new RuleError(`Invalid custom neighborhood: '${nh}'`);
             }
             bits.push((value & (1 << 3)) ? 1 : 0);
             bits.push((value & (1 << 2)) ? 1 : 0);
             bits.push((value & (1 << 1)) ? 1 : 0);
             bits.push((value & 1) ? 1 : 0);
         }
-        if ((r * 2 + 1)**2 - 1 !== bits.length) {
-            throw new RuleError(`Invalid custom neighborhood: '${n}'`);
+        if ((range * 2 + 1)**2 - 1 !== bits.length) {
+            throw new RuleError(`Invalid custom neighborhood: '${nh}'`);
         }
-        nh = [];
+        nhArray = [];
         let i = 0;
-        for (let y = -r; y <= r; y++) {
+        for (let y = -range; y <= range; y++) {
             let row: number[] = [];
-            for (let x = -r; x <= r; x++) {
+            for (let x = -range; x <= range; x++) {
                 if (x === 0 && y === 0) {
                     row.push(0);
                     continue;
                 }
                 row.push(bits[i++]);
             }
-            nh.push(row);
+            nhArray.push(row);
         }
-    } else if (n.startsWith('W')) {
-        let digits = n.slice(1).replaceAll('/', '');
-        if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x)) || !(digits.length === size**2 || digits.length === size**2 * 2)) {
-            throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${r}`);
+    } else if (nh.startsWith('W')) {
+        let digits = nh.slice(1).replaceAll('/', '');
+        if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x))) {
+            throw new RuleError(`Invalid characters in weighted neighborhood`);
         }
-        nh = [];
+        if (!(digits.length === size**2 || digits.length === size**2 * 2)) {
+            throw new RuleError(`Weighted neighborhood requires ${size**2} or ${size**2 * 2} hex digits for range ${range}, got ${digits.length} digits`);
+        }
+        nhArray = [];
         let isBig = digits.length === size**2 * 2;
         let i = 0;
         for (let y = 0; y < size; y++) {
@@ -285,26 +289,26 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
                     i++;
                 }
             }
-            nh.push(row);
+            nhArray.push(row);
         }
     } else {
-        throw new RuleError(`Invalid HROT neighborhood: '${n}'`);
+        throw new RuleError(`Invalid HROT neighborhood: '${nh}'`);
     }
-    if (m) {
-        if (nh === null) {
+    if (middle) {
+        if (nhArray === null) {
             s = s.map(x => x + 1);
         } else {
-            nh[r + 1][r + 1] = 1;
+            nhArray[range + 1][range + 1] = 1;
         }
     }
     if (nh && nh.length === 0) {
-        throw new RuleError(`Invalid HROT neighborhood: '${n}'`);
+        throw new RuleError(`Invalid HROT neighborhood: '${nh}'`);
     }
-    if (r === 1) {
-        if (nh) {
+    if (range === 1) {
+        if (nhArray) {
             let trs = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                let value = nh[2][2] * (i & 1) + nh[1][2] * ((i >> 1) & 1) + nh[0][2] * ((i >> 2) & 1) + nh[2][1] * ((i >> 3) & 1) + nh[0][1] * ((i >> 5) & 1) + nh[2][0] * ((i >> 6) & 1) + nh[1][0] * ((i >> 7) & 1) + nh[0][0] * ((i >> 8) & 1);
+                let value = nhArray[2][2] * (i & 1) + nhArray[1][2] * ((i >> 1) & 1) + nhArray[0][2] * ((i >> 2) & 1) + nhArray[2][1] * ((i >> 3) & 1) + nhArray[0][1] * ((i >> 5) & 1) + nhArray[2][0] * ((i >> 6) & 1) + nhArray[1][0] * ((i >> 7) & 1) + nhArray[0][0] * ((i >> 8) & 1);
                 if (i & (1 << 4)) {
                     if (s.includes(value)) {
                         trs[i] = 1;
@@ -313,17 +317,17 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
                     trs[i] = 1;
                 }
             }
-            return unparseMAP(trs, c);
+            return unparseMAP(trs, states);
         } else {
-            if (c === 2) {
+            if (states === 2) {
                 return `B${b.join('')}/S${s.join('')}`;
             } else {
-                return `${s.join('')}/${b.join('')}/${c}`;
+                return `${s.join('')}/${b.join('')}/${states}`;
             }
 
         }
     }
-    let length = (nh ? nh.flat().reduce((x, y) => x + y) : (2*r + 1)**2 - 1) + 1;
+    let length = (nhArray ? nhArray.flat().reduce((x, y) => x + y) : (2 * range + 1)**2 - 1) + 1;
     let outB = new Uint8Array(length);
     for (let value of b) {
         outB[value] = 1;
@@ -332,23 +336,23 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     for (let value of s) {
         outS[value] = 1;
     }
-    let ruleStr = `R${r},C${c},S${unparseHROTRanges(outS)},B${unparseHROTRanges(outB)}`;
-    if (n !== 'M') {
+    let ruleStr = `R${range},C${states},S${unparseHROTRanges(outS)},B${unparseHROTRanges(outB)}`;
+    if (nh !== 'M') {
         ruleStr += ',N';
-        if (n === 'plus') {
+        if (nh === 'plus') {
             ruleStr += '+';
-        } else if (n === 'star') {
+        } else if (nh === 'star') {
             ruleStr += '*';
-        } else if (n === 'hash') {
+        } else if (nh === 'hash') {
             ruleStr += '#';
         } else {
-            ruleStr += n;
+            ruleStr += nh;
         }
     }
     let neighborhood: [number, number][] = [];
-    for (let y = -r; y <= r; y++) {
-        for (let x = -r; x <= r; x++) {
-            if (!nh || nh[y + r][x + r] !== 0) {
+    for (let y = -range; y <= range; y++) {
+        for (let x = -range; x <= range; x++) {
+            if (!nhArray || nhArray[y + range][x + range] !== 0) {
                 neighborhood.push([x, y]);
             }
         }
@@ -356,15 +360,15 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     return {
         rule: {
             str: ruleStr,
-            states: c,
+            states,
             neighborhood,
-            symmetry: nh ? getCustomNeighborhoodSymmetry(r, nh) : 'D8',
+            symmetry: nhArray ? getCustomNeighborhoodSymmetry(range, nhArray) : 'D8',
             period: b[0] ? 2 : 1,
-            range: r,
+            range,
         },
         b: outB,
         s: outS,
-        nh: nh ? new Int8Array(nh.flat()) : null,
+        nh: nhArray ? new Int8Array(nhArray.flat()) : null,
     };
 }
 

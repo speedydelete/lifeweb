@@ -1833,12 +1833,13 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         [trs, states] = parseMAP(rule);
         ruleStr = unparseMAP(trs, states);
     } else if (rule.startsWith('W')) {
-        if (!rule.match(/^W\d+$/)) {
-            throw new RuleError('Invalid W rule');
+        if (match = rule.match(/\/[gGcC]?([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)$/)) {
+            states = Number(match[1]);
+            rule = rule.slice(0, -match[0].length);
         }
         let num = Number(rule.slice(1));
         if (Number.isNaN(num)) {
-            throw new RuleError('Invalid W rule');
+            throw new RuleError(`Invalid W rule: '${num}'`);
         }
         for (let i = 0; i < 512; i++) {
             trs[i | (1 << 4)] = 1;
