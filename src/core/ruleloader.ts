@@ -771,7 +771,6 @@ export function parseAtRule(rule: string): AtRule {
             }
             continue;
         }
-        console.log(section);
         if (section === '@TABLE') {
             if (out.table || out.tree) {
                 continue;
@@ -860,16 +859,7 @@ export class TreePattern extends DataPattern {
     }
 
     lookupCell(nw: number, n: number, ne: number, w: number, c: number, e: number, sw: number, s: number, se: number): number {
-        // return this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.base + nw] + ne] + sw] + se] + n] + w] + e] + s] + c];
-        let data = [nw, ne, sw, se, n, w, e, s, c];
-        console.log('data:', data);
-        let index = this.base;
-        for (let value of data) {
-            index = this.base + value;
-            console.log(`looking up:`, index, '=', this.tree[index]);
-            index = this.tree[index];
-        }
-        return index;
+        return this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.base + nw] + ne] + sw] + se] + n] + w] + e] + s] + c];
     }
 
     runGeneration(): void {
