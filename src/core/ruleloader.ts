@@ -851,17 +851,19 @@ export function atRuleToString(rule: AtRule): string {
 
 export class TreePattern extends DataPattern {
 
+    base: number;
     tree: Uint32Array;
     atRule: AtRule;
 
     constructor(height: number, width: number, data: Uint8Array, rule: Rule, tree: Uint32Array, atRule: AtRule) {
         super(height, width, data, rule);
+        this.base = tree.length - rule.states;
         this.tree = tree;
         this.atRule = atRule;
     }
 
     lookupCell(nw: number, n: number, ne: number, w: number, c: number, e: number, sw: number, s: number, se: number): number {
-        return this.tree[nw + this.tree[ne + this.tree[sw + this.tree[se + this.tree[n + this.tree[w + this.tree[e + this.tree[s + this.tree[c]]]]]]]]];
+        return this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.base + nw] + ne] + sw] + se] + n] + w] + e] + s] + c];
     }
 
     runGeneration(): void {
