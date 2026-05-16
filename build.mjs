@@ -37,4 +37,5 @@ esbuild.build({
     format: 'esm',
     target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
     external: ['node:path'],
+    treeShaking: false,
 });
