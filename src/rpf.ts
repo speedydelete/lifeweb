@@ -883,6 +883,11 @@ export class FSError extends Error {
     name: 'FSError' = 'FSError';
 }
 
+
+type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new () => any} ? ((typeof globalThis)['FileSystemFileHandle'] extends (new () => infer T) ? T : never) : unknown;
+type FileSystemDirectoryHandle = typeof globalThis extends {FileSystemDirectoryHandle: new () => any} ? ((typeof globalThis)['FileSystemDirectoryHandle'] extends (new () => infer T) ? T : never) : unknown;
+
+
 export class File {
 
     name: string;
