@@ -68,15 +68,22 @@ function parseJSONLoose(data: string): number[][] {
     let out: number[][] = [];
     let section: number[] = [];
     let num = '';
-    for (let char of data.slice(1)) {
+    for (let char of data) {
         if (char === '(' || char === '[') {
             level++;
         } else if (char === ')' || char === ']') {
             level--;
+            if (level < 2 && num.trim() !== '') {
+                section.push(Number(num));
+                num = '';
+                out.push(section);
+                section = [];
+            }
         } else if (char === ',') {
             if (level > 1) {
                 section.push(Number(num));
-            } else {
+                num = '';
+            } else if (section.length > 0) {
                 out.push(section);
                 section = [];
             }
