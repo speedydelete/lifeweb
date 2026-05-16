@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Editor</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    overflow: hidden;
+}
+
+body {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+[data-title] {
+    position: relative;
+}
+
+[data-title]::after {
+    content: attr(data-title);
+    display: block;
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    z-index: 2;
+    top: 100%;
+    transform: translateX(-20%);
+    padding: 5px 10px;
+    font-size: 1rem;
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+[data-title].tooltip-top::after {
+    top: -75%;
+}
+
+[data-title]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0.75s;
+}
+
+#left {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 80%;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#left button, input:not([type=checkbox]) {
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid #ffffff;
+}
+
+#left-top {
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+}
+
+#search-wrapper {
+    display: none;
+    width: 100%;
+    padding: 2px 5px;
+    flex-direction: row;
+    align-items: center;
+    font-size: 0.95rem;
+    border: 1px solid #ffffff;
+}
+
+#search-wrapper svg {
+    flex: 0 0 1em;
+    height: 1em;
+    width: 1em;
+}
+
+#search {
+    flex: 1 0 auto;
+    appearance: none;
+    border: none;
+    padding: none;
+}
+
+#search:focus {
+    appearance: none;
+    outline: none;
+}
+
+#file-system {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    overflow-y: auto;
+    font-size: 0.95em;
+}
+
+fs-rpf-item {
+    width: 100%;
+    padding: 0.2em;
+}
+
+fs-rpf-item:hover {
+    background-color: #2f2f2f;
+}
+
+#open-folder {
+    margin-top: 0.5rem;
+}
+
+#rle-wrapper {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 0.5rem;
+}
+
+textarea {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    resize: none;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid #ffffff;
+}
+
+textarea:hover, textarea:focus {
+    outline: none;
+    border: 1px solid #ffffff;
+}
+
+#rle {
+    width: 100%;
+}
+
+#left-right-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 20%;
+    width: 1rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    cursor: ew-resize;
+}
+
+#left-right-resizer-bar {
+    width: 1px;
+    background-color: #ffffff;
+}
+
+#left-right-resizer-fake-border-elt {
+    position: absolute;
+    top: 0;
+    left: calc(0.5rem + 0.5px);
+    right: 0;
+    height: 3.5rem;
+    border-bottom: 1px solid #ffffff;
+}
+
+#right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(20% + 1rem);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#right button {
+    flex: 0 0 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.35rem;
+    border: 1px solid #ffffff;
+    background-color: #000000;
+    color: #ffffff;
+}
+
+#right button.selected {
+    background-color: #5bcefa;
+}
+
+#right-top {
+    height: 3.5rem;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    border-bottom: 1px solid #ffffff;
+    user-select: none;
+}
+
+#right-top > div:not(.spacer) {
+    padding: 0 0.5rem;
+    font-size: 1.5rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#right-top .spacer {
+    flex: 0 0 1.5rem;
+}
+
+#right-top > div.less-padding {
+    padding: 0 0.25rem;
+}
+
+#canvas {
+    flex: 1 0 auto;
+    position: relative;
+    z-index: 0;
+}
+
+#canvas {
+    image-rendering: pixelated;
+}
+
+#canvas {
+    image-rendering: crisp-edges;
+}
+
+#canvas:focus {
+    outline: none;
+}
+
+#paste-mode-menu {
+    display: none;
+    position: absolute;
+    top: 3.5rem;
+    right: 0;
+    padding: 0.5rem;
+    flex-direction: row;
+    gap: 0.5rem;
+    background-color: transparent;
+}
+
+#select-menu {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    background-color: transparent;
+    pointer-events: none;
+}
+
+#select-menu > div {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+}
+
+#select-menu button {
+    pointer-events: auto;
+}
+
+#interaction-level-menu {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 1;
+    padding: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #000000;
+    border-top: 1px solid #ffffff;
+    border-left: 1px solid #ffffff;
+}
+
+#interaction-level-menu button {
+    border: none;
+    background-color: transparent;
+}
+
+#interaction-level {
+    font-size: 2rem;
+    user-select: none;
+}
+
+#rpf-context-menu {
+    display: none;
+    position: absolute;
+    z-index: 3;
+    padding: 0.5rem 0;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #7f7f7f;
+    border-radius: 0.5rem;
+}
+
+#rpf-context-menu > * {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.0625rem 0.5rem;
+    border: none;
+    background-color: inherit;
+    color: inherit;
+}
+
+#cm-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* #right #rpf-context-menu > button:hover {
+    background-color: #cfcfcf;
+} */
+
+#command-wrapper {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    height: 2rem;
+    flex-direction: row;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #000000;
+    overflow-x: auto;
+}
+
+#command {
+    flex: 1 0 auto;
+    outline: none;
+}
+
+#command:focus {
+    outline: none;
+}
+
+#help {
+    display: none;
+    position: absolute;
+    top: min(10%, 100px);
+    bottom: min(10%, 100px);
+    left: max(10%, calc(50% - 250px));
+    right: max(10%, calc(50% - 250px));
+    z-index: 4;
+    background-color: #000000;
+    padding: 1rem;
+    border: 1px solid #ffffff;
+}
+
+#help-x {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    height: 1rem;
+    width: 1rem;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+#help a, #help a:visited {
+    text-decoration: none;
+    color: #5bcefa;
+}
+
+#help h1 {
+    text-align: center;
+}
+
+        </style>
+        <template id="fs-folder-template">
+            <style>
+
+* {
+    box-sizing: border-box;
+}
+
+:host {
+    display: block;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+
+#top {
+    padding: 0.2em;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25em;
+}
+
+#top:hover {
+    background-color: #2f2f2f;
+}
+
+#icon-open, #icon-closed {
+    height: 1em;
+    width: 1em;
+}
+
+#icon-open {
+    display: none;
+}
+
+#main {
+    width: 100%;
+    display: none;
+    flex-direction: row;
+}
+
+#left-bar-wrapper {
+    width: 1em;
+    display: flex;
+    flex-direction: column;
+}
+
+#left-bar {
+    margin-left: 50%;
+    width: 1px;
+    height: 100%;
+    background-color: #7f7f7f;
+}
+
+#contents {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+            </style>
+            <div id="top">
+                <svg id="icon-open" viewBox="0 0 16 16">
+                    <path d="M2,5 L8,11 L14,5" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" stroke-linecap="round" fill="none" />
+                </svg>
+                <svg id="icon-closed" viewBox="0 0 16 16">
+                    <path d="M5,2 L11,8 L5,14" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" stroke-linecap="round" fill="none" />
+                </svg>
+                <div id="name"></div>
+            </div>
+            <div id="main">
+                <div id="left-bar-wrapper">
+                    <div id="left-bar"></div>
+                </div>
+                <slot id="contents"></slot>
+            </div>
+        </template>
+        <template id="fs-file-template">
+            <style>
+
+* {
+    box-sizing: border-box;
+}
+
+:host {
+    display: block;
+    width: 100%;
+}
+
+#name {
+    width: 100%;
+    height: 100%;
+    padding: 0.2em;
+}
+
+#name:hover {
+    background-color: #2f2f2f;
+}
+
+            </style>
+            <div id="name"></div>
+        </template>
+    </head>
+    <body autocapitalize="off" autocorrect="off" spellcheck="false" writingsuggestions="false">
+        <div id="left">
+            <noscript>You must enable JavaScript to use this.</noscript>
+            <div id="left-top">
+                <button id="help-button">Help</button>
+            </div>
+            <div id="search-wrapper">
+                <svg viewBox="0 0 16 16">
+                    <circle cx="6" cy="6" r="4" stroke="#ffffff" fill="none" />
+                    <line x1="7.83" y1="7.83" x2="14" y2="14" stroke="#ffffff" />
+                </svg>
+                <input type="text" id="search" autocomplete="off" />
+            </div>
+            <div id="file-system"></div>
+            <div>
+                <button id="open-folder">Open folder</button>
+            </div>
+            <div id="rle-wrapper">
+                <textarea id="rle" rows="6">x = 3, y = 3, rule = B3/S23
+bo$2bo$3o!</textarea>
+                <button id="view-rle">View</button>
+            </div>
+        </div>
+        <div id="left-right-resizer">
+            <div id="left-right-resizer-bar"></div>
+            <div id="left-right-resizer-fake-border-elt"></div>
+        </div>
+        <div id="right">
+            <div id="right-top">
+                <div id="speed" class="less-padding" data-title="speed (click to change)">1x</div>
+                <button id="reset" data-title="reset">
+                    <svg viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <polygon points="15,0 5,8 15,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="step" data-title="step">
+                    <svg viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <polygon points="8,0 16,8 8,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="run" data-title="run">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="1,0 15,8 1,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <button id="pause" style="display: none;" data-title="pause">
+                    <svg viewBox="0 0 16 16">
+                        <rect x="1" y="0" width="4" height="16" fill="#ffffff" />
+                        <rect x="11" y="0" width="4" height="16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <div class="spacer"></div>
+                <button id="cursor-main" class="selected" data-title="pan">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="3,0 3,14 6,11 8,15 10,14 8,11 13,11" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <button id="cursor-edit" data-title="edit">
+                    <svg viewBox="0 0 16 16">
+                        <line x1="0" y1="16" x2="4" y2="8" stroke="#ffffff" />
+                        <line x1="0" y1="16" x2="8" y2="12" stroke="#ffffff" />
+                        <line x1="2" y1="12" x2="4" y2="14" stroke="#ffffff" />
+                        <line x1="4" y1="8" x2="8" y2="12" stroke="#ffffff" />
+                        <line x1="4" y1="8" x2="12" y2="0" stroke="#ffffff" />
+                        <line x1="8" y1="12" x2="16" y2="4" stroke="#ffffff" />
+                        <line x1="6" y1="10" x2="12" y2="4" stroke="#ffffff" />
+                        <line x1="10" y1="2" x2="14" y2="6" stroke="#ffffff" />
+                        <line x1="12" y1="0" x2="16" y2="4" stroke="#ffffff" />
+                    </svg>
+                </button>
+                <button id="cursor-select" data-title="select">
+                    <svg viewBox="0 0 16 16" image-rendering="crispEdges">
+                        <line x1="0" y1="0" x2="2" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="4" y1="0" x2="7" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="9" y1="0" x2="12" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="14" y1="0" x2="16" y2="0" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="0" x2="0" y2="2" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="4" x2="0" y2="7" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="9" x2="0" y2="12" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="14" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                        <line x1="0" y1="16" x2="2" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="4" y1="16" x2="7" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="9" y1="16" x2="12" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="14" y1="16" x2="16" y2="16" stroke="#ffffff" stroke-width="3" />
+                        <line x1="16" y1="0" x2="16" y2="2" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="4" x2="16" y2="7" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="9" x2="16" y2="12" stroke="#ffffff" stroke-width="2" />
+                        <line x1="16" y1="14" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                    </svg>
+                </button>
+                <div class="spacer"></div>
+                <button id="undo" data-title="undo">
+                    <svg viewBox="0 0 16 16">
+                        <path d="M8,15 A7,7,0,1,0,2,6" fill="transparent" stroke="#ffffff" />
+                        <polygon points="0,2 5,7 0,7" fill="#ffffff" stroke="#ffffff" />
+                    </svg>
+                </button>
+                <button id="redo" data-title="redo">
+                    <svg viewBox="0 0 16 16">
+                        <path d="M8,15 A7,7,0,1,1,14,6" fill="transparent" stroke="#ffffff" />
+                        <polygon points="16,2 11,7 16,7" fill="#ffffff" stroke="#ffffff" />
+                    </svg>
+                </button>
+                <div class="spacer"></div>
+                <div id="scale-wrapper" data-title="zoom (click to change)">Z =&nbsp;<span id="scale">10.0</span></div>
+                <div data-title="generation">T =&nbsp;<span id="gens">0</span></div>
+                <div data-title="population">C =&nbsp;<span id="pop">0</span></div>
+                <div id="position" data-title="cell state at cursor position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
+            </div>
+            <canvas id="canvas" tabindex="-1"></canvas>
+            <div id="paste-mode-menu">
+                <button id="paste-or" class="selected">OR</button>
+                <button id="paste-copy">CPY</button>
+                <button id="paste-and">AND</button>
+                <button id="paste-xor">XOR</button>
+            </div>
+            <div id="select-menu">
+                <div>
+                    <button id="sel-cancel" data-title="cancel" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                            <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="sel-group" image-rendering="crispEdges" data-title="group" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <rect x="1" y="1" height="5" width="5" stroke="#ffffff" stroke-width="1" />
+                            <rect x="10" y="1" height="5" width="5" stroke="#ffffff" stroke-width="1" />
+                            <line x1="3" y1="6" x2="6" y2="11" stroke="#ffffff" stroke-width="1" />
+                            <line x1="13" y1="6" x2="10" y2="11" stroke="#ffffff" stroke-width="1" />
+                            <rect x="5.5" y="11" height="5" width="5" fill="#ffffff" stroke="#ffffff" stroke-width="1" />
+                        </svg>
+                    </button>
+                    <button id="sel-ungroup" image-rendering="crispEdges" data-title="ungroup" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <rect x="5.5" y="1" height="5" width="5" fill="#ffffff" stroke="#ffffff" stroke-width="1" />
+                            <line x1="6" y1="6" x2="3" y2="11" stroke="#ffffff" stroke-width="1" />
+                            <line x1="10" y1="6" x2="13" y2="11" stroke="#ffffff" stroke-width="1" />
+                            <rect x="1" y="11" height="5" width="5" stroke="#ffffff" stroke-width="1" />
+                            <rect x="10" y="11" height="5" width="5" stroke="#ffffff" stroke-width="1" />
+                        </svg>
+                    </button>
+                </div>
+                <div>
+                    <button id="sel-move-up" data-title="move up" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="3,5 8,0 13,5" fill="#ffffff" />
+                            <line x1="8" y1="4" x2="8" y2="16" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="sel-move-down" data-title="move down" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="8" y1="0" x2="8" y2="12" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="3,11 8,16 13,11" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="sel-move-left" data-title="move left" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="5,3 0,8 5,13" fill="#ffffff" />
+                            <line x1="4" y1="8" x2="16" y2="8" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="sel-move-right" data-title="move right" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="0" y1="8" x2="12" y2="8" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="11,3 16,8 11,13" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="sel-clear" data-title="clear" class="tooltip-top">
+                        <svg viewBox="0 0 16 16" image-rendering="crispEdges">
+                            <polygon points="1,1 15,1 15,15 1,15" stroke="#ffffff" stroke-width="2" />
+                            <line x1="4" y1="4" x2="6" y2="4" stroke="#ffffff" />
+                            <line x1="7" y1="4" x2="9" y2="4" stroke="#ffffff" />
+                            <line x1="10" y1="4" x2="12" y2="4" stroke="#ffffff" />
+                            <line x1="4" y1="4" x2="4" y2="6" stroke="#ffffff" />
+                            <line x1="4" y1="7" x2="4" y2="9" stroke="#ffffff" />
+                            <line x1="4" y1="10" x2="4" y2="12" stroke="#ffffff" />
+                            <line x1="4" y1="12" x2="6" y2="12" stroke="#ffffff" />
+                            <line x1="7" y1="12" x2="9" y2="12" stroke="#ffffff" />
+                            <line x1="10" y1="12" x2="12" y2="12" stroke="#ffffff" />
+                            <line x1="12" y1="4" x2="12" y2="6" stroke="#ffffff" />
+                            <line x1="12" y1="7" x2="12" y2="9" stroke="#ffffff" />
+                            <line x1="12" y1="10" x2="12" y2="12" stroke="#ffffff" />
+                        </svg>
+                    </button>
+                </div>
+                <div>
+                    <button id="sel-flip-horizontal" data-title="flip horizontal" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="4,0 0,4 4,8" fill="#ffffff" />
+                            <line x1="4" y1="4" x2="16" y2="4" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="12,8 16,12 12,16" fill="#ffffff" />
+                            <line x1="0" y1="12" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="sel-flip-vertical" data-title="flip vertical" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polygon points="0,4 4,0 8,4" fill="#ffffff" />
+                            <line x1="4" y1="4" x2="4" y2="16" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="8,12 12,16 16,12" fill="#ffffff" />
+                            <line x1="12" y1="0" x2="12" y2="12" stroke="#ffffff" stroke-width="2" />
+                        </svg>
+                    </button>
+                    <button id="sel-rotate-left" data-title="rotate left" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polyline points="8,14 13,14 13,2 3,2 3,8" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="6,8 0,8 3,12" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="sel-rotate-right" data-title="rotate right" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <polyline points="8,14 3,14 3,2 13,2 13,8" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="10,8 16,8 13,12" fill="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="sel-rotate-180" data-title="rotate 180" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <path d="M1,6 A7,7,0,0,1,14,5" fill="transparent" stroke="#ffffff" />
+                            <polygon points="16,1 11,6 16,6" fill="#ffffff" stroke="#ffffff" />
+                            <path d="M15,10 A7,7,0,0,1,2,11" fill="transparent" stroke="#ffffff" />
+                            <polygon points="0,15 5,10 0,10" fill="#ffffff" stroke="#ffffff" />
+                        </svg>
+                    </button>
+                    <button id="sel-flip-diagonal" data-title="flip diagonal" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="1" y1="10" x2="10" y2="1" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="5,0 11,0 11,6" fill="#ffffff" />
+                            <line x1="15" y1="6" x2="7" y2="13" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="11,15 5,15 5,9" fill="#ffffff" />
+                        </svg>
+                    </button>
+                        <button id="sel-flip-anti-diagonal" data-title="flip anti-diagonal" class="tooltip-top">
+                        <svg viewBox="0 0 16 16">
+                            <line x1="15" y1="10" x2="6" y2="1" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="11,0 5,0 5,6" fill="#ffffff" />
+                            <line x1="1" y1="6" x2="9" y2="13" stroke="#ffffff" stroke-width="2" />
+                            <polygon points="5,15 11,15 11,9" fill="#ffffff" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="interaction-level-menu">
+                <button id="dec-interaction-level">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="1,8 15,0 15,16" fill="#ffffff" />
+                    </svg>
+                </button>
+                <div id="interaction-level" data-title="interaction level">0</div>
+                <button id="inc-interaction-level">
+                    <svg viewBox="0 0 16 16">
+                        <polygon points="1,0 15,8 1,16" fill="#ffffff" />
+                    </svg>
+                </button>
+            </div>
+            <div id="rpf-context-menu">
+                <div id="cm-name"></div>
+                <div id="cm-path"></div>
+                <div id="cm-desc"></div>
+            </div>
+            <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
+        </div>
+        <div id="help">
+            <button id="help-x">
+                <svg viewBox="0 0 16 16">
+                    <line x1="0" y1="0" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
+                    <line x1="16" y1="0" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
+                </svg>
+            </button>
+            <h1>Pattern Editor</h1>
+            <div><a href="https://github.com/speedydelete/lifeweb">Source code</a></div>
+        </div>
+        <script>'use strict';function formatError(e){let x;if(e instanceof Error&&'stack' in e){x=e.stack;if(!x.slice(0,x.indexOf('\n')).includes('Error')){x=String(e)+'\n'+x.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');}}else{x=String(e)}x=x.replaceAll(/file:\/\/\/.*?\/code\//g,'');for(let m of x.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)){let f=atob(m[1]);x=x.replaceAll(m[0],f.slice(2,f.indexOf('*/')))+(x.toLowerCase().includes('failed to fetch')?'\\n\\n'+f:'');}return x;}function printError(e){let x=formatError(e);if(document.readyState!=='complete'||true){alert(x);return;}document.body.replaceChildren([]);let b=document.body;b.style.overflowY='auto';b.style.background='#ffffff';b.style.overflowWrap='break-word';let t=document.createElement('pre');t.style.color='red';t.style.paddingLeft='15px';t.style.paddingBottom='15px';t.style.fontFamily="'Courier New',Courier,monospace";t.style.fontSize='14px';t.textContent=x;b.appendChild(t);let l=setInterval(()=>{});for(let i=1;i<=l;i++)clearInterval(i);l=requestAnimationFrame(()=>{});for(let i=1;i<=l;i++)cancelAnimationFrame(i);onkeydown=()=>{};onkeyup=()=>{};onclick=()=>{};onmousedown=()=>{};onmouseup=()=>{};if(typeof running==='boolean')running=false;};window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});var BUILD_NUMBER=390;</script>
+        <script src="index.js"></script>
+    </body>
+</html>

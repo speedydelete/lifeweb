@@ -12,7 +12,7 @@ var path: (typeof import('node:path'))['posix'];
 
 // import {posix as path} from 'path';
 
-import {Rect, Rule, Pattern, speedToString, createPattern} from './core/index.js';
+import {Rect, Rule, Pattern, speedToString, createPattern} from '../core/index.js';
 
 
 export class RPFError extends Error {};
