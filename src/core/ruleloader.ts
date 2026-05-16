@@ -780,9 +780,6 @@ export function parseAtRule(rule: string): AtRule {
             out.table = table;
             out.tree = parseTree(functionToTree(table.neighborhood, table.states, table.symmetry, cells => tableCellLookup(table, cells)));
         } else if (section === '@TREE') {
-            if (out.table || out.tree) {
-                continue;
-            }
             out.tree = parseTree(data);
         } else if (section ==='@NAMES') {
             out.names = {};
