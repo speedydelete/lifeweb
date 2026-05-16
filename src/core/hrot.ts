@@ -695,7 +695,7 @@ export class HROTB0Pattern extends CoordPattern {
 
 
 /** Parses a HROT rule. */
-export function createHROTPattern(rule: string, height: number, width: number, data: Uint8Array): string | HROTPattern | HROTB0Pattern {
+export function createHROTPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | HROTPattern | HROTB0Pattern {
     let out = rule.startsWith('R') ? parseHROTRule(rule) : parseCatagolueHROTRule(rule);
     if (typeof out === 'string') {
         return out;
