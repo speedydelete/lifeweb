@@ -857,7 +857,7 @@ export class TreePattern extends DataPattern {
 
     constructor(height: number, width: number, data: Uint8Array, rule: Rule, tree: Uint32Array, atRule: AtRule) {
         super(height, width, data, rule);
-        this.base = Math.floor((tree.length - 1) / rule.states);
+        this.base = tree.length - rule.states;
         this.tree = tree;
         this.atRule = atRule;
     }
