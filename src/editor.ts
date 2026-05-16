@@ -14,7 +14,7 @@ import {RPFError, Rotation, ROTATION_COMBINE, transformCoordinates, RPFObjectDat
 declare global {
 
     interface FileSystemDirectoryHandle {
-        entries(): FileSystemDirectoryHandleAsyncIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>;
+        entries(): {[Symbol.asyncIterator](): AsyncIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>};
     }
 
 }
@@ -1225,7 +1225,7 @@ var sharedActions: {[K in DefaultAction]?: Hook[]} = {
         getElement('file-system').style.display = 'flex';
         getElement('rle-wrapper').style.display = 'none';
         run('render-file-system');
-        for (let elt of fsWrapperElt.children) {
+        for (let elt of Array.from(fsWrapperElt.children)) {
             if (elt instanceof FSFolderElement) {
                 elt.open = true;
             }
