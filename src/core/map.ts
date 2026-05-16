@@ -1865,7 +1865,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             states = Number(match[1]);
             rule = rule.slice(match[0].length);
         }
-        if (match = rule.match(/\/[GgCc]?([0-9.e]+|-?NaN|-?Infinity)$/)) {
+        if (rule.split('/').length >= 2 && (match = rule.match(/\/[GgCc]?([0-9.e]+|-?NaN|-?Infinity)$/))) {
             states = Number(match[1]);
             rule = rule.slice(0, -match[0].length);
         }
@@ -1894,12 +1894,11 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             if (sections.length > 2) {
                 throw new RuleError('More than 1 underscore provided');
             }
-        } else if (rule.includes('S') || rule.includes('s')) {
+        } else if ((rule.startsWith('B') || rule.startsWith('b')) && (rule.includes('S') || rule.includes('s'))) {
             let index = rule.indexOf('s');
             if (index === -1) {
                 index = rule.indexOf('S');
             }
-            let index2 = rule.indexOf('/');
             sections = [rule.slice(0, index), rule.slice(index)];
             bs = true;
         } else {
