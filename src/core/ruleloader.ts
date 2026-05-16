@@ -145,7 +145,7 @@ function parseTree(data: string): TreeData {
     let i = 0;
     for (let [isLeaf, data] of tree) {
         for (let value of data) {
-            out[i++] = isLeaf ? value * states : value;
+            out[i++] = isLeaf ? value : value * states;
         }
     }
     return {
@@ -863,7 +863,16 @@ export class TreePattern extends DataPattern {
     }
 
     lookupCell(nw: number, n: number, ne: number, w: number, c: number, e: number, sw: number, s: number, se: number): number {
-        return this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.base + nw] + ne] + sw] + se] + n] + w] + e] + s] + c];
+        // return this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.tree[this.base + nw] + ne] + sw] + se] + n] + w] + e] + s] + c];
+        let data = [nw, ne, sw, se, n, w, e, s, c];
+        console.log('data:', data);
+        let index = this.base;
+        for (let value of data) {
+            index = this.base + value;
+            console.log(`looking up:`, index, '=', this.tree[index]);
+            index = this.tree[index];
+        }
+        return index;
     }
 
     runGeneration(): void {
