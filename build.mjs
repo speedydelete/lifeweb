@@ -19,9 +19,8 @@ async function buildMain() {
         sourcemap: true,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
-        treeShaking: TextTrackCue,
-        minifyWhitespace: true,
-        minifySyntax: true,
+        treeShaking: true,
+        minify: true,
     });
 }
 
@@ -50,8 +49,7 @@ async function buildEditor() {
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
         treeShaking: false,
-        minifyWhitespace: true,
-        minifySyntax: true,
+        minify: true,
         plugins: [
             {
                 name: 'lifeweb-core-alias',
