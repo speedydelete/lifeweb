@@ -2,14 +2,13 @@
 let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', startIn?: string | FileSystemFileHandle}) => Promise<FileSystemDirectoryHandle>;
 // import {showDirectoryPicker} from 'file-system-access';
 import {INSERT_COPY, INSERT_AND, INSERT_OR, INSERT_XOR, Pattern, CoordPattern, createPattern, parse as parseRLE} from '../core/index.js';
-import {RPFError, Rotation, ROTATION_COMBINE, transformCoordinates, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+import {RPFError, Rotation, ROTATION_COMBINE, applyRotation, transformCoordinates, isInside, getOverlap, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
 
 import './base.js';
 
-// import * as lifeweb from './core/index.js';
-// import * as lifewebRPF from './rpf.js';
-// Object.assign(globalThis, lifeweb);
-// Object.assign(globalThis, lifewebRPF);
+import * as lifeweb from '../core/index.js';
+Object.assign(globalThis, lifeweb);
+Object.assign(globalThis, {RPFError, ROTATION_COMBINE, applyRotation, transformCoordinates, isInside, getOverlap, RPFPattern, FSFile: File, Directory, RPFFile});
 
 
 let leftElt = getElement('left');

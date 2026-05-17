@@ -19,7 +19,7 @@ async function buildMain() {
         sourcemap: true,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
-        treeShaking: false,
+        treeShaking: TextTrackCue,
         minifyWhitespace: true,
         minifySyntax: true,
     });
