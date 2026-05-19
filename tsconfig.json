@@ -11,5 +11,5 @@
         "sourceMap": true,
         "declaration": true
     },
-    "files": ["./src/index.ts", "./src/apgweb.ts", "./src/rss.ts", "./src/uc/index.ts", "./src/editor/rpf.ts", "./src/editor.ts"]
+    "files": ["./src/index.ts", "./src/apgweb.ts", "./src/rss.ts", "./src/uc/index.ts", "./src/editor/rpf.ts", "./src/editor/index.ts"]
 }

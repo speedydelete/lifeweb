@@ -1,5 +1,5 @@
 
-var path: (typeof import('node:path'))['posix'];
+export let path: (typeof import('node:path'))['posix'];
 (async () => {
     if (typeof window === 'object' && window === globalThis) {
         // @ts-ignore
@@ -8,11 +8,10 @@ var path: (typeof import('node:path'))['posix'];
         // @ts-ignore
         path = (await import('node:path')).posix;
     }
+    (globalThis as any).path = path;
 })();
 
-// import {posix as path} from 'path';
-
-import {Rect, Rule, Pattern, speedToString, createPattern} from '../core/index.js';
+import {Rect, Rule, Pattern, MAPPattern, speedToString, createPattern} from '../core/index.js';
 
 
 export class RPFError extends Error {};
@@ -97,7 +96,7 @@ export function getOverlap(a: RPFRect, b: RPFRect): {overlap: boolean, x: number
 }
 
 
-export interface RPFObjectData<T extends Pattern = Pattern> {
+export interface PartialRPFObjectData<T extends Pattern = Pattern> {
     p: T | RPFPattern<T>;
     x: number;
     y: number;
@@ -105,12 +104,17 @@ export interface RPFObjectData<T extends Pattern = Pattern> {
     time: number;
 }
 
+export interface RPFObjectData<T extends Pattern = Pattern> extends PartialRPFObjectData<T> {
+}
+
+let envelopeBase = createPattern('B3/S23') as MAPPattern;
+
 export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     base: T;
     key: string;
     path: string;
-    data: Set<RPFObjectData>;
+    data: Set<RPFObjectData<T>>;
     minX: number;
     minY: number;
     height: number;
@@ -124,9 +128,27 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     name?: string = undefined;
     desc?: string = undefined;
     periodic?: [number, number, number] = undefined;
-    creates?: {p: T | RPFPattern<T>, x: number, y: number, rotation: Rotation, times: number[]} = undefined;
+    creates?: {
+        p: T | RPFPattern<T>;
+        x: number;
+        y: number;
+        rotation: Rotation;
+        times: number[];
+    } = undefined;
+    conduit?: {
+        recoveryTime: number;
+        repeatTime: number;
+        overclock: number[];
+        inputs: PartialRPFObjectData<T>[];
+        outputs: PartialRPFObjectData<T>[];
+    } = undefined;
+    envelope?: {
+        x: number;
+        y: number;
+        p: MAPPattern;
+    } = undefined;
 
-    constructor(base: T, key: string, path: string, data: Set<RPFObjectData>) {
+    constructor(base: T, key: string, path: string, data: Set<RPFObjectData<T>>) {
         super();
         this.base = base;
         this.key = key;
@@ -165,6 +187,51 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         this.rule = base.rule;
     }
 
+    _stringifyObject(file: RPFFile<T> | undefined, dir: string, obj: PartialRPFObjectData<T> | (Omit<PartialRPFObjectData<T>, 'time'> & {times: number[]})): string {
+        let str: string | undefined = undefined;
+        if (obj.p instanceof RPFPattern) {
+            let dir2 = path.dirname(obj.p.path);
+            if (!file || dir === dir2) {
+                str = obj.p.key;
+            } else {
+                for (let imported of file.starImports) {
+                    if (dir2 === imported.path) {
+                        str = obj.p.key;
+                        break;
+                    }
+                }
+                if (str === undefined) {
+                    for (let [key, imported] of Object.entries(file.imports)) {
+                        if (dir2 === imported.path) {
+                            str = `${key}.${obj.p.key}`;
+                            break;
+                        }
+                    }
+                }
+                if (str === undefined) {
+                    str = obj.p.path;
+                }
+            }
+        } else {
+            str = '*' + obj.p.toApgcode();
+        }
+        let timeIsNontrivial = 'times' in obj ? !(obj.times.length === 1 && obj.times[0] === 0) : obj.time !== 0;
+        if (obj.x !== 0 || obj.y !== 0 || obj.rotation !== 'F' || timeIsNontrivial) {
+            str += ` ${obj.x} ${obj.y}`;
+            if (obj.rotation !== 'F' || !timeIsNontrivial) {
+                str += ` ${obj.rotation}`;
+                if (timeIsNontrivial) {
+                    if ('times' in obj) {
+                        str += ` ${obj.times.join(',')}`;
+                    } else {
+                        str += ` ${obj.time}`;
+                    }
+                }
+            }
+        }
+        return str;
+    }
+
     toString(file?: RPFFile<T>, pasting?: boolean): string {
         let dir = path.dirname(this.path);
         let out: string[] = [`${this.key}:`];
@@ -181,46 +248,31 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             out.push(`#periodic ${this.periodic.join(' ')}`);
         }
         if (this.creates) {
-            out.push(`#creates ${this.creates.p instanceof RPFPattern}`);
+            out.push(`#creates ${this._stringifyObject(file, dir, this.creates)}`);
+        }
+        if (this.envelope) {
+            out.push(`#envelope ${this.envelope.x}`)
+        }
+        if (this.conduit) {
+            let data = this.conduit;
+            let str = `#conduit ${data.recoveryTime}`;
+            if (data.overclock.length > 0) {
+                str += ` ${data.overclock.join(',')},${data.repeatTime}`;
+            } else {
+                str += ` ${data.repeatTime}`;
+            }
+            for (let input of data.inputs) {
+                str += ` input ${this._stringifyObject(file, dir, input)}`;
+            }
+            for (let output of data.outputs) {
+                str += ` output ${this._stringifyObject(file, dir, output)}`;
+            }
+        }
+        if (this.envelope) {
+
         }
         for (let value of this.data) {
-            let str: string | undefined = undefined;
-            if (value.p instanceof RPFPattern) {
-                let dir2 = path.dirname(value.p.path);
-                if (!file || dir === dir2) {
-                    str = value.p.key;
-                } else {
-                    for (let imported of file.starImports) {
-                        if (dir2 === imported.path) {
-                            str = value.p.key;
-                            break;
-                        }
-                    }
-                    if (str === undefined) {
-                        for (let [key, imported] of Object.entries(file.imports)) {
-                            if (dir2 === imported.path) {
-                                str = `${key}.${value.p.key}`;
-                                break;
-                            }
-                        }
-                    }
-                    if (str === undefined) {
-                        str = value.p.path;
-                    }
-                }
-            } else {
-                str = '*' + value.p.toApgcode();
-            }
-            if (value.x !== 0 || value.y !== 0 || value.rotation !== 'F' || value.time !== 0) {
-                str += ` ${value.x} ${value.y}`;
-                if (value.rotation !== 'F' || value.time !== 0) {
-                    str += ` ${value.rotation}`;
-                    if (value.time !== 0) {
-                        str += ` ${value.time}`;
-                    }
-                }
-            }
-            out.push(str);
+            out.push(this._stringifyObject(file, dir, value));
         }
         return out.join('\n');
     }
@@ -255,6 +307,70 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                         throw new RPFError(`Invalid #periodic: '${line}'`);
                     }
                     out.periodic = [dx, dy, period];
+                } else if (parts[0] === '#creates') {
+                    if (!parts[1]) {
+                        throw new RPFError(`Expected object after '#creates'`);
+                    }
+                    let p = parts[1].startsWith('*') ? file.base.loadApgcode(parts[1].slice(1)).shrinkToFit() as T : file.lookupName(parts[1]);
+                    if (!p) {
+                        throw new RPFError(`Cannot find RPF object '${parts[1]}'`);
+                    }
+                    if (parts[4] !== undefined && !ROTATIONS.includes(parts[4])) {
+                        throw new RPFError(`Invalid rotation: '${parts[4]}'`);
+                    }
+                    out.creates = {
+                        p,
+                        x: parts[2] === undefined ? 0 : Number(parts[2]),
+                        y: parts[3] === undefined ? 0 : Number(parts[3]),
+                        rotation: parts[4] === undefined ? 'F' : parts[4] as Rotation,
+                        times: parts[5] === undefined ? [0] : parts[5].split(',').map(Number),
+                    };
+                } else if (parts[0] === '#conduit') {
+                    if (parts.length < 3) {
+                        throw new Error(`Expected 2 values after '#conduit'`);
+                    }
+                    let ranges = parts[2].split(',').map(Number);
+                    let conduit: RPFPattern<T>['conduit'] = {
+                        recoveryTime: Number(parts[1]),
+                        repeatTime: ranges[ranges.length - 1],
+                        overclock: ranges.slice(0, -1),
+                        inputs: [],
+                        outputs: [],
+                    };
+                    for (let i = 3; i < parts.length; i++) {
+                        let type = parts[i];
+                        if (type !== 'input' && type !== 'output') {
+                            throw new RPFError(`Expected 'input' or 'output' in #conduit`);
+                        }
+                        if (!parts[i + 1]) {
+                            throw new RPFError(`Expected object after '${type}'`);
+                        }
+                        let p = parts[i + 1].startsWith('*') ? file.base.loadApgcode(parts[i + 1].slice(1)).shrinkToFit() as T : file.lookupName(parts[i + 1]);
+                        if (!p) {
+                            throw new RPFError(`Cannot find RPF object '${parts[1]}'`);
+                        }
+                        if (parts[4] !== undefined && !ROTATIONS.includes(parts[4])) {
+                            throw new RPFError(`Invalid rotation: '${parts[4]}'`);
+                        }
+                        let obj: PartialRPFObjectData<T> = {
+                            p,
+                            x: parts[2] === undefined ? 0 : Number(parts[2]),
+                            y: parts[3] === undefined ? 0 : Number(parts[3]),
+                            rotation: parts[4] === undefined ? 'F' : parts[4] as Rotation,
+                            time: parts[4] === undefined ? 0 : Number(parts[4]),
+                        };
+                        if (type === 'input') {
+                            conduit.inputs.push(obj);   
+                        } else {
+                            conduit.outputs.push(obj);
+                        }
+                    }
+                    out.conduit = conduit;
+                } else if (parts[0] === '#envelope') {
+                    let x = Number(parts[1]);
+                    let y = Number(parts[2]);
+                    let p = envelopeBase.loadApgcode(parts[3]).shrinkToFit();
+                    out.envelope = {x, y, p};
                 }
             } else {
                 let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() as T : file.lookupName(parts[0]);
@@ -270,7 +386,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                     y: parts[2] === undefined ? 0 : Number(parts[2]),
                     rotation: parts[3] === undefined ? 'F' : parts[3] as Rotation,
                     time: parts[4] === undefined ? 0 : Number(parts[4]),
-                })
+                });
             }
         }
         out.recomputeSizes();
@@ -443,13 +559,40 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return true;
     }
 
-    assignMetadata(p: RPFPattern<T>): void {
+    assignMetadata(p: RPFPattern<T>, deep: boolean): void {
         p.name = this.name;
-        p.periodic = this.periodic;
+        p.periodic = structuredClone(this.periodic);
+        p.creates = this.creates ? {
+            p: deep ? (this.creates.p instanceof RPFPattern ? this.creates.p.deepCopy() : this.creates.p.copy() as T) : this.creates.p,
+            x: this.creates.x,
+            y: this.creates.y,
+            rotation: this.creates.rotation,
+            times: structuredClone(this.creates.times),
+        } : undefined;
+        p.conduit = this.conduit ? {
+            recoveryTime: this.conduit.recoveryTime,
+            repeatTime: this.conduit.repeatTime,
+            overclock: this.conduit.overclock.slice(),
+            inputs: this.conduit.inputs.map(obj => ({
+                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy() as T) : obj.p,
+                x: obj.x,
+                y: obj.y,
+                rotation: obj.rotation,
+                time: obj.time,
+            })),
+            outputs: this.conduit.outputs.map(obj => ({
+                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy() as T) : obj.p,
+                x: obj.x,
+                y: obj.y,
+                rotation: obj.rotation,
+                time: obj.time,
+            })),
+        } : undefined;
+        p.envelope = structuredClone(this.envelope);
     }
 
     copy(): RPFPattern<T> {
-        let data = new Set<RPFObjectData>();
+        let data = new Set<RPFObjectData<T>>();
         for (let value of this.data) {
             data.add({
                 p: value.p,
@@ -460,12 +603,12 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             });
         }
         let out = new RPFPattern(this.base, this.key, this.path, data);
-        this.assignMetadata(out);
+        this.assignMetadata(out, false);
         return out;
     }
 
     deepCopy(): RPFPattern<T> {
-        let data = new Set<RPFObjectData>();
+        let data = new Set<RPFObjectData<T>>();
         for (let value of this.data) {
             data.add({
                 p: value.p instanceof RPFPattern ? value.p.deepCopy() : value.p.copy() as T,
@@ -476,13 +619,19 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             });
         }
         let out = new RPFPattern(this.base, this.key, this.path, data);
-        this.assignMetadata(out);
+        this.assignMetadata(out, true);
         return out;
     }
 
     clearedCopy(): RPFPattern<T> {
         let out = new RPFPattern(this.base, this.key, this.path, new Set());
-        this.assignMetadata(out);
+        this.assignMetadata(out, false);
+        return out;
+    }
+
+    clearedDeepCopy(): RPFPattern<T> {
+        let out = new RPFPattern(this.base, this.key, this.path, new Set());
+        this.assignMetadata(out, true);
         return out;
     }
 
@@ -883,9 +1032,8 @@ export class FSError extends Error {
     name: 'FSError' = 'FSError';
 }
 
-
-type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new () => any} ? ((typeof globalThis)['FileSystemFileHandle'] extends (new () => infer T) ? T : never) : unknown;
-type FileSystemDirectoryHandle = typeof globalThis extends {FileSystemDirectoryHandle: new () => any} ? ((typeof globalThis)['FileSystemDirectoryHandle'] extends (new () => infer T) ? T : never) : unknown;
+type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new () => infer T} ? T : unknown;
+type FileSystemDirectoryHandle = typeof globalThis extends {FileSystemDirectoryHandle: new () => infer T} ? T : unknown;
 
 
 export class File {

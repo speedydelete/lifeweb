@@ -515,6 +515,7 @@ textarea:hover, textarea:focus {
             <noscript>You must enable JavaScript to use this.</noscript>
             <div id="left-top">
                 <button id="help-button">Help</button>
+                <button id="download-rle">Download RLE</button>
             </div>
             <div id="search-wrapper">
                 <svg viewBox="0 0 16 16">
@@ -808,7 +809,7 @@ function formatError(error) {
 window.addEventListener('error', event => alert(formatError((event.error))));
 window.addEventListener('unhandledrejection', event => alert(formatError(event.reason)));
 
-var BUILD_NUMBER = 398;
+var BUILD_NUMBER = 404;
 
 function getElement(id, type) {
     let out = document.getElementById(id);
@@ -823,6 +824,13 @@ function getElement(id, type) {
     }
     return out;
 }
+
+var sharedActions = {};
+var normalActions = {};
+var rpfActions = {};
+var eventListeners = {};
+var keybinds = {};
+var extensions = {};
 
 var theme;
 

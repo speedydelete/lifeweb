@@ -39,7 +39,7 @@ async function buildEditor() {
         minify_css: true,
         minify_js: true,
     }));
-    await fs.writeFile(path('editor/stdlib.rpf'), await fs.readFile('src/stdlib.rpf'));
+    await fs.writeFile(path('editor/stdlib.rpf'), await fs.readFile('src/editor/stdlib.rpf'));
     await esbuild.build({
         entryPoints: [path('src/editor/index.ts')],
         bundle: true,
