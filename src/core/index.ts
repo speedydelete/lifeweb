@@ -452,6 +452,3 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new Error(`Unknown pattern: '${p.constructor.name}'`);
     }
 }
-
-
-console.log(createPattern('B2cek3r4ain5aj6ace78/D4a'));
