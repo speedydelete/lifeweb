@@ -1564,6 +1564,9 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         parts.push(currentPart);
         for (let i = 0; i < parts.length; i++) {
             let part = parts[i];
+            if (part.length === 0) {
+                continue;
+            }
             let end = part[part.length - 1].toUpperCase();
             if (end in INT_SPECS) {
                 nhLetter = end as typeof nhLetter;
