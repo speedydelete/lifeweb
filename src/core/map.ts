@@ -1554,7 +1554,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             if (char === '/' || char === '_') {
                 parts.push(currentPart);
                 currentPart = '';
-            } else if ('BSADGCbsadgc'.includes(char) && currentPart.length > 0) {
+            } else if ('BSADGCbsadg'.includes(char) && currentPart.length > 0) {
                 parts.push(currentPart);
                 currentPart = char;
             } else {
