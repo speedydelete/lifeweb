@@ -228,7 +228,7 @@ export function parseTransitions(data: string, spec: INTSpec): string[] {
         let digit = parseInt(part[0]);
         let letters = spec.validTrs[digit];
         if (!letters) {
-            throw new RuleError(`No ${spec.name} transitions with ${digit} neighbors`);
+            throw new RuleError(`No ${spec.name} transitions with ${part[0]} neighbors`);
         }
         if (part.length === 1) {
             for (let letter of spec.validTrs[digit]) {
@@ -1554,7 +1554,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             if (char === '/' || char === '_') {
                 parts.push(currentPart);
                 currentPart = '';
-            } else if ('BSADGCbsadg'.includes(char) && currentPart.length > 0) {
+            } else if ('BSADGCbsdg'.includes(char) && currentPart.length > 0) {
                 parts.push(currentPart);
                 currentPart = char;
             } else {
