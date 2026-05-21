@@ -1594,7 +1594,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                     }
                 }
                 if (start === 'B' || start === 'A') {
-                    sFound = true;
+                    bFound = true;
                 }
                 if (start === 'S' || start === 'D') {
                     sFound = true;
