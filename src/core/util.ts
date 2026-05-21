@@ -106,12 +106,14 @@ function startsWithNumber(x: string, i: number = 0): boolean {
     return '0123456789'.includes(x[i]) || (x[i] === '-' && '0123456789'.includes(x[i + 1]));
 }
 
+/** Sorts values in Unicode order, but with 2 exceptions: colons separete it into sections which take precedence, and negative numbers are sorted in numerical order (mostly for uc). */
 export function numericSorter(a: string, b: string): number {
     let length = Math.min(a.length, b.length);
     for (let i = 0; i < length; i++) {
         if (a[i] === b[i] && !('0123456789-'.includes(a[i]))) {
             continue;
         }
+        // colon sections override by length, shorter ones are shorted before longer ones
         if (a[i] === ':') {
             return -1;
         } else if (b[i] === ':') {

@@ -1,7 +1,7 @@
 
 /*
 
-Implements xp2_882030kgz010602's algorithm for object seperation for INT rules:
+Implements xp2's algorithm for object seperation for INT rules:
 1. Give each group of kingwise-connected cells a number
 2. Run it for some number of generations, combining objects that birth cells
 3. After each generation, resolve knots

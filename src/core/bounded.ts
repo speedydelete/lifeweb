@@ -183,6 +183,7 @@ export class TorusDataPattern extends DataPattern {
         let p = this.pattern;
         let height = this.height;
         let width = this.width;
+        // we build a temporary array with the sides copied around, run that temporary array, then remove the copied-around sides
         let data = new Uint8Array((height + 2) * (width + 2));
         data[0] = this.data[this.size - 1];
         data.set(this.data.slice(this.size - width), 1);

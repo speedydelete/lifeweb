@@ -293,6 +293,7 @@ export function parse(data: string, preserveSizes?: boolean): Pattern | [string,
 }
 
 export function loadPattern(q: string | RPFFile | Pattern): void {
+    let oldP = p;
     if (typeof q === 'string') {
         try {
             q = parseRLE(q);
@@ -317,6 +318,7 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
         rpfFile = q;
         p = rpfFile.data['main'];
         if (!p) {
+            p = oldP;
             throw new Error(`No 'main' entry present in loaded RPF`);
         }
     }

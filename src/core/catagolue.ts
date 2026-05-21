@@ -369,136 +369,137 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
     if (rule.includes('|')) {
         return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
     }
-    let ruleStr = createPattern(rule, customRules).rule.str;
-    if (ruleStr.includes('/')) {
-        let parts = ruleStr.split('/');
-        parts[0] = parts[0];
-        parts[1] = parts[1];
-        if (parts.length === 2) {
-            if (parts[1].endsWith('H')) {
-                return `b${parts[0].slice(1)}s${parts[1].slice(1, -1)}h`;
-            } else {
-                return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
-            }
-        } else {
-            let isHex = false;
-            if (parts[2].endsWith('H')) {
-                isHex = true;
-                parts[2] = parts[2].slice(-1);
-            }
-            let out = `g${parts[2]}b${parts[1]}s${parts[0]}`;
-            if (isHex) {
-                return out + 'h';
-            } else {
-                return out;
-            }
-        }
-    } else if (ruleStr.startsWith('R')) {
-        let parts = ruleStr.split(',');
-        let r = Number(parts[0].slice(1));
-        let c = Number(parts[1].slice(1));
-        if (parts[2].startsWith('W')) {
-            let w = parts[2].slice(1);
-            if (c > 2) {
-                return `xg${c}r${r}w${w}`;
-            } else {
-                return `xr${r}w${w}`;
-            }
-        }
-        let s: number[] = [];
-        let b: number[] = [];
-        let parsingB = false;
-        parts[2] = parts[2].slice(1);
-        let n: string | null = null;
-        for (let part of parts.slice(2)) {
-            if (part.length === 0) {
-                continue;
-            } else if (part.startsWith('B')) {
-                parsingB = true;
-                part = part.slice(1);
-            } else if (part.startsWith('N')) {
-                n = part.slice(1);
-                continue;
-            }
-            if (parsingB) {
-                b.push(Number(part));
-            } else {
-                s.push(Number(part));
-            }
-        }
-        let out = 'r' + r + 'b';
-        if (c > 2) {
-            out = 'g' + c + out;
-        }
-        for (let x of [b, s]) {
-            for (let i = (2*r + 1)**2 - 1; i > 0; i -= 4) {
-                let value = 0;
-                if (b.includes(i)) {
-                    value |= 8;
-                }
-                if (b.includes(i - 1)) {
-                    value |= 4;
-                }
-                if (b.includes(i - 2)) {
-                    value |= 2;
-                }
-                if (b.includes(i - 3)) {
-                    value |= 1;
-                }
-                out += HEX_CHARS[value];
-            }
-            if (x === b) {
-                out += 's';
-            }
-        }
-        if (n !== null) {
-            out = 'x' + out + 'n';
-            if (n === '*') {
-                out += 'star';
-            } else if (n === '+') {
-                out += 'plus';
-            } else if (n === '#') {
-                out += 'hash';
-            } else if (n.startsWith('@')) {
-                out += 'at' + n.slice(1);
-            } else {
-                out += n.toLowerCase();
-            }
-        }
-        if (out.endsWith('h')) {
-            out += 'x';
-        }
-        return out;
-    } else if (ruleStr.startsWith('MAP')) {
-        if (ruleStr.length < 89) {
-            // @ts-ignore
-            if (typeof alert === 'function') {
-                // @ts-ignore
-                alert('bruh');
-            }
-            throw new RuleError('bruh');
-        }
-        let out = 'map' + ruleStr.slice(3, 88);
-        if (ruleStr.length > 89 && ruleStr[89] === '/') {
-            out = 'g' + Number(ruleStr.slice(90)) + out;
-        }
-        if (out.endsWith('h')) {
-            out += 'x';
-        }
-        return 'x' + out;
-    } else if (ruleStr.startsWith('W')) {
-        return 'xw' + ruleStr.slice(1);
-    } else {
-        let out = 'x';
-        let end = ruleStr[0].toLowerCase();
-        for (let i = 1; i < ruleStr.length; i++) {
-            let char = ruleStr[i];
-            if ('ABCDEFGHJKLMNPQRSTUVWXY'.includes(char)) {
-                char = char.toLowerCase();
-                out += i + 'x';
-            }
-            end += char;
-        }
-        return out + end;
-    }
+    return 'b3s23';
+    // let ruleStr = createPattern(rule, customRules).rule.str;
+    // if (ruleStr.includes('/')) {
+    //     let parts = ruleStr.split('/');
+    //     parts[0] = parts[0];
+    //     parts[1] = parts[1];
+    //     if (parts.length === 2) {
+    //         if (parts[1].endsWith('H')) {
+    //             return `b${parts[0].slice(1)}s${parts[1].slice(1, -1)}h`;
+    //         } else {
+    //             return `b${parts[0].slice(1)}s${parts[1].slice(1)}`;
+    //         }
+    //     } else {
+    //         let isHex = false;
+    //         if (parts[2].endsWith('H')) {
+    //             isHex = true;
+    //             parts[2] = parts[2].slice(-1);
+    //         }
+    //         let out = `g${parts[2]}b${parts[1]}s${parts[0]}`;
+    //         if (isHex) {
+    //             return out + 'h';
+    //         } else {
+    //             return out;
+    //         }
+    //     }
+    // } else if (ruleStr.startsWith('R')) {
+    //     let parts = ruleStr.split(',');
+    //     let r = Number(parts[0].slice(1));
+    //     let c = Number(parts[1].slice(1));
+    //     if (parts[2].startsWith('W')) {
+    //         let w = parts[2].slice(1);
+    //         if (c > 2) {
+    //             return `xg${c}r${r}w${w}`;
+    //         } else {
+    //             return `xr${r}w${w}`;
+    //         }
+    //     }
+    //     let s: number[] = [];
+    //     let b: number[] = [];
+    //     let parsingB = false;
+    //     parts[2] = parts[2].slice(1);
+    //     let n: string | null = null;
+    //     for (let part of parts.slice(2)) {
+    //         if (part.length === 0) {
+    //             continue;
+    //         } else if (part.startsWith('B')) {
+    //             parsingB = true;
+    //             part = part.slice(1);
+    //         } else if (part.startsWith('N')) {
+    //             n = part.slice(1);
+    //             continue;
+    //         }
+    //         if (parsingB) {
+    //             b.push(Number(part));
+    //         } else {
+    //             s.push(Number(part));
+    //         }
+    //     }
+    //     let out = 'r' + r + 'b';
+    //     if (c > 2) {
+    //         out = 'g' + c + out;
+    //     }
+    //     for (let x of [b, s]) {
+    //         for (let i = (2*r + 1)**2 - 1; i > 0; i -= 4) {
+    //             let value = 0;
+    //             if (b.includes(i)) {
+    //                 value |= 8;
+    //             }
+    //             if (b.includes(i - 1)) {
+    //                 value |= 4;
+    //             }
+    //             if (b.includes(i - 2)) {
+    //                 value |= 2;
+    //             }
+    //             if (b.includes(i - 3)) {
+    //                 value |= 1;
+    //             }
+    //             out += HEX_CHARS[value];
+    //         }
+    //         if (x === b) {
+    //             out += 's';
+    //         }
+    //     }
+    //     if (n !== null) {
+    //         out = 'x' + out + 'n';
+    //         if (n === '*') {
+    //             out += 'star';
+    //         } else if (n === '+') {
+    //             out += 'plus';
+    //         } else if (n === '#') {
+    //             out += 'hash';
+    //         } else if (n.startsWith('@')) {
+    //             out += 'at' + n.slice(1);
+    //         } else {
+    //             out += n.toLowerCase();
+    //         }
+    //     }
+    //     if (out.endsWith('h')) {
+    //         out += 'x';
+    //     }
+    //     return out;
+    // } else if (ruleStr.startsWith('MAP')) {
+    //     if (ruleStr.length < 89) {
+    //         // @ts-ignore
+    //         if (typeof alert === 'function') {
+    //             // @ts-ignore
+    //             alert('bruh');
+    //         }
+    //         throw new RuleError('bruh');
+    //     }
+    //     let out = 'map' + ruleStr.slice(3, 88);
+    //     if (ruleStr.length > 89 && ruleStr[89] === '/') {
+    //         out = 'g' + Number(ruleStr.slice(90)) + out;
+    //     }
+    //     if (out.endsWith('h')) {
+    //         out += 'x';
+    //     }
+    //     return 'x' + out;
+    // } else if (ruleStr.startsWith('W')) {
+    //     return 'xw' + ruleStr.slice(1);
+    // } else {
+    //     let out = 'x';
+    //     let end = ruleStr[0].toLowerCase();
+    //     for (let i = 1; i < ruleStr.length; i++) {
+    //         let char = ruleStr[i];
+    //         if ('ABCDEFGHJKLMNPQRSTUVWXY'.includes(char)) {
+    //             char = char.toLowerCase();
+    //             out += i + 'x';
+    //         }
+    //         end += char;
+    //     }
+    //     return out + end;
+    // }
 }

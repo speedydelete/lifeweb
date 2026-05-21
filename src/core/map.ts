@@ -10,205 +10,287 @@ import {RuleError} from './util.js';
 import {DataPattern, RuleSymmetry, getRuleSymmetryFromBases, Rule} from './pattern.js';
 
 
-/** Each INT transition's mapping to a 9-bit number. */
-export const TRANSITIONS: {[key: string]: number[]} = {
-    '0c': [0],
-    '1c': [4, 256, 1, 64],
-    '1e': [2, 128, 8, 32],
-    '2c': [5, 320, 65, 260],
-    '2e': [34, 160, 10, 136],
-    '2k': [66, 129, 258, 264, 12, 96, 132, 33],
-    '2a': [6, 384, 3, 9, 72, 36, 192, 288],
-    '2i': [130, 40],
-    '2n': [68, 257],
-    '3c': [69, 321, 261, 324],
-    '3e': [42, 168, 138, 162],
-    '3k': [98, 161, 266, 140],
-    '3a': [38, 416, 11, 200],
-    '3i': [292, 73, 7, 448],
-    '3n': [37, 352, 13, 67, 193, 262, 328, 388],
-    '3y': [133, 322, 97, 268],
-    '3q': [100, 289, 265, 259, 196, 70, 76, 385],
-    '3j': [137, 74, 164, 224, 35, 392, 290, 14],
-    '3r': [131, 194, 134, 104, 41, 296, 386, 44],
-    '4c': [325],
-    '4e': [170],
-    '4k': [99, 225, 270, 330, 141, 354, 396, 165],
-    '4a': [420, 294, 201, 39, 480, 15, 75, 456],
-    '4i': [45, 360, 195, 390],
-    '4n': [356, 293, 329, 263, 452, 71, 77, 449],
-    '4y': [389, 326, 197, 101, 353, 269, 323, 332],
-    '4q': [102, 417, 267, 204],
-    '4j': [169, 106, 172, 226, 163, 394, 298, 142],
-    '4r': [139, 202, 166, 232, 43, 424, 418, 46],
-    '4t': [135, 450, 105, 300],
-    '4w': [228, 291, 393, 78],
-    '4z': [198, 387, 297, 108],
-    '5c': [426, 174, 234, 171],
-    '5e': [453, 327, 357, 333],
-    '5k': [397, 334, 229, 355],
-    '5a': [457, 79, 484, 295],
-    '5i': [203, 422, 488, 47],
-    '5n': [458, 143, 482, 428, 302, 233, 167, 107],
-    '5y': [362, 173, 398, 227],
-    '5q': [395, 206, 230, 236, 299, 425, 419, 110],
-    '5j': [358, 421, 331, 271, 460, 103, 205, 481],
-    '5r': [364, 301, 361, 391, 454, 199, 109, 451],
-    '6c': [490, 175, 430, 235],
-    '6e': [461, 335, 485, 359],
-    '6k': [429, 366, 237, 231, 483, 399, 363, 462],
-    '6a': [489, 111, 492, 486, 423, 459, 303, 207],
-    '6i': [365, 455],
-    '6n': [427, 238],
-    '7c': [491, 239, 494, 431],
-    '7e': [493, 367, 487, 463],
-    '8c': [495],
+export interface INTSpec {
+    name: string;
+    trs: {[key: string]: number[]};
+    validTrs: string[];
+    preferMinus: boolean;
+}
+
+
+export const INT: INTSpec = {
+    name: 'INT',
+    trs: {
+        '0c': [0],
+        '1c': [4, 256, 1, 64],
+        '1e': [2, 128, 8, 32],
+        '2a': [6, 384, 3, 9, 72, 36, 192, 288],
+        '2c': [5, 320, 65, 260],
+        '2e': [34, 160, 10, 136],
+        '2i': [130, 40],
+        '2k': [66, 129, 258, 264, 12, 96, 132, 33],
+        '2n': [68, 257],
+        '3a': [38, 416, 11, 200],
+        '3c': [69, 321, 261, 324],
+        '3e': [42, 168, 138, 162],
+        '3i': [292, 73, 7, 448],
+        '3j': [137, 74, 164, 224, 35, 392, 290, 14],
+        '3k': [98, 161, 266, 140],
+        '3n': [37, 352, 13, 67, 193, 262, 328, 388],
+        '3q': [100, 289, 265, 259, 196, 70, 76, 385],
+        '3r': [131, 194, 134, 104, 41, 296, 386, 44],
+        '3y': [133, 322, 97, 268],
+        '4a': [420, 294, 201, 39, 480, 15, 75, 456],
+        '4c': [325],
+        '4e': [170],
+        '4i': [45, 360, 195, 390],
+        '4j': [169, 106, 172, 226, 163, 394, 298, 142],
+        '4k': [99, 225, 270, 330, 141, 354, 396, 165],
+        '4n': [356, 293, 329, 263, 452, 71, 77, 449],
+        '4q': [102, 417, 267, 204],
+        '4r': [139, 202, 166, 232, 43, 424, 418, 46],
+        '4t': [135, 450, 105, 300],
+        '4w': [228, 291, 393, 78],
+        '4y': [389, 326, 197, 101, 353, 269, 323, 332],
+        '4z': [198, 387, 297, 108],
+        '5a': [457, 79, 484, 295],
+        '5c': [426, 174, 234, 171],
+        '5e': [453, 327, 357, 333],
+        '5i': [203, 422, 488, 47],
+        '5j': [358, 421, 331, 271, 460, 103, 205, 481],
+        '5k': [397, 334, 229, 355],
+        '5n': [458, 143, 482, 428, 302, 233, 167, 107],
+        '5q': [395, 206, 230, 236, 299, 425, 419, 110],
+        '5r': [364, 301, 361, 391, 454, 199, 109, 451],
+        '5y': [362, 173, 398, 227],
+        '6a': [489, 111, 492, 486, 423, 459, 303, 207],
+        '6c': [490, 175, 430, 235],
+        '6e': [461, 335, 485, 359],
+        '6i': [365, 455],
+        '6k': [429, 366, 237, 231, 483, 399, 363, 462],
+        '6n': [427, 238],
+        '7c': [491, 239, 494, 431],
+        '7e': [493, 367, 487, 463],
+        '8c': [495],
+    },
+    validTrs: [
+        'c',
+        'ce',
+        'aceikn',
+        'aceijknqry',
+        'aceijknqrtwyz',
+        'aceijknqry',
+        'aceikn',
+        'ce',
+        'c'
+    ],
+    preferMinus: false,
 };
 
-/** The valid INT transitions. */
-export const VALID_TRANSITIONS: string[] = [
-    'c',
-    'ce',
-    'aceikn',
-    'aceijknqry',
-    'aceijknqrtwyz',
-    'aceijknqry',
-    'aceikn',
-    'ce',
-    'c'
-];
-
-/** Each hexagonal INT transition's mapping to a 512-bit number */
-export const HEX_TRANSITIONS: {[key: string]: number[]} = {
-    '0o': [0, 4, 64, 68],
-    '1o': [32, 36, 96, 100, 2, 6, 66, 70, 1, 5, 65, 69, 8, 12, 72, 76, 128, 132, 192, 196, 256, 260, 320, 324],
-    '2o': [34, 38, 98, 102, 3, 7, 67, 71, 9, 13, 73, 77, 136, 140, 200, 204, 384, 388, 448, 452, 288, 292, 352, 356],
-    '2m': [33, 37, 97, 101, 10, 14, 74, 78, 129, 133, 193, 197, 264, 268, 328, 332, 160, 164, 224, 228, 258, 262, 322, 326],
-    '2p': [40, 44, 104, 108, 130, 134, 194, 198, 257, 261, 321, 325],
-    '3o': [35, 39, 99, 103, 11, 15, 75, 79, 137, 141, 201, 205, 392, 396, 456, 460, 416, 420, 480, 484, 290, 294, 354, 358],
-    '3m': [42, 46, 106, 110, 41, 45, 105, 109, 162, 166, 226, 230, 131, 135, 195, 199, 168, 172, 232, 236, 138, 142, 202, 206, 289, 293, 353, 357, 259, 263, 323, 327, 296, 300, 360, 364, 265, 269, 329, 333, 386, 390, 450, 454, 385, 389, 449, 453],
-    '3p': [161, 165, 225, 229, 266, 270, 330, 334],
-    '4o': [393, 397, 457, 461, 424, 428, 488, 492, 418, 422, 482, 486, 291, 295, 355, 359, 43, 47, 107, 111, 139, 143, 203, 207],
-    '4m': [394, 398, 458, 462, 417, 421, 481, 485, 298, 302, 362, 366, 163, 167, 227, 231, 267, 271, 331, 335, 169, 173, 233, 237],
-    '4p': [387, 391, 451, 455, 297, 301, 361, 365, 170, 174, 234, 238],
-    '5o': [395, 399, 459, 463, 425, 429, 489, 493, 426, 430, 490, 494, 419, 423, 483, 487, 299, 303, 363, 367, 171, 175, 235, 239],
-    '6o': [427, 431, 491, 495],
+export const HEX_INT: INTSpec = {
+    name: 'hex INT',
+    trs: {
+        '0o': [0, 4, 64, 68],
+        '1o': [32, 36, 96, 100, 2, 6, 66, 70, 1, 5, 65, 69, 8, 12, 72, 76, 128, 132, 192, 196, 256, 260, 320, 324],
+        '2o': [34, 38, 98, 102, 3, 7, 67, 71, 9, 13, 73, 77, 136, 140, 200, 204, 384, 388, 448, 452, 288, 292, 352, 356],
+        '2m': [33, 37, 97, 101, 10, 14, 74, 78, 129, 133, 193, 197, 264, 268, 328, 332, 160, 164, 224, 228, 258, 262, 322, 326],
+        '2p': [40, 44, 104, 108, 130, 134, 194, 198, 257, 261, 321, 325],
+        '3o': [35, 39, 99, 103, 11, 15, 75, 79, 137, 141, 201, 205, 392, 396, 456, 460, 416, 420, 480, 484, 290, 294, 354, 358],
+        '3m': [42, 46, 106, 110, 41, 45, 105, 109, 162, 166, 226, 230, 131, 135, 195, 199, 168, 172, 232, 236, 138, 142, 202, 206, 289, 293, 353, 357, 259, 263, 323, 327, 296, 300, 360, 364, 265, 269, 329, 333, 386, 390, 450, 454, 385, 389, 449, 453],
+        '3p': [161, 165, 225, 229, 266, 270, 330, 334],
+        '4o': [393, 397, 457, 461, 424, 428, 488, 492, 418, 422, 482, 486, 291, 295, 355, 359, 43, 47, 107, 111, 139, 143, 203, 207],
+        '4m': [394, 398, 458, 462, 417, 421, 481, 485, 298, 302, 362, 366, 163, 167, 227, 231, 267, 271, 331, 335, 169, 173, 233, 237],
+        '4p': [387, 391, 451, 455, 297, 301, 361, 365, 170, 174, 234, 238],
+        '5o': [395, 399, 459, 463, 425, 429, 489, 493, 426, 430, 490, 494, 419, 423, 483, 487, 299, 303, 363, 367, 171, 175, 235, 239],
+        '6o': [427, 431, 491, 495],
+    },
+    validTrs: [
+        'o',
+        'o',
+        'omp',
+        'omp',
+        'omp',
+        'o',
+        'o',
+    ],
+    preferMinus: true,
 };
 
-/** The valid hexagonal INT transitions. */
-export const VALID_HEX_TRANSITIONS: string[] = [
-    'o',
-    'o',
-    'omp',
-    'omp',
-    'omp',
-    'o',
-    'o',
-];
+export const VON_NEUMANN_INT: INTSpec = {
+    name: 'von Neumann',
+    trs: {
+        '0c': [
+            0, // 0c
+            4, 256, 1, 64, // 1c
+            5, 320, 65, 260, // 2c
+            68, 257, // 2n
+            69, 321, 261, 324, // 3c
+            325, // 4c
+        ],
+        '1c': [
+            2, 128, 8, 32, // 1e
+            6, 384, 3, 9, 72, 36, 192, 288, // 2a
+            66, 129, 258, 264, 12, 96, 132, 33, // 2k
+            292, 73, 7, 448, // 3i
+            37, 352, 13, 67, 193, 262, 328, 388, // 3n
+            100, 289, 265, 259, 196, 70, 76, 385, // 3q
+            133, 322, 97, 268, // 3y
+            356, 293, 329, 263, 452, 71, 77, 449, // 4n
+            389, 326, 197, 101, 353, 269, 323, 332, // 4y
+            453, 327, 357, 333, // 5e
+        ],
+        '2e': [
+            34, 160, 10, 136, // 2e
+            38, 416, 11, 200, // 3e
+            137, 74, 164, 224, 35, 392, 290, 14, // 3j
+            98, 161, 266, 140, // 3k
+            420, 294, 201, 39, 480, 15, 75, 456, // 4a
+            99, 225, 270, 330, 141, 354, 396, 165, // 4k
+            102, 417, 267, 204, // 4q
+            228, 291, 393, 78, // 4w
+            457, 79, 484, 295, // 5a
+            397, 334, 229, 355, // 5k
+            358, 421, 331, 271, 460, 103, 205, 481, // 5j
+            461, 335, 485, 359, // 6e
+        ],
+        '2i': [
+            130, 40, // 2i
+            131, 194, 134, 104, 41, 296, 386, 44, // 3r
+            45, 360, 195, 390, // 4i
+            135, 450, 105, 300, // 4t
+            198, 387, 297, 108, // 4z
+            364, 301, 361, 391, 454, 199, 109, 451, // 5r
+            365, 455, // 6i
+        ],
+        '3c': [
+            42, 168, 138, 162, // 3e
+            169, 106, 172, 226, 163, 394, 298, 142, // 4j
+            139, 202, 166, 232, 43, 424, 418, 46, // 4r
+            203, 422, 488, 47, // 5i
+            458, 143, 482, 428, 302, 233, 167, 107, // 5n
+            395, 206, 230, 236, 299, 425, 419, 110, // 5q
+            362, 173, 398, 227, // 4y
+            489, 111, 492, 486, 423, 459, 303, 207, // 6a
+            429, 366, 237, 231, 483, 399, 363, 462, // 6k
+            493, 367, 487, 463, // 7e
+        ],
+        '4e': [
+            170, // 4e
+            426, 174, 234, 171, // 5c
+            490, 175, 430, 235, // 6c
+            427, 238, // 6n
+            491, 239, 494, 431, // 7c
+            495, // 8c
+        ],
+    },
+    validTrs: [
+        'e',
+        'e',
+        'ei',
+        'e',
+        'e',
+    ],
+    preferMinus: false,
+};
+
+export const INT_SPECS = {
+    'M': INT,
+    'H': HEX_INT,
+    'V': VON_NEUMANN_INT,
+};
+
 
 const DIGITS = '0123456789';
-const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 
-/** Parses an isotropic rule.
- * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
- */
-export function parseTransitions(data: string, validTrs: string[]): string[] {
+/** Parses an isotropic rule. */
+export function parseTransitions(data: string, spec: INTSpec): string[] {
     if (data.length === 0) {
         return [];
     }
-    let out = new Set<string>();
-    if (!DIGITS.includes(data[0])) {
-        throw new RuleError(`Expected digit, got '${data[0]}'`);
-    }
-    let num = Number(data[0]);
-    if (num >= validTrs.length) {
-        throw new RuleError(`No transitions with ${num} neighbors`);
-    }
-    let chars = '';
-    let minus = false;
-    for (let char of data.slice(1)) {
+    let parts: string[] = [];
+    let currentPart = '';
+    for (let i = 0; i < data.length; i++) {
+        let char = data[i];
         if (DIGITS.includes(char)) {
-            if (chars.length === 0) {
-                for (let char of validTrs[num]) {
-                    out.add(num + char);
-                }
-            } else {
-                for (let char of chars) {
-                    if (minus) {
-                        out.delete(num + char);
-                    } else {
-                        out.add(num + char);
-                    }
-                }
+            if (currentPart.length > 0) {
+                parts.push(currentPart);
             }
-            minus = false;
-            chars = '';
-            num = Number(char);
-            if (num >= validTrs.length) {
-                throw new RuleError(`No transitions with ${num} neighbors`);
-            }
-        } else if (char === '-') {
-            if (chars.length > 0) {
-                throw new RuleError(`Expected letter, got '-'`);
-            }
-            minus = true;
-            for (let char of validTrs[num]) {
-                out.add(num + char);
-            }
-        } else if (LETTERS.includes(char)) {
-            if (!validTrs[num].includes(char)) {
-                throw new RuleError(`Invalid transition: '${num}${char}'`);
-            }
-            chars += char;
+            currentPart = char;
         } else {
-            throw new RuleError(`Invalid character in isotropic rulestring: '${char}'`);
+            currentPart += char;
         }
     }
-    if (chars.length === 0) {
-        for (let char of validTrs[num]) {
-            out.add(num + char);
+    if (currentPart.length > 0) {
+        parts.push(currentPart);
+    }
+    let out = new Set<string>();
+    for (let part of parts) {
+        let digit = parseInt(part[0]);
+        let letters = spec.validTrs[digit];
+        if (!letters) {
+            throw new RuleError(`No ${spec.name} transitions with ${digit} neighbors`);
         }
-    } else {
-        for (let char of chars) {
+        if (part.length === 1) {
+            for (let letter of spec.validTrs[digit]) {
+                out.add(digit + letter);
+            }
+            continue;
+        }
+        let minus = false;
+        if (part[1] === '-') {
+            part = part.slice(1);
+            minus = true;
+            for (let letter of spec.validTrs[digit]) {
+                out.add(digit + letter);
+            }
+        }
+        for (let letter of part.slice(1)) {
+            if (letter === '-') {
+                minus = true;
+                continue;
+            } else if (letter === '+') {
+                minus = false;
+                continue;
+            }
+            if (!letters.includes(letter)) {
+                throw new RuleError(`Invalid ${spec.name} transition: '${digit}${letter}'`);
+            }
+            let tr = digit + letter;
             if (minus) {
-                out.delete(num + char);
+                out.delete(tr);
             } else {
-                out.add(num + char);
+                out.add(tr);
             }
         }
     }
     return Array.from(out);
 }
 
-/** The revese of `parseTransitions`, takes a list of transitions and outputs the shortened version.
- * @param trs Something like `['2c', '2e', '3a', '4q']`.
- * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
- * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
- */
-export function unparseTransitions(trs: string[], validTrs: string[], preferMinus?: boolean): string {
+/** The revese of `parseTransitions`, takes a list of transitions and outputs the shortened version. */
+export function unparseTransitions(trs: string[], spec: INTSpec): string {
     let sorted: string[] = [];
-    for (let i = 0; i < validTrs.length; i++) {
+    for (let i = 0; i < spec.validTrs.length; i++) {
         sorted.push('');
     }
     for (let tr of trs) {
         sorted[Number(tr[0])] += tr[1];
     }
     let out = '';
-    for (let i = 0; i < validTrs.length; i++) {
+    for (let i = 0; i < spec.validTrs.length; i++) {
         if (sorted[i] === '') {
             continue;
-        } else if (sorted[i].length === validTrs[i].length) {
+        } else if (sorted[i].length === spec.validTrs[i].length) {
             out += i;
         } else {
             out += i;
             let chars = Array.from(sorted[i]).sort().join('');
             let minus = '-';
-            for (let char of validTrs[i]) {
+            for (let char of spec.validTrs[i]) {
                 if (!chars.includes(char)) {
                     minus += char;
                 }
             }
-            if (chars.length > minus.length || (chars.length === minus.length && preferMinus)) {
+            if (chars.length > minus.length || (chars.length === minus.length && spec.preferMinus)) {
                 out += minus;
             } else {
                 out += chars;
@@ -221,15 +303,15 @@ export function unparseTransitions(trs: string[], validTrs: string[], preferMinu
 /** Takes in lists of B/S transitions and outputs the 512-bit Uint8Array for it
  * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
  */
-export function transitionsToArray(b: string[], s: string[], trs: {[key: string]: number[]}): Uint8Array<ArrayBuffer> {
+export function transitionsToArray(b: string[], s: string[], spec: INTSpec): Uint8Array<ArrayBuffer> {
     let out = new Uint8Array(512);
     for (let tr of b) {
-        for (let i of trs[tr]) {
+        for (let i of spec.trs[tr]) {
             out[i] = 1;
         }
     }
     for (let tr of s) {
-        for (let i of trs[tr]) {
+        for (let i of spec.trs[tr]) {
             out[i | (1 << 4)] = 1;
         }
     }
@@ -239,13 +321,13 @@ export function transitionsToArray(b: string[], s: string[], trs: {[key: string]
 /** The reverse of `transitionsToArray`, takes in a 512-bit Uint8Array and outputs the B/S transition lists.
  * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
 */
-export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: number[]}): [string[], string[]] {
+export function arrayToTransitions(array: Uint8Array, spec: INTSpec): [string[], string[]] {
     let b: string[] = [];
     let s: string[] = [];
-    for (let tr in trs) {
+    for (let [tr, value] of Object.entries(spec.trs)) {
         let bCount = 0;
         let sCount = 0;
-        for (let i of trs[tr]) {
+        for (let i of value) {
             if (array[i]) {
                 bCount++;
             }
@@ -253,30 +335,16 @@ export function arrayToTransitions(array: Uint8Array, trs: {[key: string]: numbe
                 sCount++;
             }
         }
-        if (bCount >= Math.ceil(trs[tr].length / 2)) {
+        if (bCount >= Math.ceil(value.length / 2)) {
             b.push(tr);
         }
-        if (sCount >= Math.ceil(trs[tr].length / 2)) {
+        if (sCount >= Math.ceil(value.length / 2)) {
             s.push(tr);
         }
     }
     return [b, s];
 }
 
-/** Parses an isotropic rulestring (pre-split into B and S components)
- * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
- * @param validTrs Generally either `VALID_TRANSITIONS` or VALID_HEX_TRANSITIONS`.
- * @param preferMinus Whether to do, for example, 2om or 2-p, generally true for hexagonal rules and false for normal INT.
- */
-export function parseIsotropic(b: string, s: string, trs: {[key: string]: number[]},  validTrs: string[], preferMinus?: boolean): {b: string, s: string, data: Uint8Array<ArrayBuffer>} {
-    let bTrs = parseTransitions(b, validTrs);
-    let sTrs = parseTransitions(s, validTrs);
-    return {
-        b: unparseTransitions(bTrs, validTrs, preferMinus),
-        s: unparseTransitions(sTrs, validTrs, preferMinus),
-        data: transitionsToArray(bTrs, sTrs, trs),
-    };
-}
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -331,6 +399,11 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
         out.push(((c & 3) << 6) | d);
     }
     let trs = new Uint8Array(512);
+    // flip diagonally
+    // abc    adg
+    // def -> beh
+    // ghi    cfi
+    // because of how lifeweb orders its trs variables
     if (type === 'normal') {
         for (let i = 0; i < 512; i++) {
             if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
@@ -1368,379 +1441,6 @@ export class MAPGenPattern extends DataPattern {
 }
 
 
-/** Implements the Generations (https://conwaylife.com/wiki/Generations) variant of the rules implemented by  `MAPB0Pattern`. */
-export class MAPGenB0Pattern extends DataPattern {
-
-    /** A 512-bit Uint8Array storing the transition to do on even generations for each 3x3 combination of cells.
-     * Indexed like this:
-     * 852
-     * 741
-     * 630
-     */
-    evenTrs: Uint8Array;
-    /** A 512-bit Uint8Array storing the transition to do on odd generations each 3x3 combination of cells.
-     * Indexed like this:
-     * 852
-     * 741
-     * 630
-     */
-    oddTrs: Uint8Array;
-
-    constructor(height: number, width: number, data: Uint8Array, rule: Rule, evenTrs: Uint8Array, oddTrs: Uint8Array) {
-        super(height, width, data, rule);
-        this.evenTrs = evenTrs;
-        this.oddTrs = oddTrs;
-    }
-
-    runGeneration(): void {
-        // an explanation of how this function works is in the comments in MAPPattern.runGeneration
-        let width = this.width;
-        let height = this.height;
-        let size = this.size;
-        let states = this.rule.states;
-        let data = this.data;
-        let alive = this.data.map(x => x === 1 ? 1 : 0);
-        let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
-        let width2 = width << 1;
-        let lastRow = size - width;
-        let secondLastRow = size - width2;
-        let expandUp = 0;
-        let expandDown = 0;
-        let upExpands = new Uint8Array(width);
-        let downExpands = new Uint8Array(width);
-        let i = 1;
-        let j = lastRow + 1;
-        let tr1 = (alive[0] << 3) | alive[1];
-        let tr2 = (alive[lastRow] << 5) | (alive[lastRow + 1] << 2);
-        if (width > 1) {
-            if (trs[tr1]) {
-                expandUp = 1;
-                upExpands[0] = 1;
-            }
-            if (trs[tr2]) {
-                expandDown = 1;
-                downExpands[0] = 1;
-            }
-        } else {
-            if (trs[tr1 & 504]) {
-                expandUp = 1;
-                upExpands[0] = 1;
-            }
-            if (trs[tr2 & 504]) {
-                expandDown = 1;
-                downExpands[0] = 1;
-            }
-        }
-        for (let loc = 1; loc < width - 1; loc++) {
-            i++;
-            j++;
-            tr1 = ((tr1 << 3) & 511) | alive[i];
-            tr2 = ((tr2 << 3) & 511) | (alive[j] << 2);
-            if (trs[tr1]) {
-                expandUp = 1;
-                upExpands[loc] = 1;
-            }
-            if (trs[tr2]) {
-                expandDown = 1;
-                downExpands[loc] = 1;
-            }
-        }
-        if (width > 1) {
-            if (trs[(tr1 << 3) & 511]) {
-                expandUp = 1;
-                upExpands[width - 1] = 1;
-            }
-            if (trs[(tr2 << 3) & 511]) {
-                expandDown = 1;
-                downExpands[width - 1] = 1;
-            }
-        }
-        let expandLeft = 0;
-        let expandRight = 0;
-        let leftExpands = new Uint8Array(height);
-        let rightExpands = new Uint8Array(height);
-        tr1 = (alive[0] << 1) | alive[width];
-        tr2 = (alive[width - 1] << 7) | (alive[width2 - 1] << 6);
-        if (height > 1) {
-            if (trs[tr1]) {
-                expandLeft = 1;
-                leftExpands[0] = 1;
-            }
-            if (trs[tr2]) {
-                expandRight = 1;
-                rightExpands[0] = 1;
-            }
-        } else {
-            if (trs[tr1 & 438]) {
-                expandLeft = 1;
-                leftExpands[0] = 1;
-            }
-            if (trs[tr2 & 438]) {
-                expandRight = 1;
-                rightExpands[0] = 1;
-            }
-        }
-        let loc = 0;
-        for (i = width2; i < size; i += width) {
-            loc++;
-            tr1 = ((tr1 << 1) & 7) | alive[i];
-            tr2 = ((tr2 << 1) & 511) | (alive[i + width - 1] << 6);
-            if (trs[tr1]) {
-                expandLeft = 1;
-                leftExpands[loc] = 1;
-            }
-            if (trs[tr2]) {
-                expandRight = 1;
-                rightExpands[loc] = 1;
-            }
-        }
-        i -= width;
-        if (height > 1) {
-            if (trs[(tr1 << 1) & 7]) {
-                expandLeft = 1;
-                leftExpands[height - 1] = 1;
-            }
-            if (trs[(tr2 << 1) & 511]) {
-                expandRight = 1;
-                rightExpands[height - 1] = 1;
-            }
-        }
-        let b1cnw = (trs[1] && alive[0]) ? 1 : 0;
-        let b1cne = (trs[64] && alive[width - 1]) ? 1 : 0;
-        let b1csw = (trs[4] && alive[lastRow]) ? 1 : 0;
-        let b1cse = (trs[256] && alive[size - 1]) ? 1 : 0;
-        if (b1cnw || b1cne) {
-            expandUp = 1;
-        }
-        if (b1csw || b1cse) {
-            expandDown = 1;
-        }
-        if (b1cnw || b1csw) {
-            expandLeft = 1;
-        }
-        if (b1cne || b1cse) {
-            expandRight = 1;
-        }
-        let oX = expandLeft + expandRight;
-        let oStart = (expandUp ? width + oX : 0) + expandLeft;
-        let oSize = oStart + oX * height;
-        let newWidth = width + oX;
-        let newHeight = height + expandUp + expandDown;
-        let newSize = newWidth * newHeight;
-        let out = new Uint8Array(newSize);
-        out[0] = b1cnw;
-        out[newWidth - 1] = b1cne;
-        out[newSize - newWidth] = b1csw;
-        out[newSize - 1] = b1cse;
-        if (expandUp) {
-            out.set(upExpands, expandLeft);
-        }
-        if (expandDown) {
-            out.set(downExpands, size + oSize);
-        }
-        if (expandLeft) {
-            let loc = oStart - width - oX - 1;
-            for (i = 0; i < height; i++) {
-                loc += width + oX;
-                out[loc] = leftExpands[i];
-            }
-        }
-        if (expandRight) {
-            let loc = oStart - oX;
-            for (i = 0; i < height; i++) {
-                loc += width + oX;
-                out[loc] = rightExpands[i];
-            }
-        }
-        if (width <= 1) {
-            if (width === 1) {
-                let tr = (data[0] << 4) | (data[1] << 3);
-                let loc = oStart;
-                if (data[0] < 2) {
-                    if (trs[tr]) {
-                        out[loc] = 1;
-                    } else if (data[0]) {
-                        out[loc] = 2;
-                    }
-                } else {
-                    out[loc] = (data[0] + 1) % states;
-                }
-                loc += oX + 1;
-                for (i = 2; i < height; i++) {
-                    tr = ((tr << 1) & 63) | (data[i] << 3);
-                    if (data[i - 1] < 2) {
-                        if (trs[tr]) {
-                            out[loc] = 1;
-                        } else if (data[i - 1]) {
-                            out[loc] = 2;
-                        }
-                    } else {
-                        out[loc] = (data[i - 1] + 1) % states;
-                    }
-                    loc += oX + 1;
-                }
-                if (trs[(tr << 1) & 63]) {
-                    out[loc] = 1;
-                }
-            }
-        } else {
-            let loc1 = oStart;
-            let loc2 = lastRow + oSize - oX;
-            j = lastRow + 1;
-            tr1 = (alive[0] << 4) | (alive[width] << 3) | (alive[1] << 1) | alive[width + 1];
-            tr2 = (alive[secondLastRow] << 5) | (alive[lastRow] << 4) | (alive[secondLastRow + 1] << 2) | (alive[lastRow + 1] << 1);
-            if (data[0] < 2) {
-                if (trs[tr1]) {
-                    out[loc1] = 1;
-                } else if (data[0]) {
-                    out[loc1] = 2;
-                }
-            } else {
-                out[loc1] = (data[0] + 1) % states;
-            }
-            if (data[lastRow] < 2) {
-                if (trs[tr2]) {
-                    out[loc2] = 1;
-                } else if (data[lastRow]) {
-                    out[loc2] = 2;
-                }
-            } else {
-                out[loc2] = (data[lastRow] + 1) % states;
-            }
-            for (i = 2; i < width; i++) {
-                j++;
-                loc1++;
-                loc2++;
-                tr1 = ((tr1 << 3) & 511) | (alive[i] << 1) | alive[i + width];
-                if (data[i - 1] < 2) {
-                    if (trs[tr1]) {
-                        out[loc1] = 1;
-                    } else if (data[i - 1]) {
-                        out[loc1] = 2;
-                    }
-                } else {
-                    out[loc1] = (data[i - 1] + 1) % states;
-                }
-                tr2 = ((tr2 << 3) & 511) | (alive[j - width] << 2) | (alive[j] << 1);
-                if (data[j - 1] < 2) {
-                    if (trs[tr2]) {
-                        out[loc2] = 1;
-                    } else if (data[j - 1]) {
-                        out[loc2] = 2;
-                    }
-                } else {
-                    out[loc2] = (data[j - 1] + 1) % states;
-                }
-            }
-            i--;
-            loc1++;
-            loc2++;
-            if (data[i] < 2) {
-                if (trs[(tr1 << 3) & 511]) {
-                    out[loc1] = 1;
-                } else if (data[i]) {
-                    out[loc1] = 2;
-                }
-            } else {
-                out[loc1] = (data[i] + 1) % states;
-            }
-            if (data[j] < 2) {
-                if (trs[(tr2 << 3) & 511]) {
-                    out[loc2] = 1;
-                } else if (data[j]) {
-                    out[loc2] = 2;
-                }
-            } else {
-                out[loc2] = (data[j] + 1) % states;
-            }
-            i = width + 1;
-            loc = oStart + width;
-            for (let y = 1; y < height - 1; y++) {
-                loc += oX;
-                let tr = (alive[i - width - 1] << 5) | (alive[i - 1] << 4) | (alive[i + width - 1] << 3) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
-                if (data[i - 1] < 2) {
-                    if (trs[tr]) {
-                        out[loc] = 1;
-                    } else if (data[i - 1]) {
-                        out[loc] = 2;
-                    }
-                } else {
-                    out[loc] = (data[i - 1] + 1) % states;
-                }
-                i++;
-                loc++;
-                for (let x = 1; x < width - 1; x++) {
-                    tr = ((tr << 3) & 511) | (alive[i - width] << 2) | (alive[i] << 1) | alive[i + width];
-                    if (data[i - 1] < 2) {
-                        if (trs[tr]) {
-                            out[loc] = 1;
-                        } else if (data[i - 1]) {
-                            out[loc] = 2;
-                        }
-                    } else {
-                        out[loc] = (data[i - 1] + 1) % states;
-                    }
-                    i++;
-                    loc++;
-                }
-                if (data[i - 1] < 2) {
-                    if (trs[(tr << 3) & 511]) {
-                        out[loc] = 1;
-                    } else if (data[i - 1]) {
-                        out[loc] = 2;
-                    }
-                } else {
-                    out[loc] = (data[i - 1] + 1) % states;
-                }
-                i++;
-                loc++;
-            }
-        }
-        this.height = newHeight;
-        this.width = newWidth;
-        this.size = newSize;
-        this.data = out;
-        this.xOffset -= expandLeft;
-        this.yOffset -= expandUp;
-        this.generation++;
-    }
-
-    copy(): MAPGenB0Pattern {
-        let out = new MAPGenB0Pattern(this.height, this.width, this.data.slice(), this.rule, this.evenTrs, this.oddTrs);
-        out.generation = this.generation;
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
-        return out;
-    }
-
-    clearedCopy(): MAPGenB0Pattern {
-        return new MAPGenB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenTrs, this.oddTrs);
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): MAPGenB0Pattern {
-        let data = new Uint8Array(width * height);
-        let loc = 0;
-        for (let row = y; row < y + height; row++) {
-            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
-            loc += width;
-        }
-        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
-    }
-
-    loadApgcode(code: string): MAPGenB0Pattern {
-        let [height, width, data] = this._loadApgcode(code);
-        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
-    }
-    
-    loadRLE(rle: string): MAPGenB0Pattern {
-        let [height, width, data] = this._loadRLE(rle);
-        return new MAPGenB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
-    }
-
-}
-
-
-
 export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
     let C2 = true;
     let C4 = true;
@@ -1813,20 +1513,12 @@ export function findTransitionsNeighborhood(trs: Uint8Array): [number, number][]
     return out;
 }
 
-/** The mapping of von Neumann neighorhood rules to INT transitions. */
-export const VON_NEUMANN: string[][] = [
-    ['0c', '1c', '2c', '2n', '3c', '4c'],
-    ['1e', '2a', '2k', '3i', '3n', '3y', '3q', '4n', '4y', '5e'],
-    ['2e', '2i', '3k', '3a', '3j', '3r', '4k', '4a', '4i', '4q', '4t', '4w', '4z', '5k', '5a', '5j', '5r', '6e', '6i'],
-    ['3e', '4j', '4r', '5i', '5n', '5y', '5q', '6k', '6a', '7e'],
-    ['4e', '5c', '6c', '6n', '7c', '8c'],
-];
 
 /** Parses the rulestring format for MAP rules and their subsets. */
-export function createMAPPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | MAPPattern | MAPB0Pattern | MAPGenPattern | MAPGenB0Pattern {
+export function createMAPPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | MAPPattern | MAPB0Pattern | MAPGenPattern {
     let ruleStr: string;
     let trs = new Uint8Array(512);
-    let nhLetter: 'M' | 'V' | 'H' | 'L' = 'M';
+    let nhLetter: keyof typeof INT_SPECS = 'M';
     let states = 2;
     let match: RegExpMatchArray | null;
     if (rule.startsWith('MAP') || rule.startsWith('xmap')) {
@@ -1851,129 +1543,86 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         }
         ruleStr = 'W' + num;
     } else {
-        let end = rule[rule.length - 1];
-        if (end === 'V' || end === 'H') {
-            nhLetter = end;
-            rule = rule.slice(0, -1);
-        } else if (end === 'v') {
-            nhLetter = 'V';
-            rule = rule.slice(0, -1);
-        } else if (end === 'h') {
-            nhLetter = 'H';
-            rule = rule.slice(0, -1);
-        }
         if (match = rule.match(/^[gG]([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/)) {
             states = Number(match[1]);
             rule = rule.slice(match[0].length);
         }
-        if (rule.split('/').length > 2 && (match = rule.match(/\/[GgCc]?([0-9.e]+|-?NaN|-?Infinity)$/))) {
-            states = Number(match[1]);
-            rule = rule.slice(0, -match[0].length);
-        }
-        end = rule[rule.length - 1];
-        if (end === 'V' || end === 'H') {
-            nhLetter = end;
-            rule = rule.slice(0, -1);
-        } else if (end === 'v') {
-            nhLetter = 'V';
-            rule = rule.slice(0, -1);
-        } else if (end === 'h') {
-            nhLetter = 'H';
-            rule = rule.slice(0, -1);
-        }
-        let b = '';
-        let s = '';
-        let sections: string[];
-        let bs = false;
-        if (rule.includes('/')) {
-            sections = rule.split('/');
-            if (sections.length > 2) {
-                throw new RuleError('More than 1 slash provided');
-            }
-        } else if (rule.includes('_')) {
-            sections = rule.split('_');
-            if (sections.length > 2) {
-                throw new RuleError('More than 1 underscore provided');
-            }
-        } else if ((rule.startsWith('B') || rule.startsWith('b')) && (rule.includes('S') || rule.includes('s'))) {
-            let index = rule.indexOf('s');
-            if (index === -1) {
-                index = rule.indexOf('S');
-            }
-            sections = [rule.slice(0, index), rule.slice(index)];
-            bs = true;
-        } else {
-            sections = [rule];
-        }
-        for (let i = 0; i < sections.length; i++) {
-            let section = sections[i];
-            if (section[0] === 'B' || section[0] === 'b') {
-                bs = true;
-                b = section.slice(1);
-            } else if (section[0] === 'S' || section[0] === 's') {
-                bs = true;
-                s = section.slice(1);
+        let parts: string[] = [];
+        let currentPart = '';
+        for (let i = 0; i < rule.length; i++) {
+            let char = rule[i];
+            if (char === '/' || char === '_') {
+                parts.push(currentPart);
+                currentPart = '';
+            } else if ('BSADGCbsadgc'.includes(char) && currentPart.length > 0) {
+                parts.push(currentPart);
+                currentPart = char;
             } else {
-                if (!bs) {
-                    if (i === 0) {
-                        s = section;
-                    } else if (i === 1) {
-                        b = section;
-                    } else {
-                        throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                currentPart += char;
+            }
+        }
+        parts.push(currentPart);
+        for (let i = 0; i < parts.length; i++) {
+            let part = parts[i];
+            let end = part[part.length - 1].toUpperCase();
+            if (end in INT_SPECS) {
+                nhLetter = end as typeof nhLetter;
+                parts[i] = part.slice(0, -1);
+            }
+        }
+        let spec = INT_SPECS[nhLetter];
+        for (let i = 0; i < parts.length; i++) {
+            let part = parts[i];
+            let start = part[0].toUpperCase();
+            let letter: 'B' | 'S' | 'A' | 'D';
+            let parsedTrs: string[];
+            if (start === 'B' || start === 'S' || start === 'A' || start === 'D') {
+                letter = start;
+                parsedTrs = parseTransitions(part.slice(1), spec);
+            } else if (start === 'G' || start === 'C') {
+                states = Number(part.slice(1));
+                if (Number.isNaN(states)) {
+                    throw new RuleError(`Invalid state count: '${part.slice(1)}'`);
+                }
+                continue;
+            } else {
+                if (parts.length > 2 && i === parts.length - 1) {
+                    states = Number(part);
+                    if (Number.isNaN(states)) {
+                        throw new RuleError(`Invalid state count: '${part}'`);
                     }
+                    continue;
                 } else {
-                    throw new RuleError(`Expected 'B', 'b', 'S', or 's'`);
+                    letter = i === 0 ? 'S' : 'B';
+                    parsedTrs = parseTransitions(part, spec);
+                }
+            }
+            let setTo = letter === 'B' || letter === 'S' ? 1 : 0;
+            let or = letter === 'S' || letter === 'D' ? 1 << 4 : 0;
+            for (let tr of parsedTrs) {
+                for (let i of spec.trs[tr]) {
+                    trs[i | or] = setTo;
                 }
             }
         }
-        if (nhLetter === 'V') {
-            let newB = '';
-            for (let char of b) {
-                let value = Number(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
-                }
-                newB += VON_NEUMANN[value].join('');
-            }
-            b = newB;
-            let newS = '';
-            for (let char of s) {
-                let value = Number(char);
-                if (!(value >= 0 && value < VON_NEUMANN.length)) {
-                    throw new RuleError(`Invalid character in von Neumann rule: '${char}'`);
-                }
-                newS += VON_NEUMANN[value].join('');
-            }
-            s = newS;
-            nhLetter = 'M';
-        }
-        let out: {b: string, s: string, data: Uint8Array<ArrayBuffer>};
-        if (nhLetter === 'M') {
-            out = parseIsotropic(b, s, TRANSITIONS, VALID_TRANSITIONS);
-        } else if (nhLetter === 'H') {
-            out = parseIsotropic(b, s, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, true);
-        } else {
-            return `R1,C${states},B${b},S${s},NL`;
-        }
-        b = out.b;
-        s = out.s;
-        trs = out.data;
-        if (states > 2) {
-            ruleStr = `${s}/${b}/${states}`;
-        } else {
+        let [bTrs, sTrs] = arrayToTransitions(trs, spec);
+        let b = unparseTransitions(bTrs, spec);
+        let s = unparseTransitions(sTrs, spec);
+        if (states === 2) {
             ruleStr = `B${b}/S${s}`;
+        } else {
+            ruleStr = `${s}/${b}/${states}`;
         }
-        if (nhLetter === 'H') {
-            ruleStr += 'H';
+        if (nhLetter !== 'M') {
+            ruleStr += nhLetter;
         }
     }
     let symmetry = findTransitionsSymmetry(trs);
     if (ruleStr.startsWith('MAP')) {
         if (symmetry === 'D8') {
-            let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
-            let b = unparseTransitions(bTrs, VALID_TRANSITIONS);
-            let s = unparseTransitions(sTrs, VALID_TRANSITIONS);
+            let [bTrs, sTrs] = arrayToTransitions(trs, INT);
+            let b = unparseTransitions(bTrs, INT);
+            let s = unparseTransitions(sTrs, INT);
             if (states > 2) {
                 ruleStr = `${s}/${b}/${states}`;
             } else {
@@ -1992,20 +1641,27 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             trs = out;
             if (ruleStr.startsWith('MAP') || ruleStr.startsWith('xmap')) {
                 ruleStr = unparseMAP(trs, states);
+            } else if (ruleStr.startsWith('W')) {
+                let num = 0;
+                for (let i = 0; i < 8; i++) {
+                    num |= (trs[i << 6] << i);
+                }
+                ruleStr = 'W' + num;
+                if (states !== 2) {
+                    ruleStr += `/${states}`;
+                }
             } else {
-                let isHex = ruleStr.endsWith('H');
-                let allTrs = isHex ? HEX_TRANSITIONS : TRANSITIONS;
-                let validTrs = isHex ? VALID_HEX_TRANSITIONS : VALID_TRANSITIONS;
-                let [bTrs, sTrs] = arrayToTransitions(trs, allTrs);
-                let b = unparseTransitions(bTrs, validTrs, isHex);
-                let s = unparseTransitions(sTrs, validTrs, isHex);
+                let spec = INT_SPECS[nhLetter];
+                let [bTrs, sTrs] = arrayToTransitions(trs, spec);
+                let b = unparseTransitions(bTrs, spec);
+                let s = unparseTransitions(sTrs, spec);
                 if (states > 2) {
                     ruleStr = `${s}/${b}/${states}`;
                 } else {
                     ruleStr = `B${b}/S${s}`;
                 }
-                if (isHex) {
-                    ruleStr += 'H';
+                if (nhLetter !== 'M') {
+                    ruleStr += nhLetter;
                 }
             }
         } else {
@@ -2024,7 +1680,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 neighborhood,
             };
             if (states > 2) {
-                return new MAPGenB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
+                throw new RuleError(`Generations B0 is not supported`);
             } else {
                 return new MAPB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
             }

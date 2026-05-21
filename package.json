@@ -20,9 +20,9 @@
     },
     "homepage": "https://github.com/speedydelete/lifeweb",
     "wrecked": {
-        "html": "editor/index.html",
+        "html": "src/editor/index.html",
         "files": {
-            "<script src=\"index.js\"></script>": "src/editor.ts"
+            "<script type=\"module\" src=\"index.js\"></script>": "src/editor/index.ts"
         }
     }
 }

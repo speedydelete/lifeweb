@@ -1,7 +1,26 @@
 
 /*
 
-The algorithm is explained at the top of sep.ts.
+Implements xp2's algorithm for object seperation for MAP rules:
+1. Give each group of kingwise-connected cells a number
+2. Run it for some number of generations, combining objects that birth cells
+3. After each generation, resolve knots
+4. After a sufficient number of generations, the objects should be seperated
+
+A knot is a dead cell surrounded by 2+ groups of live cells that won't come alive in the next generation
+Knots cause the merger of objects if a birth would happen if the groups were seperated.
+If it is ambiguous, the current behavior is to just merge them.
+
+The current implementation does NOT account for neighborhood restrictions, perhaps this should be changed in the future.
+
+*/
+
+import {gcd} from './util.js';
+import {INT, MAPPattern} from './map.js';
+import {findType, PatternType} from './identify.js';
+
+
+/*
 
 Full analysis of knots for INT rules:
 
@@ -109,340 +128,183 @@ B1c, B2c || B3i: merge all
 !B1c, !B3i, B2c, !B4n: merge all if B = C
 !B1c, !B3i, B2c, B4n: merge all if A = B || B = C
 
-For optimization, we don't implement B1c.
-
 */
 
-import {gcd} from './util.js';
-import {MAPPattern, INT} from './map.js';
-import {findType, PatternType} from './identify.js';
+// we precompute a 512-element knot lookup table indicating what to do for each knot
 
+// when writing this i translated the grid to make it simpler
+// so instead of
+// 0 3 6
+// 1 4 7
+// 2 5 8
+// i did
+// 0 1 2
+// 3 4 5
+// 6 7 8
+// this works because i also did it while ordering the transitions
+// it's bitmasking, so we choose the merges
 
-/** The list of two-island knots */
-const TWO_ISLAND = ['2c', '2i', '2k', '2n', '3c', '3k', '3n', '3q', '3r', '3y', '4c', '4i', '4k', '4n', '4q', '4t', '4y', '4z', '5e', '5j', '5k', '5r', '6e', '6i'].flatMap(x => INT.trs[x]);
-/** The list of knots with three or more islands */
-const THREE_OR_MORE_ISLANDS = ['3c', '3y', '4c', '4y', '5e'].flatMap(x => INT.trs[x]);
-let isTwoIsland = new Uint8Array(512);
-let isThreeOrMoreIslands = new Uint8Array(512);
-for (let i = 0; i < 512; i++) {
-    if (TWO_ISLAND.includes(i)) {
-        isTwoIsland[i] = 1;
-    }
-    if (THREE_OR_MORE_ISLANDS.includes(i)) {
-        isThreeOrMoreIslands[i] = 1;
+const KNOT_MERGE_02 = 1;
+const KNOT_MERGE_05 = 2;
+const KNOT_MERGE_06 = 3;
+const KNOT_MERGE_07 = 4;
+const KNOT_MERGE_08 = 5;
+const KNOT_MERGE_16 = 6;
+const KNOT_MERGE_17 = 7;
+const KNOT_MERGE_18 = 8;
+const KNOT_MERGE_23 = 9;
+const KNOT_MERGE_26 = 10;
+const KNOT_MERGE_27 = 11;
+const KNOT_MERGE_28 = 12;
+const KNOT_MERGE_35 = 13;
+const KNOT_MERGE_38 = 14;
+const KNOT_MERGE_56 = 15;
+const KNOT_MERGE_68 = 16;
+
+const KNOT_MULTI_ISLAND = 17;
+
+// for the two-island cases we can do the analysis automatically
+// this is slightly slower in startup but saves a lot of room for human error
+
+const IS_TWO_ISLAND_KNOT = new Uint8Array(512);
+for (let tr of ['2c', '2i', '2k', '2n', '3k', '3n', '3q', '3r', '4i', '4k', '4n', '4q', '4t', '4z', '5j', '5k', '5r', '6e', '6i']) {
+    for (let i of INT.trs[tr]) {
+        IS_TWO_ISLAND_KNOT[i] = 1;
     }
 }
 
-/* We precompute a 512-byte array containing all the knot information for a rule. For 2-island knots, the byte is 0 if merging should not happen or 1 if merging should happen. It is also 0 if it isn't a knot at all. For 3+-island knots, it is more complicated.*/
+const IS_MULTI_ISLAND_KNOT = new Uint8Array(512);
+for (let tr of ['3c', '3y', '4c', '4y', '5e']) {
+    for (let i of INT.trs[tr]) {
+        IS_MULTI_ISLAND_KNOT[i] = 1;
+    }
+}
 
-const KNOT_TYPE = 0xF0;
+// format: [mask, transition]
+// if ((tr & mask) === transition) then we have it
+const KNOT_ISLANDS = [
+    // 1c
+    [0b110_110_000, 0b100_000_000],
+    [0b011_011_000, 0b001_000_000],
+    [0b000_110_110, 0b000_000_100],
+    [0b000_011_011, 0b000_000_001],
+    // 1e
+    [0b111_111_000, 0b010_000_000],
+    [0b110_110_110, 0b000_100_000],
+    [0b011_011_011, 0b000_001_000],
+    [0b000_111_111, 0b000_000_010],
+    // 2a
+    [0b111_111_000, 0b110_000_000],
+    [0b111_111_000, 0b011_000_000],
+    [0b110_110_110, 0b100_100_000],
+    [0b110_110_110, 0b000_100_100],
+    [0b011_011_011, 0b001_001_000],
+    [0b011_011_011, 0b000_001_001],
+    [0b000_111_111, 0b000_000_110],
+    [0b000_111_111, 0b000_000_011],
+    // 2c
+    [0b111_111_000, 0b101_000_000],
+    [0b110_110_110, 0b100_000_100],
+    [0b011_011_011, 0b001_000_001],
+    [0b000_111_111, 0b000_000_101],
+    // 2e
+    [0b111_111_110, 0b010_100_000],
+    [0b111_111_011, 0b010_001_000],
+    [0b110_111_111, 0b000_100_010],
+    [0b011_111_111, 0b000_001_010],
+    // 2k
+    [0b111_111_110, 0b001_100_000],
+    [0b111_111_110, 0b010_000_100],
+    [0b111_111_011, 0b100_001_000],
+    [0b111_111_011, 0b010_000_001],
+    [0b110_111_111, 0b100_000_010],
+    [0b110_111_111, 0b000_100_001],
+    [0b011_111_111, 0b001_000_010],
+    [0b011_111_111, 0b000_001_100],
+    // 3a
+    [0b111_111_110, 0b110_100_000],
+    [0b111_111_011, 0b011_001_000],
+    [0b110_111_111, 0b000_100_110],
+    [0b011_111_111, 0b000_001_011],
+    // 3i
+    [0b111_111_000, 0b111_000_000],
+    [0b110_110_110, 0b100_100_100],
+    [0b011_011_011, 0b001_001_001],
+    [0b000_111_111, 0b000_000_111],
+    // 4a
+    [0b111_111_110, 0b111_100_000],
+    [0b111_111_110, 0b110_100_100],
+    [0b111_111_011, 0b111_001_000],
+    [0b111_111_011, 0b011_001_001],
+    [0b110_111_111, 0b100_100_110],
+    [0b110_111_111, 0b000_100_111],
+    [0b011_111_111, 0b001_001_011],
+    [0b011_111_111, 0b000_001_111],
+];
 
-const A3C = 0x10;
-const A3C_B2N = 1;
-const A3C_B2C = 2;
-const A3C_MERGE_ALL = 8;
+const BASIC_KNOT_MERGES: {[key: string]: number} = {
+    '02': KNOT_MERGE_02,
+    '05': KNOT_MERGE_05,
+    '06': KNOT_MERGE_06,
+    '07': KNOT_MERGE_07,
+    '08': KNOT_MERGE_08,
+    '16': KNOT_MERGE_16,
+    '17': KNOT_MERGE_17,
+    '18': KNOT_MERGE_18,
+    '23': KNOT_MERGE_23,
+    '26': KNOT_MERGE_26,
+    '27': KNOT_MERGE_27,
+    '28': KNOT_MERGE_28,
+    '35': KNOT_MERGE_35,
+    '38': KNOT_MERGE_38,
+    '56': KNOT_MERGE_56,
+    '68': KNOT_MERGE_68,
+};
 
-const A3Y = 0x20;
-const A3Y_B2C = 1;
-const A3Y_B2K = 2;
-const A3Y_MERGE_ALL = 0x28;
-
-const A4C = 0x30;
-const A4C_B2N = 1;
-const A4C_B2C = 2;
-const A4C_MERGE_ALL = 0x38;
-
-const A4Y = 0x40;
-const A4Y_B2A = 1;
-const A4Y_B3Q = 2;
-const A4Y_B3N = 4;
-const A4Y_B2C = 8;
-const A4Y_MERGE_ALL = 0x47;
-
-const A5E = 0x50;
-const A5E_B2C = 1;
-const A5E_B4N = 2;
-const A5E_MERGE_ALL = 0x58;
-
-/** Gets a precomputed 512-bit array of knots for `INTSeparator`. */
+/** Gets precomputed knot lists for `MAPSeparator`, but only for the basic cases. */
 export function getKnots(trs: Uint8Array): Uint8Array {
     let out = new Uint8Array(512);
-    let B1e = trs[0b010000000];
-    let B2a = trs[0b110000000];
-    let B2c = trs[0b101000000];
-    let B2e = trs[0b010100000];
-    let B2i = trs[0b000101000];
-    let B2k = trs[0b001100000];
-    let B2n = trs[0b100000001];
-    let B3a = trs[0b110100000];
-    let B3c = trs[0b101000100];
-    let B3i = trs[0b111000000];
-    let B3j = trs[0b011100000];
-    let B3k = trs[0b010100001];
-    let B3n = trs[0b110000100];
-    let B3q = trs[0b110000001];
-    let B3r = trs[0b110000010];
-    let B3y = trs[0b100001100];
-    let B4a = trs[0b111100000];
-    let B4c = trs[0b101000101];
-    let B4i = trs[0b110000110];
-    let B4k = trs[0b010100101];
-    let B4n = trs[0b111000001];
-    let B4q = trs[0b110100001];
-    let B4t = trs[0b111000010];
-    let B4w = trs[0b110001001];
-    let B4y = trs[0b101001100];
-    let B4z = trs[0b110000011];
-    let B5a = trs[0b111100100];
-    let B5e = trs[0b101001101];
-    let B5j = trs[0b111100001];
-    let B5k = trs[0b101001110];
-    let B5r = trs[0b111000011];
-    let B6e = trs[0b101001111];
-    let B6i = trs[0b111000111];
-    if (!B2i && B1e) {
-        out[0b010000010] = 1;
-        out[0b000101000] = 1;
-    }
-    if (!B2k && B1e) {
-        out[0b100001000] = 1;
-        out[0b000001100] = 1;
-        out[0b001000010] = 1;
-        out[0b100000010] = 1;
-        out[0b000100001] = 1;
-        out[0b001100000] = 1;
-        out[0b010000100] = 1;
-        out[0b010000001] = 1;
-    }
-    if (!B3c) {
-        let value = A3C;
-        if (B2n) {
-            value |= A3C_B2N;
-        }
-        if (B2c) {
-            value |= A3C_B2C;
-        }
-        out[0b101000100] = value;
-        out[0b101000001] = value;
-        out[0b100000101] = value;
-        out[0b001000101] = value;
-    }
-    if (!B3k && B2e) {
-        out[0b010100001] = 1;
-        out[0b001100010] = 1;
-        out[0b010001100] = 1;
-        out[0b100001010] = 1;
-    }
-    if (!B3n && B2a) {
-        out[0b101100000] = 1;
-        out[0b101001000] = 1;
-        out[0b011000001] = 1;
-        out[0b001000011] = 1;
-        out[0b000001101] = 1;
-        out[0b000100101] = 1;
-        out[0b100000110] = 1;
-        out[0b110000100] = 1;
-    }
-    if (!B3q && B2a) {
-        out[0b100100001] = 1;
-        out[0b001001100] = 1;
-        out[0b011000100] = 1;
-        out[0b100000011] = 1;
-        out[0b001100100] = 1;
-        out[0b100001001] = 1;
-        out[0b001000110] = 1;
-        out[0b110000001] = 1;
-    }
-    if (!B3r && B2a) {
-        out[0b100101000] = 1;
-        out[0b001101000] = 1;
-        out[0b000101100] = 1;
-        out[0b000101001] = 1;
-        out[0b110000010] = 1;
-        out[0b011000010] = 1;
-        out[0b010000110] = 1;
-        out[0b010000011] = 1;
-    }
-    if (!B3y) {
-        let value: number;
-        if (B1e) {
-            value = A3Y_MERGE_ALL;
-        } else {
-            value = A3Y;
-            if (B2c) {
-                value |= A3Y_B2C;
-            }
-            if (B2k) {
-                value |= A3Y_B2K;
-            }
-        }
-        out[0b101000010] = value;
-        out[0b001100001] = value;
-        out[0b010000101] = value;
-        out[0b100001100] = value;
-    }
-    if (!B4c) {
-        let value: number;
-        if (!B3c) {
-            if (B2c || B2n) {
-                value = A4C_MERGE_ALL;
-            } else {
-                value = 0;
-            }
-        } else {
-            value = A4C;
-            if (B2c) {
-                value |= A4C_B2C;
-            }
-            if (B2n) {
-                value |= A4C_B2N;
-            }
-        }
-        out[0b101000101] = value;
-    }
-    if (!B4i && B2a) {
-        out[0b101101000] = 1;
-        out[0b000101101] = 1;
-        out[0b110000110] = 1;
-        out[0b011000011] = 1;
-    }
-    if (!B4k && B3j) {
-        out[0b011100001] = 1;
-        out[0b110001100] = 1;
-        out[0b010001101] = 1;
-        out[0b101001010] = 1;
-        out[0b100001110] = 1;
-        out[0b001100011] = 1;
-        out[0b101100010] = 1;
-        out[0b010100101] = 1;
-    }
-    if (!B4n && B3i) {
-        out[0b111000100] = 1;
-        out[0b111000001] = 1;
-        out[0b101100100] = 1;
-        out[0b100100101] = 1;
-        out[0b100000111] = 1;
-        out[0b001000111] = 1;
-        out[0b101001001] = 1;
-        out[0b001001101] = 1;
-    }
-    if (!B4q && B3a) {
-        out[0b110100001] = 1;
-        out[0b011001100] = 1;
-        out[0b100001011] = 1;
-        out[0b001100110] = 1;
-    }
-    if (!B4t && (B1e || B3i)) {
-        out[0b111000010] = 1;
-        out[0b001101001] = 1;
-        out[0b010000111] = 1;
-        out[0b100101100] = 1;
-    }
-    if (!B4y) {
-        let value: number;
-        if (B2a) {
-            if (!B3q && !B3n) {
-                value = A4Y_MERGE_ALL;
-            } else {
-                value = A4Y_B2A;
-                if (B3q) {
-                    value |= A4Y_B3Q;
-                }
-                if (B3n) {
-                    value |= A4Y_B3N;
+    // first the simple cases
+    for (let tr = 0; tr < 512; tr++) {
+        if (trs[tr] || (tr & (1 << 4))) {
+            continue;
+        } else if (IS_TWO_ISLAND_KNOT[tr]) {
+            let found = false;
+            let tr2 = tr;
+            let islands: number[] = [];
+            for (let [mask, testTr] of KNOT_ISLANDS) {
+                if (((tr2 & mask) === testTr) && trs[testTr]) {
+                    found = true;
+                    tr &= ~mask;
+                    let mask2 = 256;
+                    for (let i = 0; i < 9; i++) {
+                        if ((tr & mask2) === 1) {
+                            islands.push(i);
+                            break;
+                        }
+                        mask2 >>= 1;
+                    }
                 }
             }
-        } else {
-            value = A4Y;
-            if (B3q) {
-                value |= A4Y_B3Q;
+            if (found) {
+                let key = islands.sort().join('');
+                if (!(key in BASIC_KNOT_MERGES)) {
+                    throw new Error(`Merge not present for transition ${tr}: ${key}`);
+                }
+                out[tr] = BASIC_KNOT_MERGES[key];
             }
-            if (B3n) {
-                value |= A4Y_B3N;
-            }
-            if (B2c) {
-                value |= A4Y_B2C;
-            } else if (B3q && B3n) {
-                value = A4Y_MERGE_ALL;
-            }
+        } else if (IS_MULTI_ISLAND_KNOT[tr]) {
+            out[tr] = KNOT_MULTI_ISLAND;   
         }
-        out[0b101000110] = value;
-        out[0b101000011] = value;
-        out[0b101100001] = value;
-        out[0b001100101] = value;
-        out[0b110000101] = value;
-        out[0b011000101] = value;
-        out[0b100001101] = value;
-        out[0b101001100] = value;
-    }
-    if (!B4z && B2a) {
-        out[0b110000011] = 1;
-        out[0b001101100] = 1;
-        out[0b011000110] = 1;
-        out[0b100101001] = 1;
-    }
-    if (!B5e) {
-        let value: number;
-        if (B3i) {
-            value = A5E_MERGE_ALL;
-        } else {
-            value = A5E;
-            if (B2c) {
-                value |= A5E_B2C;
-            }
-            if (B4n) {
-                value |= A5E_B4N;
-            }
-        }
-        out[0b101000111] = value;
-        out[0b111000101] = value;
-        out[0b101100101] = value;
-        out[0b101001101] = value;
-    }
-    if (!B5j && B4a) {
-        out[0b110100101] = 1;
-        out[0b011001101] = 1;
-        out[0b111001100] = 1;
-        out[0b100001111] = 1;
-        out[0b101001011] = 1;
-        out[0b101100110] = 1;
-        out[0b001100111] = 1;
-        out[0b111100001] = 1;
-    }
-    if (!B5k && B4w) {
-        out[0b101001110] = 1;
-        out[0b101100110] = 1;
-        out[0b110100101] = 1;
-        out[0b110001101] = 1;
-    }
-    if (!B5r && (B2a || B3i)) {
-        out[0b100101101] = 1;
-        out[0b101101100] = 1;
-        out[0b111000110] = 1;
-        out[0b111000011] = 1;
-        out[0b001101101] = 1;
-        out[0b101101001] = 1;
-        out[0b011000111] = 1;
-        out[0b110000111] = 1;
-    }
-    if (!B6e && B5a) {
-        out[0b101001111] = 1;
-        out[0b101100111] = 1;
-        out[0b111100101] = 1;
-        out[0b111001101] = 1;
-    }
-    if (!B6i && B3i) {
-        out[0b101101101] = 1;
-        out[0b111000111] = 1;
     }
     return out;
 }
 
 
-/** Separates objects in INT rules using a colorizing algorithm. May have bugs. For details about that algorithm, see the comments at the top of lifeweb/src/2d/intsep.ts. 
+/** Separates objects in INT rules using a colorizing algorithm. May have bugs.
  * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
 */
-export class INTSeparator extends MAPPattern {
+export class MAPSeparator extends MAPPattern {
 
     /** Contains precomputed data to help with disconnected strict objects, for more information see the comments at the top of lifeweb/src/2d/intsep.ts. */
     knots: Uint8Array;
@@ -451,7 +313,7 @@ export class INTSeparator extends MAPPattern {
     /** The list of reassigned group numbers */
     reassignedGroups: {[key: number]: number} = {};
 
-    constructor(p: MAPPattern | INTSeparator, knots: Uint8Array) {
+    constructor(p: MAPPattern | MAPSeparator, knots: Uint8Array) {
         let height = p.height;
         let width = p.width;
         let data = p.data.slice();
@@ -461,7 +323,7 @@ export class INTSeparator extends MAPPattern {
         this.generation = p.generation;
         this.trs = p.trs;
         this.knots = knots;
-        if (p instanceof INTSeparator) {
+        if (p instanceof MAPSeparator) {
             this.groups = p.groups;
             return;
         }
@@ -772,7 +634,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc1] = groups[i + width];
                     }
-                    if (isTwoIsland[tr1]) {
+                    if (IS_TWO_ISLAND_KNOT[tr1]) {
                         let a = 0;
                         for (let x of [i - 2, i, i + width - 2, i + width - 1, i + width]) {
                             let y = groups[x];
@@ -803,7 +665,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc2] = groups[j];
                     }
-                    if (isTwoIsland[tr2]) {
+                    if (IS_TWO_ISLAND_KNOT[tr2]) {
                         let a = 0;
                         for (let x of [j - 2, j, j - width - 2, j - width - 1, j - width]) {
                             let y = groups[x];
@@ -865,7 +727,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc] = groups[i + width];
                     }
-                    if (isTwoIsland[tr]) {
+                    if (IS_TWO_ISLAND_KNOT[tr]) {
                         let a = 0;
                         for (let x of [i - width, i, i + width, i - width - 1, i + width - 1]) {
                             let y = groups[x];
@@ -905,7 +767,7 @@ export class INTSeparator extends MAPPattern {
                         } else {
                             newGroups[loc] = groups[i + width];
                         }
-                        if (isTwoIsland[tr]) {
+                        if (IS_TWO_ISLAND_KNOT[tr]) {
                             let a = 0;
                             for (let x of [i - width, i, i + width, i - width - 1, i + width - 1, i - width - 2, i, i + width - 2]) {
                                 let y = groups[x];
@@ -914,7 +776,7 @@ export class INTSeparator extends MAPPattern {
                                         a = y;
                                     } else if (a !== y) {
                                         reassignments.push([y, a]);
-                                        if (!isThreeOrMoreIslands[tr]) {
+                                        if (!IS_MULTI_ISLAND_KNOT[tr]) {
                                             break;
                                         }
                                     }
@@ -941,7 +803,7 @@ export class INTSeparator extends MAPPattern {
                     } else {
                         newGroups[loc] = groups[i + width - 1];
                     }
-                    if (isTwoIsland[tr]) {
+                    if (IS_TWO_ISLAND_KNOT[tr]) {
                         let a = 0;
                         for (let x of [i - width - 1, i + width - 1, i - width - 2, i - 2, i + width - 2]) {
                             let y = groups[x];
@@ -996,273 +858,105 @@ export class INTSeparator extends MAPPattern {
                 if (value === 0) {
                     i++;
                     continue;
-                }
-                if (value === 1) {
-                    // if it's 1, we know it is a 2-island knot, so we then find what to reassign
-                    let a = 0;
-                    let x = groups[i - width - 2];
-                    if (x) {
-                        a = x;
+                } else if (value === KNOT_MULTI_ISLAND) {
+                    // this is the complicated part...
+                    // we need to figure out if any births of a group are being suppressed
+                    // but if there are multiple ways to group it together, it's ambiguous
+                    // currently if it's ambiguous we just merge it all
+                    // so first we need to get a list of groups and the bits they represent
+                    let groupLookup: {[key: string]: number} = {};
+                    let loc = 8;
+                    for (let index of [i - width - 2, i - width - 1, i - width, i - 2, i - 1, i, i + width - 2, i + width - 1, i + width]) {
+                        let group = groups[index];
+                        if (group) {
+                            if (group in groupLookup) {
+                                groupLookup[group] |= 1 << loc;
+                            } else {
+                                groupLookup[group] = 1 << loc;
+                            }
+                        }
+                        loc--;
                     }
-                    x = groups[i - width - 1];
-                    if (x) {
-                        if (!a) {
-                            a = x;
+                    let currentGroups = Object.entries(groupLookup);
+                    // ok now we have to figure out which combinations of groups lead to a birth
+                    let maxMask = 1 << currentGroups.length;
+                    let births: Set<number> = new Set();
+                    for (let groupMask = 0; groupMask < maxMask; groupMask++) {
+                        let tr = 0;
+                        for (let i = 0; i < currentGroups.length; i++) {
+                            if (groupMask & (1 << i)) {
+                                tr |= currentGroups[i][1];
+                            }
+                        }
+                        if (this.trs[tr]) {
+                            births.add(tr);
                         }
                     }
-                    x = groups[i - width];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                            i++;
-                            continue;
-                        }
-                    }
-                    x = groups[i - 2];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                            i++;
-                            continue;
-                        }
-                    }
-                    x = groups[i];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                            i++;
-                            continue;
-                        }
-                    }
-                    x = groups[i + width - 2];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                            i++;
-                            continue;
-                        }
-                    }
-                    x = groups[i + width - 1];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                        }
-                    }
-                    x = groups[i + width];
-                    if (x) {
-                        if (!a) {
-                            a = x;
-                        } else if (a !== x) {
-                            reassignments.push([x, a]);
-                        }
+                    // shortcut case for when there is no birth occurring
+                    if (births.size === 0) {
+                        i++;
+                        continue;
                     }
                 } else {
-                    // this implements the more complicated cases
-                    let type = value & KNOT_TYPE;
-                    if (type === A3C) {
-                        if (value === A3C) {
-                            i++;
-                            continue;
-                        }
-                        let a = groups[i - width - 2];
-                        let b: number;
-                        let c: number;
-                        if (a === 0) {
-                            a = groups[i - width];
-                            b = groups[i + width];
-                            c = groups[i + width - 2];
-                        } else {
-                            b = groups[i - width];
-                            if (b === 0) {
-                                b = groups[i + width - 2];
-                                c = groups[i + width];
-                            } else {
-                                c = groups[i + width - 2];
-                                if (c === 0) {
-                                    c = groups[i + width];
+                    // binary search
+                    if (value < KNOT_MERGE_23) {
+                        if (value < KNOT_MERGE_08) {
+                            if (value < KNOT_MERGE_06) {
+                                if (value === KNOT_MERGE_02) {
+                                    reassignments.push([groups[i - width - 2], groups[i - width]]);
                                 } else {
-                                    let temp = a;
-                                    a = b;
-                                    b = temp;
+                                    reassignments.push([groups[i - width - 2], groups[i]]);
                                 }
-                            }
-                        }
-                        if (value & A3C_MERGE_ALL) {
-                            reassignments.push([b, a]);
-                            reassignments.push([c, a]);
-                        }
-                        if (value & A3C_B2C) {
-                            if (a === b) {
-                                reassignments.push([c, b]);
-                            } else if (b === c) {
-                                reassignments.push([a, b]);
-                            } else if ((value & A3C_B2N) && a === c) {
-                                reassignments.push([b, a]);
-                            }
-                        } else if ((value & A3C_B2N) && a === c) {
-                            reassignments.push([b, a]);
-                        }
-                    } else if (type === A3Y) {
-                        let a: number;
-                        let b: number;
-                        let c = groups[i - width - 1];
-                        if (c) {
-                            a = groups[i + width - 2];
-                            b = groups[i + width];
-                        } else {
-                            c = groups[i];
-                            if (c) {
-                                a = groups[i - width - 2];
-                                b = groups[i + width - 2];
                             } else {
-                                c = groups[i - 2];
-                                if (c) {
-                                    a = groups[i - width];
-                                    b = groups[i + width];
+                                if (value === KNOT_MERGE_06) {
+                                    reassignments.push([groups[i - width - 2], groups[i + width - 2]]);
                                 } else {
-                                    a = groups[i - width - 2];
-                                    b = groups[i - width];
-                                    c = groups[i + width - 1];
+                                    reassignments.push([groups[i - width - 2], groups[i + width - 1]]);
                                 }
                             }
-                        }
-                        if (value & A3Y_MERGE_ALL) {
-                            reassignments.push([b, a]);
-                            reassignments.push([c, a]);
                         } else {
-                            if (value & A3Y_B2K) {
-                                if (a === c) {
-                                    reassignments.push([b, a]);
-                                } else if (b === c) {
-                                    reassignments.push([a, b]);
-                                } else if ((value & A3Y_B2C) && a === b) {
-                                    reassignments.push([c, a]);
+                            if (value < KNOT_MERGE_17) {
+                                if (value === KNOT_MERGE_08) {
+                                    reassignments.push([groups[i - width - 2], groups[i + width]]);
+                                } else {
+                                    reassignments.push([groups[i - width - 1], groups[i + width - 2]]);
                                 }
-                            } else if ((value & A3Y_B2C) && a === b) {
-                                reassignments.push([c, a]);
-                            }
-                        }
-                    } else if (type === A4C) {
-                        let a = groups[i - width - 2];
-                        let b = groups[i - width];
-                        let c = groups[i + width - 2];
-                        let d = groups[i + width];
-                        if (value & A4C_MERGE_ALL) {
-                            reassignments.push([b, a]);
-                            reassignments.push([c, a]);
-                            reassignments.push([d, a]);
-                        } else {
-                            if (value & A4C_B2C) {
-                                if (a === b) {
-                                    reassignments.push([c, a]);
-                                    reassignments.push([d, a]);
-                                } else if (a === c) {
-                                    reassignments.push([b, a]);
-                                    reassignments.push([d, a]);
-                                } else if (b === d) {
-                                    reassignments.push([a, b]);
-                                    reassignments.push([c, b]);
-                                } else if (c === d) {
-                                    reassignments.push([a, c]);
-                                    reassignments.push([b, c]);
-                                } else if (value & A4C_B2N) {
-                                    if (a === d) {
-                                        reassignments.push([b, a]);
-                                        reassignments.push([c, a]);
-                                    } else if (b === c) {
-                                        reassignments.push([a, b]);
-                                        reassignments.push([d, b]);
-                                    }
+                            } else {
+                                if (value === KNOT_MERGE_17) {
+                                    reassignments.push([groups[i - width - 1], groups[i + width - 1]]);
+                                } else {
+                                    reassignments.push([groups[i - width - 1], groups[i + width]]);
                                 }
-                            } else if (value & A4C_B2N) {
-                                if (a === d) {
-                                    reassignments.push([b, a]);
-                                    reassignments.push([c, a]);
-                                } else if (b === c) {
-                                    reassignments.push([a, b]);
-                                    reassignments.push([d, b]);
-                                }
-                            }
-                        }
-                    } else if (type === A4Y) {
-                        let a: number;
-                        let b: number;
-                        let c: number;
-                        let swap: number;
-                        if (!groups[i - width - 2]) {
-                            a = groups[i + width - 2];
-                            b = groups[i + width];
-                            c = groups[i - width];
-                            swap = groups[i - width - 1];
-                        } else if (!groups[i - width]) {
-                            a = groups[i + width];
-                            b = groups[i + width - 2];
-                            c = groups[i - width - 2];
-                            swap = groups[i - width - 1];
-                        } else if (!groups[i + width - 2]) {
-                            a = groups[i + width];
-                            b = groups[i - width];
-                            c = groups[i - width - 2];
-                            swap = groups[i - 2];
-                        } else {
-                            a = groups[i + width - 2];
-                            b = groups[i - width - 2];
-                            c = groups[i - width];
-                            swap = groups[i];
-                        }
-                        if (swap) {
-                            let temp = c;
-                            c = a;
-                            a = temp;
-                        }
-                        if (value & A4Y_B2A) {
-                            if (value & A4Y_B3N) {
-                                reassignments.push([b, a]);
-                            }
-                            if (value & A4Y_B3Q) {
-                                reassignments.push([c, a]);
-                            }
-                        } else {
-                            if ((value & A4Y_B3N) && (a === b)) {
-                                reassignments.push([c, a]);
-                            } else if ((value & A4Y_B3Q) && (a === c)) {
-                                reassignments.push([b, a]);
-                            } else if ((value & A4Y_B2C) && (b === c)) {
-                                reassignments.push([a, b]);
                             }
                         }
                     } else {
-                        let a = groups[i - width - 2];
-                        let b = groups[i - width];
-                        let c = groups[i + width - 2];
-                        let d = groups[i + width];
-                        if (a === c) {
-                            c = d;
-                        } else if (c === d) {
-                            c = a;
-                            a = d;
-                        } else if (b === d) {
-                            b = a;
-                            a = d;
-                        }
-                        if (value === A5E_MERGE_ALL) {
-                            reassignments.push([b, a]);
-                            reassignments.push([c, a]);
+                        if (value < KNOT_MERGE_35) {
+                            if (value < KNOT_MERGE_27) {
+                                if (value === KNOT_MERGE_23) {
+                                    reassignments.push([groups[i - width], groups[i - 2]]);
+                                } else {
+                                    reassignments.push([groups[i - width], groups[i + width - 2]]);
+                                }
+                            } else {
+                                if (value === KNOT_MERGE_27) {
+                                    reassignments.push([groups[i - width], groups[i + width - 1]]);
+                                } else {
+                                    reassignments.push([groups[i - width], groups[i + width]]);
+                                }
+                            }
                         } else {
-                            if ((value & A5E_B2C) && (b === c)) {
-                                reassignments.push([c, a]);
-                            } else if ((value & A5E_B4N) && (a === b)) {
-                                reassignments.push([b, a]);
+                            if (value < KNOT_MERGE_56) {
+                                if (value === KNOT_MERGE_35) {
+                                    reassignments.push([groups[i - 2], groups[i]]);
+                                } else {
+                                    reassignments.push([groups[i - 2], groups[i + width]]);
+                                }
+                            } else {
+                                if (value === KNOT_MERGE_56) {
+                                    reassignments.push([groups[i], groups[i + width - 2]]);
+                                } else {
+                                    reassignments.push([groups[i + width - 2], groups[i + width]]);
+                                }
                             }
                         }
                     }
@@ -1273,6 +967,9 @@ export class INTSeparator extends MAPPattern {
         }
         let out = false;
         for (let [a, b] of reassignments) {
+            if (a === b) {
+                continue;
+            }
             if (this.reassign(a, b)) {
                 out = true;
             }
@@ -1411,7 +1108,7 @@ export class INTSeparator extends MAPPattern {
                         }
                         objs.push([p.copy(), x]);
                     } else {
-                        let sep = new INTSeparator(p, this.knots);
+                        let sep = new MAPSeparator(p, this.knots);
                         let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                         if (data === null) {
                             failed = true;
@@ -1500,7 +1197,7 @@ export class INTSeparator extends MAPPattern {
                             }
                             objs.push([p.copy(), x]);
                         } else {
-                            let sep = new INTSeparator(p, this.knots);
+                            let sep = new MAPSeparator(p, this.knots);
                             let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                             if (data === null) {
                                 failed = true;
@@ -1542,15 +1239,15 @@ export class INTSeparator extends MAPPattern {
         }
     }
 
-    copy(): INTSeparator {
-        return new INTSeparator(this, this.knots);
+    copy(): MAPSeparator {
+        return new MAPSeparator(this, this.knots);
     }
 
-    clearedCopy(): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs), this.knots);
+    clearedCopy(): MAPSeparator {
+        return new MAPSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs), this.knots);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): INTSeparator {
+    copyPart(x: number, y: number, height: number, width: number): MAPSeparator {
         let data = new Uint8Array(width * height);
         let groups = new Uint32Array(width * height);
         let loc = 0;
@@ -1559,14 +1256,14 @@ export class INTSeparator extends MAPPattern {
             groups.set(this.groups.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        let out = new INTSeparator(this, this.knots);
+        let out = new MAPSeparator(this, this.knots);
         out.data = data;
         out.groups = groups;
         return out;
     }
 
-    loadApgcode(code: string): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots);
+    loadApgcode(code: string): MAPSeparator {
+        return new MAPSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots);
     }
 
 }

@@ -31,7 +31,7 @@ export const COORD_BIAS = 1 << 25;
 export const COORD_WIDTH = 1 << 26;
 
 const BIAS = COORD_BIAS;
-const WIDTH = COORD_WIDTH
+const WIDTH = COORD_WIDTH;
 
 /** The join operation for rule symmetries. */
 export const SYMMETRY_JOIN: {[K in RuleSymmetry]: {[L in RuleSymmetry]: RuleSymmetry}} = {
@@ -344,6 +344,12 @@ export const INSERT_CHANGE_LIVE = 0b0011;
 export const INSERT_COPY_TO_DEAD = 0b1100;
 
 
+// LONG TERM PLAN
+// get rid of CoordPattern
+// this will finally fix all the offset bugs!
+// sorry the offset code is kinda stupid
+
+
 /** Returned by Pattern.getRect(). */
 export interface Rect {
     height: number;
@@ -370,7 +376,6 @@ export interface Rule {
 
 /** Represents a pattern in a cellular automata. */
 export abstract class Pattern {
-
     
     toString(): string {
         let [x, y] = this.getFullOffset();
@@ -392,8 +397,15 @@ export abstract class Pattern {
 
     /** Runs a single generation. */
     abstract runGeneration(): unknown;
-    /** Runs one or more generations. */
-    abstract run(generations?: number): this;
+    
+    /** Runs the pattern for that many generations, or 1 if unspecified. */
+    run(gens: number = 1): this {
+        for (let i = 0; i < gens; i++) {
+            this.runGeneration();
+        }
+        return this;
+    }
+    
     /** The number of non-state-0 cells. This may be implemented as a getter, so don't change it unless you're sure. */
     abstract population: number;
     /** Gets the bounding box of the pattern, like g.getrect(). */
@@ -514,10 +526,12 @@ export abstract class Pattern {
         return out.slice(0, -1);
     }
 
+    // this is abstract because there can be more optimal implementations based on caching height/width/data
     /** Gets the apgcode of the pattern. */
     abstract toApgcode(prefix?: string): string;
 
     toCanonicalApgcode(period: number = 1, prefix?: string): string {
+        // this can probably be optimized
         let p = this.copy();
         p.shrinkToFit();
         let codes: string[] = [];
@@ -577,43 +591,49 @@ export abstract class Pattern {
     }
 
     toRLE(header: boolean = true): string {
+        // we do this where we compute the run counts while processing, instead of at the end
         let height = this.height;
         let width = this.width;
         let out = header ? `x = ${width}, y = ${height}, rule = ${this.rule.str}\n` : '';
         let data = this.getData();
-        let prevChar = '';
-        let num = 0;
         let i = 0;
         let line = '';
-        let $count = 0;
+        let dollarCount = 0;
         let isStart = true;
         for (let y = 0; y < height; y++) {
+            // shortcut for empty row
             if (data.slice(i, i + width).every(x => x === 0)) {
-                $count++;
+                dollarCount++;
                 i += width;
                 continue;
             }
+            // add dollar signs if neccessary
             if (!isStart) {
                 let prevLineLength = line.length;
-                if ($count > 0) {
-                    line += $count + 1;
-                    $count = 0;
+                if (dollarCount > 0) {
+                    line += dollarCount + 1;
+                    dollarCount = 0;
                 }
                 line += '$';
+                // cut the line if it's too big
                 if (line.length > 69) {
                     out += line.slice(0, prevLineLength) + '\n';
                     line = line.slice(prevLineLength);
                 }
-            } else if ($count > 0) {
+            } else if (dollarCount > 0) {
                 let prevLineLength = line.length;
-                line += $count + '$';
-                $count = 0;
+                line += dollarCount + '$';
+                dollarCount = 0;
+                // cut the line if it's too big
                 if (line.length > 69) {
                     out += line.slice(0, prevLineLength) + '\n';
                     line = line.slice(prevLineLength);
                 }
             }
             isStart = false;
+            // running count of the number of that character
+            let prevChar = '';
+            let count = 1;
             for (let x = 0; x < width; x++) {
                 let char: string;
                 if (this.rule.states > 2) {
@@ -624,60 +644,59 @@ export abstract class Pattern {
                     char = 'b';
                 }
                 if (char === prevChar) {
-                    num++;
+                    count++;
                 } else {
                     let prevLineLength = line.length;
-                    if (num > 1) {
-                        line += num;
+                    if (count > 1) {
+                        line += count;
                     }
                     line += prevChar;
+                    // cut the line if it's too big
                     if (line.length > 69) {
                         out += line.slice(0, prevLineLength) + '\n';
                         line = line.slice(prevLineLength);
                     }
                     prevChar = char;
-                    num = 1;
+                    count = 1;
                 }
                 i++;
             }
+            // add the last character, but only if it's not 0
             if (prevChar !== 'b' && prevChar !== '.') {
                 let prevLineLength = line.length;
-                if (num > 1) {
-                    line += num;
+                if (count > 1) {
+                    line += count;
                 }
                 line += prevChar;
+                // cut the line if it's too big
                 if (line.length > 69) {
                     out += line.slice(0, prevLineLength) + '\n';
                     line = line.slice(prevLineLength);
                 }
             }
-            prevChar = '';
-            num = 1;
         }
         out += line + '!';
         return out;
     }
 
-   _loadApgcode(code: string): [number, number, Uint8Array] {
+    _loadApgcode(code: string): [number, number, Uint8Array] {
+        // shortcut for 2-state rules
         if (this.rule.states === 2) {
+            // split it, we can't just use .split('z') because yz is a thing
             let strips: string[] = [];
-            if (code.includes('yz')) {
-                let prev = '';
-                let current = '';
-                for (let char of code) {
-                    if (char === 'z' && prev !== 'y') {
-                        strips.push(current);
-                        current = '';
-                        prev = char;
-                        continue;
-                    }
-                    current += char;
+            let prev = '';
+            let current = '';
+            for (let char of code) {
+                if (char === 'z' && prev !== 'y') {
+                    strips.push(current);
+                    current = '';
                     prev = char;
+                    continue;
                 }
-                strips.push(current);
-            } else {
-                strips = code.split('z');
+                current += char;
+                prev = char;
             }
+            strips.push(current);
             let data: number[][] = [];
             let width = 0;
             for (let strip of strips) {
@@ -706,6 +725,7 @@ export abstract class Pattern {
                 }
                 data.push(stripData);
             }
+            // put the data into an array
             let height = data.length * 5;
             let out = new Uint8Array(height * width);
             for (let y = 0; y < data.length; y++) {
@@ -721,6 +741,7 @@ export abstract class Pattern {
             }
             return [height, width, out];
         }
+        // since it's multistate we split it into layers, treating each layer like a single-state apgcode, then unpack them
         let data: number[][][] = [];
         let width = 0;
         let height = 0;
@@ -758,6 +779,7 @@ export abstract class Pattern {
             }
             data.push(layerData);
         }
+        // put the data into an array
         let out = new Uint8Array(height * width);
         for (let y = 0; y < data[0].length; y++) {
             let loc = width * y * 5;
@@ -793,6 +815,7 @@ export abstract class Pattern {
                 }
             }
         } else if (data.length > 2) {
+            // cursed magic, maybe broken idk
             for (let i = 2; i < data.length; i++) {
                 for (let y = 0; y < data[i].length; y++) {
                     let loc = width * y * 5;
@@ -852,6 +875,7 @@ export abstract class Pattern {
                 }
             } else if ('0123456789'.includes(char)) {
                 num += char;
+            // it's \u0024 because of a bug in @babel/standalone that makes the literal string '$' parse invalid
             } else if (char === '\u0024') {
                 out.push(currentLine);
                 currentLine = [];
@@ -909,7 +933,8 @@ export abstract class Pattern {
     abstract loadApgcode(code: string): Pattern;
     /** Loads a RLE and returns a new pattern running the same rule. */
     abstract loadRLE(data: string): Pattern;
-    
+
+    // this makes it pretty-print in node console.log
     [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
         let [x, y] = this.getFullOffset();
         return `${this.constructor.name} ${inspect({
@@ -949,14 +974,8 @@ export abstract class DataPattern extends Pattern {
 
     abstract runGeneration(): any;
 
-    run(gens: number): this {
-        for (let i = 0; i < gens; i++) {
-            this.runGeneration();
-        }
-        return this;
-    }
-
     get population(): number {
+        // this used to be waaay slower because .reduce() was used instead
         let out = 0;
         for (let i = 0; i < this.size; i++) {
             if (this.data[i]) {
@@ -1160,6 +1179,8 @@ export abstract class DataPattern extends Pattern {
             return false;
         }
     }
+
+    // these come from https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
 
     hash32(): number {
         let out = 0x811c9dc5;
@@ -1453,14 +1474,9 @@ export abstract class CoordPattern extends Pattern {
         let maxX = -Infinity;
         let minY = Infinity;
         let maxY = -Infinity;
-        // let out: string[] = [];
         for (let key of this.coords.keys()) {
             let x = Math.floor(key / WIDTH) - BIAS;
             let y = (key & (WIDTH - 1)) - BIAS;
-            // if (y > WIDTH / 4) {
-            //     y -= WIDTH;
-            // }
-            // out.push(`(${x}, ${y})`);
             if (x < minX) {
                 minX = x;
             }
@@ -1474,9 +1490,6 @@ export abstract class CoordPattern extends Pattern {
                 maxY = y;
             }
         }
-        // if (debug) {
-        //     throw new Error(out.join(', '));
-        // }
         return {minX, minY, maxX, maxY};
     }
 
@@ -1641,6 +1654,8 @@ export abstract class CoordPattern extends Pattern {
         }
     }
 
+    // these come from https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+
     hash32(): number {
         let data = this.getData();
         let out = 0x811c9dc5;
@@ -1798,146 +1813,6 @@ export abstract class CoordPattern extends Pattern {
         }
     }
 
-    toCanonicalApgcode(period: number = 1, prefix?: string): string {
-        let p = this.copy();
-        p.shrinkToFit();
-        let codes: string[] = [];
-        for (let j = 0; j < period; j++) {
-            if (j > 0) {
-                p.runGeneration();
-                p.shrinkToFit();
-            }
-            codes.push(p.toApgcode());
-            if (this.rule.symmetry !== 'C1') {
-                let q = p.copy();
-                if (this.rule.symmetry === 'D8') {
-                    codes.push(q.rotateLeft().toApgcode());
-                    for (let i = 0; i < 2; i++) {
-                        for (let j = 0; j < 4; j++) {
-                            codes.push(q.rotateLeft().toApgcode());
-                        }
-                        q.flipHorizontal();
-                    }
-                } else if (this.rule.symmetry === 'C2') {
-                    codes.push(q.rotate180().toApgcode());
-                } else if (this.rule.symmetry === 'C4') {
-                    for (let i = 0; i < 4; i++) {
-                        codes.push(q.rotateLeft().toApgcode());
-                    }
-                } else if (this.rule.symmetry === 'D2-') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else if (this.rule.symmetry === 'D2|') {
-                    codes.push(q.flipVertical().toApgcode());
-                } else if (this.rule.symmetry === 'D2/') {
-                    codes.push(q.flipDiagonal().toApgcode());
-                } else if (this.rule.symmetry === 'D2\\') {
-                    codes.push(q.transpose().toApgcode());
-                } else if (this.rule.symmetry === 'D4+') {
-                    codes.push(q.flipHorizontal().toApgcode());
-                    codes.push(q.flipVertical().toApgcode());
-                    codes.push(q.flipHorizontal().toApgcode());
-                } else {
-                    codes.push(q.flipDiagonal().toApgcode());
-                    codes.push(q.transpose().toApgcode());
-                    codes.push(q.flipDiagonal().toApgcode());
-                }
-            }
-        }
-        let out = codes[0];
-        for (let code of codes.slice(1)) {
-            if (code.length < out.length || (code.length === out.length && code < out)) {
-                out = code;
-            }
-        }
-        if (prefix === undefined) {
-            prefix = '';
-        } else {
-            prefix += '_';
-        }
-        return prefix + out;
-    }
-
-    toRLE(header: boolean = true): string {
-        let data = this.getData();
-        let {height, width} = this.getRect();
-        let out = header ? `x = ${this.width}, y = ${this.height}, rule = ${this.rule.str}\n` : '';
-        let prevChar = '';
-        let num = 0;
-        let i = 0;
-        let line = '';
-        let $count = 0;
-        let isStart = true;
-        for (let y = 0; y < height; y++) {
-            if (data.slice(i, i + width).every(x => x === 0)) {
-                $count++;
-                i += width;
-                continue;
-            }
-            if (!isStart) {
-                let prevLineLength = line.length;
-                if ($count > 0) {
-                    line += $count + 1;
-                    $count = 0;
-                }
-                line += '$';
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            } else if ($count > 0) {
-                let prevLineLength = line.length;
-                line += $count + '$';
-                $count = 0;
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            }
-            isStart = false;
-            for (let x = 0; x < this.width; x++) {
-                let char: string;
-                if (this.rule.states > 2) {
-                    char = RLE_CHARS[data[i]];
-                } else if (data[i]) {
-                    char = 'o';
-                } else {
-                    char = 'b';
-                }
-                if (char === prevChar) {
-                    num++;
-                } else {
-                    let prevLineLength = line.length;
-                    if (num > 1) {
-                        line += num;
-                    }
-                    line += prevChar;
-                    if (line.length > 69) {
-                        out += line.slice(0, prevLineLength) + '\n';
-                        line = line.slice(prevLineLength);
-                    }
-                    prevChar = char;
-                    num = 1;
-                }
-                i++;
-            }
-            if (prevChar !== 'b' && prevChar !== '.') {
-                let prevLineLength = line.length;
-                if (num > 1) {
-                    line += num;
-                }
-                line += prevChar;
-                if (line.length > 69) {
-                    out += line.slice(0, prevLineLength) + '\n';
-                    line = line.slice(prevLineLength);
-                }
-            }
-            prevChar = '';
-            num = 1;
-        }
-        out += line + '!';
-        return out;
-    }
-
     _loadApgcode2(code: string): Map<number, number> {
         let [height, width, data] = super._loadApgcode(code);
         let out = new Map<number, number>();
@@ -1971,16 +1846,5 @@ export abstract class CoordPattern extends Pattern {
     }
 
     abstract loadRLE(code: string): CoordPattern;
-
-    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
-        return `${this.constructor.name} ${inspect({
-            height: this.height,
-            width: this.width,
-            xOffset: this.xOffset,
-            yOffset: this.yOffset,
-            generation: this.generation,
-            rule: this.rule,
-        }, options)} ${this.toRLE()}`;
-    }
 
 }

@@ -73,7 +73,7 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
 }
 
 
-addHook(rpfActions, 'click-canvas', () => {
+addHook(rpfActions, 'click-canvas', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`click-canvas called with non-MouseEvent value`);
     }
@@ -121,6 +121,8 @@ addHook(rpfActions, 'unclick-canvas', event => {
             } else {
                 rpfSel.add(value);
             }
+        } else {
+            rpfSel.clear();
         }
         rpfP.recomputeSizes();
     }

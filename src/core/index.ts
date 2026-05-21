@@ -2,8 +2,8 @@
 /* The main file, exporting everything and also implementing many utility functions. */
 
 import {RuleError, lcm} from './util.js';
-import {SYMMETRY_MEET, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
-import {TRANSITIONS, VALID_TRANSITIONS, HEX_TRANSITIONS, VALID_HEX_TRANSITIONS, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, MAPGenB0Pattern, createMAPPattern} from './map.js';
+import {SYMMETRY_MEET, Rule, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
+import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
 import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
@@ -24,6 +24,8 @@ export * from './intsep.js';
 export * from './sep.js';
 export * from './catagolue.js';
 export * from './conduits.js';
+
+import './mapsep.js';
 
 
 /** Creates a pattern from a rulestring.
@@ -386,7 +388,7 @@ export function parseWithCompatibility(rle: string, namedRules?: {[key: string]:
 /** Gets the black/white reversal of a rule, if available. */
 export function getBlackWhiteReversal(rule: string): string {
     let p = createPattern(rule);
-    if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern || p instanceof MAPGenB0Pattern) {
+    if (p instanceof MAPPattern || p instanceof MAPGenPattern || p instanceof MAPB0Pattern) {
         let trs: Uint8Array;
         if ('trs' in p) {
             trs = p.trs.map(x => 1 - x).reverse();
@@ -397,15 +399,15 @@ export function getBlackWhiteReversal(rule: string): string {
             let bStr: string;
             let sStr: string;
             if (rule.endsWith('H')) {
-                let [bTrs, sTrs] = arrayToTransitions(trs, HEX_TRANSITIONS);
-                bStr = unparseTransitions(bTrs, VALID_HEX_TRANSITIONS, true);
-                sStr = unparseTransitions(sTrs, VALID_HEX_TRANSITIONS, true);
+                let [bTrs, sTrs] = arrayToTransitions(trs, HEX_INT);
+                bStr = unparseTransitions(bTrs, HEX_INT);
+                sStr = unparseTransitions(sTrs, HEX_INT);
             } else {
-                let [bTrs, sTrs] = arrayToTransitions(trs, TRANSITIONS);
-                bStr = unparseTransitions(bTrs, VALID_TRANSITIONS, true);
-                sStr = unparseTransitions(sTrs, VALID_TRANSITIONS, true);
+                let [bTrs, sTrs] = arrayToTransitions(trs, INT);
+                bStr = unparseTransitions(bTrs, INT);
+                sStr = unparseTransitions(sTrs, INT);
             }
-            if (p instanceof MAPGenPattern || p instanceof MAPGenB0Pattern) {
+            if (p instanceof MAPGenPattern) {
                 return `${sStr}/${bStr}/${p.rule.states}`;
             } else {
                 return `B${bStr}/S${sStr}`;
@@ -420,8 +422,8 @@ export function getBlackWhiteReversal(rule: string): string {
             b = p.s.map(x => 1 - x).reverse();
             s = p.b.map(x => 1 - x).reverse();
         } else {
-            b = p.evenS.toReversed();
-            s = p.evenB.toReversed();
+            b = p.evenS.slice().reverse();
+            s = p.evenB.slice().reverse();
         }
         let out = `R${p.rule.range},C${p.rule.states},S${unparseHROTRanges(s)},B${unparseHROTRanges(b)}`;
         if (p.nh) {
