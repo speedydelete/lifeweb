@@ -1571,12 +1571,23 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             }
         }
         let spec = INT_SPECS[nhLetter];
+        let sFound = false;
         for (let i = 0; i < parts.length; i++) {
             let part = parts[i];
             let start = part[0].toUpperCase();
             let letter: 'B' | 'S' | 'A' | 'D';
             let parsedTrs: string[];
             if (start === 'B' || start === 'S' || start === 'A' || start === 'D') {
+                if (start === 'D' && !sFound) {
+                    for (let i = 0; i < 512; i++) {
+                        if (i & (1 << 4)) {
+                            trs[i] = 1;
+                        }
+                    }
+                }
+                if (start === 'S' || start === 'D') {
+                    sFound = true;
+                }
                 letter = start;
                 parsedTrs = parseTransitions(part.slice(1), spec);
             } else if (start === 'G' || start === 'C') {
