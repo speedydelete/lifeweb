@@ -1578,7 +1578,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         let sFound = false;
         for (let i = 0; i < parts.length; i++) {
             let part = parts[i];
-            let start = part[0].toUpperCase();
+            let start = part[0]?.toUpperCase();
             let letter: 'B' | 'S' | 'A' | 'D';
             let parsedTrs: string[];
             if (start === 'B' || start === 'S' || start === 'A' || start === 'D') {
