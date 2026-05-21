@@ -50,6 +50,9 @@ async function buildEditor() {
         external: ['node:path'],
         treeShaking: false,
         minify: true,
+        loader: {
+            '.rpf': 'text',
+        },
         plugins: [
             {
                 name: 'lifeweb-core-alias',

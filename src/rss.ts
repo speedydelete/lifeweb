@@ -2,7 +2,7 @@
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {execSync, spawn} from 'node:child_process';
-import {TRANSITIONS, VALID_TRANSITIONS, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getApgcode, getHashsoup, toCatagolueRule} from './core/index.js';
+import {INT, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getApgcode, getHashsoup, toCatagolueRule} from './core/index.js';
 import {getKnots, INTSeparator} from './core/intsep.js';
 
 
@@ -130,8 +130,8 @@ function parseRule(rule: string): [string[], string[]] {
         error(`Rules must be in B/S notation`);
     }
     return [
-        parseTransitions(parts[0].slice(1), VALID_TRANSITIONS),
-        parseTransitions(parts[1].slice(1), VALID_TRANSITIONS),
+        parseTransitions(parts[0].slice(1), INT),
+        parseTransitions(parts[1].slice(1), INT),
     ];
 }
 
@@ -155,7 +155,7 @@ function parseTransitionsList(data: string): [string[], string[]] {
             } else {
                 s.push(...trs);
             }
-        } else if (tr.length !== 3 || !VALID_TRANSITIONS[num].includes(tr[2])) {
+        } else if (tr.length !== 3 || !INT.validTrs[num].includes(tr[2])) {
             error(`Invalid transition: ${tr}`);
         } else {
             if (tr[0] === 'B') {
@@ -170,7 +170,7 @@ function parseTransitionsList(data: string): [string[], string[]] {
 
 /** Turn transition lists into a rulestring. */
 function unparseRule(b: string[], s: string[]): string {
-    return `B${unparseTransitions(b, VALID_TRANSITIONS, false)}/S${unparseTransitions(s, VALID_TRANSITIONS, false)}`;
+    return `B${unparseTransitions(b, INT)}/S${unparseTransitions(s, INT)}`;
 }
 
 /** Adds the set of rules that are n transitions from the input rules. */
@@ -206,10 +206,10 @@ function getNTransitionsFrom(rules: Set<string>, bTrs: string[], sTrs: string[],
 /** Make a transition list outer-totalistic. */
 function getOuterTotalistic(trs: string[], type: string): number[] {
     let out: number[] = [];
-    for (let i = 0; i < VALID_TRANSITIONS.length; i++) {
+    for (let i = 0; i < INT.validTrs.length; i++) {
         let found = false;
-        for (let j = 0; j < VALID_TRANSITIONS[i].length; j++) {
-            let letter = VALID_TRANSITIONS[i][j];
+        for (let j = 0; j < INT.validTrs[i].length; j++) {
+            let letter = INT.validTrs[i][j];
             if (trs.includes(i + letter)) {
                 if (!found && j > 0) {
                     error(`${type} is not outer-totalistic`);
@@ -286,12 +286,12 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
             let bTrs: string[] = [];
             for (let num = 0; num <= 8; num++) {
                 if (otMinB.includes(num)) {
-                    bTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                    bTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
                 } else {
                     let index = changeB.indexOf(num);
                     if (index !== -1) {
                         if (bStr[index] === '1') {
-                            bTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                            bTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
                         }
                     }
                 }
@@ -308,12 +308,12 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
                 let sTrs: string[] = [];
                 for (let num = 0; num <= 8; num++) {
                     if (otMinS.includes(num)) {
-                        sTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                        sTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
                     } else {
                         let index = changeS.indexOf(num);
                         if (index !== -1) {
                             if (sStr[index] === '1') {
-                                sTrs.push(...Array.from(VALID_TRANSITIONS[num]).map(x => num + x));
+                                sTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
                             }
                         }
                     }
@@ -438,8 +438,8 @@ async function search(rule: string, config: Config, print: ((data: string) => vo
         return rule;   
     }
     let [bTrs, sTrs] = parseRule(rule);
-    let trs = transitionsToArray(bTrs, sTrs, TRANSITIONS);
-    rule = 'B' + unparseTransitions(bTrs, VALID_TRANSITIONS, false) + '/S' + unparseTransitions(sTrs, VALID_TRANSITIONS, false);
+    let trs = transitionsToArray(bTrs, sTrs, INT);
+    rule = 'B' + unparseTransitions(bTrs, INT) + '/S' + unparseTransitions(sTrs, INT);
     let base = new MAPPattern(0, 0, new Uint8Array(0), {str: rule, states: 2, symmetry: 'D8', period: 1, range: 1, neighborhood: [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]]}, trs);
     let knots: Uint8Array | null = null;
     let apgcodes: {[key: string]: number} = {};

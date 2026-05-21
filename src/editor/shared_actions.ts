@@ -1,6 +1,6 @@
 
-// declare let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', startIn?: string | FileSystemFileHandle}) => Promise<FileSystemDirectoryHandle>;
-import {showDirectoryPicker} from 'file-system-access';
+declare let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', startIn?: string | FileSystemFileHandle}) => Promise<FileSystemDirectoryHandle>;
+// import {showDirectoryPicker} from 'file-system-access';
 import {path, RPFError, RPFPattern, File, Directory, RPFFile} from './rpf.js';
 import {run, addHook, pushUndo, applyUndo, loadPattern, FSFolderElement, FSFileElement, FSRPFFileElement} from './base.js';
 

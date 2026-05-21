@@ -147,7 +147,8 @@ window.addEventListener('load', () => setTimeout(async () => {
     //     // @ts-ignore
     //     globalThis.showDirectoryPicker = (await import('https://esm.sh/file-system-access')).showDirectoryPicker;
     // }
-    stdlib = RPFFile.fromString((await import('./stdlib.rpf')).default as unknown as string, '/stdlib.rpf', fs);
+    // @ts-ignore
+    stdlib = RPFFile.fromString((await import('./stdlib.rpf')).default, '/stdlib.rpf', fs);
     fs.write('stdlib.rpf', stdlib);
     run('render-file-system');
     for (let [key, value] of Object.entries(startEvents)) {
