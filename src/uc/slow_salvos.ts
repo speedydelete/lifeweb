@@ -75,7 +75,7 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
     for (let ship of ships) {
         let x = target.x - ship.x;
         let y = target.y - ship.y;
-        let lane = (y * info.ship.slope) - x + c.LANE_OFFSET;
+        let lane = (y * info.ship.slope) - x;
         let timing = x + y;
         lanes.push([lane, ship.timing, timing]);
     }

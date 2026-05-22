@@ -3,12 +3,12 @@ import {c, StillLife, Spaceship, loadRecipes} from './base.js';
 
 
 const TYPE = 'Slow salvo';
-const SALVO = [0];
-const DIR: string = 'SE';
-const MAX_GPG = 32;
-const BEAM_WIDTH = 1024;
-const MIN_LANE = 0;
-const MAX_LANE = 20;
+const SALVO = [0, -2, -8, -9, 3, 3, 1, 7, 11, 7, -17, -11, -3, -12, -2, -5];
+const DIR: string = 'SW';
+const MAX_GPG = Infinity;
+const BEAM_WIDTH = 8192;
+const MIN_LANE = -16;
+const MAX_LANE = 16;
 
 let info = c.SALVO_INFO[TYPE];
 let recipes = (await loadRecipes()).salvos['Slow salvo'];
@@ -29,15 +29,15 @@ function addToState(state: State): State[] {
     let laneOffset = state.y - state.x;
     // let found = false;
     for (let [lane, timing, data] of recipes.searchResults[state.elbow]) {
-        lane += laneOffset;
-        if (timing !== 0 || lane < MIN_LANE || lane > MAX_LANE || typeof data === 'string' || data.length === 0 || data.length > 2) {
+        lane -= laneOffset;
+        if (timing !== 0 || lane % 2 !== 0 || lane < MIN_LANE || lane > MAX_LANE || typeof data === 'string' || data.length === 0 || data.length > 2) {
             continue;
         }
         let sl: StillLife;
         let ship: Spaceship | undefined;
         if (data.length === 1 && data[0].type === 'sl') {
             sl = data[0] as StillLife;
-        } else if (data.length === 1 && data[0].type !== 'ship') {
+        } else if (data.length === 1 && data[0].type !== 'sl') {
             continue;
         } else {
             let obj0 = data[0];
@@ -52,9 +52,23 @@ function addToState(state: State): State[] {
             }
             sl = obj0;
             ship = obj1;
+            if (ship.code !== info.ship.code || ship.dir !== DIR) {
+                continue;
+            }
+        }
+        if (!(sl.code in recipes.searchResults)) {
+            continue;
         }
         let newX = state.x + sl.x;
         let newY = state.y + sl.y;
+        if (ship) {
+            let x = newX - ship.x;
+            let y = newY - ship.y;
+            let lane = DIR === 'NW' || DIR === 'SE' ? x - y : x + y;
+            if (lane !== SALVO[state.emitted]) {
+                continue;
+            }
+        }
         // if (bad.has(sl.code + ' ' + (newY - newX))) {
         //     continue;
         // }
@@ -70,15 +84,6 @@ function addToState(state: State): State[] {
             sinceLastGlider: state.sinceLastGlider + 1,
         };
         if (ship) {
-            if (ship.dir !== DIR) {
-                continue;
-            }
-            let x = newX - ship.x;
-            let y = newY - ship.y;
-            let lane = DIR === 'NW' || DIR === 'SW' ? x - y : x + y;
-            if (lane !== SALVO[state.emitted]) {
-                continue;
-            }
             value.emitted++;
             value.sinceLastGlider = 0;
         }
@@ -96,7 +101,7 @@ function addToState(state: State): State[] {
 let prevLayer: State[] = [{
     elbow: 'xs2_11',
     x: 0,
-    y: 6,
+    y: 0,
     gliders: [],
     emitted: 0,
     sinceLastGlider: 0,
@@ -112,6 +117,7 @@ while (true) {
         for (let value of addToState(state)) {
             if (value.emitted === SALVO.length) {
                 console.log(`Solution found: ${value.gliders.join(', ')}`);
+                process.exit(0);
             }
             best = Math.max(best, value.emitted);
         }
@@ -125,5 +131,12 @@ while (true) {
             return y.emitted - x.emitted;
         }
     }).slice(0, BEAM_WIDTH);
-    console.log(`Depth ${depth} complete (total results: ${total}, after beam: ${nextLayer.length}, best emitted glider count: ${best})`);
+    // console.log(nextLayer.map(x => `${x.elbow} (${x.x}, ${x.y}): ${x.gliders.join(', ')}`).join('\n'));
+    console.log(`Depth ${depth} complete (total results: ${total}, best emitted glider count: ${best})`);
+    if (nextLayer.length === 0) {
+        console.log(`Search exhausted`);
+        break;
+    }
+    prevLayer = nextLayer;
+    depth++;
 }

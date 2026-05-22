@@ -18,7 +18,8 @@ interface SpaceshipInfo {
     period: number;
     slope: number;
     popPeriod: number;
-    glideSymmetric: boolean;
+    // whether the spaceship supports flipped recipes, for diagonals it's true if it's glide symmetric, for orthogonals it's true if it's statically symmetric
+    supportsFlipped: boolean;
     // now information about the ship itself
     // this is for the canonical (S for orthogonals, SE for diagonals, in between for obliques) phase, y * width + x
     height: number;
@@ -47,7 +48,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 1,
         popPeriod: 1,
-        glideSymmetric: true,
+        supportsFlipped: true,
         height: 2,
         width: 3,
         cells: [2, 3, 4],
@@ -66,7 +67,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 4,
         slope: 1,
         popPeriod: 2,
-        glideSymmetric: true,
+        supportsFlipped: true,
         height: 4,
         width: 2,
         cells: [0, 3, 6, 7],
@@ -85,7 +86,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 5,
         slope: 1,
         popPeriod: 5,
-        glideSymmetric: false,
+        supportsFlipped: true,
         height: 4,
         width: 4,
         cells: [3, 7, 12, 13],
@@ -104,7 +105,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         period: 6,
         slope: 1,
         popPeriod: 6,
-        glideSymmetric: true,
+        supportsFlipped: true,
         height: 5,
         width: 6,
         cells: [5, 9, 10, 15, 25, 26],
@@ -123,10 +124,10 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
 const LANE_OFFSET = 6;
 
 // the spacing (in cells) between a glider and the target
-const GLIDER_TARGET_SPACING = 5;
+const GLIDER_TARGET_SPACING = 7;
 
 
-// information for slow salvo synthesis
+// information about slow salvo synthesis methods
 
 interface SalvoInfo {
     // aliases for it, can be used in the CLI
@@ -145,9 +146,10 @@ interface SalvoInfo {
     laneLimit: number;
     // the maximum number of recipes to store for each outcome
     maxRecipes?: number;
-    // congruence restrictions on lane numbers: AND of OR's of [mod, value] pairs
-    restriction?: [number, number][][];
+    // restriction on lane numbers
+    restriction?: (lane: number) => boolean;
 }
+
 
 // you name the construction types whatever you want
 
@@ -173,13 +175,15 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         intermediateObjects: ['xs2_11', 'xs2_3'],
         laneLimit: 128,
         maxRecipes: 2,
-        restriction: [[[2, 0]]],
+        restriction(lane: number): boolean {
+            return lane % 2 === 0;
+        },
     },
 
 };
 
 
-// information about restricted-channel synthesis methods
+// information for restricted-channel synthesis methods
 
 interface ChannelInfo {
     // aliases for it, can be used in the CLI
@@ -202,8 +206,12 @@ interface ChannelInfo {
     forceStart?: [number, number][];
     // the maximum possible next glider spacing (after a recipe)
     maxNextSpacing: number;
-    // a filter for possibly useful recipes
-    possiblyUsefulFilter: string[];
+    // the initial bound in the exponential search
+    initialBound: number;
+    // construction types that it can use recipes from
+    compatibleWith: string[];
+    // // restriction on the sum of the timing gaps
+    // restriction?: (time: number) => boolean;
 }
 
 // you name the construction types whatever you want
@@ -231,18 +239,24 @@ const VALID_POPULATION_PERIODS: null | number[] = null;
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
 const MAX_PSEUDO_DISTANCE = 6;
 
-// at what spacing to inject the gliders at (the default should be fine)
-const INJECTION_SPACING = 3;
+// extra options for channel searching
+
+// maximum number of generations for running (should be high but not infinite)
+const MAX_CHANNEL_RUN_GENERATIONS = 1024;
 // the created object population limit
-const CREATE_SIZE_LIMIT = 16;
+const CREATE_SIZE_LIMIT = 12;
 // overrides for the created object limit
 const CREATE_SIZE_LIMIT_OVERRIDES: string[] = [];
 // the elbow population limit
-const ELBOW_SIZE_LIMIT = 16;
+const ELBOW_SIZE_LIMIT = 12;
 // overrides for the elbow size limit
 const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = [];
+// update interval (ms)
+const UPDATE_INTERVAL = 10000;
+// memory update interval (ms)
+const MEMORY_UPDATE_INTERVAL = 60000;
 
 
 // don't change this
 
-export {RULE, ShipDirection, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, INJECTION_SPACING, CREATE_SIZE_LIMIT, CREATE_SIZE_LIMIT_OVERRIDES, ELBOW_SIZE_LIMIT, ELBOW_SIZE_LIMIT_OVERRIDES};
+export {RULE, ShipDirection, SpaceshipInfo, SPACESHIPS, LANE_OFFSET, GLIDER_TARGET_SPACING, SalvoInfo, SALVO_INFO, ChannelInfo, CHANNEL_INFO, MAX_WAIT_GENERATIONS, MAX_GENERATIONS, ELBOW_MAX_GENERATIONS, MAX_POPULATION_PERIOD, PERIOD_SECURITY, CHECK_LINEAR_GROWTH, VALID_POPULATION_PERIODS, MAX_PSEUDO_DISTANCE, MAX_CHANNEL_RUN_GENERATIONS, CREATE_SIZE_LIMIT, CREATE_SIZE_LIMIT_OVERRIDES, ELBOW_SIZE_LIMIT, ELBOW_SIZE_LIMIT_OVERRIDES, UPDATE_INTERVAL, MEMORY_UPDATE_INTERVAL};
