@@ -216,7 +216,21 @@ interface ChannelInfo {
 
 // you name the construction types whatever you want
 
-const CHANNEL_INFO: {[key: string]: ChannelInfo} = {};
+const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
+
+    'Single-channel (12)': {
+        aliases: ['sc'],
+        ship: SPACESHIPS['xq4_15'],
+        channels: [0],
+        period: 1,
+        minSpacings: [[12]],
+        minSpacing: 12,
+        maxNextSpacing: 128,
+        initialBound: 8,
+        compatibleWith: [],
+    },
+
+};
 
 
 // information for how searches proceed
