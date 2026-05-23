@@ -8,10 +8,10 @@ const VALID_LANES = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
 const START: [string, number] = ['xs2_11', 6];
 const END: undefined | 'destroy' | [string, number] = ['xs2_11', 6];
 const SALVO_DIR: string = 'SW';
-const SALVO: [string, number][] = [['xq5_103a', 0], ['xq4_15', 2], ['xq4_15', 1]];
+const SALVO: [string, number][] = [['xq5_103a', -4], ['xq4_15', -3], ['xq4_15', -2]];
 const SALVO_OFFSET = 0;
 const BEAM_WIDTH = 131072;
-const CLOSENESS_OFFSET = 5;
+const CLOSENESS_OFFSET = -5;
 
 let info = c.SALVO_INFO[TYPE];
 console.log(`Loading recipes`);
@@ -87,6 +87,9 @@ function addToState(state: State): State[] {
             }
             continue;
         } else {
+            if (state.emitted === SALVO.length) {
+                continue;
+            }
             let obj0 = data[0];
             let obj1 = data[1];
             if (obj0.type !== 'sl') {
@@ -173,7 +176,7 @@ while (true) {
     console.log(`Searching depth ${depth}`);
     for (let state of prevLayer) {
         for (let value of addToState(state)) {
-            if (value.emitted === SALVO.length && (!END || ((END as unknown as 'destroy') === 'destroy' && value.elbow === undefined) || (value.elbow === END[0] && value.x === END[1]))) {
+            if (value.emitted === SALVO.length && (!END || ((END as unknown as 'destroy') === 'destroy' && value.elbow === undefined) || (value.elbow === END[0] && value.y - value.x === END[1]))) {
                 console.log(createSalvoPattern(info, START[0].slice(START[0].indexOf('_') + 1), value.gliders.map(x => [x - START[1], 0])).toRLE());
                 console.log(`Solution found (length ${value.gliders.length}): ${value.gliders.join(', ')}`);
                 process.exit(0);
@@ -193,7 +196,7 @@ while (true) {
         }
     }).slice(0, BEAM_WIDTH);
     // console.log(nextLayer.map(x => `${x.elbow} (${x.x}, ${x.y}): ${x.gliders.join(', ')}`).join('\n'));
-    console.log(`Depth ${depth} complete (total results: ${total}, best emitted glider count: ${bestEmitted}/${SALVO.length})`);
+    console.log(`Depth ${depth} complete (total results: ${total}, best result: ${bestEmitted}/${SALVO.length})`);
     if (nextLayer.length === 0) {
         console.log(`Search exhausted`);
         break;
