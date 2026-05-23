@@ -98,24 +98,24 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         ],
     },
 
-    'xq6_103a0o': {
-        code: 'xq6_103a0o',
-        dx: 1,
-        dy: 1,
-        period: 6,
-        slope: 1,
-        popPeriod: 6,
-        supportsFlipped: true,
-        height: 5,
-        width: 6,
-        cells: [5, 9, 10, 15, 25, 26],
-        identification: [
-            [6, 5, 5, [4, 5, 14, 19, 20, 24], 'NW'],
-            [5, 6, 5, [0, 6, 11, 12, 24, 29], 'NE'],
-            [5, 6, 5, [0, 5, 17, 18, 23, 29], 'SW'],
-            [6, 5, 5, [5, 9, 10, 15, 25, 26], 'SE'],
-        ],
-    },
+    // 'xq6_103a0o': {
+    //     code: 'xq6_103a0o',
+    //     dx: 1,
+    //     dy: 1,
+    //     period: 6,
+    //     slope: 1,
+    //     popPeriod: 6,
+    //     supportsFlipped: true,
+    //     height: 5,
+    //     width: 6,
+    //     cells: [5, 9, 10, 15, 25, 26],
+    //     identification: [
+    //         [5, 6, 6, [4, 5, 14, 19, 20, 24], 'NW'],
+    //         [6, 5, 6, [0, 6, 11, 12, 24, 29], 'NE'],
+    //         [6, 5, 6, [0, 5, 17, 18, 23, 29], 'SW'],
+    //         [5, 6, 6, [5, 9, 10, 15, 25, 26], 'SE'],
+    //     ],
+    // },
 
 };
 
@@ -232,7 +232,7 @@ const MAX_POPULATION_PERIOD: null | number = null;
 // whether to do linear growth checking
 const CHECK_LINEAR_GROWTH = false;
 // the number of population periods to repeat to make sure it's stable
-const PERIOD_SECURITY = 128;
+const PERIOD_SECURITY = 64;
 // this is optional, they enable a RSS-like period filter (see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961) that can help, set to null to disable
 const VALID_POPULATION_PERIODS: null | number[] = null;
 

@@ -40,7 +40,7 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
     let q = base.loadApgcode(target).shrinkToFit();
     let yPos = (lanes.length - 1) * info.gliderSpacing + c.GLIDER_TARGET_SPACING;
     let xPos = Math.floor(yPos * info.ship.slope) + c.LANE_OFFSET - minLane;
-    p.ensure(q.width + xPos, q.height + yPos);
+    p.ensure(xPos + q.width, yPos + q.height);
     p.insert(q, xPos, yPos);
     p.xOffset -= xPos;
     p.yOffset -= yPos;

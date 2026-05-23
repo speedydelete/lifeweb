@@ -1,16 +1,16 @@
 
 import {c, base, StillLife, Spaceship, loadRecipes} from './base.js';
+import {createSalvoPattern} from './slow_salvos.js';
 
 
-const TYPE = 'Slow salvo';
-const START_OBJECT = 'xs2_11';
-const END_OBJECT = 'xs2_11';
-const END_LANE = 0;
+const TYPE = 'Monochrome slow salvo';
+const VALID_LANES = [-16, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 14, 16];
+const START: [string, number] = ['xs2_11', 0];
+const END: undefined | 'destroy' | [string, number] = undefined; //['xs2_11', 0];
+const SALVO_DIR: string = 'SW';
 const SALVO = [0, -2, -8, -9, 3, 3, 1, 7, 11, 7, -17, -11, -3, -12, -2, -5];
-const DIR: string = 'SW';
+const SALVO_OFFSET = 0;
 const BEAM_WIDTH = 65536;
-const MIN_LANE = -16;
-const MAX_LANE = 16;
 const CLOSENESS_OFFSET = -5;
 
 let info = c.SALVO_INFO[TYPE];
@@ -18,13 +18,12 @@ let recipes = (await loadRecipes()).salvos['Slow salvo'];
 
 interface State {
     key: string;
-    elbow: string;
+    elbow?: string;
     x: number;
     y: number;
     closeness: number;
     gliders: number[];
     emitted: number;
-    sinceLastGlider: number;
 }
 
 const SIZES: {[key: string]: number} = {};
@@ -35,9 +34,25 @@ function addToState(state: State): State[] {
     let out: State[] = [];
     let laneOffset = state.y - state.x;
     // let found = false;
-    for (let [lane, timing, data] of recipes.searchResults[state.elbow]) {
+    for (let [lane, timing, data] of recipes.searchResults[state.elbow as string]) {
         lane -= laneOffset;
-        if (timing !== 0 || lane % 2 !== 0 || lane < MIN_LANE || lane > MAX_LANE || typeof data === 'string' || data.length === 0 || data.length > 2) {
+        if (timing !== 0 || !VALID_LANES.includes(lane) || typeof data === 'string' || data.length > 2) {
+            continue;
+        }
+        if (data.length === 0) {
+            if (END === 'destroy' && state.emitted === SALVO.length) {
+                let gliders = state.gliders.slice();
+                gliders.push(lane);
+                out.push({
+                    key: 'none ' + state.emitted,
+                    elbow: undefined,
+                    x: 0,
+                    y: 0,
+                    closeness: 0,
+                    gliders,
+                    emitted: state.emitted,
+                });
+            }
             continue;
         }
         let sl: StillLife;
@@ -45,6 +60,29 @@ function addToState(state: State): State[] {
         if (data.length === 1 && data[0].type === 'sl') {
             sl = data[0] as StillLife;
         } else if (data.length === 1 && data[0].type !== 'sl') {
+            if (END === 'destroy' && state.emitted === SALVO.length && data[0].type === 'ship') {
+                let ship = data[0];
+                if (ship.code !== info.ship.code || ship.dir !== SALVO_DIR) {
+                    continue;
+                }
+                let shipX = state.x + ship.x;
+                let shipY = state.y + ship.y;
+                let lane = ((SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY) - SALVO_OFFSET;
+                if (lane !== SALVO[state.emitted]) {
+                    continue;
+                }
+                let gliders = state.gliders.slice();
+                gliders.push(lane);
+                out.push({
+                    key: 'none ' + (state.emitted + 1),
+                    elbow: undefined,
+                    x: 0,
+                    y: 0,
+                    closeness: 0,
+                    gliders,
+                    emitted: state.emitted + 1,
+                });
+            }
             continue;
         } else {
             let obj0 = data[0];
@@ -59,7 +97,7 @@ function addToState(state: State): State[] {
             }
             sl = obj0;
             ship = obj1;
-            if (ship.code !== info.ship.code || ship.dir !== DIR) {
+            if (ship.code !== info.ship.code || ship.dir !== SALVO_DIR) {
                 continue;
             }
         }
@@ -68,20 +106,20 @@ function addToState(state: State): State[] {
         }
         let x = state.x + sl.x;
         let y = state.y + sl.y;
+        // if (bad.has(sl.code + ' ' + (y - x))) {
+        //     continue;
+        // }
+        // found = true;
         let emitted = state.emitted;
         if (ship) {
-            let shipX = x - ship.x;
-            let shipY = y - ship.y;
-            let lane = DIR === 'NW' || DIR === 'SE' ? shipX - shipY : shipX + shipY;
-            if (lane !== SALVO[state.emitted]) {
+            let shipX = state.x + ship.x;
+            let shipY = state.y + ship.y;
+            let shipLane = ((SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY) - SALVO_OFFSET;
+            if (shipLane !== SALVO[state.emitted]) {
                 continue;
             }
             emitted++;
         }
-        // if (bad.has(sl.code + ' ' + (newY - newX))) {
-        //     continue;
-        // }
-        // found = true;
         let gliders = state.gliders.slice();
         gliders.push(lane);
         let closeness: number;
@@ -94,9 +132,9 @@ function addToState(state: State): State[] {
             closeness = x + y + SIZES[sl.code];
         }
         if (SALVO[emitted] === undefined) {
-            closeness = 0;
+            closeness = typeof END === 'object' ? Math.abs(y - x - END[1]) : 0;
         } else {
-            closeness = Math.abs(SALVO[emitted] - (closeness + CLOSENESS_OFFSET));
+            closeness = Math.abs((SALVO[emitted] - SALVO_OFFSET) - (closeness + CLOSENESS_OFFSET));
         }
         let value: State = {
             key: sl.code + ' ' + x + ' ' + y + ' ' + emitted,
@@ -106,7 +144,6 @@ function addToState(state: State): State[] {
             closeness,
             gliders,
             emitted,
-            sinceLastGlider: ship ? 0 : state.sinceLastGlider + 1,
         };
         out.push(value);
     }
@@ -117,14 +154,13 @@ function addToState(state: State): State[] {
 }
 
 let prevLayer: State[] = [{
-    key: START_OBJECT + ' 0 0 0',
-    elbow: START_OBJECT,
-    x: 0,
+    key: `${START[0]} ${START[1]} 0 0 0`,
+    elbow: START[0],
+    x: START[1],
     y: 0,
     closeness: Math.abs(SALVO[0]) + CLOSENESS_OFFSET,
     gliders: [],
     emitted: 0,
-    sinceLastGlider: 0,
 }];
 
 
@@ -132,16 +168,15 @@ let depth = 1;
 while (true) {
     let data = new Map<string, State>();
     let bestEmitted = 0;
-    let bestCloseness = Infinity;
     console.log(`Searching depth ${depth}`);
     for (let state of prevLayer) {
         for (let value of addToState(state)) {
-            if (value.emitted === SALVO.length) {
+            if (value.emitted === SALVO.length && (!END || (END === 'destroy' && value.elbow === undefined) || (value.elbow === END[0] && value.x === END[1]))) {
+                console.log(createSalvoPattern(info, START[0].slice(START[0].indexOf('_') + 1), value.gliders.map(x => [x, 0])).toRLE());
                 console.log(`Solution found: ${value.gliders.join(', ')}`);
                 process.exit(0);
             }
             bestEmitted = Math.max(bestEmitted, value.emitted);
-            bestCloseness = Math.min(bestCloseness, value.closeness);
             if (!data.has(value.key)) {
                 data.set(value.key, value);
             }
@@ -160,7 +195,7 @@ while (true) {
         }
     }).slice(0, BEAM_WIDTH);
     // console.log(nextLayer.map(x => `${x.elbow} (${x.x}, ${x.y}): ${x.gliders.join(', ')}`).join('\n'));
-    console.log(`Depth ${depth} complete (total results: ${total}, best emitted glider count: ${bestEmitted}, best closeness: ${bestCloseness})`);
+    console.log(`Depth ${depth} complete (total results: ${total}, best emitted glider count: ${bestEmitted})`);
     if (nextLayer.length === 0) {
         console.log(`Search exhausted`);
         break;
