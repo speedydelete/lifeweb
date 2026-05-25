@@ -6,23 +6,36 @@ import {createSalvoPattern} from './slow_salvos.js';
 const TYPE = 'Monochrome slow salvo';
 const VALID_LANES = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
 const START: [string, number] = ['xs2_11', 2];
-const END: undefined | 'destroy' | [string, number] = ['xs2_11', 2];
-const SALVO_DIR: string = 'SW';
+const END: undefined | 'destroy' | [string, number] = 'destroy'; // ['xs2_11', 2];
+const END_POS: undefined | number = undefined;
+const SALVO_DIR: string = 'NE';
+// long range push
+// const SALVO: [string, number][] = [['xq5_103a', 4], ['xq4_15', 3], ['xq4_15', 0]];
 // create hand
-// const SALVO: [string, number][] = [['xq5_103a', -4], ['xq4_15', -3], ['xq4_15', -2]];
+// const SALVO: [string, number][] = [['xq5_103a', -2], ['xq4_15', -1]];
 // build 90 degree reflector
-const SALVO: [string, number][] = [0, -2, -8, -9, 3, 3, 1, 7, 11, 7, -17, -11, -3, -12, -2, -5].map(x => ['xq4_15', -x]);
+// const SALVO: [string, number][] = ([['xq4_15', 3]] as [string, number][]).concat([6, 2, 9].concat(([0, -2, -8, -9, 3, 3, 1, -17, -11, -3, -12, -2, -5, 7, 11, 7].map(x => x + 1))).map(x => ['xq4_15', -x + 10]));
 // build 180 degree reflector
-// const SALVO: [string, number][] = [0, 9, 17, 7, 5, 18, 20, -2, -3, 4, 3, 26, 20, 12, 21, 11, 14].map(x => ['xq4_15', x]);
+// const SALVO: [string, number][] = ([['xq4_15', 10]] as [string, number][]).concat(([0, 9, 17, 7, 5, 18, 20, -2, -3, 4, 3, 26, 20, 12, 21, 11, 14].map(x => x - 0)).map(x => ['xq4_15', x + 7]));
 // build main unit
-// const SALVO: [string, number][] = [6, 2, 8, 11, 16, 17, 13, 1, -1, 1, -7, -8, -6, -11, -8, -6, -3, -8, -4, -8, -14, 0, 2, 1, 8, 0, 2, -15, -16, -6, -8, -3, -13, -24, -18, -10, -19, -9, -12, 19, 23, 17, 11, 10, 6, 5, -1, 1, 3, 1, 0, 2, -3, 18, 22, 16, 11, 6, 8, 4, 8, 8, 17, 21, 22, 15, 30, 19, 20, 0, 1, 2, 0, 9, 6, -7, 7, 8, 9, 3, -5, -7, -8, -6, -16, -18, -3, -24, -18, -10, -19, -9, -12].map(x => ['xq4_15', x]);
-const SALVO_OFFSET = 0;
-const BEAM_WIDTH = 131072;
+// const SALVO: [string, number][] = ([['xq4_15', 3]] as [string, number][]).concat(([6, 2, 8, 11, 16, 17, 13, 1, -1, 1, -7, -8, -6, -11, -8, -6, -3, -8, -4, -8, -14, 0, 2, 1, 8, 0, 2, 19, 23, 17, 11, 10, 6, 5, -1, 1, 3, -15, -16, -6, -8, -3, -13, -24, -18, -10, -19, -9, -12, 1, 0, 2, -3, 18, 22, 16, 11, 6, 8, 4, 8, 8, 17, 21, 22, 15, 30, 19, 20, 0, 1, 2, 0, 9, 6, -7, 7, 8, 9, 3, -5, -7, -8, -6, -16, -18, -3, -24, -18, -10, -19, -9, -12].map(x => x - 0)).map(x => ['xq4_15', x - 2]));
+// destruction part 1
+// const SALVO: [string, number][] = [0, -23, -24].map(x => ['xq4_15', x + 8]);
+// destruction part 2
+const SALVO: [string, number][] = [0, 1, 8, 27, 22, 19, 30, 29, 22, 224, 235].map(x => ['xq4_15', -x + 23]);
+// custom
+// const START: [string, number] = ['xs4_22011', 0];
+// const END: undefined | 'destroy' | [string, number] = ['xs2_11', 2];
+// const SALVO_DIR: string = 'SW';
+// const SALVO: [string, number][] = [];
+const BEAM_WIDTH = 16384;
 const CLOSENESS_OFFSET = -5;
+// const TO_SC = (lane: number) => 86 + lane * 4;
+const TO_SC = (lane: number) => 92 + lane * 4;
 
 let info = c.SALVO_INFO[TYPE];
 console.log(`Loading recipes`);
-let recipes = (await loadRecipes()).salvos[TYPE];
+let recipes = (await loadRecipes('recipes_b2-ak5js12-k_mss.txt')).salvos[TYPE];
 console.log(`Recipes loaded`);
 
 interface State {
@@ -55,7 +68,7 @@ function addToState(state: State): State[] {
                 let gliders = state.gliders.slice();
                 gliders.push(lane);
                 let scGliders = state.scGliders.slice();
-                let sc = 86 + lane * 4;
+                let sc = TO_SC(lane);
                 scGliders.push(sc);
                 out.push({
                     key: 'none ' + state.emitted,
@@ -76,21 +89,21 @@ function addToState(state: State): State[] {
         if (data.length === 1 && data[0].type === 'sl') {
             sl = data[0] as StillLife;
         } else if (data.length === 1 && data[0].type !== 'sl') {
-            if (END === 'destroy' && state.emitted === SALVO.length && data[0].type === 'ship') {
+            if (END === 'destroy' && state.emitted === SALVO.length - 1 && data[0].type === 'ship') {
                 let ship = data[0];
                 if (ship.code !== info.ship.code || ship.dir !== SALVO_DIR) {
                     continue;
                 }
                 let shipX = state.x + ship.x;
                 let shipY = state.y + ship.y;
-                let lane = ((SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY) - SALVO_OFFSET;
-                if (lane !== SALVO[state.emitted][1]) {
+                let shipLane = (SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY;
+                if (shipLane !== SALVO[state.emitted][1]) {
                     continue;
                 }
                 let gliders = state.gliders.slice();
                 gliders.push(lane);
                 let scGliders = state.scGliders.slice();
-                let sc = 86 + lane * 4;
+                let sc = TO_SC(lane);
                 scGliders.push(sc);
                 out.push({
                     key: 'none ' + (state.emitted + 1),
@@ -138,7 +151,7 @@ function addToState(state: State): State[] {
         if (ship) {
             let shipX = state.x + ship.x;
             let shipY = state.y + ship.y;
-            let shipLane = ((SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY) - SALVO_OFFSET;
+            let shipLane = (SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY;
             if (shipLane !== SALVO[emitted][1]) {
                 continue;
             }
@@ -154,14 +167,14 @@ function addToState(state: State): State[] {
             closeness = x + y + SIZES[sl.code];
         }
         if (SALVO[emitted] === undefined) {
-            closeness = typeof END === 'object' ? Math.abs(y - x - END[1]) : 0;
+            closeness = typeof END === 'object' ? (END_POS !== undefined ? Math.abs(y - END_POS) : Math.abs(y - x - END[1])) : 0;
         } else {
-            closeness = Math.abs((SALVO[emitted][1] - SALVO_OFFSET) - (closeness + CLOSENESS_OFFSET));
+            closeness = Math.abs(SALVO[emitted][1] - (closeness + CLOSENESS_OFFSET));
         }
         let gliders = state.gliders.slice();
         gliders.push(lane);
         let scGliders = state.scGliders.slice();
-        let sc = 86 + lane * 4;
+        let sc = TO_SC(lane);
         scGliders.push(sc);
         let value: State = {
             key: sl.code + ' ' + x + ' ' + y + ' ' + emitted,
@@ -182,18 +195,18 @@ function addToState(state: State): State[] {
     return out;
 }
 
+
 let prevLayer: State[] = [{
     key: `${START[0]} ${START[1]} 0 0 0`,
     elbow: START[0],
     x: START[1],
     y: 0,
     emitted: 0,
-    closeness: Math.abs(SALVO[0][1] + CLOSENESS_OFFSET),
+    closeness: SALVO[0] ? Math.abs(SALVO[0][1] + CLOSENESS_OFFSET) : 0,
     gliders: [],
     scGliders: [],
     time: 0,
 }];
-
 
 let depth = 1;
 while (true) {
@@ -201,23 +214,32 @@ while (true) {
     let data = new Map<string, State>();
     let bestEmitted = 0;
     let bestTime: State | undefined = undefined;
+    let bestCloseness = Infinity;
     for (let state of prevLayer) {
         for (let value of addToState(state)) {
-            if (value.emitted === SALVO.length && (!END || ((END as unknown as 'destroy') === 'destroy' && value.elbow === undefined) || (value.elbow === END[0] && value.x - value.y === END[1]))) {
+            if (value.emitted === SALVO.length && (!END || ((END as unknown as 'destroy') === 'destroy' && value.elbow === undefined) || (value.elbow === END[0] && value.x - value.y === (END as unknown as [string, number])[1])) && (END_POS === undefined || value.y === END_POS)) {
                 if (!bestTime || value.time < bestTime.time) {
                     bestTime = value;
                 }
             }
-            bestEmitted = Math.max(bestEmitted, value.emitted);
+            if (value.emitted > bestEmitted) {
+                bestEmitted = value.emitted;
+                bestCloseness = value.closeness;
+            } else if (value.emitted === bestEmitted && value.closeness < bestCloseness) {
+                bestCloseness = value.closeness;
+            }
             if (!data.has(value.key)) {
                 data.set(value.key, value);
             }
         }
     }
     if (bestTime) {
-        console.log(createSalvoPattern(info, START[0].slice(START[0].indexOf('_') + 1), bestTime.gliders.map(x => [x - START[1], 0])).toRLE());
+        if (bestTime.gliders.length < 50) {
+            console.log(createSalvoPattern(info, START[0].slice(START[0].indexOf('_') + 1), bestTime.gliders.map(x => [x - START[1], 0])).toRLE());
+        }
         console.log(`Solution found (length ${bestTime.gliders.length}): ${bestTime.gliders.join(', ')}`);
         console.log(`Single-channel recipe (time ${bestTime.time}): ${bestTime.scGliders.join(', ')}`);
+        console.log(`End: ${bestTime.elbow} lane ${bestTime.x - bestTime.y} position ${bestTime.y}`);
         process.exit(0);
     }
     let total = data.size;
@@ -233,7 +255,7 @@ while (true) {
         }
     }).slice(0, BEAM_WIDTH);
     // console.log(nextLayer.map(x => `${x.elbow} (${x.x}, ${x.y}): ${x.gliders.join(', ')}`).join('\n'));
-    console.log(`Depth ${depth} complete (total results: ${total}, best result: ${bestEmitted}/${SALVO.length})`);
+    console.log(`Depth ${depth} complete (total results: ${total}, best result: ${bestEmitted}/${SALVO.length}, closeness: ${bestCloseness})`);
     if (nextLayer.length === 0) {
         console.log(`Search exhausted`);
         break;

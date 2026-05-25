@@ -537,6 +537,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         // await redraw();
         // let nextStartIndex = 0;
         // </school-chromebook>
+        let lastUpdate = performance.now();
         for (let i = 0; i < workers.length; i++) {
             let worker = workers[i];
             worker.removeAllListeners('message');
@@ -548,6 +549,13 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
                 possibleUseful += addNewRecipes(info, data, out);
                 if (possibleUseful.length > 0) {
                     await fs.appendFile('possible_useful.txt', possibleUseful);
+                }
+                let now = performance.now();
+                if (startsChecked > 0 && recipesChecked > 0 && (now - lastUpdate) > c.UPDATE_INTERVAL) {
+                    let time = (performance.now() - start) / 1000;
+                    lastUpdate = now;
+                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps`);
+                    await saveRecipes(recipes);
                 }
                 // <school-chromebook>
                 // if (startsChecked > 0 && recipesChecked > 0) {
@@ -597,13 +605,13 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         }
         // <not-school-chromebook>
         toClear.push(setTimeout(() => {
-            toClear.push(setInterval(async () => {
-                if (startsChecked > 0 && recipesChecked > 0) {
-                    let time = (performance.now() - start) / 1000;
-                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps`);
-                    await saveRecipes(recipes);
-                }
-            }, c.UPDATE_INTERVAL));
+            // toClear.push(setInterval(async () => {
+            //     if (startsChecked > 0 && recipesChecked > 0) {
+            //         let time = (performance.now() - start) / 1000;
+            //         console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps`);
+            //         await saveRecipes(recipes);
+            //     }
+            // }, c.UPDATE_INTERVAL));
             toClear.push(setInterval(printMemory, c.MEMORY_UPDATE_INTERVAL));
         }, c.UPDATE_INTERVAL / 4));
         // </not-school-chromebook>

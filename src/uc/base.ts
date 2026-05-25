@@ -858,7 +858,7 @@ export function addRecipeFile(out: RecipeData, data: string): RecipeData {
 }
 
 /** Gets and parses the recipe file. */
-export async function loadRecipes(): Promise<RecipeData> {
+export async function loadRecipes(file?: string): Promise<RecipeData> {
     let out: RecipeData = {
         salvos: Object.fromEntries(Object.keys(c.SALVO_INFO).map(x => [x, {searchResults: {}, recipes: {}, moveRecipes: {}, splitRecipes: {}, destroyRecipes: {}, oneTimeTurners: {}, oneTimeSplitters: {}, elbowRecipes: {}}])),
         channels: Object.fromEntries(Object.keys(c.CHANNEL_INFO).map(x => [x, {elbows: {}, recipes: {}}])),
@@ -866,7 +866,7 @@ export async function loadRecipes(): Promise<RecipeData> {
     if (!exists(recipeFile)) {
         return out;
     }
-    let data = (await fs.readFile(recipeFile)).toString();
+    let data = (await fs.readFile(file ?? recipeFile)).toString();
     out = addRecipeFile(out, data);
     printMemory();
     return out;
@@ -1009,14 +1009,14 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                 }
             }
             let key: string;
-            if (!recipe.emit && !recipe.create) {
+            if ((!recipe.emit || recipe.emit.length === 0) && !recipe.create) {
                 if (recipe.end) {
                     key = 'move';
                 } else {
                     key = 'destroy';
                 }
             } else {
-                if (recipe.emit) {
+                if (recipe.emit && recipe.emit.length > 0) {
                     let dir = recipe.emit[0].dir;
                     if (dir === 'N' || dir === 'NW' || dir === 'N2' || dir === 'NW2') {
                         key = '180-degree';

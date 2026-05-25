@@ -98,24 +98,24 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         ],
     },
 
-    // 'xq6_103a0o': {
-    //     code: 'xq6_103a0o',
-    //     dx: 1,
-    //     dy: 1,
-    //     period: 6,
-    //     slope: 1,
-    //     popPeriod: 6,
-    //     supportsFlipped: true,
-    //     height: 5,
-    //     width: 6,
-    //     cells: [5, 9, 10, 15, 25, 26],
-    //     identification: [
-    //         [5, 6, 6, [4, 5, 14, 19, 20, 24], 'NW'],
-    //         [6, 5, 6, [0, 6, 11, 12, 24, 29], 'NE'],
-    //         [6, 5, 6, [0, 5, 17, 18, 23, 29], 'SW'],
-    //         [5, 6, 6, [5, 9, 10, 15, 25, 26], 'SE'],
-    //     ],
-    // },
+    'xq6_103a0o': {
+        code: 'xq6_103a0o',
+        dx: 1,
+        dy: 1,
+        period: 6,
+        slope: 1,
+        popPeriod: 6,
+        supportsFlipped: true,
+        height: 5,
+        width: 6,
+        cells: [5, 9, 10, 15, 24, 25],
+        identification: [
+            [5, 6, 6, [4, 5, 14, 19, 20, 24], 'NW'],
+            [6, 5, 6, [0, 6, 11, 12, 24, 29], 'NE'],
+            [6, 5, 6, [0, 5, 17, 18, 23, 29], 'SW'],
+            [5, 6, 6, [5, 9, 10, 15, 24, 25], 'SE'],
+        ],
+    },
 
 };
 
@@ -219,12 +219,24 @@ interface ChannelInfo {
 const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
 
     'Single-channel (12)': {
-        aliases: ['sc'],
+        aliases: ['sc12', 'sc'],
         ship: SPACESHIPS['xq4_15'],
         channels: [0],
         period: 1,
         minSpacings: [[12]],
         minSpacing: 12,
+        maxNextSpacing: 128,
+        initialBound: 8,
+        compatibleWith: ['Single-channel (20)'],
+    },
+
+    'Single-channel (20)': {
+        aliases: ['sc20'],
+        ship: SPACESHIPS['xq4_15'],
+        channels: [0],
+        period: 1,
+        minSpacings: [[20]],
+        minSpacing: 20,
         maxNextSpacing: 128,
         initialBound: 8,
         compatibleWith: [],
