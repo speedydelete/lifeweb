@@ -554,7 +554,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
                 if (startsChecked > 0 && recipesChecked > 0 && (now - lastUpdate) > c.UPDATE_INTERVAL) {
                     let time = (performance.now() - start) / 1000;
                     lastUpdate = now;
-                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps`);
+                    console.log(`${startsChecked}/${starts.length} (${(startsChecked / starts.length * 100).toFixed(3)}%) starts checked (${recipesChecked} recipes, ${(startsChecked / time).toFixed(3)} sps, ${(recipesChecked / time).toFixed(3)} rps)`);
                     await saveRecipes(recipes);
                 }
                 // <school-chromebook>
