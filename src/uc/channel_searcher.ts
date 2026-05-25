@@ -786,9 +786,11 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
             timings.push(timing);
         }
         // if (state.recipe.length === 0) {
-        //     timings = [51];
+        //     timings = [127];
         // } else if (state.recipe.length === 1) {
-        //     timings = [18];
+        //     timings = [137];
+        // } else if (state.recipe.length === 2) {
+        //     timings = [105];
         // }
         let outcomes: string[] = [];
         // console.log(Object.assign({}, state, {p: undefined}));

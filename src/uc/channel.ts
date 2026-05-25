@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, redraw, printMemory, maxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, printMemory, maxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {runInjection, StrRunState, createState, getStringRecipe, isTooBig, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
@@ -515,7 +515,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 3) {
+        // if (depth === 4) {
         //     process.exit(0);
         // }
         if (starts.length === 0) {

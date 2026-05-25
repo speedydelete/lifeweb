@@ -50,7 +50,7 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
 
 /** Reads a slow salvo from a `Pattern`. */
 export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: MAPPattern): [string, [number, number][]] {
-    let objs = separateObjects(p, 1, 65536, true, true);
+    let objs = separateObjects(p, 2, 65536, true, true);
     if (objs === false) {
         throw new Error('Object separation failed!');
     }
@@ -75,7 +75,7 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
     for (let ship of ships) {
         let x = target.x - ship.x;
         let y = target.y - ship.y;
-        let lane = (y * info.ship.slope) - x;
+        let lane = (y * info.ship.slope) - x + c.LANE_OFFSET;
         let timing = x + y;
         lanes.push([lane, ship.timing, timing]);
     }
