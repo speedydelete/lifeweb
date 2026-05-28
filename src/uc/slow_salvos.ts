@@ -447,7 +447,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 1, 0, depth + depthInc, recipes.salvos[type], start);
                 }
                 let now = performance.now();
                 if (now - lastUpdate > 5000 && i + 1 < info.intermediateObjects.length) {
@@ -458,7 +458,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, 1, 0, depth + depthInc, recipes.salvos[type], obj);
         }
         console.log('Compiled all recipes');
         await redraw();

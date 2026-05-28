@@ -748,42 +748,42 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
             }
         } else if (section === 'recipes') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 out.recipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as (StableObject | Spaceship)[], data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
         } else if (section === 'move recipes') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 out.moveRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as StillLife, data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
         } else if (section === 'split recipes') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 out.splitRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as StillLife[], data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
         } else if (section === 'destroy recipes') {
                 for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 out.destroyRecipes[key] = data.split(' / ').map(x => parseSlowSalvo(info, x));
             }
         } else if (section === 'one-time turners') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 out.oneTimeTurners[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output)[0] as Spaceship, data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
         } else if (section === 'one-time splitters') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 out.oneTimeSplitters[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, stringToObjects(output) as Spaceship[], data.split(' / ').map(x => parseSlowSalvo(info, x))];
             }
         } else if (section === 'elbow recipes') {
             for (let line of current) {
-                let [key, data] = line.split(':');
+                let [key, data] = line.split(': ');
                 let [input, output] = key.split(' to ');
                 let objs = stringToObjects(output);
                 out.elbowRecipes[key] = [stringToObjects(input + ' (0, 0)')[0] as StillLife, objs[0] as StillLife, objs[1] as Spaceship, data.split(' / ').map(x => parseSlowSalvo(info, x))];
@@ -1011,7 +1011,8 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         let info = c.SALVO_INFO[type];
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
-            out += `${key}:\n${value.map(([lane, timing, data]) => salvoToString(info, [[lane, timing]]) + ': ' + (typeof data === 'object' ? objectsToString(data) : data)).join('\n')}\n\n`;
+            let maxTiming = Math.max(...value.map(x => x[1]));
+            out += `${key}:\n${value.map(([lane, timing, data]) => (maxTiming === 0 ? lane : (maxTiming === 1 ? (timing === 1 ? 'o' : 'e') : lane + ':' + timing)) + ': ' + (typeof data === 'object' ? objectsToString(data) : data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
