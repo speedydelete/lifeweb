@@ -94,10 +94,7 @@ function addToState(state: State): State[] {
                 if (ship.code !== info.ship.code || ship.dir !== SALVO_DIR) {
                     continue;
                 }
-                let shipX = state.x + ship.x;
-                let shipY = state.y + ship.y;
-                let shipLane = (SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY;
-                if (shipLane !== SALVO[state.emitted][1]) {
+                if (ship.lane !== SALVO[state.emitted][1]) {
                     continue;
                 }
                 let gliders = state.gliders.slice();
@@ -149,10 +146,7 @@ function addToState(state: State): State[] {
         // found = true;
         let emitted = state.emitted;
         if (ship) {
-            let shipX = state.x + ship.x;
-            let shipY = state.y + ship.y;
-            let shipLane = (SALVO_DIR === 'NW' || SALVO_DIR === 'SE') ? shipX - shipY : shipX + shipY;
-            if (shipLane !== SALVO[emitted][1]) {
+            if (ship.lane !== SALVO[emitted][1]) {
                 continue;
             }
             emitted++;

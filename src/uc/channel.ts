@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, ChannelInfo, printMemory, maxGenerations, base, shipPatterns, channelRecipeToString, StableObject, CAObject, normalizeOscillator, xyCompare, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, ChannelInfo, printMemory, maxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, xyCompare, objectsToString, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {findOutcome} from './runner.js';
 import {patternToSalvo, getCollision} from './slow_salvos.js';
 import {runInjection, StrRunState, createState, getStringRecipe, isTooBig, resolveElbow, WorkerData, WorkerStartData, WorkerOutput} from './channel_searcher.js';
@@ -132,14 +132,14 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
             continue;
         }
         if (!isSame) {
-            results = results.map(x => x.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare));
+            let stableResults = results.map(x => x.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare));
             let index = 0;
             while (results[index].length === 0) {
                 index++;
             }
-            let result2 = results[index];
+            let result2 = stableResults[index];
             let found = false;
-            let codeStrs = results.map(x => x.map(y => y.code).sort().join(' '));
+            let codeStrs = stableResults.map(x => x.map(y => y.code).sort().join(' '));
             for (let [key, value] of Object.entries(elbows)) {
                 if (elbow.str === key) {
                     continue;
@@ -168,12 +168,12 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                     } else {
                         continue;
                     }
-                    dataResult2 = dataResult2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
-                    if (result2[0].code !== dataResult2[0].code) {
+                    let dataResult22 = dataResult2.filter(x => x.type === 'sl' || x.type === 'osc').sort(xyCompare);
+                    if (result2[0].code !== dataResult22[0].code) {
                         continue;
                     }
-                    let xDiff = result2[0].x - dataResult2[0].x;
-                    let yDiff = result2[0].y - dataResult2[0].y;
+                    let xDiff = result2[0].x - dataResult22[0].x;
+                    let yDiff = result2[0].y - dataResult22[0].y;
                     let adjustLane = parseInt(key.slice(key.indexOf('/') + 1));
                     let move: number;
                     if (flipped) {
@@ -182,7 +182,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                         let temp = p.xOffset;
                         p.xOffset = p.yOffset;
                         p.yOffset = temp;
-                        let data = patternToSalvo({ship: info.ship, period: 1}, p);
+                        let data = patternToSalvo(info.ship, 1, p);
                         adjustLane -= data[1][0][0];
                         if (xDiff !== (yDiff + adjustLane) * info.ship.slope) {
                             continue;
@@ -212,7 +212,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                     let found2 = false;
                     for (let i = 1; i < result2.length; i++) {
                         let obj = result2[i];
-                        let obj2 = dataResult2[i];
+                        let obj2 = dataResult22[i];
                         if (obj.code !== obj2.code || obj.x - obj2.x !== xDiff || obj.y - obj2.y !== yDiff) {
                             found2 = true;
                             break;
@@ -260,7 +260,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
             out.push({type: 'normal', result, results, flippedResult, flippedResults});
         } else {
             let filtered: StableObject[] = [];
-            let emit: ShipInfo[] | undefined = undefined;
+            let emit: Spaceship[] | undefined = undefined;
             let found = false;
             for (let obj of result) {
                 if (obj.type === 'sl' || obj.type === 'osc') {
@@ -271,9 +271,9 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                             found = true;
                             break;
                         }
-                        emit.push(getShipInfo(obj));
+                        emit.push(obj);
                     } else {
-                        emit = [getShipInfo(obj)];
+                        emit = [obj];
                     }
                 } else {
                     found = true;
@@ -307,7 +307,7 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                 let temp = p.xOffset;
                 p.xOffset = p.yOffset;
                 p.yOffset = temp;
-                let data = patternToSalvo({ship: info.ship, period: 1}, p);
+                let data = patternToSalvo(info.ship, 1, p);
                 let flippedStr = `${data[0]}/${data[1][0][0]}`;
                 if (flippedStr in elbows) {
                     out.push({type: 'convert', elbow: flippedStr, flipped: true, move: spacing, timing: obj.type === 'sl' ? 0 : obj.timing, emit});

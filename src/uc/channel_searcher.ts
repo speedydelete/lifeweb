@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern, findType} from '../core/index.js';
-import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, objectsToString, ShipInfo, getShipInfo, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString} from './base.js';
+import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, translateObject, objectsToString, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
 
@@ -237,16 +237,16 @@ function runState(info: ChannelInfo, state: RunState, nextGlider: number, channe
     throw new Error(`This error should not occur (runState completed loop), please report this to speedydelete`);
 }
 
+
 interface ExpectedResult {
     data: {
         stables: StableObject[];
-        ships: ShipInfo[];
+        ships: Spaceship[];
         period: number;
     }[];
     period: number;
     offsets: Set<number>;
 }
-
 
 function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, results: {data: CAObject[][], x: number, y: number} | undefined): ExpectedResult {
     let data: ExpectedResult['data'] = [];
@@ -262,8 +262,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
                 if (obj.type === 'osc') {
                     obj = normalizeOscillator(obj);
                 }
-                obj.x += results.x;
-                obj.y += results.y;
+                obj = translateObject(obj, results.x, results.y);
                 if (obj.type === 'sl') {
                     out.stables.push(obj);
                 } else if (obj.type === 'osc') {
@@ -271,7 +270,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
                     out.stables.push(obj);
                 } else if (obj.type === 'ship') {
                     out.period = lcm(out.period, c.SPACESHIPS[obj.code].popPeriod);
-                    out.ships.push(getShipInfo(obj));
+                    out.ships.push(obj);
                 } else {
                     console.log(obj);
                     throw new Error(`This error should not occur (invalid object for getting expected), please report this to speedydelete (also some debug information got printed above, send that too)`);
@@ -298,6 +297,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
         let out: (typeof data)[number] = {
             stables: [],
             ships: [{
+                type: 'ship',
                 code: info.ship.code,
                 dir: info.ship.slope === 0 ? 'S' : 'SE',
                 lane: elbow.lane,
@@ -347,14 +347,14 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
         return false;
     }
     let stables: StableObject[] = [];
-    let ships: ShipInfo[] = [];
+    let ships: Spaceship[] = [];
     for (let obj of objs) {
         if (obj.type === 'sl') {
             stables.push(obj);
         } else if (obj.type === 'osc') {
             stables.push(normalizeOscillator(obj));
         } else if (obj.type === 'ship') {
-            ships.push(getShipInfo(obj));
+            ships.push(obj);
         } else {
             return false;
         }
@@ -570,7 +570,7 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
                 continue;
             }
             if (recipe2.emit) {
-                if (elbow.emit.some(x => x.dir !== (recipe2.emit as ShipInfo[])[0].dir)) {
+                if (elbow.emit.some(x => x.dir !== (recipe2.emit as Spaceship[])[0].dir)) {
                     continue;
                 }
                 recipe2.emit.push(...elbow.emit);
@@ -632,10 +632,8 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 type: 'ship',
                 code: obj.code,
                 dir: obj.dir,
+                lane: obj.lane,
                 timing: 0,
-                x: 0,
-                y: 0,
-                at: 0,
             };
         } else if (obj.type === 'osc') {
             return normalizeOscillator(obj);
@@ -645,7 +643,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
     }));
     let so1: CheckerObjectData | undefined = undefined;
     let so2: CheckerObjectData | undefined = undefined;
-    let emit: ShipInfo[] | undefined = undefined;
+    let emit: Spaceship[] | undefined = undefined;
     for (let obj of result) {
         if (obj.type === 'sl' || obj.type === 'osc') {
             if (so1 && so2) {
@@ -663,18 +661,17 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 so2 = value;
             }
         } else if (obj.type === 'ship') {
-            let ship = getShipInfo(obj);
             if (emit) {
-                let dir = ship.dir;
+                let dir = obj.dir;
                 if (dir.endsWith('2')) {
                     dir = dir.slice(0, -1) as ShipDirection;
                 }
                 if (emit.some(x => dir !== (x.dir.endsWith('2') ? x.dir.slice(0, -1) : x.dir))) {
                     return {state, outcome};
                 }
-                emit.push(ship);
+                emit.push(obj);
             } else {
-                emit = [ship];
+                emit = [obj];
             }
         } else {
             if (obj.type === 'other' && obj.code.startsWith('xq')) {

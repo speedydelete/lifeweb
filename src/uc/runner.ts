@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator} from '../core/index.js';
-import {c, base, maxGenerations, StillLife, Oscillator, CAObject} from './base.js';
+import {c, base, maxGenerations, StillLife, Oscillator, CAObject, getLaneAndTimingFromXY} from './base.js';
 
 
 export type ForCombining = (StillLife | Oscillator) & {p: MAPPattern, bb: [number, number, number, number]};
@@ -252,13 +252,13 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
             for (let i = 0; i < data.period; i++) {
                 for (let [height, width, pop, cells, dir] of data.identification) {
                     if (p.height === height && p.width === width && p.population === pop && cells.every(x => p.data[x])) {
+                        let [lane, timing] = getLaneAndTimingFromXY(apgcode, dir, p.xOffset, p.yOffset, p.generation);
                         out.push({
                             type: 'ship',
                             code: apgcode,
-                            x: p.xOffset,
-                            y: p.yOffset,
                             dir,
-                            timing: p.generation,
+                            lane,
+                            timing,
                         });
                         found = true;
                         break;

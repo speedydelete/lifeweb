@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {numericSorter, MAPPattern, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
+import {ShipDirection} from './config.js';
 
 export * from './config.js';
 export * as c from './config.js';
@@ -99,14 +100,15 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
         part = part.trim();
         if (part === '') {
             continue;
-        } else if (info.period === 1) {
-            out.push([parseInt(part), 0]);
-        } else if (!LETTERS.includes(part[part.length - 1])) {
-            out.push([parseInt(part), -1]);
-        } else if (info.period === 2) {
-            out.push([parseInt(part.slice(0, -1)), part[part.length - 1] === 'o' ? 1 : 0]);
+        }
+        let lane = parseInt(part);
+        let index = part.indexOf(':');
+        if (index !== -1) {
+            out.push([lane, parseInt(part.slice(index + 1))]);
+        } else if (part.endsWith('o')) {
+            out.push([lane, 1]);
         } else {
-            out.push([parseInt(part.slice(0, -1)), LETTERS.indexOf(part[part.length - 1])]);
+            out.push([lane, 0]);
         }
     }
     return out;
@@ -115,16 +117,27 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
 /** Turns a slow salvo into a string. */
 export function salvoToString(info: c.SalvoInfo, data: [number, number][]): string {
     let out: string[] = [];
-    for (let [lane, timing] of data) {
-        if (timing === -1 || info.period === 1) {
-            out.push(String(lane)); 
-        } else if (info.period === 2) {
-            out.push(lane + (timing === 1 ? 'o' : 'e'));
+    let type: '1' | '2' | 'n' = '1';
+    for (let value of data) {
+        let timing = value[1];
+        if (timing === 0) {
+            continue;
+        } else if (timing === 1) {
+            if (type === '1') {
+                type = '2';
+            }
         } else {
-            out.push(lane + LETTERS[timing]);
+            type = 'n';
+            break;
         }
     }
-    return out.join(', ');
+    if (type === '1') {
+        return data.map(x => x[0]).join(', ');
+    } else if (type === '2') {
+        return data.map(x => x[0] + (x[1] === 0 ? 'e' : 'o')).join(', ');
+    } else {
+        return data.map(x => x[0] + ':' + x[1]).join(', ');
+    }
 }
 
 /** Parses a channel recipe string. */
@@ -236,15 +249,15 @@ export const SHIP_DIRECTIONS = ['NW', 'NE', 'SW', 'SE', 'N', 'E', 'S', 'W', 'NW2
 export interface BaseObject {
     /** The non-canonical prefixed apgcode. */
     code: string;
-    /** The x coordinate of the top-left corner. */
-    x: number;
-    /** The y coordinate of the top-left corner. */
-    y: number;
 }
 
 /** Represents a still life. */
 export interface StillLife extends BaseObject {
     type: 'sl';
+    /** The x coordinate of the top-left corner. */
+    x: number;
+    /** The y coordinate of the top-left corner. */
+    y: number;
     /** The reason why this exists is because sometimes `StillLifes` are used to make `Oscillators` */
     timing?: number;
 }
@@ -252,6 +265,10 @@ export interface StillLife extends BaseObject {
 /** Represents an oscillator. */
 export interface Oscillator extends BaseObject {
     type: 'osc';
+    /** The x coordinate of the top-left corner. */
+    x: number;
+    /** The y coordinate of the top-left corner. */
+    y: number;
     /** The period of the oscillator. */
     period: number;
     /** Either the number of generations since the start or that modulo the period. */
@@ -265,13 +282,19 @@ export interface Spaceship extends BaseObject {
     /** The canonical apgcode of the spaceship. */
     code: string;
     /** The direction it is moving. */
-    dir: c.ShipDirection;
-    /** T number of generations from the start it took to get here. */
+    dir: ShipDirection;
+    /** The lane it is on, relative to (0, 0), center cell is the top-left. */
+    lane: number;
+    /** The timing it is on relative to a normalized ship at (0, 0). */
     timing: number;
 }
 
 export interface OtherObject extends BaseObject {
     type: 'other';
+    /** The x coordinate of the top-left corner. */
+    x: number;
+    /** The y coordinate of the top-left corner. */
+    y: number;
     /** The "actual" unprefixed apgcode representing the object. */
     realCode: string;
     /** The number of generations before it was categorized. */
@@ -280,6 +303,8 @@ export interface OtherObject extends BaseObject {
 
 /** Represents a classified object. */
 export type CAObject = StillLife | Oscillator | Spaceship | OtherObject;
+
+export type NonShip = Exclude<CAObject, Spaceship>;
 
 
 /** Normalizes an oscillator to its canonical apgcode (but without rotation or reflection). */
@@ -314,19 +339,81 @@ export function normalizeOscillator(obj: Oscillator, modTiming: boolean = true):
     };
 }
 
+export const SHIP_DIR_NW_SE = new Set(['N', 'NW', 'S', 'SE', 'N2', 'NW2', 'S2', 'SE2']);
+
+export function getLaneAndTimingFromXY(code: string, dir: ShipDirection, x: number, y: number, time: number): [number, number] {
+    if (dir.endsWith('2')) {
+        dir = dir.slice(0, -1) as ShipDirection;
+    }
+    let slope = c.SPACESHIPS[code].slope;
+    let lane: number;
+    let timing: number;
+    lane = x - (y * slope);
+    timing = (x * slope) + y - time;
+    if (!SHIP_DIR_NW_SE.has(dir)) {
+        let temp = lane;
+        lane = timing;
+        timing = temp;
+    }
+    return [lane, timing];
+}
+
+/*
+
+l = x - sy
+t = sx + y
+
+    st = s^2x + sy
+     l = sx   - sy
+------------------
+st + l = s^2x + sx
+st + l = x(s^2 + s)
+x(s^2 + s) = st + l
+x = (st + l)/(s^2 + s)
+
+   -sl = -sx + s^2y
+     t = sx  + y
+--------------------
+t - sl = s^2y + y
+t - sl = y(s^2 + 1)
+y(s^2 + 1) = t - sl
+y = (t - sl)/(s^2 + 1)
+
+*/
+
+export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: number, timing: number): [number, number] {
+    if (dir.endsWith('2')) {
+        dir = dir.slice(0, -1) as ShipDirection;
+    }
+    if (!SHIP_DIR_NW_SE.has(dir)) {
+        let temp = lane;
+        lane = timing;
+        timing = temp;
+    }
+    let slope = c.SPACESHIPS[code].slope;
+    return [
+        (slope * timing + lane) / (slope**2 + slope),
+        (timing - slope * lane) / (slope**2 + 1),
+    ];
+}
 
 /** Translates a list of `CAObjects[]` by a given amount. */
-export function translateObjects<T extends CAObject>(objs: T[], x: number, y: number): T[] {
-    return objs.map(obj => {
-        obj = structuredClone(obj);
+export function translateObject<T extends CAObject>(obj: T, x: number, y: number): T {
+    obj = structuredClone(obj);
+    if (obj.type === 'ship') {
+        let [x2, y2] = getXYFromLaneAndTiming(obj.code, obj.dir, obj.lane, obj.timing);
+        let [lane2, timing2] = getLaneAndTimingFromXY(obj.code, obj.dir, x2 + x, y2 + y, 0);
+        obj.lane = lane2;
+        obj.timing = timing2;
+    } else {
         obj.x += x;
         obj.y += y;
-        return obj;
-    });
+    }
+    return obj;
 }
 
 /** A sorting function that sorts objects by their (x, y) displacement. */
-export function xyCompare(a: CAObject, b: CAObject): number {
+export function xyCompare(a: NonShip, b: NonShip): number {
     if (a.y === b.y) {
         return a.x - b.x;
     } else {
@@ -356,7 +443,19 @@ export function objectSorter(a: CAObject, b: CAObject): number {
         if (b.type === a.type) {
             if (a.code.length === b.code.length) {
                 if (a.code === b.code) {
-                    return xyCompare(a, b);
+                    if (a.dir === b.dir) {
+                        if (a.lane === b.lane) {
+                            return a.timing - b.timing;
+                        } else {
+                            return a.lane - b.lane;
+                        }
+                    } else {
+                        if (a.dir < b.dir) {
+                            return -1;
+                        } else {
+                            return 1;
+                        }
+                    }
                 } else if (a.code < b.code) {
                     return -1;
                 } else {
@@ -420,7 +519,7 @@ export function objectsToString(objs: CAObject[]): string {
         } else if (obj.type === 'osc') {
             out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.timing})`);
         } else if (obj.type === 'ship') {
-            out.push(`${obj.code} (${obj.dir}, ${obj.x}, ${obj.y}, ${obj.timing})`);
+            out.push(`${obj.code} (${obj.dir}, ${obj.lane}, ${obj.timing})`);
         } else {
             out.push(`${obj.code} (${obj.realCode}, ${obj.x}, ${obj.y}, ${obj.timing})`);
         }
@@ -479,10 +578,9 @@ export function stringToObjects(data: string): CAObject[] {
             out.push({
                 type: 'ship',
                 code,
-                x: parseInt(args[1]),
-                y: parseInt(args[2]),
-                dir: args[0] as c.ShipDirection,
-                timing: parseInt(args[3]),
+                dir: args[0] as ShipDirection,
+                lane: parseInt(args[3]),
+                timing: parseInt(args[4]),
             });
         } else {
             out.push({
@@ -496,34 +594,6 @@ export function stringToObjects(data: string): CAObject[] {
         }
     }
     return out;
-}
-
-
-/** Stores information about a spaceship. */
-export interface ShipInfo {
-    code: string;
-    /** The direction it is moving. */
-    dir: c.ShipDirection;
-    /** The lane number, relative to the initial xOffset and yOffset properties. This is not the same system as that used for B3/S23 conduits. */
-    lane: number;
-    /** The timing value of the spaceship. */
-    timing: number;
-}
-
-/** Gets information on a spaceship. */
-export function getShipInfo(obj: Spaceship): ShipInfo {
-    let dir = obj.dir;
-    if (dir.endsWith('2')) {
-        dir = dir.slice(0, -1) as c.ShipDirection;
-    }
-    let slope = c.SPACESHIPS[obj.code].slope;
-    let lane: number;
-    if ((obj.dir.startsWith('N') && !obj.dir.startsWith('NE')) || (obj.dir.startsWith('S') && !obj.dir.startsWith('SW'))) {
-        lane = obj.x - (obj.y * slope);
-    } else {
-        lane = (obj.x * slope) + obj.y;
-    }
-    return {code: obj.code, dir: obj.dir, lane: lane + c.LANE_OFFSET, timing: obj.timing % parseInt(obj.code.slice(2))};
 }
 
 
@@ -544,8 +614,8 @@ export interface SalvoRecipes {
 export type ElbowData = {[key: string]: (
     {type: 'normal', result: CAObject[], results: CAObject[][], flippedResult: CAObject[], flippedResults: CAObject[][]} |
     {type: 'alias', elbow: string, flipped: boolean, move: number, timing: number} |
-    {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number, emit?: ShipInfo[]} |
-    {type: 'destroy', emit?: ShipInfo[]} |
+    {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number, emit?: Spaceship[]} |
+    {type: 'destroy', emit?: Spaceship[]} |
     {type: 'no collision'} |
     {type: 'bad'} | 
     {type: 'rare'}
@@ -576,7 +646,7 @@ export interface ChannelRecipe {
         flipped: boolean;
     };
     /** Spaceships it emits. */
-    emit?: ShipInfo[];
+    emit?: Spaceship[];
     /** An object it creates. */
     create?: StableObject;
 }
@@ -732,17 +802,17 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     if (data === 'bad' || data === 'no collision' || data === 'rare') {
                         value.push({type: data});
                     } else if (data.startsWith('destroy')) {
-                        let emit: ShipInfo[] | undefined = undefined;
+                        let emit: Spaceship[] | undefined = undefined;
                         let parts = data.split(' ');
                         if (parts[1] === 'emit') {
                             parts = parts.slice(2);
                             emit = [];
                             while (parts[0] === 'emit') {
                                 let code = data[1];
-                                let dir = data[2] as c.ShipDirection;
+                                let dir = data[2] as ShipDirection;
                                 let lane = parseInt(data[4]);
                                 let timing = parseInt(data[6]);
-                                emit.push({code, dir, lane, timing});
+                                emit.push({type: 'ship', code, dir, lane, timing});
                                 data = data.slice(7);
                             }
                         }
@@ -759,16 +829,16 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         }
                         let move = parseInt(parts[1]);
                         let timing = parseInt(parts[3]);
-                        let emit: ShipInfo[] | undefined = undefined;
+                        let emit: Spaceship[] | undefined = undefined;
                         if (parts[4] === 'emit') {
                             parts = parts.slice(4);
                             emit = [];
                             while (parts[0] === 'emit') {
                                 let code = parts[1];
-                                let dir = parts[2] as c.ShipDirection;
+                                let dir = parts[2] as ShipDirection;
                                 let lane = parseInt(parts[4]);
                                 let timing = parseInt(parts[6]);
-                                emit.push({code, dir, lane, timing});
+                                emit.push({type: 'ship', code, dir, lane, timing});
                                 parts = parts.slice(7);
                             }
                         }
@@ -812,10 +882,10 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                     recipe.emit = [];
                     while (data[0] === 'emit') {
                         let code = data[1];
-                        let dir = data[2] as c.ShipDirection;
+                        let dir = data[2] as ShipDirection;
                         let lane = parseInt(data[4]);
                         let timing = parseInt(data[6]);
-                        recipe.emit.push({code, dir, lane, timing});
+                        recipe.emit.push({type: 'ship', code, dir, lane, timing});
                         data = data.slice(7);
                     }
                 }

@@ -239,12 +239,12 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
             let info = c.SALVO_INFO[type];
             if (options['dvgrn']) {
                 let out: string[] = [];
-                for (let [lane, timing] of patternToSalvo(info, p)[1]) {
+                for (let [lane, timing] of patternToSalvo(info.ship, 2, p)[1]) {
                     out.push((timing ? 'O' : 'E') + (lane - 2));
                 }
                 console.log(out.join(' '));
             } else {
-                let [target, lanes] = patternToSalvo(info, p);
+                let [target, lanes] = patternToSalvo(info.ship, 2, p);
                 lanes = lanes.map(x => [x[0] + 6, x[1]]);
                 console.log(target + ', ' + salvoToString(c.SALVO_INFO[type], lanes));
             }

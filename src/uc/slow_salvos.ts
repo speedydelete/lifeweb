@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, SpaceshipInfo, SalvoInfo, base, shipPatterns, Spaceship, StableObject, CAObject, translateObjects, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, SpaceshipInfo, SalvoInfo, redraw, base, shipPatterns, Spaceship, StableObject, CAObject, translateObject, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
 
@@ -49,7 +49,7 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
 }
 
 /** Reads a slow salvo from a `Pattern`. */
-export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: MAPPattern): [string, [number, number][]] {
+export function patternToSalvo(shipInfo: SpaceshipInfo, period: number, p: MAPPattern): [string, [number, number][]] {
     let objs = separateObjects(p, 2, 65536, true, true);
     if (objs === false) {
         throw new Error('Object separation failed!');
@@ -57,7 +57,7 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
     let target: StableObject | null = null;
     let ships: Spaceship[] = [];
     for (let obj of objs) {
-        if (obj.type === 'ship') {
+        if (obj.type === 'ship' && obj.code === shipInfo.code) {
             ships.push(obj);
         } else if (obj.type === 'sl' || obj.type === 'osc') {
             if (target !== null) {
@@ -71,16 +71,12 @@ export function patternToSalvo(info: {ship: SpaceshipInfo, period: number}, p: M
     if (!target) {
         throw new Error('No target!');
     }
-    let lanes: [number, number, number][] = [];
+    let lanes: [number, number][] = [];
     for (let ship of ships) {
-        let x = target.x - ship.x;
-        let y = target.y - ship.y;
-        let lane = (y * info.ship.slope) - x + c.LANE_OFFSET;
-        let timing = x + y;
-        lanes.push([lane, ship.timing, timing]);
+        lanes.push([ship.lane, ship.timing]);
     }
-    lanes = lanes.sort((a, b) => a[2] - b[2]);
-    return [target.code, lanes.map(x => [x[0], x[1] % info.period])];
+    lanes = lanes.sort((a, b) => a[1] - b[1]);
+    return [target.code, lanes.map(x => [x[0], x[1] % period])];
 }
 
 
@@ -208,7 +204,7 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
                 obj = data.find(x => (x.type === 'sl' || x.type === 'osc') && x.code === target);
             }
             if (obj) {
-                if (obj.code === target && obj.x === 0 && obj.y === 0) {
+                if (obj.type !== 'ship' && obj.code === target && obj.x === 0 && obj.y === 0) {
                     if (data.length === 1) {
                         out.push([lane, timing, 'eater']);
                         continue;
@@ -240,10 +236,6 @@ export function get1GSalvos(info: SalvoInfo, target: string, timing: number, ref
         if (data) {
             let found = false;
             for (let obj of data) {
-                if (obj.type === 'osc' && obj.period / info.period !== 0) {
-                    found = true;
-                    break;
-                }
                 if (obj.type === 'sl' || obj.type === 'osc') {
                     newObjs.add(obj.code);
                     // let p = base.loadApgcode(obj.code.slice(obj.code.indexOf('_') + 1));
@@ -276,7 +268,7 @@ function addRecipe<T extends number>(info: c.SalvoInfo, index: T, entry: {[K in 
     }
 }
 
-function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[] | string][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
+function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number, false | null | CAObject[] | string][]}, code: string, prefix: [number, number][], x: number, y: number, totalTiming: number, period: number, count: number, limit: number, out: RecipeData['salvos'][string], start: StableObject): void {
     for (let [lane, timing, objs] of data[code]) {
         if (!objs || typeof objs === 'string') {
             continue;
@@ -286,15 +278,18 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             continue;
         }
         let recipe = prefix.slice();
-        timing = (timing + totalTiming) % info.period;
+        timing = (timing + totalTiming) % period;
         recipe.push([lane, timing]);
-        objs = translateObjects(objs, x, y);
+        objs = objs.map(obj => translateObject(obj, x, y));
         let key = `${start.code} to ${objectsToString(objs)}`;
         let stable: StableObject[] = [];
         let ships: Spaceship[] = [];
         let found = false;
         for (let obj of objs) {
-            if (obj.type === 'sl' || obj.type === 'osc') {
+            if (obj.type === 'sl') {
+                stable.push(obj);
+            } else if (obj.type === 'osc') {
+                period = lcm(period, obj.period);
                 stable.push(obj);
             } else if (obj.type === 'ship') {
                 ships.push(obj);
@@ -369,9 +364,9 @@ function compileRecipes(info: c.SalvoInfo, data: {[key: string]: [number, number
             if (objs.length === 1 && (objs[0].type === 'sl' || objs[0].type === 'osc') && objs[0].code in data) {
                 let newTiming = totalTiming;
                 if (objs[0].type === 'osc') {
-                    newTiming = (newTiming + objs[0].timing) % info.period;
+                    newTiming = (newTiming + objs[0].timing) % period;
                 }
-                compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, newTiming, count + 1, limit, out, start);
+                compileRecipes(info, data, objs[0].code, recipe, objs[0].x, objs[0].y, newTiming, period, count + 1, limit, out, start);
             }
         }
     }
@@ -392,6 +387,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             process.exit(0);
         }
         console.log(`Searching depth ${depth + 1} (${queue.length} objects)`);
+        await redraw();
         let lastUpdate = performance.now();
         let newQueue: string[] = [];
         for (let i = 0; i < queue.length; i++) {
@@ -410,8 +406,9 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     newQueue.push(...newObjs);
                 }
             } else {
+                let period = parseInt(code.slice(2));
                 let out: (typeof forInput)[string] = [];
-                for (let timing = 0; timing < info.period; timing++) {
+                for (let timing = 0; timing < period; timing++) {
                     let data = get1GSalvos(info, code, timing);
                     if (data) {
                         let [newObjs, newOut] = data;
@@ -433,11 +430,13 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
             if (now - lastUpdate > 5000 && i < queue.length) {
                 lastUpdate = now;
                 console.log(`Depth ${depth + 1} ${(i / queue.length * 100).toFixed(3)}% complete`);
+                await redraw();
             }
         }
         queue = newQueue;
         if (noCompile) {
             await saveRecipes(recipes);
+            await redraw();
             depth++;
             continue;
         }
@@ -448,19 +447,21 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {
                     let start = stringToObjects(obj + ' (0, 0)')[0] as StableObject;
-                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], start);
+                    compileRecipes(info, forInput, obj, [], 0, 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], start);
                 }
                 let now = performance.now();
                 if (now - lastUpdate > 5000 && i + 1 < info.intermediateObjects.length) {
                     lastUpdate = now;
                     console.log(`Finished compiling recipes for ${i + 1}/${info.intermediateObjects.length} (${((i + 1) / info.intermediateObjects.length * 100).toFixed(1)}%) objects`);
+                    await redraw();
                 }
             }
         } else {
             let obj = stringToObjects(start + ' (0, 0)')[0] as StableObject;
-            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], obj);
+            compileRecipes(info, forInput, start, [], 0, 0, 0, 0, 0, depth + depthInc, recipes.salvos[type], obj);
         }
         console.log('Compiled all recipes');
+        await redraw();
         await saveRecipes(recipes);
         depth++;
     }
