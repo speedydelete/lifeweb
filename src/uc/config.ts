@@ -134,8 +134,6 @@ interface SalvoInfo {
     aliases?: string[];
     // the spaceship being used
     ship: SpaceshipInfo;
-    // the starting elbow object
-    startObject: string;
     // the spacing (in cells) between 2 gliders in a multi-glider salvo
     gliderSpacing: number;
     // the valid intermediate objects
@@ -156,7 +154,6 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
     'Slow salvo': {
         aliases: ['ss'],
         ship: SPACESHIPS['xq4_15'],
-        startObject: 'xs2_11',
         gliderSpacing: 16,
         intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
         laneLimit: 128,
@@ -166,7 +163,6 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
     'Monochrome slow salvo': {
         aliases: ['mss'],
         ship: SPACESHIPS['xq4_15'],
-        startObject: 'xs2_11',
         gliderSpacing: 16,
         intermediateObjects: ['xs2_11', 'xs2_3'],
         laneLimit: 128,

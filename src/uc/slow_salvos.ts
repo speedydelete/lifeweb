@@ -442,7 +442,7 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
         }
         console.log(`Depth ${depth + 1} 100.00% complete, compiling recipes`);
         lastUpdate = performance.now();
-        if (start === info.startObject) {
+        if (info.intermediateObjects.includes(start)) {
             for (let i = 0; i < info.intermediateObjects.length; i++) {
                 let obj = info.intermediateObjects[i];
                 if (obj in forInput) {

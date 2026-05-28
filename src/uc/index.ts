@@ -209,11 +209,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
     async 'get'(): Promise<void> {
         if (type in c.SALVO_INFO) {
             let info = c.SALVO_INFO[type];
-            let start = info.startObject;
-            if (args[0].startsWith('x')) {
-                start = args[0];
-                args = args.slice(1);
-            }
+            let start = args[0];
             start = start.slice(start.indexOf('_') + 1).replaceAll(',', '');
             console.log(createSalvoPattern(info, start, parseSlowSalvo(info, args.join(' '))).shrinkToFit().toRLE());
         } else {
@@ -255,11 +251,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
     
     async 'search'(): Promise<void> {
         if (type in c.SALVO_INFO) {
-            if (args[0] && args[0].startsWith('x')) {
-                await searchSalvos(type, args[0], options['no-compile']);
-            } else {
-                await searchSalvos(type, c.SALVO_INFO[type].startObject, options['no-compile'], options['depth']);
-            }
+            await searchSalvos(type, args[0], options['no-compile']);
         } else {
             await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file']);
         }
