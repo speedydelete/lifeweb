@@ -155,7 +155,7 @@ const SALVO_INFO: {[key: string]: SalvoInfo} = {
         aliases: ['ss'],
         ship: SPACESHIPS['xq4_15'],
         gliderSpacing: 16,
-        intermediateObjects: ['xs2_11', /*'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'*/],
+        intermediateObjects: ['xs2_11', 'xs2_3', 'xs3_111', 'xs3_7', 'xs3_13', 'xs3_31', 'xs3_32', 'xs3_23'],
         laneLimit: 128,
         maxRecipes: 2,
     },
