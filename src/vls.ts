@@ -34,6 +34,7 @@ Options:
     -o, --search-order <order>:
         Set the order in which cells are checked
         defined as a comma-separated list of metrics
+        later metrics are tiebreakers for earlier metrics
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, ^ (exponentiation)
         also it supports unary + and - and parentheses
@@ -482,7 +483,7 @@ for (let line of code.split('\n')) {
         }
         line += '{' + grids.join(', ') + '};';
     } else if (line.startsWith('static int search_order[][3] = ')) {
-        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? '+t +x +y').map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? '+t, +y, +x').map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
         line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
     }
@@ -541,9 +542,10 @@ for (let line of code.split('\n')) {
 let sourcePath = `${import.meta.dirname}/../src/vls_to_compile.c`;
 let execPath = `${import.meta.dirname}/../vls_compiled`;
 await fs.writeFile(sourcePath, out.join('\n'));
-console.log('Compiling');
 try {
-    execSync(`gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' ${sourcePath}`, {stdio: 'inherit'});
+    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' ${sourcePath}`;
+    console.log(command);
+    execSync(command, {stdio: 'inherit'});
     execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
 } catch (error) {
     process.exit(1);
