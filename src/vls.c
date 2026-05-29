@@ -298,20 +298,28 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     #undef grid
     int value = state->grid[t + 1][y][x];
     int tr_value = big_trs_forward[tr];
-    #if DEBUG >= 5
-    printf("tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
+    #if DEBUG >= 6
+    // if (tr == 20480) {
+        printf("tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
+    // }
     #endif
     if (value != tr_value) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
-                #if DEBUG >= 4
+                // if (tr == 20480) {
+                //     printf("Contradiction\n");
+                // }
+                #if DEBUG >= 5
                 printf("Contradiction\n");
                 #endif
                 return false;
             } else {
                 bool out = set_cell(state, t + 1, x, y, tr_value, IMPLICATION);
+                // if (tr == 20480) {
+                //     printf("Cell set: %i, %s\n", state->grid[t + 1][y][x], out ? "true" : "false");
+                // }
                 if (!out) {
-                    #if DEBUG >= 4
+                    #if DEBUG >= 5
                     printf("Contradiction\n");
                     #endif
                     return false;
@@ -319,11 +327,17 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
             }
         }
     }
+    // if (tr == 20480) {
+    //     printf("Returning\n");
+    // }
     return true;
 }
 
 // returns false if contradiction, true if no contradiction
 static inline bool check_backward_implication(search_state* state, int t, int x, int y) {
+    if (t < 0) {
+        return true;
+    }
     return true;
     // int tr = (int)(state->grid[t + 1][y][x])
     // #define grid (state->grid[t])
@@ -338,7 +352,7 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     //     | ((int)(grid[y + 1][x + 1] & 3) << 2);
     // int value = big_trs_backward[tr];
     // if (value == 3) {
-    //     #if DEBUG >= 4
+    //     #if DEBUG >= 5
     //     printf("Contradiction\n");
     //     #endif
     //     return false;
@@ -380,7 +394,7 @@ static bool set_var(search_state* state, int var, cell_t value);
 // returns false if contradiction, true if no contradiction
 static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set_cell_mode_t mode) {
     cell_t prev_value = state->grid[t][y][x];
-    #if DEBUG >= 3
+    #if DEBUG >= 4
     printf("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
     #endif
     if (IS_KNOWN(prev_value)) {
@@ -396,7 +410,7 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
         #endif
         state->set_cells++;
         state->grid[t][y][x] = value;
-        return (mode == IMPLICATION ? true : check_forward_implication(state, t, x, y)) && check_backward_implication(state, t - 1, x, y) && check_forward_implication(state, t, x - 1, y - 1) && check_forward_implication(state, t, x - 1, y) && check_forward_implication(state, t, x - 1, y + 1) && check_forward_implication(state, t, x, y - 1) && check_forward_implication(state, t, x, y + 1) && check_forward_implication(state, t, x + 1, y - 1) && check_forward_implication(state, t, x + 1, y) && check_forward_implication(state, t, x + 1, y + 1);
+        return check_forward_implication(state, t, x, y) && check_backward_implication(state, t - 1, x, y) && check_forward_implication(state, t, x - 1, y - 1) && check_forward_implication(state, t, x - 1, y) && check_forward_implication(state, t, x - 1, y + 1) && check_forward_implication(state, t, x, y - 1) && check_forward_implication(state, t, x, y + 1) && check_forward_implication(state, t, x + 1, y - 1) && check_forward_implication(state, t, x + 1, y) && check_forward_implication(state, t, x + 1, y + 1);
     } else {
         return set_var(state, CELL_VAR_TO_VAR(prev_value), value);
     }
@@ -407,7 +421,7 @@ static cell_t prev_values[MAX_VAR_USES];
 // set a variable to a value, propagating implication checking
 // returns false if contradiction, true if no contradiction
 static bool set_var(search_state* state, int var, cell_t value) {
-    #if DEBUG >= 3
+    #if DEBUG >= 4
     printf("Setting variable %i to %i\n", var, value);
     #endif
     for (int use = 0; use < MAX_VAR_USES; use++) {
@@ -415,7 +429,7 @@ static bool set_var(search_state* state, int var, cell_t value) {
         int t = var_uses[var][use][1];
         int x = var_uses[var][use][2];
         int y = var_uses[var][use][3];
-        #if DEBUG >= 5
+        #if DEBUG >= 6
         printf("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
         #endif
         cell_t prev_value = state->grid[t][y][x];
@@ -491,8 +505,8 @@ static void run_depth(int depth) {
         #endif
         solutions_found++;
         #if DEBUG >= 2
-        printf("Grid:\n");
         for (int i = 0; i < depth; i++) {
+            printf("Grid:\n");
             print_grid(states[i]);
         }
         #endif
@@ -515,9 +529,9 @@ static void run_depth(int depth) {
         return;
     }
     search_state* state = states[depth];
-    #if DEBUG >= 2
-    printf("Running depth %i\n", depth);
     #if DEBUG >= 3
+    printf("Running depth %i\n", depth);
+    #if DEBUG >= 4
     copy_state(states[depth - 1], state);
     printf("Grid:\n");
     print_grid(state);
@@ -585,12 +599,11 @@ int main(void) {
     }
     printf("%i unknown cells (%i total cells, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
     // long value = strtol(
-    //     "00" "01" "00"
-    //     "00" "10" "00"
-    //     "00" "01" "00"
-    //     "01"
+    //     "00" "01" "01"
+    //     "00" "00" "00"
+    //     "00" "00" "00"
     // , NULL, 2);
-    // printf("%ld -> %i\n", value, big_trs_backward[value]);
+    // printf("%ld -> %i\n", value, big_trs_forward[value]);
     printf("Running search\n");
     #if DEBUG >= 1
     printf("Grid:\n");
