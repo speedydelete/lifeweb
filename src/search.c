@@ -189,6 +189,9 @@ const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 
 
 #endif
 
+// debug level
+#define DEBUG 1
+
 // END CONFIGURATION
 
 
@@ -277,7 +280,7 @@ static int resolve_big_transition(int prev, int tr, int depth) {
     if (state == 3) {
         return 2;
     }
-    if (depth == 9) {
+    if (depth == 8) {
         if (state < 2) {
             return trs[(prev << 1) | state];
         } else {
@@ -306,16 +309,27 @@ static inline void generate_big_trs(void) {
 // get the big transition of a cell
 static inline cell_t get_big_tr(search_state* state, int t, int x, int y) {
     #define grid (state->grid[t])
+    #if DEBUG >= 2
+    printf("getting big tr, t = %i, x = %i, y = %i, i = %i\n", t, x, y, ((int)(grid[y - 1][x - 1] & 3) << 16)
+        | ((int)(grid[y - 1][x] & 3) << 14)
+        | ((int)(grid[y - 1][x + 1] & 3) << 12)
+        | ((int)(grid[y][x - 1] & 3) << 10)
+        | ((int)(grid[y][x] & 3) << 8)
+        | ((int)(grid[y][x + 1] & 3) << 6)
+        | ((int)(grid[y + 1][x - 1] & 3) << 4)
+        | ((int)(grid[y + 1][x] & 3) << 2)
+        | (int)(grid[y + 1][x + 1] & 3));
+    #endif
     return big_trs[
-        ((grid[y - 1][x - 1] & 3) << 16)
-        | ((grid[y - 1][x] & 3) << 14)
-        | ((grid[y - 1][x + 1] & 3) << 12)
-        | ((grid[y][x - 1] & 3) << 10)
-        | ((grid[y][x] & 3) << 8)
-        | ((grid[y][x + 1] & 3) << 6)
-        | ((grid[y + 1][x - 1] & 3) << 4)
-        | ((grid[y + 1][x] & 3) << 2)
-        | (grid[y + 1][x + 1] & 3)
+        ((int)(grid[y - 1][x - 1] & 3) << 16)
+        | ((int)(grid[y - 1][x] & 3) << 14)
+        | ((int)(grid[y - 1][x + 1] & 3) << 12)
+        | ((int)(grid[y][x - 1] & 3) << 10)
+        | ((int)(grid[y][x] & 3) << 8)
+        | ((int)(grid[y][x + 1] & 3) << 6)
+        | ((int)(grid[y + 1][x - 1] & 3) << 4)
+        | ((int)(grid[y + 1][x] & 3) << 2)
+        | (int)(grid[y + 1][x + 1] & 3)
     ];
     #undef grid
 }
@@ -330,49 +344,58 @@ static inline cell_t get_big_tr(search_state* state, int t, int x, int y) {
 //     return value == get_big_tr(state, i);
 // }
 
-static bool set_cell(search_state* state, int t, int x, int y, cell_t value);
+static bool set_cell(search_state* state, int t, int x, int y, cell_t value, bool override);
 
 // check if the unknown cell can be set, and if so, set it, propagating checks
 // returns false if contradiction, true if no contradiction
 static bool _check_implication(search_state* state, int t, int x, int y) {
     if (!(x > 0 && x < WIDTH - 1 && y > 0 && y < HEIGHT - 1)) {
-        return false;
+        return true;
     }
     if (t + 1 > GENS) {
         return true;
     }
     cell_t value = state->grid[t + 1][x][y];
     cell_t tr_value = get_big_tr(state, t, x, y);
+    #if DEBUG >= 2
+    printf("value = %i, tr_value = %i\n", (int)value, (int)tr_value);
+    #endif
     if (value != tr_value) {
         if (value < 2) {
             return false;
         }
-        return set_cell(state, t + 1, x, y, tr_value);
+        return set_cell(state, t + 1, x, y, tr_value, false);
     }
     return true;
 }
 
+#if DEBUG >= 1
 static inline bool check_implication(search_state* state, int t, int x, int y) {
     bool out = _check_implication(state, t, x, y);
-    printf("Checking implications for cell at t = %i, (%i, %i): %s\n", t, x, y, out ? "true" : "false");
+    printf("checking implication: t = %i, x = %i, y = %i: %s\n", t, x, y, out ? "true" : "false");
     return out;
 }
+#else
+#define check_implication _check_implication
+#endif
 
 static bool set_var(search_state* state, int var, cell_t value);
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static bool set_cell(search_state* state, int t, int x, int y, cell_t value) {
-    printf("Setting cell at t = %i, (%i, %i) to %i\n", t, x, y, value);
+static bool set_cell(search_state* state, int t, int x, int y, cell_t value, bool override) {
     cell_t prev_value = state->grid[t][y][x];
+    #if DEBUG >= 1
+    printf("setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
+    #endif
     if (prev_value < 2) {
         return prev_value == value;
-    } else if (prev_value < 4) {
+    } else if (prev_value < 4 || override) {
         state->grid[t][y][x] = value;
+        return check_implication(state, t, x, y) && check_implication(state, t, x - 1, y - 1) && check_implication(state, t, x - 1, y) && check_implication(state, t, x - 1, y + 1) && check_implication(state, t, x, y - 1) && check_implication(state, t, x, y + 1) && check_implication(state, t, x + 1, y - 1) && check_implication(state, t, x + 1, y) && check_implication(state, t, x + 1, y + 1);
     } else {
-        set_var(state, prev_value, value);
+        return set_var(state, CELL_VAR_TO_VAR(prev_value), value);
     }
-    return check_implication(state, t, x, y) && check_implication(state, t, x - 1, y - 1) && check_implication(state, t, x - 1, y) && check_implication(state, t, x - 1, y + 1) && check_implication(state, t, x, y - 1) && check_implication(state, t, x, y + 1) && check_implication(state, t, x + 1, y - 1) && check_implication(state, t, x + 1, y) && check_implication(state, t, x + 1, y + 1);
 }
 
 // set a variable to a value, propagating implication checking
@@ -381,17 +404,23 @@ static bool set_var(search_state* state, int var, cell_t value) {
     #if SET_VARS_IS_ARRAY
     if (state->set_vars[var / (sizeof(var_set_item_t) / 8)] | 1 << (var % (sizeof(var_set_item_t) / 8)))
     #else
-    if (state->set_vars | 1 << var)
+    if (state->set_vars & (1 << var))
     #endif
     {
         return false;
     }
+    #if DEBUG >= 1
+    printf("setting variable %i to %i\n", var, value);
+    #endif
     for (int use = 0; use < MAX_VAR_USES; use++) {
         int there_is_more = var_uses[var][use][0];
         int t = var_uses[var][use][1];
         int x = var_uses[var][use][2];
         int y = var_uses[var][use][3];
-        if (!set_cell(state, t, x, y, value)) {
+        #if DEBUG >= 2
+        printf("read variable data: t = %i, x = %i, y = %i\n", t, x, y);
+        #endif
+        if (!set_cell(state, t, x, y, value, true)) {
             return false;
         }
         if (there_is_more == 0) {
@@ -418,10 +447,10 @@ void run_depth(int depth) {
         printf("\n");
         return;
     }
-    const int* cell = search_order[depth];
+    const int* cell = search_order[depth - 1];
     for (int value = 0; value < 2; value++) {
         copy_state(states[depth - 1], state);
-        if (set_cell(state, cell[0], cell[1], cell[2], value)) {
+        if (set_cell(state, cell[0], cell[1], cell[2], value, false)) {
             run_depth(depth + 1);
         }
     }
