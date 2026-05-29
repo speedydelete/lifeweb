@@ -38,7 +38,7 @@ Options:
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, ^ (exponentiation)
         also it supports unary + and - and parentheses
-        the default value is '+t, +y, +x'
+        the default value is '+t, -y, +x'
 
     --maxpop <cells>: Set the maximum population during the search.
 `;
@@ -483,7 +483,7 @@ for (let line of code.split('\n')) {
         }
         line += '{' + grids.join(', ') + '};';
     } else if (line.startsWith('static int search_order[][3] = ')) {
-        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? '+t, +y, +x').map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? '+t, -y, +x').map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
         line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
     }
