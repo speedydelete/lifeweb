@@ -190,7 +190,7 @@ const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 
 #endif
 
 // debug level
-#define DEBUG 1
+#define DEBUG 2
 
 // END CONFIGURATION
 
