@@ -29,6 +29,7 @@ Options:
     -h, --help: show this help message
 
     -d, --debug <level>: set the debug level
+    -g, --gdb: run gdb instead and compile with debugging symbols
 
     -o, --search-order <order>:
         Set the order in which cells are checked
@@ -44,6 +45,7 @@ Options:
 const OPTIONS = {
     'help': true,
     'debug': 'number',
+    'gdb': true,
     'search-order': 'string',
     'maxpop': 'number',
 } as const satisfies {[key: string]: true | 'string' | 'number'};
@@ -54,6 +56,7 @@ type Option = keyof Options;
 const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
+    'g': 'gdb',
     'o': 'search-order',
 };
 
@@ -255,7 +258,7 @@ if (mode === 'periodic') {
     if (Number.isNaN(yOffset)) {
         yOffset = 0;
     }
-    grid = new Grid(height, width, 1);
+    grid = new Grid(height, width, 2);
     grid.fill(0, UNKNOWN);
     for (let y = 0; y < p.height; y++) {
         for (let x = 0; x < p.width; x++) {
@@ -443,6 +446,11 @@ for (let t = 0; t < grid.gens; t++) {
 
 let code = (await fs.readFile(`${import.meta.dirname}/../src/vls.c`)).toString();
 
+// prevent stuff from breaking
+if (grid.numVars === 0) {
+    grid.getVar();
+}
+
 let out: string[] = [];
 for (let line of code.split('\n')) {
     if (line.startsWith('typedef') && line.endsWith('cell_t;')) {
@@ -498,7 +506,7 @@ for (let line of code.split('\n')) {
     } else if (name === 'VAR_COUNT') {
         value = grid.numVars;
     } else if (name === 'MAX_VAR_USES') {
-        value = Math.max(...Object.entries(cellCounts).filter(x => Number(x[0]) > 3).map(x => x[1]));
+        value = Math.max(1, ...Object.entries(cellCounts).filter(x => Number(x[0]) > 3).map(x => x[1]));
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
         value = 0;
         for (let [key, count] of Object.entries(cellCounts)) {
@@ -535,8 +543,8 @@ let execPath = `${import.meta.dirname}/../vls_compiled`;
 await fs.writeFile(sourcePath, out.join('\n'));
 console.log('Compiling');
 try {
-    execSync(`gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function -O3 -o '${execPath}' ${sourcePath}`, {stdio: 'inherit'});
-    execSync(`${execPath}`, {stdio: 'inherit'});
+    execSync(`gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' ${sourcePath}`, {stdio: 'inherit'});
+    execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
 } catch (error) {
     process.exit(1);
 }

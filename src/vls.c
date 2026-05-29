@@ -112,7 +112,7 @@ static inline void init_states(void) {
     initial_state->pop = 0;
     #endif
     states[0] = initial_state;
-    for (int i = 1; i < unknown_cells; i++) {
+    for (int i = 1; i < unknown_cells + 1; i++) {
         search_state* state = malloc(sizeof(search_state));
         copy_state(initial_state, state);
         states[i] = state;
@@ -185,7 +185,7 @@ static inline void init_var_uses(void) {
 }
 
 // the transition lookup table for the 3-state rule including unknown cells
-static cell_t big_trs[262144];
+static cell_t big_trs_forward[262144];
 
 static int resolve_big_transition(int prev, int tr, int depth) {
     int state = tr & 3;
@@ -218,7 +218,7 @@ static int resolve_big_transition(int prev, int tr, int depth) {
 
 static inline void generate_big_trs(void) {
     for (int tr = 0; tr < 262144; tr++) {
-        big_trs[tr] = resolve_big_transition(0, tr, 0);
+        big_trs_forward[tr] = resolve_big_transition(0, tr, 0);
     }
 }
 
@@ -234,7 +234,7 @@ static inline cell_t get_big_tr(search_state* state, int t, int x, int y/*, bool
         | ((int)(grid[y + 1][x - 1] & 3) << 4)
         | ((int)(grid[y + 1][x] & 3) << 2)
         | (int)(grid[y + 1][x + 1] & 3);
-    int out = big_trs[tr];
+    int out = big_trs_forward[tr];
     #if DEBUG >= 5
     // if (DEBUG >= 5/* || force_debug*/) {
         printf("Getting big tr, t = %i, x = %i, y = %i, i = %i, out = %i\n", t, x, y, tr, out); 
@@ -399,17 +399,18 @@ static void run_depth(int depth) {
     search_state* state = states[depth];
     #if DEBUG >= 2
     printf("Running depth %i\n", depth);
-    copy_state(states[depth - 1], state);
     #if DEBUG >= 3
+    copy_state(states[depth - 1], state);
     printf("Grid:\n");
     print_grid(state);
     #endif
     #endif
     double time = get_time();
-    if (last_progress_shown - time > 1) {
+    if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         printf("%i seconds, %lld branches, progress: ", (int)(time - start), branches);
-        for (int i = 0; i < depth - 1; i++) {
+        int end = depth - 1 < 30 ? depth - 1 : 30; 
+        for (int i = 0; i < end; i++) {
             int* cell = search_order[i];
             cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
             printf("%c", value ? '1' : '0');
