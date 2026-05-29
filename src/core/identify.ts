@@ -209,7 +209,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
         x = Number(parts[0]);
         y = Number(parts[1]);
         if (Number.isNaN(x) || Number.isNaN(y) || parts.length !== 2) {
-            throw new Error('Invalid speed!');
+            throw new Error(`Invalid speed: '${speed}'`);
         }
     } else if (disp === '') {
         x = 1;
@@ -219,7 +219,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
             y = 0;
         }
     } else {
-        throw new Error('Invalid speed!');
+        throw new Error(`Invalid speed: '${speed}'`);
     }
     return {dx: x, dy: y, period: p};
 }

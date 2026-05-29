@@ -16,4 +16,5 @@
 /*.zip
 /lifeweb.js
 /lifeweb.js.map
-/search
+/src/vls_to_compile.c
+/vls_compiled
