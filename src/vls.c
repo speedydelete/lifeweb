@@ -585,34 +585,43 @@ static inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
 }
 
-static inline void transform_coords(bb_t* bb, int x, int y, bool transpose, bool flip_x, bool flip_y, int* x_out, int* y_out) {
-    int width = bb->width;
-    int height = bb->height;
-    if (transpose) {
-        int temp = x;
-        x = y;
-        y = temp;
-        temp = width;
-        width = height;
-        height = temp;
+typedef enum axis_trans_t {
+    POS_X,
+    POS_Y,
+    NEG_X,
+    NEG_Y,
+} axis_trans_t;
+
+static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans, axis_trans_t y_trans, int* x_out, int* y_out) {
+    if (x_trans == POS_X) {
+        *x_out = x;
+    } else if (x_trans == POS_Y) {
+        *x_out = y;
+    } else if (x_trans == NEG_X) {
+        *x_out = bb->width - x - 1;
+    } else if (x_trans == NEG_Y) {
+        *x_out = bb->height - y - 1;
     }
-    if (flip_x) {
-        x = width - x - 1;
+    if (y_trans == POS_X) {
+        *y_out = x;
+    } else if (y_trans == POS_Y) {
+        *y_out = y;
+    } else if (y_trans == NEG_X) {
+        *y_out = bb->width - x - 1;
+    } else if (y_trans == NEG_Y) {
+        *y_out = bb->height - y - 1;
     }
-    if (flip_y) {
-        y = height - y - 1;
-    }
-    *x_out = x + bb->x_offset;
-    *y_out = y + bb->y_offset;
+    *x_out += bb->x_offset;
+    *y_out += bb->y_offset;
 }
 
-static inline hash_t hash(grid_item_t* grid, bb_t* bb, bool transpose, bool flip_x, bool flip_y) {
+static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axis_trans_t y_trans) {
     hash_t out = 0xcbf29ce484222325;
     for (int y = 0; y < bb->height; y++) {
         for (int x = 0; x < bb->width; x++) {
             int real_x = 0;
             int real_y = 0;
-            transform_coords(bb, x, y, transpose, flip_x, flip_y, &real_x, &real_y);
+            transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
             out ^= grid[real_y][real_x];
             out *= 0x00000100000001b3;
         }
@@ -623,14 +632,14 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, bool transpose, bool flip
 static inline hash_t octohash(grid_item_t* grid) {
     bb_t bb;
     get_true_bb(&bb, grid);
-    hash_t out = hash(grid, &bb, false, false, false);
-    out = min_hash(out, hash(grid, &bb, false, false, true));
-    out = min_hash(out, hash(grid, &bb, false, true, false));
-    out = min_hash(out, hash(grid, &bb, false, true, true));
-    out = min_hash(out, hash(grid, &bb, true, false, false));
-    out = min_hash(out, hash(grid, &bb, true, false, true));
-    out = min_hash(out, hash(grid, &bb, true, true, false));
-    out = min_hash(out, hash(grid, &bb, true, true, true));
+    hash_t out = hash(grid, &bb, POS_X, POS_Y);
+    out = min_hash(out, hash(grid, &bb, POS_X, NEG_Y));
+    out = min_hash(out, hash(grid, &bb, NEG_X, POS_Y));
+    out = min_hash(out, hash(grid, &bb, NEG_X, NEG_Y));
+    out = min_hash(out, hash(grid, &bb, POS_Y, POS_X));
+    out = min_hash(out, hash(grid, &bb, POS_Y, NEG_X));
+    out = min_hash(out, hash(grid, &bb, NEG_Y, POS_X));
+    out = min_hash(out, hash(grid, &bb, NEG_Y, NEG_X));
     return out;
 }
 
