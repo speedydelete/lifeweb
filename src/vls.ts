@@ -565,7 +565,7 @@ for (let line of code.split('\n')) {
         continue;
     } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{'));
-        let emptyRow = '{' + Array.from({length: grid.width}).map(() => '0').join(', ') + '}';
+        let emptyRow = '{' + Array.from({length: grid.width + 4}).map(() => '0').join(', ') + '}';
         let grids: string[] = [];
         for (let t = 0; t < grid.gens; t++) {
             let rows: string[] = [emptyRow, emptyRow];
