@@ -42,7 +42,7 @@ Options:
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, ^ (exponentiation)
         also it supports unary + and - and parentheses
-        the default value is 't, -y, x' for spaceships and 't, y, x' otherwise
+        the default value is 't, -x, y' for spaceships and 't, y, x' otherwise
 
     -i, --initial-value <value>:
         set the initial value of unknown cells, default 0
@@ -239,7 +239,7 @@ if (mode === 'periodic') {
         error(`Invalid width: '${posArgs[2]}'`);
     }
     if (dx !== 0 || dy !== 0) {
-        defaultSearchOrder = 't, -y, x';
+        defaultSearchOrder = 't, -x, y';
     }
     grid = new Grid(height + dy, width + dx, period + 1);
     for (let y = 0; y < height; y++) {
