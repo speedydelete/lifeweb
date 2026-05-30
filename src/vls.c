@@ -97,6 +97,8 @@ typedef struct search_state {
     #endif
 } search_state;
 
+typedef cell_t grid_item_t[WIDTH];
+
 search_state* states[TOTAL_UNKNOWN_CELLS + 1];
 
 static inline void copy_state(search_state* from, search_state* to) {
@@ -302,7 +304,7 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     if (t < 0 || t + 1 >= GENS) {
         return true;
     }
-    cell_t (*grid)[WIDTH] = state->grid[t];
+    grid_item_t* grid = state->grid[t];
     #define get(x, y) ((int)(grid[(y)][(x)] & 3))
     int tr = (get(x - 1, y - 1) << 16)
            | (get(x - 1, y) << 14)
@@ -343,7 +345,7 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     if (t < 0 || t + 1 >= GENS) {
         return true;
     }
-    cell_t (*grid)[WIDTH] = state->grid[t];
+    grid_item_t* grid = state->grid[t];
     #define get(x, y) ((int)(grid[(y)][(x)] & 3))
     int tr = (get(x - 1, y - 1) << 18)
            | (get(x - 1, y) << 16)
@@ -479,7 +481,6 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
     }
 }
 
-static uint64_t solutions_found;
 
 static double get_time() {
     return (double)(clock()) / CLOCKS_PER_SEC;
@@ -488,7 +489,166 @@ static double get_time() {
 static double start;
 static double last_progress_shown;
 
-static long long branches;
+
+static uint64_t solutions_found;
+
+static uint64_t branches;
+
+typedef struct bb_t {
+    int height;
+    int width;
+    int x_offset;
+    int y_offset;
+} bb_t;
+
+static void get_true_bb(bb_t* bb, grid_item_t* grid) {
+    bb->height = HEIGHT - 4;
+    bb->width = WIDTH - 4;
+    bb->x_offset = 2;
+    bb->y_offset = 2;
+    #define get(x, y) (grid[(y) + bb->y_offset][(x) + bb->x_offset])
+    // top
+    int shrink_top = 0;
+    for (int y = 0; y < bb->height; y++) {
+        bool found = false;
+        for (int x = 0; x < bb->width; x++) {
+            if (get(x, y) != 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        } else {
+            shrink_top++;
+        }
+    }
+    bb->height -= shrink_top;
+    bb->y_offset += shrink_top;
+    // bottom
+    int shrink_bottom = 0;
+    for (int y = bb->height - 1; y >= 0; y--) {
+        bool found = false;
+        for (int x = 0; x < bb->width; x++) {
+            if (get(x, y) != 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        } else {
+            shrink_bottom++;
+        }
+    }
+    bb->height -= shrink_bottom;
+    // left
+    int shrink_left = 0;
+    for (int x = 0; x < bb->width; x++) {
+        bool found = false;
+        for (int y = 0; y < bb->height; y++) {
+            if (get(x, y) != 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        } else {
+            shrink_left++;
+        }
+    }
+    bb->width -= shrink_left;
+    bb->x_offset += shrink_left;
+    // right
+    int shrink_right = 0;
+    for (int x = bb->width - 1; x >= 0; x--) {
+        bool found = false;
+        for (int y = 0; y < bb->height; y++) {
+            if (get(x, y) != 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        } else {
+            shrink_right++;
+        }
+    }
+    bb->width -= shrink_right;
+}
+
+typedef uint64_t hash_t;
+
+static inline hash_t min_hash(hash_t a, hash_t b) {
+    return a < b ? a : b;
+}
+
+static inline void transform_coords(bb_t* bb, int x, int y, bool transpose, bool flip_x, bool flip_y, int* x_out, int* y_out) {
+    int width = bb->width;
+    int height = bb->height;
+    if (transpose) {
+        int temp = x;
+        x = y;
+        y = temp;
+        temp = width;
+        width = height;
+        height = temp;
+    }
+    if (flip_x) {
+        x = width - x - 1;
+    }
+    if (flip_y) {
+        y = height - y - 1;
+    }
+    *x_out = x + bb->x_offset;
+    *y_out = y + bb->y_offset;
+}
+
+static inline hash_t hash(grid_item_t* grid, bb_t* bb, bool transpose, bool flip_x, bool flip_y) {
+    hash_t out = 0xcbf29ce484222325;
+    for (int y = 0; y < bb->height; y++) {
+        for (int x = 0; x < bb->width; x++) {
+            int real_x = 0;
+            int real_y = 0;
+            transform_coords(bb, x, y, transpose, flip_x, flip_y, &real_x, &real_y);
+            out ^= grid[real_y][real_x];
+            out *= 0x00000100000001b3;
+        }
+    }
+    return out;
+}
+
+static inline hash_t octohash(grid_item_t* grid) {
+    bb_t bb;
+    get_true_bb(&bb, grid);
+    hash_t out = hash(grid, &bb, false, false, false);
+    out = min_hash(out, hash(grid, &bb, false, false, true));
+    out = min_hash(out, hash(grid, &bb, false, true, false));
+    out = min_hash(out, hash(grid, &bb, false, true, true));
+    out = min_hash(out, hash(grid, &bb, true, false, false));
+    out = min_hash(out, hash(grid, &bb, true, false, true));
+    out = min_hash(out, hash(grid, &bb, true, true, false));
+    out = min_hash(out, hash(grid, &bb, true, true, true));
+    return out;
+}
+
+static inline hash_t hash_state(search_state* state) {
+    hash_t out = octohash(state->grid[0]);
+    for (int i = 1; i < GENS; i++) {
+        out = min_hash(out, octohash(state->grid[i]));
+    }
+    return out;
+}
+
+static hash_t known_solutions[1048576];
+
+static void init_known_solutions(void) {
+    for (int i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {
+        known_solutions[i] = 0;
+    }
+}
 
 static void print_solution(search_state* state, bool preprocessing) {
     #if CHECK_EMPTY
@@ -511,6 +671,17 @@ static void print_solution(search_state* state, bool preprocessing) {
         return;
     }
     #endif
+    hash_t hash = hash_state(state);
+    for (int i = 0; i < solutions_found; i++) {
+        hash_t value = known_solutions[i];
+        if (value == 0) {
+            break;
+        }
+        if (hash == value) {
+            return;
+        }
+    }
+    known_solutions[solutions_found] = hash;
     solutions_found++;
     // #if DEBUG >= 2
     // for (int i = 0; i < depth; i++) {
@@ -540,6 +711,7 @@ static void print_solution(search_state* state, bool preprocessing) {
     }
 }
 
+
 static void run_depth(int depth) {
     branches++;
     if (depth > unknown_cells || states[depth - 1]->set_cells == unknown_cells) {
@@ -558,7 +730,7 @@ static void run_depth(int depth) {
     double time = get_time();
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
-        printf("%i seconds, %lld branches, progress: ", (int)(time - start), branches);
+        printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches);
         int end = depth - 1 < 30 ? depth - 1 : 30;
         for (int i = 0; i < end; i++) {
             int* cell = search_order[i];
@@ -574,10 +746,11 @@ static void run_depth(int depth) {
         return;
     }
     #if INITIAL_VALUE == 0
-    for (int value = 0; value < 2; value++) {
+    for (int value = 0; value < 2; value++)
     #else
-    for (int value = 1; value >= 0; value--) {
+    for (int value = 1; value >= 0; value--)
     #endif
+    {
         copy_state(states[depth - 1], state);
         if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
             run_depth(depth + 1);
@@ -589,6 +762,7 @@ int main(void) {
     init_states();
     init_var_uses();
     generate_big_trs();
+    init_known_solutions();
     search_state* state = states[0];
     #if DEBUG >= 2
     printf("Grid:\n");
@@ -638,7 +812,7 @@ int main(void) {
     start = get_time();
     last_progress_shown = start;
     run_depth(1);
-    printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %lld branches\n", solutions_found, get_time() - start, branches);
+    printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     free_states();
     return 0;
 }
