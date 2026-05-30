@@ -12,9 +12,9 @@
 // the default search will find the glider
 
 // for transition lookup tables the indexing is like
-// 8 7 6
-// 5 4 3
-// 2 1 0
+// 8 5 2
+// 7 4 1
+// 6 3 0
 // where the bitstring is 0b876543210
 
 // the search must be zero padded with 2 rows/columns on all sides or it will break
@@ -237,8 +237,8 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
 static int big_trs_backward[1048576];
 
 static inline int get_backward_big_tr(int tr) {
-    cell_t value = big_trs_forward[tr >> 2];
     // check for contradiction
+    cell_t value = big_trs_forward[tr >> 2];
     if (value != 2 && value != (tr & 3)) {
         return 3;
     }
@@ -248,12 +248,22 @@ static inline int get_backward_big_tr(int tr) {
             continue;
         }
         int tr2 = tr & (~(3 << i));
-        bool zero = big_trs_forward[tr2 >> 2] == (tr & 3);
-        bool one = big_trs_forward[(tr2 | (1 << i)) >> 2] == (tr & 3);
+        bool zero_possible = big_trs_forward[tr2 >> 2] == (tr & 3);
+        bool one_possible = big_trs_forward[(tr2 | (1 << i)) >> 2] == (tr & 3);
         // printf("%i, %i -> %s, %i -> %s\n", i, tr2 >> 2, zero ? "true" : "false", (tr2 | (1 << i)) >> 2, one ? "true" : "false");
-        if (zero != one) {
-            out = (out & ~(3 << (i - 2))) | (((int)one) << (i - 2));
+        if (zero_possible != one_possible) {
+            out = (out & ~(3 << (i - 2))) | (((int)one_possible) << (i - 2));
         }
+        // if (one_possible && !zero_possible) {
+        //     // must be 1
+        //     out = (out & ~(3 << (i - 2))) | (1 << (i - 2));
+        // } else if (zero_possible && !one_possible) {
+        //     // must be 0
+        //     out = (out & ~(3 << (i - 2))) | (0 << (i - 2));
+        // } else if (!zero_possible && !one_possible) {
+        //     // contradiction
+        //     return 3; 
+        // }
     }
     return out;
 }
@@ -288,39 +298,32 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     if (t < 0 || t + 1 >= GENS) {
         return true;
     }
-    #define grid (state->grid[t])
-    int tr = ((int)(grid[y - 1][x - 1] & 3) << 16)
-        | ((int)(grid[y - 1][x] & 3) << 14)
-        | ((int)(grid[y - 1][x + 1] & 3) << 12)
-        | ((int)(grid[y][x - 1] & 3) << 10)
-        | ((int)(grid[y][x] & 3) << 8)
-        | ((int)(grid[y][x + 1] & 3) << 6)
-        | ((int)(grid[y + 1][x - 1] & 3) << 4)
-        | ((int)(grid[y + 1][x] & 3) << 2)
-        | (int)(grid[y + 1][x + 1] & 3);
-    #undef grid
+    cell_t (*grid)[WIDTH] = state->grid[t];
+    #define get(x, y) ((int)(grid[(y)][(x)] & 3))
+    int tr = (get(x - 1, y - 1) << 16)
+           | (get(x - 1, y) << 14)
+           | (get(x - 1, y + 1) << 12)
+           | (get(x, y - 1) << 10)
+           | (get(x, y) << 8)
+           | (get(x, y + 1) << 6)
+           | (get(x + 1, y - 1) << 4)
+           | (get(x + 1, y) << 2)
+           | (get(x + 1, y + 1));
+    #undef get
     int value = state->grid[t + 1][y][x];
     int tr_value = big_trs_forward[tr];
     #if DEBUG >= 6
-    // if (tr == 20480) {
-        printf("tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
-    // }
+    printf("tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
     #endif
     if (value != tr_value) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
-                // if (tr == 20480) {
-                //     printf("Contradiction\n");
-                // }
                 #if DEBUG >= 5
                 printf("Contradiction\n");
                 #endif
                 return false;
             } else {
                 bool out = set_cell(state, t + 1, x, y, tr_value, IMPLICATION);
-                // if (tr == 20480) {
-                //     printf("Cell set: %i, %s\n", state->grid[t + 1][y][x], out ? "true" : "false");
-                // }
                 if (!out) {
                     #if DEBUG >= 5
                     printf("Contradiction\n");
@@ -330,9 +333,6 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
             }
         }
     }
-    // if (tr == 20480) {
-    //     printf("Returning\n");
-    // }
     return true;
 }
 
@@ -341,52 +341,54 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     if (t < 0) {
         return true;
     }
-    // int tr = (int)(state->grid[t + 1][y][x])
-    // #define grid (state->grid[t])
-    //     | ((int)(grid[y - 1][x - 1] & 3) << 18)
-    //     | ((int)(grid[y - 1][x] & 3) << 16)
-    //     | ((int)(grid[y - 1][x + 1] & 3) << 14)
-    //     | ((int)(grid[y][x - 1] & 3) << 12)
-    //     | ((int)(grid[y][x] & 3) << 10)
-    //     | ((int)(grid[y][x + 1] & 3) << 8)
-    //     | ((int)(grid[y + 1][x - 1] & 3) << 6)
-    //     | ((int)(grid[y + 1][x] & 3) << 4)
-    //     | ((int)(grid[y + 1][x + 1] & 3) << 2);
-    // int value = big_trs_backward[tr];
-    // if (value == 3) {
-    //     #if DEBUG >= 5
-    //     printf("Contradiction\n");
-    //     #endif
-    //     return false;
-    // }
-    // if ((value & 3) != 2) {
-    //     grid[y + 1][x + 1] = value & 3;
-    // }
-    // if (((value >> 2) & 3) != 2) {
-    //     grid[y + 1][x] = (value >> 2) & 3;
-    // }
-    // if (((value >> 4) & 3) != 2) {
-    //     grid[y + 1][x - 1] = (value >> 4) & 3;
-    // }
-    // if (((value >> 6) & 3) != 2) {
-    //     grid[y][x + 1] = (value >> 6) & 3;
-    // }
-    // if (((value >> 8) & 3) != 2) {
-    //     grid[y][x] = (value >> 8) & 3;
-    // }
-    // if (((value >> 10) & 3) != 2) {
-    //     grid[y][x - 1] = (value >> 10) & 3;
-    // }
-    // if (((value >> 12) & 3) != 2) {
-    //     grid[y - 1][x + 1] = (value >> 12) & 3;
-    // }
-    // if (((value >> 14) & 3) != 2) {
-    //     grid[y - 1][x] = (value >> 14) & 3;
-    // }
-    // if (((value >> 16) & 3) != 2) {
-    //     grid[y - 1][x - 1] = (value >> 16) & 3;
-    // }
-    // #undef grid
+    cell_t (*grid)[WIDTH] = state->grid[t];
+    #define get(x, y) ((int)(grid[(y)][(x)] & 3))
+    int tr = (get(x - 1, y - 1) << 18)
+           | (get(x - 1, y) << 16)
+           | (get(x - 1, y + 1) << 14)
+           | (get(x, y - 1) << 12)
+           | (get(x, y) << 10)
+           | (get(x, y + 1) << 8)
+           | (get(x + 1, y - 1) << 6)
+           | (get(x + 1, y) << 4)
+           | (get(x + 1, y + 1) << 2)
+           | (((int)(state->grid[t + 1][y][x] & 3)));
+    #undef get
+    int value = big_trs_backward[tr];
+    if (value == 3) {
+        #if DEBUG >= 5
+        printf("Contradiction\n");
+        #endif
+        return false;
+    }
+    #define check(x, y, value) if (!set_cell(state, t, (x), (y), (value), NORMAL)) {return false;}
+    if ((value & 3) != 2) {
+        check(x + 1, y + 1, value & 3);
+    }
+    if (((value >> 2) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 2) & 3);
+    }
+    if (((value >> 4) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 4) & 3);
+    }
+    if (((value >> 6) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 6) & 3);
+    }
+    if (((value >> 8) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 8) & 3);
+    }
+    if (((value >> 10) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 10) & 3);
+    }
+    if (((value >> 12) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 12) & 3);
+    }
+    if (((value >> 14) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 14) & 3);
+    }
+    if (((value >> 16) & 3) != 2) {
+        check(x + 1, y + 1, (value >> 16) & 3);
+    }
     return true;
 }
 
@@ -484,50 +486,60 @@ static double last_progress_shown;
 
 static long long branches;
 
-static void run_depth(int depth) {
-    branches++;
-    if (depth > unknown_cells || states[depth - 1]->set_cells == unknown_cells) {
-        search_state* state = states[depth - 1];
-        #if CHECK_EMPTY
-        bool found = false;
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
-                if (state->grid[0][y][x] != 0) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
+void print_solution(search_state* state, bool preprocessing) {
+    #if CHECK_EMPTY
+    bool found = false;
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            if (state->grid[0][y][x] != 0) {
+                found = true;
                 break;
             }
         }
-        if (!found) {
-            return;
+        if (found) {
+            break;
         }
-        #endif
-        solutions_found++;
-        #if DEBUG >= 2
-        for (int i = 0; i < depth; i++) {
-            printf("Grid:\n");
-            print_grid(states[i]);
+    }
+    if (!found) {
+        if (preprocessing) {
+            printf("Solved in preprocessing, 0 solutions\n");
         }
-        #endif
+        return;
+    }
+    #endif
+    solutions_found++;
+    // #if DEBUG >= 2
+    // for (int i = 0; i < depth; i++) {
+    //     printf("Grid:\n");
+    //     print_grid(states[i]);
+    // }
+    // #endif
+    if (preprocessing) {
+        printf("Solved in preprocessing, 1 solution:\nx = 0, y = 0, rule = "RULE"\n");
+    } else {
         printf("Solution found:\nx = 0, y = 0, rule = "RULE"\n");
-        for (int y = 2; y < HEIGHT - 2; y++) {
-            for (int x = 2; x < WIDTH - 2; x++) {
-                cell_t value = state->grid[0][y][x];
-                if (value > 1) {
-                    printf("\nError: This error should not occur, please report (unknown cell in solution)\n");
-                    exit(1);
-                }
-                printf("%c", value ? 'o' : '.');
+    }
+    for (int y = 2; y < HEIGHT - 2; y++) {
+        for (int x = 2; x < WIDTH - 2; x++) {
+            cell_t value = state->grid[0][y][x];
+            if (value > 1) {
+                printf("\nError: This error should not occur, please report (unknown cell in solution)\n");
+                exit(1);
             }
-            if (y == HEIGHT - 3) {
-                printf("!\n");
-            } else {
-                printf("$\n");
-            }
+            printf("%c", value ? 'o' : '.');
         }
+        if (y == HEIGHT - 3) {
+            printf("!\n");
+        } else {
+            printf("$\n");
+        }
+    }
+}
+
+static void run_depth(int depth) {
+    branches++;
+    if (depth > unknown_cells || states[depth - 1]->set_cells == unknown_cells) {
+        print_solution(states[depth - 1], false);
         return;
     }
     search_state* state = states[depth];
@@ -574,6 +586,10 @@ int main(void) {
     init_var_uses();
     generate_big_trs();
     search_state* state = states[0];
+    #if DEBUG >= 2
+    printf("Grid:\n");
+    print_grid(state);
+    #endif
     // preprocessing: search for and remove trivial cells
     printf("Preprocessing\n");
     for (int t = 0; t < GENS; t++) {
@@ -600,7 +616,7 @@ int main(void) {
     int trivial = state->set_cells;
     state->set_cells = 0;
     if (unknown_cells == 0) {
-        printf("Proven unsatisfiable in preprocesing\n");
+        print_solution(state, true);
         return 0;
     }
     printf("%i unknown cells (%i total cells, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
