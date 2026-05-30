@@ -69,6 +69,9 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 
 #endif
 
+// initial value for unknown cells
+#define INITIAL_VALUE 0
+
 // whether to check if the output is empty or not
 #define CHECK_EMPTY true
 
@@ -125,7 +128,7 @@ static inline void free_states(void) {
     }
 }
 
-static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static void print_grid(search_state* state) {
     for (int t = 0; t < GENS; t++) {
@@ -135,7 +138,7 @@ static void print_grid(search_state* state) {
                 if (value > 3) {
                     value = CELL_VAR_TO_VAR(value) + 3;
                 }
-                if (value < 29) {
+                if (value < 55) {
                     printf("%c", LETTERS[value]);
                 } else {
                     printf("(%i)", value);
@@ -282,7 +285,7 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     if (!(x > 0 && x < WIDTH - 1 && y > 0 && y < HEIGHT - 1)) {
         return true;
     }
-    if (t + 1 >= GENS) {
+    if (t < 0 || t + 1 >= GENS) {
         return true;
     }
     #define grid (state->grid[t])
@@ -338,7 +341,6 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     if (t < 0) {
         return true;
     }
-    return true;
     // int tr = (int)(state->grid[t + 1][y][x])
     // #define grid (state->grid[t])
     //     | ((int)(grid[y - 1][x - 1] & 3) << 18)
@@ -384,8 +386,8 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     // if (((value >> 16) & 3) != 2) {
     //     grid[y - 1][x - 1] = (value >> 16) & 3;
     // }
-    // return true;
     // #undef grid
+    return true;
 }
 
 static bool set_var(search_state* state, int var, cell_t value);
@@ -555,7 +557,11 @@ static void run_depth(int depth) {
         run_depth(depth + 1);
         return;
     }
+    #if INITIAL_VALUE == 0
     for (int value = 0; value < 2; value++) {
+    #else
+    for (int value = 1; value >= 0; value--) {
+    #endif
         copy_state(states[depth - 1], state);
         if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
             run_depth(depth + 1);
@@ -574,7 +580,7 @@ int main(void) {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
                 if (!check_forward_implication(state, t, x, y)) {
-                    printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)", t, x, y);
+                    printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x, y);
                     return 0;
                 }
             }

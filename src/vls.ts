@@ -1,11 +1,12 @@
 
+import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import {execSync} from 'node:child_process';
 import {MAPPattern, parseSpeed, createPattern} from './core/index.js';
 
 
 function error(msg: string): never {
-    console.error(`Error: ${msg}\nSee -h for help`);
+    console.error(`Error: ${msg}\nUse ./vls --help for help`);
     process.exit(1);
 }
 
@@ -24,6 +25,9 @@ Modes:
     parent <pattern> <height> <width> [x-offset] [y-offset]
         find height x width parents of the given pattern
 
+    file <path>
+        take in a LLS input file and try to find solutions
+
 Options:
 
     -h, --help: show this help message
@@ -38,7 +42,10 @@ Options:
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, ^ (exponentiation)
         also it supports unary + and - and parentheses
-        the default value is '+t, -y, +x'
+        the default value is 't, -y, x' for spaceships and 't, y, x' otherwise
+
+    -i, --initial-value <value>:
+        set the initial value of unknown cells, default 0
 
     --maxpop <cells>: Set the maximum population during the search.
 `;
@@ -48,6 +55,7 @@ const OPTIONS = {
     'debug': 'number',
     'gdb': true,
     'search-order': 'string',
+    'initial-value': 'number',
     'maxpop': 'number',
 } as const satisfies {[key: string]: true | 'string' | 'number'};
 
@@ -59,6 +67,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'd': 'debug',
     'g': 'gdb',
     'o': 'search-order',
+    'i': 'initial-value',
 };
 
 
@@ -213,6 +222,7 @@ class Grid {
 
 
 let grid: Grid;
+let defaultSearchOrder = 't, y, x';
 
 if (mode === 'periodic') {
 
@@ -227,6 +237,9 @@ if (mode === 'periodic') {
     }
     if (Number.isNaN(width)) {
         error(`Invalid width: '${posArgs[2]}'`);
+    }
+    if (dx !== 0 || dy !== 0) {
+        defaultSearchOrder = 't, -y, x';
     }
     grid = new Grid(height + dy, width + dx, period + 1);
     for (let y = 0; y < height; y++) {
@@ -267,6 +280,53 @@ if (mode === 'periodic') {
         }
     }
 
+} else if (mode === 'file') {
+
+    let file = (await fs.readFile(posArgs[0])).toString();
+    let data: (string | number)[][][] = [];
+    let currentSection: (string | number)[][] = [];
+    for (let line of file.split('\n')) {
+        line = line.replaceAll(/\s+/g, '');
+        let parts = line.split(',').filter(x => x.length > 0).map(x => x.match(/^\d+$/) ? Number(x) : x);
+        if (parts.length === 0) {
+            data.push(currentSection);
+            currentSection = [];
+        } else {
+            currentSection.push(parts);
+        }
+    }
+    if (currentSection.length > 0) {
+        data.push(currentSection);
+    }
+    let height = data[0].length;
+    if (!data.every(x => x.length === height)) {
+        error(`Heights of all phases must match`);
+    }
+    let width = data[0][0].length;
+    if (!data.every(x => x.every(y => y.length === width))) {
+        error(`Widths of all phases must match`);
+    }
+    grid = new Grid(height, width, data.length);
+    let vars: {[key: string]: number} = {};
+    for (let t = 0; t < data.length; t++) {
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let value = data[t][y][x];
+                if (typeof value === 'string') {
+                    if (value === '*') {
+                        value = 2;
+                    } else if (value in vars) {
+                        value = vars[value];
+                    } else {
+                        let newVar = grid.getVar();
+                        vars[value] = newVar;
+                        value = newVar;
+                    }
+                }
+                grid.set(t, x, y, value);
+            }
+        }
+    }
 
 } else {
 
@@ -483,7 +543,7 @@ for (let line of code.split('\n')) {
         }
         line += '{' + grids.join(', ') + '};';
     } else if (line.startsWith('static int search_order[][3] = ')) {
-        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? '+t, -y, +x').map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? defaultSearchOrder).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
         line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
     }
@@ -518,6 +578,8 @@ for (let line of code.split('\n')) {
         }
     } else if (name === 'RULE') {
         value = '"' + rule + '"';
+    } else if (name === 'INITIAL_VALUE') {
+        value = options['initial-value'] ?? 0;
     } else if (name === 'MAXPOP') {
         let maxpop = options['maxpop'];
         if (maxpop === undefined) {
@@ -539,11 +601,14 @@ for (let line of code.split('\n')) {
     out.push(str);
 }
 
-let sourcePath = `${import.meta.dirname}/../src/vls_to_compile.c`;
-let execPath = `${import.meta.dirname}/../vls_compiled`;
+let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
+let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
+if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+    execPath = './' + execPath;
+}
 await fs.writeFile(sourcePath, out.join('\n'));
 try {
-    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' ${sourcePath}`;
+    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' '${sourcePath}'`;
     console.log(command);
     execSync(command, {stdio: 'inherit'});
     execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
