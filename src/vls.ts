@@ -42,7 +42,8 @@ Options:
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, ^ (exponentiation)
         also it supports unary + and - and parentheses
-        the default value is 't, -x, y' for spaceships and 't, y, x' otherwise
+        also you can use aliases like f2b, b2f, s2s, etc
+        the default value is f2b for spaceships and 't, y, x' otherwise
 
     -i, --initial-value <value>:
         set the initial value of unknown cells, default 0
@@ -222,7 +223,9 @@ class Grid {
 
 
 let grid: Grid;
+
 let defaultSearchOrder = 't, y, x';
+let searchOrderAliases: {[key: string]: string} = {};
 
 if (mode === 'periodic') {
 
@@ -239,7 +242,43 @@ if (mode === 'periodic') {
         error(`Invalid width: '${posArgs[2]}'`);
     }
     if (dx !== 0 || dy !== 0) {
-        defaultSearchOrder = 't, -x, y';
+        defaultSearchOrder = 'f2b';
+        let mainAxis: string;
+        let sideAxis: string;
+        if (dx < 0) {
+            if (dy < 0) {
+                mainAxis = 'x+y';
+                sideAxis = 'x-y';
+            } else if (dy === 0) {
+                mainAxis = 'x';
+                sideAxis = 'y';
+            } else {
+                mainAxis = 'y-x';
+                sideAxis = 'x+y';
+            }
+        } else if (dx === 0) {
+            if (dy < 0) {
+                mainAxis = 'y';
+                sideAxis = 'x';
+            } else {
+                mainAxis = '-y';
+                sideAxis = 'x';
+            }
+        } else {
+            if (dy < 0) {
+                mainAxis = 'x-y';
+                sideAxis = 'x+y';
+            } else if (dy === 0) {
+                mainAxis = '-x';
+                sideAxis = 'y';
+            } else {
+                mainAxis = '-x-y';
+                sideAxis = 'x-y';
+            }
+        }
+        searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
+        searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
+        searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
     }
     grid = new Grid(height + dy, width + dx, period + 1);
     for (let y = 0; y < height; y++) {
@@ -543,7 +582,12 @@ for (let line of code.split('\n')) {
         }
         line += '{' + grids.join(', ') + '};';
     } else if (line.startsWith('static int search_order[][3] = ')) {
-        line = line.slice(0, line.indexOf('{')) + '{' + getSearchOrder(grid, options['search-order'] ?? defaultSearchOrder).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line = line.slice(0, line.indexOf('{'));
+        let order = options['search-order'] ?? defaultSearchOrder;
+        if (order in searchOrderAliases) {
+            order = searchOrderAliases[order];
+        }
+        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
         line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
     }
