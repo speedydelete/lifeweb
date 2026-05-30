@@ -186,6 +186,9 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
         if (period.startsWith('/')) {
             period = period.slice(1);
         }
+        if (disp === '' || disp === '-') {
+            disp += '1';
+        }
     } else if (speed.includes('/')) {
         [disp, period] = speed.split('/');
     } else if (speed.startsWith('p')) {
