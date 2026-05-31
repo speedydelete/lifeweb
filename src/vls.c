@@ -66,12 +66,16 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 // edge modes, this lets it search for waves/wicks/agars
 // this also defines expected values for initial_grid
 
-// the corresponding side has 2 cells of padding
+// the corresponding side has 2 extra blank slices of padding
 #define NONE 0
-// the corresponding side has 1 cell of padding and it's a duplicate of the slice before it
+// the corresponding side has 1 extra slice and it's a duplicate of the slice before it
 #define EVEN 1
-// the corresponding side has 1 cell of padding and it's a duplicate of the slice 2 slices before it
+// the corresponding side has 1 extra slice and it's a duplicate of the slice 2 slices before it
 #define ODD 2
+// the corresponding side has 1 extra slice and it's a duplicate of the last slice on the other side
+// if being used you should replace these with the "real" width and the "real" height
+#define WRAP_WIDTH width
+#define WRAP_HEIGHT height
 
 #define TOP NONE
 #define BOTTOM NONE
@@ -406,7 +410,7 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     #undef get
     int value = state->grid[t + 1][y][x];
     int tr_value = big_trs_forward[tr];
-    DPRINTF6("forward: tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
+    DPRINTF5("forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", t, x, y, tr, (int)value, (int)tr_value);
     if (value != tr_value) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
@@ -569,7 +573,7 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
         int t = var_uses[var][use][1];
         int x = var_uses[var][use][2];
         int y = var_uses[var][use][3];
-        DPRINTF6("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
+        DPRINTF5("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
         cell_t prev_value = state->grid[t][y][x];
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
@@ -799,7 +803,7 @@ static void init_known_solutions(void) {
 
 #endif
 
-static void print_solution(search_state* state, bool preprocessing) {
+static void print_solution(search_state* state, bool preprocessing, int depth) {
     #ifndef BENCHMARK
     #if CHECK_EMPTY
     bool found = false;
@@ -842,6 +846,7 @@ static void print_solution(search_state* state, bool preprocessing) {
     }
     #endif
     solutions_found++;
+    DPRINTGRID2(state);
     // #if DEBUG >= 2
     // for (int i = 0; i < depth; i++) {
     //     print_grid(states[i]);
@@ -877,7 +882,7 @@ static void print_solution(search_state* state, bool preprocessing) {
 static void run_depth(int depth) {
     branches++;
     if (depth > unknown_cells || states[depth - 1]->set_cells == unknown_cells) {
-        print_solution(states[depth - 1], false);
+        print_solution(states[depth - 1], false, depth);
         return;
     }
     search_state* state = states[depth];
@@ -962,7 +967,7 @@ int main(void) {
     int trivial = state->set_cells;
     state->set_cells = 0;
     if (unknown_cells == 0) {
-        print_solution(state, true);
+        print_solution(state, true, 0);
         return 0;
     }
     printf("%i unknown cells (%i total cells, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);

@@ -55,7 +55,7 @@ Options:
     --bottom <type>
     --left <type>
     --right <type>
-        set edge behavior, can either be 'none', 'even', or 'odd'
+        set edge behavior, can either be 'none', 'even', 'odd', or 'wrap'
     
     -s <symmetry>, --symmetry <symmetry>
         set a symmetry to be applied to the pattern
@@ -72,8 +72,8 @@ Options:
                 like D2, but applied to both sides, so it will look for wicks
                 wave is just an alias for wick
 
-            agar_1, agar_-2, agar_|2, agar_4:
-                like D4, but applied to both sides, so it will look for agars
+            agar:
+                wraps around all 4 sides, so it will look for agars
 
     --maxpop <cells>: Set the maximum population during the search.
 `;
@@ -85,14 +85,14 @@ const OPTIONS = {
     'benchmark': 'string',
     'search-order': 'string',
     'initial-value': 'number',
-    'top': ['none', 'even', 'odd'] as const,
-    'bottom': ['none', 'even', 'odd'] as const,
-    'left': ['none', 'even', 'odd'] as const,
-    'right': ['none', 'even', 'odd'] as const,
+    'top': ['none', 'even', 'odd', 'wrap'] as const,
+    'bottom': ['none', 'even', 'odd', 'wrap'] as const,
+    'left': ['none', 'even', 'odd', 'wrap'] as const,
+    'right': ['none', 'even', 'odd', 'wrap'] as const,
     'symmetry': [
         'D2_-1', 'D2_-2', 'D2_|1', 'D2_|2', 'D4_+1', 'D4_-2', 'D4_|2', 'D4_+4',
         'wick_-1', 'wick_-2', 'wick_|1', 'wick_|2', 'wave_-1', 'wave_-2', 'wave_|1', 'wave_|2',
-        'agar_1', 'agar_-2', 'agar_|2', 'agar_4',
+        'agar',
     ] as const,
     'maxpop': 'number',
 } as const satisfies {[key: string]: true | 'string' | 'number' | readonly string[]};
@@ -194,6 +194,9 @@ posArgs = posArgs.slice(2);
 
 const UNKNOWN = 2;
 
+type Edge = 'none' | 'even' | 'odd' | 'wrap';
+
+
 class Grid {
 
     height: number;
@@ -222,7 +225,7 @@ class Grid {
         }
     }
 
-    toString(top: 'none' | 'even' | 'odd', bottom: 'none' | 'even' | 'odd', left: 'none' | 'even' | 'odd', right: 'none' | 'even' | 'odd'): string {
+    toString(top: Edge, bottom: Edge, left: Edge, right: Edge): string {
         let emptyRow: number[] = [];
         let realWidth = this.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
         for (let x = 0; x < realWidth; x++) {
@@ -237,8 +240,10 @@ class Grid {
                     row.push(0, 0);
                 } else if (left === 'even') {
                     row.push(this.data[t][y][0]);
-                } else {
+                } else if (left === 'odd') {
                     row.push(this.data[t][y][1]);
+                } else {
+                    row.push(this.data[t][y][this.width - 1]);
                 }
                 for (let x = 0; x < this.width; x++) {
                     row.push(this.data[t][y][x]);
@@ -247,23 +252,27 @@ class Grid {
                     row.push(0, 0);
                 } else if (right === 'even') {
                     row.push(this.data[t][y][this.width - 1]);
-                } else {
+                } else if (right === 'odd') {
                     row.push(this.data[t][y][this.width - 2]);
+                } else {
+                    row.push(this.data[t][y][0]);
                 }
                 grid.push(row);
             }
             let toInsertBefore: number[][] = [];
             if (top === 'none') {
                 toInsertBefore = [emptyRow, emptyRow];
+            } else if (top === 'wrap') {
+                toInsertBefore = [grid[grid.length - 1]];
             } else {
                 let row = (top === 'even' ? grid[0] : grid[1]).slice();
                 if (left === 'even') {
-                    row[0] = top === 'even' ? grid[1][2] : row[1];
+                    row[0] = row[1];
                 } else if (left === 'odd') {
                     row[0] = row[2];
                 }
                 if (right === 'even') {
-                    row[realWidth - 1] = top === 'even' ? grid[1][realWidth - 3] : row[realWidth - 2];
+                    row[realWidth - 1] = row[realWidth - 2];
                 } else if (right === 'odd') {
                     row[realWidth - 1] = row[realWidth - 3];
                 }
@@ -271,15 +280,17 @@ class Grid {
             }
             if (bottom === 'none') {
                 grid.push(emptyRow, emptyRow);
+            } else if (bottom === 'wrap') {
+                grid.push(grid[0]);
             } else {
                 let row = (bottom === 'even' ? grid[this.height - 1] : grid[this.height - 2]).slice();
                 if (left === 'even') {
-                    row[0] = bottom === 'even' ? grid[this.height - 2][2] : row[1];
+                    row[0] = row[1];
                 } else if (left === 'odd') {
                     row[0] = row[2];
                 }
                 if (right === 'even') {
-                    row[realWidth - 1] = bottom === 'even' ? grid[this.height - 2][realWidth - 3] : row[realWidth - 2];
+                    row[realWidth - 1] = row[realWidth - 2];
                 } else if (right === 'odd') {
                     row[realWidth - 1] = row[realWidth - 3];
                 }
@@ -693,8 +704,6 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
 }
 
 
-type Edge = 'none' | 'even' | 'odd';
-
 const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: Edge, bottom: Edge, left: Edge, right: Edge]} = {
     'D2_-1': ['none', 'odd', 'none', 'none'],
     'D2_-2': ['none', 'even', 'none', 'none'],
@@ -712,10 +721,7 @@ const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: 
     'wave_-2': ['even', 'even', 'none', 'none'],
     'wave_|1': ['none', 'none', 'odd', 'odd'],
     'wave_|2': ['none', 'none', 'even', 'even'],
-    'agar_1': ['odd', 'odd', 'odd', 'odd'],
-    'agar_-2': ['even', 'even', 'odd', 'odd'],
-    'agar_|2': ['odd', 'odd', 'even', 'even'],
-    'agar_4': ['even', 'even', 'even', 'even'],
+    'agar': ['wrap', 'wrap', 'wrap', 'wrap'],
 };
 
 if (options['symmetry']) {
@@ -724,14 +730,14 @@ if (options['symmetry']) {
     options['bottom'] ??= bottom;
     options['left'] ??= left;
     options['right'] ??= right;
-    if (top && !bottom) {
+    if (top !== 'none' && bottom === 'none') {
         grid.shrinkHeight(Math.ceil(grid.height / 2), 'before');
-    } else if (bottom && !top) {
+    } else if (bottom !== 'none' && top === 'none') {
         grid.shrinkHeight(Math.ceil(grid.height / 2), 'after');
     }
-    if (left && !right) {
+    if (left !== 'none' && right === 'none') {
         grid.shrinkWidth(Math.ceil(grid.width / 2), 'before');
-    } else if (right && !left) {
+    } else if (right !== 'none' && left === 'none') {
         grid.shrinkWidth(Math.ceil(grid.width / 2), 'after');
     }
 }
@@ -819,15 +825,19 @@ for (let line of code.split('\n')) {
             value += count;
         }
     } else if (name === 'RULE') {
-        value = '"' + rule + '"';
+        value = `"${rule}${top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap' ? `:T${grid.width},${grid.height}` : ''}"`;
+    } else if (name === 'WRAP_HEIGHT') {
+        value = grid.height;
+    } else if (name === 'WRAP_WIDTH') {
+        value = grid.width;
     } else if (name === 'TOP') {
-        value = top.toUpperCase();
+        value = top === 'wrap' ? 'WRAP_HEIGHT' : top.toUpperCase();
     } else if (name === 'BOTTOM') {
-        value = bottom.toUpperCase();
+        value = bottom === 'wrap' ? 'WRAP_HEIGHT' : bottom.toUpperCase();
     } else if (name === 'LEFT') {
-        value = left.toUpperCase();
+        value = left === 'wrap' ? 'WRAP_WIDTH' : left.toUpperCase();
     } else if (name === 'RIGHT') {
-        value = right.toUpperCase();
+        value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
     } else if (name === 'MAXPOP') {
