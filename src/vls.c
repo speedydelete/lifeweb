@@ -127,6 +127,54 @@ bool solution_filter(search_state* state) {return true;}
 // END CONFIGURATION
 
 
+#if DEBUG >= 1
+#define DPRINTF1 printf
+#define DPRINTGRID1 print_grid
+#else
+#define DPRINTF1(...)
+#define DPRINTGRID1(state)
+#endif
+
+#if DEBUG >= 2
+#define DPRINTF2 printf
+#define DPRINTGRID2 print_grid
+#else
+#define DPRINTF2(...)
+#define DPRINTGRID2(state)
+#endif
+
+#if DEBUG >= 3
+#define DPRINTF3 printf
+#define DPRINTGRID3 print_grid
+#else
+#define DPRINTF3(...)
+#define DPRINTGRID3(state)
+#endif
+
+#if DEBUG >= 4
+#define DPRINTF4 printf
+#define DPRINTGRID4 print_grid
+#else
+#define DPRINTF4(...)
+#define DPRINTGRID4(state)
+#endif
+
+#if DEBUG >= 5
+#define DPRINTF5 printf
+#define DPRINTGRID5 print_grid
+#else
+#define DPRINTF5(...)
+#define DPRINTGRID5(state)
+#endif
+
+#if DEBUG >= 6
+#define DPRINTF6 printf
+#define DPRINTGRID6 print_grid
+#else
+#define DPRINTF6(...)
+#define DPRINTGRID6(state)
+#endif
+
 #define UNKNOWN 2
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
@@ -137,6 +185,10 @@ static int unknown_cells = TOTAL_UNKNOWN_CELLS;
 
 
 search_state* states[TOTAL_UNKNOWN_CELLS + 1];
+
+static inline void copy_state(search_state* from, search_state* to) {
+    memcpy(to, from, sizeof(search_state));
+}
 
 static inline void init_states(void) {
     search_state* initial_state = malloc(sizeof(search_state));
@@ -167,6 +219,7 @@ static inline void free_states(void) {
 static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static void print_grid(search_state* state) {
+    printf("Grid:\n");
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
@@ -352,16 +405,12 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     #undef get
     int value = state->grid[t + 1][y][x];
     int tr_value = big_trs_forward[tr];
-    #if DEBUG >= 6
-    printf("tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
-    #endif
+    DPRINTF6("forward: tr = %i, value = %i, tr_value = %i\n", tr, (int)value, (int)tr_value);
     if (value != tr_value) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
-                #if DEBUG >= 5
-                print_grid(state);
-                printf("Contradiction (forward, both known and unequal)\n");
-                #endif
+                DPRINTGRID5(state);
+                DPRINTF5("Contradiction (forward, both known and unequal, t = %i, x = %i, y = %i)\n", t, x, y);
                 return false;
             } else {
                 bool out = set_cell(state, t + 1, x, y, tr_value, IMPLICATION);
@@ -396,10 +445,8 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     if (value == 15) {
         return true;
     } else if (value == 3) {
-        #if DEBUG >= 5
-        print_grid(state);
-        printf("Contradiction (backward, value == 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, t, x, y);
-        #endif
+        DPRINTGRID5(state);
+        DPRINTF5("Contradiction (backward, value == 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, t, x, y);
         return false;
     }
     #define check(x, y, value) if (!set_cell(state, t, (x), (y), (value), NORMAL)) {return false;}
@@ -439,17 +486,13 @@ static cell_t prev_values[MAX_VAR_USES];
 // set a variable to a value, propagating implication checking
 // returns false if contradiction, true if no contradiction
 static inline bool set_var(search_state* state, int var, cell_t value) {
-    #if DEBUG >= 4
-    printf("Setting variable %i to %i\n", var, value);
-    #endif
+    DPRINTF4("Setting variable %i to %i\n", var, value);
     for (int use = 0; use < MAX_VAR_USES; use++) {
         int there_is_more = var_uses[var][use][0];
         int t = var_uses[var][use][1];
         int x = var_uses[var][use][2];
         int y = var_uses[var][use][3];
-        #if DEBUG >= 6
-        printf("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
-        #endif
+        DPRINTF6("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
         cell_t prev_value = state->grid[t][y][x];
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
@@ -498,9 +541,7 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
 // returns false if contradiction, true if no contradiction
 static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set_cell_mode_t mode) {
     cell_t prev_value = state->grid[t][y][x];
-    #if DEBUG >= 4
-    printf("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
-    #endif
+    DPRINTF4("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
     if (IS_KNOWN(prev_value)) {
         return prev_value == value;
     } else if (prev_value < 4) {
@@ -754,7 +795,6 @@ static void print_solution(search_state* state, bool preprocessing) {
     solutions_found++;
     // #if DEBUG >= 2
     // for (int i = 0; i < depth; i++) {
-    //     printf("Grid:\n");
     //     print_grid(states[i]);
     // }
     // #endif
@@ -789,13 +829,10 @@ static void run_depth(int depth) {
         return;
     }
     search_state* state = states[depth];
-    #if DEBUG >= 3
-    printf("Running depth %i\n", depth);
+    DPRINTF3("Running depth %i\n", depth);
     #if DEBUG >= 4
     copy_state(states[depth - 1], state);
-    printf("Grid:\n");
-    print_grid(state);
-    #endif
+    DPRINTGRID4(state);
     #endif
     double time = get_time();
     if (time - last_progress_shown > 1) {
@@ -836,10 +873,7 @@ int main(void) {
     generate_big_trs();
     init_known_solutions();
     search_state* state = states[0];
-    #if DEBUG >= 2
-    printf("Grid:\n");
-    print_grid(state);
-    #endif
+    DPRINTGRID2(state);
     // preprocessing: search for and remove trivial cells
     printf("Preprocessing\n");
     for (int t = 0; t < GENS; t++) {
@@ -877,10 +911,7 @@ int main(void) {
     // , NULL, 2);
     // printf("%ld -> %i\n", value, big_trs_forward[value]);
     printf("Running search\n");
-    #if DEBUG >= 1
-    printf("Grid:\n");
-    print_grid(state);
-    #endif
+    DPRINTGRID1(state);
     start = get_time();
     last_progress_shown = start;
     #ifdef BENCHMARK
