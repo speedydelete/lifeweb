@@ -443,12 +443,12 @@ if (mode === 'periodic') {
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
     }
-    grid = new Grid(height + dy, width + dx, period + 1);
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    grid = new Grid(height, width, period + 1);
+    for (let y = 0; y < height - dy; y++) {
+        for (let x = 0; x < width - dx; x++) {
             let value = grid.getVar();
             grid.set(0, x, y, value);
-            grid.set(period, x + dx, y + dy, value);
+            grid.set(period, x, y, value);
         }
     }
     for (let t = 1; t < period; t++) {
