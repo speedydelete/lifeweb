@@ -88,7 +88,7 @@ typedef enum edge_t {
 #define FILTER_DUPLICATES true
 
 // maximum population
-#define MAXPOP 67
+// #define MAXPOP 67
 
 // solution filtering
 
@@ -180,6 +180,7 @@ bool solution_filter(search_state* state) {return true;}
 
 #define VAR_TO_CELL_VAR(x) (6 + 4*(x))
 #define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
+
 
 static int unknown_cells = TOTAL_UNKNOWN_CELLS;
 
@@ -385,10 +386,7 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
 // check if the unknown cell can be set, and if so, set it, propagating checks
 // returns false if contradiction, true if no contradiction
 static inline bool check_forward_implication(search_state* state, int t, int x, int y) {
-    if (!(x > 0 && x < WIDTH - 1 && y > 0 && y < HEIGHT - 1)) {
-        return true;
-    }
-    if (t < 0 || t + 1 >= GENS) {
+    if (t < 0 || t + 1 >= GENS || x <= 0 || x >= WIDTH - 1 || y <= 0 || y >= HEIGHT - 1) {
         return true;
     }
     grid_item_t* grid = state->grid[t];
@@ -425,7 +423,11 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
 
 // returns false if contradiction, true if no contradiction
 static inline bool check_backward_implication(search_state* state, int t, int x, int y) {
-    if (t < 0 || t + 1 >= GENS) {
+    if (t < 0 || t + 1 >= GENS
+        || x <= (LEFT == PADDED ? 1 : 0)
+        || x >= (RIGHT == PADDED ? WIDTH - 2 : WIDTH - 1)
+        || y <= (TOP == PADDED ? 1 : 0)
+        || y >= (BOTTOM == PADDED ? HEIGHT - 2 : HEIGHT - 1)) {
         return true;
     }
     grid_item_t* grid = state->grid[t];
@@ -481,7 +483,75 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
     return true;
 }
 
+#define CHECK_IMPLICATIONS(state, t, x, y) ( \
+    check_forward_implication((state), (t), (x), y) \
+    && check_backward_implication((state), (t) - 1, (x), y) \
+    && check_backward_implication((state), (t), (x), y) \
+    && check_forward_implication((state), (t), (x) - 1, y - 1) \
+    && check_forward_implication((state), (t), (x) - 1, y) \
+    && check_forward_implication((state), (t), (x) - 1, y + 1) \
+    && check_forward_implication((state), (t), (x), y - 1) \
+    && check_forward_implication((state), (t), (x), y + 1) \
+    && check_forward_implication((state), (t), (x) + 1, y - 1) \
+    && check_forward_implication((state), (t), (x) + 1, y) && \
+    check_forward_implication((state), (t), (x) + 1, y + 1))
+
 static cell_t prev_values[MAX_VAR_USES];
+
+// set a cell to a value, taking care of edges and filters but not propagating implications
+static inline void _set_cell(search_state* state, int t, int x, int y, cell_t value) {
+    #ifdef SPECIAL_PHASE_0_POP
+    if (t == 0 && value == 1) {
+        state->phase_0_pop++;
+        if (state->phase_0_pop > MAXPOP) {
+            return false;
+        }
+    }
+    #endif
+    #if TRACK_PHASE_POPS
+    if (value == 1) {
+        state->phase_pops[t]++;
+    }
+    #endif
+    state->set_cells++;
+    state->grid[t][y][x] = value;
+    #if TOP == EVEN
+    if (y == 1) {
+        state->grid[t][0][x] = value;
+    }
+    #elif TOP == ODD
+    if (y == 2) {
+        state->grid[t][0][x] = value;
+    }
+    #endif
+    #if BOTTOM == EVEN
+    if (y == HEIGHT - 2) {
+        state->grid[t][HEIGHT - 1][x] = value;
+    }
+    #elif BOTTOM == ODD
+    if (y == HEIGHT - 3) {
+        state->grid[t][HEIGHT - 1][x] = value;
+    }
+    #endif
+    #if LEFT == EVEN
+    if (x == 1) {
+        state->grid[t][y][0] = value;
+    }
+    #elif LEFT == ODD
+    if (x == 2) {
+        state->grid[t][y][0] = value;
+    }
+    #endif
+    #if RIGHT == EVEN
+    if (x == HEIGHT - 2) {
+        state->grid[t][y][WIDTH - 1] = value;
+    }
+    #elif RIGHT == ODD
+    if (x == HEIGHT - 3) {
+        state->grid[t][y][WIDTH - 1] = value;
+    }
+    #endif
+}
 
 // set a variable to a value, propagating implication checking
 // returns false if contradiction, true if no contradiction
@@ -500,21 +570,7 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
                 return false;
             }
         } else {
-            #ifdef SPECIAL_PHASE_0_POP
-            if (t == 0 && value == 1) {
-                state->phase_0_pop++;
-                if (state->phase_0_pop > MAXPOP) {
-                    return false;
-                }
-            }
-            #endif
-            #ifdef TRACK_PHASE_POPS
-            if (value == 1) {
-                state->phase_pops[t]++;
-            }
-            #endif
-            state->set_cells++;
-            state->grid[t][y][x] = value;
+            _set_cell(state, t, x, y, value);
         }
         if (there_is_more == 0) {
             break;
@@ -526,7 +582,7 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
             int t = var_uses[var][use][1];
             int x = var_uses[var][use][2];
             int y = var_uses[var][use][3];
-            if (!(check_forward_implication(state, t, x, y) && check_backward_implication(state, t - 1, x, y) && check_backward_implication(state, t, x, y) && check_forward_implication(state, t, x - 1, y - 1) && check_forward_implication(state, t, x - 1, y) && check_forward_implication(state, t, x - 1, y + 1) && check_forward_implication(state, t, x, y - 1) && check_forward_implication(state, t, x, y + 1) && check_forward_implication(state, t, x + 1, y - 1) && check_forward_implication(state, t, x + 1, y) && check_forward_implication(state, t, x + 1, y + 1))) {
+            if (!CHECK_IMPLICATIONS(state, t, x, y)) {
                 return false;
             }
         }
@@ -545,22 +601,8 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
     if (IS_KNOWN(prev_value)) {
         return prev_value == value;
     } else if (prev_value < 4) {
-        #ifdef SPECIAL_PHASE_0_POP
-        if (t == 0 && value == 1) {
-            state->phase_0_pop++;
-            if (state->phase_0_pop > MAXPOP) {
-                return false;
-            }
-        }
-        #endif
-        #ifdef TRACK_PHASE_POPS
-        if (value == 1) {
-            state->phase_pops[t]++;
-        }
-        #endif
-        state->set_cells++;
-        state->grid[t][y][x] = value;
-        return check_forward_implication(state, t, x, y) && check_backward_implication(state, t - 1, x, y) && check_backward_implication(state, t, x, y) && check_forward_implication(state, t, x - 1, y - 1) && check_forward_implication(state, t, x - 1, y) && check_forward_implication(state, t, x - 1, y + 1) && check_forward_implication(state, t, x, y - 1) && check_forward_implication(state, t, x, y + 1) && check_forward_implication(state, t, x + 1, y - 1) && check_forward_implication(state, t, x + 1, y) && check_forward_implication(state, t, x + 1, y + 1);
+        _set_cell(state, t, x, y, value);
+        return CHECK_IMPLICATIONS(state, t, x, y);
     } else {
         return set_var(state, CELL_VAR_TO_VAR(prev_value), value);
     }
