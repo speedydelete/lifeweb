@@ -9,7 +9,7 @@
 
 // BEGIN CONFIGURATION
 
-// the default search will find the glider
+// the default search will find the glider (i think)
 
 // for transition lookup tables the indexing is like
 // 8 5 2
