@@ -51,6 +51,30 @@ Options:
     -i, --initial-value <value>:
         set the initial value of unknown cells, default 0
 
+    --top <type>
+    --bottom <type>
+    --left <type>
+    --right <type>
+        set edge behavior, can either be 'none', 'even', or 'odd'
+    
+    -s <symmetry>, --symmetry <symmetry>
+        set a symmetry to be applied to the pattern
+        alias for some combination of --top, --bottom, --left, and --right
+        valid values:
+
+            D2_-1, D2_-2, D2_|1, D2_|2, D4_+1, D4_-2, D4_|2, D4_+4:
+                D4_-2 is top/bottom even, left/right odd
+                D4_|2 is top/bottom odd, left/right even
+                also halves the width/height if it is reflected over that axis
+
+            wick_-1, wick_-2, wick_|1, wick_|2:
+            wave_-1, wave_-2, wave_|1, wave_|2:
+                like D2, but applied to both sides, so it will look for wicks
+                wave is just an alias for wick
+
+            agar_1, agar_-2, agar_|2, agar_4:
+                like D4, but applied to both sides, so it will look for agars
+
     --maxpop <cells>: Set the maximum population during the search.
 `;
 
@@ -61,8 +85,17 @@ const OPTIONS = {
     'benchmark': 'string',
     'search-order': 'string',
     'initial-value': 'number',
+    'top': ['none', 'even', 'odd'] as const,
+    'bottom': ['none', 'even', 'odd'] as const,
+    'left': ['none', 'even', 'odd'] as const,
+    'right': ['none', 'even', 'odd'] as const,
+    'symmetry': [
+        'D2_-1', 'D2_-2', 'D2_|1', 'D2_|2', 'D4_+1', 'D4_-2', 'D4_|2', 'D4_+4',
+        'wick_-1', 'wick_-2', 'wick_|1', 'wick_|2', 'wave_-1', 'wave_-2', 'wave_|1', 'wave_|2',
+        'agar_1', 'agar_-2', 'agar_|2', 'agar_4',
+    ] as const,
     'maxpop': 'number',
-} as const satisfies {[key: string]: true | 'string' | 'number'};
+} as const satisfies {[key: string]: true | 'string' | 'number' | readonly string[]};
 
 type Options = typeof OPTIONS;
 type Option = keyof Options;
@@ -73,13 +106,14 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'g': 'gdb',
     'o': 'search-order',
     'i': 'initial-value',
+    's': 'symmetry',
 };
 
 
 let argv = process.argv;
 
 let posArgs: string[] = [];
-let options: Partial<{[K in Option]: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : never))}> = {}
+let options: {[K in Option]?: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : (Options[K] extends readonly (infer T)[] ? T : never)))} = {}
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -105,7 +139,7 @@ for (let i = 2; i < argv.length; i++) {
             }
             let arg = argv[++i];
             (options[option] as string) = arg;
-        } else {
+        } else if (value === 'number') {
             if (i === argv.length - 1) {
                 error(`Expected argument for option '${originalArg}'`);
             }
@@ -115,6 +149,22 @@ for (let i = 2; i < argv.length; i++) {
                 error(`Expected numeric argument for option '${originalArg}'`);
             }
             (options[option] as number) = num;
+        } else if (Array.isArray(value)) {
+            if (i === argv.length - 1) {
+                error(`Expected argument for option '${originalArg}'`);
+            }
+            let arg = argv[++i];
+            if (!value.includes(arg)) {
+                let expected = '';
+                for (let i = 0; i < value.length - 1; i++) {
+                    expected += value[i] + ', ';
+                }
+                expected += 'or ' + value[value.length - 1];
+                error(`Invalid option for argument '${originalArg}': '${arg}', expected ${expected}`);
+            }
+            (options[option] as string) = arg;
+        } else {
+            throw new Error(`Invalid argument specification: '${value}'`);
         }
     } else {
         posArgs.push(arg);
@@ -172,6 +222,75 @@ class Grid {
         }
     }
 
+    toString(top: 'none' | 'even' | 'odd', bottom: 'none' | 'even' | 'odd', left: 'none' | 'even' | 'odd', right: 'none' | 'even' | 'odd'): string {
+        let emptyRow: number[] = [];
+        let realWidth = this.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
+        for (let x = 0; x < realWidth; x++) {
+            emptyRow.push(0);
+        }
+        let out: number[][][] = [];
+        for (let t = 0; t < this.gens; t++) {
+            let grid: number[][] = [];
+            for (let y = 0; y < this.height; y++) {
+                let row: number[] = [];
+                if (left === 'none') {
+                    row.push(0, 0);
+                } else if (left === 'even') {
+                    row.push(this.data[t][y][0]);
+                } else {
+                    row.push(this.data[t][y][1]);
+                }
+                for (let x = 0; x < this.width; x++) {
+                    row.push(this.data[t][y][x]);
+                }
+                if (right === 'none') {
+                    row.push(0, 0);
+                } else if (right === 'even') {
+                    row.push(this.data[t][y][this.width - 1]);
+                } else {
+                    row.push(this.data[t][y][this.width - 2]);
+                }
+                grid.push(row);
+            }
+            let toInsertBefore: number[][] = [];
+            if (top === 'none') {
+                toInsertBefore = [emptyRow, emptyRow];
+            } else {
+                let row = (top === 'even' ? grid[0] : grid[1]).slice();
+                if (left === 'even') {
+                    row[0] = top === 'even' ? grid[1][2] : row[1];
+                } else if (left === 'odd') {
+                    row[0] = row[2];
+                }
+                if (right === 'even') {
+                    row[realWidth - 1] = top === 'even' ? grid[1][realWidth - 3] : row[realWidth - 2];
+                } else if (right === 'odd') {
+                    row[realWidth - 1] = row[realWidth - 3];
+                }
+                toInsertBefore = [row];
+            }
+            if (bottom === 'none') {
+                grid.push(emptyRow, emptyRow);
+            } else {
+                let row = (bottom === 'even' ? grid[this.height - 1] : grid[this.height - 2]).slice();
+                if (left === 'even') {
+                    row[0] = bottom === 'even' ? grid[this.height - 2][2] : row[1];
+                } else if (left === 'odd') {
+                    row[0] = row[2];
+                }
+                if (right === 'even') {
+                    row[realWidth - 1] = bottom === 'even' ? grid[this.height - 2][realWidth - 3] : row[realWidth - 2];
+                } else if (right === 'odd') {
+                    row[realWidth - 1] = row[realWidth - 3];
+                }
+                grid.push(row);
+            }
+            grid.unshift(...toInsertBefore);
+            out.push(grid);
+        }
+        return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
+    }
+
     get(t: number, x: number, y: number): number {
         return this.data[t][y][x];
     }
@@ -221,6 +340,46 @@ class Grid {
     getVar(): number {
         this.numVars++;
         return 2 + this.numVars * 4;
+    }
+
+    removeUnusedVars(): void {
+        this.numVars = 0;
+        let mapping: {[key: number]: number} = {};
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    let value = this.data[t][y][x];
+                    if (value > 3) {
+                        if (value in mapping) {
+                            value = mapping[value];
+                        } else {
+                            let mapped = this.getVar();
+                            mapping[value] = mapped;
+                            value = mapped;
+                        }
+                        this.data[t][y][x] = value;
+                    }
+                }
+            }
+        }
+    }
+
+    shrinkHeight(height: number, mode: 'before' | 'after'): void {
+        this.height = height;
+        for (let t = 0; t < this.gens; t++) {
+            this.data[t] = mode === 'before' ? this.data[t].slice(0, height) : this.data[t].slice(height);
+        }
+        this.removeUnusedVars();
+    }
+
+    shrinkWidth(width: number, mode: 'before' | 'after'): void {
+        this.width = width;
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                this.data[t][y] = mode === 'before' ? this.data[t][y].slice(0, width) : this.data[t][y].slice(width);
+            }
+        }
+        this.removeUnusedVars();
     }
 
 }
@@ -534,6 +693,62 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
 }
 
 
+type Edge = 'none' | 'even' | 'odd';
+
+const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: Edge, bottom: Edge, left: Edge, right: Edge]} = {
+    'D2_-1': ['none', 'odd', 'none', 'none'],
+    'D2_-2': ['none', 'even', 'none', 'none'],
+    'D2_|1': ['none', 'none', 'none', 'odd'],
+    'D2_|2': ['none', 'none', 'none', 'even'],
+    'D4_+1': ['none', 'odd', 'none', 'odd'],
+    'D4_-2': ['none', 'even', 'none', 'odd'],
+    'D4_|2': ['none', 'odd', 'none', 'even'],
+    'D4_+4': ['none', 'even', 'even', 'none'],
+    'wick_-1': ['odd', 'odd', 'none', 'none'],
+    'wick_-2': ['even', 'even', 'none', 'none'],
+    'wick_|1': ['none', 'none', 'odd', 'odd'],
+    'wick_|2': ['none', 'none', 'even', 'even'],
+    'wave_-1': ['odd', 'odd', 'none', 'none'],
+    'wave_-2': ['even', 'even', 'none', 'none'],
+    'wave_|1': ['none', 'none', 'odd', 'odd'],
+    'wave_|2': ['none', 'none', 'even', 'even'],
+    'agar_1': ['odd', 'odd', 'odd', 'odd'],
+    'agar_-2': ['even', 'even', 'odd', 'odd'],
+    'agar_|2': ['odd', 'odd', 'even', 'even'],
+    'agar_4': ['even', 'even', 'even', 'even'],
+};
+
+if (options['symmetry']) {
+    let [top, bottom, left, right] = SYMEMTRIES[options['symmetry']];
+    options['top'] ??= top;
+    options['bottom'] ??= bottom;
+    options['left'] ??= left;
+    options['right'] ??= right;
+    if (top && !bottom) {
+        grid.shrinkHeight(Math.ceil(grid.height / 2), 'before');
+    } else if (bottom && !top) {
+        grid.shrinkHeight(Math.ceil(grid.height / 2), 'after');
+    }
+    if (left && !right) {
+        grid.shrinkWidth(Math.ceil(grid.width / 2), 'before');
+    } else if (right && !left) {
+        grid.shrinkWidth(Math.ceil(grid.width / 2), 'after');
+    }
+}
+
+let top: Edge = options['top'] ?? 'none';
+let bottom: Edge = options['bottom'] ?? 'none';
+let left: Edge = options['left'] ?? 'none';
+let right: Edge = options['right'] ?? 'none';
+
+
+grid.removeUnusedVars();
+
+// prevent stuff from breaking
+if (grid.numVars === 0) {
+    grid.getVar();
+}
+
 let cellCounts: {[key: number]: number} = {};
 for (let t = 0; t < grid.gens; t++) {
     for (let y = 0; y < grid.height; y++) {
@@ -550,11 +765,6 @@ for (let t = 0; t < grid.gens; t++) {
 
 let code = (await fs.readFile(`${import.meta.dirname}/../src/vls.c`)).toString();
 
-// prevent stuff from breaking
-if (grid.numVars === 0) {
-    grid.getVar();
-}
-
 let out: string[] = [];
 for (let line of code.split('\n')) {
     if (line.startsWith('typedef') && line.endsWith('cell_t;')) {
@@ -568,30 +778,14 @@ for (let line of code.split('\n')) {
         }
         continue;
     } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{'));
-        let emptyRow = '{' + Array.from({length: grid.width + 4}).map(() => '0').join(', ') + '}';
-        let grids: string[] = [];
-        for (let t = 0; t < grid.gens; t++) {
-            let rows: string[] = [emptyRow, emptyRow];
-            for (let y = 0; y < grid.height; y++) {
-                let cells: string[] = ['0', '0'];
-                for (let x = 0; x < grid.width; x++) {
-                    cells.push(String(grid.get(t, x, y)));
-                }
-                cells.push('0', '0');
-                rows.push('{' + cells.join(', ') + '}');
-            }
-            rows.push(emptyRow, emptyRow);
-            grids.push('{' + rows.join(', ') + '}');
-        }
-        line += '{' + grids.join(', ') + '};';
-    } else if (line.startsWith('static int search_order[][3] = ')) {
+        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
+    } else if (line.startsWith('static int search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
         line = line.slice(0, line.indexOf('{'));
         let order = options['search-order'] ?? defaultSearchOrder;
         if (order in searchOrderAliases) {
             order = searchOrderAliases[order];
         }
-        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
     } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
         line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
     }
@@ -607,9 +801,9 @@ for (let line of code.split('\n')) {
     let value: string | number;
     let comment = false;
     if (name === 'HEIGHT') {
-        value = grid.height + 4;
+        value = grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1);
     } else if (name === 'WIDTH') {
-        value = grid.width + 4;
+        value = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
     } else if (name === 'GENS') {
         value = grid.gens;
     } else if (name === 'VAR_COUNT') {
@@ -626,6 +820,14 @@ for (let line of code.split('\n')) {
         }
     } else if (name === 'RULE') {
         value = '"' + rule + '"';
+    } else if (name === 'TOP') {
+        value = top.toUpperCase();
+    } else if (name === 'BOTTOM') {
+        value = bottom.toUpperCase();
+    } else if (name === 'LEFT') {
+        value = left.toUpperCase();
+    } else if (name === 'RIGHT') {
+        value = right.toUpperCase();
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
     } else if (name === 'MAXPOP') {

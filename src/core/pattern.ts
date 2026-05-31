@@ -5,7 +5,7 @@ import type {InspectOptions} from 'node:util';
 
 
 /** A symmetry for a rule. */
-export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2|' | 'D2-' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
+export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2-' | 'D2|' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
 
 const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const RLE_PREFIXES = 'pqrstuvwxyz';

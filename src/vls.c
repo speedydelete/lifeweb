@@ -44,7 +44,7 @@ static cell_t initial_grid[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0}, {0
 
 // the order that cells are searched in
 // format is {t, x, y}
-static int search_order[][3] = {{0, 2, 2}, {0, 3, 2}, {0, 4, 2}, {0, 2, 3}, {0, 3, 3}, {0, 4, 3}, {0, 2, 4}, {0, 3, 4}, {0, 4, 4}, {1, 2, 2}, {1, 3, 2}, {1, 4, 2}, {1, 5, 2}, {1, 2, 3}, {1, 3, 3}, {1, 4, 3}, {1, 5, 3}, {1, 2, 4}, {1, 3, 4}, {1, 4, 4}, {1, 5, 4}, {1, 2, 5}, {1, 3, 5}, {1, 4, 5}, {1, 5, 5}, {2, 2, 2}, {2, 3, 2}, {2, 4, 2}, {2, 5, 2}, {2, 2, 3}, {2, 3, 3}, {2, 4, 3}, {2, 5, 3}, {2, 2, 4}, {2, 3, 4}, {2, 4, 4}, {2, 5, 4}, {2, 2, 5}, {2, 3, 5}, {2, 4, 5}, {2, 5, 5}, {3, 2, 2}, {3, 3, 2}, {3, 4, 2}, {3, 5, 2}, {3, 2, 3}, {3, 3, 3}, {3, 4, 3}, {3, 5, 3}, {3, 2, 4}, {3, 3, 4}, {3, 4, 4}, {3, 5, 4}, {3, 2, 5}, {3, 3, 5}, {3, 4, 5}, {3, 5, 5}, {4, 3, 3}, {4, 4, 3}, {4, 5, 3}, {4, 3, 4}, {4, 4, 4}, {4, 5, 4}, {4, 3, 5}, {4, 4, 5}, {4, 5, 5}};
+static int search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 4, 2}, {0, 2, 3}, {0, 3, 3}, {0, 4, 3}, {0, 2, 4}, {0, 3, 4}, {0, 4, 4}, {1, 2, 2}, {1, 3, 2}, {1, 4, 2}, {1, 5, 2}, {1, 2, 3}, {1, 3, 3}, {1, 4, 3}, {1, 5, 3}, {1, 2, 4}, {1, 3, 4}, {1, 4, 4}, {1, 5, 4}, {1, 2, 5}, {1, 3, 5}, {1, 4, 5}, {1, 5, 5}, {2, 2, 2}, {2, 3, 2}, {2, 4, 2}, {2, 5, 2}, {2, 2, 3}, {2, 3, 3}, {2, 4, 3}, {2, 5, 3}, {2, 2, 4}, {2, 3, 4}, {2, 4, 4}, {2, 5, 4}, {2, 2, 5}, {2, 3, 5}, {2, 4, 5}, {2, 5, 5}, {3, 2, 2}, {3, 3, 2}, {3, 4, 2}, {3, 5, 2}, {3, 2, 3}, {3, 3, 3}, {3, 4, 3}, {3, 5, 3}, {3, 2, 4}, {3, 3, 4}, {3, 4, 4}, {3, 5, 4}, {3, 2, 5}, {3, 3, 5}, {3, 4, 5}, {3, 5, 5}, {4, 3, 3}, {4, 4, 3}, {4, 5, 3}, {4, 3, 4}, {4, 4, 4}, {4, 5, 4}, {4, 3, 5}, {4, 4, 5}, {4, 5, 5}};
 
 // whether to do multi-rule searching
 #define MULTI_RULE false
@@ -64,19 +64,19 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 #endif
 
 // edge modes, this lets it search for waves/wicks/agars
-// each one means that initial_grid has to be changed too
-typedef enum edge_t {
-    // the corresponding side has 2 cells of padding
-    PADDED,
-    // the corresponding side has 1 cell of padding and it's a duplicate of the slice before it
-    EVEN,
-    // the corresponding side has 1 cell of padding and it's a duplicate of the slice 2 slices before it
-    ODD,
-} edge_t;
-#define TOP PADDED
-#define BOTTOM PADDED
-#define LEFT PADDED
-#define RIGHT PADDED
+// this also defines expected values for initial_grid
+
+// the corresponding side has 2 cells of padding
+#define NONE 0
+// the corresponding side has 1 cell of padding and it's a duplicate of the slice before it
+#define EVEN 1
+// the corresponding side has 1 cell of padding and it's a duplicate of the slice 2 slices before it
+#define ODD 2
+
+#define TOP NONE
+#define BOTTOM NONE
+#define LEFT NONE
+#define RIGHT NONE
 
 // initial value for unknown cells
 #define INITIAL_VALUE 0
@@ -217,22 +217,25 @@ static inline void free_states(void) {
     }
 }
 
-static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
+
+static void print_cell(cell_t value) {
+    if (value > 3) {
+        value = CELL_VAR_TO_VAR(value) + 3;
+    }
+    if (value < 64) {
+        printf("%c", LETTERS[value]);
+    } else {
+        printf("(%i)", value);
+    }
+}
 
 static void print_grid(search_state* state) {
     printf("Grid:\n");
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
-                cell_t value = state->grid[t][y][x];
-                if (value > 3) {
-                    value = CELL_VAR_TO_VAR(value) + 3;
-                }
-                if (value < 55) {
-                    printf("%c", LETTERS[value]);
-                } else {
-                    printf("(%i)", value);
-                }
+                print_cell(state->grid[t][y][x]);
             }
             printf("$\n");
         }
@@ -261,8 +264,8 @@ static inline void init_var_uses(void) {
         }
     }
     for (int t = 0; t < GENS; t++) {
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
+        for (int y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
+            for (int x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
                 cell_t value = initial_grid[t][y][x];
                 if (value > 3) {
                     int var = CELL_VAR_TO_VAR(value);
@@ -424,10 +427,10 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
 // returns false if contradiction, true if no contradiction
 static inline bool check_backward_implication(search_state* state, int t, int x, int y) {
     if (t < 0 || t + 1 >= GENS
-        || x <= (LEFT == PADDED ? 1 : 0)
-        || x >= (RIGHT == PADDED ? WIDTH - 2 : WIDTH - 1)
-        || y <= (TOP == PADDED ? 1 : 0)
-        || y >= (BOTTOM == PADDED ? HEIGHT - 2 : HEIGHT - 1)) {
+        || x <= (LEFT == NONE ? 1 : 0)
+        || x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
+        || y <= (TOP == NONE ? 1 : 0)
+        || y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
         return true;
     }
     grid_item_t* grid = state->grid[t];
@@ -515,39 +518,43 @@ static inline void _set_cell(search_state* state, int t, int x, int y, cell_t va
     #endif
     state->set_cells++;
     state->grid[t][y][x] = value;
-    #if TOP == EVEN
-    if (y == 1) {
+    #if TOP != NONE
+    if (y == TOP) {
         state->grid[t][0][x] = value;
-    }
-    #elif TOP == ODD
-    if (y == 2) {
-        state->grid[t][0][x] = value;
+        #if LEFT != NONE
+        if (x == LEFT) {
+            state->grid[t][0][0] = value;
+        }
+        #endif
+        #if RIGHT != NONE
+        if (x == WIDTH - 1 - RIGHT) {
+            state->grid[t][0][WIDTH - 1] = value;
+        }
+        #endif
     }
     #endif
-    #if BOTTOM == EVEN
-    if (y == HEIGHT - 2) {
+    #if BOTTOM != NONE
+    if (y == HEIGHT - 1 - LEFT) {
         state->grid[t][HEIGHT - 1][x] = value;
-    }
-    #elif BOTTOM == ODD
-    if (y == HEIGHT - 3) {
-        state->grid[t][HEIGHT - 1][x] = value;
+        #if LEFT != NONE
+        if (x == LEFT) {
+            state->grid[t][HEIGHT - 1][0] = value;
+        }
+        #endif
+        #if RIGHT != NONE
+        if (x == WIDTH - 1 - RIGHT) {
+            state->grid[t][HEIGHT - 1][WIDTH - 1] = value;
+        }
+        #endif
     }
     #endif
-    #if LEFT == EVEN
-    if (x == 1) {
+    #if LEFT != NONE
+    if (x == LEFT) {
         state->grid[t][y][0] = value;
     }
-    #elif LEFT == ODD
-    if (x == 2) {
-        state->grid[t][y][0] = value;
-    }
     #endif
-    #if RIGHT == EVEN
-    if (x == HEIGHT - 2) {
-        state->grid[t][y][WIDTH - 1] = value;
-    }
-    #elif RIGHT == ODD
-    if (x == HEIGHT - 3) {
+    #if RIGHT != NONE
+    if (x == WIDTH - 1 - RIGHT) {
         state->grid[t][y][WIDTH - 1] = value;
     }
     #endif
@@ -845,16 +852,19 @@ static void print_solution(search_state* state, bool preprocessing) {
     } else {
         printf("Solution found:\nx = 0, y = 0, rule = "RULE"\n");
     }
-    for (int y = 2; y < HEIGHT - 2; y++) {
-        for (int x = 2; x < WIDTH - 2; x++) {
+    int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
+    for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+        for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
             cell_t value = state->grid[0][y][x];
             if (value > 1) {
-                printf("\nError: This error should not occur, please report (unknown cell in solution)\n");
+                print_grid(state);
+                printf("\nError: this error should not occur (unknown cell in solution)\n");
+                printf("Please report this error along with the debug information printed above\n");
                 exit(1);
             }
             printf("%c", value ? 'o' : '.');
         }
-        if (y == HEIGHT - 3) {
+        if (y == last_y - 1) {
             printf("!\n");
         } else {
             printf("$\n");
@@ -877,6 +887,16 @@ static void run_depth(int depth) {
     DPRINTGRID4(state);
     #endif
     double time = get_time();
+    #if DEBUG >= 4
+    printf("Status: ");
+    int end = depth - 1 < 30 ? depth - 1 : 30;
+    for (int i = 0; i < end; i++) {
+        int* cell = search_order[i];
+        cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
+        printf("%c", value ? '1' : '0');
+    }
+    printf("\n");
+    #endif
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         #ifndef BENCHMARK
@@ -954,6 +974,17 @@ int main(void) {
     // printf("%ld -> %i\n", value, big_trs_forward[value]);
     printf("Running search\n");
     DPRINTGRID1(state);
+    #if DEBUG >= 2
+    printf("Search order:\n");
+    for (int i = 0; i < unknown_cells; i++) {
+        int t = search_order[i][0];
+        int x = search_order[i][1];
+        int y = search_order[i][2];
+        printf("t = %i, x = %i, y = %i, value = ", t, x, y);
+        print_cell(state->grid[t][y][x]);
+        printf("\n");
+    }
+    #endif
     start = get_time();
     last_progress_shown = start;
     #ifdef BENCHMARK
