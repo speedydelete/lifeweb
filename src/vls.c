@@ -76,7 +76,10 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 #define CHECK_EMPTY true
 
 // maximum population
-// #define MAXPOP 5
+// #define MAXPOP 67
+
+// benchmarking iterations
+// #define BENCHMARK 67
 
 // debug level
 #define DEBUG 0
@@ -93,7 +96,7 @@ typedef struct search_state {
     cell_t grid[GENS][HEIGHT][WIDTH];
     int set_cells;
     #ifdef MAXPOP
-    int pop;
+    int phase_0_pop;
     #endif
 } search_state;
 
@@ -105,7 +108,7 @@ static inline void copy_state(search_state* from, search_state* to) {
     memcpy(to->grid, from->grid, sizeof(to->grid));
     to->set_cells = from->set_cells;
     #ifdef MAXPOP
-    to->pop = from->pop;
+    to->phase_0_pop = from->phase_0_pop;
     #endif
 }
 
@@ -114,7 +117,7 @@ static inline void init_states(void) {
     memcpy(initial_state->grid, initial_grid, sizeof(initial_grid));
     initial_state->set_cells = 0;
     #ifdef MAXPOP
-    initial_state->pop = 0;
+    initial_state->phase_0_pop = 0;
     #endif
     states[0] = initial_state;
     for (int i = 1; i < unknown_cells + 1; i++) {
@@ -424,9 +427,9 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
             }
         } else {
             #ifdef MAXPOP
-            if (value == 1) {
-                state->pop++;
-                if (state->pop > MAXPOP) {
+            if (t == 0 && value == 1) {
+                state->phase_0_pop++;
+                if (state->phase_0_pop > MAXPOP) {
                     return false;
                 }
             }
@@ -466,9 +469,9 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
         return prev_value == value;
     } else if (prev_value < 4) {
         #ifdef MAXPOP
-        if (value == 1) {
-            state->pop++;
-            if (state->pop > MAXPOP) {
+        if (t == 0 && value == 1) {
+            state->phase_0_pop++;
+            if (state->phase_0_pop > MAXPOP) {
                 return false;
             }
         }
@@ -490,7 +493,9 @@ static double start;
 static double last_progress_shown;
 
 
+#ifndef BENCHMARK
 static uint64_t solutions_found;
+#endif
 
 static uint64_t branches;
 
@@ -660,6 +665,7 @@ static void init_known_solutions(void) {
 }
 
 static void print_solution(search_state* state, bool preprocessing) {
+    #ifndef BENCHMARK
     #if CHECK_EMPTY
     bool found = false;
     for (int y = 0; y < HEIGHT; y++) {
@@ -690,7 +696,9 @@ static void print_solution(search_state* state, bool preprocessing) {
             return;
         }
     }
-    known_solutions[solutions_found] = hash;
+    if (solutions_found < sizeof(known_solutions) / sizeof(hash_t)) {
+        known_solutions[solutions_found] = hash;
+    }
     solutions_found++;
     // #if DEBUG >= 2
     // for (int i = 0; i < depth; i++) {
@@ -718,6 +726,7 @@ static void print_solution(search_state* state, bool preprocessing) {
             printf("$\n");
         }
     }
+    #endif
 }
 
 
@@ -739,6 +748,7 @@ static void run_depth(int depth) {
     double time = get_time();
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
+        #ifndef BENCHMARK
         printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches);
         int end = depth - 1 < 30 ? depth - 1 : 30;
         for (int i = 0; i < end; i++) {
@@ -747,6 +757,7 @@ static void run_depth(int depth) {
             printf("%c", value ? '1' : '0');
         }
         printf("\n");
+        #endif
     }
     int* cell = search_order[depth - 1];
     if (IS_KNOWN(states[depth - 1]->grid[cell[0]][cell[2]][cell[1]])) {
@@ -820,8 +831,18 @@ int main(void) {
     #endif
     start = get_time();
     last_progress_shown = start;
+    #ifdef BENCHMARK
+    for (int i = 0; i < BENCHMARK; i++) {
+        double start = get_time();
+        run_depth(1);
+        printf("Iteration %i/%i complete in %.6f seconds\n", i, BENCHMARK, get_time() - start);
+    }
+    double time = get_time() - start;
+    printf("All iterations complete in %.6f seconds, average %.6f seconds/iteration\n", time, time / BENCHMARK);
+    #else
     run_depth(1);
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+    #endif
     free_states();
     return 0;
 }

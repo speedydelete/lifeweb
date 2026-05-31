@@ -33,7 +33,10 @@ Options:
     -h, --help: show this help message
 
     -d, --debug <level>: set the debug level
+
     -g, --gdb: run gdb instead and compile with debugging symbols
+
+    --benchmark <iterations>: run benchmarking
 
     -o, --search-order <order>:
         Set the order in which cells are checked
@@ -55,6 +58,7 @@ const OPTIONS = {
     'help': true,
     'debug': 'number',
     'gdb': true,
+    'benchmark': 'string',
     'search-order': 'string',
     'initial-value': 'number',
     'maxpop': 'number',
@@ -625,12 +629,18 @@ for (let line of code.split('\n')) {
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
     } else if (name === 'MAXPOP') {
-        let maxpop = options['maxpop'];
-        if (maxpop === undefined) {
+        if (options['maxpop'] === undefined) {
             comment = true;
             value = 67;
         } else {
-            value = maxpop;
+            value = options['maxpop'];
+        }
+    } else if (name === 'BENCHMARK') {
+        if (options['benchmark'] == undefined) {
+            comment = true;
+            value = 67;
+        } else {
+            value = options['benchmark'];
         }
     } else if (name === 'DEBUG') {
         value = options['debug'] ?? 0;
