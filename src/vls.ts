@@ -421,7 +421,7 @@ if (mode === 'periodic') {
         let sideAxis: string;
         if (dx < 0) {
             if (dy < 0) {
-                mainAxis = `x+y`;
+                mainAxis = 'x+y';
                 sideAxis = 'x-y';
             } else if (dy === 0) {
                 mainAxis = 'x';
