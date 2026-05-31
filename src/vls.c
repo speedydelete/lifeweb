@@ -17,7 +17,7 @@
 // 6 3 0
 // where the bitstring is 0b876543210
 
-// the search must be zero padded with 2 rows/columns on all sides or it will break
+// the search area should be padded on all sides by 2 cells unless otherwise specified below (then it is padded by 1 cell)
 
 // height and width of the bounding box
 #define HEIGHT 8
@@ -31,19 +31,10 @@
 // the maximum number of uses of any single variable
 #define MAX_VAR_USES 2
 
-// uncomment for multi-rule searching
-// #define MULTI_RULE
-
 // the type of cells
 // 0 = dead, 1 = alive, 2 = unknown, 3 = undefined behavior, >3 = variables (but indexed more complicated)
 // the variable indexing for this is 6 + 4*variable (so the binary always ends in 10, so we can do ANDing and ensure that it's unknown)
 typedef uint8_t cell_t;
-
-// utility macros
-#define SIZE (HEIGHT * WIDTH)
-#define CELL(t, y, x) ((t) * SIZE + (y) * WIDTH + (x))
-#define VAR_TO_CELL_VAR(x) (6 + 4*(x))
-#define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
 
 // the number of unknown cells
 #define TOTAL_UNKNOWN_CELLS 66
@@ -55,8 +46,11 @@ static cell_t initial_grid[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0}, {0
 // format is {t, x, y}
 static int search_order[][3] = {{0, 2, 2}, {0, 3, 2}, {0, 4, 2}, {0, 2, 3}, {0, 3, 3}, {0, 4, 3}, {0, 2, 4}, {0, 3, 4}, {0, 4, 4}, {1, 2, 2}, {1, 3, 2}, {1, 4, 2}, {1, 5, 2}, {1, 2, 3}, {1, 3, 3}, {1, 4, 3}, {1, 5, 3}, {1, 2, 4}, {1, 3, 4}, {1, 4, 4}, {1, 5, 4}, {1, 2, 5}, {1, 3, 5}, {1, 4, 5}, {1, 5, 5}, {2, 2, 2}, {2, 3, 2}, {2, 4, 2}, {2, 5, 2}, {2, 2, 3}, {2, 3, 3}, {2, 4, 3}, {2, 5, 3}, {2, 2, 4}, {2, 3, 4}, {2, 4, 4}, {2, 5, 4}, {2, 2, 5}, {2, 3, 5}, {2, 4, 5}, {2, 5, 5}, {3, 2, 2}, {3, 3, 2}, {3, 4, 2}, {3, 5, 2}, {3, 2, 3}, {3, 3, 3}, {3, 4, 3}, {3, 5, 3}, {3, 2, 4}, {3, 3, 4}, {3, 4, 4}, {3, 5, 4}, {3, 2, 5}, {3, 3, 5}, {3, 4, 5}, {3, 5, 5}, {4, 3, 3}, {4, 4, 3}, {4, 5, 3}, {4, 3, 4}, {4, 4, 4}, {4, 5, 4}, {4, 3, 5}, {4, 4, 5}, {4, 5, 5}};
 
+// whether to do multi-rule searching
+#define MULTI_RULE false
+
 // single-rule searching parameters
-#ifndef MULTI_RULE
+#if !MULTI_RULE
 
 // the rule
 #define RULE "B3/S23"
@@ -69,14 +63,60 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 
 #endif
 
+// edge modes, this lets it search for waves/wicks/agars
+// each one means that initial_grid has to be changed too
+typedef enum edge_t {
+    // the corresponding side has 2 cells of padding
+    PADDED,
+    // the corresponding side has 1 cell of padding and it's a duplicate of the slice before it
+    EVEN,
+    // the corresponding side has 1 cell of padding and it's a duplicate of the slice 2 slices before it
+    ODD,
+} edge_t;
+#define TOP PADDED
+#define BOTTOM PADDED
+#define LEFT PADDED
+#define RIGHT PADDED
+
 // initial value for unknown cells
 #define INITIAL_VALUE 0
 
 // whether to check if the output is empty or not
 #define CHECK_EMPTY true
 
+// whether to filter duplicates or not
+#define FILTER_DUPLICATES true
+
 // maximum population
-// #define MAXPOP 67
+#define MAXPOP 67
+
+// solution filtering
+
+#define FILTERING false
+
+// whether to keep track of various things
+#define TRACK_PHASE_POPS false
+
+// don't change these types
+typedef struct search_state {
+    cell_t grid[GENS][HEIGHT][WIDTH];
+    int set_cells;
+    #ifdef MAXPOP
+    #if !TRACK_PHASE_POPS
+    #define SPECIAL_PHASE_0_POP
+    int phase_0_pop;
+    #endif
+    #endif
+    #ifdef TRACK_PHASE_POPS
+    int phase_pops[GENS];
+    #endif
+} search_state;
+typedef cell_t grid_item_t[WIDTH];
+
+// filtering
+#if FILTERING
+bool solution_filter(search_state* state) {return true;}
+#endif
 
 // benchmarking iterations
 // #define BENCHMARK 67
@@ -90,34 +130,25 @@ static const uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0,
 #define UNKNOWN 2
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
+#define VAR_TO_CELL_VAR(x) (6 + 4*(x))
+#define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
+
 static int unknown_cells = TOTAL_UNKNOWN_CELLS;
 
-typedef struct search_state {
-    cell_t grid[GENS][HEIGHT][WIDTH];
-    int set_cells;
-    #ifdef MAXPOP
-    int phase_0_pop;
-    #endif
-} search_state;
-
-typedef cell_t grid_item_t[WIDTH];
 
 search_state* states[TOTAL_UNKNOWN_CELLS + 1];
-
-static inline void copy_state(search_state* from, search_state* to) {
-    memcpy(to->grid, from->grid, sizeof(to->grid));
-    to->set_cells = from->set_cells;
-    #ifdef MAXPOP
-    to->phase_0_pop = from->phase_0_pop;
-    #endif
-}
 
 static inline void init_states(void) {
     search_state* initial_state = malloc(sizeof(search_state));
     memcpy(initial_state->grid, initial_grid, sizeof(initial_grid));
     initial_state->set_cells = 0;
-    #ifdef MAXPOP
+    #ifdef SPECIAL_PHASE_0_POP
     initial_state->phase_0_pop = 0;
+    #endif
+    #ifdef TRACK_PHASE_POPS
+    for (int i = 0; i < GENS; i++) {
+        initial_state->phase_pops[i] = 0;
+    }
     #endif
     states[0] = initial_state;
     for (int i = 1; i < unknown_cells + 1; i++) {
@@ -426,12 +457,17 @@ static inline bool set_var(search_state* state, int var, cell_t value) {
                 return false;
             }
         } else {
-            #ifdef MAXPOP
+            #ifdef SPECIAL_PHASE_0_POP
             if (t == 0 && value == 1) {
                 state->phase_0_pop++;
                 if (state->phase_0_pop > MAXPOP) {
                     return false;
                 }
+            }
+            #endif
+            #ifdef TRACK_PHASE_POPS
+            if (value == 1) {
+                state->phase_pops[t]++;
             }
             #endif
             state->set_cells++;
@@ -468,12 +504,17 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
     if (IS_KNOWN(prev_value)) {
         return prev_value == value;
     } else if (prev_value < 4) {
-        #ifdef MAXPOP
+        #ifdef SPECIAL_PHASE_0_POP
         if (t == 0 && value == 1) {
             state->phase_0_pop++;
             if (state->phase_0_pop > MAXPOP) {
                 return false;
             }
+        }
+        #endif
+        #ifdef TRACK_PHASE_POPS
+        if (value == 1) {
+            state->phase_pops[t]++;
         }
         #endif
         state->set_cells++;
@@ -498,6 +539,8 @@ static uint64_t solutions_found;
 #endif
 
 static uint64_t branches;
+
+#if FILTER_DUPLICATES
 
 typedef struct bb_t {
     int height;
@@ -664,6 +707,8 @@ static void init_known_solutions(void) {
     }
 }
 
+#endif
+
 static void print_solution(search_state* state, bool preprocessing) {
     #ifndef BENCHMARK
     #if CHECK_EMPTY
@@ -686,6 +731,12 @@ static void print_solution(search_state* state, bool preprocessing) {
         return;
     }
     #endif
+    #if FILTERING
+    if (!solution_filter(state)) {
+        return;
+    }
+    #endif
+    #if FILTER_DUPLICATES
     hash_t hash = hash_state(state);
     for (int i = 0; i < solutions_found; i++) {
         hash_t value = known_solutions[i];
@@ -699,6 +750,7 @@ static void print_solution(search_state* state, bool preprocessing) {
     if (solutions_found < sizeof(known_solutions) / sizeof(hash_t)) {
         known_solutions[solutions_found] = hash;
     }
+    #endif
     solutions_found++;
     // #if DEBUG >= 2
     // for (int i = 0; i < depth; i++) {
