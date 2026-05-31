@@ -421,7 +421,7 @@ if (mode === 'periodic') {
         let sideAxis: string;
         if (dx < 0) {
             if (dy < 0) {
-                mainAxis = 'x+y';
+                mainAxis = `x+y`;
                 sideAxis = 'x-y';
             } else if (dy === 0) {
                 mainAxis = 'x';
@@ -443,7 +443,7 @@ if (mode === 'periodic') {
                 mainAxis = 'x-y';
                 sideAxis = 'x+y';
             } else if (dy === 0) {
-                mainAxis = '-x';
+                mainAxis = `-x`;
                 sideAxis = 'y';
             } else {
                 mainAxis = '-x-y';
@@ -459,7 +459,7 @@ if (mode === 'periodic') {
         for (let x = 0; x < width - dx; x++) {
             let value = grid.getVar();
             grid.set(0, x, y, value);
-            grid.set(period, x, y, value);
+            grid.set(period, x + dx, y + dy, value);
         }
     }
     for (let t = 1; t < period; t++) {
@@ -548,7 +548,7 @@ if (mode === 'periodic') {
 }
 
 
-const NUMBER_REGEX = /([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/;
+const NUMBER_REGEX = /^([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/;
 
 type ParsedMetric = (string | number)[];
 
@@ -563,6 +563,7 @@ const OPERATORS: {[key: string]: [number, 'left' | 'right']} = {
 };
 
 function parseMetric(metric: string): ParsedMetric {
+    metric = metric.replaceAll(/\s+/g, '');
     let tokens: (string | number)[] = [];
     let match: RegExpMatchArray | null;
     for (let i = 0; i < metric.length; i++) {
@@ -874,7 +875,7 @@ if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWi
 }
 await fs.writeFile(sourcePath, out.join('\n'));
 try {
-    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -Og' : '-O3'} -o '${execPath}' '${sourcePath}'`;
+    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -O3' : '-O3'} -o '${execPath}' '${sourcePath}'`;
     console.log(command);
     execSync(command, {stdio: 'inherit'});
     execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});

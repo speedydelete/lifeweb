@@ -111,7 +111,7 @@ typedef struct search_state {
     int phase_0_pop;
     #endif
     #endif
-    #ifdef TRACK_PHASE_POPS
+    #if TRACK_PHASE_POPS
     int phase_pops[GENS];
     #endif
 } search_state;
@@ -202,7 +202,7 @@ static inline void init_states(void) {
     #ifdef SPECIAL_PHASE_0_POP
     initial_state->phase_0_pop = 0;
     #endif
-    #ifdef TRACK_PHASE_POPS
+    #if TRACK_PHASE_POPS
     for (int i = 0; i < GENS; i++) {
         initial_state->phase_pops[i] = 0;
     }
@@ -223,7 +223,7 @@ static inline void free_states(void) {
 
 static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static void print_cell(cell_t value) {
+static inline void print_cell(cell_t value) {
     if (value > 3) {
         value = CELL_VAR_TO_VAR(value) + 3;
     }
@@ -234,7 +234,7 @@ static void print_cell(cell_t value) {
     }
 }
 
-static void print_grid(search_state* state) {
+static inline void print_grid(search_state* state) {
     printf("Grid:\n");
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
@@ -643,7 +643,7 @@ typedef struct bb_t {
     int y_offset;
 } bb_t;
 
-static void get_true_bb(bb_t* bb, grid_item_t* grid) {
+static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->height = HEIGHT - 4;
     bb->width = WIDTH - 4;
     bb->x_offset = 2;
@@ -795,7 +795,7 @@ static inline hash_t hash_state(search_state* state) {
 
 static hash_t known_solutions[1048576];
 
-static void init_known_solutions(void) {
+static inline void init_known_solutions(void) {
     for (int i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {
         known_solutions[i] = 0;
     }
@@ -803,7 +803,7 @@ static void init_known_solutions(void) {
 
 #endif
 
-static void print_solution(search_state* state, bool preprocessing, int depth) {
+static inline void print_solution(search_state* state, bool preprocessing, int depth) {
     #ifndef BENCHMARK
     #if CHECK_EMPTY
     bool found = false;
