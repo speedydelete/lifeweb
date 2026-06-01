@@ -19,3 +19,4 @@
 /src/vls_to_compile.c
 /vls_compiled
 /*.csv
+/gmon.out

@@ -1,8 +1,6 @@
 
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
-import {execSync} from 'node:child_process';
-import {MAPPattern, parseSpeed, createPattern} from './core/index.js';
+import {INT, MAPPattern, parseSpeed, createPattern} from './core/index.js';
+
 
 
 function error(msg: string): never {
@@ -12,6 +10,7 @@ function error(msg: string): never {
 
 const HELP = `
 Usage: ./search <rule> <mode> <options>
+Or, for multi-rule searching: ./search <minrule> <maxrule> <mode> <options>
 
 Run a search for something in a cellular automaton.
 If you don't know what this means, see https://conwaylife.com/.
@@ -109,11 +108,14 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     's': 'symmetry',
 };
 
+export type OptionData = {[K in Option]?: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : (Options[K] extends readonly (infer T)[] ? T : never)))};
 
-let argv = process.argv;
+
+export async function transformCode(argv: string[], code: string): Promise<[OptionData, string]> {
+
 
 let posArgs: string[] = [];
-let options: {[K in Option]?: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : (Options[K] extends readonly (infer T)[] ? T : never)))} = {}
+let options: OptionData = {}
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -181,15 +183,28 @@ if (posArgs.length === 0) {
     error(`Expected at least 2 positional arguments`);
 }
 
+const MODES = ['periodic', 'parent', 'file'];
+
 let rule = posArgs[0];
 let base = createPattern(rule);
 if (!(base instanceof MAPPattern)) {
-    error(`Rule must be a non-B0 INT or MAP rule`);
+    error(`Rule must be a non-B0 INT rule`);
 }
-
 let mode = posArgs[1];
-
 posArgs = posArgs.slice(2);
+let multiRule = false;
+let maxRule = rule;
+let maxBase = base;
+if (!MODES.includes(mode)) {
+    multiRule = true;
+    maxRule = mode;
+    mode = posArgs[0];
+    posArgs = posArgs.slice(1);
+    maxBase = createPattern(maxRule) as MAPPattern;
+    if (!(maxBase instanceof MAPPattern)) {
+        error(`Rule must be a non-B0 INT rule`);
+    }
+}
 
 
 const UNKNOWN = 2;
@@ -495,6 +510,7 @@ if (mode === 'periodic') {
 
 } else if (mode === 'file') {
 
+    let fs = await import('node:fs/promises');
     let file = (await fs.readFile(posArgs[0])).toString();
     let data: (string | number)[][][] = [];
     let currentSection: (string | number)[][] = [];
@@ -770,7 +786,6 @@ for (let t = 0; t < grid.gens; t++) {
     }
 }
 
-let code = (await fs.readFile(`${import.meta.dirname}/../src/vls.c`)).toString();
 
 let out: string[] = [];
 for (let line of code.split('\n')) {
@@ -793,8 +808,16 @@ for (let line of code.split('\n')) {
             order = searchOrderAliases[order];
         }
         line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
-    } else if (line.startsWith(`static const uint8_t trs[512] = `)) {
-        line = line.slice(0, line.indexOf('{')) + '{' + base.trs.join(', ') + '};';
+    } else if (line.startsWith(`uint8_t trs[512] = `)) {
+        let trs = base.trs.slice();
+        if (multiRule) {
+            for (let i = 0; i < 512; i++) {
+                if (maxBase.trs[i] !== trs[i]) {
+                    trs[i] = 3;
+                }
+            }
+        }
+        line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -825,8 +848,16 @@ for (let line of code.split('\n')) {
             }
             value += count;
         }
+    } else if (name === 'MULTI_RULE') {
+        value = String(multiRule);
     } else if (name === 'RULE') {
-        value = `"${rule}${top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap' ? `:T${grid.width},${grid.height}` : ''}"`;
+        value = `"${rule}"`;
+    } else if (name === 'SPECIAL_AFTER_RULE') {
+        if (top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap') {
+            value = `":T${grid.width},${grid.height}"`;
+        } else {
+            value = `""`;
+        }
     } else if (name === 'WRAP_HEIGHT') {
         value = grid.height;
     } else if (name === 'WRAP_WIDTH') {
@@ -868,17 +899,34 @@ for (let line of code.split('\n')) {
     out.push(str);
 }
 
-let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
-let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
-if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-    execPath = './' + execPath;
+return [options, out.join('\n')];
+
+
 }
-await fs.writeFile(sourcePath, out.join('\n'));
-try {
-    let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -O3' : '-O3'} -o '${execPath}' '${sourcePath}'`;
-    console.log(command);
-    execSync(command, {stdio: 'inherit'});
-    execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
-} catch (error) {
-    process.exit(1);
+
+
+export async function main() {
+    let path = await import('node:path');
+    let fs = await import('node:fs/promises');
+    let execSync = (await import('node:child_process')).execSync;
+    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
+    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
+    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+        execPath = './' + execPath;
+    }
+    let source = (await fs.readFile(`${import.meta.dirname}/../src/vls.c`)).toString();
+    let [options, code] = await transformCode(process.argv, source);
+    await fs.writeFile(sourcePath, code);
+    try {
+        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -O3' : '-O3'} -o '${execPath}' '${sourcePath}'`;
+        console.log(command);
+        execSync(command, {stdio: 'inherit'});
+        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
+    } catch (error) {
+        process.exit(1);
+    }
+}
+
+if (import.meta.main) {
+    main();
 }
