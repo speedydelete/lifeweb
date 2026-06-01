@@ -812,7 +812,7 @@ for (let line of code.split('\n')) {
         let trs = base.trs.slice();
         if (multiRule) {
             for (let i = 0; i < 512; i++) {
-                if (maxBase.trs[i] !== trs[i]) {
+                if (trs[i] !== maxBase.trs[i]) {
                     trs[i] = 3;
                 }
             }
@@ -852,6 +852,13 @@ for (let line of code.split('\n')) {
         value = String(multiRule);
     } else if (name === 'RULE') {
         value = `"${rule}"`;
+    } else if (name === 'MAX_RULE_CHANGES') {
+        value = 0;
+        for (let i = 0; i < 512; i++) {
+            if (base.trs[i] !== maxBase.trs[i]) {
+                value++;
+            }
+        }
     } else if (name === 'SPECIAL_AFTER_RULE') {
         if (top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap') {
             value = `":T${grid.width},${grid.height}"`;
