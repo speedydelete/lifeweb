@@ -1091,6 +1091,10 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
         width = temp;
     }
     hash_t out = 0xcbf29ce484222325ULL;
+    out ^= bb.height;
+    out *= 0x00000100000001b3ULL;
+    out ^= bb.width;
+    out *= 0x00000100000001b3ULL;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int real_x = 0;
