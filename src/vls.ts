@@ -34,6 +34,7 @@ Options:
     -d, --debug <level>: set the debug level
 
     -g, --gdb: run gdb instead and compile with debugging symbols
+    --profile: compile with profiling symbols
 
     --benchmark <iterations>: run benchmarking
 
@@ -81,6 +82,7 @@ const OPTIONS = {
     'help': true,
     'debug': 'number',
     'gdb': true,
+    'profile': true,
     'benchmark': 'string',
     'search-order': 'string',
     'initial-value': 'number',
@@ -852,13 +854,13 @@ for (let line of code.split('\n')) {
         value = String(multiRule);
     } else if (name === 'RULE') {
         value = `"${rule}"`;
-    } else if (name === 'MAX_RULE_CHANGES') {
-        value = 0;
-        for (let i = 0; i < 512; i++) {
-            if (base.trs[i] !== maxBase.trs[i]) {
-                value++;
-            }
-        }
+    // } else if (name === 'MAX_RULE_CHANGES') {
+    //     value = 0;
+    //     for (let i = 0; i < 512; i++) {
+    //         if (base.trs[i] !== maxBase.trs[i]) {
+    //             value++;
+    //         }
+    //     }
     } else if (name === 'SPECIAL_AFTER_RULE') {
         if (top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap') {
             value = `":T${grid.width},${grid.height}"`;
@@ -925,7 +927,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(sourcePath, code);
     try {
-        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['gdb'] ? '-g -O3' : '-O3'} -o '${execPath}' '${sourcePath}'`;
+        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
         console.log(command);
         execSync(command, {stdio: 'inherit'});
         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});

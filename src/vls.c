@@ -461,9 +461,9 @@ static inline void print_grid(FILE* stream, search_state* state) {
         rule[i] = 0;
     }
     get_rule(rule);
-    fprintf(stream, "Grid (rule: %s):\n", rule);
+    fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, state->set_cells);
     #else
-    fprintf(stream, "Grid:\n");
+    fprintf(stream, "Grid (set_cells = %i):\n", state->set_cells);
     #endif
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
@@ -1232,8 +1232,10 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
 
 #if MULTI_RULE
 
-static inline void set_tr(int tr, int value, int* previous, int* previous_count, bool set_previous) {
-    DPRINTF3("Setting transition %i to %i\n", tr, value);
+int possible_trs[262144][512];
+int possible_trs_lengths[262144];
+
+static inline void add_possible_tr(int tr, int loc) {
     for (int i = 0; i < 102; i++) {
         bool found = false;
         for (int j = 0; j < 9; j++) {
@@ -1247,72 +1249,14 @@ static inline void set_tr(int tr, int value, int* previous, int* previous_count,
         }
         if (found) {
             for (int j = 0; j < 9; j++) {
-                int tr = int_transitions[i][j];
-                if (tr == -1) {
-                    break;
-                }
-                trs[tr] = value;
-            }
-            // for (int j = 0; j < 9; j++) {
-            //     int tr = int_transitions[i][j];
-            //     if (tr == -1) {
-            //         break;
-            //     }
-            //     int big_tr = TR_TO_BIG_TR(tr);
-            //     big_trs_forward[big_tr] = value;
-            //     for (int i = 1; i < 512; i++) {
-            //         int big_tr_2 = (big_tr & big_tr_set_masks_and[i]) | big_tr_set_masks_or[i];
-            //         big_trs_forward[big_tr_2] = value == 3 ? 3 : get_forward_big_tr(0, big_tr_2, 0);
-            //     }
-            // }
-            if (set_previous) {
-                for (int tr = 0; tr < 262144; tr++) {
-                    if (big_trs_forward[tr] == 3) {
-                        big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
-                        previous[*previous_count] = tr;
-                        *previous_count += 1;
-                    }
-                }
-            } else {
-                for (int i = 0; i < *previous_count; i++) {
-                    int tr = previous[i];
-                    big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
-                }
-            }
-            return;
-        }
-    }
-    fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
-    exit(1);
-}
-
-int possible_trs[262144];
-int possible_trs_length = 0;
-
-static inline void add_possible_tr(int tr) {
-    if (trs[tr] != 3) {
-        return;
-    }
-    for (int i = 0; i < 102; i++) {
-        bool found = false;
-        for (int j = 0; j < 9; j++) {
-            int value = int_transitions[i][j];
-            if (value == -1) {
-                break;
-            } else if (value == tr) {
-                found = true;
-                break;
-            }
-        }
-        if (found) {
-            for (int j = 0; j < 9; j++) {
-                for (int k = 0; k < possible_trs_length; k++) {
-                    if (possible_trs[k] == int_transitions[i][j]) {
+                for (int k = 0; k < possible_trs_lengths[loc]; k++) {
+                    if (possible_trs[loc][k] == int_transitions[i][j]) {
                         return;
                     }
                 }
             }
-            possible_trs[possible_trs_length++] = tr;
+            possible_trs[loc][possible_trs_lengths[loc]] = tr;
+            possible_trs_lengths[loc] += 1;
             return;
         }
     }
@@ -1320,46 +1264,104 @@ static inline void add_possible_tr(int tr) {
     exit(1);
 }
 
-static void _get_possible_trs(int prev, int tr, int depth) {
+static void _get_possible_trs(int prev, int tr, int depth, int loc) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
     if (depth == 8) {
         if (IS_KNOWN(state)) {
-            add_possible_tr(next | state);
+            add_possible_tr(next | state, loc);
         } else {
-            add_possible_tr(next | 0);
-            add_possible_tr(next | 1);
+            add_possible_tr(next | 0, loc);
+            add_possible_tr(next | 1, loc);
         }
     } else {
         if (IS_KNOWN(state)) {
-            _get_possible_trs(next | state, tr, depth + 1);
+            _get_possible_trs(next | state, tr, depth + 1, loc);
         } else {
-            _get_possible_trs(next | 0, tr, depth + 1);
-            _get_possible_trs(next | 1, tr, depth + 1);
+            _get_possible_trs(next | 0, tr, depth + 1, loc);
+            _get_possible_trs(next | 1, tr, depth + 1, loc);
         }
     }
 }
 
-static inline void get_possible_trs(int tr) {
-    possible_trs_length = 0;
-    _get_possible_trs(0, tr, 0);
+int tr_to_int_tr[512];
+
+static inline void init_multi_rule() {
+    for (int tr = 0; tr < 262144; tr++) {
+        possible_trs_lengths[tr] = 0;
+        _get_possible_trs(0, tr, 0, tr);
+    }
+    for (int tr = 0; tr < 512; tr++) {
+        bool found = false;
+        for (int i = 0; i < 102; i++) {
+            for (int j = 0; j < 9; j++) {
+                int value = int_transitions[i][j];
+                if (value == -1) {
+                    break;
+                } else if (value == tr) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                tr_to_int_tr[tr] = i;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
+            exit(1);
+        }
+    }
+
+}
+
+static inline void set_tr(int tr, int value, int* previous, int* previous_count, bool set_previous) {
+    DPRINTF3("Setting transition %i to %i\n", tr, value);
+    for (int i = 0; i < 9; i++) {
+        int tr2 = int_transitions[tr_to_int_tr[tr]][i];
+        if (tr2 == -1) {
+            break;
+        }
+        trs[tr2] = value;
+    }
+    if (set_previous) {
+        for (int tr = 0; tr < 262144; tr++) {
+            if (big_trs_forward[tr] == 3) {
+                int old = big_trs_forward[tr];
+                int new = get_forward_big_tr(0, tr, 0);
+                if (old != new) {
+                    big_trs_forward[tr] = new;
+                    previous[*previous_count] = tr;
+                    *previous_count += 1;
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < *previous_count; i++) {
+            int tr = previous[i];
+            big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
+        }
+    }
 }
 
 #endif
+
+int set_trs_for_depth[TOTAL_MAX_DEPTH][262144];
 
 static void run_depth(int depth
     #if MULTI_RULE
     , int search_order_depth
     #endif
     ) {
+    DPRINTF3("Running depth %i\n", depth);
     branches++;
     if (depth > max_depth || states[depth - 1]->set_cells == unknown_cells) {
         print_solution(states[depth - 1], false, depth);
         return;
     }
     search_state* state = states[depth];
-    DPRINTF3("Running depth %i\n", depth);
     #if DEBUG >= 4
     copy_state(states[depth - 1], state);
     DPRINTGRID4(state);
@@ -1382,7 +1384,7 @@ static void run_depth(int depth
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         #ifndef BENCHMARK
-        printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches);
+        printf("%i seconds, %"PRIu64" branches, depth: %i, progress: ", (int)(time - start), branches, depth);
         #if MULTI_RULE
         int end = search_order_depth - 1 < 30 ? search_order_depth - 1 : 30;
         #else
@@ -1425,22 +1427,21 @@ static void run_depth(int depth
             #endif
         #if MULTI_RULE
         } else if (rule_dependent_tr != -1) {
-            copy_state(states[depth - 1], state);
-            get_possible_trs(rule_dependent_tr);
-            if (possible_trs_length == 0) {
+            if (possible_trs_lengths[rule_dependent_tr] == 0) {
+                DPRINTF4("Skipping branching rule on transition %i (0 possibilities)\n", rule_dependent_tr);
                 continue;
             }
-            DPRINTF3("Branching rule on transition %i (%i possibilities)\n", rule_dependent_tr, possible_trs_length);
-            for (int i = 0; i < possible_trs_length; i++) {
-                int* set_trs = malloc(262144 * sizeof(int));
+            copy_state(states[depth - 1], state);
+            DPRINTF3("Branching rule on transition %i (%i possibilities)\n", rule_dependent_tr, possible_trs_lengths[rule_dependent_tr]);
+            for (int i = 0; i < possible_trs_lengths[rule_dependent_tr]; i++) {
+                int* set_trs = set_trs_for_depth[depth];
                 int set_trs_count = 0;
-                int tr = possible_trs[i];
+                int tr = possible_trs[rule_dependent_tr][i];
                 set_tr(tr, 0, set_trs, &set_trs_count, true);
                 run_depth(depth + 1, search_order_depth);
                 set_tr(tr, 1, set_trs, &set_trs_count, false);
                 run_depth(depth + 1, search_order_depth);
                 set_tr(tr, 3, set_trs, &set_trs_count, false);
-                free(set_trs);
             }
         #endif
         }
@@ -1451,7 +1452,9 @@ int main(void) {
     init_states();
     init_var_uses();
     generate_big_trs();
-    #if !MULTI_RULE
+    #if MULTI_RULE
+    init_multi_rule();
+    #else
     init_known_solutions();
     #endif
     search_state* state = states[0];
