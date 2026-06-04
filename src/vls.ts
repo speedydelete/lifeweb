@@ -485,23 +485,27 @@ if (mode === 'periodic') {
 
 } else if (mode === 'parent') {
 
-    let p = base.loadRLE(posArgs[0]);
-    let height = parseInt(posArgs[1]);
-    let width = parseInt(posArgs[2]);
-    if (Number.isNaN(height)) {
-        error(`Invalid height: '${posArgs[1]}'`);
-    }
-    if (Number.isNaN(width)) {
-        error(`Invalid width: '${posArgs[2]}'`);
-    }
-    let xOffset = parseInt(posArgs[3]);
-    if (Number.isNaN(xOffset)) {
-        xOffset = 0;
-    }
-    let yOffset = parseInt(posArgs[4]);
-    if (Number.isNaN(yOffset)) {
-        yOffset = 0;
-    }
+    let p = base.loadRLE(posArgs[0]).shrinkToFit();
+    let height = p.height + 2;
+    let width = p.width + 2;
+    let xOffset = -1;
+    let yOffset = -1;
+    // let height = parseInt(posArgs[1]);
+    // let width = parseInt(posArgs[2]);
+    // if (Number.isNaN(height)) {
+    //     error(`Invalid height: '${posArgs[1]}'`);
+    // }
+    // if (Number.isNaN(width)) {
+    //     error(`Invalid width: '${posArgs[2]}'`);
+    // }
+    // let xOffset = parseInt(posArgs[3]);
+    // if (Number.isNaN(xOffset)) {
+    //     xOffset = 0;
+    // }
+    // let yOffset = parseInt(posArgs[4]);
+    // if (Number.isNaN(yOffset)) {
+    //     yOffset = 0;
+    // }
     grid = new Grid(height, width, 2);
     grid.fill(0, UNKNOWN);
     for (let y = 0; y < p.height; y++) {

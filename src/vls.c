@@ -1513,10 +1513,10 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
         DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
         set_tr_info_for_depth[depth].value = 0;
         set_tr(tr, 0);
-        run_depth(depth + 1, search_order_depth, 0);
+        run_depth(depth + 1, search_order_depth, value);
         set_tr_info_for_depth[depth].value = 1;
         set_tr(tr, 1);
-        run_depth(depth + 1, search_order_depth, 1);
+        run_depth(depth + 1, search_order_depth, value);
         set_tr(tr, 3);
         set_tr_info_for_depth[depth].set = false;
     #endif
