@@ -488,8 +488,8 @@ if (mode === 'periodic') {
     let p = base.loadRLE(posArgs[0]).shrinkToFit();
     let height = p.height + 2;
     let width = p.width + 2;
-    let xOffset = -1;
-    let yOffset = -1;
+    let xOffset = 1;
+    let yOffset = 1;
     // let height = parseInt(posArgs[1]);
     // let width = parseInt(posArgs[2]);
     // if (Number.isNaN(height)) {
