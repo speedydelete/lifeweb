@@ -1547,7 +1547,7 @@ static void run_depth(int depth
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         #ifndef BENCHMARK
-        printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches, depth);
+        printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches);
         print_progress(stderr, depth);
         printf("\n");
         #endif
