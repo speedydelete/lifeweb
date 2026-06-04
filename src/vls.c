@@ -7,6 +7,11 @@
 #include <time.h>
 
 
+// for checking static:
+// \n(?!#|//|static|\n|    |\}|typedef)
+// for checking inline:
+// (?<=\n)static [^ (]+ (?!main|run_depth|set_cell|get_forward_big_tr|_get_possible_trs)[a-zA-Z_]+\(
+
 // BEGIN CONFIGURATION
 
 // the default search will find the glider (i think)
@@ -143,7 +148,7 @@ typedef cell_t grid_item_t[WIDTH];
 
 // filtering
 #if FILTERING
-bool solution_filter(search_state* state) {return true;}
+static inline bool solution_filter(search_state* state) {return true;}
 #endif
 
 // benchmarking iterations
@@ -165,9 +170,15 @@ bool solution_filter(search_state* state) {return true;}
 
 #define TOTAL_MAX_DEPTH TOTAL_UNKNOWN_CELLS + MAX_RULE_CHANGES
 
-#define TR_TO_BIG_TR(x) (x & 1) | ((x & 2) << 1) | ((x & 4) << 2) | ((x & 8) << 3) | ((x & 16) << 4) | ((x & 32) << 5) | ((x & 64) << 6) | ((x & 128) << 7) | ((x & 256) << 8)
+#define TR_TO_BIG_TR(x) ((x) & 1) | (((x) & 2) << 1) | (((x) & 4) << 2) | (((x) & 8) << 3) | (((x) & 16) << 4) | (((x) & 32) << 5) | (((x) & 64) << 6) | (((x) & 128) << 7) | (((x) & 256) << 8)
+#define BIG_TR_TO_TR(x) ((x) & 1) | (((x) >> 1) & 2) | (((x) >> 2) & 4) | (((x) >> 3) & 8) | (((x) >> 4) & 16) | (((x) >> 5) & 32) | (((x) >> 6) & 64) | (((x) >> 7) & 128) | (((x) >> 8) & 256)
 
-static const int int_transitions[102][9] = {
+#define INT_TRANSITION_COUNT 102
+#define MAX_MAP_TRS_PER_INT_TR 8
+#define INT_NUMBER_COUNT 9
+#define MAX_LETTERS_PER_INT_NUM 13
+
+static const int int_transitions[INT_TRANSITION_COUNT][MAX_MAP_TRS_PER_INT_TR + 1] = {
     {0, -1, -1, -1, -1, -1, -1, -1, -1},
     {4, 256, 1, 64, -1, -1, -1, -1, -1},
     {2, 128, 8, 32, -1, -1, -1, -1, -1},
@@ -272,6 +283,18 @@ static const int int_transitions[102][9] = {
     {511, -1, -1, -1, -1, -1, -1, -1, -1},
 };
 
+static const char int_letters[INT_NUMBER_COUNT][MAX_LETTERS_PER_INT_NUM + 1] = {
+    {'c', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {'c', 'e', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {'a', 'c', 'e', 'i', 'k', 'n', 0, 0, 0, 0, 0, 0, 0, 0},
+    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 'y', 0, 0, 0, 0},
+    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 't', 'w', 'y', 'z', 0},
+    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 'y', 0, 0, 0, 0},
+    {'a', 'c', 'e', 'i', 'k', 'n', 0, 0, 0, 0, 0, 0, 0, 0},
+    {'c', 'e', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {'c', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
 #else
 
 #define TOTAL_MAX_DEPTH TOTAL_UNKNOWN_CELLS
@@ -331,7 +354,7 @@ static int max_depth = TOTAL_MAX_DEPTH;
 
 
 // the transition lookup table for the 3-state rule including unknown cells
-// the result is 3 if it's rule-dependent
+// the result is 3 if it's rule-dependent, and it's + 4 if it should be updated when changing the rule
 // index format: 0b_01_23_45_67_89_ab_cd_ef_gh
 // 01 23 45
 // 67 89 ab
@@ -340,29 +363,17 @@ static cell_t big_trs_forward[262144];
 
 #if MULTI_RULE
 
-static const char int_letters[9][14] = {
-    {'c', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {'c', 'e', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {'a', 'c', 'e', 'i', 'k', 'n', 0, 0, 0, 0, 0, 0, 0, 0},
-    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 'y', 0, 0, 0, 0},
-    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 't', 'w', 'y', 'z', 0},
-    {'a', 'c', 'e', 'i', 'j', 'k', 'n', 'q', 'r', 'y', 0, 0, 0, 0},
-    {'a', 'c', 'e', 'i', 'k', 'n', 0, 0, 0, 0, 0, 0, 0, 0},
-    {'c', 'e', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {'c', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-};
-
 static inline int unparse_transitions(char* out, int next_char, bool s) {
     int or = s ? (1 << 4) : 0;
-    char seen_letters[14];
+    char seen_letters[MAX_LETTERS_PER_INT_NUM + 1];
     int trs_index = 0;
     for (int number = 0; number < 9; number++) {
         int num_letters = 0;
-        for (int i = 0; i < 14; i++) {
+        for (int i = 0; i < MAX_LETTERS_PER_INT_NUM + 1; i++) {
             seen_letters[i] = 0;
         }
         int total_letters = 0;
-        for (int i = 0; i < 14; i++) {
+        for (int i = 0; i < MAX_LETTERS_PER_INT_NUM + 1; i++) {
             char letter = int_letters[number][i];
             if (letter == 0) {
                 break;
@@ -409,7 +420,7 @@ static inline void get_rule(char* out) {
 #endif
 
 
-search_state* states[TOTAL_MAX_DEPTH + 1];
+static search_state* states[TOTAL_MAX_DEPTH + 1];
 
 static inline void copy_state(search_state* from, search_state* to) {
     memcpy(to, from, sizeof(search_state));
@@ -517,6 +528,10 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
+    // shortcut
+    if (state == 3) {
+        return 0;
+    }
     if (depth == 8) {
         if (IS_KNOWN(state)) {
             return trs[next | state];
@@ -534,7 +549,11 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
             // }
             // #endif
             // unknown cell: if they disagree return unknown
+            #ifdef MULTI_RULE
+            return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
+            #else
             return a == b ? a : UNKNOWN;
+            #endif
         }
     } else {
         if (IS_KNOWN(state)) {
@@ -553,7 +572,11 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
             // }
             // #endif
             // unknown cell: if they disagree return unknown
+            #ifdef MULTI_RULE
+            return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
+            #else
             return a == b ? a : UNKNOWN;
+            #endif
         }
     }
 }
@@ -637,7 +660,7 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
 #if MULTI_RULE
 // the transition that caused the most recent rule-dependent "contradiction"
 // or -1 if it wasn't rule-dependent
-int rule_dependent_tr = -1;
+static int rule_dependent_tr = -1;
 #endif
 
 // check if the unknown cell can be set, and if so, set it, propagating checks
@@ -663,8 +686,11 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     int tr_value = big_trs_forward[tr];
     DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", t, x, y, tr, (int)value, (int)tr_value);
     #if MULTI_RULE
+    if (tr_value >= 4) {
+        tr_value -= 4;
+    }
     if (tr_value == 3) {
-        rule_dependent_tr = tr;
+        rule_dependent_tr = BIG_TR_TO_TR(tr);
         return false;
     }
     #endif
@@ -783,7 +809,11 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
 static cell_t prev_values[MAX_VAR_USES];
 
 // set a cell to a value, taking care of edges and filters but not propagating implications
-static inline void _set_cell(search_state* state, int t, int x, int y, cell_t value) {
+static inline bool _set_cell(search_state* state, int t, int x, int y, cell_t value) {
+    cell_t old = state->grid[t][y][x];
+    if (IS_KNOWN(old) && old != value) {
+        return false;
+    }
     #ifdef SPECIAL_PHASE_0_POP
     if (t == 0 && value == 1) {
         state->phase_0_pop++;
@@ -839,6 +869,7 @@ static inline void _set_cell(search_state* state, int t, int x, int y, cell_t va
         state->grid[t][y][WIDTH - 1] = value;
     }
     #endif
+    return true;
 }
 
 // set a cell in the search state, propagating checks
@@ -850,7 +881,9 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
     if (IS_KNOWN(prev_value)) {
         return prev_value == value;
     } else if (prev_value < 4) {
-        _set_cell(state, t, x, y, value);
+        if (!_set_cell(state, t, x, y, value)) {
+            return false;
+        }
         return CHECK_IMPLICATIONS(state, t, x, y);
     }
     cell_t var = CELL_VAR_TO_VAR(prev_value);
@@ -868,7 +901,9 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
                 return false;
             }
         } else {
-            _set_cell(state, t, x, y, value);
+            if (!_set_cell(state, t, x, y, value)) {
+                return false;
+            }
         }
         if (there_is_more == 0) {
             break;
@@ -894,7 +929,7 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
 }
 
 
-static double get_time() {
+static inline double get_time() {
     return (double)(clock()) / CLOCKS_PER_SEC;
 }
 
@@ -1033,10 +1068,15 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 #if MULTI_RULE
 
-static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_t y_trans) {
+#define NO_OFFSET (67676767)
+
+static inline hash_t hash_with_offset(search_state* state, int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = 0xcbf29ce484222325ULL;
-    for (int t = 0; t < GENS; t++) {
+    int x_offset_0 = NO_OFFSET;
+    int y_offset_0 = NO_OFFSET;
+    for (int fake_t = 0; fake_t < GENS; fake_t++) {
+        int t = (fake_t + offset) % GENS;
         bb_t bb;
         get_true_bb(&bb, state->grid[t]);
         int height = bb.height;
@@ -1050,10 +1090,17 @@ static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_
         out *= 0x00000100000001b3ULL;
         out ^= bb.width;
         out *= 0x00000100000001b3ULL;
-        out ^= bb.x_offset;
-        out *= 0x00000100000001b3ULL;
-        out ^= bb.y_offset;
-        out *= 0x00000100000001b3ULL;
+        if (x_offset_0 == NO_OFFSET) {
+            x_offset_0 = bb.x_offset;
+            y_offset_0 = bb.y_offset;
+            out *= 0x00000100000001b3ULL;
+            out *= 0x00000100000001b3ULL;
+        } else {
+            out ^= bb.x_offset - x_offset_0;
+            out *= 0x00000100000001b3ULL;
+            out ^= bb.y_offset - y_offset_0;
+            out *= 0x00000100000001b3ULL;
+        }
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int real_x = 0;
@@ -1063,6 +1110,14 @@ static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_
                 out *= 0x00000100000001b3ULL;
             }
         }
+    }
+    return out;
+}
+
+static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_t y_trans) {
+    hash_t out = hash_with_offset(state, 0, x_trans, y_trans);
+    for (int offset = 1; offset < GENS; offset++) {
+        out = min_hash(out, hash_with_offset(state, offset, x_trans, y_trans));
     }
     return out;
 }
@@ -1091,9 +1146,9 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
         width = temp;
     }
     hash_t out = 0xcbf29ce484222325ULL;
-    out ^= bb.height;
+    out ^= bb->height;
     out *= 0x00000100000001b3ULL;
-    out ^= bb.width;
+    out ^= bb->width;
     out *= 0x00000100000001b3ULL;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -1140,6 +1195,8 @@ static inline void init_known_solutions(void) {
 }
 
 #endif
+
+static inline void print_progress(FILE* stream, int depth);
 
 static inline void print_solution(search_state* state, bool preprocessing, int depth) {
     #ifndef BENCHMARK
@@ -1215,6 +1272,9 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
             if (value > 1) {
                 fprintf(stderr, "\n");
                 print_grid(stderr, state);
+                fprintf(stderr, "\nStatus: ");
+                // print_progress(stderr, depth, 70);
+                print_progress(stderr, depth);
                 fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
                 exit(1);
             }
@@ -1232,70 +1292,106 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
 
 #if MULTI_RULE
 
-int possible_trs[262144][512];
-int possible_trs_lengths[262144];
+// static int possible_trs[TOTAL_MAX_DEPTH][512];
+// static int possible_trs_counts[TOTAL_MAX_DEPTH];
 
-static inline void add_possible_tr(int tr, int loc) {
-    for (int i = 0; i < 102; i++) {
-        bool found = false;
-        for (int j = 0; j < 9; j++) {
-            int value = int_transitions[i][j];
-            if (value == -1) {
-                break;
-            } else if (value == tr) {
-                found = true;
-                break;
-            }
+// static inline void add_possible_tr(int tr, int loc) {
+//     for (int i = 0; i < INT_TRANSITION_COUNT; i++) {
+//         bool found = false;
+//         for (int j = 0; j < INT_NUMBER_COUNT; j++) {
+//             int value = int_transitions[i][j];
+//             if (value == -1) {
+//                 break;
+//             } else if (value == tr) {
+//                 found = true;
+//                 break;
+//             }
+//         }
+//         if (found) {
+//             for (int j = 0; j < INT_NUMBER_COUNT; j++) {
+//                 for (int k = 0; k < possible_trs_counts[loc]; k++) {
+//                     if (possible_trs[loc][k] == int_transitions[i][j]) {
+//                         return;
+//                     }
+//                 }
+//             }
+//             possible_trs[loc][possible_trs_counts[loc]] = tr;
+//             possible_trs_counts[loc] += 1;
+//             return;
+//         }
+//     }
+//     fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
+//     exit(1);
+// }
+
+// static void _get_possible_trs(int prev, int tr, int depth, int loc) {
+//     int state = tr & 3;
+//     tr >>= 2;
+//     int next = prev << 1;
+//     if (depth == 8) {
+//         if (IS_KNOWN(state)) {
+//             add_possible_tr(next | state, loc);
+//         } else {
+//             add_possible_tr(next | 0, loc);
+//             add_possible_tr(next | 1, loc);
+//         }
+//     } else {
+//         if (IS_KNOWN(state)) {
+//             _get_possible_trs(next | state, tr, depth + 1, loc);
+//         } else {
+//             _get_possible_trs(next | 0, tr, depth + 1, loc);
+//             _get_possible_trs(next | 1, tr, depth + 1, loc);
+//         }
+//     }
+// }
+
+// static inline void get_possible_trs(int tr, int depth) {
+//     _get_possible_trs(0, tr, 0, depth);
+// }
+
+static int tr_to_int_tr[512];
+
+static inline void set_tr(int tr, int value) {
+    DPRINTF3("Setting transition %i to %i\n", tr, value);
+    for (int i = 0; i < 9; i++) {
+        int tr2 = int_transitions[tr_to_int_tr[tr]][i];
+        if (tr2 == -1) {
+            break;
         }
-        if (found) {
-            for (int j = 0; j < 9; j++) {
-                for (int k = 0; k < possible_trs_lengths[loc]; k++) {
-                    if (possible_trs[loc][k] == int_transitions[i][j]) {
-                        return;
-                    }
-                }
+        trs[tr2] = value;
+    }
+    for (int tr = 0; tr < 262144; tr++) {
+        if (big_trs_forward[tr] == 3 || big_trs_forward[tr] >= 4) {
+            int value = get_forward_big_tr(0, tr, 0);
+            if (value < 4) {
+                value += 4;
             }
-            possible_trs[loc][possible_trs_lengths[loc]] = tr;
-            possible_trs_lengths[loc] += 1;
-            return;
+            big_trs_forward[tr] = value;
         }
     }
-    fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
-    exit(1);
 }
 
-static void _get_possible_trs(int prev, int tr, int depth, int loc) {
-    int state = tr & 3;
-    tr >>= 2;
-    int next = prev << 1;
-    if (depth == 8) {
-        if (IS_KNOWN(state)) {
-            add_possible_tr(next | state, loc);
-        } else {
-            add_possible_tr(next | 0, loc);
-            add_possible_tr(next | 1, loc);
-        }
-    } else {
-        if (IS_KNOWN(state)) {
-            _get_possible_trs(next | state, tr, depth + 1, loc);
-        } else {
-            _get_possible_trs(next | 0, tr, depth + 1, loc);
-            _get_possible_trs(next | 1, tr, depth + 1, loc);
-        }
-    }
-}
+// static inline void set_possible_trs_to_value(int depth, int to_set, bool reset) {
+//     for (int i = 0; i < possible_trs_counts[depth]; i++) {
+//         int tr = possible_trs[depth][i];
+//         int value = reset ? 3 : (to_set >> i) & 1;
+//     }
+// }
 
-int tr_to_int_tr[512];
+typedef struct set_tr_info {
+    bool set;
+    int cell;
+    int tr;
+    int value;
+} set_tr_info;
+
+set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
 
 static inline void init_multi_rule() {
-    for (int tr = 0; tr < 262144; tr++) {
-        possible_trs_lengths[tr] = 0;
-        _get_possible_trs(0, tr, 0, tr);
-    }
     for (int tr = 0; tr < 512; tr++) {
         bool found = false;
-        for (int i = 0; i < 102; i++) {
-            for (int j = 0; j < 9; j++) {
+        for (int i = 0; i < INT_TRANSITION_COUNT; i++) {
+            for (int j = 0; j < INT_NUMBER_COUNT; j++) {
                 int value = int_transitions[i][j];
                 if (value == -1) {
                     break;
@@ -1314,48 +1410,129 @@ static inline void init_multi_rule() {
             exit(1);
         }
     }
-
+    for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
+        set_tr_info_for_depth[i].set = false;
+    }
 }
 
-static inline void set_tr(int tr, int value, int* previous, int* previous_count, bool set_previous) {
-    DPRINTF3("Setting transition %i to %i\n", tr, value);
-    for (int i = 0; i < 9; i++) {
-        int tr2 = int_transitions[tr_to_int_tr[tr]][i];
-        if (tr2 == -1) {
-            break;
-        }
-        trs[tr2] = value;
-    }
-    if (set_previous) {
-        for (int tr = 0; tr < 262144; tr++) {
-            if (big_trs_forward[tr] == 3) {
-                int old = big_trs_forward[tr];
-                int new = get_forward_big_tr(0, tr, 0);
-                if (old != new) {
-                    big_trs_forward[tr] = new;
-                    previous[*previous_count] = tr;
-                    *previous_count += 1;
+static inline void print_progress(FILE* stream, int depth) {
+    int search_order_pos = 0;
+    for (int i = 0; i < depth; i++) {
+        if (set_tr_info_for_depth[i].set) {
+            int tr = set_tr_info_for_depth[i].tr;
+            int value = set_tr_info_for_depth[i].value;
+            char tr_str[4];
+            if (tr & (1 << 4)) {
+                tr &= ~(1 << 4);
+                tr_str[0] = 'S';
+            } else {
+                tr_str[0] = 'B';
+            }
+            int index = 0;
+            for (int i = 0; i < 9; i++) {
+                bool found = false;
+                for (int j = 0; j < 14; j++) {
+                    char letter = int_letters[i][j];
+                    if (letter == 0) {
+                        break;
+                    }
+                    for (int k = 0; k < 9; k++) {
+                        if (tr == int_transitions[index][k]) {
+                            found = true;
+                            if (i == 0 || i == 8) {
+                                tr_str[1] = 0;
+                                tr_str[2] = '\0';
+                            }
+                            tr_str[1] = i + '0';
+                            tr_str[2] = letter;
+                            tr_str[3] = '\0';
+                            break;
+                        }
+                    }
+                    if (found) {
+                        break;
+                    }
+                    index++;
+                }
+                if (found) {
+                    break;
                 }
             }
+            printf("[%s=%i]", tr_str, value);
+        } else {
+            int* cell = search_order[search_order_pos];
+            search_order_pos++;
+            cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
+            printf("%c", value ? '1' : '0');
         }
-    } else {
-        for (int i = 0; i < *previous_count; i++) {
-            int tr = previous[i];
-            big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
-        }
+    }
+}
+
+#else
+
+static inline void print_progress(FILE* stream, int depth) {
+    int search_order_pos = 0;
+    for (int i = 0; i < depth; i++) {
+        int* cell = search_order[search_order_pos];
+        search_order_pos++;
+        cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
+        printf("%c", value ? '1' : '0');
     }
 }
 
 #endif
 
-int set_trs_for_depth[TOTAL_MAX_DEPTH][262144];
-
 static void run_depth(int depth
+    #if MULTI_RULE
+    , int search_order_depth, int force_value
+    #endif
+    );
+
+static inline void _run_depth(search_state* state, int* cell, cell_t value, int depth
     #if MULTI_RULE
     , int search_order_depth
     #endif
     ) {
-    DPRINTF3("Running depth %i\n", depth);
+    copy_state(states[depth - 1], state);
+    if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
+        #if MULTI_RULE
+        run_depth(depth + 1, search_order_depth + 1, -1);
+        #else
+        run_depth(depth + 1);
+        #endif
+    #if MULTI_RULE
+    } else if (rule_dependent_tr != -1) {
+        int tr = rule_dependent_tr;
+        // if (possible_trs_count == 0) {
+        //     DPRINTF4("Skipping branching rule on transition %i (depth = %i)\n", tr, depth);
+        //     continue;
+        // }
+        copy_state(states[depth - 1], state);
+        set_tr_info_for_depth[depth].set = true;
+        set_tr_info_for_depth[depth].tr = tr;
+        DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
+        set_tr_info_for_depth[depth].value = 0;
+        set_tr(tr, 0);
+        run_depth(depth + 1, search_order_depth, 0);
+        set_tr_info_for_depth[depth].value = 1;
+        set_tr(tr, 1);
+        run_depth(depth + 1, search_order_depth, 1);
+        set_tr(tr, 3);
+        set_tr_info_for_depth[depth].set = false;
+    #endif
+    }
+}
+
+static void run_depth(int depth
+    #if MULTI_RULE
+    , int search_order_depth, int force_value
+    #endif
+    ) {
+    #if DEBUG >= 3
+    printf("Running depth %i: ", depth);
+    print_progress(stdout, depth);
+    printf("\n");
+    #endif
     branches++;
     if (depth > max_depth || states[depth - 1]->set_cells == unknown_cells) {
         print_solution(states[depth - 1], false, depth);
@@ -1367,34 +1544,11 @@ static void run_depth(int depth
     DPRINTGRID4(state);
     #endif
     double time = get_time();
-    #if DEBUG >= 4
-    printf("Status: ");
-    #if MULTI_RULE
-    int end = search_order_depth - 1 < 30 ? search_order_depth - 1 : 30;
-    #else
-    int end = depth - 1 < 30 ? depth - 1 : 30;
-    #endif
-    for (int i = 0; i < end; i++) {
-        int* cell = search_order[i];
-        cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
-        printf("%c", value ? '1' : '0');
-    }
-    printf("\n");
-    #endif
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         #ifndef BENCHMARK
         printf("%i seconds, %"PRIu64" branches, depth: %i, progress: ", (int)(time - start), branches, depth);
-        #if MULTI_RULE
-        int end = search_order_depth - 1 < 30 ? search_order_depth - 1 : 30;
-        #else
-        int end = depth - 1 < 30 ? depth - 1 : 30;
-        #endif
-        for (int i = 0; i < end; i++) {
-            int* cell = search_order[i];
-            cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
-            printf("%c", value ? '1' : '0');
-        }
+        print_progress(stderr, depth);
         printf("\n");
         #endif
     }
@@ -1406,46 +1560,32 @@ static void run_depth(int depth
     if (IS_KNOWN(states[depth - 1]->grid[cell[0]][cell[2]][cell[1]])) {
         copy_state(states[depth - 1], state);
         #if MULTI_RULE
-        run_depth(depth + 1, search_order_depth + 1);
+        run_depth(depth + 1, search_order_depth + 1, -1);
         #else
         run_depth(depth + 1);
         #endif
         return;
     }
-    #if INITIAL_VALUE == 0
-    for (int value = 0; value < 2; value++)
-    #else
-    for (int value = 1; value >= 0; value--)
+    #if MULTI_RULE
+    if (force_value == -1) {
     #endif
-    {
-        copy_state(states[depth - 1], state);
-        if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
-            #if MULTI_RULE
-            run_depth(depth + 1, search_order_depth + 1);
-            #else
-            run_depth(depth + 1);
-            #endif
-        #if MULTI_RULE
-        } else if (rule_dependent_tr != -1) {
-            if (possible_trs_lengths[rule_dependent_tr] == 0) {
-                DPRINTF4("Skipping branching rule on transition %i (0 possibilities)\n", rule_dependent_tr);
-                continue;
-            }
-            copy_state(states[depth - 1], state);
-            DPRINTF3("Branching rule on transition %i (%i possibilities)\n", rule_dependent_tr, possible_trs_lengths[rule_dependent_tr]);
-            for (int i = 0; i < possible_trs_lengths[rule_dependent_tr]; i++) {
-                int* set_trs = set_trs_for_depth[depth];
-                int set_trs_count = 0;
-                int tr = possible_trs[rule_dependent_tr][i];
-                set_tr(tr, 0, set_trs, &set_trs_count, true);
-                run_depth(depth + 1, search_order_depth);
-                set_tr(tr, 1, set_trs, &set_trs_count, false);
-                run_depth(depth + 1, search_order_depth);
-                set_tr(tr, 3, set_trs, &set_trs_count, false);
-            }
+        #if INITIAL_VALUE == 0
+        for (int value = 0; value < 2; value++)
+        #else
+        for (int value = 1; value >= 0; value--)
         #endif
+        {
+            #if MULTI_RULE
+            _run_depth(state, cell, value, depth, search_order_depth);
+            #else
+            _run_depth(state, cell, value, depth);
+            #endif
         }
+    #if MULTI_RULE
+    } else {
+        _run_depth(state, cell, force_value, depth, search_order_depth);
     }
+    #endif
 }
 
 int main(void) {
@@ -1467,13 +1607,14 @@ int main(void) {
                 if (!check_forward_implication(state, t, x, y)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
+                        rule_dependent_tr = 0;
                         continue;
                     }
                     #endif
                     printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x - 2, y - 2);
                     return 0;
                 }
-                #if !MULTI_RULE
+                #if CHECK_BACKWARDS_IMPLICATIONS
                 if (!check_backward_implication(state, t, x, y)) {
                     printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x - 2, y - 2);
                     return 0;
@@ -1496,7 +1637,7 @@ int main(void) {
     int trivial = state->set_cells;
     state->set_cells = 0;
     if (unknown_cells == 0) {
-        print_solution(state, true, 0);
+        print_solution(state, true, 1);
         return 0;
     }
     printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
@@ -1535,7 +1676,7 @@ int main(void) {
     printf("All iterations complete in %.6f seconds, average %.6f seconds/iteration\n", time, time / BENCHMARK);
     #else
     #if MULTI_RULE
-    run_depth(1, 0);
+    run_depth(1, 0, -1);
     #else
     run_depth(1);
     #endif
