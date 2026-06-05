@@ -799,7 +799,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
             output = identify(data.ash, limit, acceptStabilized, maxPeriodMul);
         }
     }
-    let out = {...type, output, desc: '', oscInfo, minmax, symmetry: findPatternSymmetry(type)};
+    let out = {...type, output, desc: '', ...oscInfo, minmax, symmetry: findPatternSymmetry(type)};
     out.desc = getDescription(out);
     return out;
 }

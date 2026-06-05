@@ -1,6 +1,5 @@
 
-import {INT, MAPPattern, parseSpeed, createPattern} from './core/index.js';
-
+import {MAPPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -51,6 +50,13 @@ Options:
     -i, --initial-value <value>:
         set the initial value of unknown cells, default 0
 
+    -n, --max-solutions: set the maximum solution count, default infinity
+
+    -r <rle>, --restrict <rle>: restrict generation 0 to the given RLE mask
+        if periodic mode, also restricts the last generation
+    --restrict-gen [<n>=<rle>...]: variadic, for each option
+        restricts generation n to the given RLE mask
+
     --top <type>
     --bottom <type>
     --left <type>
@@ -78,6 +84,8 @@ Options:
     --maxpop <cells>: Set the maximum population during the search.
 `;
 
+type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string' | 'number' | Set<string>)[] | [true, 'string' | 'number' | Set<string>];
+
 const OPTIONS = {
     'help': true,
     'debug': 'number',
@@ -86,17 +94,20 @@ const OPTIONS = {
     'benchmark': 'string',
     'search-order': 'string',
     'initial-value': 'number',
-    'top': ['none', 'even', 'odd', 'wrap'] as const,
-    'bottom': ['none', 'even', 'odd', 'wrap'] as const,
-    'left': ['none', 'even', 'odd', 'wrap'] as const,
-    'right': ['none', 'even', 'odd', 'wrap'] as const,
-    'symmetry': [
+    'max-solutions': 'number',
+    'restrict': 'string',
+    'restrict-gen': [true, 'string'] as const,
+    'top': new Set(['none', 'even', 'odd', 'wrap'] as const),
+    'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
+    'left': new Set(['none', 'even', 'odd', 'wrap'] as const),
+    'right': new Set(['none', 'even', 'odd', 'wrap'] as const),
+    'symmetry': new Set([
         'D2_-1', 'D2_-2', 'D2_|1', 'D2_|2', 'D4_+1', 'D4_-2', 'D4_|2', 'D4_+4',
         'wick_-1', 'wick_-2', 'wick_|1', 'wick_|2', 'wave_-1', 'wave_-2', 'wave_|1', 'wave_|2',
         'agar',
-    ] as const,
+    ] as const),
     'maxpop': 'number',
-} as const satisfies {[key: string]: true | 'string' | 'number' | readonly string[]};
+} as const satisfies {[key: string]: OptionValue};
 
 type Options = typeof OPTIONS;
 type Option = keyof Options;
@@ -107,10 +118,31 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'g': 'gdb',
     'o': 'search-order',
     'i': 'initial-value',
+    'n': 'max-solutions',
+    'r': 'restrict',
     's': 'symmetry',
 };
 
-export type OptionData = {[K in Option]?: Options[K] extends true ? true : (Options[K] extends 'string' ? string : (Options[K] extends 'number' ? number : (Options[K] extends readonly (infer T)[] ? T : never)))};
+type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]> =
+    T extends [infer U] ? (
+        U extends 'string' ? [string] :
+        U extends 'number' ? [number] :
+        U extends Set<infer T> ? [T] :
+        never
+    ) :
+    T extends readonly [infer First extends 'string' | 'number' | Set<string>, ...(infer Rest extends readonly ('string' | 'number' | Set<string>)[])] ? [ValueOfOption<First>, ...ValueOfArrayOption<Rest>] :
+    never
+
+type ValueOfOption<T extends OptionValue> = 
+    T extends true ? true :
+    T extends 'string' ? string :
+    T extends 'number' ? number :
+    T extends Set<infer T> ? T :
+    T extends [true, infer T extends 'string' | 'number' | Set<string>] ? ValueOfOption<T>[] :
+    T extends readonly ('string' | 'number' | Set<string>)[] ? ValueOfArrayOption<T> :
+    never;
+
+export type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 
 
 export async function transformCode(argv: string[], code: string): Promise<[OptionData, string]> {
@@ -118,6 +150,68 @@ export async function transformCode(argv: string[], code: string): Promise<[Opti
 
 let posArgs: string[] = [];
 let options: OptionData = {}
+
+function getOption(originalArg: string, value: OptionValue, i: number): [OptionData[Option], number] {
+    if (value === true) {
+        return [true, i];
+    } else if (value === 'string') {
+        if (i === argv.length - 1) {
+            error(`Expected argument for option '${originalArg}'`);
+        }
+        let arg = argv[++i];
+        return [arg, i];
+    } else if (value === 'number') {
+        if (i === argv.length - 1) {
+            error(`Expected argument for option '${originalArg}'`);
+        }
+        let arg = argv[++i];
+        let num = parseFloat(arg);
+        if (Number.isNaN(num)) {
+            error(`Expected numeric argument for option '${originalArg}'`);
+        }
+        return [num, i];
+    } else if (value instanceof Set) {
+        if (i === argv.length - 1) {
+            error(`Expected argument for option '${originalArg}'`);
+        }
+        let arg = argv[++i];
+        let valid = Array.from(value) as string[];
+        if (!valid.includes(arg)) {
+            let expected = '';
+            for (let i = 0; i < valid.length - 1; i++) {
+                expected += valid[i] + ', ';
+            }
+            expected += 'or ' + valid[valid.length - 1];
+            error(`Invalid option for argument '${originalArg}': '${arg}', expected ${expected}`);
+        }
+        return [arg, i];
+    } else if (value[0] === true) {
+        let out: (string | number)[] = [];
+        while (i < argv.length) {
+            if (argv[i].startsWith('-')) {
+                break;
+            }
+            let data = getOption(originalArg, value[1], i);
+            if (typeof data[0] !== 'string' && typeof data[0] !== 'number') {
+                throw new Error(`Invalid argument specification detected for argument '${originalArg}'`);
+            }
+            out.push(data[0]);
+            i = data[1];
+        }
+        return [out as OptionData[Option], i];
+    } else {
+        let out: (string | number)[] = [];
+        for (let j = 0; j < value.length; j++) {
+            let data = getOption(originalArg, value[j], i);
+            if (typeof data[0] !== 'string' && typeof data[0] !== 'number') {
+                throw new Error(`Invalid argument specification detected for argument '${originalArg}'`);
+            }
+            out.push(data[0]);
+            i = data[1];
+        }
+        return [out as OptionData[Option], i];
+    }
+}
 
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
@@ -135,41 +229,9 @@ for (let i = 2; i < argv.length; i++) {
         }
         let option = arg as Option;
         let value = OPTIONS[option];
-        if (value === true) {
-            (options[option] as true) = true;
-        } else if (value === 'string') {
-            if (i === argv.length - 1) {
-                error(`Expected argument for option '${originalArg}'`);
-            }
-            let arg = argv[++i];
-            (options[option] as string) = arg;
-        } else if (value === 'number') {
-            if (i === argv.length - 1) {
-                error(`Expected argument for option '${originalArg}'`);
-            }
-            let arg = argv[++i];
-            let num = parseFloat(arg);
-            if (Number.isNaN(num)) {
-                error(`Expected numeric argument for option '${originalArg}'`);
-            }
-            (options[option] as number) = num;
-        } else if (Array.isArray(value)) {
-            if (i === argv.length - 1) {
-                error(`Expected argument for option '${originalArg}'`);
-            }
-            let arg = argv[++i];
-            if (!value.includes(arg)) {
-                let expected = '';
-                for (let i = 0; i < value.length - 1; i++) {
-                    expected += value[i] + ', ';
-                }
-                expected += 'or ' + value[value.length - 1];
-                error(`Invalid option for argument '${originalArg}': '${arg}', expected ${expected}`);
-            }
-            (options[option] as string) = arg;
-        } else {
-            throw new Error(`Invalid argument specification: '${value}'`);
-        }
+        let data = getOption(originalArg, value, i);
+        (options[option] as any) = data[0];
+        i = data[1];
     } else {
         posArgs.push(arg);
     }
@@ -410,6 +472,18 @@ class Grid {
         this.removeUnusedVars();
     }
 
+    restrict(t: number, rle: string, xOffset: number, yOffset: number) {
+        let p = base.loadRLE(rle);
+        p.offsetBy(xOffset, yOffset);
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (p.get(x, y) === 0) {
+                    this.set(t, x, y, 0);
+                }
+            }
+        }
+    }
+
 }
 
 
@@ -481,6 +555,9 @@ if (mode === 'periodic') {
     }
     for (let t = 1; t < period; t++) {
         grid.fill(t, UNKNOWN);
+    }
+    if (options['restrict']) {
+        grid.restrict(grid.gens - 1, options['restrict'], dx, dy);
     }
 
 } else if (mode === 'parent') {
@@ -727,6 +804,18 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
 }
 
 
+if (options['restrict']) {
+    grid.restrict(0, options['restrict'], 0, 0);
+}
+
+if (options['restrict-gen']) {
+    for (let value of options['restrict-gen']) {
+        let [time, rle] = value.split(' ');
+        grid.restrict(Number(time), rle, 0, 0);
+    }
+}
+
+
 const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: Edge, bottom: Edge, left: Edge, right: Edge]} = {
     'D2_-1': ['none', 'odd', 'none', 'none'],
     'D2_-2': ['none', 'even', 'none', 'none'],
@@ -885,6 +974,13 @@ for (let line of code.split('\n')) {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
+    } else if (name === 'MAX_SOLUTIONS') {
+        if (options['max-solutions'] === undefined) {
+            comment = true;
+            value = 67;
+        } else {
+            value = options['max-solutions'];
+        }
     } else if (name === 'MAXPOP') {
         if (options['maxpop'] === undefined) {
             comment = true;
@@ -918,28 +1014,28 @@ return [options, out.join('\n')];
 }
 
 
-export async function main() {
-    let path = await import('node:path');
-    let fs = await import('node:fs/promises');
-    let execSync = (await import('node:child_process')).execSync;
-    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
-    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
-    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-        execPath = './' + execPath;
-    }
-    let source = (await fs.readFile(`${import.meta.dirname}/../src/vls.c`)).toString();
-    let [options, code] = await transformCode(process.argv, source);
-    await fs.writeFile(sourcePath, code);
-    try {
-        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
-        console.log(command);
-        execSync(command, {stdio: 'inherit'});
-        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
-    } catch (error) {
-        process.exit(1);
-    }
-}
+// export async function main() {
+//     let path = await import('node:path');
+//     let fs = await import('node:fs/promises');
+//     let execSync = (await import('node:child_process')).execSync;
+//     let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
+//     let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
+//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+//         execPath = './' + execPath;
+//     }
+//     let source = (await fs.readFile(`${import.meta.dirname}/../src/vls/index.c`)).toString();
+//     let [options, code] = await transformCode(process.argv, source);
+//     await fs.writeFile(sourcePath, code);
+//     try {
+//         let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
+//         console.log(command);
+//         execSync(command, {stdio: 'inherit'});
+//         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
+//     } catch (error) {
+//         process.exit(1);
+//     }
+// }
 
-if (import.meta.main) {
-    main();
-}
+// if (import.meta.main) {
+//     main();
+// }

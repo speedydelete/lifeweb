@@ -120,6 +120,9 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // whether to filter duplicates or not
 #define FILTER_DUPLICATES true
 
+// number of solutions to report
+// #define MAX_SOLUTIONS 67
+
 // maximum population
 // #define MAXPOP 67
 
@@ -1287,6 +1290,12 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
         }
     }
     #endif
+    #ifdef MAX_SOLUTIONS
+    if (known_solutions > MAX_SOLUTIONS) {
+        printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+        exit(0);
+    }
+    #endif
 }
 
 
@@ -1429,8 +1438,8 @@ static inline void print_progress(FILE* stream, int depth) {
                 tr_str[0] = 'B';
             }
             int index = 0;
+            bool found = false;
             for (int i = 0; i < 9; i++) {
-                bool found = false;
                 for (int j = 0; j < 14; j++) {
                     char letter = int_letters[i][j];
                     if (letter == 0) {
@@ -1439,10 +1448,6 @@ static inline void print_progress(FILE* stream, int depth) {
                     for (int k = 0; k < 9; k++) {
                         if (tr == int_transitions[index][k]) {
                             found = true;
-                            if (i == 0 || i == 8) {
-                                tr_str[1] = 0;
-                                tr_str[2] = '\0';
-                            }
                             tr_str[1] = i + '0';
                             tr_str[2] = letter;
                             tr_str[3] = '\0';
@@ -1457,6 +1462,10 @@ static inline void print_progress(FILE* stream, int depth) {
                 if (found) {
                     break;
                 }
+            }
+            if (!found) {
+                fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
+                exit(1);
             }
             printf("[%s=%i]", tr_str, value);
         } else {

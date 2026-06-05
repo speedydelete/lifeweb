@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Identify</title>
+        <meta charset="utf-8" />
+        <style>
+
+* {
+    box-sizing: border-box;
+}
+
+h1 {
+    padding: 0;
+    margin: 0;
+}
+
+h1, noscript {
+    align-self: stretch;
+    text-align: center;
+}
+
+textarea {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8em;
+    resize: none;
+    border: 1px solid gray;
+}
+
+textarea:hover, textarea:focus {
+    outline: none;
+    border: 1px solid gray;
+}
+
+button, input:not([type=checkbox]) {
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: inherit;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid black;
+}
+
+input:focus {
+    outline: none;
+}
+
+input[type=number] {
+    appearance: textfield;
+}
+
+input::-webkit-inner-spin-button, input::-webkit-outer-spin-button {
+    display: none;
+}
+
+input[type=checkbox] {
+    border: 1px solid black;
+    height: 1.25em;
+    width: 1.25em;
+}
+
+html, body {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    overflow-y: unset;
+}
+
+body {
+    display: flex;
+    flex-direction: row;
+}
+
+#left, #right {
+    padding: 1.25em;
+}
+
+#left {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 1.25em;
+    border-right: 1px solid black;
+}
+
+#add-wrapper {
+    margin-bottom: 1.25em;
+    display: flex;
+    flex-direction: row;
+    gap: 1.25em;
+}
+
+#max-gens {
+    width: 10ch;
+}
+
+#minmax {
+    margin-bottom: 1.25em;
+    white-space: pre-wrap;
+}
+
+#patterns {
+    flex: 1 0 auto;
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25em;
+}
+
+        </style>
+        <template id="ca-pattern-template">
+            <style>
+
+* {
+    box-sizing: border-box;
+}
+
+:host {
+    min-width: 50ch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    border: 1px solid black;
+}
+
+#top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#top-left {
+    padding-top: 0.3rem;
+    padding-left: 0.3rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#checkbox {
+    box-sizing: content-box;
+    padding-bottom: 0;
+    height: 1.3rem;
+    width: 1rem;
+}
+
+#name {
+    font-size: 1.5rem;
+}
+
+#arrow {
+    margin-top: 0.3rem;
+    padding: 0.3rem;
+    margin-left: auto;
+    margin-right: 0.25rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    background-size: 1rem;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#arrow.closed {
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><polygon points='0,0 0,16 16,8' fill='black' stroke='none' /></svg>");
+}
+
+#arrow.open {
+    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><polygon points='0,0 16,0 8,16' fill='black' stroke='none' /></svg>");
+}
+
+#text-wrapper {
+    padding: 0.3rem;
+    padding-top: 0;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+}
+
+#apgcode {
+    text-decoration: none;
+    color: blue;
+}
+
+#apgcode:visited {
+    color: blue;
+}
+
+ca-pattern {
+    min-width: unset;
+    margin: 0.5rem;
+    margin-top: 0;
+    margin-bottom: 0.6rem;
+}
+
+            </style>
+            <div id="top">
+                <div id="top-left">
+                    <input type="checkbox" id="checkbox" />
+                    <div id="name"></div>
+                </div>
+                <div id="arrow" class="closed"></div>
+            </div>
+            <div id="text-wrapper"><div id="text"></div><a id="apgcode"></a></div>
+        </template>
+    </head>
+    <body>
+        <div id="left">
+            <h1>Identify</h1>
+            <noscript>Please enable JavaScript to use this!</noscript>
+            <textarea id="rle" rows="6" cols="55" placeholder="Enter RLE..."></textarea>
+            <div id="add-wrapper">
+                <button id="add">Add</button>
+                <div>Max generations: <input type="number" id="max-gens" value="4096" /></div>
+            </div>
+            <div id="minmax">No patterns selected.</div>
+            <button id="view-archive">View archive</button>
+            <button id="archive">Archive selected</button>
+            <div id="combine-out"></div>
+        </div>
+        <div id="right">
+            <div id="patterns"></div>
+        </div>
+        <script>
+
+'use strict';
+
+if (!window._isWrecked) {
+
+function formatError(error) {
+    let str;
+    if (error instanceof Error && typeof error.stack === 'string') {
+        str = error.stack;
+        if (!str.slice(0, str.indexOf('\n')).includes('Error')) {
+            str = String(error) + '\n' + str.split('\n').map(y=>'    '+y.replace('@',' at ').trim()).join('\n');
+        }
+    } else {
+        str = String(error);
+    }
+    str = str.replaceAll(/file:\/\/\/.*?\/code\//g,'');
+    for (let match of str.matchAll(/data:text\/javascript;base64,([a-zA-Z0-9+/=]+)/g)) {
+        let module = atob(match[1]);
+        str = str.replaceAll(match[0], module.slice(2, module.indexOf('*/'))) + (str.toLowerCase().includes('failed to fetch') ? '\\n\\n' + module : '');
+    }
+    return error;
+}
+
+window.addEventListener('error', event => alert(formatError((event.error))));
+window.addEventListener('unhandledrejection', event => alert(formatError(event.reason)));
+
+}
+
+        </script>
+        <script type="module" src="index.js"></script>
+    </body>
+</html>
