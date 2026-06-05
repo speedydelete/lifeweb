@@ -777,7 +777,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
     let type = findType(p, limit, acceptStabilized);
     let minmax: [string, string] | undefined = undefined;
     try {
-        minmax = findMinmax(p, type.period === -1 ? limit : type.period, type);
+        minmax = findMinmax(p, type.stabilizedAt + (type.period === -1 ? limit : type.period), type);
     } catch (error) {
         if (!(error instanceof RuleError)) {
             throw error;
