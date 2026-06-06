@@ -194,8 +194,8 @@ function getOption(originalArg: string, value: OptionValue, i: number): [OptionD
         return [arg, i];
     } else if (value[0] === true) {
         let out: (string | number)[] = [];
-        while (i < argv.length) {
-            if (argv[i].startsWith('-')) {
+        while (i < argv.length - 1) {
+            if (argv[i + 1].startsWith('-')) {
                 break;
             }
             let data = getOption(originalArg, value[1], i);
@@ -520,7 +520,7 @@ let searchOrderAliases: {[key: string]: string} = {};
 if (mode === 'periodic') {
 
     if (posArgs.length !== 3) {
-        error(`Expected 4 positional arguments for periodic mode`);
+        error(`Expected 3 positional arguments for periodic mode`);
     }
     let {dx, dy, period} = parseSpeed(posArgs[0]);
     let height = parseInt(posArgs[1]);
@@ -1073,12 +1073,12 @@ export async function main() {
     let path = await import('node:path');
     let fs = await import('node:fs/promises');
     let execSync = (await import('node:child_process')).execSync;
-    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
-    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
+    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../../src/vls/to_compile.c`);
+    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../../vls_compiled`);
     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
         execPath = './' + execPath;
     }
-    let source = (await fs.readFile(`${import.meta.dirname}/../src/vls/index.c`)).toString();
+    let source = (await fs.readFile(`${import.meta.dirname}/../../src/vls/index.c`)).toString();
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(sourcePath, code);
     try {
