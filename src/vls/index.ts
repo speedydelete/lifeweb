@@ -588,7 +588,6 @@ if (mode === 'periodic') {
             }
         }
     }
-
     if (options['restrict']) {
         for (let value of options['restrict']) {
             if (!value.includes('=')) {
