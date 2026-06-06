@@ -36,65 +36,65 @@ function getOscillatorMinpop(obj: Oscillator): number {
     return out;
 }
 
-function getScore(search: Search, objs: StableObject[]): number {
-    if (search.end === 'destroy') {
-        let out = 0;
-        for (let obj of objs) {
-            if (obj.type === 'sl') {
-                out += parseInt(obj.code.slice(2));
-            } else {
-                out += getOscillatorMinpop(obj);
-            }
-        }
-        return out;
-    } else if (search.end === undefined) {
-        return 0;
-    }
-    let best: (StableObject | undefined)[] = [];
-    for (let i = 0; i < search.end.length; i++) {
-        best.push(undefined);
-    }
-    for (let obj of objs) {
-        for (let i = 0; i < search.end.length; i++) {
-            let end = search.end[i];
-            if (end.x === undefined) {
-                if (obj.code === end.code) {
-                    if (best[i]) {
+// function getScore(search: Search, objs: StableObject[]): number {
+//     if (search.end === 'destroy') {
+//         let out = 0;
+//         for (let obj of objs) {
+//             if (obj.type === 'sl') {
+//                 out += parseInt(obj.code.slice(2));
+//             } else {
+//                 out += getOscillatorMinpop(obj);
+//             }
+//         }
+//         return out;
+//     } else if (search.end === undefined) {
+//         return 0;
+//     }
+//     let best: (StableObject | undefined)[] = [];
+//     for (let i = 0; i < search.end.length; i++) {
+//         best.push(undefined);
+//     }
+//     for (let obj of objs) {
+//         for (let i = 0; i < search.end.length; i++) {
+//             let end = search.end[i];
+//             if (end.x === undefined) {
+//                 if (obj.code === end.code) {
+//                     if (best[i]) {
                         
-                    }
-                    best[i] = obj;
-                }
-            }
-        }
-        let end = search.end[i];
-        if (end.x === undefined) {
-            for (let obj of objs) {
-                if (obj.code === end.code) {
+//                     }
+//                     best[i] = obj;
+//                 }
+//             }
+//         }
+//         let end = search.end[i];
+//         if (end.x === undefined) {
+//             for (let obj of objs) {
+//                 if (obj.code === end.code) {
 
-                }
-            }
-        }
-        for (let obj of objs) {
+//                 }
+//             }
+//         }
+//         for (let obj of objs) {
 
-        }
-    }
-}
+//         }
+//     }
+// }
 
-export function searchForSalvo(type: string, search: Search) {
-    if (Array.isArray(search.end)) {
-        search.end = search.end.sort((a, b) => {
-            if (a.x !== undefined) {
-                if (b.x !== undefined) {
-                    if (a.x === b.x) {
-                        return a.y - b.y;
-                    } else {
-                        return a.x - b.x;
-                    }
-                } else {
-                    return -1;
-                }
-            }
-        });
-    }
-}
+// export function searchForSalvo(type: string, search: Search) {
+//     if (Array.isArray(search.end)) {
+//         search.end = search.end.sort((a, b) => {
+//             if (a.x !== undefined) {
+//                 if (b.x !== undefined) {
+//                     if (a.x === b.x) {
+//                         return a.y - b.y;
+//                     } else {
+//                         return a.x - b.x;
+//                     }
+//                 } else {
+//                     return -1;
+//                 }
+//             }
+//         });
+//     }
+// }
 

@@ -1,6 +1,8 @@
 
 import {join} from 'node:path';
 import * as fs from 'node:fs/promises';
+import {existsSync as exists} from 'node:fs';
+import {execSync} from 'node:child_process';
 import * as esbuild from 'esbuild';
 import minify from '@minify-html/node';
 
@@ -10,7 +12,12 @@ function path(value) {
 }
 
 
-async function buildMain() {
+async function buildTypescript() {
+    execSync(`${path('node_modules/.bin/tsc')} -b`);
+}
+
+
+async function buildLifewebJS() {
     await esbuild.build({
         entryPoints: [path('src/index.ts')],
         bundle: true,
@@ -25,6 +32,9 @@ async function buildMain() {
 }
 
 async function buildEditor() {
+    if (!exists(path('editor'))) {
+        await fs.mkdir(path('editor'));
+    }
     let data = (await fs.readFile(path('src/editor/index.html'))).toString();
     let match = data.match(/var BUILD_NUMBER = (\d+);/);
     if (!match) {
@@ -64,6 +74,9 @@ async function buildEditor() {
 }
 
 async function buildIdentify() {
+    if (!exists(path('identify'))) {
+        await fs.mkdir(path('identify'));
+    }
     let data = (await fs.readFile(path('src/identify/index.html'))).toString();
     await fs.writeFile(path('src/identify/index.html'), data);
     await fs.writeFile(path('identify/index.html'), await minify.minify(Buffer.from(data, 'utf-8'), {
@@ -95,19 +108,7 @@ async function buildIdentify() {
     });
 }
 
-// const TARGETS = {
-//     main: buildMain,
-//     editor: buildEditor,
-// };
-
-
-// let target = process.argv[2];
-// if (!(target in TARGETS)) {
-//     console.error(`Error: Invalid target: '${target}' (valid: ${Object.keys(targets).join(', ')})`);
-//     process.exit(1);
-// }
-// TARGETS[target]();
-
-buildMain();
+buildTypescript();
+buildLifewebJS();
 buildEditor();
 buildIdentify();

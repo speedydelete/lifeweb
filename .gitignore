@@ -5,6 +5,7 @@
 /*.rle
 /*.rule
 /*.json
+!tsconfig.json
 /*.md
 /*.dot
 /*.zip
@@ -18,3 +19,4 @@
 /identify
 /src/vls/to_compile.c
 /vls_compiled
+*.tsbuildinfo

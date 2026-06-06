@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
+set -eu -o pipefail
+
 if ! command -v node >/dev/null 2>&1; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "Please install NodeJS from https://nodejs.org/en/download"
+        exit 0
+    fi
     echo "Cannot find Node"
     read -p "Would you like to install Node (Warning: this will modify PATH and .bashrc)? (y/n): " -n 1 confirmation
     echo ""
@@ -14,4 +20,4 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 npm install
-npx tsc
+npx tsc -b
