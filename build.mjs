@@ -25,7 +25,6 @@ async function buildMain() {
 }
 
 async function buildEditor() {
-    buildMain();
     let data = (await fs.readFile(path('src/editor/index.html'))).toString();
     let match = data.match(/var BUILD_NUMBER = (\d+);/);
     if (!match) {
@@ -64,6 +63,38 @@ async function buildEditor() {
     });
 }
 
+async function buildIdentify() {
+    let data = (await fs.readFile(path('src/identify/index.html'))).toString();
+    await fs.writeFile(path('src/identify/index.html'), data);
+    await fs.writeFile(path('identify/index.html'), await minify.minify(Buffer.from(data, 'utf-8'), {
+        keep_html_and_head_opening_tags: true,
+        minify_css: true,
+        minify_js: true,
+    }));
+    await esbuild.build({
+        entryPoints: [path('src/identify/index.ts')],
+        bundle: true,
+        outfile: path('identify/index.js'),
+        format: 'esm',
+        sourcemap: true,
+        target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
+        external: ['node:path'],
+        treeShaking: false,
+        minify: true,
+        loader: {
+            '.rpf': 'text',
+        },
+        plugins: [
+            {
+                name: 'lifeweb-core-alias',
+                setup(build) {
+                    build.onResolve({filter: /\/core\/index\.js$/}, () => ({path: '../lifeweb.js', external: true}));
+                }
+            }
+        ]
+    });
+}
+
 // const TARGETS = {
 //     main: buildMain,
 //     editor: buildEditor,
@@ -77,4 +108,6 @@ async function buildEditor() {
 // }
 // TARGETS[target]();
 
+buildMain();
 buildEditor();
+buildIdentify();
