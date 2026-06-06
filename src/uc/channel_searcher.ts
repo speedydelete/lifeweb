@@ -1,5 +1,5 @@
 
-import {lcm, MAPPattern, findType} from '../core/index.js';
+import {lcm, MAPPattern, identifyPeriodic} from '../core/index.js';
 import {c, ChannelInfo, ShipDirection, maxGenerations, setMaxGenerations, base, shipPatterns, channelRecipeToString, StableObject, Spaceship, CAObject, normalizeOscillator, translateObject, objectsToString, ElbowData, Elbow, ChannelRecipe, parseElbow, channelRecipeInfoToString} from './base.js';
 import {findOutcome} from './runner.js';
 import {getCollision} from './slow_salvos.js';
@@ -675,7 +675,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
             }
         } else {
             if (obj.type === 'other' && obj.code.startsWith('xq')) {
-                let type = findType(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
+                let type = identifyPeriodic(base.loadApgcode(obj.realCode), parseInt(obj.code.slice(2)));
                 if (type.disp) {
                     let lane: number;
                     if (type.disp[0] === 0) {

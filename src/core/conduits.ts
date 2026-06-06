@@ -1,7 +1,7 @@
 
 import {LifewebError} from './util.js';
 import {MAPPattern, createMAPPattern} from './map.js';
-import {findType} from './identify.js';
+import {identifyPeriodic} from './identify.js';
 import {getKnots, INTSeparator} from './intsep.js';
 
 
@@ -371,7 +371,7 @@ export function createPartial(p: MAPPattern, sepGens: number, identifyGens: numb
         startP = undefined;
         cats = [];
         for (let p of sep.getObjects()) {
-            let type = findType(p, identifyGens);
+            let type = identifyPeriodic(p, identifyGens);
             if (type.disp && type.stabilizedAt === 0 && type.disp[0] === 0 && type.disp[1] === 0) {
                 cats.push({period: type.period, p, x: p.xOffset, y: p.yOffset});
             } else {
@@ -771,7 +771,7 @@ function combineObjects(objs: ObjData[]): undefined | ObjData {
     }
     p.shrinkToFit();
     let code: string | undefined = undefined;
-    let type = findType(p, 2);
+    let type = identifyPeriodic(p, 2);
     if (type.period !== -1) {
         if (type.pops[type.pops.length - 1] === 0) {
             return undefined;

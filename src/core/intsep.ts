@@ -115,7 +115,7 @@ For optimization, we don't implement B1c.
 
 import {gcd} from './util.js';
 import {MAPPattern, INT} from './map.js';
-import {findType, PatternType} from './identify.js';
+import {identifyPeriodic, PatternType} from './identify.js';
 
 
 /** The list of two-island knots */
@@ -1405,7 +1405,7 @@ export class INTSeparator extends MAPPattern {
                         }
                     }
                     if (single) {
-                        let x = findType(p, limit);
+                        let x = identifyPeriodic(p, limit);
                         if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                             found = false;
                             break;
@@ -1416,7 +1416,7 @@ export class INTSeparator extends MAPPattern {
                         let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                         if (data === null) {
                             failed = true;
-                            let x = findType(p, limit);
+                            let x = identifyPeriodic(p, limit);
                             if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                 found = false;
                                 break;
@@ -1440,7 +1440,7 @@ export class INTSeparator extends MAPPattern {
                     }
                 }
             } else {
-                objs = this.getObjects().map(x => [x, findType(x, limit)]);
+                objs = this.getObjects().map(x => [x, identifyPeriodic(x, limit)]);
             }
             if (!objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty())) {
                 i = 0;
@@ -1494,7 +1494,7 @@ export class INTSeparator extends MAPPattern {
                             }
                         }
                         if (single) {
-                            let x = findType(p, limit);
+                            let x = identifyPeriodic(p, limit);
                             if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                 found = false;
                                 break;
@@ -1505,7 +1505,7 @@ export class INTSeparator extends MAPPattern {
                             let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
                             if (data === null) {
                                 failed = true;
-                                let x = findType(p, limit);
+                                let x = identifyPeriodic(p, limit);
                                 if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
                                     found = false;
                                     break;
@@ -1529,7 +1529,7 @@ export class INTSeparator extends MAPPattern {
                         }
                     }
                 } else {
-                    objs = this.getObjects().map(x => [x, findType(x, limit)]);
+                    objs = this.getObjects().map(x => [x, identifyPeriodic(x, limit)]);
                     failed = !objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty());
                 }
                 return [objs, failed];

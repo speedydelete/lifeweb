@@ -1,5 +1,5 @@
 
-import {lcm, MAPPattern, PatternType, findType, getApgcode, getKnots, INTSeparator} from '../core/index.js';
+import {lcm, MAPPattern, PatternType, identifyPeriodic, getApgcode, getKnots, INTSeparator} from '../core/index.js';
 import {c, base, maxGenerations, StillLife, Oscillator, CAObject, getLaneAndTimingFromXY} from './base.js';
 
 
@@ -71,7 +71,7 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             p.insert(obj.p, obj.x - minX, obj.y - minY);
         }
         p.shrinkToFit();
-        let type = findType(p, 2, false);
+        let type = identifyPeriodic(p, 2, false);
         if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
@@ -145,7 +145,7 @@ export function combineAllStableObjects(objs: ForCombining[]): false | ForCombin
         p.insert(obj.p, obj.x - minX, obj.y - minY);
     }
     p.shrinkToFit();
-    let type = findType(p, 2, false);
+    let type = identifyPeriodic(p, 2, false);
     if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
         return false;
     }
@@ -198,7 +198,7 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
         if (reassigned || reassigned2) {
             continue;
         }
-        objs = sep.getObjects().map(x => [x, findType(x, limit)]);
+        objs = sep.getObjects().map(x => [x, identifyPeriodic(x, limit)]);
         if (objs.every(([_, x]) => x.stabilizedAt === 0 && x.pops[x.pops.length - 1] !== 0)) {
             found = true;
             break;

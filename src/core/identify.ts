@@ -6,7 +6,7 @@ import {Pattern} from './pattern.js';
 import {MinmaxError, PhaseData, findMinmax} from './minmax.js';
 
 
-/** The output of `findType`, contains basic information about a possibly periodic pattern. */
+/** The output of `identifyPeriodic`, contains basic information about a possibly periodic pattern. */
 export interface PatternType extends PhaseData {
     /** If the pattern wasn't stable when identified, this will be set to the generation where the periodicity started. */
     stabilizedAt: number;
@@ -25,7 +25,7 @@ export interface PatternType extends PhaseData {
  * @param limit The maximum number of generations to run for.
  * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
  */
-export function findType(p: Pattern, limit: number, acceptStabilized: boolean = true, checkLinear: boolean = true): PatternType {
+export function identifyPeriodic(p: Pattern, limit: number, acceptStabilized: boolean = true, checkLinear: boolean = true): PatternType {
     p = p.copy().shrinkToFit();
     let phases: Pattern[] = [p.copy()];
     let pops: number[] = [p.population];
@@ -774,7 +774,7 @@ export interface Identified extends PatternType {
  */
 export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
-    let type = findType(p, limit, acceptStabilized);
+    let type = identifyPeriodic(p, limit, acceptStabilized);
     let minmax: [string, string] | undefined = undefined;
     try {
         minmax = findMinmax(p, type.stabilizedAt + (type.period === -1 ? limit : type.period), type);
