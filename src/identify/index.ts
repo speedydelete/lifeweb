@@ -197,9 +197,9 @@ export class CAPatternElement extends HTMLElement {
                 textElt.textContent = text;
                 if (data.apgcode !== 'PATHOLOGICAL') {
                     apgcodeElt.style.display = 'block';
-                    if (outputElt) {
-                        outputElt.style.display = 'flex';
-                    }
+                }
+                if (outputElt) {
+                    outputElt.style.display = 'flex';
                 }
             } else {
                 arrowElt.className = 'pattern-arrow closed';
