@@ -268,7 +268,7 @@ export function getDescription(type: PatternType | Identified): string {
                         let outputIsStable = type.output.disp[0] === 0 && type.output.disp[1] === 0;
                         if ('output' in type.output && type.output.output) {
                             if (type.output.output.disp) {
-                                out += `${isStable ? 'S' : 'M'}${outputIsStable ? 'S' : 'M'}${type.output.disp[0] === 0 && type.output.disp[1] === 0 ? 'S' : 'M'} breeder`;
+                                out += `${isStable ? 'S' : 'M'}${outputIsStable ? 'S' : 'M'}${type.output.output.disp[0] === 0 && type.output.output.disp[1] === 0 ? 'S' : 'M'} breeder`;
                             } else {
                                 out += `${isStable ? 'S' : 'M'}${outputIsStable ? 'S' : 'M'} breeder`;
                             }
