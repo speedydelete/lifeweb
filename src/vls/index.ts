@@ -1069,28 +1069,28 @@ return [options, out.join('\n')];
 }
 
 
-// export async function main() {
-//     let path = await import('node:path');
-//     let fs = await import('node:fs/promises');
-//     let execSync = (await import('node:child_process')).execSync;
-//     let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
-//     let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
-//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-//         execPath = './' + execPath;
-//     }
-//     let source = (await fs.readFile(`${import.meta.dirname}/../src/vls/index.c`)).toString();
-//     let [options, code] = await transformCode(process.argv, source);
-//     await fs.writeFile(sourcePath, code);
-//     try {
-//         let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
-//         console.log(command);
-//         execSync(command, {stdio: 'inherit'});
-//         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
-//     } catch (error) {
-//         process.exit(1);
-//     }
-// }
+export async function main() {
+    let path = await import('node:path');
+    let fs = await import('node:fs/promises');
+    let execSync = (await import('node:child_process')).execSync;
+    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../src/vls_to_compile.c`);
+    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../vls_compiled`);
+    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+        execPath = './' + execPath;
+    }
+    let source = (await fs.readFile(`${import.meta.dirname}/../src/vls/index.c`)).toString();
+    let [options, code] = await transformCode(process.argv, source);
+    await fs.writeFile(sourcePath, code);
+    try {
+        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
+        console.log(command);
+        execSync(command, {stdio: 'inherit'});
+        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
+    } catch (error) {
+        process.exit(1);
+    }
+}
 
-// if (import.meta.main) {
-//     main();
-// }
+if (import.meta.main) {
+    main();
+}
