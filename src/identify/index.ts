@@ -195,9 +195,11 @@ export class CAPatternElement extends HTMLElement {
             if (open) {
                 arrowElt.className = 'pattern-arrow open';
                 textElt.textContent = text;
-                apgcodeElt.style.display = 'block';
-                if (outputElt) {
-                    outputElt.style.display = 'flex';
+                if (data.apgcode !== 'PATHOLOGICAL') {
+                    apgcodeElt.style.display = 'block';
+                    if (outputElt) {
+                        outputElt.style.display = 'flex';
+                    }
                 }
             } else {
                 arrowElt.className = 'pattern-arrow closed';
