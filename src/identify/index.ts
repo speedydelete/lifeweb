@@ -40,14 +40,14 @@ function getMAPRuleTrs(rule: string, spec: INTSpec) {
 
 function computeCombinedMinmax() {
     if (selectedPatterns.size === 0) {
-        minmaxElt.textContent = 'No patterns selected.';
+        minmaxElt.textContent = 'No patterns selected';
         return;
     }
     let patterns = Array.from(selectedPatterns).filter(x => x.minmax !== undefined) as (PatternData & {minmax: [string, string]})[];
     let p = patterns[0].p;
     for (let data of patterns.slice(1)) {
         if (data.p.constructor !== p.constructor) {
-            minmaxElt.textContent = 'Patterns of different rulespaces are selected.';
+            minmaxElt.textContent = 'Patterns of different rulespaces are selected';
             return;
         }
     }
@@ -77,14 +77,14 @@ function computeCombinedMinmax() {
             let [newMaxB, newMaxS] = getMAPRuleTrs(data.minmax[1], spec);
             for (let tr of newMinB) {
                 if (!maxB.has(tr)) {
-                    minmaxElt.textContent = 'Patterns are incompatible.';
+                    minmaxElt.textContent = 'Patterns are incompatible';
                     return;
                 }
                 minB.add(tr);
             }
             for (let tr of newMinS) {
                 if (!maxS.has(tr)) {
-                    minmaxElt.textContent = 'Patterns are incompatible.';
+                    minmaxElt.textContent = 'Patterns are incompatible';
                     return;
                 }
                 minS.add(tr);
@@ -120,7 +120,7 @@ function computeCombinedMinmax() {
         minmaxElt.textContent = `Min: ${min}\nMax: ${max}`;
         return;
     } else {
-        minmaxElt.textContent = 'Unsupported rulespace for minmax.';
+        minmaxElt.textContent = 'Unsupported rulespace for minmax';
         return;
     }
 }
