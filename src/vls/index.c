@@ -1394,7 +1394,7 @@ typedef struct set_tr_info {
     int value;
 } set_tr_info;
 
-set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
+static set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
 
 static inline void init_multi_rule() {
     for (int tr = 0; tr < 512; tr++) {
