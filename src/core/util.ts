@@ -2,9 +2,16 @@
 /* Implements some utilities. */
 
 
+/** All errors raised by lifeweb. */
+export class LifewebError extends Error {
+    name = 'LifewebError';
+    [Symbol.toStringTag] = 'LifewebError';
+}
+
 /** This error is raised when a rulestring is invalid or the wrong rule is passed. */
-export class RuleError extends Error {
-    name: 'RuleError' = 'RuleError';
+export class RuleError extends LifewebError {
+    name = 'RuleError';
+    [Symbol.toStringTag] = 'LifewebError';
 }
 
 

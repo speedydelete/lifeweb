@@ -1,12 +1,18 @@
 
 /** Finds the minimum and maximum rule of patterns. */
 
-import {RuleError} from './util.js';
+import {LifewebError} from './util.js';
 import {Pattern, CoordPattern} from './pattern.js';
 import {INTSpec, INT, INT_SPECS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
 import {TreePattern} from './ruleloader.js';
+
+
+export class MinmaxError extends LifewebError {
+    name: 'MinmaxError' = 'MinmaxError';
+    [Symbol.toStringTag]: 'MinmaxError' = 'MinmaxError';
+}
 
 
 /** Stores information about the phases of a pattern. */
@@ -580,6 +586,6 @@ export function findMinmax(p: Pattern, gens: number, data?: PhaseData, step: num
     } else if (p instanceof TreePattern) {
         return [p.rule.str, p.rule.str];
     } else {
-        throw new RuleError(`Unknown pattern: ${p.constructor.name}`);
+        throw new MinmaxError(`Unknown pattern: ${p.constructor.name}`);
     }
 }

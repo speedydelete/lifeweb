@@ -15,7 +15,7 @@ The current implementation does NOT account for neighborhood restrictions, perha
 
 */
 
-import {gcd} from './util.js';
+import {LifewebError, gcd} from './util.js';
 import {INT, MAPPattern} from './map.js';
 import {findType, PatternType} from './identify.js';
 
@@ -289,7 +289,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
             if (found) {
                 let key = islands.sort().join('');
                 if (!(key in BASIC_KNOT_MERGES)) {
-                    throw new Error(`Merge not present for transition ${tr}: ${key}`);
+                    throw new LifewebError(`Merge not present for transition ${tr}: ${key}`);
                 }
                 out[tr] = BASIC_KNOT_MERGES[key];
             }

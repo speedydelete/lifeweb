@@ -1,9 +1,9 @@
 
 /* Contains utilities for identifying and getting other information about patterns. */
 
-import {RuleError, stringMD5} from './util.js';
+import {LifewebError, stringMD5} from './util.js';
 import {Pattern} from './pattern.js';
-import {PhaseData, findMinmax} from './minmax.js';
+import {MinmaxError, PhaseData, findMinmax} from './minmax.js';
 
 
 /** The output of `findType`, contains basic information about a possibly periodic pattern. */
@@ -194,7 +194,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     } else if (speed.startsWith('p')) {
         return {dx: 0, dy: 0, period: Number(speed.slice(1))};
     } else {
-        throw new Error('Invalid speed!');
+        throw new LifewebError(`Invalid speed: '${speed}'`);
     }
     let p = Number(period.endsWith('o') || period.endsWith('d') ? period.slice(0, -1) : period);
     let x: number;
@@ -212,7 +212,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
         x = Number(parts[0]);
         y = Number(parts[1]);
         if (Number.isNaN(x) || Number.isNaN(y) || parts.length !== 2) {
-            throw new Error(`Invalid speed: '${speed}'`);
+            throw new LifewebError(`Invalid speed: '${speed}'`);
         }
     } else if (disp === '') {
         x = 1;
@@ -222,7 +222,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
             y = 0;
         }
     } else {
-        throw new Error(`Invalid speed: '${speed}'`);
+        throw new LifewebError(`Invalid speed: '${speed}'`);
     }
     return {dx: x, dy: y, period: p};
 }
@@ -779,7 +779,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
     try {
         minmax = findMinmax(p, type.stabilizedAt + (type.period === -1 ? limit : type.period), type);
     } catch (error) {
-        if (!(error instanceof RuleError)) {
+        if (!(error instanceof MinmaxError)) {
             throw error;
         }
     }

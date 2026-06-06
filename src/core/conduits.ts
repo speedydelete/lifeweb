@@ -1,4 +1,5 @@
 
+import {LifewebError} from './util.js';
 import {MAPPattern, createMAPPattern} from './map.js';
 import {findType} from './identify.js';
 import {getKnots, INTSeparator} from './intsep.js';
@@ -202,7 +203,7 @@ function addRegion(p: MAPPattern, obj: string, dir: Direction, time: number, cen
         p.rule.states = 3;
         p.rule.str = 'B3/S23History';
         console.log(p.toRLE());
-        throw new Error(`No center cell found for ${obj}${dir}${time}`);
+        throw new LifewebError(`No center cell found for ${obj}${dir}${time}`);
     }
     let value = {p, obj, dir, x, y, time};
     let code = p.toApgcode();
@@ -379,7 +380,7 @@ export function createPartial(p: MAPPattern, sepGens: number, identifyGens: numb
                         continue;
                     }
                     if (i === sepGens - 1) {
-                        throw new Error(`More than 1 start object! (If there isn't, there is a bug, please tell speedydelete)`);
+                        throw new LifewebError(`More than 1 start object! (If there isn't, there is a bug, please tell speedydelete)`);
                     }
                 }
                 startP = p;
@@ -392,7 +393,7 @@ export function createPartial(p: MAPPattern, sepGens: number, identifyGens: numb
         sep.resolveKnots();
     }
     if (!startP) {
-        throw new Error('No start object!');
+        throw new LifewebError('No start object!');
     }
     let start: ConduitObject;
     let code = startP.toApgcode();

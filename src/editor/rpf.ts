@@ -11,10 +11,13 @@ export let path: (typeof import('node:path'))['posix'];
     (globalThis as any).path = path;
 })();
 
-import {Rect, Rule, Pattern, MAPPattern, speedToString, createPattern} from '../core/index.js';
+import {LifewebError, Rect, Rule, Pattern, MAPPattern, speedToString, createPattern} from '../core/index.js';
 
 
-export class RPFError extends Error {};
+export class RPFError extends LifewebError {
+    name = 'RPFError';
+    [Symbol.toStringTag] = 'RPFError';
+};
 
 
 export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
@@ -1028,8 +1031,9 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 }
 
 
-export class FSError extends Error {
+export class FSError extends LifewebError {
     name: 'FSError' = 'FSError';
+    [Symbol.toStringTag] = 'FSError';
 }
 
 type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new () => infer T} ? T : unknown;

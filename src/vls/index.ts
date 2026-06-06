@@ -52,10 +52,16 @@ Options:
 
     -n, --max-solutions: set the maximum solution count, default infinity
 
-    -r <rle>, --restrict <rle>: restrict generation 0 to the given RLE mask
-        if periodic mode, also restricts the last generation
-    --restrict-gen [<n>=<rle>...]: variadic, for each option
-        restricts generation n to the given RLE mask
+    -p, --pattern [[<gen>=]<rle>...]:
+        set generation n to the given RLE (variadic)
+        if no generation given, sets generation 0
+        (and if periodic mode, also set the last generation with translation)
+
+    -r, --restrict [[<gen>=]<rle>...]: 
+        restricts generation n to the given RLE mask (variadic)
+        if no generation given, restricts generation 0
+        (and if periodic mode, also restrict the last generation
+        (with translation))
 
     --top <type>
     --bottom <type>
@@ -95,8 +101,8 @@ const OPTIONS = {
     'search-order': 'string',
     'initial-value': 'number',
     'max-solutions': 'number',
-    'restrict': 'string',
-    'restrict-gen': [true, 'string'] as const,
+    'pattern': [true, 'string'],
+    'restrict': [true, 'string'],
     'top': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'left': new Set(['none', 'even', 'odd', 'wrap'] as const),
@@ -119,6 +125,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'o': 'search-order',
     'i': 'initial-value',
     'n': 'max-solutions',
+    'p': 'pattern',
     'r': 'restrict',
     's': 'symmetry',
 };
@@ -230,7 +237,15 @@ for (let i = 2; i < argv.length; i++) {
         let option = arg as Option;
         let value = OPTIONS[option];
         let data = getOption(originalArg, value, i);
-        (options[option] as any) = data[0];
+        if (Array.isArray(value) && Array.isArray(options[option])) {
+            if (Array.isArray(data[0])) {
+                (options[option] as any[]).push(...data[0]);
+            } else {
+                (options[option] as any[]).push(data[0]);
+            }
+        } else {
+            (options[option] as any) = data[0];
+        }
         i = data[1];
     } else {
         posArgs.push(arg);
@@ -484,6 +499,16 @@ class Grid {
         }
     }
 
+    setFrom(t: number, rle: string, xOffset: number, yOffset: number) {
+        let p = base.loadRLE(rle);
+        p.offsetBy(xOffset, yOffset);
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                this.set(t, x, y, p.get(x, y));
+            }
+        }
+    }
+
 }
 
 
@@ -556,8 +581,20 @@ if (mode === 'periodic') {
     for (let t = 1; t < period; t++) {
         grid.fill(t, UNKNOWN);
     }
+    if (options['pattern']) {
+        for (let value of options['pattern']) {
+            if (!value.includes('=')) {
+                grid.setFrom(grid.gens - 1, value, dx, dy);
+            }
+        }
+    }
+
     if (options['restrict']) {
-        grid.restrict(grid.gens - 1, options['restrict'], dx, dy);
+        for (let value of options['restrict']) {
+            if (!value.includes('=')) {
+                grid.restrict(grid.gens - 1, value, dx, dy);
+            }
+        }
     }
 
 } else if (mode === 'parent') {
@@ -804,14 +841,33 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
 }
 
 
-if (options['restrict']) {
-    grid.restrict(0, options['restrict'], 0, 0);
+if (options['pattern']) {
+    for (let value of options['pattern']) {
+        let gen = 0;
+        if (value.includes('=')) {
+            let parts = value.split('=');
+            gen = Number(parts[0]);
+            if (parts.length !== 2 || Number.isNaN(gen)) {
+                error(`Invalid value for pattern option: '${value}'`);
+            }
+            value = value[1];
+        }
+        grid.setFrom(gen, value, 0, 0);
+    }
 }
 
-if (options['restrict-gen']) {
-    for (let value of options['restrict-gen']) {
-        let [time, rle] = value.split(' ');
-        grid.restrict(Number(time), rle, 0, 0);
+if (options['restrict']) {
+    for (let value of options['restrict']) {
+        let gen = 0;
+        if (value.includes('=')) {
+            let parts = value.split('=');
+            gen = Number(parts[0]);
+            if (parts.length !== 2 || Number.isNaN(gen)) {
+                error(`Invalid value for restrict option: '${value}'`);
+            }
+            value = value[1];
+        }
+        grid.restrict(gen, value, 0, 0);
     }
 }
 

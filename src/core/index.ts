@@ -1,7 +1,7 @@
 
 /* The main file, exporting everything and also implementing many utility functions. */
 
-import {RuleError, lcm} from './util.js';
+import {LifewebError, RuleError, lcm} from './util.js';
 import {SYMMETRY_MEET, Rule, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
 import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
@@ -268,7 +268,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, preserv
             line = line.trim();
             let match = line.match(/x\s*=\s*(\d+)\s*,?\s*y\s*=\s*(\d+)\s*,?\s*(?:rule\s*=\s*(.*))?/);
             if (!match) {
-                throw new Error(`Invalid header line: '${line}'`);
+                throw new LifewebError(`Invalid header line: '${line}'`);
             }
             if (typeof match[1] === 'string') {
                 width = parseInt(match[1]);
@@ -445,10 +445,10 @@ export function getBlackWhiteReversal(rule: string): string {
         let index = p.rule.str.lastIndexOf(':');
         return getBlackWhiteReversal(p.rule.str.slice(0, index)) + p.rule.str.slice(index);
     } else if (p instanceof TreePattern) {
-        throw new RuleError(`Black/white reversal is not supported for RuleLoader`);
+        throw new LifewebError(`Black/white reversal is not supported for RuleLoader`);
     } else if (p instanceof AlternatingPattern) {
         return p.rule.str.split('|').map(getBlackWhiteReversal).join('|');
     } else {
-        throw new Error(`Unknown pattern: '${p.constructor.name}'`);
+        throw new LifewebError(`Unknown pattern: '${p}'`);
     }
 }

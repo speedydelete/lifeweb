@@ -1,7 +1,7 @@
 
 /** Implements an apgsearch-style soup searcher. */
 
-import {RuleError} from './util.js';
+import {LifewebError, RuleError} from './util.js';
 import {RLE_CHARS} from './pattern.js';
 import {createPattern} from './index.js';
 
@@ -332,7 +332,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
             }
         }
     } else {
-        throw new Error(`Invalid symmetry: ${symmetry}`);
+        throw new LifewebError(`Invalid symmetry: ${symmetry}`);
     }
     return {height, width, data: out};
 }
@@ -474,9 +474,9 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
             // @ts-ignore
             if (typeof alert === 'function') {
                 // @ts-ignore
-                alert('bruh');
+                alert('no');
             }
-            throw new RuleError('bruh');
+            throw new LifewebError('no');
         }
         let out = 'map' + ruleStr.slice(3, 88);
         if (ruleStr.length > 89 && ruleStr[89] === '/') {

@@ -1,6 +1,7 @@
 
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
+import {LifewebError} from './util.js';
 import {COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
 
 
@@ -170,7 +171,7 @@ export class TorusDataPattern extends DataPattern {
         super(dataHeight, dataWidth, data, rule);
         if (dataHeight !== height || dataWidth !== width) {
             if (dataHeight > height || dataWidth > width) {
-                throw new Error(`Pattern too big for torus! (${dataWidth}x${dataHeight} does not fit into ${width}x${height})`);
+                throw new LifewebError(`Pattern too big for torus! (${dataWidth}x${dataHeight} does not fit into ${width}x${height})`);
             }
             this.ensure(width, height);
             this.xOffset = 0;
