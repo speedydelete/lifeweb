@@ -57,7 +57,7 @@ Options:
         if no generation given, sets generation 0
         (and if periodic mode, also set the last generation with translation)
 
-    -r, --restrict [[<gen>=]<rle>...]: 
+    -r, --restrict [[<gen>=]<rle>...]:
         restricts generation n to the given RLE mask (variadic)
         if no generation given, restricts generation 0
         (and if periodic mode, also restrict the last generation
@@ -68,7 +68,7 @@ Options:
     --left <type>
     --right <type>
         set edge behavior, can either be 'none', 'even', 'odd', or 'wrap'
-    
+
     -s <symmetry>, --symmetry <symmetry>
         set a symmetry to be applied to the pattern
         alias for some combination of --top, --bottom, --left, and --right
@@ -140,7 +140,7 @@ type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]
     T extends readonly [infer First extends 'string' | 'number' | Set<string>, ...(infer Rest extends readonly ('string' | 'number' | Set<string>)[])] ? [ValueOfOption<First>, ...ValueOfArrayOption<Rest>] :
     never
 
-type ValueOfOption<T extends OptionValue> = 
+type ValueOfOption<T extends OptionValue> =
     T extends true ? true :
     T extends 'string' ? string :
     T extends 'number' ? number :

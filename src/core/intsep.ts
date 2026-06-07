@@ -439,7 +439,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
 }
 
 
-/** Separates objects in INT rules using a colorizing algorithm. May have bugs. For details about that algorithm, see the comments at the top of lifeweb/src/2d/intsep.ts. 
+/** Separates objects in INT rules using a colorizing algorithm. May have bugs. For details about that algorithm, see the comments at the top of lifeweb/src/2d/intsep.ts.
  * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
 */
 export class INTSeparator extends MAPPattern {
@@ -701,7 +701,7 @@ export class INTSeparator extends MAPPattern {
                     if (trs[tr]) {
                         out[loc] = 1;
                         if (tr & 16) {
-                            newGroups[loc] = groups[i - 1];   
+                            newGroups[loc] = groups[i - 1];
                         } else if (tr & 8) {
                             if (tr === 0b000101000) {
                                 reassignments.push([groups[i - 2], groups[i]]);
@@ -1279,7 +1279,7 @@ export class INTSeparator extends MAPPattern {
         }
         return out;
     }
-    
+
     /** Gets all the groups as individual objects. Does not set the generation property, so if you want that, you should set it yourself. */
     getObjects(): MAPPattern[] {
         let groups = this.groups;

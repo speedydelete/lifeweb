@@ -4,7 +4,7 @@ import {MAPPattern, parse} from '../core/index.js';
 import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes, printMemory} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
-import {mergeRecipes, sortRecipes, salvoToChannel} from './compiler.js';
+import {sortRecipes, salvoToChannel} from './compiler.js';
 
 
 export async function run(): Promise<void> {
@@ -56,7 +56,7 @@ Options:
     -b <beam>, --beam <beam>: For convert, the beam width to use. Not providing this option will make it use full Dijkstra instead of beam search.
 
     -f <path>, --file <path>: Provide an output file to append stdout to as well as putting it on the screen.
-    
+
     --force-end-elbow <elbow>: For convert, force an ending elbow.
 
     --destroy-elbow: For convert, destroy the elbow.
@@ -248,7 +248,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
             error(`Cannot use 'from' with restricted-channel (will hopefully be supported soon!)`);
         }
     },
-    
+
     async 'search'(): Promise<void> {
         if (type in c.SALVO_INFO) {
             await searchSalvos(type, args[0], options['no-compile']);

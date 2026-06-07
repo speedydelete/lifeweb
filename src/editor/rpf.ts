@@ -279,7 +279,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         }
         return out.join('\n');
     }
- 
+
     static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
         data = data.trim();
         let lines = data.split('\n').map(x => x.trim()).filter(x => x !== '' && !x.startsWith('//'));
@@ -363,7 +363,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                             time: parts[4] === undefined ? 0 : Number(parts[4]),
                         };
                         if (type === 'input') {
-                            conduit.inputs.push(obj);   
+                            conduit.inputs.push(obj);
                         } else {
                             conduit.outputs.push(obj);
                         }
@@ -496,7 +496,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             let q = this.creates.p;
             if (!(q instanceof RPFPattern)) {
                 return `${prefix} ${moves ? 'puffer' : 'factory'}`;
-            } 
+            }
             prefix += q.getName() + ' ';
             if (!q.periodic) {
                 return `${prefix} ${moves ? 'puffer' : 'factory'}`;
@@ -743,14 +743,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         throw new Error(`Cannot use setData with RPFPattern`);
     }
 
-    getCoords(): Map<number, number> {
-        return this.toPattern().getCoords();
-    }
-
-    setCoords(coords: Map<number, number>): never {
-        throw new Error(`Cannot use setCoords with RPFPattern`);
-    }
-
     isEqual(other: Pattern): boolean {
         if (!(this.height === other.height && this.width === other.width)) {
             return false;
@@ -843,7 +835,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         }
         return this;
     }
-    
+
     transpose(): this {
         let centerX = this.minX + Math.floor(this.height / 2);
         let centerY = this.minY + Math.floor(this.width / 2);
@@ -1079,7 +1071,7 @@ export class File {
         this.rpf = RPFFile.fromString(this.value, basePath);
         return this.rpf;
     }
-    
+
     async sync(): Promise<void> {
         if (!this.handle) {
             return;

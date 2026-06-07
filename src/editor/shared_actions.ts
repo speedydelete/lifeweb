@@ -391,7 +391,7 @@ addHook(sharedActions, 'run-command', () => {
             try {
                 (new Function(cmd))();
             } catch (error2) {
-                error = error2;   
+                error = error2;
             }
         }
         let msg: string;

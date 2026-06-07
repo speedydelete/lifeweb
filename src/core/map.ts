@@ -1,5 +1,5 @@
 
-/* Implements the 2**512 2-state range-1 Moore-neighborhood cellular automata and their Generations variants. 
+/* Implements the 2**512 2-state range-1 Moore-neighborhood cellular automata and their Generations variants.
 We index the trs variables like this to make it faster:
 852
 741

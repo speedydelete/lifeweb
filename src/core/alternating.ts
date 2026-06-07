@@ -35,7 +35,7 @@ export class AlternatingPattern extends DataPattern {
         out.yOffset = this.yOffset;
         return out;
     }
-    
+
     clearedCopy(): AlternatingPattern {
         return new AlternatingPattern(0, 0, new Uint8Array(0), this.rule, this.patterns);
     }

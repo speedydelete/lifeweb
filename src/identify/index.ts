@@ -148,7 +148,7 @@ export class CAPatternElement extends HTMLElement {
                     selectedPatterns.delete(data);
                 }
                 computeCombinedMinmax();
-            });  
+            });
         } else {
             checkbox.style.display = 'none';
         }

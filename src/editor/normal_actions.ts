@@ -1,5 +1,5 @@
 
-import {INSERT_OR, INSERT_COPY, INSERT_AND, INSERT_XOR, Pattern, CoordPattern} from '../core/index.js';
+import {INSERT_OR, INSERT_COPY, INSERT_AND, INSERT_XOR, Pattern} from '../core/index.js';
 import {Rotation, transformCoordinates} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
 
@@ -12,7 +12,7 @@ function editCell(isStart: boolean): void {
     }
     prevEditX = x;
     prevEditY = y;
-    if ((x < 0 || y < 0) && !(p instanceof CoordPattern)) {
+    if (x < 0 || y < 0) {
         let x2 = -Math.min(x, 0);
         let y2 = -Math.min(y, 0);
         p.offsetBy(x2, y2);
@@ -373,5 +373,5 @@ addHook(normalActions, 'select-all', event => {
         event.preventDefault();
     }
     cursorMode = 'select';
-    sel = {x: p.xOffset, y: p.yOffset, height: p.height, width: p.width}; 
+    sel = {x: p.xOffset, y: p.yOffset, height: p.height, width: p.width};
 });

@@ -442,7 +442,7 @@ addHook(rpfActions, 'end-paste', () => {
     rpfPasting = undefined;
 });
 
-addHook(rpfActions, 'select-all', event => { 
+addHook(rpfActions, 'select-all', event => {
     if (event) {
         event.preventDefault();
     }
@@ -452,7 +452,7 @@ addHook(rpfActions, 'select-all', event => {
 });
 
 
-addHook(rpfActions, 'inc-interaction-level', () => { 
+addHook(rpfActions, 'inc-interaction-level', () => {
     interactionLevel++;
 });
 

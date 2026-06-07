@@ -2,7 +2,7 @@
 /** Finds the minimum and maximum rule of patterns. */
 
 import {LifewebError} from './util.js';
-import {Pattern, CoordPattern} from './pattern.js';
+import {Pattern} from './pattern.js';
 import {INTSpec, INT, INT_SPECS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
@@ -32,7 +32,7 @@ function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): bo
         if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
         }
-        if (!(p instanceof CoordPattern ? p.isEqualWithTranslate(data.phases[i]) : p.isEqual(data.phases[i]))) {
+        if (!p.isEqual(data.phases[i])) {
             return false;
         }
         p.run(step);

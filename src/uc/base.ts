@@ -617,7 +617,7 @@ export type ElbowData = {[key: string]: (
     {type: 'convert', elbow: string, flipped: boolean, move: number, timing: number, emit?: Spaceship[]} |
     {type: 'destroy', emit?: Spaceship[]} |
     {type: 'no collision'} |
-    {type: 'bad'} | 
+    {type: 'bad'} |
     {type: 'rare'}
 )[]};
 
@@ -848,8 +848,8 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         value.push({
                             type: 'normal',
                             result: values[0],
-                            results: values.slice(1, 4), 
-                            flippedResult: values[4], 
+                            results: values.slice(1, 4),
+                            flippedResult: values[4],
                             flippedResults: values.slice(5),
                         });
                     }

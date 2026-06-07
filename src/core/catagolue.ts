@@ -94,7 +94,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
             for (let j = 0; j < 16; j++) {
                 let value = base[i + j];
                 out[loc1 + j] = value;
-                out[loc2 + j] = value; 
+                out[loc2 + j] = value;
             }
             loc1 -= width;
             loc2 += width;
@@ -338,7 +338,7 @@ export async function getHashsoup(soup: string, symmetry: string): Promise<{heig
 }
 
 
-const HASHSOUP_LETTERS = 'abcdefghijkmnpqrstuvwxyzZ0123456789';
+const HASHSOUP_LETTERS = 'abcdefghijklmnpqrstuvwxyz0123456789';
 
 /** Get a random apgsearch/Catagolue hashsoup. */
 export function randomHashsoup(): string {
@@ -353,7 +353,7 @@ export function randomHashsoup(): string {
                 crypto.getRandomValues(data);
                 i = 0;
             }
-        } while (value >= 56);
+        } while (value >= 36);
         out += HASHSOUP_LETTERS[value];
     }
     return out;
@@ -370,7 +370,25 @@ export function toCatagolueRule(rule: string, customRules?: {[key: string]: stri
         return 'xalternating_' + rule.split('|').map(x => toCatagolueRule(x, customRules)).join('_');
     }
     let ruleStr = createPattern(rule, customRules).rule.str;
-    if (ruleStr.includes('/')) {
+    if (ruleStr.endsWith('History')) {
+        let out = toCatagolueRule(ruleStr.slice(0, -'History'.length));
+        if (!out.startsWith('x')) {
+            out = 'x' + out;
+        }
+        return out + 'history';
+    } else if (ruleStr.endsWith('Super')) {
+        let out = toCatagolueRule(ruleStr.slice(0, -'Super'.length));
+        if (!out.startsWith('x')) {
+            out = 'x' + out;
+        }
+        return out + 'super';
+    } else if (ruleStr.endsWith('Investigator')) {
+        let out = toCatagolueRule(ruleStr.slice(0, -'Investigator'.length));
+        if (!out.startsWith('x')) {
+            out = 'x' + out;
+        }
+        return out + 'investigator';
+    } else if (ruleStr.includes('/')) {
         let parts = ruleStr.split('/');
         parts[0] = parts[0];
         parts[1] = parts[1];

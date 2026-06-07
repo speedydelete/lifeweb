@@ -486,7 +486,7 @@ export function getConduitName(data: Conduit, removeH: boolean = false): string 
             }
         }
         for (let [obj, count] of Object.entries(counts).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
-            out.push(`${count === 1 ? '' : count + 'x'}(${obj})`);   
+            out.push(`${count === 1 ? '' : count + 'x'}(${obj})`);
         }
     }
     let input: string;
@@ -516,7 +516,7 @@ export function getConduitName(data: Conduit, removeH: boolean = false): string 
 
 
 function worksAtRepeatTime(data: Conduit, cats: Catalyst[], start: ConduitObjectInfo, rt: number, removeFNG?: number): boolean {
-    let p = data.p.copy(); 
+    let p = data.p.copy();
     for (let i = 0; i < rt; i++) {
         p.runGeneration();
         p.shrinkToFit();

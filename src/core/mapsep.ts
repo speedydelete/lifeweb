@@ -294,7 +294,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
                 out[tr] = BASIC_KNOT_MERGES[key];
             }
         } else if (IS_MULTI_ISLAND_KNOT[tr]) {
-            out[tr] = KNOT_MULTI_ISLAND;   
+            out[tr] = KNOT_MULTI_ISLAND;
         }
     }
     return out;
@@ -563,7 +563,7 @@ export class MAPSeparator extends MAPPattern {
                     if (trs[tr]) {
                         out[loc] = 1;
                         if (tr & 16) {
-                            newGroups[loc] = groups[i - 1];   
+                            newGroups[loc] = groups[i - 1];
                         } else if (tr & 8) {
                             if (tr === 0b000101000) {
                                 reassignments.push([groups[i - 2], groups[i]]);

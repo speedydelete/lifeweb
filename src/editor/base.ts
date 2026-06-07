@@ -12,7 +12,7 @@ declare global {
     function getElement(id: string): HTMLElement;
     function getElement<T extends keyof HTMLElementTagNameMap = keyof HTMLElementTagNameMap>(id: string, type: T): HTMLElementTagNameMap[T];
 
-    type DefaultAction = 
+    type DefaultAction =
         | 'frame'
         | 'window-click' | 'window-visibilitychange'
         | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas' | 'right-click-canvas'
@@ -337,7 +337,7 @@ let fsFolderTemplate = getElement('fs-folder-template', 'template').content;
 export class FSFolderElement extends HTMLElement {
 
     static observedAttributes = ['name', 'open'];
-    
+
     file: Directory;
 
     _iconOpenElt: HTMLElement;
@@ -488,7 +488,7 @@ customElements.define('fs-rpf-item', FSRPFItemElement);
 export class FSRPFFileElement extends HTMLElement {
 
     static observedAttributes = ['name', 'open'];
-    
+
     file: File & {rpf: RPFFile};
 
     _iconOpenElt: HTMLElement;

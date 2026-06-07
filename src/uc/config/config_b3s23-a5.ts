@@ -39,7 +39,7 @@ interface SpaceshipInfo {
 }
 
 const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
-    
+
     'xq4_27': {
         code: 'xq4_27',
         dx: 0,

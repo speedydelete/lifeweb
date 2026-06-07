@@ -397,7 +397,7 @@ export class R1Separator<T extends DataPattern = DataPattern> extends DataPatter
                             reassignments.push([x, islands[0]]);
                         }
                     }
-                    // if there's no B2n 
+                    // if there's no B2n
                 }
             }
         }

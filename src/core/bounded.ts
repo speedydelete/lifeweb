@@ -2,13 +2,13 @@
 /* Implements rules where patterns run on finite grids (https://conwaylife.com/wiki/Bounded_grids). */
 
 import {LifewebError} from './util.js';
-import {COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, Pattern, DataPattern, CoordPattern} from './pattern.js';
+import {Rule, Pattern, DataPattern} from './pattern.js';
 
 
-/** A DataPattern-based implementation of rules running on finite planes.
+/** An implementation of rules running on finite planes.
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
-export class FiniteDataPattern extends DataPattern {
+export class FinitePattern extends DataPattern {
 
     pattern: Pattern;
 
@@ -51,119 +51,51 @@ export class FiniteDataPattern extends DataPattern {
         return this;
     }
 
-    copy(): FiniteDataPattern {
-        let out = new FiniteDataPattern(this.height, this.width, this.data, this.rule, this.pattern);
+    copy(): FinitePattern {
+        let out = new FinitePattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         return out;
     }
 
-    clearedCopy(): FiniteDataPattern {
-        return new FiniteDataPattern(this.height, this.width, new Uint8Array(this.size), this.rule, this.pattern);
+    clearedCopy(): FinitePattern {
+        return new FinitePattern(this.height, this.width, new Uint8Array(this.size), this.rule, this.pattern);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): FiniteDataPattern {
+    copyPart(x: number, y: number, height: number, width: number): FinitePattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new FiniteDataPattern(this.height, this.width, data, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, data, this.rule, this.pattern);
     }
 
-    loadApgcode(code: string): FiniteDataPattern {
+    loadApgcode(code: string): FinitePattern {
         let [height, width, data] = this._loadApgcode(code);
         let out = new Uint8Array(this.size);
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FiniteDataPattern(this.height, this.width, out, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern);
     }
 
-    loadRLE(rle: string): FiniteDataPattern {
+    loadRLE(rle: string): FinitePattern {
         let [height, width, data] = this._loadRLE(rle);
         let out = new Uint8Array(this.size);
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FiniteDataPattern(this.height, this.width, out, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern);
     }
 
 }
 
 
-/** A CoordPattern-based implementation of rules running on finite planes.
+/** An implementation of rules running on toruses.
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
-export class FiniteCoordPattern extends CoordPattern {
-
-    pattern: Pattern;
-    /** The height of the bounding box. */
-    bbHeight: number;
-    /** The width of the bounding box. */
-    bbWidth: number;
-
-    constructor(coords: Map<number, number>, rule: Rule, p: Pattern, bbWidth: number, bbHeight: number) {
-        super(coords, rule);
-        this.pattern = p;
-        this.bbHeight = bbHeight;
-        this.bbWidth = bbWidth;
-    }
-
-    runGeneration(): void {
-        let p = this.pattern;
-        p.setCoords(this.coords);
-        p.runGeneration();
-        this.coords = p.getCoords();
-        for (let key of this.coords.keys()) {
-            let x = Math.floor(key / WIDTH) - BIAS;
-            let y = (key & (WIDTH - 1)) - BIAS;
-            if (x < 0 || y < 0 || x > this.bbWidth || y > this.bbHeight) {
-                this.coords.delete(key);
-            }
-        }
-        this.generation++;
-    }
-
-    copy(): FiniteCoordPattern {
-        let out = new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
-        out.generation = this.generation;
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
-        return out;
-    }
-
-    clearedCopy(): FiniteCoordPattern {
-        return new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): FiniteCoordPattern {
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let px = Math.floor(key / WIDTH) - BIAS;
-            let py = (key & (WIDTH - 1)) - BIAS;
-            if (px >= x && px < x + width && py >= y && py < y + height) {
-                out.set(key, value);
-            }
-        }
-        return new FiniteCoordPattern(this.coords, this.rule, this.pattern, this.bbHeight, this.bbWidth);
-    }
-
-    loadApgcode(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadApgcode2(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
-    }
-
-    loadRLE(code: string): FiniteCoordPattern {
-        return new FiniteCoordPattern(this._loadRLE2(code), this.rule, this.pattern, this.bbHeight, this.bbWidth);
-    }
-
-}
-
-
-/** A DataPattern-based implementation of rules running on toruses.
- * @param pattern The pattern that implements the rule, can be shared by multiple instances.
- */
-export class TorusDataPattern extends DataPattern {
+export class TorusPattern extends DataPattern {
 
     pattern: Pattern;
 
@@ -223,155 +155,36 @@ export class TorusDataPattern extends DataPattern {
         return this;
     }
 
-    copy(): TorusDataPattern {
-        let out = new TorusDataPattern(this.height, this.width, this.height, this.width, this.data, this.rule, this.pattern);
+    copy(): TorusPattern {
+        let out = new TorusPattern(this.height, this.width, this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): TorusDataPattern {
-        return new TorusDataPattern(0, 0, 0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): TorusPattern {
+        return new TorusPattern(0, 0, 0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): TorusDataPattern {
+    copyPart(x: number, y: number, height: number, width: number): TorusPattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new TorusDataPattern(height, width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(height, width, height, width, data, this.rule, this.pattern);
     }
 
-    loadApgcode(code: string): TorusDataPattern {
+    loadApgcode(code: string): TorusPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new TorusDataPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
     }
 
-    loadRLE(rle: string): TorusDataPattern {
+    loadRLE(rle: string): TorusPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new TorusDataPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
     }
-
-}
-
-
-/** A CoordPattern-based implementation of rules running on toruses, broken.
- * @param pattern The pattern that implements the rule, can be shared by multiple instances.
- */
-export class TorusCoordPattern extends CoordPattern {
-
-    pattern: Pattern;
-    /** The height of the torus. */
-    torusHeight: number;
-    /** The width of the torus. */
-    torusWidth: number;
-    /** The minimum X value of live cells. */
-    minX: number;
-    /** The minimum Y value of live cells. */
-    minY: number;
-    /** The maximum X value of live cells. */
-    maxX: number;
-    /** The maximum Y value of live cells. */
-    maxY: number;
-
-    constructor(coords: Map<number, number>, rule: Rule, p: Pattern, torusWidth: number, torusHeight: number) {
-        super(coords, rule);
-        this.pattern = p;
-        if (torusHeight === 0) {
-            torusHeight = Infinity;
-        }
-        if (torusWidth === 0) {
-            torusWidth = Infinity;
-        }
-        this.torusHeight = torusHeight;
-        this.torusWidth = torusWidth;
-        this.minX = -Math.ceil(torusWidth / 2);
-        this.maxX = Math.floor(torusWidth / 2);
-        this.minY = -Math.ceil(torusHeight / 2);
-        this.maxY = Math.floor(torusHeight / 2);
-    }
-
-    runGeneration(): void {
-        let range = this.rule.range;
-        let torusHeight = this.torusHeight;
-        let torusWidth = this.torusWidth;
-        let p = this.pattern;
-        let coords = this.coords;
-        for (let [key, value] of coords.entries()) {
-            let x = Math.floor(key / WIDTH) - BIAS;
-            let y = (key & (WIDTH - 1)) - BIAS;
-            if (y < this.minY + range) {
-                coords.set(key + torusHeight * WIDTH, value);
-                if (x < this.minX + range) {
-                    coords.set(key + torusHeight * WIDTH + torusWidth, value);
-                }
-                if (x > this.maxX - range) {
-                    coords.set(key + torusHeight * WIDTH - torusWidth, value);
-                }
-            }
-            if (x < this.minX + range) {
-                coords.set(key + torusWidth, value);
-            }
-            if (x > this.maxX - range) {
-                coords.set(key - torusWidth, value);
-            }
-            if (y > this.maxY - range) {
-                coords.set(key - torusHeight * WIDTH, value);
-                if (x < this.minX + range) {
-                    coords.set(key + torusHeight * WIDTH + torusWidth, value);
-                }
-                if (x > this.maxX - range) {
-                    coords.set(key + torusHeight * WIDTH - torusWidth, value);
-                }
-            }
-        }
-        p.setCoords(coords);
-        p.runGeneration();
-        this.coords = p.getCoords();
-        for (let key of this.coords.keys()) {
-            let x = Math.floor(key / WIDTH) - BIAS;
-            let y = (key & (WIDTH - 1)) - BIAS;
-            if (x < this.minX || y < this.minY || x > this.minX + torusWidth || y > this.minY + torusHeight) {
-                this.coords.delete(key);
-            }
-        }
-        this.generation++;
-    }
-
-    copy(): TorusCoordPattern {
-        let out = new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
-        out.generation = this.generation;
-        out.xOffset = this.xOffset;
-        out.yOffset = this.yOffset;
-        return out;
-    }
-
-    clearedCopy(): TorusCoordPattern {
-        return new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): TorusCoordPattern {
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let px = Math.floor(key / WIDTH) - BIAS;
-            let py = (key & (WIDTH - 1)) - BIAS;
-            if (px >= x && px < x + width && py >= y && py < y + height) {
-                out.set(key, value);
-            }
-        }
-        return new TorusCoordPattern(this.coords, this.rule, this.pattern, this.torusHeight, this.torusWidth);
-    }
-
-    loadApgcode(code: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadApgcode2(code), this.rule, this.pattern, this.torusHeight, this.torusWidth);
-    }
-
-    loadRLE(rle: string): TorusCoordPattern {
-        return new TorusCoordPattern(this._loadRLE2(rle), this.rule, this.pattern, this.torusHeight, this.torusWidth);
-    }
-
 
 }

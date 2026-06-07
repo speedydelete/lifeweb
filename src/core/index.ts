@@ -2,11 +2,11 @@
 /* The main file, exporting everything and also implementing many utility functions. */
 
 import {LifewebError, RuleError, lcm} from './util.js';
-import {SYMMETRY_MEET, Rule, Pattern, DataPattern, CoordPattern, RuleSymmetry} from './pattern.js';
+import {SYMMETRY_MEET, Rule, Pattern, DataPattern, RuleSymmetry} from './pattern.js';
 import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
-import {DataHistoryPattern, CoordHistoryPattern, DataSuperPattern, CoordSuperPattern, InvestigatorPattern} from './super.js';
-import {FiniteDataPattern, FiniteCoordPattern, TorusDataPattern, TorusCoordPattern} from './bounded.js';
+import {HistoryPattern, SuperPattern, InvestigatorPattern} from './super.js';
+import {FinitePattern, TorusPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {TreePattern, createTreePattern} from './ruleloader.js';
 
@@ -80,18 +80,12 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('History')) {
         try {
-            let p = createPattern(rule.slice(0, -7), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -'History'.length), namedRules, height, width, data, undefined);
             if (p.rule.states !== 2) {
                 throw new RuleError('History is only supported for 2-state rules');
             }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'History', states: 7});
-            if (p instanceof DataPattern) {
-                return new DataHistoryPattern(height, width, data, ruleData, p);
-            } else if (p instanceof CoordPattern) {
-                return new CoordHistoryPattern(p.coords, ruleData, p);
-            } else {
-                throw new RuleError(`Unknown Pattern subclass: ${p}`);
-            }
+            return new HistoryPattern(height, width, data, ruleData, p);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
@@ -107,13 +101,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
                 throw new RuleError('Super is only supported for 2-state rules');
             }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Super', states: 26})
-            if (p instanceof DataPattern) {
-                return new DataSuperPattern(height, width, data, ruleData, p);
-            } else if (p instanceof CoordPattern) {
-                return new CoordSuperPattern(p.coords, ruleData, p);
-            } else {
-                throw new RuleError(`Unknown Pattern subclass: ${p}`);
-            }
+            return new SuperPattern(height, width, data, ruleData, p);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
@@ -128,13 +116,8 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             if (p.rule.states !== 2) {
                 throw new RuleError('Investigator is only supported for 2-state rules');
             }
-            if (p instanceof DataPattern) {
-                return new InvestigatorPattern(height, width, data, Object.assign({}, p.rule, {str: p.rule.str + 'Investigator', states: 21}), p);
-            } else if (p instanceof CoordPattern) {
-                throw new RuleError(`Investigator is not supported for CoordPatterns`);
-            } else {
-                throw new RuleError(`Unknown Pattern subclass: ${p}`);
-            }
+            let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Investigator', states: 21});
+            return new InvestigatorPattern(height, width, data, ruleData, p);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
@@ -158,30 +141,22 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             }
             let ruleData: Rule = Object.assign({}, p.rule, {str: `${p.rule.str}:${type}${x},${y}`});
             if (type === 'P') {
-                // if (p instanceof CoordPattern) {
-                //     return new FiniteCoordPattern(p.coords, ruleData, p, x, y);
-                // } else {
-                    if (x !== width || y !== height) {
-                        let newData = new Uint8Array(x * y);
-                        let i = 0;
-                        for (let y2 = 0; y2 < height; y2++) {
-                            let loc = y2 * x;
-                            for (let x2 = 0; x2 < width; x2++) {
-                                newData[loc++] = data[i++];
-                            }
+                if (x !== width || y !== height) {
+                    let newData = new Uint8Array(x * y);
+                    let i = 0;
+                    for (let y2 = 0; y2 < height; y2++) {
+                        let loc = y2 * x;
+                        for (let x2 = 0; x2 < width; x2++) {
+                            newData[loc++] = data[i++];
                         }
-                        data = newData;
-                        height = y;
-                        width = x;
                     }
-                    return new FiniteDataPattern(height, width, data, ruleData, p);
-                // }
+                    data = newData;
+                    height = y;
+                    width = x;
+                }
+                return new FinitePattern(height, width, data, ruleData, p);
             } else if (type === 'T') {
-                // if (p instanceof CoordPattern) {
-                //     return new TorusCoordPattern(p.coords, ruleData, p, x, y);
-                // } else {
-                    return new TorusDataPattern(y, x, height, width, p.getData(), ruleData, p);
-                // }
+                return new TorusPattern(y, x, height, width, p.getData(), ruleData, p);
             } else {
                 throw new RuleError(`Invalid bounded grid specifier: '${parts[1]}'`);
             }
@@ -221,7 +196,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     throw new RuleError(errors.join(', '));
 }
 
-/** Parses a RLE. 
+/** Parses a RLE.
  * @param namedRules An object mapping aliases to rules.
 */
 export function parse(rle: string, namedRules?: {[key: string]: string}, preserveSizes: boolean = false): Pattern {
@@ -435,13 +410,13 @@ export function getBlackWhiteReversal(rule: string): string {
             }
         }
         return out;
-    } else if (p instanceof DataHistoryPattern || p instanceof CoordHistoryPattern) {
-        return getBlackWhiteReversal(p.rule.str.slice(0, -7)) + 'History';
-    } else if (p instanceof DataSuperPattern || p instanceof CoordSuperPattern) {
-        return getBlackWhiteReversal(p.rule.str.slice(0, -5)) + 'Super';
+    } else if (p instanceof HistoryPattern) {
+        return getBlackWhiteReversal(p.rule.str.slice(0, -'History'.length)) + 'History';
+    } else if (p instanceof SuperPattern) {
+        return getBlackWhiteReversal(p.rule.str.slice(0, -'Super'.length)) + 'Super';
     } else if (p instanceof InvestigatorPattern) {
-        return getBlackWhiteReversal(p.rule.str.slice(0, -12)) + 'Investigator';
-    } else if (p instanceof FiniteDataPattern || p instanceof FiniteCoordPattern || p instanceof TorusDataPattern || p instanceof TorusCoordPattern) {
+        return getBlackWhiteReversal(p.rule.str.slice(0, -'Investigator'.length)) + 'Investigator';
+    } else if (p instanceof FinitePattern || p instanceof TorusPattern) {
         let index = p.rule.str.lastIndexOf(':');
         return getBlackWhiteReversal(p.rule.str.slice(0, index)) + p.rule.str.slice(index);
     } else if (p instanceof TreePattern) {

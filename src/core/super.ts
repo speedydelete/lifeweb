@@ -1,17 +1,17 @@
 
 /** Implements the Golly Super algorithm (https://conwaylife.com/wiki/OCA:LifeSuper) plus [R]Investigator (https://conwaylife.com/wiki/User:Entity_Valkyrie_2/StateInvestigator). */
 
-import {COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, Rule, DataPattern, CoordPattern} from './pattern.js';
+import {Rule, Pattern, DataPattern} from './pattern.js';
 
 
-/** A DataPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
+/** An implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
-export class DataHistoryPattern extends DataPattern {
+export class HistoryPattern extends DataPattern {
 
-    pattern: DataPattern;
+    pattern: Pattern;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: Pattern) {
         super(height, width, data, rule);
         this.pattern = pattern;
     }
@@ -98,153 +98,36 @@ export class DataHistoryPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): DataHistoryPattern {
-        let out = new DataHistoryPattern(this.height, this.width, this.data, this.rule, this.pattern);
+    copy(): HistoryPattern {
+        let out = new HistoryPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): DataHistoryPattern {
-        return new DataHistoryPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): HistoryPattern {
+        return new HistoryPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): DataHistoryPattern {
+    copyPart(x: number, y: number, height: number, width: number): HistoryPattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
-    loadApgcode(code: string): DataHistoryPattern {
+    loadApgcode(code: string): HistoryPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
-    loadRLE(rle: string): DataHistoryPattern {
+    loadRLE(rle: string): HistoryPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new DataHistoryPattern(height, width, data, this.rule, this.pattern);
-    }
-
-}
-
-
-/** A CoordPattern-based implementation of [R]History (https://conwaylife.com/wiki/OCA:LifeHistory).
- * @param pattern The pattern that implements the rule, can be shared by multiple instances.
- */
-export class CoordHistoryPattern extends CoordPattern {
-
-    pattern: CoordPattern;
-
-    constructor(coords: Map<number, number>, rule: Rule, pattern: CoordPattern) {
-        super(coords, rule);
-        this.pattern = pattern;
-    }
-
-    runGeneration(): void {
-        let p = this.pattern;
-        let coords = this.coords;
-        p.setCoords(coords);
-        p.runGeneration();
-        let out = p.coords;
-        let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
-        minX = minX - this.rule.range + BIAS;
-        maxX = maxX + this.rule.range + BIAS;
-        minY = minY - this.rule.range + BIAS;
-        maxY = maxY + this.rule.range + BIAS;
-        let state6: number[] = [];
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-                let key = x * WIDTH + y;
-                let oldValue = coords.get(key) ?? 0;
-                let newValue = out.get(key) ?? 0;
-                if (oldValue === 0 || oldValue === 2) {
-                    if (newValue === 0) {
-                        out.set(key, oldValue);
-                    }
-                } else if (oldValue === 1) {
-                    out.set(key, newValue ? 1 : 2);
-                } else if (oldValue === 3 || oldValue === 5) {
-                    out.set(key, newValue ? oldValue : 4);
-                } else if (oldValue === 4) {
-                    out.set(key, newValue ? 3 : 4);
-                } else if (oldValue === 6) {
-                    out.set(key, 6);
-                    state6.push(key);
-                    if ((coords.get(key - WIDTH - 1) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH - 1, 2);
-                    }
-                    if ((coords.get(key - WIDTH) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH, 2);
-                    }
-                    if ((coords.get(key - WIDTH + 1) ?? 0) % 2 === 1) {
-                        out.set(key - WIDTH + 1, 2);
-                    }
-                    if ((coords.get(key - 1) ?? 0) % 2 === 1) {
-                        out.set(key - 1, 2);
-                    }
-                    if ((coords.get(key + 1) ?? 0) % 2 === 1) {
-                        out.set(key + 1, 2);
-                    }
-                    if ((coords.get(key + WIDTH - 1) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH - 1, 2);
-                    }
-                    if ((coords.get(key + WIDTH) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH, 2);
-                    }
-                    if ((coords.get(key + WIDTH + 1) ?? 0) % 2 === 1) {
-                        out.set(key + WIDTH + 1, 2);
-                    }
-                }
-            }
-        }
-        for (let key of state6) {
-            for (let i = 0; i < p.rule.neighborhood.length; i++) {
-                let key2 = key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0];
-                let value = coords.get(key2);
-                if (value) {
-                    out.set(key2, value === 1 ? 2 : 4);
-                }
-            }
-        }
-        this.coords = out;
-        this.generation++;
-    }
-
-    copy(): CoordHistoryPattern {
-        let out = new CoordHistoryPattern(new Map(this.coords), this.rule, this.pattern);
-        out.generation = this.generation;
-        return out;
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): CoordHistoryPattern {
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let px = Math.floor(key / WIDTH) - BIAS;
-            let py = (key & (WIDTH - 1)) - BIAS;
-            if (px >= x && px < x + width && py >= y && py < y + height) {
-                out.set(key, value);
-            }
-        }
-        let p = new CoordHistoryPattern(out, this.rule, this.pattern);
-        p.generation = this.generation;
-        return p;
-    }
-
-    clearedCopy(): CoordHistoryPattern {
-        return new CoordHistoryPattern(new Map(), this.rule, this.pattern);
-    }
-
-    loadApgcode(code: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadApgcode2(code), this.rule, this.pattern);
-    }
-
-    loadRLE(rle: string): CoordHistoryPattern {
-        return new CoordHistoryPattern(this._loadRLE2(rle), this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern);
     }
 
 }
@@ -253,11 +136,11 @@ export class CoordHistoryPattern extends CoordPattern {
 /** A DataPattern-based implementation of [R]Super (https://conwaylife.com/wiki/OCA:LifeSuper).
  * @param pattern The pattern that implements the rule, can be shared by multiple instances.
  */
-export class DataSuperPattern extends DataPattern {
+export class SuperPattern extends DataPattern {
 
-    pattern: DataPattern;
+    pattern: Pattern;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: Pattern) {
         super(height, width, data, rule);
         this.pattern = pattern;
     }
@@ -449,201 +332,36 @@ export class DataSuperPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): DataSuperPattern {
-        let out = new DataSuperPattern(this.height, this.width, this.data, this.rule, this.pattern);
+    copy(): SuperPattern {
+        let out = new SuperPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
         return out;
     }
 
-    clearedCopy(): DataSuperPattern {
-        return new DataSuperPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): SuperPattern {
+        return new SuperPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
     }
 
-    copyPart(x: number, y: number, height: number, width: number): DataSuperPattern {
+    copyPart(x: number, y: number, height: number, width: number): SuperPattern {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern);
     }
 
-    loadApgcode(code: string): DataSuperPattern {
+    loadApgcode(code: string): SuperPattern {
         let [height, width, data] = this._loadApgcode(code);
-        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern);
     }
 
-    loadRLE(rle: string): DataSuperPattern {
+    loadRLE(rle: string): SuperPattern {
         let [height, width, data] = this._loadRLE(rle);
-        return new DataSuperPattern(height, width, data, this.rule, this.pattern);
-    }
-
-}
-
-
-/** A CoordPattern-based implementation of [R]Super (https://conwaylife.com/wiki/OCA:LifeSuper).
- * @param pattern The pattern that implements the rule, can be shared by multiple instances.
- */
-export class CoordSuperPattern extends CoordPattern {
-
-    pattern: CoordPattern;
-
-    constructor(coords: Map<number, number>, rule: Rule, pattern: CoordPattern) {
-        super(coords, rule);
-        this.pattern = pattern;
-    }
-
-    runGeneration(): void {
-        let p = this.pattern;
-        let coords = this.coords;
-        p.setCoords(coords);
-        p.runGeneration();
-        let out = p.coords;
-        let {minX, maxX, minY, maxY} = this.getMinMaxCoords();
-        minX = minX - this.rule.range + BIAS;
-        maxX = maxX + this.rule.range + BIAS;
-        minY = minY - this.rule.range + BIAS;
-        maxY = maxY + this.rule.range + BIAS;
-        let state6: number[] = [];
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-                let key = x * WIDTH + y;
-                let oldValue = coords.get(key) ?? 0;
-                let newValue = out.get(key) ?? 0;
-                if (oldValue === 0 || oldValue === 2 || oldValue === 10 || oldValue === 12) {
-                    if (newValue === 1) {
-                        let cells: number[] = [];
-                        let found = false;
-                        for (let i = 0; i < p.rule.neighborhood.length; i++) {
-                            let value = coords.get(key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0]);
-                            if (value === 1) {
-                                found = true;
-                                break;
-                            } else if (value) {
-                                cells.push(value);
-                            }
-                        }
-                        if (found) {
-                            out.set(key, 1);
-                        } else {
-                            cells = cells.filter(x => x % 2 === 1);
-                            if (cells.slice(1).every(x => x === cells[0])) {
-                                if (cells[0] === 3 || cells[0] === 5) {
-                                    out.set(key, 1);
-                                } else if (cells[0] === 7 || cells[0] === 13) {
-                                    out.set(key, 13);
-                                } else {
-                                    out.set(key, cells[0]);
-                                }
-                            } else {
-                                out.set(key, 13);
-                            }
-                        }
-                    } else {
-                        out.set(key, oldValue);
-                    }
-                } else if (oldValue === 1) {
-                    out.set(key, newValue ? 1 : 2);
-                } else if (oldValue === 3 || oldValue === 5) {
-                    out.set(key, newValue ? oldValue : 4);
-                } else if (oldValue === 4) {
-                    out.set(key, newValue ? 3 : 4);
-                } else if (oldValue === 6) {
-                    out.set(key, 6);
-                } else if (oldValue === 7 || oldValue === 8) {
-                    out.set(key, newValue ? 7 : 8);
-                } else if (oldValue === 9 || oldValue === 10) {
-                    out.set(key, newValue ? 9 : 10);
-                } else if (oldValue === 11 || oldValue === 12) {
-                    out.set(key, newValue ? 11 : 12);
-                } else if (oldValue % 2 === 1) {
-                    out.set(key, newValue ? oldValue : 0);
-                } else if (oldValue === 14) {
-                    out.set(key, 0);
-                } else {
-                    let cells: number[] = [];
-                    for (let i = 0; i < p.rule.neighborhood.length; i++) {
-                        let value = coords.get(key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0]);
-                        if (value) {
-                            cells.push(value);
-                        }
-                    }
-                    if (oldValue === 16) {
-                        out.set(key, cells.some(x => x === 14 || x % 2 === 1) ? 16 : 14);
-                    } else if (oldValue === 18) {
-                        out.set(key, cells.includes(22) ? 22 : 18);
-                    } else if (oldValue === 20) {
-                        out.set(key, cells.includes(18) ? 18 : 20);
-                    } else if (oldValue === 22) {
-                        out.set(key, cells.includes(20) ? 20 : 22);
-                    } else if (oldValue === 24) {
-                        out.set(key, cells.some(x => x % 2 === 1) ? 18 : 24);
-                    }
-                }
-            }
-        }
-        for (let key of state6) {
-            let toSet: [number, number][] = [];
-            for (let i = 0; i < p.rule.neighborhood.length; i++) {
-                let key2 = key + p.rule.neighborhood[i][1] * WIDTH + p.rule.neighborhood[i][0];
-                let value = coords.get(key2) ?? 0;
-                if (value % 2 === 1) {
-                    toSet.push([key2, value]);
-                }
-            }
-            for (let [key, value] of toSet) {
-                if (value === 1) {
-                    out.set(key, 2);
-                } else if (value === 3 || value === 5) {
-                    out.set(key, 4);
-                } else if (value === 7) {
-                    out.set(key, 8);
-                } else if (value === 9) {
-                    out.set(key, 10);
-                } else if (value === 11) {
-                    out.set(key, 12);
-                } else {
-                    out.set(key, 0);
-                }
-            }
-        }
-        this.coords = coords;
-        this.generation++;
-    }
-
-    copy(): CoordSuperPattern {
-        let out = new CoordSuperPattern(new Map(this.coords), this.rule, this.pattern);
-        out.generation = this.generation;
-        return out;
-    }
-
-    copyPart(x: number, y: number, height: number, width: number): CoordSuperPattern {
-        let out = new Map<number, number>();
-        for (let [key, value] of this.coords) {
-            let px = Math.floor(key / WIDTH) - BIAS;
-            let py = (key & (WIDTH - 1)) - BIAS;
-            if (px >= x && px < x + width && py >= y && py < y + height) {
-                out.set(key, value);
-            }
-        }
-        let p = new CoordSuperPattern(out, this.rule, this.pattern);
-        p.generation = this.generation;
-        return p;
-    }
-
-    clearedCopy(): CoordSuperPattern {
-        return new CoordSuperPattern(new Map(), this.rule, this.pattern);
-    }
-
-    loadApgcode(code: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadApgcode2(code), this.rule, this.pattern);
-    }
-
-    loadRLE(rle: string): CoordSuperPattern {
-        return new CoordSuperPattern(this._loadRLE2(rle), this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern);
     }
 
 }
@@ -654,9 +372,9 @@ export class CoordSuperPattern extends CoordPattern {
  */
 export class InvestigatorPattern extends DataPattern {
 
-    pattern: DataPattern;
+    pattern: Pattern;
 
-    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: DataPattern) {
+    constructor(height: number, width: number, data: Uint8Array, rule: Rule, pattern: Pattern) {
         super(height, width, data, rule);
         this.pattern = pattern;
     }

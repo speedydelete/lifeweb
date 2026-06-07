@@ -435,7 +435,7 @@ let apgsearchPID: number | null = null;
 /** Run RSS given a parsed configuration */
 async function search(rule: string, config: Config, print: ((data: string) => void) | null | undefined, apgcodeFilter?: [RegExp, boolean][], periodFilter?: PeriodFilter): Promise<string> {
     if (!config.check && !config.apgsearch) {
-        return rule;   
+        return rule;
     }
     let [bTrs, sTrs] = parseRule(rule);
     let trs = transitionsToArray(bTrs, sTrs, INT);
@@ -722,7 +722,7 @@ export async function runRSS(configFile: string, print: ((data: string) => void)
         print(`Searching ${total} rules\n`);
     }
     let searched = 0;
-    let start = performance.now() / 1000; 
+    let start = performance.now() / 1000;
     let prevUpdate = start;
     let prevSearched = 0;
     let now = start;

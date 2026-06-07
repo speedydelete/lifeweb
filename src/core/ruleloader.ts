@@ -1176,7 +1176,7 @@ export class TreePattern extends DataPattern {
         let [height, width, data] = this._loadApgcode(code);
         return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
     }
-    
+
     loadRLE(rle: string): TreePattern {
         let [height, width, data] = this._loadRLE(rle);
         return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);

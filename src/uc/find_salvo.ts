@@ -60,7 +60,7 @@ function getOscillatorMinpop(obj: Oscillator): number {
 //             if (end.x === undefined) {
 //                 if (obj.code === end.code) {
 //                     if (best[i]) {
-                        
+
 //                     }
 //                     best[i] = obj;
 //                 }

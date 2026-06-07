@@ -2,7 +2,7 @@
 /* Implements higher-range outer-totalistic rules (https://conwaylife.com/wiki/Larger_than_Life). */
 
 import {RuleError} from './util.js';
-import {RuleSymmetry, COORD_BIAS as BIAS, COORD_WIDTH as WIDTH, getRuleSymmetryFromBases, Rule, DataPattern} from './pattern.js';
+import {RuleSymmetry, getRuleSymmetryFromBases, Rule, DataPattern} from './pattern.js';
 import {unparseMAP} from './map.js';
 
 
