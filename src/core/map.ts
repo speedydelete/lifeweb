@@ -1662,34 +1662,32 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
     let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 0 : 1;
     if (trs[0]) {
         if (trs[511]) {
-            let out = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                out[i] = 1 - trs[511 - i];
-            }
-            trs = out;
-            if (ruleStr.startsWith('MAP') || ruleStr.startsWith('xmap')) {
-                ruleStr = unparseMAP(trs, states);
-            } else if (ruleStr.startsWith('W')) {
-                let num = 0;
+            if (ruleStr.startsWith('W')) {
+                let num = Number(rule.slice(1));
                 for (let i = 0; i < 8; i++) {
-                    num |= (trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] << i);
-                }
-                ruleStr = 'W' + num;
-                if (states !== 2) {
-                    ruleStr += `/${states}`;
+                    trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = (num & (1 << i)) ? 0 : 1;
                 }
             } else {
-                let spec = INT_SPECS[nhLetter];
-                let [bTrs, sTrs] = arrayToTransitions(trs, spec);
-                let b = unparseTransitions(bTrs, spec);
-                let s = unparseTransitions(sTrs, spec);
-                if (states > 2) {
-                    ruleStr = `${s}/${b}/${states}`;
-                } else {
-                    ruleStr = `B${b}/S${s}`;
+                let newTrs = new Uint8Array(512);
+                for (let i = 0; i < 512; i++) {
+                    newTrs[i] = 1 - trs[511 - i];
                 }
-                if (nhLetter !== 'M') {
-                    ruleStr += nhLetter;
+                trs = newTrs;
+                if (ruleStr.startsWith('MAP') || ruleStr.startsWith('xmap')) {
+                    ruleStr = unparseMAP(trs, states);
+                } else {
+                    let spec = INT_SPECS[nhLetter];
+                    let [bTrs, sTrs] = arrayToTransitions(trs, spec);
+                    let b = unparseTransitions(bTrs, spec);
+                    let s = unparseTransitions(sTrs, spec);
+                    if (states > 2) {
+                        ruleStr = `${s}/${b}/${states}`;
+                    } else {
+                        ruleStr = `B${b}/S${s}`;
+                    }
+                    if (nhLetter !== 'M') {
+                        ruleStr += nhLetter;
+                    }
                 }
             }
         } else {
