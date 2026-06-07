@@ -296,7 +296,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     }
     if (middle) {
         if (nhArray === null) {
-            s = s.map(x => x + 1);
+            s = s.map(x => x - 1);
         } else {
             nhArray[range + 1][range + 1] = 1;
         }
