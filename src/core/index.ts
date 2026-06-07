@@ -427,3 +427,15 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new LifewebError(`Unknown pattern: '${p}'`);
     }
 }
+
+
+let p = parse(`x = 2, y = 2, rule = LifeHistory:T2,2
+AC$DA!`);
+
+for (let i = 0; i < 2; i++) {
+    console.log('\n=== RUNNING GENERATION ===\n');
+    p.runGeneration();
+    console.log('\n');
+    console.log(p);
+    console.log('\n');
+}

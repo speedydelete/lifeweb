@@ -23,6 +23,9 @@ export class HistoryPattern extends DataPattern {
         let data = this.data;
         let alive = data.map(x => x % 2 === 1 ? 1 : 0);
         p.setData(oldHeight, oldWidth, alive);
+        p.xOffset = this.xOffset;
+        p.yOffset = this.yOffset;
+        p.generation = this.generation;
         p.runGeneration();
         let height = p.height;
         let width = p.width;
@@ -152,6 +155,9 @@ export class SuperPattern extends DataPattern {
         let data = this.data;
         let alive = data.map(x => x % 2 === 1 ? 1 : 0);
         p.setData(oldHeight, oldWidth, alive);
+        p.xOffset = this.xOffset;
+        p.yOffset = this.yOffset;
+        p.generation = this.generation;
         p.runGeneration();
         let height = p.height;
         let width = p.width;
@@ -386,6 +392,9 @@ export class InvestigatorPattern extends DataPattern {
         let data = this.data;
         let alive = data.map(x => (x < 2 ? x : (x < 14 ? (x % 2 === 0 ? 1 : 0) : (x === 18 || x === 20 ? 0 : 1))));
         p.setData(oldHeight, oldWidth, alive);
+        p.xOffset = this.xOffset;
+        p.yOffset = this.yOffset;
+        p.generation = this.generation;
         p.runGeneration();
         let height = p.height;
         let width = p.width;

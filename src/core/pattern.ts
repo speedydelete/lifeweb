@@ -365,7 +365,7 @@ export abstract class Pattern {
     
     toString(): string {
         let [x, y] = this.getFullOffset();
-        return `${this.constructor.name} at ${x} ${y} generation ${this.generation}: ${this.toRLE()}`;
+        return `${this.constructor.name} at (${x} ${y}), generation = ${this.generation}:\n${this.toRLE()}`;
     }
 
     /** The height of the pattern. */

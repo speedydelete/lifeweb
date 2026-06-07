@@ -24,6 +24,7 @@ export class FinitePattern extends DataPattern {
         p.setData(this.height, this.width, this.data);
         p.xOffset = 0;
         p.yOffset = 0;
+        p.generation = this.generation;
         p.runGeneration();
         p.shrinkToFit();
         if (p.xOffset < 0) {
@@ -129,9 +130,10 @@ export class TorusPattern extends DataPattern {
         data[data.length - width - 2] = this.data[width - 1];
         data.set(this.data.slice(0, width), data.length - width - 1);
         data[data.length - 1] = this.data[0];
+        p.setData(height + 2, width + 2, data);
         p.xOffset = 0;
         p.yOffset = 0;
-        p.setData(height + 2, width + 2, data);
+        p.generation = this.generation;
         p.runGeneration();
         let pData = p.getData();
         this.data = new Uint8Array(height * width);
@@ -148,8 +150,6 @@ export class TorusPattern extends DataPattern {
             i += p.width;
             loc += width;
         }
-        p.xOffset = 0;
-        p.yOffset = 0;
         this.generation++;
     }
 
