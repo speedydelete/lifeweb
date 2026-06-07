@@ -457,9 +457,10 @@ function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number)
     }
     min += unparseHROTRanges(minB);
     max += unparseHROTRanges(maxB);
-    if (parts.length === 5) {
-        min += ',' + parts[4];
-        max += ',' + parts[4];
+    let last = parts[parts.length - 1];
+    if (last.startsWith('N')) {
+        min += ',' + last;
+        max += ',' + last;
     }
     return [min, max];
 }
