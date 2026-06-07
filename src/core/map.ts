@@ -1672,7 +1672,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             } else if (ruleStr.startsWith('W')) {
                 let num = 0;
                 for (let i = 0; i < 8; i++) {
-                    num |= (trs[i << 6] << i);
+                    num |= (trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] << i);
                 }
                 ruleStr = 'W' + num;
                 if (states !== 2) {
