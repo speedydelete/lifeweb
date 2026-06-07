@@ -1542,6 +1542,9 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             }
         }
         ruleStr = 'W' + num;
+        if (states !== 2) {
+            ruleStr += '/' + states;
+        }
     } else {
         if (match = rule.match(/^[gG]([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/)) {
             states = Number(match[1]);
