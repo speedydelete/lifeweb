@@ -28,6 +28,7 @@ export interface PhaseData {
 
 /** Verifies that a pattern is consistent with a given `PhaseData`. */
 function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
+    p = p.copy();
     for (let i = 0; i <= gens; i++) {
         if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
@@ -382,14 +383,14 @@ function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseD
     let startS: number[] = [];
     let trs = 'trs' in p ? p.trs : p.evenTrs.map(x => 1 - x);
     for (let i = 0; i < spec.validTrs.length; i++) {
-        let bFound = true;
-        let sFound = true;
+        let bFound = false;
+        let sFound = false;
         for (let letter of spec.validTrs[i]) {
-            if (!trs[spec.trs[i + letter][0]]) {
-                bFound = false;
+            if (trs[spec.trs[i + letter][0]]) {
+                bFound = true;
             }
-            if (!trs[spec.trs[i + letter][0] | (1 << 4)]) {
-                sFound = false;
+            if (trs[spec.trs[i + letter][0] | (1 << 4)]) {
+                sFound = true;
             }
         }
         if (bFound) {
