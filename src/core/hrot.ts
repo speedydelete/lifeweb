@@ -363,7 +363,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             states,
             neighborhood,
             symmetry: nhArray ? getCustomNeighborhoodSymmetry(range, nhArray) : 'D8',
-            period: b[0] ? 2 : 1,
+            period: outB[0] ? 2 : 1,
             range,
         },
         b: outB,
@@ -506,8 +506,8 @@ export class HROTPattern extends DataPattern {
         this.data = out;
         this.xOffset -= range;
         this.yOffset -= range;
-        this
         this.generation++;
+        this.shrinkToFit();
     }
 
     copy(): HROTPattern {
