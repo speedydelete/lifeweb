@@ -1531,7 +1531,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         }
         let num = Number(rule.slice(1));
         if (Number.isNaN(num)) {
-            throw new RuleError(`Invalid W rule: '${num}'`);
+            throw new RuleError(`Invalid W rule: '${rule.slice(1)}'`);
         }
         for (let i = 0; i < 512; i++) {
             trs[i | (1 << 4)] = 1;
