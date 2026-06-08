@@ -1697,7 +1697,7 @@ int main(void) {
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
         #if MULTI_RULE
-        run_depth(1, 0);
+        run_depth(1, 0, -1);
         #else
         run_depth(1);
         #endif
