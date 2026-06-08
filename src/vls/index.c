@@ -1093,6 +1093,7 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
         int t = (fake_t + offset) % GENS;
         bb_t bb;
         get_true_bb(&bb, state->grid[t]);
+        // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         int height = bb.height;
         int width = bb.width;
         int x_offset = bb.x_offset;
@@ -1135,12 +1136,15 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
             }
         }
     }
+    // printf("value: %"PRIu64"\n", out);
     return out;
 }
 
 static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_t y_trans) {
+    // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(state, 0, x_trans, y_trans);
     for (int offset = 1; offset < GENS; offset++) {
+        // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
         out = min_hash(out, hash_with_offset(state, offset, x_trans, y_trans));
     }
     return out;
@@ -1625,9 +1629,8 @@ int main(void) {
     generate_big_trs();
     #if MULTI_RULE
     init_multi_rule();
-    #else
-    init_known_solutions();
     #endif
+    init_known_solutions();
     search_state* state = states[0];
     DPRINTGRID2(state);
     // preprocessing: search for and remove trivial cells
