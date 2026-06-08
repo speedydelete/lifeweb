@@ -694,6 +694,11 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     }
     if (tr_value == 3) {
         rule_dependent_tr = BIG_TR_TO_TR(tr);
+        if (trs[rule_dependent_tr] != 3) {
+            fprintf(stderr, "Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", t, x, y, tr, (int)value, (int)tr_value);
+            fprintf(stderr, "\nError: This error should not occur (trs[rule_dependent_tr] != 3 in check_forward_implication)\nPlease report this error along with the debug information printed above\n");
+            exit(1);
+        }
         return false;
     }
     #endif
@@ -1362,7 +1367,7 @@ static int tr_to_int_tr[512];
 
 static inline void set_tr(int tr, int value) {
     DPRINTF3("Setting transition %i to %i\n", tr, value);
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < MAX_MAP_TRS_PER_INT_TR + 1; i++) {
         int tr2 = int_transitions[tr_to_int_tr[tr]][i];
         if (tr2 == -1) {
             break;
@@ -1512,6 +1517,7 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
         int tr = rule_dependent_tr;
+        rule_dependent_tr = -1;
         // if (possible_trs_count == 0) {
         //     DPRINTF4("Skipping branching rule on transition %i (depth = %i)\n", tr, depth);
         //     continue;
