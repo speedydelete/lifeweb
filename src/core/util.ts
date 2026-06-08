@@ -15,6 +15,7 @@ export class RuleError extends LifewebError {
 }
 
 
+/** Finds the greatest common divisor of 2 numbers. */
 export function gcd(a: number, b: number): number {
     while (b > 0) {
         let temp = b;
@@ -24,6 +25,7 @@ export function gcd(a: number, b: number): number {
     return a;
 }
 
+/** Finds the least common multiple of 2 numbers. */
 export function lcm(a: number, b: number): number {
     return a * b / gcd(a, b);
 }
@@ -149,16 +151,53 @@ export function numericSorter(a: string, b: string): number {
 }
 
 
-export function permutations<T>(data: T[]): T[][] {
+/** Generates all possible permutations of an array. */
+export function getPermutations<T>(data: T[]): T[][] {
     let out: T[][] = [];
     for (let i = 0; i < data.length; i = i + 1) {
-        let rest = permutations(data.slice(0, i).concat(data.slice(i + 1)));
+        let rest = getPermutations(data.slice(0, i).concat(data.slice(i + 1)));
         if (rest.length === 0) {
             out.push([data[i]]);
         } else {
             for (let j = 0; j < rest.length; j = j + 1) {
                 out.push([data[i]].concat(rest[j]));
             }
+        }
+    }
+    return out;
+}
+
+/** Generates all possible partitions of an array. */
+export function getPartitions<T>(data: T[]): T[][][] {
+    if (data.length === 2) {
+        let [a, b] = data;
+        return [
+            [[a], [b]],
+            [[a, b]],
+        ];
+    } else if (data.length === 3) {
+        let [a, b, c] = data;
+        return [
+            [[a], [b], [c]],
+            [[a, b], [c]],
+            [[a], [b, c]],
+            [[a, c], [b]],
+            [[a, b, c]],
+        ];
+    } else if (data.length === 1) {
+        return [[[data[0]]]];
+    } else if (data.length === 0) {
+        return [[]];
+    }
+    let subPartitions = getPartitions(data.slice(1));
+    let first = data[0];
+    let out: T[][][] = [];
+    for (let partition of subPartitions) {
+        let partition2 = partition.slice();
+        partition2.push([first]);
+        out.push(partition2);
+        for (let i = 0; i < partition.length; i++) {
+            out.push(partition.map((subset, j) => i === j ? subset.concat(first) : subset));
         }
     }
     return out;

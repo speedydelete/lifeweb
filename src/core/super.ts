@@ -101,36 +101,36 @@ export class HistoryPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): HistoryPattern {
+    copy(): this {
         let out = new HistoryPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): HistoryPattern {
-        return new HistoryPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): this {
+        return new HistoryPattern(0, 0, new Uint8Array(0), this.rule, this.pattern) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): HistoryPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new HistoryPattern(height, width, data, this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadApgcode(code: string): HistoryPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new HistoryPattern(height, width, data, this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadRLE(rle: string): HistoryPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new HistoryPattern(height, width, data, this.rule, this.pattern);
+        return new HistoryPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
 }
@@ -338,36 +338,36 @@ export class SuperPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): SuperPattern {
+    copy(): this {
         let out = new SuperPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): SuperPattern {
-        return new SuperPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): this {
+        return new SuperPattern(0, 0, new Uint8Array(0), this.rule, this.pattern) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): SuperPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new SuperPattern(height, width, data, this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadApgcode(code: string): SuperPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new SuperPattern(height, width, data, this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadRLE(rle: string): SuperPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new SuperPattern(height, width, data, this.rule, this.pattern);
+        return new SuperPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
 }
@@ -611,36 +611,36 @@ export class InvestigatorPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): InvestigatorPattern {
+    copy(): this {
         let out = new InvestigatorPattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): InvestigatorPattern {
-        return new InvestigatorPattern(0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): this {
+        return new InvestigatorPattern(0, 0, new Uint8Array(0), this.rule, this.pattern) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): InvestigatorPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadApgcode(code: string): InvestigatorPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadRLE(rle: string): InvestigatorPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new InvestigatorPattern(height, width, data, this.rule, this.pattern);
+        return new InvestigatorPattern(height, width, data, this.rule, this.pattern) as this;
     }
 
 }

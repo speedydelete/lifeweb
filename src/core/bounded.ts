@@ -52,42 +52,42 @@ export class FinitePattern extends DataPattern {
         return this;
     }
 
-    copy(): FinitePattern {
+    copy(): this {
         let out = new FinitePattern(this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): FinitePattern {
-        return new FinitePattern(this.height, this.width, new Uint8Array(this.size), this.rule, this.pattern);
+    clearedCopy(): this {
+        return new FinitePattern(this.height, this.width, new Uint8Array(this.size), this.rule, this.pattern) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): FinitePattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new FinitePattern(this.height, this.width, data, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, data, this.rule, this.pattern) as this;
     }
 
-    loadApgcode(code: string): FinitePattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
         let out = new Uint8Array(this.size);
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern) as this;
     }
 
-    loadRLE(rle: string): FinitePattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
         let out = new Uint8Array(this.size);
         for (let y = 0; y < this.height; y++) {
             out.set(data.slice(y * width, y * width + this.width), y * this.width);
         }
-        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern);
+        return new FinitePattern(this.height, this.width, out, this.rule, this.pattern) as this;
     }
 
 }
@@ -157,36 +157,36 @@ export class TorusPattern extends DataPattern {
         return this;
     }
 
-    copy(): TorusPattern {
+    copy(): this {
         let out = new TorusPattern(this.height, this.width, this.height, this.width, this.data, this.rule, this.pattern);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): TorusPattern {
-        return new TorusPattern(0, 0, 0, 0, new Uint8Array(0), this.rule, this.pattern);
+    clearedCopy(): this {
+        return new TorusPattern(0, 0, 0, 0, new Uint8Array(0), this.rule, this.pattern) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): TorusPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new TorusPattern(height, width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(height, width, height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadApgcode(code: string): TorusPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern) as this;
     }
 
-    loadRLE(rle: string): TorusPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern);
+        return new TorusPattern(this.height, this.width, height, width, data, this.rule, this.pattern) as this;
     }
 
 }

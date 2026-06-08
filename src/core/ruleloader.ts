@@ -1,5 +1,5 @@
 
-import {RuleError, permutations} from './util.js';
+import {RuleError, getPermutations} from './util.js';
 import {RuleSymmetry, SYMMETRY_JOIN, Rule, DataPattern} from './pattern.js';
 
 
@@ -394,7 +394,7 @@ function getSymmetryRemappings(nh: [number, number][], symmetry: Symmetry): Rema
                 map.push(i);
             }
         }
-        for (let perm of permutations(map.slice(1))) {
+        for (let perm of getPermutations(map.slice(1))) {
             perm.unshift(center);
             out.push(perm.map(x => ({ref: true, value: x})));
         }
@@ -1150,36 +1150,36 @@ export class TreePattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): TreePattern {
+    copy(): this {
         let out = new TreePattern(this.height, this.width, this.data.slice(), this.rule, this.tree, this.atRule);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): TreePattern {
-        return new TreePattern(0, 0, new Uint8Array(0), this.rule, this.tree, this.atRule);
+    clearedCopy(): this {
+        return new TreePattern(0, 0, new Uint8Array(0), this.rule, this.tree, this.atRule) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): TreePattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule) as this;
     }
 
-    loadApgcode(code: string): TreePattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule) as this;
     }
 
-    loadRLE(rle: string): TreePattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule);
+        return new TreePattern(height, width, data, this.rule, this.tree, this.atRule) as this;
     }
 
 }

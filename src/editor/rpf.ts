@@ -594,7 +594,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         p.envelope = structuredClone(this.envelope);
     }
 
-    copy(): RPFPattern<T> {
+    copy(): this {
         let data = new Set<RPFObjectData<T>>();
         for (let value of this.data) {
             data.add({
@@ -607,7 +607,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         }
         let out = new RPFPattern(this.base, this.key, this.path, data);
         this.assignMetadata(out, false);
-        return out;
+        return out as this;
     }
 
     deepCopy(): RPFPattern<T> {
@@ -626,16 +626,16 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return out;
     }
 
-    clearedCopy(): RPFPattern<T> {
+    clearedCopy(): this {
         let out = new RPFPattern(this.base, this.key, this.path, new Set());
         this.assignMetadata(out, false);
-        return out;
+        return out as this;
     }
 
-    clearedDeepCopy(): RPFPattern<T> {
+    clearedDeepCopy(): this {
         let out = new RPFPattern(this.base, this.key, this.path, new Set());
         this.assignMetadata(out, true);
-        return out;
+        return out as this;
     }
 
     copyPart(x: number, y: number, height: number, width: number): never {
@@ -995,14 +995,14 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return this.toPattern().toRLE(header);
     }
 
-    loadApgcode(code: string): RPFPattern<T> {
+    loadApgcode(code: string): this {
         let p = this.base.loadApgcode(code) as T;
-        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}]));
+        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}])) as this;
     }
 
-    loadRLE(rle: string): RPFPattern<T> {
+    loadRLE(rle: string): this {
         let p = this.base.loadRLE(rle) as T;
-        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}]));
+        return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}])) as this;
     }
 
     _toRPFFile(out: {[key: string]: RPFPattern<T>}): void {

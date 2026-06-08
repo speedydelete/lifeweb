@@ -508,33 +508,33 @@ export class R1Separator<T extends DataPattern = DataPattern> extends DataPatter
         return out;
     }
 
-    copy(): R1Separator {
+    copy(): this {
         this.p.height = this.height;
         this.p.width = this.width;
         this.p.data = this.data;
-        return new R1Separator(this.p);
+        return new R1Separator(this.p) as this;
     }
 
-    clearedCopy(): R1Separator {
+    clearedCopy(): this {
         this.p.height = 0;
         this.p.width = 0;
         this.p.data = new Uint8Array(0);
-        return new R1Separator(this.p);
+        return new R1Separator(this.p) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): R1Separator {
+    copyPart(x: number, y: number, height: number, width: number): this {
         this.p.height = this.height;
         this.p.width = this.width;
         this.p.data = this.data;
-        return new R1Separator(this.p.copyPart(x, y, height, width));
+        return new R1Separator(this.p.copyPart(x, y, height, width)) as this;
     }
 
-    loadApgcode(code: string): R1Separator<T> {
-        return new R1Separator(this.p.loadApgcode(code) as T);
+    loadApgcode(code: string): this {
+        return new R1Separator(this.p.loadApgcode(code)) as this;
     }
 
-    loadRLE(rle: string): R1Separator<T> {
-        return new R1Separator(this.p.loadRLE(rle) as T);
+    loadRLE(rle: string): this {
+        return new R1Separator(this.p.loadRLE(rle)) as this;
     }
 
 }

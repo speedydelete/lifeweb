@@ -82,6 +82,7 @@ function parseSections(rule: string): {range: number, states: number, middle: bo
     let sFound = false;
     for (let section of rule.split(',')) {
         if (sFound) {
+            // if we've seen S, B must come next
             if (section[0] === 'B') {
                 bFound = true;
                 sFound = false;
@@ -90,6 +91,7 @@ function parseSections(rule: string): {range: number, states: number, middle: bo
                 s.push(...parseHROTRange(section));
             }
         } else if (bFound) {
+            // if we've seen B we can only see N next
             if (section[0] === 'N') {
                 nh = section.slice(1);
                 break;
@@ -158,9 +160,10 @@ const NEIGHBORHOODS: {[key: string]: (x: number, y: number, r: number) => number
     },
     G(x, y, r) {
         return x === 0 && y === 0 ? 0 : Math.abs(x * y);
-    }
+    },
 };
 
+/** Gets the rule symmetry of a custom HROT neighborhood. */
 function getCustomNeighborhoodSymmetry(range: number, nhArray: number[][]): RuleSymmetry {
     let nh: {[key: string]: number} = {};
     for (let y = -range; y <= range; y++) {
@@ -208,6 +211,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     if (states < 2) {
         states = 2;
     }
+    // deal with Rx,Cy,Wz format
     if (wolfram !== undefined) {
         if (range === 1) {
             return `W${wolfram}/${states}`;
@@ -216,9 +220,9 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
         }
     }
     let size = 2 * range + 1;
-    let nhArray: number[][] | null;
+    let nhArray: number[][] | undefined;
     if (nh === 'M') {
-        nhArray = null;
+        nhArray = undefined;
     } else if (nh in NEIGHBORHOODS) {
         let func = NEIGHBORHOODS[nh];
         nhArray = [];
@@ -230,6 +234,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             nhArray.push(row);
         }
     } else if (nh.startsWith('@')) {
+        // CoordCA neighborhood parser
         let bits: number[] = [];
         for (let char of nh.slice(1)) {
             let value = parseInt(char, 16);
@@ -258,6 +263,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             nhArray.push(row);
         }
     } else if (nh.startsWith('W')) {
+        // weighted neighborhood parser
         let digits = nh.slice(1).replaceAll('/', '');
         if (!Array.from(digits).every(x => '0123456789abcdefABCDEF'.includes(x))) {
             throw new RuleError(`Invalid characters in weighted neighborhood`);
@@ -294,8 +300,9 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     } else {
         throw new RuleError(`Invalid HROT neighborhood: '${nh}'`);
     }
+    // deal with ,M1,
     if (middle) {
-        if (nhArray === null) {
+        if (nhArray === undefined) {
             s = s.map(x => x - 1);
         } else {
             nhArray[range + 1][range + 1] = 1;
@@ -304,6 +311,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
     if (nh && nh.length === 0) {
         throw new RuleError(`Invalid HROT neighborhood: '${nh}'`);
     }
+    // turn range-1 rules into MAP rules
     if (range === 1) {
         if (nhArray) {
             let trs = new Uint8Array(512);
@@ -327,6 +335,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
 
         }
     }
+    // generate Uint8Arrays and unparse the rulestring
     let length = (nhArray ? nhArray.flat().reduce((x, y) => x + y) : (2 * range + 1)**2 - 1) + 1;
     let outB = new Uint8Array(length);
     for (let value of b) {
@@ -349,6 +358,7 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             ruleStr += nh;
         }
     }
+    // figure out the actual neighborhood
     let neighborhood: [number, number][] = [];
     for (let y = -range; y <= range; y++) {
         for (let x = -range; x <= range; x++) {
@@ -510,36 +520,36 @@ export class HROTPattern extends DataPattern {
         this.shrinkToFit();
     }
 
-    copy(): HROTPattern {
+    copy(): this {
         let out = new HROTPattern(this.height, this.width, this.data, this.rule, this.b, this.s, this.nh);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): HROTPattern {
-        return new HROTPattern(0, 0, new Uint8Array(0), this.rule, this.b, this.s, this.nh);
+    clearedCopy(): this {
+        return new HROTPattern(0, 0, new Uint8Array(0), this.rule, this.b, this.s, this.nh) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): HROTPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh);
+        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh) as this;
     }
 
-    loadApgcode(code: string): HROTPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh);
+        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh) as this;
     }
 
-    loadRLE(rle: string): HROTPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh);
+        return new HROTPattern(height, width, data, this.rule, this.b, this.s, this.nh) as this;
     }
 
 }
@@ -629,36 +639,36 @@ export class HROTB0Pattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): HROTB0Pattern {
+    copy(): this {
         let out = new HROTB0Pattern(this.height, this.width, this.data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): HROTB0Pattern {
-        return new HROTB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
+    clearedCopy(): this {
+        return new HROTB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh)  as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): HROTB0Pattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
+        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh) as this;
     }
 
-    loadApgcode(code: string): HROTB0Pattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
+        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh) as this;
     }
 
-    loadRLE(rle: string): HROTB0Pattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh);
+        return new HROTB0Pattern(height, width, data, this.rule, this.evenB, this.evenS, this.oddB, this.oddS, this.nh) as this;
     }
 
 }

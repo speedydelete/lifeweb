@@ -10,10 +10,15 @@ import {RuleError} from './util.js';
 import {DataPattern, RuleSymmetry, getRuleSymmetryFromBases, Rule} from './pattern.js';
 
 
+/** Represents the transition data for an isotropic rule format. */
 export interface INTSpec {
+    /** The name of the format (for error messages). */
     name: string;
+    /** A mapping between INT transitions (like 2c) and MAP transitions (like 320). */
     trs: {[key: string]: number[]};
+    /** The list of valid transitions for each number, like ['c', 'ce', 'aceikn', ...]. */
     validTrs: string[];
+    /** Whether to prefer a minus sign when it would be the same speed, so whether to do B2om/SH or B2-p/SH */
     preferMinus: boolean;
 }
 
@@ -202,11 +207,12 @@ export const INT_SPECS = {
 
 const DIGITS = '0123456789';
 
-/** Parses an isotropic rule. */
+/** Parses part of an isotropic rule such as '2ce3-a4akt'. */
 export function parseTransitions(data: string, spec: INTSpec): string[] {
     if (data.length === 0) {
         return [];
     }
+    // split it by digits into parts, such as ['2ce', '3-a', '4akt']
     let parts: string[] = [];
     let currentPart = '';
     for (let i = 0; i < data.length; i++) {
@@ -223,6 +229,7 @@ export function parseTransitions(data: string, spec: INTSpec): string[] {
     if (currentPart.length > 0) {
         parts.push(currentPart);
     }
+    // go through each part and figure out what transitions it represents
     let out = new Set<string>();
     for (let part of parts) {
         let digit = parseInt(part[0]);
@@ -300,9 +307,7 @@ export function unparseTransitions(trs: string[], spec: INTSpec): string {
     return out;
 }
 
-/** Takes in lists of B/S transitions and outputs the 512-bit Uint8Array for it
- * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
- */
+/** Takes in lists of B/S transitions and outputs the 512-bit Uint8Array for it. */
 export function transitionsToArray(b: string[], s: string[], spec: INTSpec): Uint8Array<ArrayBuffer> {
     let out = new Uint8Array(512);
     for (let tr of b) {
@@ -318,9 +323,7 @@ export function transitionsToArray(b: string[], s: string[], spec: INTSpec): Uin
     return out;
 }
 
-/** The reverse of `transitionsToArray`, takes in a 512-bit Uint8Array and outputs the B/S transition lists.
- * @param trs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
-*/
+/** The reverse of `transitionsToArray`, takes in a 512-bit Uint8Array and outputs the B/S transition lists. */
 export function arrayToTransitions(array: Uint8Array, spec: INTSpec): [string[], string[]] {
     let b: string[] = [];
     let s: string[] = [];
@@ -348,6 +351,7 @@ export function arrayToTransitions(array: Uint8Array, spec: INTSpec): [string[],
 
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
+/** Parses a MAP rule such as MAPABCDEF. */
 export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     let original = data;
     if (data.startsWith('MAP')) {
@@ -428,6 +432,7 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     return [trs, states];
 }
 
+/** The reverse of `parseMAP`, takes in a Uint8Array and outputs the corresponding MAP rule. */
 export function unparseMAP(trs: Uint8Array, states: number): string {
     let out = new Uint8Array(64);
     for (let i = 0; i < 512; i++) {
@@ -741,36 +746,36 @@ export class MAPPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): MAPPattern {
+    copy(): this {
         let out = new MAPPattern(this.height, this.width, this.data.slice(), this.rule, this.trs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): MAPPattern {
-        return new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs);
+    clearedCopy(): this {
+        return new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): MAPPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPPattern(height, width, data, this.rule, this.trs);
+        return new MAPPattern(height, width, data, this.rule, this.trs) as this;
     }
 
-    loadApgcode(code: string): MAPPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPPattern(height, width, data, this.rule, this.trs);
+        return new MAPPattern(height, width, data, this.rule, this.trs) as this;
     }
 
-    loadRLE(rle: string): MAPPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPPattern(height, width, data, this.rule, this.trs);
+        return new MAPPattern(height, width, data, this.rule, this.trs) as this;
     }
 
 }
@@ -1042,36 +1047,36 @@ export class MAPB0Pattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): MAPB0Pattern {
+    copy(): this {
         let out = new MAPB0Pattern(this.height, this.width, this.data.slice(), this.rule, this.evenTrs, this.oddTrs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): MAPB0Pattern {
-        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenTrs, this.oddTrs);
+    clearedCopy(): this {
+        return new MAPB0Pattern(0, 0, new Uint8Array(0), this.rule, this.evenTrs, this.oddTrs) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): MAPB0Pattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs) as this;
     }
 
-    loadApgcode(code: string): MAPB0Pattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs) as this;
     }
 
-    loadRLE(rle: string): MAPB0Pattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs);
+        return new MAPB0Pattern(height, width, data, this.rule, this.evenTrs, this.oddTrs) as this;
     }
 
 }
@@ -1406,36 +1411,36 @@ export class MAPGenPattern extends DataPattern {
         this.generation++;
     }
 
-    copy(): MAPGenPattern {
+    copy(): this {
         let out = new MAPGenPattern(this.height, this.width, this.data.slice(), this.rule, this.trs);
         out.generation = this.generation;
         out.xOffset = this.xOffset;
         out.yOffset = this.yOffset;
-        return out;
+        return out as this;
     }
 
-    clearedCopy(): MAPGenPattern {
-        return new MAPGenPattern(0, 0, new Uint8Array(0), this.rule, this.trs);
+    clearedCopy(): this {
+        return new MAPGenPattern(0, 0, new Uint8Array(0), this.rule, this.trs) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): MAPGenPattern {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let loc = 0;
         for (let row = y; row < y + height; row++) {
             data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
             loc += width;
         }
-        return new MAPGenPattern(height, width, data, this.rule, this.trs);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs) as this;
     }
 
-    loadApgcode(code: string): MAPGenPattern {
+    loadApgcode(code: string): this {
         let [height, width, data] = this._loadApgcode(code);
-        return new MAPGenPattern(height, width, data, this.rule, this.trs);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs) as this;
     }
 
-    loadRLE(rle: string): MAPGenPattern {
+    loadRLE(rle: string): this {
         let [height, width, data] = this._loadRLE(rle);
-        return new MAPGenPattern(height, width, data, this.rule, this.trs);
+        return new MAPGenPattern(height, width, data, this.rule, this.trs) as this;
     }
 
 }
@@ -1522,9 +1527,12 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
     let states = 2;
     let match: RegExpMatchArray | null;
     if (rule.startsWith('MAP') || rule.startsWith('xmap')) {
+        // MAP
         [trs, states] = parseMAP(rule);
         ruleStr = unparseMAP(trs, states);
     } else if (rule.startsWith('W')) {
+        // wolfram rules
+        // remove state count
         if (match = rule.match(/\/[gGcC]?([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)$/)) {
             states = Number(match[1]);
             rule = rule.slice(0, -match[0].length);
@@ -1546,10 +1554,12 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             ruleStr += '/' + states;
         }
     } else {
+        // remove state count
         if (match = rule.match(/^[gG]([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/)) {
             states = Number(match[1]);
             rule = rule.slice(match[0].length);
         }
+        // split it into parts, like 'B3/S23' becomes ['B3', 'S23']
         let parts: string[] = [];
         let currentPart = '';
         for (let i = 0; i < rule.length; i++) {
@@ -1565,6 +1575,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
             }
         }
         parts.push(currentPart);
+        // find the neighborhood specifier like 'H' or 'V'
         for (let i = 0; i < parts.length; i++) {
             let part = parts[i];
             if (part.length === 0) {
@@ -1614,6 +1625,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
                 }
                 continue;
             } else {
+                // if there's no letter, take it to be a S/B/C generations rule
                 if (parts.length > 2 && i === parts.length - 1) {
                     states = Number(part);
                     if (Number.isNaN(states)) {
@@ -1646,22 +1658,22 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         }
     }
     let symmetry = findTransitionsSymmetry(trs);
-    if (ruleStr.startsWith('MAP')) {
-        if (symmetry === 'D8') {
-            let [bTrs, sTrs] = arrayToTransitions(trs, INT);
-            let b = unparseTransitions(bTrs, INT);
-            let s = unparseTransitions(sTrs, INT);
-            if (states > 2) {
-                ruleStr = `${s}/${b}/${states}`;
-            } else {
-                ruleStr = `B${b}/S${s}`;
-            }
+    // turn MAP rules that are actually INT rules into INT rules
+    if (ruleStr.startsWith('MAP') && symmetry === 'D8') {
+        let [bTrs, sTrs] = arrayToTransitions(trs, INT);
+        let b = unparseTransitions(bTrs, INT);
+        let s = unparseTransitions(sTrs, INT);
+        if (states > 2) {
+            ruleStr = `${s}/${b}/${states}`;
+        } else {
+            ruleStr = `B${b}/S${s}`;
         }
     }
     let neighborhood = findTransitionsNeighborhood(trs);
     let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 0 : 1;
     if (trs[0]) {
         if (trs[511]) {
+            // deal with B0 rules
             if (ruleStr.startsWith('W')) {
                 let num = Number(rule.slice(1));
                 for (let i = 0; i < 8; i++) {

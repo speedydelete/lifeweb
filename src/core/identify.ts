@@ -323,7 +323,7 @@ export interface LinearInfo {
 /** Attempts to classify a linear-growth pattern.
  * @param maxPeriodMul The maximum period multiplication for linear growth detection (for example, C4-symmetric RRG's can have a true period 4 times their given one).
  */
-export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: number): null | LinearInfo {
+export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: number): LinearInfo | undefined {
     p = p.copy().run(type.stabilizedAt).shrinkToFit();
     p.xOffset = 0;
     p.yOffset = 0;
@@ -368,7 +368,6 @@ export function classifyLinear(p: Pattern, type: PatternType, maxPeriodMul: numb
             }
         }
     }
-    return null;
 }
 
 

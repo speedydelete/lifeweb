@@ -444,7 +444,7 @@ export function getKnots(trs: Uint8Array): Uint8Array {
 */
 export class INTSeparator extends MAPPattern {
 
-    /** Contains precomputed data to help with disconnected strict objects, for more information see the comments at the top of lifeweb/src/2d/intsep.ts. */
+    /** Contains precomputed data to help with disconnected strict objects, for more information see the comments at the top of lifeweb/src/intsep.ts. */
     knots: Uint8Array;
     /** The group number of each live cell. */
     groups: Uint32Array;
@@ -977,7 +977,7 @@ export class INTSeparator extends MAPPattern {
         return out2;
     }
 
-    /** Merges disconnected strict objects. */
+    /** Resolves knots (that is, merges disconnected strict objects). */
     resolveKnots(): boolean {
         let height = this.height;
         let width = this.width;
@@ -1543,15 +1543,15 @@ export class INTSeparator extends MAPPattern {
         }
     }
 
-    copy(): INTSeparator {
-        return new INTSeparator(this, this.knots);
+    copy(): this {
+        return new INTSeparator(this, this.knots) as this;
     }
 
-    clearedCopy(): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs), this.knots);
+    clearedCopy(): this {
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs), this.knots) as this;
     }
 
-    copyPart(x: number, y: number, height: number, width: number): INTSeparator {
+    copyPart(x: number, y: number, height: number, width: number): this {
         let data = new Uint8Array(width * height);
         let groups = new Uint32Array(width * height);
         let loc = 0;
@@ -1563,11 +1563,11 @@ export class INTSeparator extends MAPPattern {
         let out = new INTSeparator(this, this.knots);
         out.data = data;
         out.groups = groups;
-        return out;
+        return out as this;
     }
 
-    loadApgcode(code: string): INTSeparator {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots);
+    loadApgcode(code: string): this {
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots) as this;
     }
 
 }

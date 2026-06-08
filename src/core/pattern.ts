@@ -338,9 +338,13 @@ export const INSERT_COPY_TO_DEAD = 0b1100;
 
 /** Returned by Pattern.getRect(). */
 export interface Rect {
+    /** The height of the rect. */
     height: number;
+    /** The width of the rect. */
     width: number;
+    /** The X coordinate of the top-left cell of the rect. */
     xOffset: number;
+    /** The Y coordinate of the top-left cell of the rect. */
     yOffset: number;
 }
 
@@ -402,9 +406,9 @@ export abstract class Pattern {
     abstract isEmpty(): boolean;
 
     /** Copies the pattern, including the rule and the data. */
-    abstract copy(): Pattern;
+    abstract copy(): this;
     /** Copies the pattern, including the rule, but not including the data. */
-    abstract clearedCopy(): Pattern;
+    abstract clearedCopy(): this;
 
     /** Ensures the pattern can hold at least a x by y value. */
     abstract ensure(x: number, y: number): this;
@@ -423,7 +427,7 @@ export abstract class Pattern {
     /** Inserts a different pattern, the mode is a 4-bit number representing the logical operation (bit 0 = old state, bit 1 = new state, 00 -> 8, 01 -> 4, 10 -> 2, 11 -> 1), default value 7 (which means OR insertion). */
     abstract insert(p: Pattern, x: number, y: number, mode?: number): this;
     /** Extracts part of the pattern into a new one. */
-    abstract copyPart(x: number, y: number, height: number, width: number): Pattern;
+    abstract copyPart(x: number, y: number, height: number, width: number): this;
     /** Gets the pattern data as an array. */
     abstract getData(): Uint8Array;
     /** Sets the pattern data using a height, width, and array. */
@@ -913,9 +917,9 @@ export abstract class Pattern {
     }
 
     /** Loads an apgcode and returns a new pattern running the same rule. */
-    abstract loadApgcode(code: string): Pattern;
+    abstract loadApgcode(code: string): this;
     /** Loads a RLE and returns a new pattern running the same rule. */
-    abstract loadRLE(data: string): Pattern;
+    abstract loadRLE(data: string): this;
 
     // this makes it pretty-print in node console.log
     [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
@@ -985,36 +989,18 @@ export abstract class DataPattern extends Pattern {
         return true;
     }
 
-    abstract copy(): DataPattern;
-    abstract clearedCopy(): DataPattern;
+    abstract copy(): this;
+    abstract clearedCopy(): this;
 
     ensure(x: number, y: number): this {
-        if (x < 0 || y < 0 || x > this.width || y > this.height) {
-            let height = this.height;
-            let width = this.width;
-            let expandUp = Math.max(-y, 0);
-            let expandDown = Math.max(y - this.height, 0);
-            let expandLeft = Math.max(-x, 0);
-            let expandRight = Math.max(x - this.width, 0);
-            let oX = expandLeft + expandRight;
-            let newWidth = width + oX;
-            let newHeight = height + expandUp + expandDown;
-            let newSize = newWidth * newHeight;
-            let out = new Uint8Array(newSize);
-            let loc = newWidth * expandUp + expandLeft;
-            let i = 0;
-            for (let y = 0; y < height; y++) {
-                out.set(this.data.slice(i, i + width), loc);
-                loc += newWidth;
-                i += width;
-            }
-            this.width = newWidth;
-            this.height = newHeight;
-            this.size = newSize;
-            this.xOffset -= expandLeft;
-            this.yOffset -= expandUp;
-            this.data = out;
+        if (!(x < 0 || y < 0 || x > this.width || y > this.height)) {
+            return this;
         }
+        let up = Math.max(-y, 0);
+        let down = Math.max(y - this.height, 0);
+        let left = Math.max(-x, 0);
+        let right = Math.max(x - this.width, 0);
+        this.expand(up, down, left, right);
         return this;
     }
 
@@ -1052,10 +1038,7 @@ export abstract class DataPattern extends Pattern {
     }
 
     clear(): this {
-        this.height = 0;
-        this.width = 0;
-        this.size = 0;
-        this.data = new Uint8Array(0);
+        this.data = new Uint8Array(this.size);
         return this;
     }
 
@@ -1093,7 +1076,7 @@ export abstract class DataPattern extends Pattern {
         return this;
     }
 
-    abstract copyPart(x: number, y: number, height: number, width: number): DataPattern;
+    abstract copyPart(x: number, y: number, height: number, width: number): this;
 
     isEqual(other: Pattern): boolean {
         let otherData = other.getData();
@@ -1221,13 +1204,16 @@ export abstract class DataPattern extends Pattern {
         this.height = height;
         this.width = width;
         this.size = height * width;
+        this.data = out;
         this.xOffset += leftShrink;
         this.yOffset += topShrink;
-        this.data = out;
         return this;
     }
 
     expand(up: number, down: number, left: number, right: number): this {
+        if (up === 0 && down === 0 && left === 0 && right === 0) {
+            return this;
+        }
         let width = this.width;
         let height = this.height;
         let oX = left + right;
@@ -1373,7 +1359,7 @@ export abstract class DataPattern extends Pattern {
         }
     }
 
-    abstract loadApgcode(code: string): DataPattern;
-    abstract loadRLE(code: string): DataPattern;
+    abstract loadApgcode(code: string): this;
+    abstract loadRLE(code: string): this;
 
 }
