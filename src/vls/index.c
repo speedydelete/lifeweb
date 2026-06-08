@@ -1036,6 +1036,7 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
         }
     }
     bb->width -= shrink_right;
+    #undef get
 }
 
 typedef uint64_t hash_t;
@@ -1074,13 +1075,18 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
     *y_out += bb->y_offset;
 }
 
+#define HASH_OFFSET (0xcbf29ce484222325ULL)
+#define HASH_PRIME (0x00000100000001b3ULL)
+
 #if MULTI_RULE
 
 #define NO_OFFSET (67676767)
 
+bb_t zero_bb = {0, 0, 0, 0};
+
 static inline hash_t hash_with_offset(search_state* state, int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
-    hash_t out = 0xcbf29ce484222325ULL;
+    hash_t out = HASH_OFFSET;
     int x_offset_0 = NO_OFFSET;
     int y_offset_0 = NO_OFFSET;
     for (int fake_t = 0; fake_t < GENS; fake_t++) {
@@ -1089,25 +1095,35 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
         get_true_bb(&bb, state->grid[t]);
         int height = bb.height;
         int width = bb.width;
+        int x_offset = bb.x_offset;
+        int y_offset = bb.y_offset;
         if (transpose) {
             int temp = height;
             height = width;
             width = temp;
+            temp = x_offset;
+            x_offset = y_offset;
+            y_offset = temp;
         }
-        out ^= bb.height;
-        out *= 0x00000100000001b3ULL;
-        out ^= bb.width;
-        out *= 0x00000100000001b3ULL;
+        out ^= height;
+        out *= HASH_PRIME;
+        out ^= width;
+        out *= HASH_PRIME;
         if (x_offset_0 == NO_OFFSET) {
-            x_offset_0 = bb.x_offset;
-            y_offset_0 = bb.y_offset;
-            out *= 0x00000100000001b3ULL;
-            out *= 0x00000100000001b3ULL;
+            x_offset_0 = x_offset;
+            y_offset_0 = y_offset;
+            out *= HASH_PRIME;
+            out *= HASH_PRIME;
         } else {
-            out ^= bb.x_offset - x_offset_0;
-            out *= 0x00000100000001b3ULL;
-            out ^= bb.y_offset - y_offset_0;
-            out *= 0x00000100000001b3ULL;
+            int dx = x_offset - x_offset_0;
+            int dy = y_offset - y_offset_0;
+            int dx2 = 0;
+            int dy2 = 0;
+            transform_coords(&zero_bb, dx, dy, x_trans, y_trans, &dx2, &dy2);
+            out ^= dx2;
+            out *= HASH_PRIME;
+            out ^= dy2;
+            out *= HASH_PRIME;
         }
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -1115,7 +1131,7 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
                 int real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
                 out ^= state->grid[t][real_y][real_x];
-                out *= 0x00000100000001b3ULL;
+                out *= HASH_PRIME;
             }
         }
     }
@@ -1153,18 +1169,18 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
         height = width;
         width = temp;
     }
-    hash_t out = 0xcbf29ce484222325ULL;
+    hash_t out = HASH_OFFSET;
     out ^= bb->height;
-    out *= 0x00000100000001b3ULL;
+    out *= HASH_PRIME;
     out ^= bb->width;
-    out *= 0x00000100000001b3ULL;
+    out *= HASH_PRIME;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int real_x = 0;
             int real_y = 0;
             transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
             out ^= grid[real_y][real_x];
-            out *= 0x00000100000001b3ULL;
+            out *= HASH_PRIME;
         }
     }
     return out;
