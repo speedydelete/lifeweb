@@ -1034,6 +1034,7 @@ export class TreePattern extends DataPattern {
             out.set(upExpands, expandLeft);
         }
         if (expandDown) {
+            throw new Error(downExpands.join('') + ' ' + size + ' ' + oSize + ' ' + (size + oSize) + ' ' + out.length);
             out.set(downExpands, size + oSize);
         }
         if (expandLeft) {
