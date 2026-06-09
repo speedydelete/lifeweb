@@ -491,7 +491,7 @@ export class MAPPattern extends DataPattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
-        // this part is only for B1e and B2a rules
+        // this part is only for B1c, B1e and B2a rules
         if (width > 1) {
             if (trs[tr1]) {
                 expandUp = 1;
@@ -527,7 +527,7 @@ export class MAPPattern extends DataPattern {
                 downExpands[loc] = 1;
             }
         }
-        // this part is only for B1e and B2a rules
+        // this part is only for B1c, B1e and B2a rules
         if (width > 1) {
             if (trs[(tr1 << 3) & 511]) {
                 expandUp = 1;
@@ -545,7 +545,7 @@ export class MAPPattern extends DataPattern {
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
-        // this part is only for B1e and B2a rules
+        // this part is only for B1c, B1e and B2a rules
         if (height > 1) {
             if (trs[tr1]) {
                 expandLeft = 1;

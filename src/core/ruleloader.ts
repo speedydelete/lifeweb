@@ -981,12 +981,12 @@ export class TreePattern extends DataPattern {
         }
         // this part is only for B1c, B1e, or B2a rules
         if (height > 1) {
-            cell = this.lookupCell(0, 0, data[size - width2 - 1], 0, 0, data[size - width - 1], 0, 0, data[size - 1]);
+            cell = this.lookupCell(0, 0, data[lastRow - width], 0, 0, data[lastRow], 0, 0, 0);
             if (cell) {
                 expandLeft = 1;
                 leftExpands[height - 1] = cell;
             }
-            cell = this.lookupCell(data[lastRow - width2], 0, 0, data[lastRow - width], 0, 0, data[lastRow], 0, 0);
+            cell = this.lookupCell(data[size - width - 1], 0, 0, data[size - 1], 0, 0, 0, 0, 0);
             if (cell) {
                 expandRight = 1;
                 rightExpands[height - 1] = cell;
@@ -1024,9 +1024,6 @@ export class TreePattern extends DataPattern {
         /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
         // putting the expansion data into the output
-        if (eval('true')) {
-            throw new Error(`leftExpands = ${leftExpands.join('')}, expandUp = ${expandUp}, expandDown = ${expandDown}, expandLeft = ${expandLeft}, expandRight = ${expandRight}`);
-        }
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
