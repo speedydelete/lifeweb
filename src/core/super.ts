@@ -267,7 +267,7 @@ export class SuperPattern extends DataPattern {
                         }
                     }
                     if (oldValue === 16) {
-                        out[loc] = cells.some(x => x === 14 || x % 2 === 1) ? 16 : 14;
+                        out[loc] = cells.some(x => x === 14 || x % 2 === 1) ? 14 : 16;
                     } else if (oldValue === 18) {
                         out[loc] = cells.includes(22) ? 22 : 18;
                     } else if (oldValue === 20) {
