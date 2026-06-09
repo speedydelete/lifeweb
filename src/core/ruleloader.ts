@@ -876,7 +876,6 @@ export class TreePattern extends DataPattern {
         let height = this.height;
         let size = this.size;
         let data = this.data;
-        let trs = this.tree;
         let width2 = width << 1;
         let lastRow = size - width;
         let expandUp = 0;
@@ -994,10 +993,10 @@ export class TreePattern extends DataPattern {
             }
         }
         // special B1c checks
-        let b1cnw = (trs[1] && data[0]) ? 1 : 0;
-        let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
-        let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
-        let b1cse = (trs[256] && data[size - 1]) ? 1 : 0;
+        let b1cnw = this.lookupCell(0, 0, 0, 0, 0, 0, 0, 0, data[0]);
+        let b1cne = this.lookupCell(0, 0, 0, 0, 0, 0, data[width - 1], 0, 0);
+        let b1csw = this.lookupCell(0, 0, data[lastRow], 0, 0, 0, 0, 0, 0);
+        let b1cse = this.lookupCell(data[size - 1], 0, 0, 0, 0, 0, 0, 0, 0);
         if (b1cnw || b1cne) {
             expandUp = 1;
         }
