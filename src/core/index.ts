@@ -81,9 +81,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('History')) {
         try {
             let p = createPattern(rule.slice(0, -'History'.length), namedRules, height, width, data, undefined);
-            if (p.rule.states !== 2) {
-                throw new RuleError('History is only supported for 2-state rules');
-            }
+            // if (p.rule.states !== 2) {
+            //     throw new RuleError('History is only supported for 2-state rules');
+            // }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'History', states: 7});
             return new HistoryPattern(height, width, data, ruleData, p);
         } catch (error) {
@@ -97,9 +97,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('Super')) {
         try {
             let p = createPattern(rule.slice(0, -5), namedRules, height, width, data, undefined);
-            if (p.rule.states !== 2) {
-                throw new RuleError('Super is only supported for 2-state rules');
-            }
+            // if (p.rule.states !== 2) {
+            //     throw new RuleError('Super is only supported for 2-state rules');
+            // }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Super', states: 26})
             return new SuperPattern(height, width, data, ruleData, p);
         } catch (error) {
@@ -113,9 +113,9 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     if (rule.endsWith('Investigator')) {
         try {
             let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -12), namedRules, height, width, data, undefined);
-            if (p.rule.states !== 2) {
-                throw new RuleError('Investigator is only supported for 2-state rules');
-            }
+            // if (p.rule.states !== 2) {
+            //     throw new RuleError('Investigator is only supported for 2-state rules');
+            // }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Investigator', states: 21});
             return new InvestigatorPattern(height, width, data, ruleData, p);
         } catch (error) {
