@@ -885,6 +885,7 @@ export abstract class Pattern {
             } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
                 if (prefix) {
                     char = prefix + char;
+                    prefix = '';
                 }
                 let value = RLE_CHARS.indexOf(char);
                 if (num === '') {
