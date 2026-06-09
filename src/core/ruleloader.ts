@@ -879,7 +879,6 @@ export class TreePattern extends DataPattern {
         let trs = this.tree;
         let width2 = width << 1;
         let lastRow = size - width;
-        let secondLastRow = size - width2;
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -921,8 +920,8 @@ export class TreePattern extends DataPattern {
             }
             cell = this.lookupCell(data[j - 1], data[j], data[j + 1], 0, 0, 0, 0, 0, 0);
             if (cell) {
-                expandUp = 1;
-                upExpands[loc] = cell;
+                expandDown = 1;
+                downExpands[loc] = cell;
             }
         }
         // this part is only for B1e and B2a rules
@@ -1034,7 +1033,6 @@ export class TreePattern extends DataPattern {
             out.set(upExpands, expandLeft);
         }
         if (expandDown) {
-            throw new Error(downExpands.join('') + ' ' + size + ' ' + oSize + ' ' + (size + oSize) + ' ' + out.length);
             out.set(downExpands, size + oSize);
         }
         if (expandLeft) {
