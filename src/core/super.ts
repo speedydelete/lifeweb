@@ -171,52 +171,50 @@ export class SuperPattern extends DataPattern {
             for (let x = 0; x < width; x++) {
                 let oldValue = data[i];
                 let newValue = out[i];
-                if (oldValue === 0 || oldValue === 2 || oldValue === 10 || oldValue === 12) {
-                    if (newValue === 1) {
-                        let cells: number[] = [];
+                if (newValue === 1 && (oldValue === 0 || oldValue === 2 || oldValue === 10 || oldValue === 12 || oldValue === 24)) {
+                    let cells: number[] = [];
+                    if (x > 0) {
+                        cells.push(data[i - 1]);
+                    }
+                    if (x < width - 1) {
+                        cells.push(data[i + 1]);
+                    }
+                    if (y > 0) {
+                        cells.push(data[i - width]);
                         if (x > 0) {
-                            cells.push(data[i - 1]);
+                            cells.push(data[i - width - 1]);
                         }
                         if (x < width - 1) {
-                            cells.push(data[i + 1]);
+                            cells.push(data[i - width - 1]);
                         }
-                        if (y > 0) {
-                            cells.push(data[i - width]);
-                            if (x > 0) {
-                                cells.push(data[i - width - 1]);
-                            }
-                            if (x < width - 1) {
-                                cells.push(data[i - width - 1]);
-                            }
-                        }
-                        if (y < height - 1) {
-                            cells.push(data[i + width]);
-                            if (x > 0) {
-                                cells.push(data[i + width - 1]);
-                            }
-                            if (x < width - 1) {
-                                cells.push(data[i + width - 1]);
-                            }
-                        }
-                        if (cells.some(x => x === 1)) {
-                            out[i] = 1;
-                        } else {
-                            cells = cells.filter(x => x % 2 === 1);
-                            if (cells.slice(1).every(x => x === cells[0])) {
-                                if (cells[0] === 3 || cells[0] === 5) {
-                                    out[i] = 1;
-                                } else if (cells[0] === 7 || cells[0] === 13) {
-                                    out[i] = 13;
-                                } else {
-                                    out[i] = cells[0];
-                                }
-                            } else {
-                                out[i] = 13;
-                            }
-                        }
-                    } else {
-                        out[i] = oldValue;
                     }
+                    if (y < height - 1) {
+                        cells.push(data[i + width]);
+                        if (x > 0) {
+                            cells.push(data[i + width - 1]);
+                        }
+                        if (x < width - 1) {
+                            cells.push(data[i + width - 1]);
+                        }
+                    }
+                    if (cells.some(x => x === 1)) {
+                        out[i] = 1;
+                    } else {
+                        cells = cells.filter(x => x % 2 === 1);
+                        if (cells.slice(1).every(x => x === cells[0])) {
+                            if (cells[0] === 3 || cells[0] === 5) {
+                                out[i] = 1;
+                            } else if (cells[0] === 7 || cells[0] === 13) {
+                                out[i] = 13;
+                            } else {
+                                out[i] = cells[0];
+                            }
+                        } else {
+                            out[i] = 13;
+                        }
+                    }
+                } else if (oldValue === 0 || oldValue === 2 || oldValue === 10 || oldValue === 12) {
+                    out[i] = oldValue;
                 } else if (oldValue === 1) {
                     out[i] = newValue ? 1 : 2;
                 } else if (oldValue === 3 || oldValue === 5) {
