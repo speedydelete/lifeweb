@@ -21,7 +21,7 @@ for (let prefix of RLE_PREFIXES) {
 }
 
 /** The characters usable by apgcodes. */
-export const APGCODE_CHARS ='0123456789abcdefghijklmnopqrstuvwxyz';
+export const APGCODE_CHARS = '0123456789abcdefghijklmnopqrstuvwxyz';
 
 
 /** The join operation for rule symmetries. */
