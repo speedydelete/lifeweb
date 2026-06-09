@@ -271,6 +271,7 @@ export class SuperPattern extends DataPattern {
                     } else if (oldValue === 22) {
                         out[i] = newValue % 2 === 1 ? newValue : (cells.includes(20) ? 20 : 22);
                     } else if (oldValue === 24) {
+                        throw new Error('hi');
                         out[i] = cells.some(x => x % 2 === 1) ? 18 : 24;
                     }
                 }
