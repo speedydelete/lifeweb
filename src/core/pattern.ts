@@ -10,7 +10,7 @@ export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2-' | 'D2|' | 'D2/' | 'D2\\' |
 const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const RLE_PREFIXES = 'pqrstuvwxyz';
 /** The characters used by extended RLE's. */
-export const RLE_CHARS = ['.'];
+export const RLE_CHARS = '.ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
 RLE_CHARS.push(...RLE_LETTERS);
 for (let prefix of RLE_PREFIXES) {
     for (let letter of RLE_LETTERS) {
