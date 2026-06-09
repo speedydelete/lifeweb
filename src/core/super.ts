@@ -265,11 +265,11 @@ export class SuperPattern extends DataPattern {
                     if (oldValue === 16) {
                         out[i] = cells.some(x => x === 14 || x % 2 === 1) ? 14 : 16;
                     } else if (oldValue === 18) {
-                        out[i] = cells.includes(22) ? 22 : 18;
+                        out[i] = newValue % 2 === 1 ? newValue : (cells.includes(22) ? 22 : 18);
                     } else if (oldValue === 20) {
-                        out[i] = cells.includes(18) ? 18 : 20;
+                        out[i] = newValue % 2 === 1 ? newValue : (cells.includes(18) ? 18 : 20);
                     } else if (oldValue === 22) {
-                        out[i] = cells.includes(20) ? 20 : 22;
+                        out[i] = newValue % 2 === 1 ? newValue : (cells.includes(20) ? 20 : 22);
                     } else if (oldValue === 24) {
                         out[i] = cells.some(x => x % 2 === 1) ? 18 : 24;
                     }
