@@ -1033,6 +1033,7 @@ export class TreePattern extends DataPattern {
             out.set(upExpands, expandLeft);
         }
         if (expandDown) {
+            throw new Error(`downExpands = ${downExpands.join(' ')}, expandUp = ${expandUp}, expandDown = ${expandDown}, expandLeft = ${expandLeft}, expandRight = ${expandRight}`);
             out.set(downExpands, size + oSize);
         }
         if (expandLeft) {
