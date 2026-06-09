@@ -202,6 +202,7 @@ export class SuperPattern extends DataPattern {
                                 cells.push(data[i + oldWidth - 1]);
                             }
                         }
+                        throw new Error(`x = ${x}, y = ${y}, cells = ${cells.join('')}`);
                         if (cells.some(x => x === 1)) {
                             out[loc] = 1;
                         } else {
