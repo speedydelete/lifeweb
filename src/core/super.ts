@@ -150,11 +150,7 @@ export class SuperPattern extends DataPattern {
 
     runGeneration(): void {
         let p = this.pattern;
-        let oldHeight = this.height;
-        let oldWidth = this.width;
-        let data = this.data;
-        let alive = data.map(x => x % 2 === 1 ? 1 : 0);
-        p.setData(oldHeight, oldWidth, alive);
+        p.setData(this.height, this.width, this.data.map(x => x % 2 === 1 ? 1 : 0));
         p.xOffset = this.xOffset;
         p.yOffset = this.yOffset;
         p.generation = this.generation;
@@ -164,15 +160,15 @@ export class SuperPattern extends DataPattern {
         let size = height * width;
         let out = p.getData();
         let expandUp = p.yOffset < this.yOffset ? 1 : 0;
-        let expandDown = height > (expandUp ? oldHeight + 1 : oldHeight) ? 1 : 0;
+        let expandDown = height > this.height + expandUp ? 1 : 0;
         let expandLeft = p.xOffset < this.xOffset ? 1 : 0;
-        let expandRight = width > (expandLeft ? oldWidth + 1 : oldWidth) ? 1 : 0;
+        let expandRight = width > this.width + expandLeft ? 1 : 0;
         this.expand(expandUp, expandDown, expandLeft, expandRight);
-        data = this.data;
+        let data = this.data;
         let i = 0;
         let state6: {i: number, x: number, y: number}[] = [];
-        for (let y = 0; y < oldHeight; y++) {
-            for (let x = 0; x < oldWidth; x++) {
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
                 let oldValue = data[i];
                 let newValue = out[i];
                 if (oldValue === 0 || oldValue === 2 || oldValue === 10 || oldValue === 12) {
@@ -181,25 +177,25 @@ export class SuperPattern extends DataPattern {
                         if (x > 0) {
                             cells.push(data[i - 1]);
                         }
-                        if (x < oldWidth - 1) {
+                        if (x < width - 1) {
                             cells.push(data[i + 1]);
                         }
                         if (y > 0) {
-                            cells.push(data[i - oldWidth]);
+                            cells.push(data[i - width]);
                             if (x > 0) {
-                                cells.push(data[i - oldWidth - 1]);
+                                cells.push(data[i - width - 1]);
                             }
-                            if (x < oldWidth - 1) {
-                                cells.push(data[i - oldWidth - 1]);
+                            if (x < width - 1) {
+                                cells.push(data[i - width - 1]);
                             }
                         }
-                        if (y < oldHeight - 1) {
-                            cells.push(data[i + oldWidth]);
+                        if (y < height - 1) {
+                            cells.push(data[i + width]);
                             if (x > 0) {
-                                cells.push(data[i + oldWidth - 1]);
+                                cells.push(data[i + width - 1]);
                             }
-                            if (x < oldWidth - 1) {
-                                cells.push(data[i + oldWidth - 1]);
+                            if (x < width - 1) {
+                                cells.push(data[i + width - 1]);
                             }
                         }
                         if (cells.some(x => x === 1)) {
@@ -245,25 +241,25 @@ export class SuperPattern extends DataPattern {
                     if (x > 0) {
                         cells.push(data[i - 1]);
                     }
-                    if (x < oldWidth - 1) {
+                    if (x < width - 1) {
                         cells.push(data[i + 1]);
                     }
                     if (y > 0) {
-                        cells.push(data[i - oldWidth]);
+                        cells.push(data[i - width]);
                         if (x > 0) {
-                            cells.push(data[i - oldWidth - 1]);
+                            cells.push(data[i - width - 1]);
                         }
-                        if (x < oldWidth - 1) {
-                            cells.push(data[i - oldWidth - 1]);
+                        if (x < width - 1) {
+                            cells.push(data[i - width - 1]);
                         }
                     }
-                    if (y < oldHeight - 1) {
-                        cells.push(data[i + oldWidth]);
+                    if (y < height - 1) {
+                        cells.push(data[i + width]);
                         if (x > 0) {
-                            cells.push(data[i + oldWidth - 1]);
+                            cells.push(data[i + width - 1]);
                         }
-                        if (x < oldWidth - 1) {
-                            cells.push(data[i + oldWidth - 1]);
+                        if (x < width - 1) {
+                            cells.push(data[i + width - 1]);
                         }
                     }
                     if (oldValue === 16) {
@@ -284,31 +280,31 @@ export class SuperPattern extends DataPattern {
         for (let {i, x, y} of state6) {
             let toSet: [number, number][] = [];
             if (y > 0) {
-                if (alive[i - oldWidth]) {
-                    toSet.push([i - width, data[i - oldWidth]]);
+                if (data[i - width] % 2 === 1) {
+                    toSet.push([i - width, data[i - width]]);
                 }
-                if (x > 0 && alive[i - oldWidth - 1]) {
-                    toSet.push([i - width - 1, data[i - oldWidth - 1]]);
+                if (x > 0 && data[i - width - 1] % 2 === 1) {
+                    toSet.push([i - width - 1, data[i - width - 1]]);
                 }
-                if (x < oldWidth - 1 && alive[i - oldWidth + 1]) {
-                    toSet.push([i - width + 1, data[i - oldWidth + 1]]);
-                }
-            }
-            if (y < oldHeight - 1) {
-                if (alive[i + oldWidth]) {
-                    toSet.push([i + width, data[i + oldWidth]]);
-                }
-                if (x > 0 && alive[i + oldWidth - 1]) {
-                    toSet.push([i + width - 1, data[i + oldWidth - 1]]);
-                }
-                if (x < oldWidth - 1 && alive[i + oldWidth + 1]) {
-                    toSet.push([i + width + 1, i + oldWidth + 1]);
+                if (x < width - 1 && data[i - width + 1] % 2 === 1) {
+                    toSet.push([i - width + 1, data[i - width + 1]]);
                 }
             }
-            if (x > 0 && alive[i - 1]) {
+            if (y < height - 1) {
+                if (data[i + width] % 2 === 1) {
+                    toSet.push([i + width, data[i + width]]);
+                }
+                if (x > 0 && data[i + width - 1] % 2 === 1) {
+                    toSet.push([i + width - 1, data[i + width - 1]]);
+                }
+                if (x < width - 1 && data[i + width + 1] % 2 === 1) {
+                    toSet.push([i + width + 1, i + width + 1]);
+                }
+            }
+            if (x > 0 && data[i - 1] % 2 === 1) {
                 toSet.push([i - 1, data[i - 1]]);
             }
-            if (x < oldWidth - 1 && alive[i + 1]) {
+            if (x < width - 1 && data[i + 1] % 2 === 1) {
                 toSet.push([i + 1, data[i + 1]]);
             }
             for (let [loc, value] of toSet) {
