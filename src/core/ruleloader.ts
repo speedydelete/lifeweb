@@ -1024,6 +1024,9 @@ export class TreePattern extends DataPattern {
         /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
         // putting the expansion data into the output
+        if (eval('true')) {
+            throw new Error(`leftExpands = ${leftExpands.join('')}, expandUp = ${expandUp}, expandDown = ${expandDown}, expandLeft = ${expandLeft}, expandRight = ${expandRight}`);
+        }
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
