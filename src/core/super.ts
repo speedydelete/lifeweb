@@ -327,8 +327,6 @@ export class SuperPattern extends DataPattern {
         this.width = width;
         this.size = size;
         this.data = out;
-        this.xOffset -= expandLeft;
-        this.yOffset -= expandUp;
         this.generation++;
     }
 
