@@ -7,10 +7,10 @@ import type {InspectOptions} from 'node:util';
 /** A symmetry for a rule. */
 export type RuleSymmetry = 'C1' | 'C2' | 'C4' | 'D2-' | 'D2|' | 'D2/' | 'D2\\' | 'D4+' | 'D4x' | 'D8';
 
-const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWX';
 const RLE_PREFIXES = 'pqrstuvwxyz';
 /** The characters used by extended RLE's. */
-export const RLE_CHARS = '.ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+export const RLE_CHARS = ('.' + RLE_LETTERS).split('');
 for (let prefix of RLE_PREFIXES) {
     for (let letter of RLE_LETTERS) {
         RLE_CHARS.push(prefix + letter);
@@ -882,7 +882,7 @@ export abstract class Pattern {
                     }
                     num = '';
                 }
-            } else if ('ABCDEFGHIJKLMNOPQRSTUVWX'.includes(char)) {
+            } else if (RLE_LETTERS.includes(char)) {
                 if (prefix) {
                     char = prefix + char;
                     prefix = '';
