@@ -11,7 +11,6 @@ const RLE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const RLE_PREFIXES = 'pqrstuvwxyz';
 /** The characters used by extended RLE's. */
 export const RLE_CHARS = '.ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
-RLE_CHARS.push(...RLE_LETTERS);
 for (let prefix of RLE_PREFIXES) {
     for (let letter of RLE_LETTERS) {
         RLE_CHARS.push(prefix + letter);
