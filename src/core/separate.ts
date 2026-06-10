@@ -299,7 +299,15 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                             p.set(x + range, y + range, 1);
                         }
                     }
+                    // if (x === 1 && y === 2) {
+                    //     console.log(group);
+                    //     console.log(p.toRLE());
+                    // }
                     p.runGeneration();
+                    // if (x === 1 && y === 2) {
+                    //     console.log(p.toRLE());
+                    //     console.log('value:', p.get(0 + range + p.xOffset, 0 + range + p.yOffset));
+                    // }
                     if (p.get(0 + range + p.xOffset, 0 + range + p.yOffset) === 1) {
                         isSuppressed = true;
                     } else {
@@ -309,6 +317,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 if (!isSuppressed) {
                     continue;
                 }
+                // console.log(x, y, 'resolving', groups, removables);
                 if (removables.length === 0) {
                     // if there's no removables, merge everything
                     for (let i = 1; i < groups.length; i++) {
@@ -319,7 +328,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                     // if there's 1 removable, merge the rest
                     let mergeTo = groups[0] === removables[0] ? groups[1] : groups[0];
                     for (let group of groups) {
-                        if (group === mergeTo || group === removables[0]) {
+                        if (group === mergeTo) {
                             continue;
                         }
                         // console.log(`merging ${group} into ${mergeTo}`);

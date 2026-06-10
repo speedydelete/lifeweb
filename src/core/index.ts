@@ -461,16 +461,16 @@ export function getBlackWhiteReversal(rule: string): string {
 }
 
 
-// let p = parse(`x = 8, y = 10, rule = B3/S23
-// 6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!`);
-
-// let sep = new Separator(p);
-
-// let q = createPattern('B3/S23Super');
-// q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
-// console.log(q.toRLE());
-
-// sep.resolveKnots();
-
-// q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
-// console.log(q.toRLE());
+// let base = createPattern('B3/S23');
+// let displayP = createPattern('B3/S23Super');
+// for (let rle of ['6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!', '2o$2o2$4o$o2bo!']) {
+//     console.log('\n');
+//     let p = base.loadRLE(rle);
+//     let sep = new Separator(p);
+//     displayP.setData(sep.height, sep.width, new Uint8Array(sep.groups));
+//     console.log('before:\n' + displayP.toRLE() + '\n');
+//     sep.resolveKnots();
+//     displayP.setData(sep.height, sep.width, new Uint8Array(sep.groups));
+//     console.log('\nafter:\n' + displayP.toRLE());
+// }
+// console.log('\n');
