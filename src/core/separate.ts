@@ -58,9 +58,6 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         let nh = this.rule.neighborhood;
         // this is used inside the loop
         let groupsInNH = new Set<number>();
-        if (eval('true')) {
-            throw new Error(data.join(' '));
-        }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 if (this.get(x, y) === 0) {
