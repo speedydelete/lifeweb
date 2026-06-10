@@ -51,8 +51,6 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         }
         this.p = p;
         this.testingP = p.clearedCopy();
-        let testingBB = this.rule.range * 2 + 1;
-        this.testingP.setData(testingBB, testingBB, new Uint8Array(testingBB ** 2));
         // now it's time to assign the initial group numbers
         this.groups = new Uint32Array(this.size);
         let nh = this.rule.neighborhood;
@@ -242,6 +240,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     resolveKnots(): boolean {
         let p = this.testingP;
         let range = this.rule.range;
+        let bbSize = range * 2 + 1;
         // first we get the list of cells that are going to be born in the next generation
         let nextGenP = this.p;
         nextGenP.setData(this.height, this.width, this.data);
@@ -263,11 +262,11 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 }
                 // get all groups in the cell's neighborhood
                 let groups: number[] = [];
-                let groupCells: {[key: number]: [number, number][]} = {};
+                let groupCells: {[key: number]: [number, number, number][]} = {};
                 for (let [x2, y2] of this.rule.neighborhood) {
                     let group = this.getGroup(x + x2, y + y2);
                     if (group !== 0) {
-                        let array = [x2, y2] as [number, number];
+                        let array = [x2, y2, this.get(x + x2, y + y2)] as [number, number, number];
                         if (groups.includes(group)) {
                             groupCells[group].push(array);
                         } else {
@@ -287,28 +286,29 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 for (let group of groups) {
                     // when manipulating `p`, we need to add `range` to all coordinates
                     // because they can be negative
-                    p.clear();
+                    let data = new Uint8Array(bbSize ** 2);
                     for (let [key, value] of Object.entries(groupCells)) {
                         if (key === String(group)) {
                             continue;
                         }
-                        for (let [x, y] of value) {
+                        for (let [x, y, state] of value) {
                             if (x < -range || y < -range || x > range || y > range) {
                                 continue;
                             }
-                            p.set(x + range, y + range, 1);
+                            data[(y + range) * bbSize + (x + range)] = state;
                         }
                     }
-                    // if (x === 1 && y === 2) {
+                    p.setData(bbSize, bbSize, data);
+                    // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
                     //     console.log(group);
                     //     console.log(p.toRLE());
                     // }
                     p.runGeneration();
-                    // if (x === 1 && y === 2) {
+                    // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
                     //     console.log(p.toRLE());
-                    //     console.log('value:', p.get(0 + range + p.xOffset, 0 + range + p.yOffset));
+                    //     console.log('value:', p.xOffset, p.yOffset, p.get(0 + range + p.xOffset, 0 + range + p.yOffset));
                     // }
-                    if (p.get(0 + range + p.xOffset, 0 + range + p.yOffset) === 1) {
+                    if (p.get(0 + range - p.xOffset, 0 + range - p.yOffset)) {
                         isSuppressed = true;
                     } else {
                         removables.push(group);
