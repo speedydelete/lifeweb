@@ -255,7 +255,6 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         // but i don't remember why
         let reassignments: [number, number][] = [];
         // we go through each dead cell and run the knot procedure on it
-        // this is used inside the loop
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 // we skip the cell if it's alive or going to be alive in the next generation
@@ -294,35 +293,44 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                             continue;
                         }
                         for (let [x, y] of value) {
+                            if (x < -range || y < -range || x > range || y > range) {
+                                continue;
+                            }
                             p.set(x + range, y + range, 1);
                         }
                     }
-                    console.log(x, y);
                     p.runGeneration();
-                    if (p.get(0 + range, 0 + range) === 1) {
+                    if (p.get(0 + range + p.xOffset, 0 + range + p.yOffset) === 1) {
                         isSuppressed = true;
                     } else {
                         removables.push(group);
                     }
                 }
+                if (!isSuppressed) {
+                    continue;
+                }
                 if (removables.length === 0) {
                     // if there's no removables, merge everything
                     for (let i = 1; i < groups.length; i++) {
+                        // console.log(`merging ${groups[i]} into ${groups[0]}`);
                         reassignments.push([groups[i], groups[0]]);
                     }
                 } else if (removables.length === 1) {
-                    let mergeTo = removables[0];
+                    // if there's 1 removable, merge the rest
+                    let mergeTo = groups[0] === removables[0] ? groups[1] : groups[0];
                     for (let group of groups) {
-                        if (group === mergeTo) {
+                        if (group === mergeTo || group === removables[0]) {
                             continue;
                         }
+                        // console.log(`merging ${group} into ${mergeTo}`);
                         reassignments.push([group, mergeTo]);
                     }
                 } else {
                     // if there's multiple removables, it's ambiguous
                     // so we merge everything
                     for (let i = 1; i < groups.length; i++) {
-                        reassignments.push([i, groups[0]]);
+                        // console.log(`merging ${groups[i]} into ${groups[0]}`);
+                        reassignments.push([groups[i], groups[0]]);
                     }
                 }
             }
