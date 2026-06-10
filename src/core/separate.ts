@@ -180,6 +180,8 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         let expandDown = Math.max(p.height - this.height - expandUp, 0);
         let expandLeft = Math.max(-p.xOffset, 0);
         let expandRight = Math.max(p.width - this.width - expandLeft, 0);
+        // console.log(`x = ${this.xOffset}, y = ${this.yOffset}`);
+        // console.log(expandUp, expandDown, expandLeft, expandRight);
         this.expand(expandUp, expandDown, expandLeft, expandRight);
         // cache reassignments
         // honestly, i don't know why i'm doing this

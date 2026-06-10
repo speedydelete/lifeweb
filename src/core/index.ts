@@ -133,7 +133,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
         try {
             let p = createPattern(rule.slice(0, -'INTSeparator'.length), namedRules, height, width, data, undefined);
             if (!(p instanceof MAPPattern && p.rule.symmetry === 'D8' && !p.trs[1])) {
-                throw new Error(`INTSeparator is only supported for non-B01c INT rules!`);
+                throw new RuleError(`INTSeparator is only supported for non-B01c INT rules!`);
             }
             p.rule.str += 'INTSeparator';
             return new INTSeparator(p, getKnots(p.trs));
@@ -461,7 +461,20 @@ export function getBlackWhiteReversal(rule: string): string {
 }
 
 
-// let p = parse(`x = 2, y = 2, rule = B3/S23
-// 2o$2o!`);
+// let p = parse(`x = 6, y = 7, rule = B3/S23Separator
+// bo$2bo$3o3$4b2o$4b2o!`);
 
 // let sep = new Separator(p);
+
+// for (let i = 0; i < 3; i++) {
+//     if (sep.generation % 2 === 0) {
+//         console.log('\nrunning generation');
+//         sep.runGeneration();
+//     } else {
+//         console.log('\nresolving knots');
+//         sep.resolveKnots();
+//         sep.generation++;
+//     }
+//     sep.shrinkToFit();
+//     console.log(sep.toString());
+// }
