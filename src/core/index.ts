@@ -461,20 +461,11 @@ export function getBlackWhiteReversal(rule: string): string {
 }
 
 
-// let p = parse(`x = 6, y = 7, rule = B3/S23Separator
-// bo$2bo$3o3$4b2o$4b2o!`);
+// let p = parse(`x = 6, y = 6, rule = B3/S23
+// bo$2bo$3o2$4b2o$4b2o!`);
 
 // let sep = new Separator(p);
 
-// for (let i = 0; i < 3; i++) {
-//     if (sep.generation % 2 === 0) {
-//         console.log('\nrunning generation');
-//         sep.runGeneration();
-//     } else {
-//         console.log('\nresolving knots');
-//         sep.resolveKnots();
-//         sep.generation++;
-//     }
-//     sep.shrinkToFit();
-//     console.log(sep.toString());
-// }
+// sep.resolveKnots();
+
+// console.log(sep.groups);

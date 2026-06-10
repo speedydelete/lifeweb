@@ -281,7 +281,9 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 if (groups.length < 2) {
                     continue;
                 }
-                // we now check what groups can be removed without the knot becoming alive
+                // we now check if a birth is actually being suppressed
+                let isSuppressed = false;
+                // and check what groups can be removed without the knot becoming alive
                 let removables: number[] = [];
                 for (let group of groups) {
                     // when manipulating `p`, we need to add `range` to all coordinates
@@ -295,8 +297,11 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                             p.set(x + range, y + range, 1);
                         }
                     }
+                    console.log(x, y);
                     p.runGeneration();
                     if (p.get(0 + range, 0 + range) === 1) {
+                        isSuppressed = true;
+                    } else {
                         removables.push(group);
                     }
                 }
