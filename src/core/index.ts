@@ -9,6 +9,8 @@ import {HistoryPattern, SuperPattern, InvestigatorPattern} from './super.js';
 import {FinitePattern, TorusPattern} from './bounded.js';
 import {AlternatingPattern} from './alternating.js';
 import {TreePattern, createTreePattern} from './ruleloader.js';
+import {getKnots, INTSeparator} from './intsep.js';
+import {Separator} from './separate.js';
 
 export * from './util.js';
 export * from './pattern.js';
@@ -21,7 +23,6 @@ export * from './bounded.js';
 export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';
-export * from './sep.js';
 export * from './catagolue.js';
 export * from './conduits.js';
 
@@ -96,7 +97,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('Super')) {
         try {
-            let p = createPattern(rule.slice(0, -5), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -'Super'.length), namedRules, height, width, data, undefined);
             // if (p.rule.states !== 2) {
             //     throw new RuleError('Super is only supported for 2-state rules');
             // }
@@ -112,12 +113,42 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('Investigator')) {
         try {
-            let p = createPattern(rule.slice(0, -12) === 'State' ? 'B3/S23' : rule.slice(0, -12), namedRules, height, width, data, undefined);
+            rule = rule.slice(0, -'Investigator'.length);
+            let p = createPattern(rule === 'State' ? 'B3/S23' : rule, namedRules, height, width, data, undefined);
             // if (p.rule.states !== 2) {
             //     throw new RuleError('Investigator is only supported for 2-state rules');
             // }
             let ruleData: Rule = Object.assign({}, p.rule, {str: p.rule.str + 'Investigator', states: 21});
             return new InvestigatorPattern(height, width, data, ruleData, p);
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Separator')) {
+        try {
+            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            p.rule.str += 'Separator';
+            return new Separator(p);
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('INTSeparator')) {
+        try {
+            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            if (!(p instanceof MAPPattern && p.rule.symmetry === 'D8' && !p.trs[1])) {
+                throw new Error(`INTSeparator is only supported for non-B01c INT rules!`);
+            }
+            p.rule.str += 'INTSeparator';
+            return new INTSeparator(p, getKnots(p.trs));
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);

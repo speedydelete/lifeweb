@@ -1,6 +1,6 @@
 
-import {Pattern} from '../core/pattern.js';
-import {PhaseData} from '../core/minmax.js';
+import {Pattern} from './pattern.js';
+import {PhaseData} from './minmax.js';
 import {Separator} from './separate.js';
 
 
