@@ -1231,9 +1231,9 @@ export abstract class DataPattern extends Pattern {
         this.width = newWidth;
         this.height = newHeight;
         this.size = newSize;
+        this.data = out;
         this.xOffset -= left;
         this.yOffset -= up;
-        this.data = out;
         return this;
     }
 

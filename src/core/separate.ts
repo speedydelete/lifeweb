@@ -42,7 +42,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     /** The next available group number. */
     nextGroup: number = 1;
 
-    constructor(p: Separator<T> | T) {
+    constructor(p: T | Separator<T>) {
         let height = p.height;
         let width = p.width;
         let data = p.getData().slice();
@@ -152,19 +152,22 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         let newHeight = height + up + down;
         let newSize = newWidth * newHeight;
         let out = new Uint8Array(newSize);
+        let outGroups = new Uint32Array(newSize);
         let loc = newWidth * up + left;
         let i = 0;
         for (let y = 0; y < height; y++) {
             out.set(this.data.slice(i, i + width), loc);
+            outGroups.set(this.groups.slice(i, i + width), loc);
             loc += newWidth;
             i += width;
         }
         this.width = newWidth;
         this.height = newHeight;
         this.size = newSize;
+        this.data = out;
+        this.groups = outGroups;
         this.xOffset -= left;
         this.yOffset -= up;
-        this.data = out;
         return this;
     }
 
@@ -184,9 +187,9 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         let newData = p.getData();
         // we expand the separator to adjust the groups to remove complicated and annoying offset math
         let expandUp = Math.max(-p.yOffset, 0);
-        let expandDown = Math.max(p.height - this.height - expandUp, 0);
+        let expandDown = Math.max(height - this.height - expandUp, 0);
         let expandLeft = Math.max(-p.xOffset, 0);
-        let expandRight = Math.max(p.width - this.width - expandLeft, 0);
+        let expandRight = Math.max(width - this.width - expandLeft, 0);
         // console.log(`x = ${this.xOffset}, y = ${this.yOffset}`);
         // console.log(expandUp, expandDown, expandLeft, expandRight);
         this.expand(expandUp, expandDown, expandLeft, expandRight);
@@ -206,7 +209,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 if (newData[i] === 0) {
                     i++;
                     continue;
-                // filter out survivals
+                // if it survived, it keeps the original group
                 } else if (this.data[i] !== 0) {
                     newGroups[i] = this.groups[i];
                     i++;

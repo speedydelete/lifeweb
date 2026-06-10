@@ -463,14 +463,14 @@ export function getBlackWhiteReversal(rule: string): string {
 
 // let base = createPattern('B3/S23');
 // let displayP = createPattern('B3/S23Super');
-// for (let rle of ['3b2o$3b2o7$b2o$o2bob2o$b2o2b2o!', /*'6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!', '2o$2o2$4o$o2bo!'*/]) {
+// for (let rle of ['b2o$o2bob2o$b2o2b2o!', /*'3b2o$3b2o7$b2o$o2bob2o$b2o2b2o!', '6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!', '2o$2o2$4o$o2bo!'*/]) {
 //     console.log('\n');
 //     let p = base.loadRLE(rle);
 //     let sep = new Separator(p);
 //     displayP.setData(sep.height, sep.width, new Uint8Array(sep.groups));
 //     console.log('before:\n' + displayP.toRLE() + '\n');
-//     sep.runGeneration();
+//     sep.run(3).shrinkToFit();
 //     displayP.setData(sep.height, sep.width, new Uint8Array(sep.groups));
-//     console.log('\nafter:\n' + displayP.toRLE());
+//     console.log('\nafter:\n' + p.toRLE() + '\n' + displayP.toRLE());
 // }
 // console.log('\n');
