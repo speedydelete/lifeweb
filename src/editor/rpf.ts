@@ -164,7 +164,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             let maxY = -Infinity;
             this.population = 0;
             for (let value of data) {
-                let p = value.p.copy() as T;
+                let p = value.p.copy();
                 applyRotation(p, value.rotation);
                 p.run(value.time);
                 p.shrinkToFit();
@@ -314,7 +314,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                     if (!parts[1]) {
                         throw new RPFError(`Expected object after '#creates'`);
                     }
-                    let p = parts[1].startsWith('*') ? file.base.loadApgcode(parts[1].slice(1)).shrinkToFit() as T : file.lookupName(parts[1]);
+                    let p = parts[1].startsWith('*') ? file.base.loadApgcode(parts[1].slice(1)).shrinkToFit() : file.lookupName(parts[1]);
                     if (!p) {
                         throw new RPFError(`Cannot find RPF object '${parts[1]}'`);
                     }
@@ -348,7 +348,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                         if (!parts[i + 1]) {
                             throw new RPFError(`Expected object after '${type}'`);
                         }
-                        let p = parts[i + 1].startsWith('*') ? file.base.loadApgcode(parts[i + 1].slice(1)).shrinkToFit() as T : file.lookupName(parts[i + 1]);
+                        let p = parts[i + 1].startsWith('*') ? file.base.loadApgcode(parts[i + 1].slice(1)).shrinkToFit() : file.lookupName(parts[i + 1]);
                         if (!p) {
                             throw new RPFError(`Cannot find RPF object '${parts[1]}'`);
                         }
@@ -376,7 +376,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                     out.envelope = {x, y, p};
                 }
             } else {
-                let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() as T : file.lookupName(parts[0]);
+                let p = parts[0].startsWith('*') ? file.base.loadApgcode(parts[0].slice(1)).shrinkToFit() : file.lookupName(parts[0]);
                 if (!p) {
                     throw new RPFError(`Cannot find RPF object '${parts[0]}'`);
                 }
@@ -405,7 +405,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             return this;
         }
         this.data.add(obj);
-        let p = obj.p.copy() as T;
+        let p = obj.p.copy();
         applyRotation(p, obj.rotation);
         p.run(obj.time);
         p.shrinkToFit();
@@ -437,7 +437,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             if (recursive && value.p instanceof RPFPattern) {
                 value.p.recomputeSizes();
             }
-            let p = value.p.copy() as T;
+            let p = value.p.copy();
             applyRotation(p, value.rotation);
             p.run(value.time);
             p.shrinkToFit();
@@ -566,7 +566,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         p.name = this.name;
         p.periodic = structuredClone(this.periodic);
         p.creates = this.creates ? {
-            p: deep ? (this.creates.p instanceof RPFPattern ? this.creates.p.deepCopy() : this.creates.p.copy() as T) : this.creates.p,
+            p: deep ? (this.creates.p instanceof RPFPattern ? this.creates.p.deepCopy() : this.creates.p.copy()) : this.creates.p,
             x: this.creates.x,
             y: this.creates.y,
             rotation: this.creates.rotation,
@@ -577,14 +577,14 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             repeatTime: this.conduit.repeatTime,
             overclock: this.conduit.overclock.slice(),
             inputs: this.conduit.inputs.map(obj => ({
-                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy() as T) : obj.p,
+                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy()) : obj.p,
                 x: obj.x,
                 y: obj.y,
                 rotation: obj.rotation,
                 time: obj.time,
             })),
             outputs: this.conduit.outputs.map(obj => ({
-                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy() as T) : obj.p,
+                p: deep ? (obj.p instanceof RPFPattern ? obj.p.deepCopy() : obj.p.copy()) : obj.p,
                 x: obj.x,
                 y: obj.y,
                 rotation: obj.rotation,
@@ -614,7 +614,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         let data = new Set<RPFObjectData<T>>();
         for (let value of this.data) {
             data.add({
-                p: value.p instanceof RPFPattern ? value.p.deepCopy() : value.p.copy() as T,
+                p: value.p instanceof RPFPattern ? value.p.deepCopy() : value.p.copy(),
                 x: value.x,
                 y: value.y,
                 rotation: value.rotation,
@@ -724,7 +724,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     toPattern(): T {
-        let p = this.base.clearedCopy() as T;
+        let p = this.base.clearedCopy();
         p.ensure(this.width, this.height);
         for (let value of this.data) {
             let q = value.p.copy();
@@ -996,12 +996,12 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     loadApgcode(code: string): this {
-        let p = this.base.loadApgcode(code) as T;
+        let p = this.base.loadApgcode(code);
         return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}])) as this;
     }
 
     loadRLE(rle: string): this {
-        let p = this.base.loadRLE(rle) as T;
+        let p = this.base.loadRLE(rle);
         return new RPFPattern(this.base, this.key, this.path, new Set([{p, x: 0, y: 0, rotation: 'F', time: 0}])) as this;
     }
 
