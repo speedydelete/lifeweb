@@ -227,8 +227,6 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 out = true;
             }
         }
-        this.xOffset += p.xOffset;
-        this.yOffset += p.yOffset;
         this.generation++;
         return out;
     }
