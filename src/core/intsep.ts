@@ -1339,6 +1339,218 @@ export class INTSeparator extends DataPattern {
         return out;
     }
 
+  /** Performs complete object separation.
+     * @deprecated DO NOT USE THIS IN NEW CODE
+     * @param limit The maximum number of generations to identify for.
+     * @param max The maximum number of object separation generations to run.
+     * @param recurseEveryTime I honestly forget what this thing actually does.
+     * @param depth The recursion depth. I think this is internal, but I'm not sure.
+     */
+    separate(limit: number, max: number, recurseEveryTime: boolean = false, depth: number = 1): [[MAPPattern, PatternType][], boolean] | null {
+        if (this.isEmpty()) {
+            return [[], false];
+        }
+        let i = 0;
+        let totalI = 0;
+        let maxPeriod = max;
+        let objs: [MAPPattern, PatternType][] = [];
+        let failed = false;
+        while (totalI < max) {
+            let reassigned = this.runGeneration();
+            let reassigned2 = this.resolveKnots();
+            // if (totalI === 0) {
+            //     let data = this.getObjects().map(x => identify(x, limit));
+            //     // @ts-ignore
+            //     data = data.map(x => Object.assign({}, x, {phases: x.phases.map(y => '#C ' + y.xOffset + ' ' + y.yOffset + '\n' + y.toRLE())}));
+            //     let q = new MAPPattern(this.height, this.width, new Uint8Array(this.groups), this.trs, this.ruleStr, this.ruleSymmetry);
+            //     // @ts-ignore
+            //     q.states = 256;
+            //     this.ruleStr = 'B2-ak5j/S12-k';
+            //     q.ruleStr = 'B2-ak5j/S12-kSuper';
+            //     console.log(i, maxPeriod, totalI, max);
+            //     console.log('\n\n' + this.toRLE() + '\n\n' + q.toRLE() + '\n\n'/* + Object.entries(this.reassignedGroups).map(x => x[0] + ' ' + x[1]).join('\n') + '\n\n' + JSON.stringify(data, undefined, 4).replaceAll('\\n', '\n') + '\n\n'*/);
+            //     process.exit();
+            // }
+            if (reassigned || reassigned2) {
+                i = 0;
+                totalI++;
+                continue;
+            }
+            let found = true;
+            if (recurseEveryTime && depth > 0) {
+                objs = [];
+                for (let p of this.getObjects()) {
+                    let single = true;
+                    let i = 1;
+                    for (; i < p.width; i++) {
+                        if (p.data[i] && !p.data[i - 1]) {
+                            single = false;
+                            break;
+                        }
+                    }
+                    if (single) {
+                        for (let y = 0; y < p.height; y++) {
+                            if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                single = false;
+                                break;
+                            }
+                            i++;
+                            for (let x = 1; x < p.width - 1; x++) {
+                                if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                            }
+                            if (!single) {
+                                break;
+                            }
+                            if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
+                                single = false;
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    if (single) {
+                        let x = identifyPeriodic(p, limit);
+                        if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                            found = false;
+                            break;
+                        }
+                        objs.push([p.copy(), x]);
+                    } else {
+                        let sep = new INTSeparator(p, this.knots);
+                        let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
+                        if (data === null) {
+                            failed = true;
+                            let x = identifyPeriodic(p, limit);
+                            if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                found = false;
+                                break;
+                            }
+                            objs.push([p.copy(), x]);
+                        } else {
+                            if (data[1] === true) {
+                                failed = true;
+                            }
+                            for (let [p, x] of data[0]) {
+                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                    found = false;
+                                    break;
+                                }
+                                objs.push([p, x]);
+                            }
+                            if (!found) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                objs = this.getObjects().map(x => [x, identifyPeriodic(x, limit)]);
+            }
+            if (!objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty())) {
+                i = 0;
+            } else if (i === 0) {
+                i = 1;
+                let periods = objs.map(([_, x]) => x.linear ? x.period * 8 : x.period);
+                maxPeriod = periods[0];
+                for (let period of periods.slice(1)) {
+                    maxPeriod = maxPeriod * period / gcd(maxPeriod, period);
+                }
+            } else {
+                i++;
+            }
+            if (i === maxPeriod) {
+                if (recurseEveryTime) {
+                    return [objs, failed];
+                }
+                if (depth > 0) {
+                    objs = [];
+                    for (let p of this.getObjects()) {
+                        let single = true;
+                        let i = 1;
+                        for (; i < p.width; i++) {
+                            if (p.data[i] && !p.data[i - 1]) {
+                                single = false;
+                                break;
+                            }
+                        }
+                        if (single) {
+                            for (let y = 0; y < p.height; y++) {
+                                if (p.data[i] && !(p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                                for (let x = 1; x < p.width - 1; x++) {
+                                    if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width] || p.data[i - p.width + 1])) {
+                                        single = false;
+                                        break;
+                                    }
+                                    i++;
+                                }
+                                if (!single) {
+                                    break;
+                                }
+                                if (p.data[i] && !(p.data[i - 1] || p.data[i - p.width - 1] || p.data[i - p.width])) {
+                                    single = false;
+                                    break;
+                                }
+                                i++;
+                            }
+                        }
+                        if (single) {
+                            let x = identifyPeriodic(p, limit);
+                            if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                found = false;
+                                break;
+                            }
+                            objs.push([p.copy(), x]);
+                        } else {
+                            let sep = new INTSeparator(p, this.knots);
+                            let data = sep.separate(limit, max, recurseEveryTime, depth - 1);
+                            if (data === null) {
+                                failed = true;
+                                let x = identifyPeriodic(p, limit);
+                                if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                    found = false;
+                                    break;
+                                }
+                                objs.push([p.copy(), x]);
+                            } else {
+                                if (data[1] === true) {
+                                    failed = true;
+                                }
+                                for (let [p, x] of data[0]) {
+                                    if (x.stabilizedAt !== 0 || x.phases[x.phases.length - 1].isEmpty()) {
+                                        found = false;
+                                        break;
+                                    }
+                                    objs.push([p, x]);
+                                }
+                                if (!found) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    objs = this.getObjects().map(x => [x, identifyPeriodic(x, limit)]);
+                    failed = !objs.every(([_, x]) => x.stabilizedAt === 0 && x.phases[x.phases.length - 1].isEmpty());
+                }
+                return [objs, failed];
+            }
+            totalI++;
+        }
+        if (!recurseEveryTime) {
+            return this.separate(limit, max, true, depth);
+        } else {
+            return null;
+        }
+    }
+
     shrinkToFit(): this {
         let height = this.height;
         let width = this.width;
