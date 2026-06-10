@@ -50,7 +50,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
             return;
         }
         this.p = p;
-        this.testingP = p.clearedCopy() as T;
+        this.testingP = p.clearedCopy();
         let testingBB = this.rule.range * 2 + 1;
         this.testingP.setData(testingBB, testingBB, new Uint8Array(testingBB ** 2));
         // now it's time to assign the initial group numbers
@@ -369,7 +369,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
             for (let [x, y] of cells) {
                 data[(y - minY) * width + x - minX] = 1;
             }
-            let p = this.p.clearedCopy() as T;
+            let p = this.p.clearedCopy();
             p.setData(height, width, data);
             p.xOffset = minX + this.xOffset;
             p.yOffset = minY + this.yOffset;
@@ -485,11 +485,11 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     }
 
     loadApgcode(code: string): this {
-        return new Separator(this.p.loadApgcode(code) as T) as this;
+        return new Separator(this.p.loadApgcode(code)) as this;
     }
 
     loadRLE(rle: string): this {
-        return new Separator(this.p.loadRLE(rle) as T) as this;
+        return new Separator(this.p.loadRLE(rle)) as this;
     }
 
 }
