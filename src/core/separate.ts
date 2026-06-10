@@ -254,7 +254,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 // we skip the cell if it's alive or going to be alive in the next generation
-                if (this.get(x, y) || nextGenP.get(x + p.xOffset, y + p.yOffset) > 0) {
+                if (this.get(x, y) || nextGenP.get(x + nextGenP.xOffset, y + nextGenP.yOffset) > 0) {
                     continue;
                 }
                 // get all groups in the cell's neighborhood
