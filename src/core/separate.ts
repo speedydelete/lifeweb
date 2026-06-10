@@ -380,7 +380,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     }
 
     copy(): this {
-        return new Separator(this.p) as this;
+        return new Separator(this) as this;
     }
 
     clearedCopy(): this {
