@@ -461,16 +461,16 @@ export function getBlackWhiteReversal(rule: string): string {
 }
 
 
-let p = parse(`x = 8, y = 10, rule = B3/S23
-6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!`);
+// let p = parse(`x = 8, y = 10, rule = B3/S23
+// 6b2o$2bobo2bo$bob2obo$bo4b2o$2ob2o$3b2ob2o$2o4bo$bob2obo$o2bobo$2o!`);
 
-let sep = new Separator(p);
+// let sep = new Separator(p);
 
-let q = createPattern('B3/S23Super');
-q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
-console.log(q.toRLE());
+// let q = createPattern('B3/S23Super');
+// q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
+// console.log(q.toRLE());
 
-sep.resolveKnots();
+// sep.resolveKnots();
 
-q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
-console.log(q.toRLE());
+// q.setData(sep.height, sep.width, new Uint8Array(sep.groups));
+// console.log(q.toRLE());
