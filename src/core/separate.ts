@@ -80,7 +80,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                     let arrayGroups = Array.from(groupsInNH);
                     group = arrayGroups[0];
                     for (let i = 1; i < arrayGroups.length; i++) {
-                        this.reassign(i, group);
+                        this.reassign(arrayGroups[i], group);
                     }
                 } else {
                     group = this.getNewGroup();
