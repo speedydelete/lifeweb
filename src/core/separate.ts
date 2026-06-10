@@ -196,9 +196,12 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 // we don't need to do anything if the current value is 0
-                // or if the old value and the new value both aren't 0
-                // (this filters out all cases other than new births)
-                if (newData[i] === 0 || this.data[i] !== 0) {
+                if (newData[i] === 0) {
+                    i++;
+                    continue;
+                // filter out survivals
+                } else if (this.data[i] !== 0) {
+                    newGroups[i] = this.groups[i];
                     i++;
                     continue;
                 }
