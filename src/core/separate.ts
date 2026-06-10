@@ -300,13 +300,15 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 if (removables.length === 0) {
                     // if there's no removables, merge everything
                     for (let i = 1; i < groups.length; i++) {
-                        reassignments.push([i, groups[0]]);
+                        reassignments.push([groups[i], groups[0]]);
                     }
                 } else if (removables.length === 1) {
-                    // if there's 1 removable, then merge the rest
-                    let mergeTo = removables[0] === 0 ? 1 : 0;
-                    if (removables[1] === 0) {
-
+                    let mergeTo = removables[0];
+                    for (let group of groups) {
+                        if (group === mergeTo) {
+                            continue;
+                        }
+                        reassignments.push([group, mergeTo]);
                     }
                 } else {
                     // if there's multiple removables, it's ambiguous
