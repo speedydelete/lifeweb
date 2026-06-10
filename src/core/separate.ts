@@ -36,16 +36,16 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     constructor(p: Separator<T> | T) {
         let height = p.height;
         let width = p.width;
-        let data = p.getData();
+        let data = p.getData().slice();
         super(height, width, data, p.rule);
         this.xOffset = p.xOffset;
         this.yOffset = p.yOffset;
         this.generation = p.generation;
         if (p instanceof Separator) {
-            this.p = p.p;
-            this.testingP = p.testingP;
-            this.groups = p.groups;
-            this.reassignedGroups = p.reassignedGroups;
+            this.p = p.p.copy();
+            this.testingP = p.testingP.copy();
+            this.groups = p.groups.slice();
+            this.reassignedGroups = structuredClone(p.reassignedGroups);
             this.nextGroup = p.nextGroup;
             return;
         }
