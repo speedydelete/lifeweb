@@ -459,3 +459,9 @@ export function getBlackWhiteReversal(rule: string): string {
         throw new LifewebError(`Unknown pattern: '${p}'`);
     }
 }
+
+
+// let p = parse(`x = 2, y = 2, rule = B3/S23
+// 2o$2o!`);
+
+// let sep = new Separator(p);

@@ -31,7 +31,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
     /** All groups that have been previously reassigned. */
     reassignedGroups: {[key: number]: number} = {};
     /** The next available group number. */
-    nextGroup: number = 0;
+    nextGroup: number = 1;
 
     constructor(p: Separator<T> | T) {
         let height = p.height;
