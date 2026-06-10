@@ -1579,7 +1579,7 @@ export class INTSeparator extends DataPattern {
     }
 
     loadRLE(code: string): this {
-        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots) as this;
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadRLE(code), this.knots) as this;
     }
 
 }
