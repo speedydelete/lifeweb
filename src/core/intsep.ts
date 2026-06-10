@@ -114,7 +114,8 @@ For optimization, we don't implement B1c.
 */
 
 import {gcd} from './util.js';
-import {MAPPattern, INT} from './map.js';
+import {DataPattern} from './pattern.js';
+import {INT, MAPPattern} from './map.js';
 import {identifyPeriodic, PatternType} from './identify.js';
 
 
@@ -442,8 +443,15 @@ export function getKnots(trs: Uint8Array): Uint8Array {
 /** Separates objects in INT rules using a colorizing algorithm. May have bugs. For details about that algorithm, see the comments at the top of lifeweb/src/2d/intsep.ts.
  * @param knots The precomputed knot data (which helps with disconnected strict objects), call `getKnots` to use it.
 */
-export class INTSeparator extends MAPPattern {
+export class INTSeparator extends DataPattern {
 
+    /** A 512-bit Uint8Array storing the transition to do for each 3x3 combination of cells.
+     * Indexed like this:
+     * 852
+     * 741
+     * 630
+     */
+    trs: Uint8Array;
     /** Contains precomputed data to help with disconnected strict objects, for more information see the comments at the top of lifeweb/src/intsep.ts. */
     knots: Uint8Array;
     /** The group number of each live cell. */
@@ -455,7 +463,7 @@ export class INTSeparator extends MAPPattern {
         let height = p.height;
         let width = p.width;
         let data = p.data.slice();
-        super(height, width, data, p.rule, p.trs);
+        super(height, width, data, p.rule);
         this.xOffset = p.xOffset;
         this.yOffset = p.yOffset;
         this.generation = p.generation;
@@ -1567,6 +1575,10 @@ export class INTSeparator extends MAPPattern {
     }
 
     loadApgcode(code: string): this {
+        return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots) as this;
+    }
+
+    loadRLE(code: string): this {
         return new INTSeparator(new MAPPattern(0, 0, new Uint8Array(0), this.rule, this.trs).loadApgcode(code), this.knots) as this;
     }
 
