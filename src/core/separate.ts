@@ -54,10 +54,13 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         let testingBB = this.rule.range * 2 + 1;
         this.testingP.setData(testingBB, testingBB, new Uint8Array(testingBB ** 2));
         // now it's time to assign the initial group numbers
+        this.groups = new Uint32Array(this.size);
         let nh = this.rule.neighborhood;
         // this is used inside the loop
         let groupsInNH = new Set<number>();
-        this.groups = new Uint32Array(this.size);
+        if (eval('true')) {
+            throw new Error(this.data.join(' '));
+        }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 if (this.get(x, y) === 0) {
