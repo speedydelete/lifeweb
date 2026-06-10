@@ -59,7 +59,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         // this is used inside the loop
         let groupsInNH = new Set<number>();
         if (eval('true')) {
-            throw new Error(this.data.join(' '));
+            throw new Error(data.join(' '));
         }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
