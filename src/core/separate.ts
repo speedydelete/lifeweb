@@ -13,7 +13,16 @@ a knot is a dead cell surrounded by 2+ groups of live cells and the cell won't c
 
 when we hit a knot, we need to figure out if the surronding cells are suppressing its birth
 
-TODO: explain this
+we go through every group and remove it
+if a birth is caused we know there is a suppressed birth
+we also keep track of the groups that, when removed, don't cause a birth (the "removables")
+
+now, if there is no suppressed birth, we just skip it
+
+so, then it depends on the number of removables:
+- if there are 0 removables, all the islands are neccessary, so we merge everything
+- if there's 1 removable, we merge the rest of the groups
+- if there's multiple, it's ambiguous, current behavior is to merge everything 
 
 */
 
