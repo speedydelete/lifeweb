@@ -23,6 +23,7 @@ export * from './bounded.js';
 export * from './minmax.js';
 export * from './identify.js';
 export * from './intsep.js';
+export * from './separate.js';
 export * from './catagolue.js';
 export * from './conduits.js';
 
