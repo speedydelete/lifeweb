@@ -215,7 +215,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                 let arrayGroups = Array.from(groupsInNH);
                 let group = arrayGroups[0];
                 for (let j = 1; j < arrayGroups.length; j++) {
-                    reassignments.push([j, group]);
+                    reassignments.push([arrayGroups[j], group]);
                 }
                 newGroups[i] = group;
                 i++;
