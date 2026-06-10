@@ -129,19 +129,6 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             }
         }
     }
-    if (rule.endsWith('Separator')) {
-        try {
-            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
-            p.rule.str += 'Separator';
-            return new Separator(p);
-        } catch (error) {
-            if (error instanceof RuleError) {
-                errors.push(error.message);
-            } else {
-                throw error;
-            }
-        }
-    }
     if (rule.endsWith('INTSeparator')) {
         try {
             let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
@@ -150,6 +137,19 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
             }
             p.rule.str += 'INTSeparator';
             return new INTSeparator(p, getKnots(p.trs));
+        } catch (error) {
+            if (error instanceof RuleError) {
+                errors.push(error.message);
+            } else {
+                throw error;
+            }
+        }
+    }
+    if (rule.endsWith('Separator')) {
+        try {
+            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            p.rule.str += 'Separator';
+            return new Separator(p);
         } catch (error) {
             if (error instanceof RuleError) {
                 errors.push(error.message);
