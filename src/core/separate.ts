@@ -319,6 +319,7 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
                         reassignments.push([group, mergeTo]);
                     }
                 } else {
+                    throw new Error('ambiguous');
                     // if there's multiple removables, it's ambiguous
                     // so we merge everything
                     for (let i = 1; i < groups.length; i++) {
