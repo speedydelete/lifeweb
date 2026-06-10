@@ -131,7 +131,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('INTSeparator')) {
         try {
-            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -'INTSeparator'.length), namedRules, height, width, data, undefined);
             if (!(p instanceof MAPPattern && p.rule.symmetry === 'D8' && !p.trs[1])) {
                 throw new Error(`INTSeparator is only supported for non-B01c INT rules!`);
             }
@@ -147,7 +147,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     }
     if (rule.endsWith('Separator')) {
         try {
-            let p = createPattern(rule.slice(0, -12), namedRules, height, width, data, undefined);
+            let p = createPattern(rule.slice(0, -'Separator'.length), namedRules, height, width, data, undefined);
             p.rule.str += 'Separator';
             return new Separator(p);
         } catch (error) {
