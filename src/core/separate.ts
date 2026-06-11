@@ -13,20 +13,11 @@ a knot is a dead cell surrounded by 2+ groups of live cells and the cell won't c
 
 when we hit a knot, we need to figure out if the surronding cells are suppressing its birth
 
-we go through every group and remove it
-if a birth is caused we know there is a suppressed birth
-we also keep track of the groups that, when removed, don't cause a birth (the "removables")
-
-now, if there is no suppressed birth, we just skip it
-
-so, then it depends on the number of removables:
-- if there are 0 removables, all the islands are neccessary, so we merge everything
-- if there's 1 removable, we merge the rest of the groups
-- if there's multiple, it's ambiguous, current behavior is to merge everything 
+TODO EXPLAIN THIS
 
 */
 
-import {Pattern, DataPattern} from '../core/index.js';
+import {Pattern, DataPattern, getPartitions} from '../core/index.js';
 
 
 export class Separator<T extends Pattern = Pattern> extends DataPattern {
@@ -245,124 +236,151 @@ export class Separator<T extends Pattern = Pattern> extends DataPattern {
         this.generation++;
         return out;
     }
+
+    _causesBirth(groups: number[], groupCells: {[key: number]: [number, number, number][]}): boolean {
+        let p = this.testingP;
+        let range = this.rule.range;
+        let bbSize = range * 2 + 1;
+        let data = new Uint8Array(bbSize ** 2);
+        for (let group of groups) {
+            for (let [x, y, state] of groupCells[group]) {
+                if (x < -range || y < -range || x > range || y > range) {
+                    continue;
+                }
+                data[(y + range) * bbSize + (x + range)] = state;
+            }
+        }
+        p.setData(bbSize, bbSize, data);
+        p.xOffset = 0;
+        p.yOffset = 0;
+        p.runGeneration();
+        return p.get(0 + range - p.xOffset, 0 + range - p.yOffset) > 0;
+    }
     
     /** Resolves knots (that is, merges disconnected strict objects).
      * @returns Whether any groups were reassigned.
      */
     resolveKnots(): boolean {
-        let p = this.testingP;
-        let range = this.rule.range;
-        let bbSize = range * 2 + 1;
-        // first we get the list of cells that are going to be born in the next generation
-        let nextGenP = this.p;
-        nextGenP.setData(this.height, this.width, this.data);
-        nextGenP.xOffset = 0;
-        nextGenP.yOffset = 0;
-        nextGenP.generation = this.generation;
-        nextGenP.runGeneration();
-        // cache reassignments
-        // honestly, i don't know why i'm doing this
-        // i remember it fixing a bug in the `resolveKnots` function in src/core/intsep.ts
-        // but i don't remember why
-        let reassignments: [number, number][] = [];
-        // we go through each dead cell and run the knot procedure on it
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                // we skip the cell if it's alive or going to be alive in the next generation
-                if (this.get(x, y) || nextGenP.get(x + nextGenP.xOffset, y + nextGenP.yOffset) > 0) {
-                    continue;
-                }
-                // get all groups in the cell's neighborhood
-                let groups: number[] = [];
-                let groupCells: {[key: number]: [number, number, number][]} = {};
-                for (let [x2, y2] of this.rule.neighborhood) {
-                    let group = this.getGroup(x + x2, y + y2);
-                    if (group !== 0) {
-                        let array = [x2, y2, this.get(x + x2, y + y2)] as [number, number, number];
-                        if (groups.includes(group)) {
-                            groupCells[group].push(array);
-                        } else {
-                            groups.push(group);
-                            groupCells[group] = [array];
-                        }
-                    }
-                }
-                // if there's 0 or 1 groups in the neighborhood, it can't be a knot
-                if (groups.length < 2) {
-                    continue;
-                }
-                // we now check if a birth is actually being suppressed
-                let isSuppressed = false;
-                // and check what groups can be removed without the knot becoming alive
-                let removables: number[] = [];
-                for (let group of groups) {
-                    // when manipulating `p`, we need to add `range` to all coordinates
-                    // because they can be negative
-                    let data = new Uint8Array(bbSize ** 2);
-                    for (let [key, value] of Object.entries(groupCells)) {
-                        if (key === String(group)) {
-                            continue;
-                        }
-                        for (let [x, y, state] of value) {
-                            if (x < -range || y < -range || x > range || y > range) {
-                                continue;
-                            }
-                            data[(y + range) * bbSize + (x + range)] = state;
-                        }
-                    }
-                    p.setData(bbSize, bbSize, data);
-                    // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
-                    //     console.log(group);
-                    //     console.log(p.toRLE());
-                    // }
-                    p.runGeneration();
-                    // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
-                    //     console.log(p.toRLE());
-                    //     console.log('value:', p.xOffset, p.yOffset, p.get(0 + range + p.xOffset, 0 + range + p.yOffset));
-                    // }
-                    if (p.get(0 + range - p.xOffset, 0 + range - p.yOffset)) {
-                        isSuppressed = true;
-                    } else {
-                        removables.push(group);
-                    }
-                }
-                if (!isSuppressed) {
-                    continue;
-                }
-                // console.log(x, y, 'resolving', groups, removables);
-                if (removables.length === 0) {
-                    // if there's no removables, merge everything
-                    for (let i = 1; i < groups.length; i++) {
-                        // console.log(`merging ${groups[i]} into ${groups[0]}`);
-                        reassignments.push([groups[i], groups[0]]);
-                    }
-                } else if (removables.length === 1) {
-                    // if there's 1 removable, merge the rest
-                    let mergeTo = groups[0] === removables[0] ? groups[1] : groups[0];
-                    for (let group of groups) {
-                        if (group === mergeTo) {
-                            continue;
-                        }
-                        // console.log(`merging ${group} into ${mergeTo}`);
-                        reassignments.push([group, mergeTo]);
-                    }
-                } else {
-                    // if there's multiple removables, it's ambiguous
-                    // so we merge everything
-                    for (let i = 1; i < groups.length; i++) {
-                        // console.log(`merging ${groups[i]} into ${groups[0]}`);
-                        reassignments.push([groups[i], groups[0]]);
-                    }
-                }
-            }
-        }
-        let out = false;
-        for (let [a, b] of reassignments) {
-            if (this.reassign(a, b)) {
-                out = true;
-            }
-        }
-        return out;
+        return false;
+        // let p = this.testingP;
+        // let range = this.rule.range;
+        // let bbSize = range * 2 + 1;
+        // // first we get the list of cells that are going to be born in the next generation
+        // let nextGenP = this.p;
+        // nextGenP.setData(this.height, this.width, this.data);
+        // nextGenP.xOffset = 0;
+        // nextGenP.yOffset = 0;
+        // nextGenP.generation = this.generation;
+        // nextGenP.runGeneration();
+        // // cache reassignments
+        // // honestly, i don't know why i'm doing this
+        // // i remember it fixing a bug in the `resolveKnots` function in src/core/intsep.ts
+        // // but i don't remember why
+        // let reassignments: [number, number][] = [];
+        // // we go through each dead cell and run the knot procedure on it
+        // for (let y = 0; y < this.height; y++) {
+        //     for (let x = 0; x < this.width; x++) {
+        //         // we skip the cell if it's alive or going to be alive in the next generation
+        //         if (this.get(x, y) || nextGenP.get(x + nextGenP.xOffset, y + nextGenP.yOffset) > 0) {
+        //             continue;
+        //         }
+        //         // get all groups in the cell's neighborhood
+        //         let groups: number[] = [];
+        //         let groupCells: {[key: number]: [number, number, number][]} = {};
+        //         for (let [x2, y2] of this.rule.neighborhood) {
+        //             let group = this.getGroup(x + x2, y + y2);
+        //             if (group !== 0) {
+        //                 let array = [x2, y2, this.get(x + x2, y + y2)] as [number, number, number];
+        //                 if (groups.includes(group)) {
+        //                     groupCells[group].push(array);
+        //                 } else {
+        //                     groups.push(group);
+        //                     groupCells[group] = [array];
+        //                 }
+        //             }
+        //         }
+        //         // if there's 0 or 1 groups in the neighborhood, it can't be a knot
+        //         if (groups.length < 2) {
+        //             continue;
+        //         } else if (groups.length === 2) {
+        //             // shortcut: we only need to check the 2-part partitions
+        //             // we now check if a birth is actually being suppressed
+        //             let isSuppressed = false;
+        //             // and check what groups can be removed without the knot becoming alive
+        //             let removables: number[] = [];
+        //             for (let group of groups) {
+        //                 // we need to add `range` to all coordinates because they can be negative
+        //                 let data = new Uint8Array(bbSize ** 2);
+        //                 for (let [key, value] of Object.entries(groupCells)) {
+        //                     if (key === String(group)) {
+        //                         continue;
+        //                     }
+        //                     for (let [x, y, state] of value) {
+        //                         if (x < -range || y < -range || x > range || y > range) {
+        //                             continue;
+        //                         }
+        //                         data[(y + range) * bbSize + (x + range)] = state;
+        //                     }
+        //                 }
+        //                 p.setData(bbSize, bbSize, data);
+        //                 p.xOffset = 0;
+        //                 p.yOffset = 0;
+        //                 // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
+        //                 //     console.log(group);
+        //                 //     console.log(p.toRLE());
+        //                 // }
+        //                 p.runGeneration();
+        //                 // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
+        //                 //     console.log(p.toRLE());
+        //                 //     console.log('value:', p.xOffset, p.yOffset, 0 + range - p.xOffset, 0 + range - p.yOffset, p.get(0 + range - p.xOffset, 0 + range - p.yOffset));
+        //                 // }
+        //                 if (p.get(0 + range - p.xOffset, 0 + range - p.yOffset)) {
+        //                     isSuppressed = true;
+        //                 } else {
+        //                     removables.push(group);
+        //                 }
+        //             }
+        //             // if ((x === 2 && y === 3) || (x === 5 && y === 6)) {
+        //             //     console.log(x, y, isSuppressed, groups, removables);
+        //             // }
+        //             if (!isSuppressed) {
+        //                 continue;
+        //             }
+        //             console.log(x, y, 'resolving', groups, removables);
+        //             if (removables.length === 0) {
+        //                 // if there's no removables, merge everything
+        //                 for (let i = 1; i < groups.length; i++) {
+        //                     console.log(`merging ${groups[i]} into ${groups[0]}`);
+        //                     reassignments.push([groups[i], groups[0]]);
+        //                 }
+        //             } else if (removables.length === 1) {
+        //                 // if there's 1 removable, merge the rest
+        //                 let mergeTo = groups[0] === removables[0] ? groups[1] : groups[0];
+        //                 for (let group of groups) {
+        //                     if (group === mergeTo) {
+        //                         continue;
+        //                     }
+        //                     console.log(`merging ${group} into ${mergeTo}`);
+        //                     reassignments.push([group, mergeTo]);
+        //                 }
+        //             } else {
+        //                 // if there's multiple removables, it's ambiguous
+        //                 // so we merge everything
+        //                 for (let i = 1; i < groups.length; i++) {
+        //                     console.log(`merging ${groups[i]} into ${groups[0]}`);
+        //                     reassignments.push([groups[i], groups[0]]);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        // let out = false;
+        // for (let [a, b] of reassignments) {
+        //     if (this.reassign(a, b)) {
+        //         out = true;
+        //     }
+        // }
+        // return out;
     }
 
     /** Gets all the groups as individual objects. */
