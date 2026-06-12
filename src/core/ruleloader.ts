@@ -1,5 +1,5 @@
 
-import {RuleError, getPermutations} from './util.js';
+import {RuleError, getPermutations, arrayPush2} from './util.js';
 import {RuleSymmetry, SYMMETRY_JOIN, Rule, DataPattern} from './pattern.js';
 
 
@@ -509,7 +509,7 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
             if (index === data.length - 1) {
                 out.push(data2 as (number | number[])[]);
             } else {
-                out.push(...expandBinds(data2, states, index + 1, prevBinds));
+                arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
             }
         } else {
             
@@ -526,7 +526,7 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
         if (index === data.length - 1) {
             out.push(data2 as (number | number[])[]);
         } else {
-            out.push(...expandBinds(data2, states, index + 1, prevBinds));
+            arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
         }
     } else {
         let value = data[index].index;
@@ -536,7 +536,7 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
             if (index === data.length - 1) {
                 throw new RuleError(`Unresolved bind`);
             } else {
-                out.push(...expandBinds(data2, states, index + 1, prevBinds));
+                arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
             }
             out.push(data2 as number[]);
         } else if (value === index) {
@@ -553,7 +553,7 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
             if (index === data.length - 1) {
                 throw new RuleError(`Unresolved bind`);
             } else {
-                out.push(...expandBinds(data, states, index + 1, prevBinds));
+                arrayPush2(out, expandBinds(data, states, index + 1, prevBinds));
             }
         }
     }
