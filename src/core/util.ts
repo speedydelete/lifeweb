@@ -11,7 +11,7 @@ export class LifewebError extends Error {
 /** This error is raised when a rulestring is invalid or the wrong rule is passed. */
 export class RuleError extends LifewebError {
     name = 'RuleError';
-    [Symbol.toStringTag] = 'LifewebError';
+    [Symbol.toStringTag] = 'RuleError';
 }
 
 

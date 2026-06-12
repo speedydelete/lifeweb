@@ -52,6 +52,7 @@ const SYMMETRIES: {[key: string]: Symmetry} = {
     'd4x': 'D4x',
     'd8': 'D8',
     'd16': 'D16',
+    'none': 'C1',
     'permute': 'permute',
     'rotate2': 'C2',
     'rotate2reflect': 'D4+',
@@ -110,7 +111,10 @@ function parseTree(data: string): TreeData {
     let states = 1;
     let symmetry: RuleSymmetry = 'C1';
     for (let line of data.split('\n')) {
-        if (line.includes('=')) {
+        line = line.trim();
+        if (line === '') {
+            continue;
+        } else if (line.includes('=')) {
             let [cmd, arg] = line.split('=');
             cmd = cmd.trim();
             arg = arg.trim();
@@ -552,17 +556,21 @@ function resolveTableSection(data: TableSection, neighborhood: [number, number][
     for (let remapping of getSymmetryRemappings(neighborhood, data.symmetry)) {
         remappings.push(combineRemappings(nhRemapping, remapping));
     }
-    let out: number[] = [];
+    let out = new Set<string>();
     for (let unresolved of data.values) {
         for (let value of expandBinds(unresolved, states)) {
             for (let remapping of remappings) {
                 for (let value2 of expandAny(applyRemapping(value, remapping), states)) {
-                    out.push(...value2);
+                    out.add(value2.join(' '));
                 }
             }
         }
     }
-    return new Uint8Array(out);
+    let nums: number[] = [];
+    for (let str of out) {
+        nums.push(...str.split(' ').map(x => parseInt(x)));
+    }
+    return new Uint8Array(nums);
 }
 
 function parseTable(data: string): TableData {
@@ -574,12 +582,18 @@ function parseTable(data: string): TableData {
     let fullNeighborhood: [number, number][] = NEIGHBORHOODS['moore'].slice();
     let states = 0;
     for (let line of data.split('\n')) {
-        if (line.includes(':')) {
+        line = line.trim();
+        if (line === '') {
+            continue;
+        } else if (line.includes(':')) {
             let index = line.indexOf(':');
             let cmd = line.slice(0, index);
             let arg = line.slice(index + 1).trim();
             if (cmd === 'neighborhood' || cmd === 'neighbourhood') {
-                sections.push({values: current, neighborhood, symmetry});
+                if (current.length > 0) {
+                    sections.push({values: current, neighborhood, symmetry});
+                    current = [];
+                }
                 if (arg.startsWith('(')) {
                     let list = parseJSONLoose(arg);
                     if (!list.every(x => x.length === 2)) {
@@ -605,7 +619,10 @@ function parseTable(data: string): TableData {
                 }
                 continue;
             } else if (cmd === 'symmetry' || cmd === 'symmetries') {
-                sections.push({values: current, neighborhood, symmetry});
+                if (current.length > 0) {
+                    sections.push({values: current, neighborhood, symmetry});
+                    current = [];
+                }
                 symmetry = 'C1';
                 for (let value of arg.split(',') as Symmetry[]) {
                     value = value.trim() as Symmetry;
@@ -677,6 +694,7 @@ function parseTable(data: string): TableData {
     }
     if (current.length > 0) {
         sections.push({values: current, neighborhood, symmetry});
+        current = [];
     }
     fullNeighborhood = TREE_NEIGHBORHOOD;
     let out: Uint8Array[] = [];
@@ -710,10 +728,13 @@ function parseTable(data: string): TableData {
 
 
 function _functionToTree(cache: Map<string, number>, out: string[], nhLength: number, states: number, f: (cells: number[]) => number, prev: number[], index: number): number {
-    if (prev.length === nhLength) {
+    if (index === nhLength) {
+        // let value = f(prev);
+        // console.log(`${prev.join(' ')} -> ${value}`);
+        // return value;
         return f(prev);
     }
-    let str = String(index);
+    let str = String(nhLength - index);
     for (let i = 0; i < states; i++) {
         prev[index] = i;
         str += ' ' + _functionToTree(cache, out, nhLength, states, f, prev, index + 1);
@@ -729,16 +750,19 @@ function _functionToTree(cache: Map<string, number>, out: string[], nhLength: nu
     }
 }
 
-export function functionToTree(neighborhood: 'moore' | [number, number][], states: number, symmetry: RuleSymmetry, f: (cells: number[]) => number): string {
+export function functionToTree(neighborhood: [number, number][], states: number, symmetry: RuleSymmetry, f: (cells: number[]) => number, standardFormat: boolean = false): string {
     let data: string[] = [];
     _functionToTree(new Map(), data, neighborhood.length, states, f, new Array(neighborhood.length), 0);
     let out = `@TREE\n\nnum_states = ${states}\n`;
-    if (neighborhood === 'moore') {
-        out += `num_neighbors = 8\n`;
+    if (standardFormat) {
+        out += `num_neighbors = ${neighborhood.length - 1}\n`;
     } else {
         out += `neighborhood = [${neighborhood.map(x => `(${x[0]}, ${x[1]})`).join(', ')}]\n`;
     }
-    out += `num_nodes = ${data.length}\nsymmetry = ${symmetry}\n`;
+    out += `num_nodes = ${data.length}\n`;
+    if (!standardFormat) {
+        out += `symmetry = ${symmetry}\n`;
+    }
     out += '\n' + data.map(x => x + '\n').join('');
     return out;
 }
@@ -748,8 +772,9 @@ function tableCellLookup(table: TableData, cells: number[]): number {
     let nhLength = table.neighborhood.length;
     for (let i = 0; i < table.trs.length; i += nhLength + 1) {
         let found = false;
-        for (let cell = 0; cell <= nhLength; cell++) {
-            if (table.trs[i + cell] !== cells[i]) {
+        for (let cell = 0; cell < nhLength; cell++) {
+            let value = table.trs[i + cell];
+            if (value !== cells[cell] && value !== 255) {
                 found = true;
                 break;
             }
@@ -758,7 +783,8 @@ function tableCellLookup(table: TableData, cells: number[]): number {
             return table.trs[i + nhLength];
         }
     }
-    return cells.at(table.neighborhood.findIndex(x => x[0] === 0 && x[1] === 0)) ?? 0;
+    let index = table.neighborhood.findIndex(x => x[0] === 0 && x[1] === 0);
+    return index === -1 ? 0 : cells[index];
 }
 
 export function parseAtRule(rule: string): AtRule {
@@ -784,8 +810,11 @@ export function parseAtRule(rule: string): AtRule {
             }
             let table = parseTable(data);
             out.table = table;
-            out.tree = parseTree(functionToTree(table.neighborhood, table.states, table.symmetry, cells => tableCellLookup(table, cells)));
+            out.tree = parseTree(functionToTree(table.neighborhood, table.states, table.symmetry, cells => tableCellLookup(table, cells)).slice('@TREE\n\n'.length));
         } else if (section === '@TREE') {
+            if (out.tree) {
+                continue;
+            }
             out.tree = parseTree(data);
         } else if (section ==='@NAMES') {
             out.names = {};
@@ -870,6 +899,9 @@ export class TreePattern extends DataPattern {
     }
 
     runGeneration(): void {
+        if (this.height === 0 || this.width === 0) {
+            return;
+        }
         // we first compute how it should expand, if at all
         // then we run the interior of the pattern
         let width = this.width;
@@ -1009,6 +1041,10 @@ export class TreePattern extends DataPattern {
         if (b1cne || b1cse) {
             expandRight = 1;
         }
+        // console.log(`expandUp = ${expandUp}, upExpands = ${upExpands.join(' ')}`);
+        // console.log(`expandDown = ${expandDown}, downExpands = ${downExpands.join(' ')}`);
+        // console.log(`expandLeft = ${expandLeft}, leftExpands = ${leftExpands.join(' ')}`);
+        // console.log(`expandRight = ${expandRight}, rightExpands = ${rightExpands.join(' ')}`);
         /** The offset for each row, how many new elements are between each row. */
         let oX = expandLeft + expandRight;
         /** The offset between the start of `data` and the start of `out`. */
@@ -1049,9 +1085,12 @@ export class TreePattern extends DataPattern {
             }
         }
         // we need to do a special case for when width === 1, the basic method breaks in that case
-        if (width <= 1) {
-            if (width === 1) {
-                let loc = oStart;
+        if (width === 1) {
+            // optimization case
+            if (height === 1) {
+                out[0] = this.lookupCell(0, 0, 0, 0, data[0], 0, 0, 0, 0);
+            } else {
+                loc = oStart;
                 // top
                 cell = this.lookupCell(0, 0, 0, 0, data[0], 0, 0, data[1], 0);
                 if (cell) {
@@ -1071,6 +1110,28 @@ export class TreePattern extends DataPattern {
                 if (cell) {
                     out[loc] = cell;
                 }
+            }
+        // we also need to do a special case for when height === 1
+        } else if (height === 1) {
+            loc = oStart;
+            // left
+            cell = this.lookupCell(0, 0, 0, 0, data[0], data[1], 0, 0, 0);
+            if (cell) {
+                out[loc] = cell;
+            }
+            loc++;
+            for (i = 1; i < width - 1; i++) {
+                // middle
+                cell = this.lookupCell(0, data[i - 1], 0, 0, data[i], 0, 0, data[i + 1], 0);
+                if (cell) {
+                    out[loc] = cell;
+                }
+                loc++;
+            }
+            // bottom
+            cell = this.lookupCell(0, 0, 0, data[width - 2], data[width - 1], 0, 0, 0, 0);
+            if (cell) {
+                out[loc] = cell;
             }
         } else {
             let loc1 = oStart;
@@ -1107,9 +1168,11 @@ export class TreePattern extends DataPattern {
                 out[loc1 + 1] = cell;
             }
             // bottom-right
-            cell = this.lookupCell(data[size - width - 2], data[size - width - 1], 0, data[size - 2], data[size - 1], 0, 0, 0, 0);
-            if (cell) {
-                out[loc2 + 1] = cell;
+            if (height > 1) {
+                cell = this.lookupCell(data[size - width - 2], data[size - width - 1], 0, data[size - 2], data[size - 1], 0, 0, 0, 0);
+                if (cell) {
+                    out[loc2 + 1] = cell;
+                }
             }
             loc = oStart + width;
             for (let y = 1; y < height - 1; y++) {

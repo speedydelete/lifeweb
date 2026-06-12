@@ -474,3 +474,15 @@ export function getBlackWhiteReversal(rule: string): string {
 //     console.log('\nafter:\n' + displayP.toRLE());
 // }
 // console.log('\n');
+
+// let p = createPattern(`
+// @TABLE
+// n_states: 2
+// neighborhood: vonNeumann
+// symmetries: none
+// 1, 0,0,0,0, 0
+// `).loadRLE('o2b2o!');
+// p.rule.str = 'Test';
+// console.log(p.toRLE());
+// p.runGeneration();
+// console.log(p.toRLE());
