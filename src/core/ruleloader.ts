@@ -238,7 +238,7 @@ function parseBraceList(data: string, vars: TableVars): TableLine {
             inBind = true;
         } else if (char === ']') {
             inBind = false;
-        } else if (char === ',' ) {
+        } else if (char === ',' || char === ' ') {
             value = value.trim();
             if (value !== '') {
                 if (value.match(/^\d+$/)) {
@@ -274,8 +274,6 @@ function parseBraceList(data: string, vars: TableVars): TableLine {
                 out.push(Array.from(new Set(section)));
                 section = [];
             }
-        } else if (char === ' ') {
-            continue;
         } else {
             value += char;
         }
