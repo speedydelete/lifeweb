@@ -297,7 +297,6 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
             }
             nhArray.push(row);
         }
-        throw new Error(JSON.stringify(nhArray, undefined, 4));
     } else {
         throw new RuleError(`Invalid HROT neighborhood: '${nh}'`);
     }
@@ -317,7 +316,15 @@ export function parseHROTRule(rule: string): string | {rule: Rule, b: Uint8Array
         if (nhArray) {
             let trs = new Uint8Array(512);
             for (let i = 0; i < 512; i++) {
-                let value = nhArray[2][2] * (i & 1) + nhArray[1][2] * ((i >> 1) & 1) + nhArray[0][2] * ((i >> 2) & 1) + nhArray[2][1] * ((i >> 3) & 1) + nhArray[0][1] * ((i >> 5) & 1) + nhArray[2][0] * ((i >> 6) & 1) + nhArray[1][0] * ((i >> 7) & 1) + nhArray[0][0] * ((i >> 8) & 1);
+                let value = nhArray[2][2] * (i & 1)
+                          + nhArray[1][2] * ((i >> 1) & 1)
+                          + nhArray[0][2] * ((i >> 2) & 1)
+                          + nhArray[2][1] * ((i >> 3) & 1)
+                          + nhArray[1][1] * ((i >> 4) & 1)
+                          + nhArray[0][1] * ((i >> 5) & 1)
+                          + nhArray[2][0] * ((i >> 6) & 1)
+                          + nhArray[1][0] * ((i >> 7) & 1)
+                          + nhArray[0][0] * ((i >> 8) & 1);
                 if (i & (1 << 4)) {
                     if (s.includes(value)) {
                         trs[i] = 1;
