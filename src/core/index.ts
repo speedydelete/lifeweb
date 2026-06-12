@@ -485,7 +485,7 @@ export function getBlackWhiteReversal(rule: string): string {
 // @RULE Test
 // @TABLE
 // n_states: 2
-// neighborhood: vonNeumann
+// neighborhood: Moore
 // symmetries: permute
 // 0, 1,1,1,0,0,0,0,0, 1
 // 1, 1,1,0,0,0,0,0,0, 1

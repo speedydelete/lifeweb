@@ -496,28 +496,60 @@ function getSymmetryRemappings(nh: [number, number][], symmetry: Symmetry): Rema
 function expandBinds(data: TableLine, states: number, index: number = 0, prevBinds?: {[key: number]: number[]}): (number | number[])[][] {
     let out: (number | number[])[][] = [];
     if (Array.isArray(data[index])) {
-        let possible: (number | {bind: true, index: number})[] = [];
-        if (data[index].every(x => typeof x === 'number')) {
-            let value = data[index];
-            let data2 = structuredClone(data);
-            data2[index] = value;
-            if (prevBinds && index in prevBinds) {
-                for (let index2 of prevBinds[index]) {
-                    data2[index2] = value;
+        let value = data[index];
+        let nums: number[] = [];
+        let binds: {bind: true, index: number}[] = [];
+        for (let value of data[index]) {
+            if (typeof value === 'number') {
+                nums.push(value);
+            } else {
+                binds.push(value);
+            }
+        }
+        let data2 = structuredClone(data);
+        data2[index] = nums;
+        if (prevBinds && index in prevBinds) {
+            for (let index2 of prevBinds[index]) {
+                data2[index2] = nums;
+            }
+        }
+        if (index === data.length - 1) {
+            out.push(data2 as (number | number[])[]);
+        } else {
+            arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
+        }
+        for (let bind of binds) {
+            let value = bind.index;
+            if (value < index) {
+                let data2 = structuredClone(data);
+                data2[index] = data[value];
+                if (index === data.length - 1) {
+                    throw new RuleError(`Unresolved bind`);
+                } else {
+                    arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
+                }
+                out.push(data2 as number[]);
+            } else if (value === index) {
+                throw new RuleError(`Recursive bind`);
+            } else {
+                if (!prevBinds) {
+                    prevBinds = [];
+                }
+                if (value in prevBinds) {
+                    prevBinds[value].push(index);
+                } else {
+                    prevBinds[value] = [index];
+                }
+                if (index === data.length - 1) {
+                    throw new RuleError(`Unresolved bind`);
+                } else {
+                    arrayPush2(out, expandBinds(data, states, index + 1, prevBinds));
                 }
             }
-            if (index === data.length - 1) {
-                out.push(data2 as (number | number[])[]);
-            } else {
-                arrayPush2(out, expandBinds(data2, states, index + 1, prevBinds));
-            }
-        } else {
-            
         }
     } else if (typeof data[index] === 'number') {
         let value = data[index];
         let data2 = structuredClone(data);
-        data2[index] = value;
         if (prevBinds && index in prevBinds) {
             for (let index2 of prevBinds[index]) {
                 data2[index2] = value;
@@ -714,7 +746,7 @@ function parseTable(data: string): TableData {
         }
         section.values = section.values.map(normalizeTableLine);
         let value = resolveTableSection(section, fullNeighborhood, states);
-        out.push(...value);
+        arrayPush2(out, value);
         length += value.length;
     }
     return {
