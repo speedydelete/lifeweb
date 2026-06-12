@@ -17,7 +17,7 @@ export interface TableData {
     states: number;
     neighborhood: [number, number][];
     symmetry: RuleSymmetry;
-    trs: Uint8Array;
+    trs: (number | number[])[][];
 }
 
 export interface AtRule {
@@ -29,6 +29,7 @@ export interface AtRule {
     colors?: {[key: number]: [number, number, number]};
     icons?: string;
 }
+
 
 const NEIGHBORHOODS: {[key: string]: [number, number][]} = {
     'moore': [[0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]],
@@ -103,6 +104,7 @@ function parseJSONLoose(data: string): number[][] {
     return out;
 }
 
+
 function parseTree(data: string): TreeData {
     let neighborhood: [number, number][] = NEIGHBORHOODS['moore'];
     let tree: [boolean, number[]][] = [];
@@ -168,6 +170,7 @@ function parseTree(data: string): TreeData {
     };
 }
 
+
 const ANY = -1;
 const LIVE = -2;
 
@@ -182,7 +185,7 @@ interface TableSection {
     symmetry: Symmetry;
 }
 
-function parseBraceList(data: string, vars: TableVars): TableLine {
+function parseTableLine(data: string, vars: TableVars): TableLine {
     let braceLevel = 0;
     let out: TableLine = [];
     let section: TableLine[number] = [];
@@ -310,6 +313,39 @@ function parseBraceList(data: string, vars: TableVars): TableLine {
     }
     if (section.length > 0) {
         out.push(Array.from(new Set(section)));
+    }
+    return out;
+}
+
+function normalizeTableLine(line: TableLine, states: number): TableLine {
+    let out: TableLine = [];
+    for (let section of line) {
+        if (Array.isArray(section)) {
+            section = Array.from(new Set(section.map(x => typeof x === 'number' ? String(x) : 'bind ' + x.index))).map(x => x.startsWith('bind') ? {bind: true, index: Number(x.slice(5))} : Number(x));
+            if (section.length === 1) {
+                out.push(section[0]);
+            } else if (section.includes(ANY)) {
+                out.push(ANY);
+            } else if (section.includes(LIVE)) {
+                if (section.includes(0)) {
+                    out.push(ANY);
+                } else {
+                    out.push(LIVE);
+                }
+            } else if (section.every(x => typeof x === 'number')) {
+                if (section.length === states) {
+                    out.push(ANY);
+                } else if (section.length === states - 1 && !section.includes(0)) {
+                    out.push(LIVE);
+                } else {
+                    out.push(section);
+                }
+            } else {
+                out.push(section);
+            }
+        } else {
+            out.push(section);
+        }
     }
     return out;
 }
@@ -457,36 +493,12 @@ function getSymmetryRemappings(nh: [number, number][], symmetry: Symmetry): Rema
     return out;
 }
 
-function expandBinds(data: TableLine, states: number, index: number = 0, prevBinds?: {[key: number]: number[]}): number[][] {
-    let out: number[][] = [];
+function expandBinds(data: TableLine, states: number, index: number = 0, prevBinds?: {[key: number]: number[]}): (number | number[])[][] {
+    let out: (number | number[])[][] = [];
     if (Array.isArray(data[index])) {
-        for (let value of data[index]) {
-            let data2 = structuredClone(data);
-            data2[index] = value;
-            if (index === data.length - 1) {
-                out.push(data2 as number[]);
-            } else {
-                out.push(...expandBinds(data2, states, index, prevBinds));
-            }
-        }
-    } else if (typeof data[index] === 'number') {
-        let value = data[index];
-        if (value === ANY || value === LIVE) {
-            for (let state = value === ANY ? 0 : 1; state < states; state++) {
-                let data2 = structuredClone(data);
-                data2[index] = state;
-                if (prevBinds && index in prevBinds) {
-                    for (let index2 of prevBinds[index]) {
-                        data2[index2] = state;
-                    }
-                }
-                if (index === data.length - 1) {
-                    out.push(data2 as number[]);
-                } else {
-                    out.push(...expandBinds(data2, states, index + 1, prevBinds));
-                }
-            }
-        } else {
+        let possible: (number | {bind: true, index: number})[] = [];
+        if (data[index].every(x => typeof x === 'number')) {
+            let value = data[index];
             let data2 = structuredClone(data);
             data2[index] = value;
             if (prevBinds && index in prevBinds) {
@@ -495,10 +507,26 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
                 }
             }
             if (index === data.length - 1) {
-                out.push(data2 as number[]);
+                out.push(data2 as (number | number[])[]);
             } else {
                 out.push(...expandBinds(data2, states, index + 1, prevBinds));
             }
+        } else {
+            
+        }
+    } else if (typeof data[index] === 'number') {
+        let value = data[index];
+        let data2 = structuredClone(data);
+        data2[index] = value;
+        if (prevBinds && index in prevBinds) {
+            for (let index2 of prevBinds[index]) {
+                data2[index2] = value;
+            }
+        }
+        if (index === data.length - 1) {
+            out.push(data2 as (number | number[])[]);
+        } else {
+            out.push(...expandBinds(data2, states, index + 1, prevBinds));
         }
     } else {
         let value = data[index].index;
@@ -532,43 +560,21 @@ function expandBinds(data: TableLine, states: number, index: number = 0, prevBin
     return out;
 }
 
-function expandAny(data: number[], states: number, index: number = 0): number[][] {
-    if (index >= data.length - 1) {
-        return [data];
-    } else if (data[index] === ANY) {
-        let out: number[][] = [];
-        for (let state = 0; state < states; state++) {
-            let data2 = data.slice();
-            data2[index] = state;
-            out.push(...expandAny(data, states, index + 1));
-        }
-        return out;
-    } else {
-        return expandAny(data, states, index + 1);
-    }
-}
-
-function resolveTableSection(data: TableSection, neighborhood: [number, number][], states: number): Uint8Array {
+function resolveTableSection(data: TableSection, neighborhood: [number, number][], states: number): (number | number[])[][] {
     let nhRemapping = getNeighborhoodRemapping(data.neighborhood, neighborhood);
-    let remappings: Remapping<number>[] = [nhRemapping];
+    let remappings: Remapping<number | number[]>[] = [nhRemapping];
     for (let remapping of getSymmetryRemappings(neighborhood, data.symmetry)) {
         remappings.push(combineRemappings(nhRemapping, remapping));
     }
-    let out = new Set<string>();
+    let out: (number | number[])[][] = [];
     for (let unresolved of data.values) {
         for (let value of expandBinds(unresolved, states)) {
             for (let remapping of remappings) {
-                for (let value2 of expandAny(applyRemapping(value, remapping), states)) {
-                    out.add(value2.join(' '));
-                }
+                out.push(applyRemapping(value, remapping));
             }
         }
     }
-    let nums: number[] = [];
-    for (let str of out) {
-        nums.push(...str.split(' ').map(x => parseInt(x)));
-    }
-    return new Uint8Array(nums);
+    return out;
 }
 
 function parseTable(data: string): TableData {
@@ -663,7 +669,7 @@ function parseTable(data: string): TableData {
                 bind = true;
                 name = name.slice(4);
             }
-            vars[name] = {bind, value: parseBraceList(value, vars)};
+            vars[name] = {bind, value: parseTableLine(value, vars)};
         } else if (line.match(/^\d+$/)) {
             let data = Array.from(line).map(Number);
             for (let value of data) {
@@ -673,7 +679,7 @@ function parseTable(data: string): TableData {
             }
             current.push(data);
         } else {
-            let data = parseBraceList(line, vars);
+            let data = parseTableLine(line, vars);
             for (let value of data) {
                 if (typeof value === 'number') {
                     if (value + 1 > states) {
@@ -695,7 +701,7 @@ function parseTable(data: string): TableData {
         current = [];
     }
     fullNeighborhood = TREE_NEIGHBORHOOD;
-    let out: Uint8Array[] = [];
+    let out: (number | number[])[][] = [];
     let length = 0;
     let ruleSymmetry: RuleSymmetry = 'C1';
     for (let section of sections) {
@@ -706,22 +712,47 @@ function parseTable(data: string): TableData {
         } else {
             ruleSymmetry = SYMMETRY_JOIN[ruleSymmetry][section.symmetry];
         }
+        section.values = section.values.map(normalizeTableLine);
         let value = resolveTableSection(section, fullNeighborhood, states);
-        out.push(value);
+        out.push(...value);
         length += value.length;
-    }
-    let trs = new Uint8Array(length);
-    let i = 0;
-    for (let array of out) {
-        trs.set(array, i);
-        i += array.length;
     }
     return {
         neighborhood: fullNeighborhood,
         states,
         symmetry: ruleSymmetry,
-        trs,
+        trs: out,
     };
+}
+
+export function tableCellLookup(table: TableData, cells: number[]): number {
+    for (let line of table.trs) {
+        let found = false;
+        for (let i = 0; i < line.length - 1; i++) {
+            let value = line[i];
+            let cell = cells[i];
+            if (typeof value === 'number') {
+                if (cell !== value && !(value === ANY || (value === LIVE && cell !== 0))) {
+                    found = true;
+                    break;
+                }
+            } else {
+                if (!value.includes(cell)) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            let out = line[line.length - 1];
+            if (typeof out !== 'number') {
+                throw new Error(`This error should not occur (last value of table line is not of type number), please report this error`);
+            }
+            return out;
+        }
+    }
+    let index = table.neighborhood.findIndex(x => x[0] === 0 && x[1] === 0);
+    return index === -1 ? 0 : cells[index];
 }
 
 
@@ -765,25 +796,6 @@ export function functionToTree(neighborhood: [number, number][], states: number,
     return out;
 }
 
-
-function tableCellLookup(table: TableData, cells: number[]): number {
-    let nhLength = table.neighborhood.length;
-    for (let i = 0; i < table.trs.length; i += nhLength + 1) {
-        let found = false;
-        for (let cell = 0; cell < nhLength; cell++) {
-            let value = table.trs[i + cell];
-            if (value !== cells[cell] && value !== 255) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            return table.trs[i + nhLength];
-        }
-    }
-    let index = table.neighborhood.findIndex(x => x[0] === 0 && x[1] === 0);
-    return index === -1 ? 0 : cells[index];
-}
 
 export function parseAtRule(rule: string): AtRule {
     let section = '';
