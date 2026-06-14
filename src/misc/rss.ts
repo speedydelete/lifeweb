@@ -2,8 +2,8 @@
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
 import {execSync, spawn} from 'node:child_process';
-import {INT, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getApgcode, getHashsoup, toCatagolueRule} from './core/index.js';
-import {getKnots, INTSeparator} from './core/intsep.js';
+import {INT, parseTransitions, unparseTransitions, transitionsToArray, MAPPattern, getApgcode, getHashsoup, toCatagolueRule} from '../core/index.js';
+import {getKnots, INTSeparator} from '../core/intsep.js';
 
 
 const LINK_TEXT = `For more information, see https://conwaylife.com/forums/viewtopic.php?f=9&t=7098&p=222961#p222961`;
