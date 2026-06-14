@@ -104,7 +104,7 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
         dy: 1,
         period: 6,
         slope: 1,
-        popPeriod: 6,
+        popPeriod: 3,
         supportsFlipped: true,
         height: 5,
         width: 6,
