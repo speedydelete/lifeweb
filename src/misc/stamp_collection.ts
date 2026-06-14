@@ -34,6 +34,7 @@ const RLES: [number, ...string[]][] = [
         'o4bo$ob2obo$3bo$2b2o!',
         '2b2o$o$obob2o2$2bo$2bo!',
         'bo3bo$2bobo$o5bo$o2bo2bo$3bo!',
+        'bo$o$3bo$2b3o$3b2o!',
     ],
     [
         3,
@@ -41,6 +42,7 @@ const RLES: [number, ...string[]][] = [
         'b2o$6bo$3bo2bo$2bobo$o2bo$o$4b2o!',
         '7b2o$5bo$6bo2$4bob2o$bo$2bobo$o3bo$o!',
         '6b3o$2bo$b2o2b3o$4bo$3bo$2bo$obo$obo$o!',
+        'o2b2o$o$2bob2o$bo3bo2$2b3o!',
     ],
     [
         4,
@@ -62,12 +64,13 @@ const RLES: [number, ...string[]][] = [
     [
         7,
         '5bo$5bo2$2bob3obo$o9bo$o4bo4bo$o4bo4bo!',
+        '2obo2bob2o2$bobo2bobo$o8bo$3b4o!',
         '6bo$6bo$6bo$3bobobobo2$3bo5bo$3o7b3o$3bo5bo2$3bobobobo$6bo$6bo$6bo!',
     ],
     [
         8,
-        '2o2bobo2b2o2$2bo5bo$3bo3bo$4bobo3$b9o!',
         '7b2o2$o$o2bobobo2$3bo3bo2$3bobobo2bo$10bo2$2b2o!',
+        '2o2bobo2b2o2$2bo5bo$3bo3bo$4bobo3$b9o!',
         '4b2o$4bo2bo$6bo3b2o$5bo2bo$2o4bobo$o2bo$2bobo$bo$3b2o2$2bo$2bo!',
     ],
     [
@@ -91,28 +94,32 @@ const RLES: [number, ...string[]][] = [
     [
         13,
         '6b2o$2o4bo$obo5bo$2o6bo!',
-        '13b2o$8bo2bo$5b2obo2b2o$8bo$o$o15bo$2bo3bo4b2o3bo$b2o3bobo$11bo3b3o2$b3o3bo$10bobo3b2o$2bo3b2o4bo3bo$2bo15bo$18bo$10bo$6b2o2bob2o$7bo2bo$4b2o!',
+        '13b2o$8bo2bo$5b2obo2b2o$8bo$o$o15bo$2bo3bo3bobo3bo$b2o7bo$6b2o7b3o2$b3o7b2o$8bo7b2o$2bo3bobo3bo3bo$2bo15bo$18bo$10bo$6b2o2bob2o$7bo2bo$4b2o!',
     ],
     [
         14,
-        '2o$3bo$2b2o2$5b2o4$6b2o$6bo$8b2o!',
+        '2o$3bo$2bo4$3bobo$5bo$7bo$6bo$8b2o!',
         'b2o12b2o$2bo12bo$o4bobo2bobo4bo$o4b2o4b2o4bo5$4b2o6b2o$4bo8bo$6bo4bo$6bo4bo!',
     ],
     [
         15,
+        '14b2o$9bo2bo$6b2obo2b2o$9bo2$o16bo$o10bobo3bo$2bo3bo4bo$b2o3bobo7b3o3$b3o7bobo3b2o$8bo4bo3bo$2bo3bobo10bo$2bo16bo2$10bo$6b2o2bob2o$7bo2bo$4b2o!',
     ],
     [
         16,
-        '2bo$2bo2$b3o2$obobo$b3o2$b3o2$2bo$2bo!',
+        '6bo$3bobo2bo$2obob2obob2o$3bobo2bo$6bo!',
     ],
     [
         17,
+        '15b2o$10bo2bo$7b2obo2b2o$10bo2$18bo$o11bobo3bo$o6bo4bo$2bo14b3o$b2o4b2o2$12b2o4b2o$b3o14bo$8bo4bo6bo$2bo3bobo11bo$2bo2$10bo$6b2o2bob2o$7bo2bo$4b2o!',
     ],
     [
         18,
+        '17b2o$12bo2bo$9b2obo2b2o$12bo3$14bobo$14bo$o7bo14bo$o8b2o12bo$2bo16b2o$b2o19b3o$19bo$6bo$b3o19b2o$5b2o16bo$2bo12b2o8bo$2bo14bo7bo$11bo$9bobo3$13bo$9b2o2bob2o$10bo2bo$7b2o!',
     ],
     [
         19,
+        '15b2o$10bo2bo$7b2obo2b2o$10bo3$o11bobo4bo$o11bo6bo$2bo3bo$b2o3bobo9b3o3$b3o9bobo3b2o$15bo3bo$2bo6bo11bo$2bo4bobo11bo3$11bo$7b2o2bob2o$8bo2bo$5b2o!',
     ],
     [
         20,
