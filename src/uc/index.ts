@@ -251,7 +251,7 @@ const COMMANDS: {[key: string]: () => Promise<void>} = {
 
     async 'search'(): Promise<void> {
         if (type in c.SALVO_INFO) {
-            await searchSalvos(type, args[0], options['no-compile']);
+            await searchSalvos(type, args[0], options['no-compile'], options['depth']);
         } else {
             await searchChannel(type, options['threads'] ?? 1, parseElbow(args[0]), parseInt(args[1]), options['file']);
         }
