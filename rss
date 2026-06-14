@@ -8,4 +8,4 @@ if ! [ -d "apgmera" ]; then
     git clone https://gitlab.com/apgoucher/apgmera
 fi
 
-node ./lib/rss.js $@
+node ./lib/misc/rss.js $@
