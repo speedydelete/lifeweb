@@ -481,7 +481,6 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         }
     }
     let elbowType = out.elbows[elbow.str]?.[elbow.timing]?.type;
-    console.log(out.elbows[elbow.str]?.[0]);
     if (elbowType !== 'normal') {
         throw new Error(`Provided elbow '${elbow.timingStr}' is not of type normal, type is ${elbowType}`);
     }
