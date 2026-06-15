@@ -348,12 +348,13 @@ export function getLaneAndTimingFromXY(code: string, dir: ShipDirection, x: numb
     let lane: number;
     let timing: number;
     lane = x - (y * slope);
-    timing = (x * slope) + y - time;
+    timing = (x * slope) + y;
     if (!SHIP_DIR_NW_SE.has(dir)) {
         let temp = lane;
         lane = timing;
         timing = temp;
     }
+    timing -= time;
     return [lane, timing];
 }
 
