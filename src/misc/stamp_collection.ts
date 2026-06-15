@@ -2,7 +2,7 @@
 import {Pattern, createPattern} from '../core/index.js';
 
 
-const RULE = 'B2-ak4a5ij6ac/S12-k4a5y';
+const RULE = 'B2-ak4a5ij6ac/S12-k4a';
 
 const DIGIT_HEIGHT = 13;
 const DIGIT_WIDTH = 7;
@@ -92,7 +92,6 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         12,
-        '2o4$bobo$bobo$2bo5$3b3o!',
         '5bo$2b2obob2o$5bo$5bo2$3bo3bo$2obobobob2o2$3b5o!',
         '8bo$5b2obob2o$8bo$4bo7bo$3bobo5bobo$bo2bo7bo2bo$bo13bo2$3o11b3o2$bo13bo$bo2bo7bo2bo$3bobo5bobo$4bo7bo$8bo$5b2obob2o$8bo!',
     ],
@@ -100,7 +99,6 @@ const RLES: [number, ...string[]][] = [
         13,
         '6b2o$2o4bo$obo5bo$2o6bo!',
         '9b3o$9bob2o$9bo2bo$7bobob2o$2o4b2ob3o$obo$2o!',
-        'o20bo$o20bo$o5b2o6b2o5bo$5bo10bo$6b2o6b2o!',
         '2o4b3o$3bo6b2o$2b2o$8b5o$5bo$5bo$2b2o4bo$6bobob2o$3b2obobo2$6b2o!',
         '13b2o$8bo2bo$5b2obo2b2o$8bo$o$o15bo$2bo3bo3bobo3bo$b2o7bo$6b2o7b3o2$b3o7b2o$8bo7b2o$2bo3bobo3bo3bo$2bo15bo$18bo$10bo$6b2o2bob2o$7bo2bo$4b2o!',
     ],
@@ -124,7 +122,7 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         18,
-        '7bo$7bo2$6bobo$7bo$2o11b2o$7bo$7bo$7bo$2o11b2o$7bo$6bobo2$7bo$7bo!',
+        '17b2o$12bo2bo$9b2obo2b2o$12bo3$14bobo$14bo$o7bo14bo$o8b2o12bo$2bo16b2o$b2o19b3o$19bo$6bo$b3o19b2o$5b2o16bo$2bo12b2o8bo$2bo14bo7bo$11bo$9bobo3$13bo$9b2o2bob2o$10bo2bo$7b2o!',
     ],
     [
         19,
@@ -137,7 +135,6 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         21,
-        '2o13b2o$3bo9bo$2bo11bo2$6b2ob2o$5bo5bo$5bo5bo2$5bo5bo$5bo5bo$6b2ob2o2$2bo11bo$3bo9bo$2o13b2o!',
         'b9o2$2obo3bob2o$3bo3bo3$4b3o2$4bobo$4bobo2$4b3o3$3bo3bo$2obo3bob2o2$b9o!',
     ],
     [
@@ -178,10 +175,6 @@ const RLES: [number, ...string[]][] = [
     [
         32,
         '10b2o3b2o$13bo$13bo4$12bobo$11bo3bo$10bo5bo2$o7bo9bo7bo$o6bo11bo6bo$6bo13bo$b2o21b2o$6bo13bo$o6bo11bo6bo$o7bo9bo7bo2$10bo5bo$11bo3bo$12bobo4$13bo$13bo$10b2o3b2o!',
-    ],
-    [
-        41,
-        '6b3o7b3o3$6b2o9b2o$12bo$11bobo$o2bo7b3o7bo2bo$o2bo17bo2bo$o11bo11bo$12bo2$5b2o11b2o$4bobob2o5b2obobo$5b2o11b2o2$12bo$o11bo11bo$o2bo17bo2bo$o2bo7b3o7bo2bo$11bobo$12bo$6b2o9b2o3$6b3o7b3o!',
     ],
     [
         44,

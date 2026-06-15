@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B2-ak4a5ij6ac/S12-k4a5y';
+const RULE = 'B2-ak4a5ij6ac/S12-k4a';
 
 // don't change this
 // the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
