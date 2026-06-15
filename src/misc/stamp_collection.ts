@@ -2,7 +2,7 @@
 import {Pattern, createPattern} from '../core/index.js';
 
 
-const RULE = 'B2-ak4a5ij6ac/S12-k4a';
+const RULE = 'B2-ak4a5ij6ac/S12-k4a5y';
 
 const DIGIT_HEIGHT = 13;
 const DIGIT_WIDTH = 7;
@@ -128,7 +128,6 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         21,
-        '7bo$7bo$7bo2$7bo$o4bo3bo4bo$o4bobobo4bo$2bo9bo$2bo3b3o3bo$2bo9bo!',
     ],
     [
         22,
