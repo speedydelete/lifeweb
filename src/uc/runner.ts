@@ -280,14 +280,15 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
         } else if (apgcode === 'PATHOLOGICAL' || apgcode.startsWith('zz')) {
             return false;
         } else {
-            out.push({
-                type: 'other',
-                code: apgcode,
-                x: p.xOffset,
-                y: p.yOffset,
-                realCode: p.toApgcode(),
-                timing: p.generation,
-            });
+            return false;
+            // out.push({
+            //     type: 'other',
+            //     code: apgcode,
+            //     x: p.xOffset,
+            //     y: p.yOffset,
+            //     realCode: p.toApgcode(),
+            //     timing: p.generation,
+            // });
         }
     }
     return [out, stableObjects];

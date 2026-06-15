@@ -839,7 +839,6 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                             parts = parts.slice(4);
                             emit = [];
                             while (parts[0] === 'emit') {
-                                console.log([parts, parts[7], parseInt(parts[7].slice(1))]);
                                 let code = parts[1];
                                 let dir = parts[2] as ShipDirection;
                                 let lane = parseInt(parts[4]);
@@ -851,7 +850,7 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         }
                         value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing, emit});
                     } else {
-                        let values = data.split(' | ').map(stringToObjects);
+                        let values = data.split(' / ').map(stringToObjects);
                         value.push({
                             type: 'normal',
                             result: values[0],
