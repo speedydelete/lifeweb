@@ -253,6 +253,18 @@ const CHANNEL_INFO: {[key: string]: ChannelInfo} = {
         compatibleWith: [],
     },
 
+    'Single-channel (24)': {
+        aliases: ['sc24'],
+        ship: SPACESHIPS['xq4_15'],
+        channels: [0],
+        period: 1,
+        minSpacings: [[24]],
+        minSpacing: 24,
+        maxNextSpacing: 512,
+        initialBound: 16,
+        compatibleWith: [],
+    },
+
 };
 
 
