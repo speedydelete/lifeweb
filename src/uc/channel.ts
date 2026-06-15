@@ -513,9 +513,6 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         generation: state.p.generation,
     })];
     let depth = 1;
-    if (eval('true')) {
-        process.exit(0);
-    }
     while (true) {
         // if (depth === 2) {
         //     process.exit(0);
