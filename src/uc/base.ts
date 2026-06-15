@@ -344,9 +344,6 @@ export function normalizeOscillator(obj: Oscillator, modTiming: boolean = true):
 export const SHIP_DIR_NW_SE = new Set(['N', 'NW', 'S', 'SE', 'N2', 'NW2', 'S2', 'SE2']);
 
 export function getLaneAndTimingFromXY(code: string, dir: ShipDirection, x: number, y: number, time: number): [number, number] {
-    if (dir.endsWith('2')) {
-        dir = dir.slice(0, -1) as ShipDirection;
-    }
     let slope = c.SPACESHIPS[code].slope;
     let lane: number;
     let timing: number;
@@ -384,9 +381,6 @@ y = (t - sl)/(s^2 + 1)
 */
 
 export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: number, timing: number, time: number): [number, number] {
-    if (dir.endsWith('2')) {
-        dir = dir.slice(0, -1) as ShipDirection;
-    }
     if (!SHIP_DIR_NW_SE.has(dir)) {
         let temp = lane;
         lane = timing;
