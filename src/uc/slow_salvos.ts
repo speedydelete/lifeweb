@@ -1,6 +1,6 @@
 
 import {lcm, MAPPattern} from '../core/index.js';
-import {c, SpaceshipInfo, SalvoInfo, redraw, base, shipPatterns, Spaceship, StableObject, CAObject, translateObject, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
+import {c, SpaceshipInfo, SalvoInfo, redraw, base, shipPatterns, Spaceship, StableObject, CAObject, getXYFromLaneAndTiming, translateObject, objectsToString, stringToObjects, RecipeData, loadRecipes, saveRecipes} from './base.js';
 import {separateObjects, findOutcome} from './runner.js';
 
 
@@ -50,14 +50,14 @@ export function createSalvoPattern(info: {ship: SpaceshipInfo, gliderSpacing: nu
 
 /** Reads a slow salvo from a `Pattern`. */
 export function patternToSalvo(shipInfo: SpaceshipInfo, period: number, p: MAPPattern): [string, [number, number][]] {
-    let objs = separateObjects(p, 2, 65536, true, true);
+    let objs = separateObjects(p, 1, 65536, true, true);
     if (objs === false) {
         throw new Error('Object separation failed!');
     }
     let target: StableObject | null = null;
     let ships: Spaceship[] = [];
     for (let obj of objs) {
-        if (obj.type === 'ship' && obj.code === shipInfo.code) {
+        if (obj.type === 'ship') {
             ships.push(obj);
         } else if (obj.type === 'sl' || obj.type === 'osc') {
             if (target !== null) {
@@ -71,11 +71,16 @@ export function patternToSalvo(shipInfo: SpaceshipInfo, period: number, p: MAPPa
     if (!target) {
         throw new Error('No target!');
     }
-    let lanes: [number, number][] = [];
+    let lanes: [number, number, number][] = [];
     for (let ship of ships) {
-        lanes.push([ship.lane, ship.timing]);
+        let [x, y] = getXYFromLaneAndTiming(ship.code, ship.dir, ship.lane, ship.timing, ship.time);
+        x = target.x - x;
+        y = target.y - y;
+        let lane = (y * shipInfo.slope) - x + c.LANE_OFFSET;
+        let timing = x + y;
+        lanes.push([lane, ship.timing, timing]);
     }
-    lanes = lanes.sort((a, b) => a[1] - b[1]);
+    lanes = lanes.sort((a, b) => a[2] - b[2]);
     return [target.code, lanes.map(x => [x[0], x[1] % period])];
 }
 

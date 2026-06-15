@@ -148,13 +148,9 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                     if (data.type !== 'normal') {
                         continue;
                     }
-                    // if (!results.every((x, i) => x.length === data.results[i].length)) {
-                    //     console.log(results);
-                    //     console.log(data.results);
-                    //     console.log(results.map(x => x.length));
-                    //     console.log(data.results.map(x => x.length));
-                    //     continue;
-                    // }
+                    if (!results.every((x, i) => x.length === data.results[i].length) && !results.every((x, i) => x.length === data.flippedResults[i].length)) {
+                        continue;
+                    }
                     let dataResult: CAObject[] = [];
                     let dataResult2: CAObject[] = [];
                     let flipped = false;
@@ -182,9 +178,11 @@ function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefin
                         let temp = p.xOffset;
                         p.xOffset = p.yOffset;
                         p.yOffset = temp;
-                        let data = patternToSalvo(info.ship, 1, p);
+                        let data = patternToSalvo(info.ship, elbow.period, p);
                         adjustLane -= data[1][0][0];
+                        console.log(data);
                         if (xDiff !== (yDiff + adjustLane) * info.ship.slope) {
+                            console.log('hi 4', xDiff, yDiff, adjustLane, (yDiff + adjustLane) * info.ship.slope);
                             continue;
                         }
                         move = yDiff + adjustLane;
@@ -483,6 +481,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         }
     }
     let elbowType = out.elbows[elbow.str]?.[elbow.timing]?.type;
+    console.log(out.elbows[elbow.str]?.[0]);
     if (elbowType !== 'normal') {
         throw new Error(`Provided elbow '${elbow.timingStr}' is not of type normal, type is ${elbowType}`);
     }
@@ -514,6 +513,9 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
         generation: state.p.generation,
     })];
     let depth = 1;
+    if (eval('true')) {
+        process.exit(0);
+    }
     while (true) {
         // if (depth === 2) {
         //     process.exit(0);
