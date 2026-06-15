@@ -370,7 +370,7 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
         }
     }
     for (let a of expected.ships) {
-        if (!ships.some(b => a.code === b.code && a.dir === b.dir && a.lane === b.lane)) {
+        if (!ships.some(b => a.code === b.code && a.dir === b.dir/* && a.lane === b.lane*/)) {
             return false;
         }
     }
