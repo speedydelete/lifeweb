@@ -287,6 +287,8 @@ export interface Spaceship extends BaseObject {
     lane: number;
     /** The timing it is on relative to a normalized ship at (0, 0). */
     timing: number;
+    /** The time that it appeared at that position. */
+    time: number;
 }
 
 export interface OtherObject extends BaseObject {
@@ -381,7 +383,7 @@ y = (t - sl)/(s^2 + 1)
 
 */
 
-export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: number, timing: number): [number, number] {
+export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: number, timing: number, time: number): [number, number] {
     if (dir.endsWith('2')) {
         dir = dir.slice(0, -1) as ShipDirection;
     }
@@ -391,9 +393,10 @@ export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: n
         timing = temp;
     }
     let slope = c.SPACESHIPS[code].slope;
+    let adjustedTiming = timing + time;
     return [
-        (slope * timing + lane) / (slope**2 + slope),
-        (timing - slope * lane) / (slope**2 + 1),
+        (slope * adjustedTiming + lane) / (slope**2 + 1),
+        (adjustedTiming - slope * lane) / (slope**2 + 1),
     ];
 }
 
@@ -401,7 +404,7 @@ export function getXYFromLaneAndTiming(code: string, dir: ShipDirection, lane: n
 export function translateObject<T extends CAObject>(obj: T, x: number, y: number): T {
     obj = structuredClone(obj);
     if (obj.type === 'ship') {
-        let [x2, y2] = getXYFromLaneAndTiming(obj.code, obj.dir, obj.lane, obj.timing);
+        let [x2, y2] = getXYFromLaneAndTiming(obj.code, obj.dir, obj.lane, obj.timing, obj.time);
         let [lane2, timing2] = getLaneAndTimingFromXY(obj.code, obj.dir, x2 + x, y2 + y, 0);
         obj.lane = lane2;
         obj.timing = timing2;
@@ -519,7 +522,7 @@ export function objectsToString(objs: CAObject[]): string {
         } else if (obj.type === 'osc') {
             out.push(`${obj.code} (${obj.x}, ${obj.y}, ${obj.timing})`);
         } else if (obj.type === 'ship') {
-            out.push(`${obj.code} (${obj.dir}, ${obj.lane}, ${obj.timing})`);
+            out.push(`${obj.code} (${obj.dir}, ${obj.lane}, ${obj.timing}, ${obj.time})`);
         } else {
             out.push(`${obj.code} (${obj.realCode}, ${obj.x}, ${obj.y}, ${obj.timing})`);
         }
@@ -581,6 +584,7 @@ export function stringToObjects(data: string): CAObject[] {
                 dir: args[0] as ShipDirection,
                 lane: parseInt(args[3]),
                 timing: parseInt(args[4]),
+                time: parseInt(args[5]),
             });
         } else {
             out.push({
@@ -684,7 +688,7 @@ export function channelRecipeInfoToString(recipe: ChannelRecipe): string {
     }
     if (recipe.emit) {
         for (let ship of recipe.emit) {
-            out += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+            out += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing} (${ship.time})`;
         }
     }
     if (recipe.create) {
@@ -808,12 +812,13 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                             parts = parts.slice(2);
                             emit = [];
                             while (parts[0] === 'emit') {
-                                let code = data[1];
-                                let dir = data[2] as ShipDirection;
-                                let lane = parseInt(data[4]);
-                                let timing = parseInt(data[6]);
-                                emit.push({type: 'ship', code, dir, lane, timing});
-                                data = data.slice(7);
+                                let code = parts[1];
+                                let dir = parts[2] as ShipDirection;
+                                let lane = parseInt(parts[4]);
+                                let timing = parseInt(parts[6]);
+                                let time = parseInt(parts[7].slice(1));
+                                emit.push({type: 'ship', code, dir, lane, timing, time});
+                                parts = parts.slice(8);
                             }
                         }
                         value.push({type: 'destroy', emit});
@@ -834,12 +839,14 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                             parts = parts.slice(4);
                             emit = [];
                             while (parts[0] === 'emit') {
+                                console.log([parts, parts[7], parseInt(parts[7].slice(1))]);
                                 let code = parts[1];
                                 let dir = parts[2] as ShipDirection;
                                 let lane = parseInt(parts[4]);
                                 let timing = parseInt(parts[6]);
-                                emit.push({type: 'ship', code, dir, lane, timing});
-                                parts = parts.slice(7);
+                                let time = parseInt(parts[7].slice(1));
+                                emit.push({type: 'ship', code, dir, lane, timing, time});
+                                parts = parts.slice(8);
                             }
                         }
                         value.push({type: type === '=' ? 'alias' : 'convert', elbow, flipped, move, timing, emit});
@@ -885,8 +892,9 @@ function addSection(section: string, current: string[], recipeData: RecipeData):
                         let dir = data[2] as ShipDirection;
                         let lane = parseInt(data[4]);
                         let timing = parseInt(data[6]);
-                        recipe.emit.push({type: 'ship', code, dir, lane, timing});
-                        data = data.slice(7);
+                        let time = parseInt(data[7].slice(1));
+                        recipe.emit.push({type: 'ship', code, dir, lane, timing, time});
+                        data = data.slice(8);
                     }
                 }
                 if (data[0] === 'create') {
@@ -1045,7 +1053,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                         let str = `${x.type === 'alias' ? '=' : '->'} ${x.elbow}${x.flipped ? ' flip' : ''} move ${x.move} timing ${x.timing}`;
                         if (x.type === 'convert' && x.emit) {
                             for (let ship of x.emit) {
-                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing} (${ship.time})`;
                             }
                         }
                         strs.push(str);
@@ -1053,7 +1061,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
                         let str = 'destroy';
                         if (x.emit) {
                             for (let ship of x.emit) {
-                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing}`;
+                                str += ` emit ${ship.code} ${ship.dir} lane ${ship.lane} timing ${ship.timing} (${ship.time})`;
                             }
                         }
                         strs.push(str);

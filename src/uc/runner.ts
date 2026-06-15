@@ -262,6 +262,7 @@ export function separateObjectsPartial(p: MAPPattern, sepGens: number, limit: nu
                             dir,
                             lane,
                             timing,
+                            time: p.generation,
                         });
                         found = true;
                         break;

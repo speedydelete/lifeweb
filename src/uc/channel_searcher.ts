@@ -302,6 +302,7 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
                 dir: info.ship.slope === 0 ? 'S' : 'SE',
                 lane: elbow.lane,
                 timing: 0,
+                time: 0,
             }],
             period: 1,
         };
@@ -369,7 +370,7 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
         }
     }
     for (let a of expected.ships) {
-        if (!ships.some(b => a.code === b.code && a.dir === b.dir/* && a.lane === b.lane*/)) {
+        if (!ships.some(b => a.code === b.code && a.dir === b.dir && a.lane === b.lane)) {
             return false;
         }
     }
@@ -634,6 +635,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 dir: obj.dir,
                 lane: 0, // obj.lane,
                 timing: 0,
+                time: 0,
             };
         } else if (obj.type === 'osc') {
             return normalizeOscillator(obj);
