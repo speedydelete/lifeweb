@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B2-ak4a5ij6ac/S12-k4a';
+const RULE = 'B2-ak4a5ij6ac/S12-k4a5y';
 
 // don't change this
 // the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
@@ -274,7 +274,7 @@ const PERIOD_SECURITY = 64;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 10;
+const MAX_PSEUDO_DISTANCE = 8;
 
 // extra options for channel searching
 

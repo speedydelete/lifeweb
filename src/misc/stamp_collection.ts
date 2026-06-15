@@ -35,6 +35,7 @@ const RLES: [number, ...string[]][] = [
         '2b2o$o$obob2o2$2bo$2bo!',
         'bo3bo$2bobo$o5bo$o2bo2bo$3bo!',
         'bo$o$3bo$2b3o$3b2o!',
+        'o3bo$o3bo$2ob2o$o3bo$o3bo!',
     ],
     [
         3,
@@ -49,11 +50,13 @@ const RLES: [number, ...string[]][] = [
         'obo2$2bo!',
         '2o$3bo$2bo2$6bo$5bo$7bo$7bo!',
         '5bo$5bo2$3bobobo2$2obo3bob2o2$3bobobo2$5bo$5bo!',
+        '2b2o$o2bobo$o4bo$o2bobo$2b2o!',
     ],
     [
         5,
         'bo3bo$o5bo$bo3bo!',
         '6bo$3bo2bob2o$4bobo$bo$2bo2$3o2$bo$bo!',
+        '2o9b2o$3bo2bo2bo$2bo3bo3bo$6bo$6bo$2b4ob4o2$5b3o!',
     ],
     [
         6,
@@ -65,6 +68,7 @@ const RLES: [number, ...string[]][] = [
         7,
         '5bo$5bo2$2bob3obo$o9bo$o4bo4bo$o4bo4bo!',
         '2obo2bob2o2$bobo2bobo$o8bo$3b4o!',
+        '3bo2b2o$4bobo$4bo3bo$o7bo$b2o2bo$4b2o$2o$o$2b2o!',
         '6bo$6bo$6bo$3bobobobo2$3bo5bo$3o7b3o$3bo5bo2$3bobobobo$6bo$6bo$6bo!',
     ],
     [
@@ -88,22 +92,27 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         12,
+        '2o4$bobo$bobo$2bo5$3b3o!',
         '5bo$2b2obob2o$5bo$5bo2$3bo3bo$2obobobob2o2$3b5o!',
         '8bo$5b2obob2o$8bo$4bo7bo$3bobo5bobo$bo2bo7bo2bo$bo13bo2$3o11b3o2$bo13bo$bo2bo7bo2bo$3bobo5bobo$4bo7bo$8bo$5b2obob2o$8bo!',
     ],
     [
         13,
         '6b2o$2o4bo$obo5bo$2o6bo!',
+        '9b3o$9bob2o$9bo2bo$7bobob2o$2o4b2ob3o$obo$2o!',
+        'o20bo$o20bo$o5b2o6b2o5bo$5bo10bo$6b2o6b2o!',
+        '2o4b3o$3bo6b2o$2b2o$8b5o$5bo$5bo$2b2o4bo$6bobob2o$3b2obobo2$6b2o!',
         '13b2o$8bo2bo$5b2obo2b2o$8bo$o$o15bo$2bo3bo3bobo3bo$b2o7bo$6b2o7b3o2$b3o7b2o$8bo7b2o$2bo3bobo3bo3bo$2bo15bo$18bo$10bo$6b2o2bob2o$7bo2bo$4b2o!',
     ],
     [
         14,
         '2o$3bo$2bo4$3bobo$5bo$7bo$6bo$8b2o!',
+        'ob2obo2$b4o2$o4bo$o4bo2$b4o2$ob2obo!',
         'b2o12b2o$2bo12bo$o4bobo2bobo4bo$o4b2o4b2o4bo5$4b2o6b2o$4bo8bo$6bo4bo$6bo4bo!',
     ],
     [
         15,
-        '14b2o$9bo2bo$6b2obo2b2o$9bo2$o16bo$o10bobo3bo$2bo3bo4bo$b2o3bobo7b3o3$b3o7bobo3b2o$8bo4bo3bo$2bo3bobo10bo$2bo16bo2$10bo$6b2o2bob2o$7bo2bo$4b2o!',
+        'o7bo$o7bo$2bo3bo$2bo3bo$2b2ob2o$o7bo$o7bo$o7bo$o7bo$o7bo$o7bo$o7bo$2b2ob2o$2bo3bo$2bo3bo$o7bo$o7bo!',
     ],
     [
         16,
@@ -115,7 +124,7 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         18,
-        '17b2o$12bo2bo$9b2obo2b2o$12bo3$14bobo$14bo$o7bo14bo$o8b2o12bo$2bo16b2o$b2o19b3o$19bo$6bo$b3o19b2o$5b2o16bo$2bo12b2o8bo$2bo14bo7bo$11bo$9bobo3$13bo$9b2o2bob2o$10bo2bo$7b2o!',
+        '7bo$7bo2$6bobo$7bo$2o11b2o$7bo$7bo$7bo$2o11b2o$7bo$6bobo2$7bo$7bo!',
     ],
     [
         19,
@@ -128,6 +137,8 @@ const RLES: [number, ...string[]][] = [
     ],
     [
         21,
+        '2o13b2o$3bo9bo$2bo11bo2$6b2ob2o$5bo5bo$5bo5bo2$5bo5bo$5bo5bo$6b2ob2o2$2bo11bo$3bo9bo$2o13b2o!',
+        'b9o2$2obo3bob2o$3bo3bo3$4b3o2$4bobo$4bobo2$4b3o3$3bo3bo$2obo3bob2o2$b9o!',
     ],
     [
         22,
@@ -169,6 +180,10 @@ const RLES: [number, ...string[]][] = [
         '10b2o3b2o$13bo$13bo4$12bobo$11bo3bo$10bo5bo2$o7bo9bo7bo$o6bo11bo6bo$6bo13bo$b2o21b2o$6bo13bo$o6bo11bo6bo$o7bo9bo7bo2$10bo5bo$11bo3bo$12bobo4$13bo$13bo$10b2o3b2o!',
     ],
     [
+        41,
+        '6b3o7b3o3$6b2o9b2o$12bo$11bobo$o2bo7b3o7bo2bo$o2bo17bo2bo$o11bo11bo$12bo2$5b2o11b2o$4bobob2o5b2obobo$5b2o11b2o2$12bo$o11bo11bo$o2bo17bo2bo$o2bo7b3o7bo2bo$11bobo$12bo$6b2o9b2o3$6b3o7b3o!',
+    ],
+    [
         44,
         'bo15bo$bo15bo$5bo$4o6b2o3b4o$5bo$bo15bo$bo15bo!',
     ],
@@ -179,6 +194,10 @@ const RLES: [number, ...string[]][] = [
     [
         72,
         'bo25bo$bo25bo$5bo$4o6b2o3b2o3b2o3b4o$5bo$bo25bo$bo25bo!',
+    ],
+    [
+        130,
+        'obo5bo$b2o5bo$obo3bo$6b2o4$2o2$bo2$b2o!',
     ],
 ];
 
