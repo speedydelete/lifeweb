@@ -369,7 +369,7 @@ function checkNextWorkingInput(state: RunState, expected: ExpectedResult['data']
         }
     }
     for (let a of expected.ships) {
-        if (!ships.some(b => a.code === b.code && a.dir === b.dir && a.lane === b.lane)) {
+        if (!ships.some(b => a.code === b.code && a.dir === b.dir/* && a.lane === b.lane*/)) {
             return false;
         }
     }
@@ -632,7 +632,7 @@ function checkRecipe(info: ChannelInfo, elbows: ElbowData, newElbows: string[], 
                 type: 'ship',
                 code: obj.code,
                 dir: obj.dir,
-                lane: obj.lane,
+                lane: 0, // obj.lane,
                 timing: 0,
             };
         } else if (obj.type === 'osc') {

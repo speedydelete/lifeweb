@@ -515,7 +515,7 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
     })];
     let depth = 1;
     while (true) {
-        // if (depth === 4) {
+        // if (depth === 2) {
         //     process.exit(0);
         // }
         if (starts.length === 0) {

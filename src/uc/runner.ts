@@ -17,7 +17,7 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             continue;
         }
         used[i] = 1;
-        let isOsc = obj.type === 'osc';
+        let period = obj.type === 'osc' ? obj.period : 1;
         let data = [];
         for (let j = 0; j < objs.length; j++) {
             if (used[j]) {
@@ -28,16 +28,20 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
             if (dist <= c.MAX_PSEUDO_DISTANCE) {
                 used[j] = 1;
-                data.push(objs[j]);
-                isOsc ||= objs[j].type === 'osc';
+                data.push(b);
+                if (b.type === 'osc') {
+                    period = lcm(period, b.period);
+                }
                 continue;
             }
             for (let a of data) {
                 let dist = Math.abs(Math.min(a.bb[2], b.bb[2]) - Math.max(a.bb[0], b.bb[0])) + Math.abs(Math.min(a.bb[3], b.bb[3]) - Math.max(a.bb[1], b.bb[1]));
                 if (dist <= c.MAX_PSEUDO_DISTANCE) {
                     used[j] = 1;
-                    data.push(objs[j]);
-                    isOsc ||= objs[j].type === 'osc';
+                    data.push(b);
+                    if (b.type === 'osc') {
+                        period = lcm(period, b.period);
+                    }
                     break;
                 }
             }
@@ -71,18 +75,17 @@ export function combineStableObjects(objs: ForCombining[]): false | ForCombining
             p.insert(obj.p, obj.x - minX, obj.y - minY);
         }
         p.shrinkToFit();
-        let type = identifyPeriodic(p, 2, false);
+        let type = identifyPeriodic(p, period, false);
         if (!type.disp || type.disp[0] !== 0 || type.disp[1] !== 0) {
             return false;
         }
         let bb = [minX, minY, maxX, maxY] as [number, number, number, number];
-        if (isOsc) {
+        if (period !== 1) {
             let period = obj.type === 'osc' ? obj.period : 1;
             for (let obj of objs) {
-                if (obj.type === 'sl') {
-                    continue;
+                if (obj.type === 'osc') {
+                    period = lcm(period, obj.period);
                 }
-                period = lcm(period, obj.period);
             }
             out.push({
                 type: 'osc',
