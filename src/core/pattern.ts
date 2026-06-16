@@ -431,7 +431,6 @@ export abstract class Pattern {
     abstract getData(): Uint8Array;
     /** Sets the pattern data using a height, width, and array. */
     abstract setData(height: number, width: number, data: Uint8Array): this;
-    /** Gets the pattern data as a Map. */
 
     /** Checks if 2 patterns are exactly equal. */
     abstract isEqual(other: Pattern): boolean;
