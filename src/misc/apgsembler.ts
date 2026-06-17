@@ -121,8 +121,8 @@ const DEMUX_UNIT_FILLED = `x = 32, y = 32, rule = B2-ak4a5ij6ac/S12-k4a
 const DEMUX_CONNECT_SPLITTER = coords(7, 32);
 const DEMUX_CONNECT_PREV_STATE = coords(15, 0);
 
-const AFTER_DEMUX = `x = 42, y = 11, rule = B2-ak4a5ij6ac/S12-k4aHistory
-8$2b2o35b2o$3bo36bo$2o35b2o!`;
+const AFTER_DEMUX = `x = 105, y = 3, rule = B2-ak4a5ij6ac/S12-k4a
+2b2o35b2o25b2o35b2o$3bo36bo26bo36bo$2o35b2o25b2o35b2o!`;
 const AFTER_DEMUX_CONNECT = coords(0, -32);
 
 const DEMUX_SPLITTER_OFFSET = 32;
@@ -161,7 +161,7 @@ const SPLITTER_NW_TO_SW = `x = 29, y = 30, rule = B2-ak4a5ij6ac/S12-k4a
 const NW_TO_SW_CONNECT_NW = coords(8, 8);
 const NW_TO_SW_CONNECT_SW = coords(10, 29);
 
-const COMPONENT_STACK_CRU_OFFSET = 64;
+const COMPONENT_STACK_CRU_OFFSET = 96;
 
 const NOP_COMPONENT = `x = 36, y = 16, rule = B2-ak4a5ij6ac/S12-k4aHistory
 7$27bo3bo$27bo3bob2o$31bo!`;
@@ -185,7 +185,7 @@ $59b2o2bob2o14bo$32bo27bo2bo$31b2o41bo$56b2o10b2o4bo$57bo11bo4bo$b2o63b
 2o$2bo50b2o$o53bo$o50b2o3$4b2o$5bo$3bo6bo$3bo6bo3b2o$14bo$16b2o9$79b2o
 $77bo$77b2o7$82b2o$82bo$78bo5bo$78bob2o2bo$78bo$78bo9$88b2o$86bo$86b2o
 7$91b2o$91bo$87bo5bo$87bob2o2bo$87bo$87bo!`;
-const UNARY_REGISTER_SIZE = 256;
+const UNARY_REGISTER_SIZE = 128;
 const UNARY_REGISTER_OFFSET = 32;
 const UNARY_REGISTER_CONNECT_INC = coords(141, 24);
 const UNARY_REGISTER_CONNECT_TDEC = coords(141, 54);
@@ -197,8 +197,10 @@ const MIN_ACTION_GLIDER_MOVER_MOVE_AMOUNT = 16;
 const ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET = 32;
 
 // reflectorNWToSW is defined below
-let reflectorSWToNW = parse(`x = 3, y = 8, rule = B2-ak4a5ij6ac/S12-k4a
-bo$bo2$3o4$b2o!`, undefined, true);
+let reflectorSWToNWPreserving = parse(`x = 3, y = 8, rule = B2-ak4a5ij6ac/S12-k4a
+bo$bo2$3o4$2o!`, undefined, true);
+let reflectorSWToNWChanging = parse(`x = 14, y = 10, rule = B2-ak4a5ij6ac/S12-k4a
+2bo3bo$obo3bo$obo9bo$2bo9bo2$11b3o4$11b2o!`, undefined, true);
 function addActionGliderMover(out: Pattern, from: number, to: number, pos: Coords, action: string): void {
     let lane: number;
     if (from % 2 === 0) {
@@ -208,13 +210,15 @@ function addActionGliderMover(out: Pattern, from: number, to: number, pos: Coord
         pos = pos.offset('SW', -(from - 1) / 2);
         lane = (to - (from - 1)) / 2;
     }
-    if (lane !== Math.round(lane)) {
-        throw new Error(`Color changing required for action ${action}`);
-    }
+
     pos = pos.offset(coords(-26, 0));
-    console.log(`${from} -> ${to}, pos = ${pos}, lane = ${lane}, pos2 = ${pos.offset('SW', -lane / 2)}`);
+    // console.log(`${from} -> ${to}, pos = ${pos}, lane = ${lane}`);
     insert(out, reflectorNWToSW, pos);
-    insert(out, reflectorSWToNW, pos.offset('SW', -lane / 2).offset(coords(0, 0)));
+    if (lane !== Math.floor(lane)) {
+        insert(out, reflectorSWToNWPreserving, pos.offset('SW', -Math.floor(lane)).offset(coords(14, 15)).offset('NE', 16));
+    } else {
+        insert(out, reflectorSWToNWChanging, pos.offset('SW', -lane).offset(coords(14, 2)).offset('NE', 3));
+    }
 }
 
 
@@ -455,10 +459,9 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
     let reflectorPos = demuxPos.offset(DEMUX_CONNECT_SPLITTER).offset('SW', DEMUX_SPLITTER_OFFSET);
     reflectorPos = reflectorPos.offset('SW', ACTION_OFFSET * program.actions.length);
     reflectorPos = reflectorPos.offset(SW_TO_SE_CONNECT_SE).offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET);
-    // reflectorPos = reflectorPos.offset('W', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorSEToNE, reflectorPos.offset(SE_TO_NE_CONNECT_SE));
-        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET);
+        reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET);
     }
     // next state reflectors (2)
     reflectorPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX).offset('NE', PREV_STATE_DEMUX_OFFSET);
