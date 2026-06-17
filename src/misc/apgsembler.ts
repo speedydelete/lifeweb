@@ -126,7 +126,7 @@ const AFTER_DEMUX = `x = 105, y = 3, rule = B2-ak4a5ij6ac/S12-k4a
 const AFTER_DEMUX_CONNECT = coords(-40, 0);
 
 const DEMUX_SPLITTER_OFFSET = 32;
-const PREV_STATE_DEMUX_OFFSET = 16;
+const PREV_STATE_DEMUX_OFFSET = 32;
 
 const SPLITTER = `x = 38, y = 38, rule = B2-ak4a5ij6ac/S12-k4a
 4$11b2o17bo$14bo11bo3bob2o$13b2o6bo4bo3bo$18b2obo$21bo$33b3o4$8b2o$9b
@@ -468,10 +468,10 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
     // next state reflectors (2)
     reflectorPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX).offset('NE', PREV_STATE_DEMUX_OFFSET);
     reflectorPos = reflectorPos.offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET).offset(SE_TO_NE_CONNECT_NE).offset('NE', NW_TO_SW_CONNECT_NW);
-    reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
+    // reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorNEToNW, reflectorPos.offset(NE_TO_NW_CONNECT_NE));
-        reflectorPos = reflectorPos.offset('N', NEXT_STATE_OFFSET);
+        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET);
     }
     return [actionLanes, actionMoverPos];
 }
