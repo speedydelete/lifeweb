@@ -90,21 +90,39 @@ function insert(p: Pattern, q: Pattern, coords: Coords): void {
 
 const RULE = 'B2-ak4a5ij6ac/S12-k4a';
 
-const CLOCK_REGULATOR_UNIT = `x = 190, y = 109, rule = B2-ak4a5ij6ac/S12-k4a
-27b2o4$26b3o2$27bo$27bo7$94b2o10b2o10b2o10b2o10b2o10b2o10b2o2$92bob3o
-7bob3o7bob3o7bob3o7bob3o7bob3o7bob3o$92bo11bo11bo11bo11bo11bo11bo6$98b
-o11bo11bo11bo11bo11bo20bo$98bob3o7bob3o7bob3o7bob3o7bob3o7bob3o16bobo
-$179bobo$100b2o10b2o10b2o10b2o10b2o10b2o17bo$170bo3bo$167b2obo3bo$170b
-o$185b3o$85bo$81bo3bob2o35b2o$76bo4bo3bo77b2o$73b2obo89bo3bobo$76bo88b
-2o5bo13b2o$123b3o60bo$188b2o$124bo$124bo$165b3o2$129bo$101bo24b2obo3b
-o$101bo27bo3bo43bo$171b2o4bo$100b3o69bo4bo$170bo$11b2o157bo2$101b2o2$
-10b3o2$11bo$11bo13$52bo63bo$48bo3bob2o56bo3bob2o$43bo4bo3bo54bo4bo3bo
-$40b2obo60b2obo$43bo63bo5$31b2o62b2o$34bo63bo$33b2o62b2o$51bo63bo$48b
-2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$36b2o$44bo63bo$44bo63bo$41b2o
-62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b2o8bo18bo$
-32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo3bo14bo3bo
-2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo63bo5$35bo
-63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
+// p2^20:
+// const CLOCK_REGULATOR_UNIT = `x = 190, y = 109, rule = B2-ak4a5ij6ac/S12-k4a
+// 27b2o4$26b3o2$27bo$27bo7$94b2o10b2o10b2o10b2o10b2o10b2o10b2o2$92bob3o
+// 7bob3o7bob3o7bob3o7bob3o7bob3o7bob3o$92bo11bo11bo11bo11bo11bo11bo6$98b
+// o11bo11bo11bo11bo11bo20bo$98bob3o7bob3o7bob3o7bob3o7bob3o7bob3o16bobo
+// $179bobo$100b2o10b2o10b2o10b2o10b2o10b2o17bo$170bo3bo$167b2obo3bo$170b
+// o$185b3o$85bo$81bo3bob2o35b2o$76bo4bo3bo77b2o$73b2obo89bo3bobo$76bo88b
+// 2o5bo13b2o$123b3o60bo$188b2o$124bo$124bo$165b3o2$129bo$101bo24b2obo3b
+// o$101bo27bo3bo43bo$171b2o4bo$100b3o69bo4bo$170bo$11b2o157bo2$101b2o2$
+// 10b3o2$11bo$11bo13$52bo63bo$48bo3bob2o56bo3bob2o$43bo4bo3bo54bo4bo3bo
+// $40b2obo60b2obo$43bo63bo5$31b2o62b2o$34bo63bo$33b2o62b2o$51bo63bo$48b
+// 2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$36b2o$44bo63bo$44bo63bo$41b2o
+// 62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b2o8bo18bo$
+// 32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo3bo14bo3bo
+// 2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo63bo5$35bo
+// 63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
+
+// p2^16:
+const CLOCK_REGULATOR_UNIT = `x = 165, y = 109, rule = B2-ak4a5ij6ac/S12-k4a
+27b2o4$26b3o2$27bo$27bo7$94b2o10b2o10b2o10b2o10b2o2$92bob3o7bob3o7bob
+3o7bob3o7bob3o$92bo11bo11bo11bo11bo6$98bo11bo11bo11bo20bo$98bob3o7bob
+3o7bob3o7bob3o16bobo$155bobo$100b2o10b2o10b2o10b2o17bo$146bo3bo$143b2o
+bo3bo$146bo$161b3o$85bo$81bo3bob2o35b2o$76bo4bo3bo53b2o$73b2obo65bo3b
+obo$76bo64b2o5bo13b2o$123b3o36bo$164bo$124bo39bo$124bo$141b3o2$129bo$
+101bo24b2obo3bo$101bo27bo3bo19bo$147b2o4bo$100b3o45bo4bo$146bo$11b2o133b
+o2$101b2o2$10b3o2$11bo$11bo13$52bo63bo$48bo3bob2o56bo3bob2o$43bo4bo3b
+o54bo4bo3bo$40b2obo60b2obo$43bo63bo5$31b2o62b2o$34bo63bo$33b2o62b2o$51b
+o63bo$48b2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$36b2o$44bo63bo$44bo
+63bo$41b2o62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b
+2o8bo18bo$32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo
+3bo14bo3bo2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo
+63bo5$35bo63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
+
 const CRU_CONNECT_COMPONENT_STACK = coords(0, 22);
 const CRU_CONNECT_DEMUX = coords(108, 150);
 
@@ -123,7 +141,7 @@ const DEMUX_CONNECT_PREV_STATE = coords(15, 0);
 
 const AFTER_DEMUX = `x = 105, y = 3, rule = B2-ak4a5ij6ac/S12-k4a
 2b2o35b2o25b2o35b2o$3bo36bo26bo36bo$2o35b2o25b2o35b2o!`;
-const AFTER_DEMUX_CONNECT = coords(-40, 0);
+const AFTER_DEMUX_CONNECT = coords(-8, 32);
 
 const DEMUX_SPLITTER_OFFSET = 32;
 const PREV_STATE_DEMUX_OFFSET = 32;
@@ -462,17 +480,18 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
     let reflectorPos = demuxPos.offset(DEMUX_CONNECT_SPLITTER).offset('SW', DEMUX_SPLITTER_OFFSET);
     reflectorPos = reflectorPos.offset('SW', ACTION_OFFSET * program.actions.length);
     reflectorPos = reflectorPos.offset(SW_TO_SE_CONNECT_SE).offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET);
+    reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1) * 2);
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorSEToNE, reflectorPos.offset(SE_TO_NE_CONNECT_SE));
-        reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * 2);
+        reflectorPos = reflectorPos.offset('W', NEXT_STATE_OFFSET * 2);
     }
     // next state reflectors (2)
     reflectorPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX).offset('NE', PREV_STATE_DEMUX_OFFSET);
     reflectorPos = reflectorPos.offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET).offset(SE_TO_NE_CONNECT_NE).offset('NE', NW_TO_SW_CONNECT_NW);
-    // reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
+    reflectorPos = reflectorPos.offset('W', NEXT_STATE_OFFSET * (program.gotoStates.length - 1) * 2);
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorNEToNW, reflectorPos.offset(NE_TO_NW_CONNECT_NE));
-        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET * 2);
+        reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * 2);
     }
     return [actionLanes, actionMoverPos];
 }
