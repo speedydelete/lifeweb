@@ -30,22 +30,34 @@ class Coords {
 
     offset(dir: Direction, by: number | Coords): Coords;
     offset(by: number | Coords): Coords;
+    offset(x: number, y: number): Coords;
     offset(dir: Direction | number | Coords, by?: number | Coords): Coords {
-        if (typeof dir !== 'string') {
+        if (by === undefined) {
+            if (typeof dir === 'string') {
+                throw new Error(`This error should not occur (invalid call to Coords.prototype.offset())`);
+            }
             by = dir;
             dir = 'SE';
-        }
-        if (typeof by === 'undefined') {
-            throw new Error(`Invalid call to Coords.prototype.offset()`);
         }
         let x = this.x;
         let y = this.y;
         let offsetX: number;
         let offsetY: number;
         if (typeof by === 'number') {
-            offsetX = by;
-            offsetY = by;
+            if (typeof dir === 'number') {
+                offsetX = dir;
+                offsetY = by;
+                dir = 'SE';
+            } else if (dir instanceof Coords) {
+                throw new Error(`This error should not occur (invalid call to Coords.prototype.offset())`);
+            } else {
+                offsetX = by;
+                offsetY = by;
+            }
         } else {
+            if (typeof dir !== 'string') {
+                throw new Error(`This error should not occur (invalid call to Coords.prototype.offset())`);
+            }
             offsetX = by.x;
             offsetY = by.y;
         }
@@ -66,6 +78,13 @@ class Coords {
 
 function coords(x: number, y: number): Coords {
     return new Coords(x, y);
+}
+
+function insert(p: Pattern, q: Pattern, coords: Coords): void {
+    let {x, y} = coords;
+    p.ensure(x - p.xOffset, y - p.yOffset);
+    p.ensure(x + q.width - p.xOffset, y + q.height - p.yOffset);
+    p.insert(q, x - p.xOffset, y - p.yOffset);
 }
 
 
@@ -124,7 +143,7 @@ const REFLECTOR_SW_TO_SE = `x = 15, y = 16, rule = B2-ak4a5ij6ac/S12-k4a
 const SW_TO_SE_CONNECT_SW = coords(7, 0);
 const SW_TO_SE_CONNECT_SE = coords(0, 3);
 
-const REFLECTOR_SE_TO_NE = `x = 16, y = 12, rule = B2-ak4a5ij6ac/S12-k4aHistory
+const REFLECTOR_SE_TO_NE = `x = 16, y = 12, rule = B2-ak4a5ij6ac/S12-k4a
 $7bo$7bo2$6b3o4$7b2o!`;
 const SE_TO_NE_CONNECT_SE = coords(0, 1);
 const SE_TO_NE_CONNECT_NE = coords(15, 0);
@@ -142,21 +161,72 @@ const SPLITTER_NW_TO_SW = `x = 29, y = 30, rule = B2-ak4a5ij6ac/S12-k4a
 const NW_TO_SW_CONNECT_NW = coords(8, 8);
 const NW_TO_SW_CONNECT_SW = coords(10, 29);
 
-const ZNZ_OFFSET_COMPONENT_STACK = 32;
+const COMPONENT_STACK_CRU_OFFSET = 64;
 
-const UNARY_REGISTER = ``;
-const UNARY_REGISTER_SIZE = 128;
+const NOP_COMPONENT = `x = 36, y = 16, rule = B2-ak4a5ij6ac/S12-k4aHistory
+7$27bo3bo$27bo3bob2o$31bo!`;
+const NOP_SIZE = 16;
+const NOP_OFFSET = 16;
+const NOP_CONNECT_ACTION = coords(29, 15);
+const NOP_CONNECT_ZNZ = coords(0, 0);
+
+const UNARY_REGISTER = `x = 142, y = 162, rule = B2-ak4a5ij6ac/S12-k4a
+115b2o$118bo4bo$117b2o4bo$123bo7$95b2o$98bo4bo$97b2o4bo$103bo8$64b2o$
+67bo4bo$66b2o4bo$72bo4$59bo$59bo$53bo2b2obo$53bo5bo$55bo$54b2o6$48bo$
+33bo14bo10b2o$33bo8bo2b2obo11bo$35bo6bo5bo8b2o33bo$34b2o8bo12bo3bo30b
+o$43b2o16bo$91b3o$60b3o2$92b2o$33bo3bo54bo$30b2obo3bo22b2o26bo5bo$33b
+o14b2o38bob2o2bo$49bo29bo3bo4bo$46b2o28b2obo3bo$79bo$58b3o2$59bo$59bo
+$72bo$68bo3bob2o$63bo4bo3bo$60b2obo$25bo37bo$25bo3$10b2o$70bo$9b4o53b
+o3bo4b2o$bo60bo3bobobo4bo$bo55bo4bo3bobo8b2o$3bo18b2o30b2obo10bo$2b2o
+7b2o10bo33bo10bo$20b2o4b2o$27bo$24b2o2$2b3o54bo2bo$59b2obo3bo$62bo3bo
+4bo$71bob2o$4bo2b2o62bo$4bo3bo2$2bob2o$2bo2bob2o$2bo75b3o$4bob2o$4bo43b
+o$32b2o8b2o4bo$43bo4bo$41bo11b2o24b2o$41bo12bo24bo$31b3o17b2o10bo17bo
+$59b2o2bob2o14bo$32bo27bo2bo$31b2o41bo$56b2o10b2o4bo$57bo11bo4bo$b2o63b
+2o$2bo50b2o$o53bo$o50b2o3$4b2o$5bo$3bo6bo$3bo6bo3b2o$14bo$16b2o9$79b2o
+$77bo$77b2o7$82b2o$82bo$78bo5bo$78bob2o2bo$78bo$78bo9$88b2o$86bo$86b2o
+7$91b2o$91bo$87bo5bo$87bob2o2bo$87bo$87bo!`;
+const UNARY_REGISTER_SIZE = 256;
+const UNARY_REGISTER_OFFSET = 32;
+const UNARY_REGISTER_CONNECT_INC = coords(141, 24);
+const UNARY_REGISTER_CONNECT_TDEC = coords(141, 54);
+const UNARY_REGISTER_CONNECT_ZNZ = coords(141, 62);
+
+const ACTION_GLIDER_MOVER_OFFSET = 32;
+const ACTION_GLIDER_MOVERS_IN_CRU = 2;
+const MIN_ACTION_GLIDER_MOVER_MOVE_AMOUNT = 16;
+const ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET = 32;
+
+// reflectorNWToSW is defined below
+let reflectorSWToNW = parse(`x = 3, y = 8, rule = B2-ak4a5ij6ac/S12-k4a
+bo$bo2$3o4$b2o!`, undefined, true);
+function addActionGliderMover(out: Pattern, from: number, to: number, pos: Coords, action: string): void {
+    let lane: number;
+    if (from % 2 === 0) {
+        pos = pos.offset('SW', -from / 2);
+        lane = (to - from) / 2;
+    } else {
+        pos = pos.offset('SW', -(from - 1) / 2);
+        lane = (to - (from - 1)) / 2;
+    }
+    if (lane !== Math.round(lane)) {
+        throw new Error(`Color changing required for action ${action}`);
+    }
+    pos = pos.offset(coords(-26, 0));
+    console.log(`${from} -> ${to}, pos = ${pos}, lane = ${lane}, pos2 = ${pos.offset('SW', -lane / 2)}`);
+    insert(out, reflectorNWToSW, pos);
+    insert(out, reflectorSWToNW, pos.offset('SW', -lane / 2).offset(coords(0, 0)));
+}
 
 
 type UnaryRegister = `U${number}`;
 type Register = UnaryRegister;
-type Component = Register | 'NOP' | 'HALT_OUT';
+type Component = Register | 'NOP';
 
 type Action = {str: string} & (
     | {type: 'NOP'}
+    | {type: 'HALT_OUT'}
     | {type: 'INC', register: UnaryRegister}
     | {type: 'TDEC', register: UnaryRegister}
-    | {type: 'HALT_OUT'}
 );
 
 interface State {
@@ -207,9 +277,11 @@ function parseDirective(out: Program, directive: string, value: string): void {
                     out.actions.push({str: `INC ${register}`, type: 'INC', register});
                     out.actions.push({str: `TDEC ${register}`, type: 'TDEC', register});
                 }
-            } else if (['NOP', 'HALT_OUT'].includes(component)) {
+            } else if (['NOP'].includes(component)) {
                 out.components.push(component as Component);
-                out.actions.push({str: component, type: component as 'NOP' | 'HALT_OUT'});
+                out.actions.push({str: component, type: component as 'NOP'});
+            } else if (component === 'HALT_OUT') {
+                continue;
             } else {
                 error(`Invalid component (unrecognized): '${component}'`);
             }
@@ -277,7 +349,7 @@ function parseProgram(code: string): Program {
         if (line === '') {
             continue;
         } else if (line.startsWith('#')) {
-            let match = line.match(/#([A-Z]+) (.*)/);
+            let match = line.match(/^#([A-Z]+) (.*)/);
             if (match) {
                 let directive = match[1];
                 let value = match[2];
@@ -326,17 +398,14 @@ let reflectorSEToNE = parse(REFLECTOR_SE_TO_NE, undefined, true);
 let reflectorNEToNW = parse(REFLECTOR_NE_TO_NW, undefined, true);
 let reflectorNWToSW = parse(REFLECTOR_NW_TO_SW, undefined, true);
 let splitterNWToSW = parse(SPLITTER_NW_TO_SW, undefined, true);
+let nopComponent = parse(NOP_COMPONENT, undefined, true);
+let unaryRegister = parse(UNARY_REGISTER, undefined, true);
 
-function insert(p: Pattern, q: Pattern, coords: Coords): void {
-    let {x, y} = coords;
-    p.ensure(x - p.xOffset, y - p.yOffset);
-    p.ensure(x + q.width - p.xOffset, y + q.height - p.yOffset);
-    p.insert(q, x - p.xOffset, y - p.yOffset);
-}
-
-function createStateMachine(program: Program, out: Pattern): number[] {
+function createStateMachine(program: Program, out: Pattern): [number[], Coords] {
+    // keep track of the lanes associated with each action
     let actionLanes: number[] = [];
-    let demuxPos = CRU_CONNECT_DEMUX;
+    let actionMoverPos = coords(0, 0);
+    let demuxPos = CRU_CONNECT_DEMUX.offset(ACTION_GLIDER_MOVER_OFFSET * (program.actions.length - ACTION_GLIDER_MOVERS_IN_CRU));
     for (let i = 0; i < program.states.length; i++) {
         let state = program.states[i];
         // demultiplexer
@@ -358,10 +427,14 @@ function createStateMachine(program: Program, out: Pattern): number[] {
         }
         // splitters
         let splitterPos = demuxPos.offset(DEMUX_CONNECT_SPLITTER).offset('SW', DEMUX_SPLITTER_OFFSET);
-        for (let action of program.actions) {
+        for (let j = 0; j < program.actions.length; j++) {
+            let action = program.actions[j];
             if (i === 0) {
-                let {x, y} = splitterPos.offset(SPLITTER_CONNECT_ACTION);
-                actionLanes.push(x - y);
+                let pos = splitterPos.offset(SPLITTER_CONNECT_ACTION);
+                if (j === 0) {
+                    actionMoverPos = pos.offset('NW', ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET);
+                }
+                actionLanes.push(pos.x - pos.y);
             }
             if (state.actions.some(x => x.str === action.str)) {
                 insert(out, splitter, splitterPos.offset(SPLITTER_CONNECT_SPLITTER.neg()));
@@ -395,13 +468,76 @@ function createStateMachine(program: Program, out: Pattern): number[] {
         insert(out, reflectorNEToNW, reflectorPos.offset(NE_TO_NW_CONNECT_NE));
         reflectorPos = reflectorPos.offset('N', NEXT_STATE_OFFSET);
     }
-    return actionLanes;
+    return [actionLanes, actionMoverPos];
 }
 
-function createComponentStack(program: Program, out: Pattern, actionLanes: number[]): void {
+function findComponentStackAdjust(program: Program, actionLanes: number[]): number {
+    let pos = coords(0, 0).offset(CRU_CONNECT_COMPONENT_STACK).offset('SW', COMPONENT_STACK_CRU_OFFSET);
+    let out = 0;
+    let index = 0;
+    for (let component of program.components) {
+        let size: number;
+        let actions: Coords[] = [];
+        if (component === 'NOP') {
+            pos = pos.offset('SW', NOP_OFFSET);
+            size = NOP_SIZE;
+            let pos2 = pos.offset(NOP_CONNECT_ZNZ.neg());
+            actions.push(pos2.offset(NOP_CONNECT_ACTION));
+        } else if (component.startsWith('U')) {
+            pos = pos.offset('SW', UNARY_REGISTER_OFFSET);
+            size = UNARY_REGISTER_SIZE;
+            let pos2 = pos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
+            actions.push(pos2.offset(UNARY_REGISTER_CONNECT_INC), pos.offset(UNARY_REGISTER_CONNECT_TDEC));
+        } else {
+            throw new Error(`This error should not occur (invalid component: '${component}')`);
+        }
+        for (let coords of actions) {
+            let lane = actionLanes[index++];
+            let lane2 = coords.x - coords.y;
+            let offset = lane2 - lane;
+            out = Math.max(out, Math.max(0, offset - MIN_ACTION_GLIDER_MOVER_MOVE_AMOUNT));
+        }
+        pos = pos.offset('SW', size);
+    }
+    return out;
+}
+
+function createComponentStack(program: Program, out: Pattern, actionLanes: number[], actionMoverPos: Coords): void {
+    let componentPos = coords(0, 0).offset(CRU_CONNECT_COMPONENT_STACK).offset('SW', COMPONENT_STACK_CRU_OFFSET);
+    componentPos = componentPos.offset('SW', findComponentStackAdjust(program, actionLanes));
+    // keep track of the lanes that the gliders from the splitters need to be reflected to
     let actionLanes2: number[] = [];
     for (let component of program.components) {
-
+        let toInsert: Pattern;
+        let size: number;
+        let pos: Coords;
+        let actions: Coords[] = [];
+        if (component === 'NOP') {
+            toInsert = nopComponent;
+            componentPos = componentPos.offset('SW', NOP_OFFSET);
+            size = NOP_SIZE;
+            pos = componentPos.offset(NOP_CONNECT_ZNZ.neg());
+            actions.push(pos.offset(NOP_CONNECT_ACTION));
+        } else if (component.startsWith('U')) {
+            toInsert = unaryRegister;
+            componentPos = componentPos.offset('SW', UNARY_REGISTER_OFFSET);
+            size = UNARY_REGISTER_SIZE;
+            pos = componentPos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
+            actions.push(pos.offset(UNARY_REGISTER_CONNECT_INC), pos.offset(UNARY_REGISTER_CONNECT_TDEC));
+        } else {
+            throw new Error(`This error should not occur (invalid component: '${component}')`);
+        }
+        insert(out, toInsert, pos);
+        for (let coords of actions) {
+            actionLanes2.push(coords.x - coords.y);
+        }
+        componentPos = componentPos.offset('SW', size);
+    }
+    // add the action glider movers
+    let offset = actionLanes[0];
+    for (let i = 0; i < program.actions.length; i++) {
+        addActionGliderMover(out, actionLanes[i] - offset, actionLanes2[i] - offset, actionMoverPos, program.actions[i].str);
+        actionMoverPos = actionMoverPos.offset('NW', ACTION_GLIDER_MOVER_OFFSET);
     }
 }
 
@@ -409,8 +545,8 @@ function programToPattern(program: Program): Pattern {
     console.log(inspect(program, {colors: true, depth: Infinity}));
     let out = createPattern(RULE);
     insert(out, clockRegulatorUnit, coords(0, 0));
-    let actionLanes = createStateMachine(program, out);
-    createComponentStack(program, out, actionLanes);
+    let [actionLanes, actionMoverPos] = createStateMachine(program, out);
+    createComponentStack(program, out, actionLanes, actionMoverPos);
     return out;
 }
 
