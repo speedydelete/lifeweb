@@ -100,11 +100,11 @@ o$185b3o$85bo$81bo3bob2o35b2o$76bo4bo3bo77b2o$73b2obo89bo3bobo$76bo88b
 o$101bo27bo3bo43bo$171b2o4bo$100b3o69bo4bo$170bo$11b2o157bo2$101b2o2$
 10b3o2$11bo$11bo13$52bo63bo$48bo3bob2o56bo3bob2o$43bo4bo3bo54bo4bo3bo
 $40b2obo60b2obo$43bo63bo5$31b2o62b2o$34bo63bo$33b2o62b2o$51bo63bo$48b
-2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$100b2o$44bo63bo$44bo63bo$41b
-2o62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b2o8bo18b
-o$32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo3bo14bo3b
-o2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo63bo5$35b
-o63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
+2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$36b2o$44bo63bo$44bo63bo$41b2o
+62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b2o8bo18bo$
+32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo3bo14bo3bo
+2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo63bo5$35bo
+63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
 const CRU_CONNECT_COMPONENT_STACK = coords(0, 22);
 const CRU_CONNECT_DEMUX = coords(108, 150);
 
@@ -123,7 +123,7 @@ const DEMUX_CONNECT_PREV_STATE = coords(15, 0);
 
 const AFTER_DEMUX = `x = 105, y = 3, rule = B2-ak4a5ij6ac/S12-k4a
 2b2o35b2o25b2o35b2o$3bo36bo26bo36bo$2o35b2o25b2o35b2o!`;
-const AFTER_DEMUX_CONNECT = coords(0, -32);
+const AFTER_DEMUX_CONNECT = coords(-40, 0);
 
 const DEMUX_SPLITTER_OFFSET = 32;
 const PREV_STATE_DEMUX_OFFSET = 16;
@@ -414,8 +414,8 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
         let state = program.states[i];
         // demultiplexer
         if (state.id === 'INITIAL' && state.input === 'ZZ') {
-            insert(out, demuxUnitFilled, demuxPos);
-        } else if (state.input === 'NZ') {
+            insert(out, demuxUnitFilled, demuxPos.offset('NE', ZNZ_OFFSET_DEMUX));
+        } else if (state.input === 'Z') {
             insert(out, demuxUnit, demuxPos.offset('NE', ZNZ_OFFSET_DEMUX));
         } else {
             insert(out, demuxUnit, demuxPos);
