@@ -190,6 +190,8 @@ const UNARY_REGISTER_OFFSET = 32;
 const UNARY_REGISTER_CONNECT_INC = coords(141, 24);
 const UNARY_REGISTER_CONNECT_TDEC = coords(141, 54);
 const UNARY_REGISTER_CONNECT_ZNZ = coords(141, 62);
+const UNARY_REGISTER_OBJECT_POS = coords(25, 63);
+const UNARY_REGISTER_OBJECT_SIZE = [2, 1];
 
 const ACTION_GLIDER_MOVER_OFFSET = 32;
 const ACTION_GLIDER_MOVERS_IN_CRU = 2;
@@ -243,7 +245,7 @@ interface State {
 interface Program {
     components: Component[];
     actions: Action[];
-    registers: [Register, number][];
+    registers: {[key: Register]: number};
     states: State[];
     gotoStates: string[];
 }
@@ -305,7 +307,7 @@ function parseDirective(out: Program, directive: string, value: string): void {
                 if (Number.isNaN(number)) {
                     error(`Invalid register: '${key}'`);
                 }
-                out.registers.push([`U${number}`, value]);
+                out.registers[`U${number}`] = value;
             } else {
                 error(`Invalid register: '${key}'`);
             }
@@ -341,7 +343,7 @@ function parseProgram(code: string): Program {
     let out: Program = {
         components: [],
         actions: [],
-        registers: [],
+        registers: {},
         states: [],
         gotoStates: [],
     };
@@ -511,26 +513,31 @@ function createComponentStack(program: Program, out: Pattern, actionLanes: numbe
     // keep track of the lanes that the gliders from the splitters need to be reflected to
     let actionLanes2: number[] = [];
     for (let component of program.components) {
-        let toInsert: Pattern;
         let size: number;
-        let pos: Coords;
         let actions: Coords[] = [];
         if (component === 'NOP') {
-            toInsert = nopComponent;
             componentPos = componentPos.offset('SW', NOP_OFFSET);
             size = NOP_SIZE;
-            pos = componentPos.offset(NOP_CONNECT_ZNZ.neg());
+            let pos = componentPos.offset(NOP_CONNECT_ZNZ.neg());
+            insert(out, nopComponent, pos);
             actions.push(pos.offset(NOP_CONNECT_ACTION));
         } else if (component.startsWith('U')) {
-            toInsert = unaryRegister;
             componentPos = componentPos.offset('SW', UNARY_REGISTER_OFFSET);
             size = UNARY_REGISTER_SIZE;
-            pos = componentPos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
+            let pos = componentPos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
+            insert(out, unaryRegister, pos);
+            if (program.registers[component]) {
+                let objPos = pos.offset(UNARY_REGISTER_OBJECT_POS);
+                let {x, y} = objPos.offset(-out.xOffset, -out.yOffset);
+                let [height, width] = UNARY_REGISTER_OBJECT_SIZE;
+                let obj = out.copyPart(x, y, height, width);
+                out.clearPart(x, y, height, width);
+                insert(out, obj, objPos.offset('NW', program.registers[component]));
+            }
             actions.push(pos.offset(UNARY_REGISTER_CONNECT_INC), pos.offset(UNARY_REGISTER_CONNECT_TDEC));
         } else {
             throw new Error(`This error should not occur (invalid component: '${component}')`);
         }
-        insert(out, toInsert, pos);
         for (let coords of actions) {
             actionLanes2.push(coords.x - coords.y);
         }
@@ -556,4 +563,6 @@ function programToPattern(program: Program): Pattern {
 
 let program = await parseFile(process.argv[2]);
 let pattern = programToPattern(program);
+pattern.shrinkToFit();
+console.log('offset:', new Coords(pattern.xOffset, pattern.yOffset));
 await fs.writeFile(process.argv[3], pattern.toRLE() + '\n');
