@@ -463,7 +463,7 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
     reflectorPos = reflectorPos.offset(SW_TO_SE_CONNECT_SE).offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET);
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorSEToNE, reflectorPos.offset(SE_TO_NE_CONNECT_SE));
-        reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET);
+        reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * 2);
     }
     // next state reflectors (2)
     reflectorPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX).offset('NE', PREV_STATE_DEMUX_OFFSET);
@@ -471,7 +471,7 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
     // reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
     for (let i = 0; i < program.gotoStates.length; i++) {
         insert(out, reflectorNEToNW, reflectorPos.offset(NE_TO_NW_CONNECT_NE));
-        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET);
+        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET * 2);
     }
     return [actionLanes, actionMoverPos];
 }
