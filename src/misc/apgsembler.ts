@@ -195,6 +195,7 @@ const UNARY_REGISTER_OBJECT_SIZE = [2, 1];
 
 const ACTION_GLIDER_MOVER_OFFSET = 32;
 const ACTION_GLIDER_MOVERS_IN_CRU = 2;
+const MIN_ACTION_GLIDER_SPACING = 32;
 const MIN_ACTION_GLIDER_MOVER_MOVE_AMOUNT = 16;
 const ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET = 32;
 
@@ -507,26 +508,57 @@ function findComponentStackAdjust(program: Program, actionLanes: number[]): numb
     return out;
 }
 
+function determineActionLanes(pos: Coords, actions: Coords[]): number[] {
+    let out: number[] = [];
+    for (let action of actions) {
+        let {x, y} = pos.offset(action);
+        out.push(x - y);
+    }
+    return out;
+}
+
+function getMoveAmount(actionLanes: number[], newLanes: number[]): number {
+    let move = 0;
+    for (let lane of newLanes) {
+        for (let lane2 of actionLanes) {
+            let offset = lane - lane2;
+            if (offset > -MIN_ACTION_GLIDER_SPACING && offset < MIN_ACTION_GLIDER_SPACING) {
+                move = Math.max(move, MIN_ACTION_GLIDER_SPACING - offset);
+            }
+        }
+    }
+    return move;
+}
+
+function addComponent(out: Pattern, actionLanes: number[], actionLanes2: number[], componentPos: Coords, size: number, offset: number, component: Pattern, connectOffset: Coords, actions: Coords[]): [Coords, Coords] {
+    componentPos = componentPos.offset('SW', offset);
+    let pos = componentPos.offset(connectOffset.neg());
+    let newLanes = determineActionLanes(pos, actions);
+    let move: number;
+    while ((move = getMoveAmount(actionLanes, newLanes)) !== 0) {
+        pos = pos.offset('SW', move);
+        componentPos = componentPos.offset('SW', move);
+        newLanes = determineActionLanes(pos, actions);
+    }
+    insert(out, component, pos);
+    componentPos = componentPos.offset('SW', size);
+    actionLanes2.push(...newLanes);
+    return [componentPos, pos];
+}
+
 function createComponentStack(program: Program, out: Pattern, actionLanes: number[], actionMoverPos: Coords): void {
     let componentPos = coords(0, 0).offset(CRU_CONNECT_COMPONENT_STACK).offset('SW', COMPONENT_STACK_CRU_OFFSET);
     componentPos = componentPos.offset('SW', findComponentStackAdjust(program, actionLanes));
     // keep track of the lanes that the gliders from the splitters need to be reflected to
     let actionLanes2: number[] = [];
     for (let component of program.components) {
-        let size: number;
-        let actions: Coords[] = [];
         if (component === 'NOP') {
-            componentPos = componentPos.offset('SW', NOP_OFFSET);
-            size = NOP_SIZE;
-            let pos = componentPos.offset(NOP_CONNECT_ZNZ.neg());
-            insert(out, nopComponent, pos);
-            actions.push(pos.offset(NOP_CONNECT_ACTION));
+            componentPos = addComponent(out, actionLanes, actionLanes2, componentPos, NOP_SIZE, NOP_OFFSET, nopComponent, NOP_CONNECT_ZNZ, [NOP_CONNECT_ACTION])[0];
         } else if (component.startsWith('U')) {
-            componentPos = componentPos.offset('SW', UNARY_REGISTER_OFFSET);
-            size = UNARY_REGISTER_SIZE;
-            let pos = componentPos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
-            insert(out, unaryRegister, pos);
+            let data = addComponent(out, actionLanes, actionLanes2, componentPos, UNARY_REGISTER_SIZE, UNARY_REGISTER_OFFSET, unaryRegister, UNARY_REGISTER_CONNECT_ZNZ, [UNARY_REGISTER_CONNECT_INC, UNARY_REGISTER_CONNECT_TDEC]);
+            componentPos = data[0];
             if (program.registers[component]) {
+                let pos = data[1];
                 let objPos = pos.offset(UNARY_REGISTER_OBJECT_POS);
                 let {x, y} = objPos.offset(-out.xOffset, -out.yOffset);
                 let [height, width] = UNARY_REGISTER_OBJECT_SIZE;
@@ -534,14 +566,9 @@ function createComponentStack(program: Program, out: Pattern, actionLanes: numbe
                 out.clearPart(x, y, height, width);
                 insert(out, obj, objPos.offset('NW', program.registers[component]));
             }
-            actions.push(pos.offset(UNARY_REGISTER_CONNECT_INC), pos.offset(UNARY_REGISTER_CONNECT_TDEC));
         } else {
             throw new Error(`This error should not occur (invalid component: '${component}')`);
         }
-        for (let coords of actions) {
-            actionLanes2.push(coords.x - coords.y);
-        }
-        componentPos = componentPos.offset('SW', size);
     }
     // add the action glider movers
     let offset = actionLanes[0];
