@@ -286,7 +286,7 @@ const PERIOD_SECURITY = 64;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 12;
+const MAX_PSEUDO_DISTANCE = 4;
 
 // extra options for channel searching
 

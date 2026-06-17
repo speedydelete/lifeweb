@@ -1,7 +1,7 @@
 
 /* Contains abstract base classes for patterns. */
 
-import type {InspectOptions} from 'node:util';
+import type {InspectOptions, inspect} from 'node:util';
 
 
 /** A symmetry for a rule. */
@@ -369,6 +369,19 @@ export abstract class Pattern {
     toString(): string {
         let [x, y] = this.getFullOffset();
         return `${this.constructor.name} at (${x}, ${y}), generation = ${this.generation}:\n${this.toRLE()}`;
+    }
+
+    // this makes it pretty-print in node console.log
+    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
+        let [x, y] = this.getFullOffset();
+        return `${this.constructor.name} ${inspect({
+            height: this.height,
+            width: this.width,
+            xOffset: x,
+            yOffset: y,
+            generation: this.generation,
+            rule: this.rule,
+        }, options)} ${this.toRLE()}`;
     }
 
     /** The height of the pattern. */
@@ -919,19 +932,6 @@ export abstract class Pattern {
     abstract loadApgcode(code: string): this;
     /** Loads a RLE and returns a new pattern running the same rule. */
     abstract loadRLE(data: string): this;
-
-    // this makes it pretty-print in node console.log
-    [Symbol.for('nodejs.util.inspect.custom')](depth: number, options: InspectOptions, inspect: (typeof import('node:util'))['inspect']): string {
-        let [x, y] = this.getFullOffset();
-        return `${this.constructor.name} ${inspect({
-            height: this.height,
-            width: this.width,
-            xOffset: x,
-            yOffset: y,
-            generation: this.generation,
-            rule: this.rule,
-        }, options)} ${this.toRLE()}`;
-    }
 
 }
 

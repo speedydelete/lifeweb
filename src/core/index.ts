@@ -303,7 +303,7 @@ export function parse(rle: string, namedRules?: {[key: string]: string}, preserv
     }
     out.generation = generation;
     if (preserveSizes && height !== undefined && width !== undefined) {
-        out.offsetBy(width - out.width, height - out.height);
+        out.ensure(width, height);
     }
     return out;
 }

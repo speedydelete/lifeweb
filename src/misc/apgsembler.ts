@@ -1,12 +1,156 @@
 
 import * as fs from 'node:fs/promises';
 import {Pattern, createPattern, parse} from '../core/index.js';
-import * as c from './apgsembler_config.js';
+import {inspect} from 'node:util';
+
+
+type Direction = 'N' | 'S' | 'W' | 'E' | 'NW' | 'NE' | 'SW' | 'SE';
+
+class Coords {
+
+    x: number;
+    y: number;
+
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
+    }
+
+    toString(): string {
+        return `(${this.x}, ${this.y})`;
+    }
+
+    [Symbol.for('nodejs.util.inspect.custom')](): string {
+        return `(${this.x}, ${this.y})`;
+    }
+
+    neg(): Coords {
+        return new Coords(-this.x, -this.y);
+    }
+
+    offset(dir: Direction, by: number | Coords): Coords;
+    offset(by: number | Coords): Coords;
+    offset(dir: Direction | number | Coords, by?: number | Coords): Coords {
+        if (typeof dir !== 'string') {
+            by = dir;
+            dir = 'SE';
+        }
+        if (typeof by === 'undefined') {
+            throw new Error(`Invalid call to Coords.prototype.offset()`);
+        }
+        let x = this.x;
+        let y = this.y;
+        let offsetX: number;
+        let offsetY: number;
+        if (typeof by === 'number') {
+            offsetX = by;
+            offsetY = by;
+        } else {
+            offsetX = by.x;
+            offsetY = by.y;
+        }
+        if (dir === 'NW' || dir === 'SW' || dir === 'E') {
+            x -= offsetX;
+        } else if (dir === 'NE' || dir === 'SE' || dir === 'W') {
+            x += offsetX;
+        }
+        if (dir === 'NW' || dir === 'NE' || dir === 'N') {
+            y -= offsetY;
+        } else if (dir === 'SW' || dir === 'SE' || dir === 'S') {
+            y += offsetY;
+        }
+        return new Coords(x, y);
+    }
+
+}
+
+function coords(x: number, y: number): Coords {
+    return new Coords(x, y);
+}
+
+
+const RULE = 'B2-ak4a5ij6ac/S12-k4a';
+
+const CLOCK_REGULATOR_UNIT = `x = 190, y = 109, rule = B2-ak4a5ij6ac/S12-k4a
+27b2o4$26b3o2$27bo$27bo7$94b2o10b2o10b2o10b2o10b2o10b2o10b2o2$92bob3o
+7bob3o7bob3o7bob3o7bob3o7bob3o7bob3o$92bo11bo11bo11bo11bo11bo11bo6$98b
+o11bo11bo11bo11bo11bo20bo$98bob3o7bob3o7bob3o7bob3o7bob3o7bob3o16bobo
+$179bobo$100b2o10b2o10b2o10b2o10b2o10b2o17bo$170bo3bo$167b2obo3bo$170b
+o$185b3o$85bo$81bo3bob2o35b2o$76bo4bo3bo77b2o$73b2obo89bo3bobo$76bo88b
+2o5bo13b2o$123b3o60bo$188b2o$124bo$124bo$165b3o2$129bo$101bo24b2obo3b
+o$101bo27bo3bo43bo$171b2o4bo$100b3o69bo4bo$170bo$11b2o157bo2$101b2o2$
+10b3o2$11bo$11bo13$52bo63bo$48bo3bob2o56bo3bob2o$43bo4bo3bo54bo4bo3bo
+$40b2obo60b2obo$43bo63bo5$31b2o62b2o$34bo63bo$33b2o62b2o$51bo63bo$48b
+2obo3bo56b2obo3bo$43b4o4bo3bo51b4o4bo3bo$100b2o$44bo63bo$44bo63bo$41b
+2o62b2o$24b2o15bo46b2o15bo$27bo15b2o46bo15b2o$26b2o8bo18bo34b2o8bo18b
+o$32bo3bob2o11bo3bob2o37bo3bob2o11bo3bob2o$32bo3bo14bo3bo40bo3bo14bo3b
+o2$42b2o62b2o$40bo63bo$40b2o62b2o3$39b3o61b3o2$40bo63bo$40bo63bo5$35b
+o63bo$31bo3bob2o56bo3bob2o$31bo3bo59bo3bo!`;
+const CRU_CONNECT_COMPONENT_STACK = coords(0, 22);
+const CRU_CONNECT_DEMUX = coords(108, 150);
+
+const ZNZ_OFFSET_DEMUX = 32;
+const SPLITTER_OFFSET = 32;
+const ACTION_OFFSET = 32;
+
+const DEMUX_UNIT = `x = 32, y = 32, rule = B2-ak4a5ij6ac/S12-k4a
+8$18b2o$16bo$16b2o3$4b4o2$6bo$6bo$8b2o$9bo$6b2o$14bo$11b2obo3bo$14bo3b
+o!`;
+const DEMUX_UNIT_FILLED = `x = 32, y = 32, rule = B2-ak4a5ij6ac/S12-k4a
+8$18b2o$16bo$16b2o3$4b4o$13b2o$6bo$6bo$8b2o$9bo$6b2o$14bo$11b2obo3bo$
+14bo3bo!`;
+const DEMUX_CONNECT_SPLITTER = coords(7, 32);
+const DEMUX_CONNECT_PREV_STATE = coords(15, 0);
+
+const AFTER_DEMUX = `x = 42, y = 11, rule = B2-ak4a5ij6ac/S12-k4aHistory
+8$2b2o35b2o$3bo36bo$2o35b2o!`;
+const AFTER_DEMUX_CONNECT = coords(0, -32);
+
+const DEMUX_SPLITTER_OFFSET = 32;
+const PREV_STATE_DEMUX_OFFSET = 16;
+
+const SPLITTER = `x = 38, y = 38, rule = B2-ak4a5ij6ac/S12-k4a
+4$11b2o17bo$14bo11bo3bob2o$13b2o6bo4bo3bo$18b2obo$21bo$33b3o4$8b2o$9b
+o24b2o$7bo5bo20bo$7bo2b2obo22b2o$13bo$o12bo$o$2bo4bo$b2o4bo$7bo11$15b
+o$9b2o4bo$10bo4bo$8bo$8bo!`;
+const SPLITTER_CONNECT_SPLITTER = coords(26, 0);
+const SPLITTER_CONNECT_ACTION = coords(1, 0);
+
+const NEXT_STATE_OFFSET = 32;
+const NEXT_STATE_BACK_REFLECTORS_OFFSET = 32;
+
+const REFLECTOR_SW_TO_SE = `x = 15, y = 16, rule = B2-ak4a5ij6ac/S12-k4a
+8$12b2o$4o8bo$14bo$2bo11bo$2bo$4b2o$5bo$2b2o!`;
+const SW_TO_SE_CONNECT_SW = coords(7, 0);
+const SW_TO_SE_CONNECT_SE = coords(0, 3);
+
+const REFLECTOR_SE_TO_NE = `x = 16, y = 12, rule = B2-ak4a5ij6ac/S12-k4aHistory
+$7bo$7bo2$6b3o4$7b2o!`;
+const SE_TO_NE_CONNECT_SE = coords(0, 1);
+const SE_TO_NE_CONNECT_NE = coords(15, 0);
+
+const REFLECTOR_NE_TO_NW = `x = 12, y = 16, rule = B2-ak4a5ij6ac/S12-k4a
+7$4bo3bo$b2obo3bo$4bo!`;
+const NE_TO_NW_CONNECT_NE = coords(-1, 11);
+const NE_TO_NW_CONNECT_NW = coords(0, 0);
+
+const REFLECTOR_NW_TO_SW = `x = 29, y = 30, rule = B2-ak4a5ij6ac/S12-k4a
+22$19b2o4$19b3o2$20bo$20bo!`;
+const SPLITTER_NW_TO_SW = `x = 29, y = 30, rule = B2-ak4a5ij6ac/S12-k4a
+4$17b2o$17bo$19b2o$6bo$3b2obo$6bo4bo3bo$11bo3bob2o$15bo3$18bo$18bo2$17b
+3o5$19b2o4$19b3o2$20bo$20bo!`;
+const NW_TO_SW_CONNECT_NW = coords(8, 8);
+const NW_TO_SW_CONNECT_SW = coords(10, 29);
+
+const ZNZ_OFFSET_COMPONENT_STACK = 32;
+
+const UNARY_REGISTER = ``;
+const UNARY_REGISTER_SIZE = 128;
 
 
 type UnaryRegister = `U${number}`;
 type Register = UnaryRegister;
-type Component = 'NOP' | 'HALT_OUT' | Register;
+type Component = Register | 'NOP' | 'HALT_OUT';
 
 type Action = {str: string} & (
     | {type: 'NOP'}
@@ -27,6 +171,7 @@ interface Program {
     actions: Action[];
     registers: [Register, number][];
     states: State[];
+    gotoStates: string[];
 }
 
 
@@ -64,6 +209,7 @@ function parseDirective(out: Program, directive: string, value: string): void {
                 }
             } else if (['NOP', 'HALT_OUT'].includes(component)) {
                 out.components.push(component as Component);
+                out.actions.push({str: component, type: component as 'NOP' | 'HALT_OUT'});
             } else {
                 error(`Invalid component (unrecognized): '${component}'`);
             }
@@ -96,9 +242,6 @@ function parseActions(program: Program, actions: string): Action[] {
     for (let action of actions.split(',')) {
         action = action.trim();
         if (action === 'NOP' || action === 'HALT_OUT') {
-            if (!program.components.includes(action)) {
-                error(`Cannot use action ${action}, no component present`);
-            }
             out.push({str: action, type: action});
         } else if (action.startsWith('INC ') || action.startsWith('TDEC ')) {
             let parts = action.split(' ');
@@ -119,7 +262,13 @@ function parseActions(program: Program, actions: string): Action[] {
 }
 
 function parseProgram(code: string): Program {
-    let out: Program = {components: [], actions: [], registers: [], states: []};
+    let out: Program = {
+        components: [],
+        actions: [],
+        registers: [],
+        states: [],
+        gotoStates: [],
+    };
     let lines = code.split('\n');
     for (let i = 0; i < lines.length; i++) {
         currentLineNumber = i;
@@ -143,6 +292,9 @@ function parseProgram(code: string): Program {
             let id = parts[0];
             let input = parts[1];
             let next = parts[2];
+            if (!out.gotoStates.includes(next)) {
+                out.gotoStates.push(next);
+            }
             let actions = parseActions(out, parts[3]);
             if (input === 'Z' || input === 'NZ' || input === 'ZZ') {
                 out.states.push({id, input, next, actions});
@@ -164,39 +316,101 @@ async function parseFile(path: string): Promise<Program> {
 }
 
 
-let clockRegulatorUnit = parse(c.CLOCK_REGULATOR_UNIT);
-let demuxUnit = parse(c.DEMULTIPLEXER_UNIT);
-let demuxUnitFilled = parse(c.DEMULTIPLEXER_UNIT_FILLED);
-let splitter = parse(c.SPLITTER);
+let clockRegulatorUnit = parse(CLOCK_REGULATOR_UNIT, undefined, true);
+let demuxUnit = parse(DEMUX_UNIT, undefined, true);
+let demuxUnitFilled = parse(DEMUX_UNIT_FILLED, undefined, true);
+let afterDemux = parse(AFTER_DEMUX, undefined, true);
+let splitter = parse(SPLITTER, undefined, true);
+let reflectorSWToSE = parse(REFLECTOR_SW_TO_SE, undefined, true);
+let reflectorSEToNE = parse(REFLECTOR_SE_TO_NE, undefined, true);
+let reflectorNEToNW = parse(REFLECTOR_NE_TO_NW, undefined, true);
+let reflectorNWToSW = parse(REFLECTOR_NW_TO_SW, undefined, true);
+let splitterNWToSW = parse(SPLITTER_NW_TO_SW, undefined, true);
 
-function insert(p: Pattern, q: Pattern, x: number, y: number): void {
-    p.ensure(x + p.xOffset, y + p.yOffset);
-    p.ensure(x + q.width + p.xOffset, y + q.height + p.yOffset);
-    p.insert(q, x + p.xOffset, y + p.yOffset);
+function insert(p: Pattern, q: Pattern, coords: Coords): void {
+    let {x, y} = coords;
+    p.ensure(x - p.xOffset, y - p.yOffset);
+    p.ensure(x + q.width - p.xOffset, y + q.height - p.yOffset);
+    p.insert(q, x - p.xOffset, y - p.yOffset);
+}
+
+function createStateMachine(program: Program, out: Pattern): number[] {
+    let actionLanes: number[] = [];
+    let demuxPos = CRU_CONNECT_DEMUX;
+    for (let i = 0; i < program.states.length; i++) {
+        let state = program.states[i];
+        // demultiplexer
+        if (state.id === 'INITIAL' && state.input === 'ZZ') {
+            insert(out, demuxUnitFilled, demuxPos);
+        } else if (state.input === 'NZ') {
+            insert(out, demuxUnit, demuxPos.offset('NE', ZNZ_OFFSET_DEMUX));
+        } else {
+            insert(out, demuxUnit, demuxPos);
+        }
+        // previous state reflector
+        let gotoIndex = program.gotoStates.indexOf(state.id);
+        if (gotoIndex !== -1) {
+            let gotoPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX);
+            gotoPos = gotoPos.offset('NE', PREV_STATE_DEMUX_OFFSET).offset('NE', NEXT_STATE_OFFSET * gotoIndex);
+            gotoPos = gotoPos.offset('NW', NE_TO_NW_CONNECT_NW);
+            let toInsert = program.states.slice(0, i).some(x => x.id === state.id) ? splitterNWToSW : reflectorNWToSW;
+            insert(out, toInsert, gotoPos.offset(NW_TO_SW_CONNECT_SW.neg()));
+        }
+        // splitters
+        let splitterPos = demuxPos.offset(DEMUX_CONNECT_SPLITTER).offset('SW', DEMUX_SPLITTER_OFFSET);
+        for (let action of program.actions) {
+            if (i === 0) {
+                let {x, y} = splitterPos.offset(SPLITTER_CONNECT_ACTION);
+                actionLanes.push(x - y);
+            }
+            if (state.actions.some(x => x.str === action.str)) {
+                insert(out, splitter, splitterPos.offset(SPLITTER_CONNECT_SPLITTER.neg()));
+            }
+            splitterPos = splitterPos.offset('SW', ACTION_OFFSET);
+        }
+        // next state reflector
+        if (!state.actions.some(x => x.type === 'HALT_OUT')) {
+            let nextIndex = program.gotoStates.indexOf(state.next);
+            let nextPos = splitterPos.offset('SW', NEXT_STATE_OFFSET * nextIndex);
+            insert(out, reflectorSWToSE, nextPos.offset(SW_TO_SE_CONNECT_SW.neg()));
+        }
+        demuxPos = demuxPos.offset('SE', SPLITTER_OFFSET);
+    }
+    // after demux unit
+    insert(out, afterDemux, demuxPos.offset(AFTER_DEMUX_CONNECT));
+    // next state reflectors (1)
+    let reflectorPos = demuxPos.offset(DEMUX_CONNECT_SPLITTER).offset('SW', DEMUX_SPLITTER_OFFSET);
+    reflectorPos = reflectorPos.offset('SW', ACTION_OFFSET * program.actions.length);
+    reflectorPos = reflectorPos.offset(SW_TO_SE_CONNECT_SE).offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET);
+    // reflectorPos = reflectorPos.offset('W', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
+    for (let i = 0; i < program.gotoStates.length; i++) {
+        insert(out, reflectorSEToNE, reflectorPos.offset(SE_TO_NE_CONNECT_SE));
+        reflectorPos = reflectorPos.offset('E', NEXT_STATE_OFFSET);
+    }
+    // next state reflectors (2)
+    reflectorPos = demuxPos.offset(DEMUX_CONNECT_PREV_STATE).offset('NE', ZNZ_OFFSET_DEMUX).offset('NE', PREV_STATE_DEMUX_OFFSET);
+    reflectorPos = reflectorPos.offset('SE', NEXT_STATE_BACK_REFLECTORS_OFFSET).offset(SE_TO_NE_CONNECT_NE).offset('NE', NW_TO_SW_CONNECT_NW);
+    reflectorPos = reflectorPos.offset('S', NEXT_STATE_OFFSET * (program.gotoStates.length - 1));
+    for (let i = 0; i < program.gotoStates.length; i++) {
+        insert(out, reflectorNEToNW, reflectorPos.offset(NE_TO_NW_CONNECT_NE));
+        reflectorPos = reflectorPos.offset('N', NEXT_STATE_OFFSET);
+    }
+    return actionLanes;
+}
+
+function createComponentStack(program: Program, out: Pattern, actionLanes: number[]): void {
+    let actionLanes2: number[] = [];
+    for (let component of program.components) {
+
+    }
 }
 
 function programToPattern(program: Program): Pattern {
-    let out = createPattern(c.RULE);
-    insert(out, clockRegulatorUnit, 0, 0);
-    let [demuxX, demuxY] = c.CRU_CONNECT_DEMULTIPLEXERS;
-    for (let state of program.states) {
-        if (state.id === 'INITIAL' && state.input === 'ZZ') {
-            insert(out, demuxUnitFilled, demuxX, demuxY);
-        } else {
-            insert(out, demuxUnit, demuxX, demuxY);
-        }
-        let splitterX = demuxX + c.DEMUX_CONNECT_SPLITTER[0];
-        let splitterY = demuxY + c.DEMUX_CONNECT_SPLITTER[1];
-        for (let action of program.actions) {
-            if (state.actions.some(x => x.str === action.str)) {
-                insert(out, splitter, splitterX - c.SPLITTER_CONNECT[0], splitterY - c.SPLITTER_CONNECT[1]);
-            }
-            splitterX -= c.COMPONENT_OFFSET;
-            splitterY -= c.COMPONENT_OFFSET;
-        }
-        demuxX += c.SPLITTER_OFFSET;
-        demuxY += c.SPLITTER_OFFSET;
-    }
+    console.log(inspect(program, {colors: true, depth: Infinity}));
+    let out = createPattern(RULE);
+    insert(out, clockRegulatorUnit, coords(0, 0));
+    let actionLanes = createStateMachine(program, out);
+    createComponentStack(program, out, actionLanes);
     return out;
 }
 
