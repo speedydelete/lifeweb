@@ -139,9 +139,9 @@ const DEMUX_UNIT_FILLED = `x = 32, y = 32, rule = B2-ak4a5ij6ac/S12-k4a
 const DEMUX_CONNECT_SPLITTER = coords(7, 32);
 const DEMUX_CONNECT_PREV_STATE = coords(15, 0);
 
-const AFTER_DEMUX = `x = 105, y = 3, rule = B2-ak4a5ij6ac/S12-k4a
-2b2o35b2o25b2o35b2o$3bo36bo26bo36bo$2o35b2o25b2o35b2o!`;
-const AFTER_DEMUX_CONNECT = coords(-8, 32);
+const AFTER_DEMUX = `x = 55, y = 53, rule = B2-ak4a5ij6ac/S12-k4a
+53b2o$54bo$51b2o16$35b2o$36bo$33b2o11$20b2o$21bo$18b2o17$2b2o$3bo$2o!`;
+const AFTER_DEMUX_CONNECT = coords(6, -4);
 
 const DEMUX_SPLITTER_OFFSET = 32;
 const PREV_STATE_DEMUX_OFFSET = 32;
@@ -153,8 +153,8 @@ o$9b2o4bo$10bo4bo$8bo$8bo!`;
 const SPLITTER_CONNECT_SPLITTER = coords(26, 0);
 const SPLITTER_CONNECT_ACTION = coords(1, 0);
 
-const NEXT_STATE_OFFSET = 32;
-const NEXT_STATE_BACK_REFLECTORS_OFFSET = 32;
+const NEXT_STATE_OFFSET = 16;
+const NEXT_STATE_BACK_REFLECTORS_OFFSET = -16;
 
 const REFLECTOR_SW_TO_SE = `x = 15, y = 16, rule = B2-ak4a5ij6ac/S12-k4a
 8$12b2o$4o8bo$14bo$2bo11bo$2bo$4b2o$5bo$2b2o!`;
@@ -184,7 +184,7 @@ const COMPONENT_STACK_CRU_OFFSET = 96;
 const NOP_COMPONENT = `x = 36, y = 16, rule = B2-ak4a5ij6ac/S12-k4aHistory
 7$27bo3bo$27bo3bob2o$31bo!`;
 const NOP_SIZE = 16;
-const NOP_OFFSET = 16;
+// const NOP_OFFSET = 0;
 const NOP_CONNECT_ACTION = coords(29, 15);
 const NOP_CONNECT_ZNZ = coords(0, 0);
 
@@ -204,18 +204,18 @@ $59b2o2bob2o14bo$32bo27bo2bo$31b2o41bo$56b2o10b2o4bo$57bo11bo4bo$b2o63b
 $77bo$77b2o7$82b2o$82bo$78bo5bo$78bob2o2bo$78bo$78bo9$88b2o$86bo$86b2o
 7$91b2o$91bo$87bo5bo$87bob2o2bo$87bo$87bo!`;
 const UNARY_REGISTER_SIZE = 128;
-const UNARY_REGISTER_OFFSET = 32;
+// const UNARY_REGISTER_OFFSET = 0;
 const UNARY_REGISTER_CONNECT_INC = coords(141, 24);
 const UNARY_REGISTER_CONNECT_TDEC = coords(141, 54);
 const UNARY_REGISTER_CONNECT_ZNZ = coords(141, 62);
 const UNARY_REGISTER_OBJECT_POS = coords(25, 63);
 const UNARY_REGISTER_OBJECT_SIZE = [2, 1];
 
-const ACTION_GLIDER_MOVER_OFFSET = 32;
-const ACTION_GLIDER_MOVERS_IN_CRU = 2;
-const MIN_ACTION_GLIDER_SPACING = 32;
+const ACTION_GLIDER_MOVER_OFFSET = 16;
+const ACTION_GLIDER_MOVERS_IN_CRU = 6;
+const MIN_ACTION_GLIDER_SPACING = 16;
 const MIN_ACTION_GLIDER_MOVER_MOVE_AMOUNT = 16;
-const ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET = 32;
+const ACTION_GLIDER_MOVERS_SPLITTERS_OFFSET = 16;
 
 // reflectorNWToSW is defined below
 let reflectorSWToNWPreserving = parse(`x = 3, y = 8, rule = B2-ak4a5ij6ac/S12-k4a
@@ -231,7 +231,6 @@ function addActionGliderMover(out: Pattern, from: number, to: number, pos: Coord
         pos = pos.offset('SW', -(from - 1) / 2);
         lane = (to - (from - 1)) / 2;
     }
-
     pos = pos.offset(coords(-26, 0));
     // console.log(`${from} -> ${to}, pos = ${pos}, lane = ${lane}`);
     insert(out, reflectorNWToSW, pos);
@@ -247,12 +246,7 @@ type UnaryRegister = `U${number}`;
 type Register = UnaryRegister;
 type Component = Register | 'NOP';
 
-type Action = {str: string} & (
-    | {type: 'NOP'}
-    | {type: 'HALT_OUT'}
-    | {type: 'INC', register: UnaryRegister}
-    | {type: 'TDEC', register: UnaryRegister}
-);
+type Action = 'NOP' | 'HALT_OUT' | `INC U${number}` | `TDEC U${number}`;
 
 interface State {
     id: string;
@@ -264,6 +258,7 @@ interface State {
 interface Program {
     components: Component[];
     actions: Action[];
+    unusedActions: Action[];
     registers: {[key: Register]: number};
     states: State[];
     gotoStates: string[];
@@ -299,12 +294,12 @@ function parseDirective(out: Program, directive: string, value: string): void {
                 for (let j = start; j <= end; j++) {
                     let register = `U${j}` as const;
                     out.components.push(register);
-                    out.actions.push({str: `INC ${register}`, type: 'INC', register});
-                    out.actions.push({str: `TDEC ${register}`, type: 'TDEC', register});
+                    out.actions.push(`INC ${register}`);
+                    out.actions.push(`TDEC ${register}`);
                 }
             } else if (['NOP'].includes(component)) {
                 out.components.push(component as Component);
-                out.actions.push({str: component, type: component as 'NOP'});
+                out.actions.push(component as 'NOP');
             } else if (component === 'HALT_OUT') {
                 continue;
             } else {
@@ -339,7 +334,7 @@ function parseActions(program: Program, actions: string): Action[] {
     for (let action of actions.split(',')) {
         action = action.trim();
         if (action === 'NOP' || action === 'HALT_OUT') {
-            out.push({str: action, type: action});
+            out.push(action);
         } else if (action.startsWith('INC ') || action.startsWith('TDEC ')) {
             let parts = action.split(' ');
             let command = parts[0] as 'INC' | 'TDEC';
@@ -350,7 +345,7 @@ function parseActions(program: Program, actions: string): Action[] {
             if (!register.startsWith('U') || !program.components.includes(register)) {
                 error(`Cannot ${command} nonexistent register '${register}`);
             }
-            out.push({str: `${command} ${register}`, type: command, register});
+            out.push(`${command} ${register}`);
         } else {
             error(`Unrecognized action: '${action}'`);
         }
@@ -362,6 +357,7 @@ function parseProgram(code: string): Program {
     let out: Program = {
         components: [],
         actions: [],
+        unusedActions: [],
         registers: {},
         states: [],
         gotoStates: [],
@@ -403,6 +399,20 @@ function parseProgram(code: string): Program {
             }
         }
     }
+    let unusedActions = out.actions.slice();
+    for (let state of out.states) {
+        for (let action of state.actions) {
+            let index = unusedActions.findIndex(x => x === action);
+            if (index !== -1) {
+                unusedActions.splice(index, 1);
+            }
+        }
+    }
+    for (let action of unusedActions) {
+        let index = out.actions.findIndex(x => x === action);
+        out.actions.splice(index, 1);
+    }
+    out.unusedActions = unusedActions;
     return out;
 }
 
@@ -461,19 +471,20 @@ function createStateMachine(program: Program, out: Pattern): [number[], Coords] 
                 }
                 actionLanes.push(pos.x - pos.y);
             }
-            if (state.actions.some(x => x.str === action.str)) {
+            if (state.actions.some(x => x === action)) {
                 insert(out, splitter, splitterPos.offset(SPLITTER_CONNECT_SPLITTER.neg()));
             }
             splitterPos = splitterPos.offset('SW', ACTION_OFFSET);
         }
         // next state reflector
-        if (!state.actions.some(x => x.type === 'HALT_OUT')) {
+        if (!state.actions.some(x => x === 'HALT_OUT')) {
             let nextIndex = program.gotoStates.indexOf(state.next);
             let nextPos = splitterPos.offset('SW', NEXT_STATE_OFFSET * nextIndex);
             insert(out, reflectorSWToSE, nextPos.offset(SW_TO_SE_CONNECT_SW.neg()));
         }
         demuxPos = demuxPos.offset('SE', SPLITTER_OFFSET);
     }
+    demuxPos = demuxPos.offset('NW', SPLITTER_OFFSET);
     // after demux unit
     insert(out, afterDemux, demuxPos.offset(AFTER_DEMUX_CONNECT));
     // next state reflectors (1)
@@ -504,15 +515,22 @@ function findComponentStackAdjust(program: Program, actionLanes: number[]): numb
         let size: number;
         let actions: Coords[] = [];
         if (component === 'NOP') {
-            pos = pos.offset('SW', NOP_OFFSET);
+            // pos = pos.offset('SW', NOP_OFFSET);
             size = NOP_SIZE;
             let pos2 = pos.offset(NOP_CONNECT_ZNZ.neg());
-            actions.push(pos2.offset(NOP_CONNECT_ACTION));
+            if (!program.unusedActions.includes('NOP')) {
+                actions.push(pos2.offset(NOP_CONNECT_ACTION));
+            }
         } else if (component.startsWith('U')) {
-            pos = pos.offset('SW', UNARY_REGISTER_OFFSET);
+            // pos = pos.offset('SW', UNARY_REGISTER_OFFSET);
             size = UNARY_REGISTER_SIZE;
             let pos2 = pos.offset(UNARY_REGISTER_CONNECT_ZNZ.neg());
-            actions.push(pos2.offset(UNARY_REGISTER_CONNECT_INC), pos.offset(UNARY_REGISTER_CONNECT_TDEC));
+            if (!program.unusedActions.includes(`INC ${component}`)) {
+                actions.push(pos2.offset(UNARY_REGISTER_CONNECT_INC));
+            }
+            if (!program.unusedActions.includes(`TDEC ${component}`)) {
+                actions.push(pos2.offset(UNARY_REGISTER_CONNECT_TDEC));
+            }
         } else {
             throw new Error(`This error should not occur (invalid component: '${component}')`);
         }
@@ -527,9 +545,12 @@ function findComponentStackAdjust(program: Program, actionLanes: number[]): numb
     return out;
 }
 
-function determineActionLanes(pos: Coords, actions: Coords[]): number[] {
+function determineActionLanes(program: Program, pos: Coords, actions: [Action, Coords][]): number[] {
     let out: number[] = [];
-    for (let action of actions) {
+    for (let [str, action] of actions) {
+        if (program.unusedActions.includes(str)) {
+            continue;
+        }
         let {x, y} = pos.offset(action);
         out.push(x - y);
     }
@@ -549,15 +570,15 @@ function getMoveAmount(actionLanes: number[], newLanes: number[]): number {
     return move;
 }
 
-function addComponent(out: Pattern, actionLanes: number[], actionLanes2: number[], componentPos: Coords, size: number, offset: number, component: Pattern, connectOffset: Coords, actions: Coords[]): [Coords, Coords] {
-    componentPos = componentPos.offset('SW', offset);
+function addComponent(program: Program, out: Pattern, actionLanes: number[], actionLanes2: number[], componentPos: Coords, size: number, /*offset: number,*/ component: Pattern, connectOffset: Coords, actions: [Action, Coords][]): [Coords, Coords] {
+    // componentPos = componentPos.offset('SW', offset);
     let pos = componentPos.offset(connectOffset.neg());
-    let newLanes = determineActionLanes(pos, actions);
+    let newLanes = determineActionLanes(program, pos, actions);
     let move: number;
     while ((move = getMoveAmount(actionLanes, newLanes)) !== 0) {
         pos = pos.offset('SW', move);
         componentPos = componentPos.offset('SW', move);
-        newLanes = determineActionLanes(pos, actions);
+        newLanes = determineActionLanes(program, pos, actions);
     }
     insert(out, component, pos);
     componentPos = componentPos.offset('SW', size);
@@ -572,9 +593,9 @@ function createComponentStack(program: Program, out: Pattern, actionLanes: numbe
     let actionLanes2: number[] = [];
     for (let component of program.components) {
         if (component === 'NOP') {
-            componentPos = addComponent(out, actionLanes, actionLanes2, componentPos, NOP_SIZE, NOP_OFFSET, nopComponent, NOP_CONNECT_ZNZ, [NOP_CONNECT_ACTION])[0];
+            componentPos = addComponent(program, out, actionLanes, actionLanes2, componentPos, NOP_SIZE, /*NOP_OFFSET,*/ nopComponent, NOP_CONNECT_ZNZ, [['NOP', NOP_CONNECT_ACTION]])[0];
         } else if (component.startsWith('U')) {
-            let data = addComponent(out, actionLanes, actionLanes2, componentPos, UNARY_REGISTER_SIZE, UNARY_REGISTER_OFFSET, unaryRegister, UNARY_REGISTER_CONNECT_ZNZ, [UNARY_REGISTER_CONNECT_INC, UNARY_REGISTER_CONNECT_TDEC]);
+            let data = addComponent(program, out, actionLanes, actionLanes2, componentPos, UNARY_REGISTER_SIZE, /*UNARY_REGISTER_OFFSET,*/ unaryRegister, UNARY_REGISTER_CONNECT_ZNZ, [[`INC ${component}`, UNARY_REGISTER_CONNECT_INC], [`TDEC ${component}`, UNARY_REGISTER_CONNECT_TDEC]]);
             componentPos = data[0];
             if (program.registers[component]) {
                 let pos = data[1];
@@ -593,7 +614,7 @@ function createComponentStack(program: Program, out: Pattern, actionLanes: numbe
     actionMoverPos = actionMoverPos.offset('NW', ACTION_GLIDER_MOVER_OFFSET * program.actions.length);
     let offset = actionLanes[0];
     for (let i = 0; i < program.actions.length; i++) {
-        addActionGliderMover(out, actionLanes[i] - offset, actionLanes2[i] - offset, actionMoverPos, program.actions[i].str);
+        addActionGliderMover(out, actionLanes[i] - offset, actionLanes2[i] - offset, actionMoverPos, program.actions[i]);
         actionMoverPos = actionMoverPos.offset('SE', ACTION_GLIDER_MOVER_OFFSET);
     }
 }
