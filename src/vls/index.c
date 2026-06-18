@@ -72,7 +72,7 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 #define RULE "B3/S23"
 
 // whether to check backwards implications
-#define CHECK_BACKWARDS_IMPLICATIONS false
+#define CHECK_BACKWARDS_IMPLICATIONS true
 
 #else
 

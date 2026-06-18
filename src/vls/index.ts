@@ -26,6 +26,10 @@ Modes:
     file <path>
         take in a LLS input file and try to find solutions
 
+    catalyst <start> <gens> <end>
+        find a stable catalyst that generates end in gens from start
+        start and end RLEs are LifeHistory like in Barrister
+
 Options:
 
     -h, --help: show this help message
@@ -42,7 +46,7 @@ Options:
         defined as a comma-separated list of metrics
         later metrics are tiebreakers for earlier metrics
         metrics can be any valid expression that it understands
-        it knows about +, -, *, /, ^ (exponentiation)
+        it knows about +, -, *, /, and ^ (exponentiation)
         also it supports unary + and - and parentheses
         also you can use aliases like f2b, b2f, s2s, etc
         the default value is f2b for spaceships and 't, y, x' otherwise
@@ -678,7 +682,35 @@ if (mode === 'periodic') {
         }
     }
 
-// } else if (mode === 'catalyst') {
+} else if (mode === 'catalyst') {
+
+    let baseSuper = createPattern(rule + 'Super');
+    let start = baseSuper.loadRLE(posArgs[0]);
+    let gens = parseInt(posArgs[1]);
+    if (Number.isNaN(gens)) {
+        error(`Invalid generations value: '${posArgs[1]}'`);
+    }
+    let end = baseSuper.loadRLE(posArgs[2]);
+    if (start.height !== end.height || start.width !== end.width) {
+        error(`Start and end must have the same bounding box`);
+    }
+
+    grid = new Grid(start.height, start.width, gens);
+
+    for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+            let startValue = start.get(x, y);
+            let endValue = end.get(x, y);
+            if (startValue === 2) {
+                let variable = grid.getVar();
+                grid.set(0, x, y, variable);
+                grid.set(gens - 1, x, y, variable);
+            } else {
+                grid.set(0, x, y, startValue);
+                grid.set(gens - 1, x, y, endValue);
+            }
+        }
+    }
 
 } else {
 
