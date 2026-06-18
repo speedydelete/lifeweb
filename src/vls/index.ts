@@ -949,6 +949,16 @@ for (let line of code.split('\n')) {
             out.push(`typedef uint8_t cell_t;`);
         }
         continue;
+    } else if (line.startsWith('typedef') && line.endsWith('cell_count_t;')) {
+        let maxValue = grid.height * grid.width * grid.gens;
+        if (maxValue > 65535) {
+            out.push(`typedef uint32_t cell_count_t;`);
+        } else if (maxValue > 255) {
+            out.push(`typedef uint16_t cell_count_t;`);
+        } else {
+            out.push(`typedef uint8_t cell_count_t;`);
+        }
+        continue;
     } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
     } else if (line.startsWith('static int search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {

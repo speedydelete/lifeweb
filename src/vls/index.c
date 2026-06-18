@@ -423,14 +423,14 @@ static inline void get_rule(char* out) {
 #endif
 
 
-static search_state* states[TOTAL_MAX_DEPTH + 1];
+static search_state states[TOTAL_MAX_DEPTH + 1];
 
 static inline void copy_state(search_state* from, search_state* to) {
     memcpy(to, from, sizeof(search_state));
 }
 
 static inline void init_states(void) {
-    search_state* state = malloc(sizeof(search_state));
+    search_state* state = &states[0];
     memcpy(state->grid, initial_grid, sizeof(initial_grid));
     state->set_cells = 0;
     #ifdef SPECIAL_PHASE_0_POP
@@ -441,17 +441,8 @@ static inline void init_states(void) {
         state->phase_pops[i] = 0;
     }
     #endif
-    states[0] = state;
     for (int i = 1; i < max_depth + 1; i++) {
-        search_state* new_state = malloc(sizeof(search_state));
-        copy_state(state, new_state);
-        states[i] = new_state;
-    }
-}
-
-static inline void free_states(void) {
-    for (int i = 0; i < GENS; i++) {
-        free(states[i]);
+        copy_state(state, &states[i]);
     }
 }
 
@@ -1496,7 +1487,7 @@ static inline void print_progress(FILE* stream, int depth) {
         } else {
             int* cell = search_order[search_order_pos];
             search_order_pos++;
-            cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
+            cell_t value = states[depth - 1].grid[cell[0]][cell[2]][cell[1]];
             printf("%c", value ? '1' : '0');
         }
     }
@@ -1509,7 +1500,7 @@ static inline void print_progress(FILE* stream, int depth) {
     for (int i = 0; i < depth; i++) {
         int* cell = search_order[search_order_pos];
         search_order_pos++;
-        cell_t value = states[depth - 1]->grid[cell[0]][cell[2]][cell[1]];
+        cell_t value = states[depth - 1].grid[cell[0]][cell[2]][cell[1]];
         printf("%c", value ? '1' : '0');
     }
 }
@@ -1527,7 +1518,7 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
     , int search_order_depth
     #endif
     ) {
-    copy_state(states[depth - 1], state);
+    copy_state(&states[depth - 1], state);
     if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
@@ -1542,7 +1533,7 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
         //     DPRINTF4("Skipping branching rule on transition %i (depth = %i)\n", tr, depth);
         //     continue;
         // }
-        copy_state(states[depth - 1], state);
+        copy_state(&states[depth - 1], state);
         set_tr_info_for_depth[depth].set = true;
         set_tr_info_for_depth[depth].tr = tr;
         DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
@@ -1569,11 +1560,11 @@ static void run_depth(int depth
     printf("\n");
     #endif
     branches++;
-    if (depth > max_depth || states[depth - 1]->set_cells == unknown_cells) {
-        print_solution(states[depth - 1], false, depth);
+    if (depth > max_depth || states[depth - 1].set_cells == unknown_cells) {
+        print_solution(&states[depth - 1], false, depth);
         return;
     }
-    search_state* state = states[depth];
+    search_state* state = &states[depth];
     #if DEBUG >= 4
     copy_state(states[depth - 1], state);
     DPRINTGRID4(state);
@@ -1592,8 +1583,8 @@ static void run_depth(int depth
     #else
     int* cell = search_order[depth - 1];
     #endif
-    if (IS_KNOWN(states[depth - 1]->grid[cell[0]][cell[2]][cell[1]])) {
-        copy_state(states[depth - 1], state);
+    if (IS_KNOWN(states[depth - 1].grid[cell[0]][cell[2]][cell[1]])) {
+        copy_state(&states[depth - 1], state);
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
@@ -1631,7 +1622,7 @@ int main(void) {
     init_multi_rule();
     #endif
     init_known_solutions();
-    search_state* state = states[0];
+    search_state* state = &states[0];
     DPRINTGRID2(state);
     // preprocessing: search for and remove trivial cells
     printf("Preprocessing\n");
@@ -1716,6 +1707,5 @@ int main(void) {
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #endif
-    free_states();
     return 0;
 }
