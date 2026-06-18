@@ -72,7 +72,7 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 #define RULE "B3/S23"
 
 // whether to check backwards implications
-#define CHECK_BACKWARDS_IMPLICATIONS true
+#define CHECK_BACKWARDS_IMPLICATIONS false
 
 #else
 
@@ -661,9 +661,9 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
 // cd ef gh
 // return value is an int of the same format as the index but >> 2, so without ij
 // do nothing = 2, set off = 0, set on = 1, contradiction = 3, do nothing for any cell = 15
-static int big_trs_backward[1048576];
+static uint32_t big_trs_backward[1048576];
 
-static inline int get_backward_big_tr(int tr) {
+static inline uint32_t get_backward_big_tr(int tr) {
     if ((tr & 3) == UNKNOWN) {
         return 15;
     }
@@ -675,7 +675,7 @@ static inline int get_backward_big_tr(int tr) {
     if (target != (tr & 3)) {
         return 3;
     }
-    int out = 0b101010101010101010;
+    uint32_t out = 0b101010101010101010;
     for (int i = 2; i < 20; i += 2) {
         if (((tr >> i) & 3) != 2) {
             continue;
@@ -710,7 +710,7 @@ static inline void generate_big_trs(void) {
     }
     #if CHECK_BACKWARDS_IMPLICATIONS
     for (int tr = 0; tr < 1048576; tr++) {
-        int value = get_backward_big_tr(tr);
+        uint32_t value = get_backward_big_tr(tr);
         big_trs_backward[tr] = value == 0b101010101010101010 ? 15 : value;
     }
     #endif
