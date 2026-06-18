@@ -42,6 +42,8 @@ Options:
 
     --benchmark <iterations>: run benchmarking
 
+    --lls: instead of searching output a LLS input file for the search
+
     -o, --search-order <order>:
         Set the order in which cells are checked
         defined as a comma-separated list of metrics
@@ -103,6 +105,7 @@ const OPTIONS = {
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
+    'lls': true,
     'search-order': 'string',
     'initial-value': 'number',
     'max-solutions': 'number',
@@ -1088,6 +1091,8 @@ for (let line of code.split('\n')) {
         value = options['initial-value'] ?? 0;
     } else if (name === 'FILTER_EVERY_PHASE') {
         value = mode === 'periodic' ? 'true' : 'false';
+    } else if (name === 'LLS') {
+        value = options['lls'] ? 'true' : 'false';
     } else if (name === 'MAX_SOLUTIONS') {
         if (options['max-solutions'] === undefined) {
             comment = true;

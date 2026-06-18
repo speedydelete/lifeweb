@@ -124,6 +124,9 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // whether to filter every phase or just phase 0
 #define FILTER_EVERY_PHASE true
 
+// whether to output a LLS search file and exit instead of searching
+#define LLS true
+
 // number of solutions to report
 // #define MAX_SOLUTIONS 67
 
@@ -520,14 +523,14 @@ static inline void pop_frame(void) {
 }
 
 
-static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
+static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
 static inline void print_cell(FILE* stream, cell_t value) {
     if (value > 3) {
         value = CELL_VAR_TO_VAR(value) + 3;
     }
     if (value < 64) {
-        real_fprintf(stream, "%c", LETTERS[value]);
+        real_fprintf(stream, "%c", letters[value]);
     } else {
         real_fprintf(stream, "(%i)", value);
     }
@@ -1707,6 +1710,37 @@ int main(void) {
         return 0;
     }
     printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
+    #if LLS
+    static const char* lls_letters = "abcdefghikjlmnopqrstuvwxyz0123456";
+    printf("\nLLS file:\n\n");
+    for (int t = 0; t < GENS; t++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                cell_t value = grid[t][y][x];
+                if (value == 0) {
+                    printf("0");
+                } else if (value == 1) {
+                    printf("1");
+                } else if (value == 2) {
+                    printf("*");
+                } else {
+                    value = CELL_VAR_TO_VAR(value);
+                    while (value > 32) {
+                        printf("%c", lls_letters[value & 31]);
+                        value >>= 5;
+                    }
+                    printf("%c", lls_letters[value]);
+                }
+                if (x != WIDTH - 1) {
+                    printf(",");
+                }
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
+    return 0;
+    #endif
     // long value = strtol(
     //     "00" "01" "01"
     //     "00" "00" "00"
