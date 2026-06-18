@@ -590,10 +590,11 @@ function createComponentStack(program: Program, out: Pattern, actionLanes: numbe
         }
     }
     // add the action glider movers
+    actionMoverPos = actionMoverPos.offset('NW', ACTION_GLIDER_MOVER_OFFSET * program.actions.length);
     let offset = actionLanes[0];
     for (let i = 0; i < program.actions.length; i++) {
         addActionGliderMover(out, actionLanes[i] - offset, actionLanes2[i] - offset, actionMoverPos, program.actions[i].str);
-        actionMoverPos = actionMoverPos.offset('NW', ACTION_GLIDER_MOVER_OFFSET);
+        actionMoverPos = actionMoverPos.offset('SE', ACTION_GLIDER_MOVER_OFFSET);
     }
 }
 
