@@ -950,7 +950,7 @@ for (let line of code.split('\n')) {
         }
         continue;
     } else if (line.startsWith('typedef') && line.endsWith('cell_count_t;')) {
-        let maxValue = grid.height * grid.width * grid.gens;
+        let maxValue = (grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1)) * (grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1)) * grid.gens;
         if (maxValue > 65535) {
             out.push(`typedef uint32_t cell_count_t;`);
         } else if (maxValue > 255) {

@@ -40,6 +40,8 @@
 // 0 = dead, 1 = alive, 2 = unknown, 3 = undefined behavior, >3 = variables (but indexed more complicated)
 // the variable indexing for this is 6 + 4*variable (so the binary always ends in 10, so we can do ANDing and ensure that it's unknown)
 typedef uint8_t cell_t;
+// the smallest integer type that can store the size of the grid
+typedef uint8_t cell_count_t;
 
 // the number of unknown cells
 #define TOTAL_UNKNOWN_CELLS 66
@@ -133,25 +135,23 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // whether to keep track of various things
 #define TRACK_PHASE_POPS false
 
-// don't change these types
-typedef struct search_state {
-    cell_t grid[GENS][HEIGHT][WIDTH];
-    int set_cells;
-    #ifdef MAXPOP
-    #if !TRACK_PHASE_POPS
-    #define SPECIAL_PHASE_0_POP
-    int phase_0_pop;
-    #endif
-    #endif
-    #if TRACK_PHASE_POPS
-    int phase_pops[GENS];
-    #endif
-} search_state;
+// don't change this
+cell_t grid[GENS][HEIGHT][WIDTH];
+cell_count_t set_cells;
+#ifdef MAXPOP
+#if !TRACK_PHASE_POPS
+#define SPECIAL_PHASE_0_POP
+cell_count_t phase_0_pop;
+#endif
+#endif
+#if TRACK_PHASE_POPS
+cell_count_t phase_pops[GENS];
+#endif
 typedef cell_t grid_item_t[WIDTH];
 
 // filtering
 #if FILTERING
-static inline bool solution_filter(search_state* state) {return true;}
+static inline bool solution_filter() {return true;}
 #endif
 
 // benchmarking iterations
@@ -168,6 +168,8 @@ static inline bool solution_filter(search_state* state) {return true;}
 
 #define VAR_TO_CELL_VAR(x) (6 + 4*(x))
 #define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
+
+#define MAX_STACK_DEPTH (HEIGHT * WIDTH * GENS)
 
 #if MULTI_RULE
 
@@ -306,50 +308,82 @@ static const char int_letters[INT_NUMBER_COUNT][MAX_LETTERS_PER_INT_NUM + 1] = {
 
 #if DEBUG >= 1
 #define DPRINTF1 printf
-#define DPRINTGRID1(state) print_grid(stdout, state)
+#define DPRINTGRID1() print_grid(stdout)
 #else
 #define DPRINTF1(...)
-#define DPRINTGRID1(state)
+#define DPRINTGRID1()
 #endif
 
 #if DEBUG >= 2
 #define DPRINTF2 printf
-#define DPRINTGRID2(state) print_grid(stdout, state)
+#define DPRINTGRID2() print_grid(stdout)
 #else
 #define DPRINTF2(...)
-#define DPRINTGRID2(state)
+#define DPRINTGRID2()
 #endif
 
 #if DEBUG >= 3
 #define DPRINTF3 printf
-#define DPRINTGRID3(state) print_grid(stdout, state)
+#define DPRINTGRID3() print_grid(stdout)
 #else
 #define DPRINTF3(...)
-#define DPRINTGRID3(state)
+#define DPRINTGRID3()
 #endif
 
 #if DEBUG >= 4
 #define DPRINTF4 printf
-#define DPRINTGRID4(state) print_grid(stdout, state)
+#define DPRINTGRID4() print_grid(stdout)
 #else
 #define DPRINTF4(...)
-#define DPRINTGRID4(state)
+#define DPRINTGRID4()
 #endif
 
 #if DEBUG >= 5
 #define DPRINTF5 printf
-#define DPRINTGRID5(state) print_grid(stdout, state)
+#define DPRINTGRID5() print_grid(stdout)
 #else
 #define DPRINTF5(...)
-#define DPRINTGRID5(state)
+#define DPRINTGRID5()
 #endif
 
 #if DEBUG >= 6
 #define DPRINTF6 printf
-#define DPRINTGRID6(state) print_grid(stdout, state)
+#define DPRINTGRID6() print_grid(stdout)
 #else
 #define DPRINTF6(...)
-#define DPRINTGRID6(state)
+#define DPRINTGRID6()
+#endif
+
+#define real_printf (printf)
+#define real_fprintf (fprintf)
+#if DEBUG >= 3
+#define INDENT ("    ")
+static int current_depth = 0;
+#define DPRINTLINEPADDING() { \
+    for (int i = 0; i < current_depth; i++) { \
+        real_printf(INDENT); \
+    } \
+}
+#define DFPRINTLINEPADDING(stream) { \
+    for (int i = 0; i < current_depth; i++) { \
+        real_fprintf(stream, INDENT); \
+    } \
+}
+#define printf(...) { \
+    for (int i = 0; i < current_depth; i++) { \
+        real_printf(INDENT); \
+    } \
+    real_printf(__VA_ARGS__); \
+}
+#define fprintf(stream, ...) { \
+    for (int i = 0; i < current_depth; i++) { \
+        real_fprintf(stream, INDENT); \
+    } \
+    real_fprintf(stream, __VA_ARGS__); \
+}
+#else
+#define DPRINTLINEPADDING()
+#define DFPRINTLINEPADDING(stream)
 #endif
 
 static int unknown_cells = TOTAL_UNKNOWN_CELLS;
@@ -423,28 +457,66 @@ static inline void get_rule(char* out) {
 #endif
 
 
-static search_state states[TOTAL_MAX_DEPTH + 1];
-
-static inline void copy_state(search_state* from, search_state* to) {
-    memcpy(to, from, sizeof(search_state));
-}
-
-static inline void init_states(void) {
-    search_state* state = &states[0];
-    memcpy(state->grid, initial_grid, sizeof(initial_grid));
-    state->set_cells = 0;
+static inline void init_state(void) {
+    memcpy(grid, initial_grid, sizeof(initial_grid));
+    set_cells = 0;
     #ifdef SPECIAL_PHASE_0_POP
-    state->phase_0_pop = 0;
+    phase_0_pop = 0;
     #endif
     #if TRACK_PHASE_POPS
     for (int i = 0; i < GENS; i++) {
-        state->phase_pops[i] = 0;
+        phase_pops[i] = 0;
     }
     #endif
-    for (int i = 1; i < max_depth + 1; i++) {
-        copy_state(state, &states[i]);
+
+}
+
+bool next_stack_entry_is_first_in_frame = true;
+
+typedef struct stack_entry {
+    bool is_first_in_frame;
+    cell_count_t index;
+} stack_entry;
+
+static stack_entry stack[MAX_STACK_DEPTH];
+
+static int sp = 0;
+
+static inline void print_frame(int i) {
+    cell_count_t index = stack[i].index;
+    int x = index % WIDTH;
+    int y = (index / WIDTH) % HEIGHT;
+    int t = (index / (HEIGHT * WIDTH)) % GENS;
+    printf("x = %i, y = %i, t = %i, is_first = %s\n", x, y, t, stack[i].is_first_in_frame ? "true" : "false");
+}
+
+static inline void print_stack(void) {
+    printf("Stack:\n");
+    for (int i = 0; i < sp; i++) {
+        print_frame(i);
     }
 }
+
+static inline void push_frame(void) {
+    next_stack_entry_is_first_in_frame = true;
+}
+
+static inline void pop_frame(void) {
+    DPRINTF4("Popping frame\n");
+    while (sp > 0) {
+        #if DEBUG >= 4
+        print_frame(sp - 1);
+        #endif
+        ((cell_t*)grid)[stack[sp - 1].index] = ((cell_t*)initial_grid)[stack[sp - 1].index];
+        set_cells--;
+        sp--;
+        if (stack[sp].is_first_in_frame) {
+            break;
+        }
+    }
+    DPRINTF4("Pop complete\n");
+}
+
 
 static const char* LETTERS = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
@@ -453,29 +525,30 @@ static inline void print_cell(FILE* stream, cell_t value) {
         value = CELL_VAR_TO_VAR(value) + 3;
     }
     if (value < 64) {
-        fprintf(stream, "%c", LETTERS[value]);
+        real_fprintf(stream, "%c", LETTERS[value]);
     } else {
-        fprintf(stream, "(%i)", value);
+        real_fprintf(stream, "(%i)", value);
     }
 }
 
-static inline void print_grid(FILE* stream, search_state* state) {
+static inline void print_grid(FILE* stream) {
     #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
         rule[i] = 0;
     }
     get_rule(rule);
-    fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, state->set_cells);
+    fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, set_cells);
     #else
-    fprintf(stream, "Grid (set_cells = %i):\n", state->set_cells);
+    fprintf(stream, "Grid (set_cells = %i):\n", set_cells);
     #endif
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
+            DFPRINTLINEPADDING(stream);
             for (int x = 0; x < WIDTH; x++) {
-                print_cell(stream, state->grid[t][y][x]);
+                print_cell(stream, grid[t][y][x]);
             }
-            fprintf(stream, "$\n");
+            real_fprintf(stream, "$\n");
         }
         if (t == GENS - 1) {
             fprintf(stream, "!\n");
@@ -649,7 +722,7 @@ typedef enum set_cell_mode_t {
     IMPLICATION,
 } set_cell_mode_t;
 
-static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set_cell_mode_t mode);
+static bool set_cell(int t, int x, int y, cell_t value, set_cell_mode_t mode);
 
 #if MULTI_RULE
 // the transition that caused the most recent rule-dependent "contradiction"
@@ -659,13 +732,12 @@ static int rule_dependent_tr = -1;
 
 // check if the unknown cell can be set, and if so, set it, propagating checks
 // returns false if contradiction (or rule-dependent), true if no contradiction
-static inline bool check_forward_implication(search_state* state, int t, int x, int y) {
+static inline bool check_forward_implication(int t, int x, int y) {
     if (t < 0 || t + 1 >= GENS || x <= 0 || x >= WIDTH - 1 || y <= 0 || y >= HEIGHT - 1) {
         return true;
     }
-    // grid_item_t* grid = state->grid[t];
-    grid_item_t* grid = state->grid[t];
-    #define get(x, y) ((int)(grid[(y)][(x)] & 3))
+    grid_item_t* table = grid[t];
+    #define get(x, y) ((int)(table[(y)][(x)] & 3))
     int tr = (get(x - 1, y - 1) << 16)
            | (get(x - 1, y) << 14)
            | (get(x - 1, y + 1) << 12)
@@ -676,7 +748,7 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
            | (get(x + 1, y) << 2)
            | (get(x + 1, y + 1));
     #undef get
-    int value = state->grid[t + 1][y][x];
+    int value = grid[t + 1][y][x];
     int tr_value = big_trs_forward[tr];
     DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", t, x, y, tr, (int)value, (int)tr_value);
     #if MULTI_RULE
@@ -696,14 +768,14 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
     if (value != tr_value) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
-                DPRINTGRID4(state);
+                DPRINTGRID4();
                 DPRINTF4("Contradiction (forward, both known and unequal, t = %i, x = %i, y = %i)\n", t, x, y);
                 #if MULTI_RULE
                 rule_dependent_tr = -1;
                 #endif
                 return false;
             } else {
-                bool out = set_cell(state, t + 1, x, y, tr_value, IMPLICATION);
+                bool out = set_cell(t + 1, x, y, tr_value, IMPLICATION);
                 if (!out) {
                     return false;
                 }
@@ -716,7 +788,7 @@ static inline bool check_forward_implication(search_state* state, int t, int x, 
 #if CHECK_BACKWARDS_IMPLICATIONS
 
 // returns false if contradiction, true if no contradiction
-static inline bool check_backward_implication(search_state* state, int t, int x, int y) {
+static inline bool check_backward_implication(int t, int x, int y) {
     if (t < 0 || t + 1 >= GENS
         || x <= (LEFT == NONE ? 1 : 0)
         || x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
@@ -724,8 +796,8 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
         || y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
         return true;
     }
-    grid_item_t* grid = state->grid[t];
-    #define get(x, y) ((int)(grid[(y)][(x)] & 3))
+    grid_item_t* table = grid[t];
+    #define get(x, y) ((int)(table[(y)][(x)] & 3))
     int tr = (get(x - 1, y - 1) << 18)
            | (get(x - 1, y) << 16)
            | (get(x - 1, y + 1) << 14)
@@ -735,17 +807,17 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
            | (get(x + 1, y - 1) << 6)
            | (get(x + 1, y) << 4)
            | (get(x + 1, y + 1) << 2)
-           | (((int)(state->grid[t + 1][y][x] & 3)));
+           | (((int)(grid[t + 1][y][x] & 3)));
     #undef get
     int value = big_trs_backward[tr];
     if (value == 15) {
         return true;
     } else if (value == 3) {
-        DPRINTGRID4(state);
+        DPRINTGRID4();
         DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, t, x, y);
         return false;
     }
-    #define check(x, y, value) if (!set_cell(state, t, (x), (y), (value), NORMAL)) {return false;}
+    #define check(x, y, value) if (!set_cell(t, (x), (y), (value), NORMAL)) {return false;}
     if ((value & 3) != 2) {
         check(x + 1, y + 1, value & 3);
     }
@@ -780,92 +852,98 @@ static inline bool check_backward_implication(search_state* state, int t, int x,
 #endif
 
 #if CHECK_BACKWARDS_IMPLICATIONS
-#define CHECK_IMPLICATIONS(state, t, x, y) ( \
-    check_forward_implication((state), (t), (x), y) \
-    && check_backward_implication((state), (t) - 1, (x), y) \
-    && check_backward_implication((state), (t), (x), y) \
-    && check_forward_implication((state), (t), (x) - 1, y - 1) \
-    && check_forward_implication((state), (t), (x) - 1, y) \
-    && check_forward_implication((state), (t), (x) - 1, y + 1) \
-    && check_forward_implication((state), (t), (x), y - 1) \
-    && check_forward_implication((state), (t), (x), y + 1) \
-    && check_forward_implication((state), (t), (x) + 1, y - 1) \
-    && check_forward_implication((state), (t), (x) + 1, y) && \
-    check_forward_implication((state), (t), (x) + 1, y + 1))
+#define CHECK_IMPLICATIONS(t, x, y) ( \
+    check_forward_implication((t), (x), y) \
+    && check_backward_implication((t) - 1, (x), y) \
+    && check_backward_implication((t), (x), y) \
+    && check_forward_implication((t), (x) - 1, y - 1) \
+    && check_forward_implication((t), (x) - 1, y) \
+    && check_forward_implication((t), (x) - 1, y + 1) \
+    && check_forward_implication((t), (x), y - 1) \
+    && check_forward_implication((t), (x), y + 1) \
+    && check_forward_implication((t), (x) + 1, y - 1) \
+    && check_forward_implication((t), (x) + 1, y) && \
+    check_forward_implication((t), (x) + 1, y + 1))
 #else
-#define CHECK_IMPLICATIONS(state, t, x, y) ( \
-    check_forward_implication((state), (t), (x), y) \
-    && check_forward_implication((state), (t), (x) - 1, y - 1) \
-    && check_forward_implication((state), (t), (x) - 1, y) \
-    && check_forward_implication((state), (t), (x) - 1, y + 1) \
-    && check_forward_implication((state), (t), (x), y - 1) \
-    && check_forward_implication((state), (t), (x), y + 1) \
-    && check_forward_implication((state), (t), (x) + 1, y - 1) \
-    && check_forward_implication((state), (t), (x) + 1, y) && \
-    check_forward_implication((state), (t), (x) + 1, y + 1))
+#define CHECK_IMPLICATIONS(t, x, y) ( \
+    check_forward_implication((t), (x), y) \
+    && check_forward_implication((t), (x) - 1, y - 1) \
+    && check_forward_implication((t), (x) - 1, y) \
+    && check_forward_implication((t), (x) - 1, y + 1) \
+    && check_forward_implication((t), (x), y - 1) \
+    && check_forward_implication((t), (x), y + 1) \
+    && check_forward_implication((t), (x) + 1, y - 1) \
+    && check_forward_implication((t), (x) + 1, y) && \
+    check_forward_implication((t), (x) + 1, y + 1))
 #endif
 
 static cell_t prev_values[MAX_VAR_USES];
 
 // set a cell to a value, taking care of edges and filters but not propagating implications
-static inline bool _set_cell(search_state* state, int t, int x, int y, cell_t value) {
-    cell_t old = state->grid[t][y][x];
-    if (IS_KNOWN(old) && old != value) {
+static inline bool _set_cell(int t, int x, int y, cell_t value) {
+    cell_t prev_value = grid[t][y][x];
+    if (IS_KNOWN(prev_value) && prev_value != value) {
         return false;
     }
     #ifdef SPECIAL_PHASE_0_POP
     if (t == 0 && value == 1) {
-        state->phase_0_pop++;
-        if (state->phase_0_pop > MAXPOP) {
+        phase_0_pop++;
+        if (phase_0_pop > MAXPOP) {
             return false;
         }
     }
     #endif
     #if TRACK_PHASE_POPS
     if (value == 1) {
-        state->phase_pops[t]++;
+        phase_pops[t]++;
     }
     #endif
-    state->set_cells++;
-    state->grid[t][y][x] = value;
+    stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
+    next_stack_entry_is_first_in_frame = false;
+    cell_count_t index = (((t * HEIGHT) + y) * WIDTH) + x;
+    DPRINTF4("Actually setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", t, x, y, index, value, prev_value);
+    stack[sp].index = index;
+    sp++;
+    set_cells++;
+    ((cell_t*)grid)[index] = value;
     #if TOP != NONE
     if (y == TOP) {
-        state->grid[t][0][x] = value;
+        grid[t][0][x] = value;
         #if LEFT != NONE
         if (x == LEFT) {
-            state->grid[t][0][0] = value;
+            grid[t][0][0] = value;
         }
         #endif
         #if RIGHT != NONE
         if (x == WIDTH - 1 - RIGHT) {
-            state->grid[t][0][WIDTH - 1] = value;
+            grid[t][0][WIDTH - 1] = value;
         }
         #endif
     }
     #endif
     #if BOTTOM != NONE
     if (y == HEIGHT - 1 - LEFT) {
-        state->grid[t][HEIGHT - 1][x] = value;
+        grid[t][HEIGHT - 1][x] = value;
         #if LEFT != NONE
         if (x == LEFT) {
-            state->grid[t][HEIGHT - 1][0] = value;
+            grid[t][HEIGHT - 1][0] = value;
         }
         #endif
         #if RIGHT != NONE
         if (x == WIDTH - 1 - RIGHT) {
-            state->grid[t][HEIGHT - 1][WIDTH - 1] = value;
+            grid[t][HEIGHT - 1][WIDTH - 1] = value;
         }
         #endif
     }
     #endif
     #if LEFT != NONE
     if (x == LEFT) {
-        state->grid[t][y][0] = value;
+        grid[t][y][0] = value;
     }
     #endif
     #if RIGHT != NONE
     if (x == WIDTH - 1 - RIGHT) {
-        state->grid[t][y][WIDTH - 1] = value;
+        grid[t][y][WIDTH - 1] = value;
     }
     #endif
     return true;
@@ -873,17 +951,17 @@ static inline bool _set_cell(search_state* state, int t, int x, int y, cell_t va
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set_cell_mode_t mode) {
-    cell_t prev_value = state->grid[t][y][x];
+static bool set_cell(int t, int x, int y, cell_t value, set_cell_mode_t mode) {
+    cell_t prev_value = grid[t][y][x];
     DPRINTF3("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
-    DPRINTGRID4(state);
+    DPRINTGRID4();
     if (IS_KNOWN(prev_value)) {
         return prev_value == value;
     } else if (prev_value < 4) {
-        if (!_set_cell(state, t, x, y, value)) {
+        if (!_set_cell(t, x, y, value)) {
             return false;
         }
-        return CHECK_IMPLICATIONS(state, t, x, y);
+        return CHECK_IMPLICATIONS(t, x, y);
     }
     cell_t var = CELL_VAR_TO_VAR(prev_value);
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, t, x, y);
@@ -893,14 +971,14 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
         int x = var_uses[var][use][2];
         int y = var_uses[var][use][3];
         DPRINTF4("Read variable data: there_is_more = %i, t = %i, x = %i, y = %i\n", there_is_more, t, x, y);
-        cell_t prev_value = state->grid[t][y][x];
+        cell_t prev_value = grid[t][y][x];
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
             if (prev_value != value) {
                 return false;
             }
         } else {
-            if (!_set_cell(state, t, x, y, value)) {
+            if (!_set_cell(t, x, y, value)) {
                 return false;
             }
         }
@@ -916,7 +994,7 @@ static bool set_cell(search_state* state, int t, int x, int y, cell_t value, set
         int y = var_uses[var][use][3];
         DPRINTF4("Read variable data: there_is_more = %i, t = %i, x = %i, y = %i\n", there_is_more, t, x, y);
         if (!IS_KNOWN(prev_values[use])) {
-            if (!CHECK_IMPLICATIONS(state, t, x, y)) {
+            if (!CHECK_IMPLICATIONS(t, x, y)) {
                 return false;
             }
         }
@@ -1075,7 +1153,7 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 bb_t zero_bb = {0, 0, 0, 0};
 
-static inline hash_t hash_with_offset(search_state* state, int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
     int x_offset_0 = NO_OFFSET;
@@ -1083,7 +1161,7 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
     for (int fake_t = 0; fake_t < GENS; fake_t++) {
         int t = (fake_t + offset) % GENS;
         bb_t bb;
-        get_true_bb(&bb, state->grid[t]);
+        get_true_bb(&bb, grid[t]);
         // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         int height = bb.height;
         int width = bb.width;
@@ -1122,7 +1200,7 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
                 int real_x = 0;
                 int real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
-                out ^= state->grid[t][real_y][real_x];
+                out ^= grid[t][real_y][real_x];
                 out *= HASH_PRIME;
             }
         }
@@ -1131,25 +1209,25 @@ static inline hash_t hash_with_offset(search_state* state, int offset, axis_tran
     return out;
 }
 
-static inline hash_t hash(search_state* state, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
-    hash_t out = hash_with_offset(state, 0, x_trans, y_trans);
+    hash_t out = hash_with_offset(0, x_trans, y_trans);
     for (int offset = 1; offset < GENS; offset++) {
         // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
-        out = min_hash(out, hash_with_offset(state, offset, x_trans, y_trans));
+        out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
     return out;
 }
 
-static inline hash_t hash_state(search_state* state) {
-    hash_t out = hash(state, POS_X, POS_Y);
-    out = min_hash(out, hash(state, POS_X, NEG_Y));
-    out = min_hash(out, hash(state, NEG_X, POS_Y));
-    out = min_hash(out, hash(state, NEG_X, NEG_Y));
-    out = min_hash(out, hash(state, POS_Y, POS_X));
-    out = min_hash(out, hash(state, POS_Y, NEG_X));
-    out = min_hash(out, hash(state, NEG_Y, POS_X));
-    out = min_hash(out, hash(state, NEG_Y, NEG_X));
+static inline hash_t hash_state() {
+    hash_t out = hash(POS_X, POS_Y);
+    out = min_hash(out, hash(POS_X, NEG_Y));
+    out = min_hash(out, hash(NEG_X, POS_Y));
+    out = min_hash(out, hash(NEG_X, NEG_Y));
+    out = min_hash(out, hash(POS_Y, POS_X));
+    out = min_hash(out, hash(POS_Y, NEG_X));
+    out = min_hash(out, hash(NEG_Y, POS_X));
+    out = min_hash(out, hash(NEG_Y, NEG_X));
     return out;
 }
 
@@ -1195,10 +1273,10 @@ static inline hash_t octohash(grid_item_t* grid) {
     return out;
 }
 
-static inline hash_t hash_state(search_state* state) {
-    hash_t out = octohash(state->grid[0]);
+static inline hash_t hash_state() {
+    hash_t out = octohash(grid[0]);
     for (int i = 1; i < GENS; i++) {
-        out = min_hash(out, octohash(state->grid[i]));
+        out = min_hash(out, octohash(grid[i]));
     }
     return out;
 }
@@ -1217,15 +1295,15 @@ static inline void init_known_solutions(void) {
 
 static inline void print_progress(FILE* stream, int depth);
 
-static inline void print_solution(search_state* state, bool preprocessing, int depth) {
+static inline void print_solution(bool preprocessing, int depth) {
     #ifndef BENCHMARK
     DPRINTF2("Checking solution:\n");
-    DPRINTGRID2(state);
+    DPRINTGRID2();
     #if CHECK_EMPTY
     bool found = false;
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            if (state->grid[0][y][x] != 0) {
+            if (grid[0][y][x] != 0) {
                 found = true;
                 break;
             }
@@ -1243,13 +1321,13 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
     }
     #endif
     #if FILTERING
-    if (!solution_filter(state)) {
+    if (!solution_filter()) {
         DPRINTF2("Dropping solution (filtered)\n");
         return;
     }
     #endif
     #if FILTER_DUPLICATES
-    hash_t hash = hash_state(state);
+    hash_t hash = hash_state();
     for (int i = 0; i < solutions_found; i++) {
         hash_t value = known_solutions[i];
         if (value == 0) {
@@ -1265,11 +1343,6 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
     }
     #endif
     solutions_found++;
-    // #if DEBUG >= 2
-    // for (int i = 0; i < depth; i++) {
-    //     print_grid(stdout, states[i]);
-    // }
-    // #endif
     #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
@@ -1282,27 +1355,29 @@ static inline void print_solution(search_state* state, bool preprocessing, int d
     if (preprocessing) {
         printf("Solved in preprocessing, 1 solution:\nx = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     } else {
-        printf("Solution found:\nx = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
+        printf("Solution found:\n");
+        printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     }
     int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
     for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+        DPRINTLINEPADDING();
         for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
-            cell_t value = state->grid[0][y][x];
+            cell_t value = grid[0][y][x];
             if (value > 1) {
                 fprintf(stderr, "\n");
-                print_grid(stderr, state);
+                print_grid(stderr);
                 fprintf(stderr, "\nStatus: ");
                 // print_progress(stderr, depth, 70);
                 print_progress(stderr, depth);
                 fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
                 exit(1);
             }
-            printf("%c", value ? 'o' : '.');
+            real_printf("%c", value ? 'o' : '.');
         }
         if (y == last_y - 1) {
-            printf("!\n");
+            real_printf("!\n");
         } else {
-            printf("$\n");
+            real_printf("$\n");
         }
     }
     #endif
@@ -1442,7 +1517,7 @@ static inline void init_multi_rule() {
 
 static inline void print_progress(FILE* stream, int depth) {
     int search_order_pos = 0;
-    for (int i = 0; i < depth; i++) {
+    for (int i = 0; i < depth - 1; i++) {
         if (set_tr_info_for_depth[i].set) {
             int tr = set_tr_info_for_depth[i].tr;
             int value = set_tr_info_for_depth[i].value;
@@ -1483,12 +1558,12 @@ static inline void print_progress(FILE* stream, int depth) {
                 fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
                 exit(1);
             }
-            printf("[%s=%i]", tr_str, value);
+            real_fprintf(stream, "[%s=%i]", tr_str, value);
         } else {
             int* cell = search_order[search_order_pos];
             search_order_pos++;
-            cell_t value = states[depth - 1].grid[cell[0]][cell[2]][cell[1]];
-            printf("%c", value ? '1' : '0');
+            cell_t value = grid[cell[0]][cell[2]][cell[1]];
+            real_fprintf(stream, "%c", value ? '1' : '0');
         }
     }
 }
@@ -1497,11 +1572,11 @@ static inline void print_progress(FILE* stream, int depth) {
 
 static inline void print_progress(FILE* stream, int depth) {
     int search_order_pos = 0;
-    for (int i = 0; i < depth; i++) {
+    for (int i = 0; i < depth - 1; i++) {
         int* cell = search_order[search_order_pos];
         search_order_pos++;
-        cell_t value = states[depth - 1].grid[cell[0]][cell[2]][cell[1]];
-        printf("%c", value ? '1' : '0');
+        cell_t value = grid[cell[0]][cell[2]][cell[1]];
+        real_fprintf(stream, "%c", value ? '1' : '0');
     }
 }
 
@@ -1513,13 +1588,16 @@ static void run_depth(int depth
     #endif
     );
 
-static inline void _run_depth(search_state* state, int* cell, cell_t value, int depth
+static inline void _run_depth(int* cell, cell_t value, int depth
     #if MULTI_RULE
     , int search_order_depth
     #endif
     ) {
-    copy_state(&states[depth - 1], state);
-    if (set_cell(state, cell[0], cell[1], cell[2], value, NORMAL)) {
+    push_frame();
+    #if DEBUG >= 3
+    print_stack();
+    #endif
+    if (set_cell(cell[0], cell[1], cell[2], value, NORMAL)) {
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
@@ -1527,13 +1605,13 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
         #endif
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
+        pop_frame();
         int tr = rule_dependent_tr;
         rule_dependent_tr = -1;
         // if (possible_trs_count == 0) {
         //     DPRINTF4("Skipping branching rule on transition %i (depth = %i)\n", tr, depth);
         //     continue;
         // }
-        copy_state(&states[depth - 1], state);
         set_tr_info_for_depth[depth].set = true;
         set_tr_info_for_depth[depth].tr = tr;
         DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
@@ -1545,8 +1623,10 @@ static inline void _run_depth(search_state* state, int* cell, cell_t value, int 
         run_depth(depth + 1, search_order_depth, value);
         set_tr(tr, 3);
         set_tr_info_for_depth[depth].set = false;
+        return;
     #endif
     }
+    pop_frame();
 }
 
 static void run_depth(int depth
@@ -1555,27 +1635,27 @@ static void run_depth(int depth
     #endif
     ) {
     #if DEBUG >= 3
+    current_depth++;
     printf("Running depth %i: ", depth);
     print_progress(stdout, depth);
-    printf("\n");
+    real_printf("\n");
     #endif
     branches++;
-    if (depth > max_depth || states[depth - 1].set_cells == unknown_cells) {
-        print_solution(&states[depth - 1], false, depth);
+    if (depth > max_depth || set_cells == unknown_cells) {
+        print_solution(false, depth);
+        #if DEBUG >= 3
+        current_depth--;
+        #endif
         return;
     }
-    search_state* state = &states[depth];
-    #if DEBUG >= 4
-    copy_state(states[depth - 1], state);
-    DPRINTGRID4(state);
-    #endif
+    DPRINTGRID4();
     double time = get_time();
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
         #ifndef BENCHMARK
         printf("%i seconds, %"PRIu64" branches, progress: ", (int)(time - start), branches);
-        print_progress(stderr, depth);
-        printf("\n");
+        print_progress(stdout, depth);
+        real_printf("\n");
         #endif
     }
     #if MULTI_RULE
@@ -1583,12 +1663,14 @@ static void run_depth(int depth
     #else
     int* cell = search_order[depth - 1];
     #endif
-    if (IS_KNOWN(states[depth - 1].grid[cell[0]][cell[2]][cell[1]])) {
-        copy_state(&states[depth - 1], state);
+    if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]])) {
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
         run_depth(depth + 1);
+        #endif
+        #if DEBUG >= 3
+        current_depth--;
         #endif
         return;
     }
@@ -1602,34 +1684,36 @@ static void run_depth(int depth
         #endif
         {
             #if MULTI_RULE
-            _run_depth(state, cell, value, depth, search_order_depth);
+            _run_depth(cell, value, depth, search_order_depth);
             #else
-            _run_depth(state, cell, value, depth);
+            _run_depth(cell, value, depth);
             #endif
         }
     #if MULTI_RULE
     } else {
-        _run_depth(state, cell, force_value, depth, search_order_depth);
+        _run_depth(cell, force_value, depth, search_order_depth);
     }
+    #endif
+    #if DEBUG >= 3
+    current_depth--;
     #endif
 }
 
 int main(void) {
-    init_states();
+    init_state();
     init_var_uses();
     generate_big_trs();
     #if MULTI_RULE
     init_multi_rule();
     #endif
     init_known_solutions();
-    search_state* state = &states[0];
-    DPRINTGRID2(state);
+    DPRINTGRID2();
     // preprocessing: search for and remove trivial cells
     printf("Preprocessing\n");
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
-                if (!check_forward_implication(state, t, x, y)) {
+                if (!check_forward_implication(t, x, y)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = 0;
@@ -1640,7 +1724,7 @@ int main(void) {
                     return 0;
                 }
                 #if CHECK_BACKWARDS_IMPLICATIONS
-                if (!check_backward_implication(state, t, x, y)) {
+                if (!check_backward_implication(t, x, y)) {
                     printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x - 2, y - 2);
                     return 0;
                 }
@@ -1651,7 +1735,7 @@ int main(void) {
     // remove trivial cells from search order
     for (int i = 0; i < unknown_cells; i++) {
         int* cell = search_order[i];
-        if (IS_KNOWN(state->grid[cell[0]][cell[2]][cell[1]])) {
+        if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]])) {
             for (int j = i; j < unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(int) * 3);
             }
@@ -1659,10 +1743,10 @@ int main(void) {
             unknown_cells--;
         }
     }
-    int trivial = state->set_cells;
-    state->set_cells = 0;
+    int trivial = set_cells;
+    set_cells = 0;
     if (unknown_cells == 0) {
-        print_solution(state, true, 1);
+        print_solution(true, 1);
         return 0;
     }
     printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
@@ -1673,7 +1757,7 @@ int main(void) {
     // , NULL, 2);
     // printf("%ld -> %i\n", value, big_trs_forward[value]);
     printf("Running search\n");
-    DPRINTGRID1(state);
+    DPRINTGRID1();
     #if DEBUG >= 2
     printf("Search order:\n");
     for (int i = 0; i < unknown_cells; i++) {
@@ -1681,7 +1765,7 @@ int main(void) {
         int x = search_order[i][1];
         int y = search_order[i][2];
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
-        print_cell(stdout, state->grid[t][y][x]);
+        print_cell(stdout, grid[t][y][x]);
         printf("\n");
     }
     #endif
