@@ -29,6 +29,7 @@ Modes:
     catalyst <start> <gens> <end>
         find a stable catalyst that generates end in gens from start
         start and end RLEs are LifeHistory like in Barrister
+        the catalyst can only start interacting at generation 2
 
 Options:
 
@@ -694,22 +695,32 @@ if (mode === 'periodic') {
     if (start.height !== end.height || start.width !== end.width) {
         error(`Start and end must have the same bounding box`);
     }
+    let gen1 = base.clearedCopy();
+    gen1.setData(start.height, start.width, start.getData().map(x => x === 1 ? 1 : 0));
+    gen1.runGeneration();
 
     grid = new Grid(start.height, start.width, gens);
 
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
             let startValue = start.get(x, y);
+            let gen1Value = gen1.get(x, y);
             let endValue = end.get(x, y);
             if (startValue === 2) {
                 let variable = grid.getVar();
                 grid.set(0, x, y, variable);
+                grid.set(1, x, y, variable);
                 grid.set(gens - 1, x, y, variable);
             } else {
                 grid.set(0, x, y, startValue);
+                grid.set(1, x, y, gen1Value);
                 grid.set(gens - 1, x, y, endValue);
             }
         }
+    }
+
+    for (let t = 2; t < grid.gens - 1; t++) {
+        grid.fill(t, UNKNOWN);
     }
 
 } else {
