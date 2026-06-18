@@ -121,6 +121,8 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 
 // whether to filter duplicates or not
 #define FILTER_DUPLICATES true
+// whether to filter every phase or just phase 0
+#define FILTER_EVERY_PHASE true
 
 // number of solutions to report
 // #define MAX_SOLUTIONS 67
@@ -1154,18 +1156,17 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 #if MULTI_RULE
 
-#define NO_OFFSET (67676767)
-
 bb_t zero_bb = {0, 0, 0, 0};
 
 static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
-    int x_offset_0 = NO_OFFSET;
-    int y_offset_0 = NO_OFFSET;
+    bb_t bb;
+    get_true_bb(&bb, grid[GENS - offset]);
+    int x_offset_0 = bb.x_offset;
+    int y_offset_0 = bb.y_offset;
     for (int fake_t = 0; fake_t < GENS; fake_t++) {
         int t = (fake_t + offset) % GENS;
-        bb_t bb;
         get_true_bb(&bb, grid[t]);
         // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         int height = bb.height;
@@ -1184,22 +1185,15 @@ static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_tra
         out *= HASH_PRIME;
         out ^= width;
         out *= HASH_PRIME;
-        if (x_offset_0 == NO_OFFSET) {
-            x_offset_0 = x_offset;
-            y_offset_0 = y_offset;
-            out *= HASH_PRIME;
-            out *= HASH_PRIME;
-        } else {
-            int dx = x_offset - x_offset_0;
-            int dy = y_offset - y_offset_0;
-            int dx2 = 0;
-            int dy2 = 0;
-            transform_coords(&zero_bb, dx, dy, x_trans, y_trans, &dx2, &dy2);
-            out ^= dx2;
-            out *= HASH_PRIME;
-            out ^= dy2;
-            out *= HASH_PRIME;
-        }
+        int dx = x_offset - x_offset_0;
+        int dy = y_offset - y_offset_0;
+        int dx2 = 0;
+        int dy2 = 0;
+        transform_coords(&zero_bb, dx, dy, x_trans, y_trans, &dx2, &dy2);
+        out ^= dx2;
+        out *= HASH_PRIME;
+        out ^= dy2;
+        out *= HASH_PRIME;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int real_x = 0;
@@ -1217,10 +1211,12 @@ static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_tra
 static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
+    #if FILTER_EVERY_PHASE
     for (int offset = 1; offset < GENS; offset++) {
         // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
+    #endif
     return out;
 }
 
@@ -1280,9 +1276,11 @@ static inline hash_t octohash(grid_item_t* grid) {
 
 static inline hash_t hash_state() {
     hash_t out = octohash(grid[0]);
+    #if FILTER_EVERY_PHASE
     for (int i = 1; i < GENS; i++) {
         out = min_hash(out, octohash(grid[i]));
     }
+    #endif
     return out;
 }
 
@@ -1395,64 +1393,16 @@ static inline void print_solution(bool preprocessing, int depth) {
 }
 
 
+
+bool use_in_progress[TOTAL_MAX_DEPTH];
+
+static inline void init_use_in_progress(void) {
+    for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
+        use_in_progress[i] = false;
+    }
+}
+
 #if MULTI_RULE
-
-// static int possible_trs[TOTAL_MAX_DEPTH][512];
-// static int possible_trs_counts[TOTAL_MAX_DEPTH];
-
-// static inline void add_possible_tr(int tr, int loc) {
-//     for (int i = 0; i < INT_TRANSITION_COUNT; i++) {
-//         bool found = false;
-//         for (int j = 0; j < INT_NUMBER_COUNT; j++) {
-//             int value = int_transitions[i][j];
-//             if (value == -1) {
-//                 break;
-//             } else if (value == tr) {
-//                 found = true;
-//                 break;
-//             }
-//         }
-//         if (found) {
-//             for (int j = 0; j < INT_NUMBER_COUNT; j++) {
-//                 for (int k = 0; k < possible_trs_counts[loc]; k++) {
-//                     if (possible_trs[loc][k] == int_transitions[i][j]) {
-//                         return;
-//                     }
-//                 }
-//             }
-//             possible_trs[loc][possible_trs_counts[loc]] = tr;
-//             possible_trs_counts[loc] += 1;
-//             return;
-//         }
-//     }
-//     fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
-//     exit(1);
-// }
-
-// static void _get_possible_trs(int prev, int tr, int depth, int loc) {
-//     int state = tr & 3;
-//     tr >>= 2;
-//     int next = prev << 1;
-//     if (depth == 8) {
-//         if (IS_KNOWN(state)) {
-//             add_possible_tr(next | state, loc);
-//         } else {
-//             add_possible_tr(next | 0, loc);
-//             add_possible_tr(next | 1, loc);
-//         }
-//     } else {
-//         if (IS_KNOWN(state)) {
-//             _get_possible_trs(next | state, tr, depth + 1, loc);
-//         } else {
-//             _get_possible_trs(next | 0, tr, depth + 1, loc);
-//             _get_possible_trs(next | 1, tr, depth + 1, loc);
-//         }
-//     }
-// }
-
-// static inline void get_possible_trs(int tr, int depth) {
-//     _get_possible_trs(0, tr, 0, depth);
-// }
 
 static int tr_to_int_tr[512];
 
@@ -1475,13 +1425,6 @@ static inline void set_tr(int tr, int value) {
         }
     }
 }
-
-// static inline void set_possible_trs_to_value(int depth, int to_set, bool reset) {
-//     for (int i = 0; i < possible_trs_counts[depth]; i++) {
-//         int tr = possible_trs[depth][i];
-//         int value = reset ? 3 : (to_set >> i) & 1;
-//     }
-// }
 
 typedef struct set_tr_info {
     bool set;
@@ -1523,6 +1466,9 @@ static inline void init_multi_rule() {
 static inline void print_progress(FILE* stream, int depth) {
     int search_order_pos = 0;
     for (int i = 0; i < depth - 1; i++) {
+        if (!use_in_progress[i]) {
+            continue;
+        }
         if (set_tr_info_for_depth[i].set) {
             int tr = set_tr_info_for_depth[i].tr;
             int value = set_tr_info_for_depth[i].value;
@@ -1578,6 +1524,9 @@ static inline void print_progress(FILE* stream, int depth) {
 static inline void print_progress(FILE* stream, int depth) {
     int search_order_pos = 0;
     for (int i = 0; i < depth - 1; i++) {
+        if (!use_in_progress[i]) {
+            continue;
+        }
         int* cell = search_order[search_order_pos];
         search_order_pos++;
         cell_t value = grid[cell[0]][cell[2]][cell[1]];
@@ -1669,6 +1618,7 @@ static void run_depth(int depth
     int* cell = search_order[depth - 1];
     #endif
     if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]])) {
+        use_in_progress[depth] = false;
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
@@ -1679,6 +1629,7 @@ static void run_depth(int depth
         #endif
         return;
     }
+    use_in_progress[depth] = true;
     #if MULTI_RULE
     if (force_value == -1) {
     #endif
@@ -1708,6 +1659,7 @@ int main(void) {
     init_state();
     init_var_uses();
     generate_big_trs();
+    init_use_in_progress();
     #if MULTI_RULE
     init_multi_rule();
     #endif

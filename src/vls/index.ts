@@ -262,7 +262,7 @@ if (posArgs.length === 0) {
     error(`Expected at least 2 positional arguments`);
 }
 
-const MODES = ['periodic', 'parent', 'file'];
+const MODES = ['periodic', 'parent', 'file', 'catalyst'];
 
 let rule = posArgs[0];
 let base = createPattern(rule);
@@ -678,6 +678,8 @@ if (mode === 'periodic') {
         }
     }
 
+// } else if (mode === 'catalyst') {
+
 } else {
 
     error(`Invalid mode: '${mode}'`);
@@ -1041,6 +1043,8 @@ for (let line of code.split('\n')) {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
+    } else if (name === 'FILTER_EVERY_PHASE') {
+        value = mode === 'periodic' ? 'true' : 'false';
     } else if (name === 'MAX_SOLUTIONS') {
         if (options['max-solutions'] === undefined) {
             comment = true;
