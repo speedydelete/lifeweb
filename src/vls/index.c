@@ -1385,7 +1385,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     }
     #endif
     #ifdef MAX_SOLUTIONS
-    if (known_solutions > MAX_SOLUTIONS) {
+    if (solutions_found > MAX_SOLUTIONS) {
         printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
         exit(0);
     }
@@ -1524,9 +1524,9 @@ static inline void print_progress(FILE* stream, int depth) {
 static inline void print_progress(FILE* stream, int depth) {
     int search_order_pos = 0;
     for (int i = 0; i < depth - 1; i++) {
-        if (!use_in_progress[i]) {
-            continue;
-        }
+        // if (!use_in_progress[i]) {
+        //     continue;
+        // }
         int* cell = search_order[search_order_pos];
         search_order_pos++;
         cell_t value = grid[cell[0]][cell[2]][cell[1]];
