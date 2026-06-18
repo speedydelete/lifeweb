@@ -637,8 +637,10 @@ if (mode === 'periodic') {
         line = line.replaceAll(/\s+/g, '');
         let parts = line.split(',').filter(x => x.length > 0).map(x => x.match(/^\d+$/) ? Number(x) : x);
         if (parts.length === 0) {
-            data.push(currentSection);
-            currentSection = [];
+            if (currentSection.length > 0) {
+                data.push(currentSection);
+                currentSection = [];
+            }
         } else {
             currentSection.push(parts);
         }

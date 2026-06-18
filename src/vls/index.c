@@ -163,7 +163,7 @@ static inline bool solution_filter() {return true;}
 // END CONFIGURATION
 
 
-#define UNKNOWN 2
+#define UNKNOWN (2)
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
 #define VAR_TO_CELL_VAR(x) (6 + 4*(x))
@@ -173,7 +173,7 @@ static inline bool solution_filter() {return true;}
 
 #if MULTI_RULE
 
-#define TOTAL_MAX_DEPTH TOTAL_UNKNOWN_CELLS + MAX_RULE_CHANGES
+#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + MAX_RULE_CHANGES)
 
 #define TR_TO_BIG_TR(x) ((x) & 1) | (((x) & 2) << 1) | (((x) & 4) << 2) | (((x) & 8) << 3) | (((x) & 16) << 4) | (((x) & 32) << 5) | (((x) & 64) << 6) | (((x) & 128) << 7) | (((x) & 256) << 8)
 #define BIG_TR_TO_TR(x) ((x) & 1) | (((x) >> 1) & 2) | (((x) >> 2) & 4) | (((x) >> 3) & 8) | (((x) >> 4) & 16) | (((x) >> 5) & 32) | (((x) >> 6) & 64) | (((x) >> 7) & 128) | (((x) >> 8) & 256)
@@ -302,7 +302,7 @@ static const char int_letters[INT_NUMBER_COUNT][MAX_LETTERS_PER_INT_NUM + 1] = {
 
 #else
 
-#define TOTAL_MAX_DEPTH TOTAL_UNKNOWN_CELLS
+#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS)
 
 #endif
 
@@ -357,7 +357,7 @@ static const char int_letters[INT_NUMBER_COUNT][MAX_LETTERS_PER_INT_NUM + 1] = {
 #define real_printf (printf)
 #define real_fprintf (fprintf)
 #if DEBUG >= 3
-#define INDENT ("    ")
+#define INDENT (" ")
 static int current_depth = 0;
 #define DPRINTLINEPADDING() { \
     for (int i = 0; i < current_depth; i++) { \
@@ -580,8 +580,11 @@ static inline void init_var_uses(void) {
                 cell_t value = initial_grid[t][y][x];
                 if (value > 3) {
                     int var = CELL_VAR_TO_VAR(value);
+                    if (num_var_uses[var] > 0) {
+                        var_uses[var][num_var_uses[var] - 1][0] = 1;
+                    }
                     int* data = var_uses[var][num_var_uses[var]++];
-                    data[0] = 1;
+                    data[0] = 0;
                     data[1] = t;
                     data[2] = x;
                     data[3] = y;
@@ -883,6 +886,7 @@ static cell_t prev_values[MAX_VAR_USES];
 static inline bool _set_cell(int t, int x, int y, cell_t value) {
     cell_t prev_value = grid[t][y][x];
     if (IS_KNOWN(prev_value) && prev_value != value) {
+        DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", t, x, y, value, prev_value);
         return false;
     }
     #ifdef SPECIAL_PHASE_0_POP
@@ -975,6 +979,7 @@ static bool set_cell(int t, int x, int y, cell_t value, set_cell_mode_t mode) {
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
             if (prev_value != value) {
+                DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, prev_value);
                 return false;
             }
         } else {
@@ -1594,7 +1599,7 @@ static inline void _run_depth(int* cell, cell_t value, int depth
     #endif
     ) {
     push_frame();
-    #if DEBUG >= 3
+    #if DEBUG >= 6
     print_stack();
     #endif
     if (set_cell(cell[0], cell[1], cell[2], value, NORMAL)) {
@@ -1648,7 +1653,7 @@ static void run_depth(int depth
         #endif
         return;
     }
-    DPRINTGRID4();
+    DPRINTGRID3();
     double time = get_time();
     if (time - last_progress_shown > 1) {
         last_progress_shown = time;
