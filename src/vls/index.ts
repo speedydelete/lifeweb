@@ -28,6 +28,7 @@ Modes:
 
     catalyst <start> <gens> [end]
         find a stable catalyst that completes the given partial
+        or if end is provided, find one that creates end
         start and end RLEs are LifeHistory RLEs:
             state 0 (black) - dead
             state 1 (green) - alive
