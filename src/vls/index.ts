@@ -1,5 +1,5 @@
 
-import {MAPPattern, parseSpeed, createPattern} from '../core/index.js';
+import {Pattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -26,9 +26,18 @@ Modes:
     file <path>
         take in a LLS input file and try to find solutions
 
-    catalyst <start> <gens> <end>
-        find a stable catalyst that generates end in gens from start
-        start and end RLEs are LifeHistory like in Barrister
+    catalyst <start> <gens> [end]
+        find a stable catalyst that completes the given partial
+        start and end RLEs are LifeHistory RLEs:
+            state 0 (black) - dead
+            state 1 (green) - alive
+            state 2 (blue) - catalyst goes here
+            state 3 (white) - can die but must be alive at the end
+            state 4 (red) - must stay dead the whole time
+            state 5 (yellow) - must stay alive the whole time
+            state 6 (gray) - unused
+        if end is not provided it will report all solutions
+        that lead to the state 3 and 5 cells being restored
         the catalyst can only start interacting at generation 2
 
 Options:
@@ -42,7 +51,9 @@ Options:
 
     --benchmark <iterations>: run benchmarking
 
-    --lls: instead of searching output a LLS input file for the search
+    -l, --lls <file>: instead of searching, run LLS on the given file
+        must be an executable or a directory containing
+        an executable called "lls" or "lss"
 
     -o, --search-order <order>:
         Set the order in which cells are checked
@@ -105,7 +116,7 @@ const OPTIONS = {
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
-    'lls': true,
+    'lls': 'string',
     'search-order': 'string',
     'initial-value': 'number',
     'max-solutions': 'number',
@@ -130,6 +141,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
     'g': 'gdb',
+    'l': 'lls',
     'o': 'search-order',
     'i': 'initial-value',
     'n': 'max-solutions',
@@ -689,41 +701,52 @@ if (mode === 'periodic') {
 } else if (mode === 'catalyst') {
 
     let baseSuper = createPattern(rule + 'Super');
-    let start = baseSuper.loadRLE(posArgs[0]);
+    let startP = baseSuper.loadRLE(posArgs[0]);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
         error(`Invalid generations value: '${posArgs[1]}'`);
     }
-    let end = baseSuper.loadRLE(posArgs[2]);
-    if (start.height !== end.height || start.width !== end.width) {
-        error(`Start and end must have the same bounding box`);
+    let endP: Pattern | undefined;
+    if (posArgs[2]) {
+        endP = baseSuper.loadRLE(posArgs[2]);
+        if (startP.height < endP.height || startP.width < endP.width) {
+            error(`Start and end must have the same bounding box`);
+        }
     }
-    let gen1 = base.clearedCopy();
-    gen1.setData(start.height, start.width, start.getData().map(x => x === 1 ? 1 : 0));
-    gen1.runGeneration();
 
-    grid = new Grid(start.height, start.width, gens);
+    grid = new Grid(startP.height, startP.width, gens);
+
+    for (let t = 2; t < grid.gens - 1; t++) {
+        grid.fill(t, UNKNOWN);
+    }
 
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            let startValue = start.get(x, y);
-            let gen1Value = gen1.get(x, y);
-            let endValue = end.get(x, y);
-            if (startValue === 2) {
+            let start = startP.get(x, y);
+            let end = endP?.get(x, y);
+            if (start === 1) {
+                grid.set(0, x, y, 1);
+            } else if (start === 2) {
                 let variable = grid.getVar();
                 grid.set(0, x, y, variable);
                 grid.set(1, x, y, variable);
                 grid.set(gens - 1, x, y, variable);
-            } else {
-                grid.set(0, x, y, startValue);
-                grid.set(1, x, y, gen1Value);
-                grid.set(gens - 1, x, y, endValue);
+            } else if (start === 3) {
+                grid.set(0, x, y, 1);
+                grid.set(gens - 1, x, y, 1);
+            } else if (start === 4) {
+                for (let t = 0; t < gens; t++) {
+                    grid.set(t, x, y, 0);
+                }
+            } else if (start === 5) {
+                for (let t = 0; t < gens; t++) {
+                    grid.set(t, x, y, 1);
+                }
+            }
+            if (end === 1) {
+                grid.set(gens - 1, x, y, 1);
             }
         }
-    }
-
-    for (let t = 2; t < grid.gens - 1; t++) {
-        grid.fill(t, UNKNOWN);
     }
 
 } else {
@@ -1092,6 +1115,31 @@ for (let line of code.split('\n')) {
     } else if (name === 'FILTER_EVERY_PHASE') {
         value = mode === 'periodic' ? 'true' : 'false';
     } else if (name === 'LLS') {
+        let path = await import('node:path');
+        let fs = await import('node:fs/promises');
+        let file = options['lls'];
+        if (file === undefined) {
+            comment = true;
+        } else {
+            if ((await fs.stat(file)).isDirectory()) {
+                for (let filename of await fs.readdir(file)) {
+                    if (filename !== 'lls' && filename !== 'lss') {
+                        continue;
+                    }
+                    filename = path.join(file, filename);
+                    if ((await fs.stat(filename)).isDirectory()) {
+                        continue;
+                    }
+                    try {
+                        await fs.access(filename, fs.constants.X_OK);
+                    } catch {
+                        continue;
+                    }
+                    file = filename;
+                    break;
+                }
+            }
+        }
         value = options['lls'] ? 'true' : 'false';
     } else if (name === 'MAX_SOLUTIONS') {
         if (options['max-solutions'] === undefined) {

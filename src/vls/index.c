@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 
 // for checking static:
@@ -54,7 +57,7 @@ static cell_t initial_grid[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0}, {0
 static int search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 4, 2}, {0, 2, 3}, {0, 3, 3}, {0, 4, 3}, {0, 2, 4}, {0, 3, 4}, {0, 4, 4}, {1, 2, 2}, {1, 3, 2}, {1, 4, 2}, {1, 5, 2}, {1, 2, 3}, {1, 3, 3}, {1, 4, 3}, {1, 5, 3}, {1, 2, 4}, {1, 3, 4}, {1, 4, 4}, {1, 5, 4}, {1, 2, 5}, {1, 3, 5}, {1, 4, 5}, {1, 5, 5}, {2, 2, 2}, {2, 3, 2}, {2, 4, 2}, {2, 5, 2}, {2, 2, 3}, {2, 3, 3}, {2, 4, 3}, {2, 5, 3}, {2, 2, 4}, {2, 3, 4}, {2, 4, 4}, {2, 5, 4}, {2, 2, 5}, {2, 3, 5}, {2, 4, 5}, {2, 5, 5}, {3, 2, 2}, {3, 3, 2}, {3, 4, 2}, {3, 5, 2}, {3, 2, 3}, {3, 3, 3}, {3, 4, 3}, {3, 5, 3}, {3, 2, 4}, {3, 3, 4}, {3, 4, 4}, {3, 5, 4}, {3, 2, 5}, {3, 3, 5}, {3, 4, 5}, {3, 5, 5}, {4, 3, 3}, {4, 4, 3}, {4, 5, 3}, {4, 3, 4}, {4, 4, 4}, {4, 5, 4}, {4, 3, 5}, {4, 4, 5}, {4, 5, 5}};
 
 // whether to do multi-rule searching
-#define MULTI_RULE true
+#define MULTI_RULE false
 
 // the transition lookup table for the rule
 // if multi-rule, rule-dependent ones are 3
@@ -124,8 +127,8 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // whether to filter every phase or just phase 0
 #define FILTER_EVERY_PHASE true
 
-// whether to output a LLS search file and exit instead of searching
-#define LLS true
+// whether to use LLS instead
+#define LLS "path/to/lls"
 
 // number of solutions to report
 // #define MAX_SOLUTIONS 67
@@ -1710,36 +1713,45 @@ int main(void) {
         return 0;
     }
     printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
-    #if LLS
+    #ifdef LLS
+    #ifndef RULE
+    #error LLS mode is not supported with multi-rule searching yet
+    #else
     static const char* lls_letters = "abcdefghikjlmnopqrstuvwxyz0123456";
-    printf("\nLLS file:\n\n");
+    FILE* input_file;
+    input_file = fopen(".lls_input_file.csv", "w");
+    if (input_file == NULL) {
+        perror("Error opening LLS input file");
+    }
     for (int t = 0; t < GENS; t++) {
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
+        for (int y = TOP == NONE ? 2 : 0; y < HEIGHT - (BOTTOM == NONE ? 2 : 0); y++) {
+            for (int x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
                 cell_t value = grid[t][y][x];
                 if (value == 0) {
-                    printf("0");
+                    fprintf(input_file, "0");
                 } else if (value == 1) {
-                    printf("1");
+                    fprintf(input_file, "1");
                 } else if (value == 2) {
-                    printf("*");
+                    fprintf(input_file, "*");
                 } else {
                     value = CELL_VAR_TO_VAR(value);
                     while (value > 32) {
-                        printf("%c", lls_letters[value & 31]);
+                        fprintf(input_file, "%c", lls_letters[value & 31]);
                         value >>= 5;
                     }
-                    printf("%c", lls_letters[value]);
+                    fprintf(input_file, "%c", lls_letters[value]);
                 }
                 if (x != WIDTH - 1) {
-                    printf(",");
+                    fprintf(input_file, ",");
                 }
             }
-            printf("\n");
+            fprintf(input_file, "\n");
         }
-        printf("\n");
+        fprintf(input_file, "\n");
     }
-    return 0;
+    fclose(input_file);
+    return system(LLS" -r '"RULE"' .lls_input_file.csv");
+    #endif
     #endif
     // long value = strtol(
     //     "00" "01" "01"
