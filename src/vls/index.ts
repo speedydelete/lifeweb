@@ -29,7 +29,8 @@ Modes:
     catalyst <start> <gens> [end]
         find a stable catalyst that completes the given partial
         or if end is provided, find one that creates end
-        start and end RLEs are LifeHistory RLEs:
+        start and end are LifeHistory RLEs
+        for the start:
             state 0 (black) - dead
             state 1 (green) - alive
             state 2 (blue) - catalyst goes here
@@ -37,6 +38,10 @@ Modes:
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
             state 6 (gray) - unused
+        for the end:
+            state 3 (white) - must be on
+            state 4 (red) - must be off
+            all other states - can be anything
         if end is not provided it will report all solutions
         that lead to the state 3 and 5 cells being restored
         the catalyst can only start interacting at generation 2
@@ -753,8 +758,10 @@ if (mode === 'periodic') {
                     grid.set(t, x, y, 1);
                 }
             }
-            if (end === 1) {
+            if (end === 3) {
                 grid.set(gens - 1, x, y, 1);
+            } else if (end === 4) {
+                grid.set(gens - 1, x, y, 0);
             }
         }
     }
