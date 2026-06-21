@@ -1,5 +1,5 @@
 
-import {Pattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
+import {MAPPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -418,6 +418,9 @@ class Grid {
     }
 
     get(t: number, x: number, y: number): number {
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+            return 0;
+        }
         return this.data[t][y][x];
     }
 
@@ -701,19 +704,22 @@ if (mode === 'periodic') {
 
 } else if (mode === 'catalyst') {
 
-    let baseSuper = createPattern(rule + 'Super');
+    let baseSuper = createPattern(rule + 'Super') as SuperPattern;
     let startP = baseSuper.loadRLE(posArgs[0]);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
         error(`Invalid generations value: '${posArgs[1]}'`);
     }
-    let endP: Pattern | undefined;
+    let endP: SuperPattern | undefined;
     if (posArgs[2]) {
         endP = baseSuper.loadRLE(posArgs[2]);
         if (startP.height < endP.height || startP.width < endP.width) {
             error(`Start and end must have the same bounding box`);
         }
     }
+    let gen1P = base.copy();
+    gen1P.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
+    gen1P.runGeneration();
 
     grid = new Grid(startP.height, startP.width, gens);
 
@@ -724,9 +730,11 @@ if (mode === 'periodic') {
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
             let start = startP.get(x, y);
+            let gen1 = gen1P.get(x, y);
             let end = endP?.get(x, y);
-            if (start === 1) {
-                grid.set(0, x, y, 1);
+            if (start === 0 || start === 1) {
+                grid.set(0, x, y, start);
+                grid.set(1, x, y, gen1);
             } else if (start === 2) {
                 let variable = grid.getVar();
                 grid.set(0, x, y, variable);
@@ -734,6 +742,7 @@ if (mode === 'periodic') {
                 grid.set(gens - 1, x, y, variable);
             } else if (start === 3) {
                 grid.set(0, x, y, 1);
+                grid.set(1, x, y, gen1);
                 grid.set(gens - 1, x, y, 1);
             } else if (start === 4) {
                 for (let t = 0; t < gens; t++) {
@@ -747,6 +756,20 @@ if (mode === 'periodic') {
             if (end === 1) {
                 grid.set(gens - 1, x, y, 1);
             }
+        }
+    }
+
+    if (!endP) {
+        let toSet: [number, number][] = [];
+        for (let y = 0; y < grid.height; y++) {
+            for (let x = 0; x < grid.width; x++) {
+                if (!(grid.get(gens - 1, x - 1, y - 1) || grid.get(gens - 1, x - 1, y) || grid.get(gens - 1, x - 1, y + 1) || grid.get(gens - 1, x, y - 1) || grid.get(gens - 1, x, y) || grid.get(gens - 1, x, y + 1) || grid.get(gens - 1, x + 1, y - 1) || grid.get(gens - 1, x + 1, y) || grid.get(gens - 1, x + 1, y + 1))) {
+                    toSet.push([x, y]);
+                }
+            }
+        }
+        for (let [x, y] of toSet) {
+            grid.set(gens - 1, x, y, UNKNOWN);
         }
     }
 
@@ -1121,6 +1144,7 @@ for (let line of code.split('\n')) {
         let file = options['lls'];
         if (file === undefined) {
             comment = true;
+            value = '"path/to/lls"';
         } else {
             if ((await fs.stat(file)).isDirectory()) {
                 for (let filename of await fs.readdir(file)) {
@@ -1140,8 +1164,8 @@ for (let line of code.split('\n')) {
                     break;
                 }
             }
+            value = JSON.stringify(file);
         }
-        value = options['lls'] ? 'true' : 'false';
     } else if (name === 'MAX_SOLUTIONS') {
         if (options['max-solutions'] === undefined) {
             comment = true;

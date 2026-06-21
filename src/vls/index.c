@@ -1750,7 +1750,11 @@ int main(void) {
         fprintf(input_file, "\n");
     }
     fclose(input_file);
+    #if CHECK_EMPTY
+    return system(LLS" -c -r '"RULE"' .lls_input_file.csv");
+    #else
     return system(LLS" -r '"RULE"' .lls_input_file.csv");
+    #endif
     #endif
     #endif
     // long value = strtol(
