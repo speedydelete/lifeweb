@@ -16,7 +16,9 @@ static uint64_t solutions_found;
 
 static uint64_t branches;
 
+
 #if FILTER_DUPLICATES
+
 
 typedef struct bb_t {
     int height;
@@ -104,11 +106,13 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     #undef get
 }
 
+
 typedef uint64_t hash_t;
 
 static inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
 }
+
 
 typedef enum axis_trans_t {
     POS_X,
@@ -139,6 +143,7 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
     *x_out += bb->x_offset;
     *y_out += bb->y_offset;
 }
+
 
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
@@ -275,6 +280,7 @@ static inline hash_t hash_state() {
 
 #endif
 
+
 static hash_t known_solutions[1048576];
 
 static inline void init_known_solutions(void) {
@@ -284,6 +290,7 @@ static inline void init_known_solutions(void) {
 }
 
 #endif
+
 
 static inline void print_progress(FILE* stream, int depth);
 
@@ -382,4 +389,3 @@ static inline void print_solution(bool preprocessing, int depth) {
     }
     #endif
 }
-
