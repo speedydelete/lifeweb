@@ -26,8 +26,9 @@ Modes:
     file <path>
         take in a LLS input file and try to find solutions
 
-    catalyst <start> <gens> [end]
+    catalyst <start> <gens>
         find a stable catalyst that completes the given partial
+        and recovers in or less than the given generations value
         or if end is provided, find one that creates end
         start and end are LifeHistory RLEs
         for the start:
@@ -38,10 +39,6 @@ Modes:
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
             state 6 (gray) - unused
-        for the end:
-            state 3 (white) - must be on
-            state 4 (red) - must be off
-            all other states - can be anything
         if end is not provided it will report all solutions
         that lead to the state 3 and 5 cells being restored
         the catalyst can only start interacting at generation 2
@@ -80,6 +77,13 @@ Options:
         set generation n to the given RLE (variadic)
         if no generation given, sets generation 0
         (and if periodic mode, also set the last generation with translation)
+
+    -f, --filter [<gen>=<rle>...]:
+        filter generation n by the given RLE (variadic)
+        input is a LifeHistory RLE:
+            state 3 (white) - must be on
+            state 4 (red) - must be off
+            all other states - can be anything
 
     -r, --restrict [[<gen>=]<rle>...]:
         restricts generation n to the given RLE mask (variadic)
@@ -127,6 +131,7 @@ const OPTIONS = {
     'initial-value': 'number',
     'max-solutions': 'number',
     'pattern': [true, 'string'],
+    'filter': [true, 'string'],
     'restrict': [true, 'string'],
     'top': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
@@ -152,6 +157,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'i': 'initial-value',
     'n': 'max-solutions',
     'p': 'pattern',
+    'f': 'filter',
     'r': 'restrict',
     's': 'symmetry',
 };
@@ -295,6 +301,7 @@ let base = createPattern(rule);
 if (!(base instanceof MAPPattern)) {
     error(`Rule must be a non-B0 INT rule`);
 }
+let superBase = createPattern(rule + 'Super') as SuperPattern;
 let mode = posArgs[1];
 posArgs = posArgs.slice(2);
 let multiRule = false;
@@ -709,18 +716,10 @@ if (mode === 'periodic') {
 
 } else if (mode === 'catalyst') {
 
-    let baseSuper = createPattern(rule + 'Super') as SuperPattern;
-    let startP = baseSuper.loadRLE(posArgs[0]);
+    let startP = superBase.loadRLE(posArgs[0]);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
         error(`Invalid generations value: '${posArgs[1]}'`);
-    }
-    let endP: SuperPattern | undefined;
-    if (posArgs[2]) {
-        endP = baseSuper.loadRLE(posArgs[2]);
-        if (startP.height < endP.height || startP.width < endP.width) {
-            error(`Start and end must have the same bounding box`);
-        }
     }
     let gen1P = base.copy();
     gen1P.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
@@ -736,7 +735,6 @@ if (mode === 'periodic') {
         for (let x = 0; x < grid.width; x++) {
             let start = startP.get(x, y);
             let gen1 = gen1P.get(x, y);
-            let end = endP?.get(x, y);
             if (start === 0 || start === 1) {
                 grid.set(0, x, y, start);
                 grid.set(1, x, y, gen1);
@@ -758,26 +756,19 @@ if (mode === 'periodic') {
                     grid.set(t, x, y, 1);
                 }
             }
-            if (end === 3) {
-                grid.set(gens - 1, x, y, 1);
-            } else if (end === 4) {
-                grid.set(gens - 1, x, y, 0);
-            }
         }
     }
 
-    if (!endP) {
-        let toSet: [number, number][] = [];
-        for (let y = 0; y < grid.height; y++) {
-            for (let x = 0; x < grid.width; x++) {
-                if (!(grid.get(gens - 1, x - 1, y - 1) || grid.get(gens - 1, x - 1, y) || grid.get(gens - 1, x - 1, y + 1) || grid.get(gens - 1, x, y - 1) || grid.get(gens - 1, x, y) || grid.get(gens - 1, x, y + 1) || grid.get(gens - 1, x + 1, y - 1) || grid.get(gens - 1, x + 1, y) || grid.get(gens - 1, x + 1, y + 1))) {
-                    toSet.push([x, y]);
-                }
+    let toSet: [number, number][] = [];
+    for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+            if (!(grid.get(gens - 1, x - 1, y - 1) || grid.get(gens - 1, x - 1, y) || grid.get(gens - 1, x - 1, y + 1) || grid.get(gens - 1, x, y - 1) || grid.get(gens - 1, x, y) || grid.get(gens - 1, x, y + 1) || grid.get(gens - 1, x + 1, y - 1) || grid.get(gens - 1, x + 1, y) || grid.get(gens - 1, x + 1, y + 1))) {
+                toSet.push([x, y]);
             }
         }
-        for (let [x, y] of toSet) {
-            grid.set(gens - 1, x, y, UNKNOWN);
-        }
+    }
+    for (let [x, y] of toSet) {
+        grid.set(gens - 1, x, y, UNKNOWN);
     }
 
 } else {
@@ -956,6 +947,27 @@ if (options['pattern']) {
             value = value[1];
         }
         grid.setFrom(gen, value, 0, 0);
+    }
+}
+
+if (options['filter']) {
+    for (let value of options['filter']) {
+        let parts = value.split('=');
+        let gen = Number(parts[0]);
+        if (parts.length !== 2 || Number.isNaN(gen)) {
+            error(`Invalid value for restrict option: '${value}'`);
+        }
+        let p = superBase.loadRLE(value[1]);
+        for (let y = 0; y < p.height; y++) {
+            for (let x = 0; x < p.width; x++) {
+                let value = p.get(x, y);
+                if (value === 3) {
+                    grid.set(gen, x, y, 1);
+                } else if (value === 4) {
+                    grid.set(gen, x, y, 0);
+                }
+            }
+        }
     }
 }
 
