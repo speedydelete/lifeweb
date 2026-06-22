@@ -147,16 +147,16 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 #define TRACK_PHASE_POPS false
 
 // don't change this
-cell_t grid[GENS][HEIGHT][WIDTH];
-index_t set_cells;
+static cell_t grid[GENS][HEIGHT][WIDTH];
+static index_t set_cells;
 #ifdef MAXPOP
 #if !TRACK_PHASE_POPS
 #define SPECIAL_PHASE_0_POP
-index_t phase_0_pop;
+static index_t phase_0_pop;
 #endif
 #endif
 #if TRACK_PHASE_POPS
-index_t phase_pops[GENS];
+static index_t phase_pops[GENS];
 #endif
 typedef cell_t grid_item_t[WIDTH];
 
@@ -488,7 +488,7 @@ static inline void init_state(void) {
 
 }
 
-bool next_stack_entry_is_first_in_frame = true;
+static bool next_stack_entry_is_first_in_frame = true;
 
 typedef struct stack_entry {
     bool is_first_in_frame;
@@ -526,6 +526,7 @@ static inline void pop_frame(void) {
         #endif
         ((cell_t*)grid)[stack[sp - 1].index] = ((cell_t*)initial_grid)[stack[sp - 1].index];
         set_cells--;
+
         sp--;
         if (stack[sp].is_first_in_frame) {
             break;
@@ -1158,7 +1159,7 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 #if MULTI_RULE
 
-bb_t zero_bb = {0, 0, 0, 0};
+static bb_t zero_bb = {0, 0, 0, 0};
 
 static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
@@ -1398,7 +1399,7 @@ static inline void print_solution(bool preprocessing, int depth) {
 
 
 
-bool use_in_progress[TOTAL_MAX_DEPTH];
+static bool use_in_progress[TOTAL_MAX_DEPTH];
 
 static inline void init_use_in_progress(void) {
     for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
@@ -1660,7 +1661,7 @@ static void run_depth(int depth
 }
 
 
-void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t cases_size) {
+static inline void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t cases_size) {
     if (old == new) {
         return;
     }
@@ -1689,7 +1690,7 @@ void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t cases_size) {
 }
 
 // searches for and removes trivial cells
-void preprocess(void) {
+static inline void preprocess(void) {
     // run implications
     DPRINTF3("Running implications\n");
     DPRINTGRID3();

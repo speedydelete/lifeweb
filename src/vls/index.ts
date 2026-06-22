@@ -193,7 +193,7 @@ export async function transformCode(argv: string[], code: string): Promise<[Opti
 
 
 let posArgs: string[] = [];
-let options: OptionData = {}
+let options: OptionData = {};
 
 function getOption(originalArg: string, value: OptionValue, i: number): [OptionData[Option], number] {
     if (value === true) {
@@ -1240,18 +1240,20 @@ return [options, out.join('\n')];
 
 export async function main() {
     let path = await import('node:path');
+    function getPath(file: string): string {
+        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+    }
     let fs = await import('node:fs/promises');
     let execSync = (await import('node:child_process')).execSync;
-    let sourcePath = path.relative(process.cwd(), `${import.meta.dirname}/../../src/vls/to_compile.c`);
-    let execPath = path.relative(process.cwd(), `${import.meta.dirname}/../../vls_compiled`);
+    let execPath = getPath('vls_compiled');
     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
         execPath = './' + execPath;
     }
-    let source = (await fs.readFile(`${import.meta.dirname}/../../src/vls/index.c`)).toString();
+    let source = (await fs.readFile(getPath('src/vls/params.h'))).toString();
     let [options, code] = await transformCode(process.argv, source);
-    await fs.writeFile(sourcePath, code);
+    await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${sourcePath}'`;
+        let command = `gcc --std=c2x -Wall -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         console.log(command);
         execSync(command, {stdio: 'inherit'});
         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});

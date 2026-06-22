@@ -18,6 +18,6 @@
 /lifeweb.js.map
 /editor
 /identify
-/src/vls/to_compile.c
+/src/vls/params2.h
 /vls_compiled
 *.tsbuildinfo
