@@ -616,28 +616,28 @@ if (mode === 'periodic') {
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
     }
 
-    // grid = new Grid(height, width, period + 1);
-    // for (let y = 0; y < height - dy; y++) {
-    //     for (let x = 0; x < width - dx; x++) {
-    //         let value = grid.getVar();
-    //         grid.set(0, x, y, value);
-    //         grid.set(period, x + dx, y + dy, value);
-    //     }
-    // }
-    // for (let t = 1; t < period; t++) {
-    //     grid.fill(t, UNKNOWN);
-    // }
-
-    grid = new Grid(height, width, period);
+    grid = new Grid(height, width, period + 1);
     for (let y = 0; y < height - dy; y++) {
         for (let x = 0; x < width - dx; x++) {
-            grid.set(0, x, y, UNKNOWN);
+            let value = grid.getVar();
+            grid.set(0, x, y, value);
+            grid.set(period, x + dx, y + dy, value);
         }
     }
-    for (let t = 1; t < grid.gens; t++) {
+    for (let t = 1; t < period; t++) {
         grid.fill(t, UNKNOWN);
     }
-    timeWrap = [dx, dy];
+
+    // grid = new Grid(height, width, period);
+    // for (let y = 0; y < height - dy; y++) {
+    //     for (let x = 0; x < width - dx; x++) {
+    //         grid.set(0, x, y, UNKNOWN);
+    //     }
+    // }
+    // for (let t = 1; t < grid.gens; t++) {
+    //     grid.fill(t, UNKNOWN);
+    // }
+    // timeWrap = [dx, dy];
 
     if (options['pattern']) {
         for (let value of options['pattern']) {
