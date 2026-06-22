@@ -169,9 +169,15 @@ int rule_dependent_tr = -1;
 // check if the unknown cell can be set, and if so, set it, propagating checks
 // returns false if contradiction (or rule-dependent), true if no contradiction
 static inline bool check_forward_implication(cell* cell) {
+    #if TIME_WRAP
+    if (cell == NULL) {
+        return true;
+    }
+    #else
     if (cell == NULL || cell->next == NULL) {
         return true;
     }
+    #endif
     uint32_t tr = 
           ((cell->nw->value & 3) << 16)
         | ((cell->w->value & 3) << 14)
@@ -223,6 +229,15 @@ static inline bool check_forward_implication(cell* cell) {
 
 // returns false if contradiction, true if no contradiction
 static inline bool check_backward_implication(cell* cell) {
+    #if TIME_WRAP
+    if (cell == NULL
+        || cell->x <= (LEFT == NONE ? 1 : 0)
+        || cell->x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
+        || cell->y <= (TOP == NONE ? 1 : 0)
+        || cell->y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
+        return true;
+    }
+    #else
     if (cell == NULL || cell->next == NULL
         || cell->x <= (LEFT == NONE ? 1 : 0)
         || cell->x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
@@ -230,6 +245,7 @@ static inline bool check_backward_implication(cell* cell) {
         || cell->y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
         return true;
     }
+    #endif
     uint32_t tr = 
           ((cell->nw->value & 3) << 18)
         | ((cell->w->value & 3) << 16)
@@ -270,6 +286,8 @@ static inline bool check_backward_implication(cell* cell) {
         check(cell->n, (value >> 10) & 3);
     }
     if (((value >> 12) & 3) != 2) {
+        // printf("cell->sw: t = %i, x = %i, y = %i, value = %i\n", cell->sw->t, cell->sw->x, cell->sw->y, cell->sw->value);
+        // printf("cell->sw->next: t = %i, x = %i, y = %i, value = %i\n", cell->sw->next->t, cell->sw->next->x, cell->sw->next->y, cell->sw->next->value);
         check(cell->sw, (value >> 12) & 3);
     }
     if (((value >> 14) & 3) != 2) {
@@ -319,6 +337,11 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     DPRINTF3("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     DPRINTGRID4();
     if (IS_KNOWN(cell->value)) {
+        #if DEBUG >= 4
+        if (cell->value != value) {
+            DPRINTF4("Contradiction (previous value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
+        }
+        #endif
         return cell->value == value;
     } else if (cell->value < 4) {
         if (!set_cell(cell, value)) {

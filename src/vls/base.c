@@ -309,10 +309,33 @@ static inline void init_state(void) {
                 cell->x = x;
                 cell->y = y;
                 cell->t = t;
-                cell->index = index;
+                cell->index = index++;
                 cell->value = initial_grid[t][y][x];
+                #if TIME_WRAP
+                if (t == 0) {
+                    if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
+                        cell->value = 0;
+                        cell->prev = &grid[0][0][0];
+                    } else {
+                        cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
+                    }
+                } else {
+                    cell->prev = &grid[t - 1][y][x];
+                }
+                if (t == GENS - 1) {
+                    if (y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT || x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH) {
+                        cell->value = 0;
+                        cell->next = &grid[0][0][0];
+                    } else {
+                        cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
+                    }
+                } else {
+                    cell->next = &grid[t + 1][y][x];
+                }
+                #else
                 cell->prev = t == 0 ? NULL : &grid[t - 1][y][x];
                 cell->next = t == GENS - 1 ? NULL : &grid[t + 1][y][x];
+                #endif
                 cell->nw = x == 0 || y == 0 ? NULL : &grid[t][y - 1][x - 1];
                 cell->n = y == 0 ? NULL : &grid[t][y - 1][x];
                 cell->ne = x == WIDTH - 1 || y == 0 ? NULL : &grid[t][y - 1][x + 1];
@@ -321,7 +344,6 @@ static inline void init_state(void) {
                 cell->sw = x == 0 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x - 1];
                 cell->s = y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x];
                 cell->se = x == WIDTH - 1 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x + 1];
-                index++;
             }
         }
     }

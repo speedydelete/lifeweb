@@ -559,6 +559,8 @@ let grid: Grid;
 let defaultSearchOrder = 't, y, x';
 let searchOrderAliases: {[key: string]: string} = {};
 
+let timeWrap: false | [number, number] = false;
+
 if (mode === 'periodic') {
 
     if (posArgs.length !== 3) {
@@ -573,6 +575,7 @@ if (mode === 'periodic') {
     if (Number.isNaN(width)) {
         error(`Invalid width: '${posArgs[2]}'`);
     }
+
     if (dx !== 0 || dy !== 0) {
         defaultSearchOrder = 'f2b';
         let mainAxis: string;
@@ -612,17 +615,30 @@ if (mode === 'periodic') {
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
     }
-    grid = new Grid(height, width, period + 1);
+
+    // grid = new Grid(height, width, period + 1);
+    // for (let y = 0; y < height - dy; y++) {
+    //     for (let x = 0; x < width - dx; x++) {
+    //         let value = grid.getVar();
+    //         grid.set(0, x, y, value);
+    //         grid.set(period, x + dx, y + dy, value);
+    //     }
+    // }
+    // for (let t = 1; t < period; t++) {
+    //     grid.fill(t, UNKNOWN);
+    // }
+
+    grid = new Grid(height, width, period);
     for (let y = 0; y < height - dy; y++) {
         for (let x = 0; x < width - dx; x++) {
-            let value = grid.getVar();
-            grid.set(0, x, y, value);
-            grid.set(period, x + dx, y + dy, value);
+            grid.set(0, x, y, UNKNOWN);
         }
     }
-    for (let t = 1; t < period; t++) {
+    for (let t = 1; t < grid.gens; t++) {
         grid.fill(t, UNKNOWN);
     }
+    timeWrap = [dx, dy];
+
     if (options['pattern']) {
         for (let value of options['pattern']) {
             if (!value.includes('=')) {
@@ -1141,6 +1157,12 @@ for (let line of code.split('\n')) {
             }
             value += count;
         }
+    } else if (name === 'TIME_WRAP') {
+        value = timeWrap ? 'true' : 'false';
+    } else if (name === 'TIME_WRAP_DX') {
+        value = timeWrap ? timeWrap[0] : 67;
+    } else if (name === 'TIME_WRAP_DY') {
+        value = timeWrap ? timeWrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
         value = String(multiRule);
     } else if (name === 'RULE') {
