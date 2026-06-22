@@ -1,6 +1,7 @@
 
 import * as fs from 'node:fs/promises';
 import {existsSync as exists} from 'node:fs';
+
 import {numericSorter, MAPPattern, toCatagolueRule, createPattern} from '../core/index.js';
 import * as c from './config.js';
 import {ShipDirection} from './config.js';

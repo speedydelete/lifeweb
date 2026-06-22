@@ -1,7 +1,8 @@
 
 import * as fs from 'node:fs/promises';
+
 import {MAPPattern, parse} from '../core/index.js';
-import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes, printMemory} from './base.js';
+import {c, setMaxGenerations, INFO_ALIASES, parseSlowSalvo, salvoToString, parseChannelRecipe, channelRecipeToString, parseElbow, addRecipeFile, loadRecipes, saveRecipes} from './base.js';
 import {createSalvoPattern, patternToSalvo, searchSalvos} from './slow_salvos.js';
 import {createChannelPattern, searchChannel} from './channel.js';
 import {sortRecipes, salvoToChannel} from './compiler.js';

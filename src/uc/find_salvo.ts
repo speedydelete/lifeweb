@@ -1,6 +1,6 @@
 
 import {Pattern} from '../core/index.js';
-import {base, StableObject, Oscillator, xyCompare} from './base.js';
+import {base, StableObject, Oscillator} from './base.js';
 
 
 interface Search {

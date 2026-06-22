@@ -2,7 +2,7 @@
 /* The main file, exporting everything and also implementing many utility functions. */
 
 import {LifewebError, RuleError, lcm} from './util.js';
-import {SYMMETRY_MEET, Rule, Pattern, DataPattern, RuleSymmetry} from './pattern.js';
+import {SYMMETRY_MEET, Rule, Pattern, RuleSymmetry} from './pattern.js';
 import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {HistoryPattern, SuperPattern, InvestigatorPattern} from './super.js';

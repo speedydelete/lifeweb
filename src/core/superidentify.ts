@@ -4,7 +4,7 @@ import {PhaseData} from './minmax.js';
 import {Separator} from './separate.js';
 
 
-/** Base type for all tyypes. */
+/** Base type for all types. */
 export interface BaseObjectType<T extends Pattern = Pattern> {
     /** Which category the object belongs to. */
     type: string;

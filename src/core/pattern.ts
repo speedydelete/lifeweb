@@ -1,7 +1,7 @@
 
 /* Contains abstract base classes for patterns. */
 
-import type {InspectOptions, inspect} from 'node:util';
+import type {InspectOptions} from 'node:util';
 
 
 /** A symmetry for a rule. */

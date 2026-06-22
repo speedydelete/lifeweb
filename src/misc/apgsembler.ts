@@ -1,5 +1,6 @@
 
 import * as fs from 'node:fs/promises';
+
 import {Pattern, createPattern, parse} from '../core/index.js';
 import {inspect} from 'node:util';
 
