@@ -130,6 +130,8 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 
 // number of solutions to report
 // #define MAX_SOLUTIONS 67
+// whether to show solutions at all
+#define SHOW_SOLUTIONS true
 
 // maximum population
 // #define MAXPOP 67
@@ -1343,6 +1345,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     }
     #endif
     solutions_found++;
+    #if SHOW_SOLUTIONS
     #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
@@ -1381,9 +1384,10 @@ static inline void print_solution(bool preprocessing, int depth) {
         }
     }
     #endif
+    #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found > MAX_SOLUTIONS) {
-        printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+        printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches (exited early, max solution count reached)\n", solutions_found, get_time() - start, branches);
         exit(0);
     }
     #endif
@@ -1882,11 +1886,19 @@ int main(void) {
         fprintf(input_file, "\n");
     }
     fclose(input_file);
-    #if CHECK_EMPTY
-    return system(LLS" -c -r '"RULE"' .lls_input_file.csv");
-    #else
-    return system(LLS" -r '"RULE"' .lls_input_file.csv");
-    #endif
+    return system(
+        LLS
+        " .lls_input_file.csv"
+        #if CHECK_EMPTY
+        " -c"
+        #endif
+        " -r '"RULE"'"
+        #ifdef MAX_SOLUTIONS
+        " -n '"MAX_SOLUTIONS"'"
+        #else
+        " -n"
+        #endif
+    );
     #endif
     #endif
     // long value = strtol(

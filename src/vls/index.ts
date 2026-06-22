@@ -72,6 +72,7 @@ Options:
         set the initial value of unknown cells, default 0
 
     -n, --max-solutions: set the maximum solution count, default infinity
+    --no-show-solutions: Disable showing solutions at all.
 
     -p, --pattern [[<gen>=]<rle>...]:
         set generation n to the given RLE (variadic)
@@ -130,6 +131,7 @@ const OPTIONS = {
     'search-order': 'string',
     'initial-value': 'number',
     'max-solutions': 'number',
+    'no-show-solutions': true,
     'pattern': [true, 'string'],
     'filter': [true, 'string'],
     'restrict': [true, 'string'],
@@ -725,7 +727,7 @@ if (mode === 'periodic') {
     gen1P.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
     gen1P.runGeneration();
 
-    grid = new Grid(startP.height, startP.width, gens);
+    grid = new Grid(startP.height, startP.width, gens + 1);
 
     for (let t = 2; t < grid.gens - 1; t++) {
         grid.fill(t, UNKNOWN);
@@ -742,11 +744,11 @@ if (mode === 'periodic') {
                 let variable = grid.getVar();
                 grid.set(0, x, y, variable);
                 grid.set(1, x, y, variable);
-                grid.set(gens - 1, x, y, variable);
+                grid.set(gens, x, y, variable);
             } else if (start === 3) {
                 grid.set(0, x, y, 1);
                 grid.set(1, x, y, gen1);
-                grid.set(gens - 1, x, y, 1);
+                grid.set(gens, x, y, 1);
             } else if (start === 4) {
                 for (let t = 0; t < gens; t++) {
                     grid.set(t, x, y, 0);
@@ -762,13 +764,13 @@ if (mode === 'periodic') {
     let toSet: [number, number][] = [];
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            if (!(grid.get(gens - 1, x - 1, y - 1) || grid.get(gens - 1, x - 1, y) || grid.get(gens - 1, x - 1, y + 1) || grid.get(gens - 1, x, y - 1) || grid.get(gens - 1, x, y) || grid.get(gens - 1, x, y + 1) || grid.get(gens - 1, x + 1, y - 1) || grid.get(gens - 1, x + 1, y) || grid.get(gens - 1, x + 1, y + 1))) {
+            if (!(grid.get(gens, x - 1, y - 1) || grid.get(gens, x - 1, y) || grid.get(gens, x - 1, y + 1) || grid.get(gens, x, y - 1) || grid.get(gens, x, y) || grid.get(gens, x, y + 1) || grid.get(gens, x + 1, y - 1) || grid.get(gens, x + 1, y) || grid.get(gens, x + 1, y + 1))) {
                 toSet.push([x, y]);
             }
         }
     }
     for (let [x, y] of toSet) {
-        grid.set(gens - 1, x, y, UNKNOWN);
+        grid.set(gens, x, y, UNKNOWN);
     }
 
 } else {
@@ -957,7 +959,10 @@ if (options['filter']) {
         if (parts.length !== 2 || Number.isNaN(gen)) {
             error(`Invalid value for restrict option: '${value}'`);
         }
-        let p = superBase.loadRLE(value[1]);
+        if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
+            error(`Invalid generation for filtering: '${gen}'`);
+        }
+        let p = superBase.loadRLE(parts[1]);
         for (let y = 0; y < p.height; y++) {
             for (let x = 0; x < p.width; x++) {
                 let value = p.get(x, y);
@@ -979,6 +984,9 @@ if (options['restrict']) {
             gen = Number(parts[0]);
             if (parts.length !== 2 || Number.isNaN(gen)) {
                 error(`Invalid value for restrict option: '${value}'`);
+            }
+            if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
+                error(`Invalid generation for restricting: '${gen}'`);
             }
             value = value[1];
         }
@@ -1190,6 +1198,8 @@ for (let line of code.split('\n')) {
         } else {
             value = options['max-solutions'];
         }
+    } else if (name === 'SHOW_SOLUTIONS') {
+        value = options['no-show-solutions'] ? 'false' : 'true';
     } else if (name === 'MAXPOP') {
         if (options['maxpop'] === undefined) {
             comment = true;
