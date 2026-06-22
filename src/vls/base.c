@@ -34,7 +34,7 @@
 #define INT_NUMBER_COUNT 9
 #define MAX_LETTERS_PER_INT_NUM 13
 
-static const int int_transitions[INT_TRANSITION_COUNT][MAX_MAP_TRS_PER_INT_TR + 1] = {
+static const uint16_t int_transitions[INT_TRANSITION_COUNT][MAX_MAP_TRS_PER_INT_TR + 1] = {
     {0, -1, -1, -1, -1, -1, -1, -1, -1},
     {4, 256, 1, 64, -1, -1, -1, -1, -1},
     {2, 128, 8, 32, -1, -1, -1, -1, -1},
@@ -237,7 +237,7 @@ int current_depth = 0;
 #define DFPRINTLINEPADDING(stream)
 #endif
 
-index_t unknown_cells = TOTAL_UNKNOWN_CELLS;
+int unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
 
@@ -352,7 +352,7 @@ static inline void init_state(void) {
     phase_0_pop = 0;
     #endif
     #if TRACK_PHASE_POPS
-    for (int i = 0; i < GENS; i++) {
+    for (index_t i = 0; i < GENS; i++) {
         phase_pops[i] = 0;
     }
     #endif
@@ -528,17 +528,17 @@ static inline void print_grid(FILE* stream) {
     #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
-        rule[i] = 0;
+        rule[i] = '\0';
     }
     get_rule(rule);
     fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, set_cells);
     #else
     fprintf(stream, "Grid (set_cells = %i):\n", set_cells);
     #endif
-    for (int t = 0; t < GENS; t++) {
-        for (int y = 0; y < HEIGHT; y++) {
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
             DFPRINTLINEPADDING(stream);
-            for (int x = 0; x < WIDTH; x++) {
+            for (index_t x = 0; x < WIDTH; x++) {
                 print_cell(stream, grid[t][y][x].value);
             }
             real_fprintf(stream, "$\n");
@@ -557,15 +557,15 @@ cell* var_uses[VAR_COUNT][MAX_VAR_USES];
 index_t num_var_uses[VAR_COUNT];
 
 static inline void init_var_uses(void) {
-    for (int i = 0; i < VAR_COUNT;i ++) {
+    for (index_t i = 0; i < VAR_COUNT; i++) {
         num_var_uses[i] = 0;
-        for (int j = 0; j < MAX_VAR_USES; j++) {
+        for (index_t j = 0; j < MAX_VAR_USES; j++) {
             var_uses[i][j] = NULL;
         }
     }
-    for (int t = 0; t < GENS; t++) {
-        for (int y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
-            for (int x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
+            for (index_t x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
                 cell* cell = &grid[t][y][x];
                 if (IS_VAR(cell->value)) {
                     index_t var = CELL_VAR_TO_VAR(cell->value);

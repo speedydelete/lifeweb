@@ -19,10 +19,10 @@ uint64_t branches;
 
 
 typedef struct bb_t {
-    int height;
-    int width;
-    int x_offset;
-    int y_offset;
+    index_t height;
+    index_t width;
+    index_t x_offset;
+    index_t y_offset;
 } bb_t;
 
 static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
@@ -32,10 +32,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->y_offset = 2;
     #define get(x, y) (grid[(y) + bb->y_offset][(x) + bb->x_offset].value)
     // top
-    int shrink_top = 0;
-    for (int y = 0; y < bb->height; y++) {
+    index_t shrink_top = 0;
+    for (index_t y = 0; y < bb->height; y++) {
         bool found = false;
-        for (int x = 0; x < bb->width; x++) {
+        for (index_t x = 0; x < bb->width; x++) {
             if (get(x, y) != 0) {
                 found = true;
                 break;
@@ -50,10 +50,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->height -= shrink_top;
     bb->y_offset += shrink_top;
     // bottom
-    int shrink_bottom = 0;
+    index_t shrink_bottom = 0;
     for (int y = bb->height - 1; y >= 0; y--) {
         bool found = false;
-        for (int x = 0; x < bb->width; x++) {
+        for (index_t x = 0; x < bb->width; x++) {
             if (get(x, y) != 0) {
                 found = true;
                 break;
@@ -67,10 +67,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     }
     bb->height -= shrink_bottom;
     // left
-    int shrink_left = 0;
-    for (int x = 0; x < bb->width; x++) {
+    index_t shrink_left = 0;
+    for (index_t x = 0; x < bb->width; x++) {
         bool found = false;
-        for (int y = 0; y < bb->height; y++) {
+        for (index_t y = 0; y < bb->height; y++) {
             if (get(x, y) != 0) {
                 found = true;
                 break;
@@ -85,10 +85,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->width -= shrink_left;
     bb->x_offset += shrink_left;
     // right
-    int shrink_right = 0;
+    index_t shrink_right = 0;
     for (int x = bb->width - 1; x >= 0; x--) {
         bool found = false;
-        for (int y = 0; y < bb->height; y++) {
+        for (index_t y = 0; y < bb->height; y++) {
             if (get(x, y) != 0) {
                 found = true;
                 break;
@@ -119,7 +119,7 @@ typedef enum axis_trans_t {
     NEG_Y,
 } axis_trans_t;
 
-static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans, axis_trans_t y_trans, int* x_out, int* y_out) {
+static inline void transform_coords(bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
     if (x_trans == POS_X) {
         *x_out = x;
     } else if (x_trans == POS_Y) {
@@ -150,23 +150,23 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 static const bb_t zero_bb = {0, 0, 0, 0};
 
-static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
     bb_t bb;
     get_true_bb(&bb, grid[GENS - offset]);
-    int x_offset_0 = bb.x_offset;
-    int y_offset_0 = bb.y_offset;
-    for (int fake_t = 0; fake_t < GENS; fake_t++) {
-        int t = (fake_t + offset) % GENS;
+    index_t x_offset_0 = bb.x_offset;
+    index_t y_offset_0 = bb.y_offset;
+    for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
+        index_t t = (fake_t + offset) % GENS;
         get_true_bb(&bb, grid[t]);
         // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
-        int height = bb.height;
-        int width = bb.width;
-        int x_offset = bb.x_offset;
-        int y_offset = bb.y_offset;
+        index_t height = bb.height;
+        index_t width = bb.width;
+        index_t x_offset = bb.x_offset;
+        index_t y_offset = bb.y_offset;
         if (transpose) {
-            int temp = height;
+            index_t temp = height;
             height = width;
             width = temp;
             temp = x_offset;
@@ -177,19 +177,19 @@ static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_tra
         out *= HASH_PRIME;
         out ^= width;
         out *= HASH_PRIME;
-        int dx = x_offset - x_offset_0;
-        int dy = y_offset - y_offset_0;
-        int dx2 = 0;
-        int dy2 = 0;
+        index_t dx = x_offset - x_offset_0;
+        index_t dy = y_offset - y_offset_0;
+        index_t dx2 = 0;
+        index_t dy2 = 0;
         transform_coords(&zero_bb, dx, dy, x_trans, y_trans, &dx2, &dy2);
         out ^= dx2;
         out *= HASH_PRIME;
         out ^= dy2;
         out *= HASH_PRIME;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int real_x = 0;
-                int real_y = 0;
+        for (index_t y = 0; y < height; y++) {
+            for (index_t x = 0; x < width; x++) {
+                index_t real_x = 0;
+                index_t real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
                 out ^= grid[t][real_y][real_x];
                 out *= HASH_PRIME;
@@ -204,7 +204,7 @@ static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
     #if FILTER_EVERY_PHASE
-    for (int offset = 1; offset < GENS; offset++) {
+    for (index_t offset = 1; offset < GENS; offset++) {
         // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
@@ -228,10 +228,10 @@ static inline hash_t hash_state() {
 
 static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
-    int height = bb->height;
-    int width = bb->width;
+    index_t height = bb->height;
+    index_t width = bb->width;
     if (transpose) {
-        int temp = height;
+        index_t temp = height;
         height = width;
         width = temp;
     }
@@ -240,10 +240,10 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
     out *= HASH_PRIME;
     out ^= bb->width;
     out *= HASH_PRIME;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int real_x = 0;
-            int real_y = 0;
+    for (index_t y = 0; y < height; y++) {
+        for (index_t x = 0; x < width; x++) {
+            index_t real_x = 0;
+            index_t real_y = 0;
             transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
             out ^= grid[real_y][real_x].value;
             out *= HASH_PRIME;
@@ -269,7 +269,7 @@ static inline hash_t octohash(grid_item_t* grid) {
 static inline hash_t hash_state() {
     hash_t out = octohash(grid[0]);
     #if FILTER_EVERY_PHASE
-    for (int i = 1; i < GENS; i++) {
+    for (index_t i = 1; i < GENS; i++) {
         out = min_hash(out, octohash(grid[i]));
     }
     #endif
@@ -297,8 +297,8 @@ static inline void print_solution(bool preprocessing, int depth) {
     DPRINTGRID2();
     #if CHECK_EMPTY
     bool found = false;
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
+    for (index_t y = 0; y < HEIGHT; y++) {
+        for (index_t x = 0; x < WIDTH; x++) {
             if (grid[0][y][x].value != 0) {
                 found = true;
                 break;
@@ -355,10 +355,10 @@ static inline void print_solution(bool preprocessing, int depth) {
         printf("Solution found:\n");
         printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     }
-    int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
-    for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+    index_t last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
+    for (index_t y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
         DPRINTLINEPADDING();
-        for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
+        for (index_t x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
             cell_value_t value = grid[0][y][x].value;
             if (value > 1) {
                 fprintf(stderr, "\n");

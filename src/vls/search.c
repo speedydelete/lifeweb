@@ -17,7 +17,7 @@
 // cd ef gh
 cell_value_t big_trs_forward[262144];
 
-static cell_value_t get_forward_big_tr(int prev, int tr, int depth) {
+static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
@@ -29,13 +29,13 @@ static cell_value_t get_forward_big_tr(int prev, int tr, int depth) {
         if (IS_KNOWN(state)) {
             return trs[next | state];
         } else {
-            int a = trs[next | 0];
+            cell_value_t a = trs[next | 0];
             // #if MULTI_RULE
             // if (a == 3) {
             //     return 3;
             // }
             // #endif
-            int b = trs[next | 1];
+            cell_value_t b = trs[next | 1];
             // #if MULTI_RULE
             // if (b == 3) {
             //     return 3;
@@ -52,13 +52,13 @@ static cell_value_t get_forward_big_tr(int prev, int tr, int depth) {
         if (IS_KNOWN(state)) {
             return get_forward_big_tr(next | state, tr, depth + 1);
         } else {
-            int a = get_forward_big_tr(next | 0, tr, depth + 1);
+            cell_value_t a = get_forward_big_tr(next | 0, tr, depth + 1);
             // #if MULTI_RULE
             // if (a == 3) {
             //     return 3;
             // }
             // #endif
-            int b = get_forward_big_tr(next | 1, tr, depth + 1);
+            cell_value_t b = get_forward_big_tr(next | 1, tr, depth + 1);
             // #if MULTI_RULE
             // if (b == 3) {
             //     return 3;
@@ -85,7 +85,7 @@ static cell_value_t get_forward_big_tr(int prev, int tr, int depth) {
 // 01 23 45
 // 67 89 ab -> ij
 // cd ef gh
-// return value is an int of the same format as the index but >> 2, so without ij
+// return value is a uint32_t of the same format as the index but >> 2, so without ij
 // do nothing = 2, set off = 0, set on = 1, contradiction = 3, do nothing for any cell = 15
 uint32_t big_trs_backward[1048576];
 
@@ -95,7 +95,7 @@ uint32_t big_trs_backward[1048576];
 #define SPECIALDEBUGPRINTF(...)
 #endif
 
-static inline uint32_t get_backward_big_tr(int tr) {
+static inline uint32_t get_backward_big_tr(uint32_t tr) {
     if ((tr & 3) == UNKNOWN) {
         SPECIALDEBUGPRINTF("(tr & 3) == UNKNOWN, returning 15\n");
         return 15;
@@ -117,7 +117,7 @@ static inline uint32_t get_backward_big_tr(int tr) {
         if (((tr >> i) & 3) != 2) {
             continue;
         }
-        int tr2 = tr & ~(3 << i);
+        uint32_t tr2 = tr & ~(3 << i);
         cell_value_t forward_0 = big_trs_forward[tr2 >> 2];
         bool zero_possible = forward_0 == (tr & 3) || forward_0 == UNKNOWN;
         cell_value_t forward_1 = big_trs_forward[(tr2 | (1 << i)) >> 2];
@@ -144,11 +144,11 @@ static inline uint32_t get_backward_big_tr(int tr) {
 #endif
 
 static inline void generate_big_trs(void) {
-    for (int tr = 0; tr < 262144; tr++) {
+    for (uint32_t tr = 0; tr < 262144; tr++) {
         big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
     }
     #if CHECK_BACKWARDS_IMPLICATIONS
-    for (int tr = 0; tr < 1048576; tr++) {
+    for (uint32_t tr = 0; tr < 1048576; tr++) {
         uint32_t value = get_backward_big_tr(tr);
         big_trs_backward[tr] = value == 0b101010101010101010 ? 15 : value;
     }
@@ -162,7 +162,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value);
 #if MULTI_RULE
 // the transition that caused the most recent rule-dependent "contradiction"
 // or -1 if it wasn't rule-dependent
-int rule_dependent_tr = -1;
+uint32_t rule_dependent_tr = -1;
 #endif
 
 
@@ -257,7 +257,7 @@ static inline bool check_backward_implication(cell* cell) {
         | ((cell->e->value & 3) << 4)
         | ((cell->se->value & 3) << 2)
         | ((cell->next->value) & 3);
-    int value = big_trs_backward[tr];
+    uint32_t value = big_trs_backward[tr];
     DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == 15) {
         return true;
@@ -361,7 +361,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     }
     cell_value_t var = CELL_VAR_TO_VAR(cell->value);
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
-    for (int use = 0; use < num_var_uses[var]; use++) {
+    for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         prev_values[use] = cell->value;
@@ -377,7 +377,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         }
     }
     DPRINTF4("Checking variable set implications\n");
-    for (int use = 0; use < num_var_uses[var]; use++) {
+    for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         if (!IS_KNOWN(prev_values[use])) {

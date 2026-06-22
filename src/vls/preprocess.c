@@ -16,9 +16,9 @@ static inline void reassign_cell(cell_value_t old, cell_value_t new, cell_value_
         return;
     }
     DPRINTF2("Reassigning %i to %i\n", old, new);
-    for (int t = 0; t < GENS; t++) {
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
                 cell* cell = &grid[t][y][x];
                 if (cell->value == old) {
                     set_cell_and_propagate(cell, new);
@@ -41,9 +41,9 @@ static inline void reassign_cell(cell_value_t old, cell_value_t new, cell_value_
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
-    for (int t = 0; t < GENS; t++) {
-        for (int y = 1; y < HEIGHT - 1; y++) {
-            for (int x = 1; x < WIDTH - 1; x++) {
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 1; y < HEIGHT - 1; y++) {
+            for (index_t x = 1; x < WIDTH - 1; x++) {
                 cell* cell = &grid[t][y][x];
                 if (!check_forward_implication(cell)) {
                     #if MULTI_RULE
@@ -73,9 +73,9 @@ static inline void preprocess_cases(void) {
     DPRINTGRID3();
     cell_value_t cases[TOTAL_SIZE * 8][10];
     int case_count = 0;
-    for (int t = 0; t < GENS - 1; t++) {
-        for (int y = 1; y < HEIGHT - 1; y++) {
-            for (int x = 1; x < WIDTH - 1; x++) {
+    for (index_t t = 0; t < GENS - 1; t++) {
+        for (index_t y = 1; y < HEIGHT - 1; y++) {
+            for (index_t x = 1; x < WIDTH - 1; x++) {
                 if (grid[t + 1][y][x].value == UNKNOWN) {
                     continue;
                 }
@@ -118,9 +118,9 @@ static inline void preprocess_cases(void) {
             }
         }
     }
-    for (int t = 0; t < GENS - 1; t++) {
-        for (int y = 1; y < HEIGHT - 1; y++) {
-            for (int x = 1; x < WIDTH - 1; x++) {
+    for (index_t t = 0; t < GENS - 1; t++) {
+        for (index_t y = 1; y < HEIGHT - 1; y++) {
+            for (index_t x = 1; x < WIDTH - 1; x++) {
                 cell_value_t cells[10] = {
                     grid[t][y - 1][x - 1].value, grid[t][y - 1][x].value, grid[t][y - 1][x + 1].value,
                     grid[t][y][x - 1].value, grid[t][y][x].value, grid[t][y][x + 1].value,
@@ -185,7 +185,7 @@ static inline void preprocess(void) {
         exit(1);
     }
     // remove trivial cells from search order
-    for (int i = 0; i < unknown_cells; i++) {
+    for (index_t i = 0; i < unknown_cells; i++) {
         index_t* cell = search_order[i];
         if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]].value)) {
             for (index_t j = i; j < unknown_cells - 1; j++) {
