@@ -4,11 +4,10 @@
 #pragma once
 
 #include <inttypes.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <time.h>
 
+#include "params2.h"
+#include "base.c"
 
 
 #ifndef BENCHMARK
