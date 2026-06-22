@@ -25,10 +25,7 @@ static inline void reassign_cell(cell_value_t old, cell_value_t new, cell_value_
                 }
                 if (IS_VAR(new)) {
                     cell_value_t var = CELL_VAR_TO_VAR(new);
-                    int* data = var_uses[var][num_var_uses[var]++];
-                    data[0] = t;
-                    data[1] = x;
-                    data[2] = y;
+                    var_uses[var][num_var_uses[var]++] = cell;
                 }
             }
         }
@@ -147,13 +144,11 @@ static inline void preprocess_cases(void) {
                             } else if (IS_VAR(old_value)) {
                                 reassign_cell(old_value, new_value, (cell_value_t*)cases, sizeof(cases));
                             } else {
-                                set_cell_and_propagate(&grid[t][y][x], new_value);
+                                cell* cell = &grid[t][y][x];
+                                set_cell_and_propagate(cell, new_value);
                                 if (IS_VAR(new_value)) {
                                     cell_value_t var = CELL_VAR_TO_VAR(new_value);
-                                    int* data = var_uses[var][num_var_uses[var]++];
-                                    data[0] = t + 1;
-                                    data[1] = x;
-                                    data[2] = y;
+                                    var_uses[var][num_var_uses[var]++] = cell;
                                 }
                             }
                         }

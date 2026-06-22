@@ -553,29 +553,23 @@ static inline void print_grid(FILE* stream) {
 
 
 // a list of where variables are used in
-// format for each entry: {t, x, y}
-int var_uses[VAR_COUNT][MAX_VAR_USES][3];
-int num_var_uses[VAR_COUNT];
+cell* var_uses[VAR_COUNT][MAX_VAR_USES];
+index_t num_var_uses[VAR_COUNT];
 
 static inline void init_var_uses(void) {
     for (int i = 0; i < VAR_COUNT;i ++) {
         num_var_uses[i] = 0;
         for (int j = 0; j < MAX_VAR_USES; j++) {
-            var_uses[i][j][0] = 0;
-            var_uses[i][j][1] = 0;
-            var_uses[i][j][2] = 0;
+            var_uses[i][j] = NULL;
         }
     }
     for (int t = 0; t < GENS; t++) {
         for (int y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
             for (int x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
-                cell_value_t value = initial_grid[t][y][x];
-                if (value > 3) {
-                    int var = CELL_VAR_TO_VAR(value);
-                    int* data = var_uses[var][num_var_uses[var]++];
-                    data[0] = t;
-                    data[1] = x;
-                    data[2] = y;
+                cell* cell = &grid[t][y][x];
+                if (IS_VAR(cell->value)) {
+                    index_t var = CELL_VAR_TO_VAR(cell->value);
+                    var_uses[var][num_var_uses[var]++] = cell;
                 }
             }
         }

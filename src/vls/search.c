@@ -352,16 +352,12 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     cell_value_t var = CELL_VAR_TO_VAR(cell->value);
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
     for (int use = 0; use < num_var_uses[var]; use++) {
-        int t = var_uses[var][use][0];
-        int x = var_uses[var][use][1];
-        int y = var_uses[var][use][2];
-        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
-        struct cell* cell = &grid[t][y][x];
-        cell_value_t prev_value = cell->value;
-        prev_values[use] = prev_value;
-        if (IS_KNOWN(prev_value)) {
-            if (prev_value != value) {
-                DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, prev_value);
+        struct cell* cell = var_uses[var][use];
+        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
+        prev_values[use] = cell->value;
+        if (IS_KNOWN(cell->value)) {
+            if (cell->value != value) {
+                DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
                 return false;
             }
         } else {
@@ -372,11 +368,8 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     }
     DPRINTF4("Checking variable set implications\n");
     for (int use = 0; use < num_var_uses[var]; use++) {
-        int t = var_uses[var][use][0];
-        int x = var_uses[var][use][1];
-        int y = var_uses[var][use][2];
-        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
-        struct cell* cell = &grid[t][y][x];
+        struct cell* cell = var_uses[var][use];
+        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         if (!IS_KNOWN(prev_values[use])) {
             if (!CHECK_IMPLICATIONS(cell)) {
                 return false;
