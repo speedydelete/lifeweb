@@ -1074,14 +1074,14 @@ for (let t = 0; t < grid.gens; t++) {
 
 let out: string[] = [];
 for (let line of code.split('\n')) {
-    if (line.startsWith('typedef') && line.endsWith('cell_t;')) {
+    if (line.startsWith('typedef') && line.endsWith('cell_value_t;')) {
         let maxValue = grid.numVars === 0 ? 3 : 2 + grid.numVars * 4;
         if (maxValue > 65535) {
-            out.push(`typedef uint32_t cell_t;`);
+            out.push(`typedef uint32_t cell_value_t;`);
         } else if (maxValue > 255) {
-            out.push(`typedef uint16_t cell_t;`);
+            out.push(`typedef uint16_t cell_value_t;`);
         } else {
-            out.push(`typedef uint8_t cell_t;`);
+            out.push(`typedef uint8_t cell_value_t;`);
         }
         continue;
     } else if (line.startsWith('typedef') && line.endsWith('index_t;')) {
@@ -1094,7 +1094,7 @@ for (let line of code.split('\n')) {
             out.push(`typedef uint8_t index_t;`);
         }
         continue;
-    } else if (line.startsWith('static const cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const cell_value_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();

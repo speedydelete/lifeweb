@@ -10,9 +10,7 @@
 #include "base.c"
 
 
-#ifndef BENCHMARK
 uint64_t solutions_found;
-#endif
 
 uint64_t branches;
 
@@ -32,7 +30,7 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->width = WIDTH - 4;
     bb->x_offset = 2;
     bb->y_offset = 2;
-    #define get(x, y) (grid[(y) + bb->y_offset][(x) + bb->x_offset])
+    #define get(x, y) (grid[(y) + bb->y_offset][(x) + bb->x_offset].value)
     // top
     int shrink_top = 0;
     for (int y = 0; y < bb->height; y++) {
@@ -247,7 +245,7 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
             int real_x = 0;
             int real_y = 0;
             transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
-            out ^= grid[real_y][real_x];
+            out ^= grid[real_y][real_x].value;
             out *= HASH_PRIME;
         }
     }
@@ -295,14 +293,13 @@ static inline void init_known_solutions(void) {
 static inline void print_progress(FILE* stream, int depth);
 
 static inline void print_solution(bool preprocessing, int depth) {
-    #ifndef BENCHMARK
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
     #if CHECK_EMPTY
     bool found = false;
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            if (grid[0][y][x] != 0) {
+            if (grid[0][y][x].value != 0) {
                 found = true;
                 break;
             }
@@ -333,7 +330,7 @@ static inline void print_solution(bool preprocessing, int depth) {
             break;
         }
         if (hash == value) {
-            DPRINTF2("Dropping solution (equal to solution %i)\n", i);
+            DPRINTF2("Dropping solution (equal to solution %zu)\n", i);
             return;
         }
     }
@@ -362,7 +359,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
         DPRINTLINEPADDING();
         for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
-            cell_t value = grid[0][y][x];
+            cell_value_t value = grid[0][y][x].value;
             if (value > 1) {
                 fprintf(stderr, "\n");
                 print_grid(stderr);
@@ -380,7 +377,6 @@ static inline void print_solution(bool preprocessing, int depth) {
             real_printf("$\n");
         }
     }
-    #endif
     #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found > MAX_SOLUTIONS) {

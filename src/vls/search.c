@@ -15,9 +15,9 @@
 // 01 23 45
 // 67 89 ab
 // cd ef gh
-cell_t big_trs_forward[262144];
+cell_value_t big_trs_forward[262144];
 
-static cell_t get_forward_big_tr(int prev, int tr, int depth) {
+static cell_value_t get_forward_big_tr(int prev, int tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
@@ -101,7 +101,7 @@ static inline uint32_t get_backward_big_tr(int tr) {
         return 15;
     }
     // check for contradiction
-    cell_t target = big_trs_forward[tr >> 2];
+    cell_value_t target = big_trs_forward[tr >> 2];
     // if (target == UNKNOWN) {
     //     return 15;
     // }
@@ -118,9 +118,9 @@ static inline uint32_t get_backward_big_tr(int tr) {
             continue;
         }
         int tr2 = tr & ~(3 << i);
-        cell_t forward_0 = big_trs_forward[tr2 >> 2];
+        cell_value_t forward_0 = big_trs_forward[tr2 >> 2];
         bool zero_possible = forward_0 == (tr & 3) || forward_0 == UNKNOWN;
-        cell_t forward_1 = big_trs_forward[(tr2 | (1 << i)) >> 2];
+        cell_value_t forward_1 = big_trs_forward[(tr2 | (1 << i)) >> 2];
         bool one_possible = forward_1 == (tr & 3) || forward_1 == UNKNOWN;
         SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
@@ -156,7 +156,7 @@ static inline void generate_big_trs(void) {
 }
 
 
-static bool set_cell_and_propagate(int t, int x, int y, cell_t value);
+static bool set_cell_and_propagate(cell* cell, cell_value_t value);
 
 
 #if MULTI_RULE
@@ -168,25 +168,23 @@ int rule_dependent_tr = -1;
 
 // check if the unknown cell can be set, and if so, set it, propagating checks
 // returns false if contradiction (or rule-dependent), true if no contradiction
-static inline bool check_forward_implication(int t, int x, int y) {
-    if (t < 0 || t + 1 >= GENS || x <= 0 || x >= WIDTH - 1 || y <= 0 || y >= HEIGHT - 1) {
+static inline bool check_forward_implication(cell* cell) {
+    if (cell == NULL || cell->next == NULL) {
         return true;
     }
-    grid_item_t* table = grid[t];
-    #define get(x, y) ((int)(table[(y)][(x)] & 3))
-    int tr = (get(x - 1, y - 1) << 16)
-           | (get(x - 1, y) << 14)
-           | (get(x - 1, y + 1) << 12)
-           | (get(x, y - 1) << 10)
-           | (get(x, y) << 8)
-           | (get(x, y + 1) << 6)
-           | (get(x + 1, y - 1) << 4)
-           | (get(x + 1, y) << 2)
-           | (get(x + 1, y + 1));
-    #undef get
-    int value = grid[t + 1][y][x];
+    uint32_t tr = 
+          ((cell->nw->value & 3) << 16)
+        | ((cell->w->value & 3) << 14)
+        | ((cell->sw->value & 3) << 12)
+        | ((cell->n->value & 3) << 10)
+        | ((cell->value & 3) << 8)
+        | ((cell->s->value & 3) << 6)
+        | ((cell->ne->value & 3) << 4)
+        | ((cell->e->value & 3) << 2)
+        | (cell->se->value & 3);
+    int value = cell->next->value;
     int tr_value = big_trs_forward[tr];
-    DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", t, x, y, tr, (int)value, (int)tr_value);
+    DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", cell->t, cell->x, cell->y, tr, (int)value, (int)tr_value);
     #if MULTI_RULE
     if (tr_value >= 4) {
         tr_value -= 4;
@@ -205,13 +203,13 @@ static inline bool check_forward_implication(int t, int x, int y) {
         if (IS_KNOWN(tr_value)) {
             if (IS_KNOWN(value)) {
                 DPRINTGRID4();
-                DPRINTF4("Contradiction (forward, both known and unequal, t = %i, x = %i, y = %i)\n", t, x, y);
+                DPRINTF4("Contradiction (forward, both known and unequal, t = %i, x = %i, y = %i)\n", cell->t, cell->x, cell->y);
                 #if MULTI_RULE
                 rule_dependent_tr = -1;
                 #endif
                 return false;
             } else {
-                bool out = set_cell_and_propagate(t + 1, x, y, tr_value);
+                bool out = set_cell_and_propagate(cell->next, tr_value);
                 if (!out) {
                     return false;
                 }
@@ -224,63 +222,61 @@ static inline bool check_forward_implication(int t, int x, int y) {
 #if CHECK_BACKWARDS_IMPLICATIONS
 
 // returns false if contradiction, true if no contradiction
-static inline bool check_backward_implication(int t, int x, int y) {
-    if (t < 0 || t + 1 >= GENS
-        || x <= (LEFT == NONE ? 1 : 0)
-        || x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
-        || y <= (TOP == NONE ? 1 : 0)
-        || y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
+static inline bool check_backward_implication(cell* cell) {
+    if (cell == NULL || cell->next == NULL
+        || cell->x <= (LEFT == NONE ? 1 : 0)
+        || cell->x >= (RIGHT == NONE ? WIDTH - 2 : WIDTH - 1)
+        || cell->y <= (TOP == NONE ? 1 : 0)
+        || cell->y >= (BOTTOM == NONE ? HEIGHT - 2 : HEIGHT - 1)) {
         return true;
     }
-    grid_item_t* table = grid[t];
-    #define get(x, y) ((int)(table[(y)][(x)] & 3))
-    int tr = (get(x - 1, y - 1) << 18)
-           | (get(x - 1, y) << 16)
-           | (get(x - 1, y + 1) << 14)
-           | (get(x, y - 1) << 12)
-           | (get(x, y) << 10)
-           | (get(x, y + 1) << 8)
-           | (get(x + 1, y - 1) << 6)
-           | (get(x + 1, y) << 4)
-           | (get(x + 1, y + 1) << 2)
-           | (((int)(grid[t + 1][y][x] & 3)));
-    #undef get
+    uint32_t tr = 
+          ((cell->nw->value & 3) << 18)
+        | ((cell->w->value & 3) << 16)
+        | ((cell->sw->value & 3) << 14)
+        | ((cell->n->value & 3) << 12)
+        | ((cell->value & 3) << 10)
+        | ((cell->s->value & 3) << 8)
+        | ((cell->ne->value & 3) << 6)
+        | ((cell->e->value & 3) << 4)
+        | ((cell->se->value & 3) << 2)
+        | ((cell->next->value) & 3);
     int value = big_trs_backward[tr];
-    DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", t, x, y, tr, (int)value);
+    DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == 15) {
         return true;
     } else if (value == 3) {
         DPRINTGRID4();
-        DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, t, x, y);
+        DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
         return false;
     }
-    #define check(x, y, value) if (!set_cell_and_propagate(t, (x), (y), (value))) {return false;}
+    #define check(cell, value) if (!set_cell_and_propagate((cell)->next, (value))) {return false;}
     if ((value & 3) != 2) {
-        check(x + 1, y + 1, value & 3);
+        check(cell->se, value & 3);
     }
     if (((value >> 2) & 3) != 2) {
-        check(x + 1, y, (value >> 2) & 3);
+        check(cell->e, (value >> 2) & 3);
     }
     if (((value >> 4) & 3) != 2) {
-        check(x + 1, y - 1, (value >> 4) & 3);
+        check(cell->ne, (value >> 4) & 3);
     }
     if (((value >> 6) & 3) != 2) {
-        check(x, y + 1, (value >> 6) & 3);
+        check(cell->s, (value >> 6) & 3);
     }
     if (((value >> 8) & 3) != 2) {
-        check(x, y, (value >> 8) & 3);
+        check(cell, (value >> 8) & 3);
     }
     if (((value >> 10) & 3) != 2) {
-        check(x, y - 1, (value >> 10) & 3);
+        check(cell->n, (value >> 10) & 3);
     }
     if (((value >> 12) & 3) != 2) {
-        check(x - 1, y + 1, (value >> 12) & 3);
+        check(cell->sw, (value >> 12) & 3);
     }
     if (((value >> 14) & 3) != 2) {
-        check(x - 1, y, (value >> 14) & 3);
+        check(cell->w, (value >> 14) & 3);
     }
     if (((value >> 16) & 3) != 2) {
-        check(x - 1, y - 1, (value >> 16) & 3);
+        check(cell->nw, (value >> 16) & 3);
     }
     #undef check
     return true;
@@ -289,56 +285,56 @@ static inline bool check_backward_implication(int t, int x, int y) {
 #endif
 
 #if CHECK_BACKWARDS_IMPLICATIONS
-#define CHECK_IMPLICATIONS(t, x, y) ( \
-    check_forward_implication((t), (x), y) \
-    && check_backward_implication((t) - 1, (x), y) \
-    && check_backward_implication((t), (x), y) \
-    && check_forward_implication((t), (x) - 1, y - 1) \
-    && check_forward_implication((t), (x) - 1, y) \
-    && check_forward_implication((t), (x) - 1, y + 1) \
-    && check_forward_implication((t), (x), y - 1) \
-    && check_forward_implication((t), (x), y + 1) \
-    && check_forward_implication((t), (x) + 1, y - 1) \
-    && check_forward_implication((t), (x) + 1, y) && \
-    check_forward_implication((t), (x) + 1, y + 1))
+#define CHECK_IMPLICATIONS(cell) ( \
+       check_forward_implication((cell)) \
+    && check_backward_implication((cell)->prev) \
+    && check_backward_implication((cell)) \
+    && check_forward_implication((cell)->nw) \
+    && check_forward_implication((cell)->n) \
+    && check_forward_implication((cell)->ne) \
+    && check_forward_implication((cell)->w) \
+    && check_forward_implication((cell)->e) \
+    && check_forward_implication((cell)->sw) \
+    && check_forward_implication((cell)->s) \
+    && check_forward_implication((cell)->se))
 #else
-#define CHECK_IMPLICATIONS(t, x, y) ( \
-    check_forward_implication((t), (x), y) \
-    && check_forward_implication((t), (x) - 1, y - 1) \
-    && check_forward_implication((t), (x) - 1, y) \
-    && check_forward_implication((t), (x) - 1, y + 1) \
-    && check_forward_implication((t), (x), y - 1) \
-    && check_forward_implication((t), (x), y + 1) \
-    && check_forward_implication((t), (x) + 1, y - 1) \
-    && check_forward_implication((t), (x) + 1, y) && \
-    check_forward_implication((t), (x) + 1, y + 1))
+#define CHECK_IMPLICATIONS(cell) ( \
+       check_forward_implication((cell)) \
+    && check_forward_implication((cell)->nw) \
+    && check_forward_implication((cell)->n) \
+    && check_forward_implication((cell)->ne) \
+    && check_forward_implication((cell)->w) \
+    && check_forward_implication((cell)->e) \
+    && check_forward_implication((cell)->sw) \
+    && check_forward_implication((cell)->s) \
+    && check_forward_implication((cell)->se))
 #endif
 
 
-cell_t prev_values[MAX_VAR_USES];
+cell_value_t prev_values[MAX_VAR_USES];
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static bool set_cell_and_propagate(int t, int x, int y, cell_t value) {
-    cell_t prev_value = grid[t][y][x];
-    DPRINTF3("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
+static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
+    DPRINTF3("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     DPRINTGRID4();
-    if (IS_KNOWN(prev_value)) {
-        return prev_value == value;
-    } else if (prev_value < 4) {
-        if (!set_cell(t, x, y, value)) {
+    if (IS_KNOWN(cell->value)) {
+        return cell->value == value;
+    } else if (cell->value < 4) {
+        if (!set_cell(cell, value)) {
             return false;
         }
-        return CHECK_IMPLICATIONS(t, x, y);
+        return CHECK_IMPLICATIONS(cell);
     }
-    cell_t var = CELL_VAR_TO_VAR(prev_value);
-    DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, t, x, y);
+    cell_value_t var = CELL_VAR_TO_VAR(cell->value);
+    DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
     for (int use = 0; use < num_var_uses[var]; use++) {
         int t = var_uses[var][use][0];
         int x = var_uses[var][use][1];
         int y = var_uses[var][use][2];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
-        cell_t prev_value = grid[t][y][x];
+        struct cell* cell = &grid[t][y][x];
+        cell_value_t prev_value = cell->value;
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
             if (prev_value != value) {
@@ -346,7 +342,7 @@ static bool set_cell_and_propagate(int t, int x, int y, cell_t value) {
                 return false;
             }
         } else {
-            if (!set_cell(t, x, y, value)) {
+            if (!set_cell(cell, value)) {
                 return false;
             }
         }
@@ -357,8 +353,9 @@ static bool set_cell_and_propagate(int t, int x, int y, cell_t value) {
         int x = var_uses[var][use][1];
         int y = var_uses[var][use][2];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
+        struct cell* cell = &grid[t][y][x];
         if (!IS_KNOWN(prev_values[use])) {
-            if (!CHECK_IMPLICATIONS(t, x, y)) {
+            if (!CHECK_IMPLICATIONS(cell)) {
                 return false;
             }
         }

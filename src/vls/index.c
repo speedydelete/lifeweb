@@ -176,16 +176,17 @@ static void run_depth(int depth
     #endif
     );
 
-static inline void actual_run_depth(int* cell, cell_t value, int depth
+static inline void actual_run_depth(cell* cell, cell_value_t value, int depth
     #if MULTI_RULE
     , int search_order_depth
     #endif
     ) {
+    DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 6
     print_stack();
     #endif
-    if (set_cell_and_propagate(cell[0], cell[1], cell[2], value)) {
+    if (set_cell_and_propagate(cell, value)) {
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
@@ -230,7 +231,9 @@ static void run_depth(int depth
     #endif
     branches++;
     if (depth > max_depth || set_cells == unknown_cells) {
+        #ifndef BENCHMARK
         print_solution(false, depth);
+        #endif
         #if DEBUG >= 3
         current_depth--;
         #endif
@@ -247,11 +250,12 @@ static void run_depth(int depth
         #endif
     }
     #if MULTI_RULE
-    int* cell = search_order[search_order_depth];
+    int* cell_coords = search_order[search_order_depth];
     #else
-    int* cell = search_order[depth - 1];
+    int* cell_coords = search_order[depth - 1];
+    cell* cell = &grid[cell_coords[0]][cell_coords[2]][cell_coords[1]];
     #endif
-    if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]])) {
+    if (IS_KNOWN(cell->value)) {
         DPRINTF3("Cell is known, continuing\n");
         progress[depth] = -1;
         #if MULTI_RULE
@@ -381,7 +385,7 @@ int main(void) {
         int x = search_order[i][1];
         int y = search_order[i][2];
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
-        print_cell(stdout, grid[t][y][x]);
+        print_cell(stdout, grid[t][y][x].value);
         printf("\n");
     }
     #endif

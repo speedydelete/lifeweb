@@ -301,7 +301,30 @@ static inline void get_rule(char* out) {
 
 
 static inline void init_state(void) {
-    memcpy(grid, initial_grid, sizeof(initial_grid));
+    index_t index = 0;
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
+                cell* cell = &grid[t][y][x];
+                cell->x = x;
+                cell->y = y;
+                cell->t = t;
+                cell->index = index;
+                cell->value = initial_grid[t][y][x];
+                cell->prev = t == 0 ? NULL : &grid[t - 1][y][x];
+                cell->next = t == GENS - 1 ? NULL : &grid[t + 1][y][x];
+                cell->nw = x == 0 || y == 0 ? NULL : &grid[t][y - 1][x - 1];
+                cell->n = y == 0 ? NULL : &grid[t][y - 1][x];
+                cell->ne = x == WIDTH - 1 || y == 0 ? NULL : &grid[t][y - 1][x + 1];
+                cell->w = x == 0 ? NULL : &grid[t][y][x - 1];
+                cell->e = x == WIDTH - 1 ? NULL : &grid[t][y][x + 1];
+                cell->sw = x == 0 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x - 1];
+                cell->s = y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x];
+                cell->se = x == WIDTH - 1 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x + 1];
+                index++;
+            }
+        }
+    }
     set_cells = 0;
     #ifdef SPECIAL_PHASE_0_POP
     phase_0_pop = 0;
@@ -318,7 +341,7 @@ bool next_stack_entry_is_first_in_frame = true;
 
 typedef struct stack_entry {
     bool is_first_in_frame;
-    index_t index;
+    cell* cell;
 } stack_entry;
 
 stack_entry stack[MAX_STACK_DEPTH];
@@ -326,11 +349,8 @@ stack_entry stack[MAX_STACK_DEPTH];
 int sp = 0;
 
 static inline void print_frame(int i) {
-    index_t index = stack[i].index;
-    int x = index % WIDTH;
-    int y = (index / WIDTH) % HEIGHT;
-    int t = (index / SIZE) % GENS;
-    printf("x = %i, y = %i, t = %i, is_first = %s\n", x, y, t, stack[i].is_first_in_frame ? "true" : "false");
+    cell* cell = stack[i].cell;
+    printf("x = %i, y = %i, t = %i, is_first = %s\n", cell->x, cell->y, cell->t, stack[i].is_first_in_frame ? "true" : "false");
 }
 
 static inline void print_stack(void) {
@@ -350,9 +370,23 @@ static inline void pop_frame(void) {
         #if DEBUG >= 4
         print_frame(sp - 1);
         #endif
-        ((cell_t*)grid)[stack[sp - 1].index] = ((cell_t*)initial_grid)[stack[sp - 1].index];
+        cell* cell = stack[sp - 1].cell;
+        cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
+        cell->value = value;
         set_cells--;
-
+        #ifdef SPECIAL_PHASE_0_POP
+        if (t == 0 && value == 1) {
+            phase_0_pop--;
+            if (phase_0_pop > MAXPOP) {
+                return false;
+            }
+        }
+        #endif
+        #if TRACK_PHASE_POPS
+        if (value == 1) {
+            phase_pops[t]++;
+        }
+        #endif
         sp--;
         if (stack[sp].is_first_in_frame) {
             break;
@@ -364,10 +398,9 @@ static inline void pop_frame(void) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static inline bool set_cell(int t, int x, int y, cell_t value) {
-    cell_t prev_value = grid[t][y][x];
-    if (IS_KNOWN(prev_value) && prev_value != value) {
-        DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", t, x, y, value, prev_value);
+static inline bool set_cell(cell* cell, cell_value_t value) {
+    if (IS_KNOWN(cell->value) && cell->value != value) {
+        DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
     #ifdef SPECIAL_PHASE_0_POP
@@ -385,12 +418,11 @@ static inline bool set_cell(int t, int x, int y, cell_t value) {
     #endif
     stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
     next_stack_entry_is_first_in_frame = false;
-    index_t index = (((t * HEIGHT) + y) * WIDTH) + x;
-    DPRINTF4("Actually setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", t, x, y, index, value, prev_value);
-    stack[sp].index = index;
+    DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
+    stack[sp].cell = cell;
     sp++;
     set_cells++;
-    ((cell_t*)grid)[index] = value;
+    cell->value = value;
     #if TOP != NONE
     if (y == TOP) {
         grid[t][0][x] = value;
@@ -437,7 +469,7 @@ static inline bool set_cell(int t, int x, int y, cell_t value) {
 
 static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static inline void print_cell(FILE* stream, cell_t value) {
+static inline void print_cell(FILE* stream, cell_value_t value) {
     if (value > 3) {
         value = CELL_VAR_TO_VAR(value) + 3;
     }
@@ -463,7 +495,7 @@ static inline void print_grid(FILE* stream) {
         for (int y = 0; y < HEIGHT; y++) {
             DFPRINTLINEPADDING(stream);
             for (int x = 0; x < WIDTH; x++) {
-                print_cell(stream, grid[t][y][x]);
+                print_cell(stream, grid[t][y][x].value);
             }
             real_fprintf(stream, "$\n");
         }
@@ -493,7 +525,7 @@ static inline void init_var_uses(void) {
     for (int t = 0; t < GENS; t++) {
         for (int y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
             for (int x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
-                cell_t value = initial_grid[t][y][x];
+                cell_value_t value = initial_grid[t][y][x];
                 if (value > 3) {
                     int var = CELL_VAR_TO_VAR(value);
                     int* data = var_uses[var][num_var_uses[var]++];
