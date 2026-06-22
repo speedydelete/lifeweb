@@ -266,7 +266,7 @@ static inline bool check_backward_implication(cell* cell) {
         DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
         return false;
     }
-    #define check(cell, value) if (!set_cell_and_propagate((cell)->next, (value))) {return false;}
+    #define check(cell, value) if (!set_cell_and_propagate((cell), (value))) {return false;}
     if ((value & 3) != 2) {
         check(cell->se, value & 3);
     }
