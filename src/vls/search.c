@@ -305,8 +305,6 @@ static inline bool check_backward_implication(cell* cell) {
 #if CHECK_BACKWARDS_IMPLICATIONS
 #define CHECK_IMPLICATIONS(cell) ( \
        check_forward_implication((cell)) \
-    && check_backward_implication((cell)->prev) \
-    && check_backward_implication((cell)) \
     && check_forward_implication((cell)->nw) \
     && check_forward_implication((cell)->n) \
     && check_forward_implication((cell)->ne) \
@@ -314,7 +312,18 @@ static inline bool check_backward_implication(cell* cell) {
     && check_forward_implication((cell)->e) \
     && check_forward_implication((cell)->sw) \
     && check_forward_implication((cell)->s) \
-    && check_forward_implication((cell)->se))
+    && check_forward_implication((cell)->se) \
+    && check_backward_implication((cell)) \
+    && check_backward_implication((cell)->prev) \
+    && check_backward_implication((cell)->nw) \
+    && check_backward_implication((cell)->n) \
+    && check_backward_implication((cell)->ne) \
+    && check_backward_implication((cell)->w) \
+    && check_backward_implication((cell)->e) \
+    && check_backward_implication((cell)->sw) \
+    && check_backward_implication((cell)->s) \
+    && check_backward_implication((cell)->se) \
+)
 #else
 #define CHECK_IMPLICATIONS(cell) ( \
        check_forward_implication((cell)) \
@@ -325,7 +334,8 @@ static inline bool check_backward_implication(cell* cell) {
     && check_forward_implication((cell)->e) \
     && check_forward_implication((cell)->sw) \
     && check_forward_implication((cell)->s) \
-    && check_forward_implication((cell)->se))
+    && check_forward_implication((cell)->se) \
+)
 #endif
 
 
