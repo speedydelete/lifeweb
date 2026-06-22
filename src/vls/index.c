@@ -36,15 +36,13 @@
 
 // the number of variables
 #define VAR_COUNT 9
-// the maximum number of uses of any single variable
-#define MAX_VAR_USES 2
 
 // the type of cells
 // 0 = dead, 1 = alive, 2 = unknown, 3 = undefined behavior, >3 = variables (but indexed more complicated)
 // the variable indexing for this is 6 + 4*variable (so the binary always ends in 10, so we can do ANDing and ensure that it's unknown)
 typedef uint8_t cell_t;
 // the smallest integer type that can store the size of the grid
-typedef uint8_t cell_count_t;
+typedef uint8_t index_t;
 
 // the number of unknown cells
 #define TOTAL_UNKNOWN_CELLS 66
@@ -145,15 +143,15 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 
 // don't change this
 cell_t grid[GENS][HEIGHT][WIDTH];
-cell_count_t set_cells;
+index_t set_cells;
 #ifdef MAXPOP
 #if !TRACK_PHASE_POPS
 #define SPECIAL_PHASE_0_POP
-cell_count_t phase_0_pop;
+index_t phase_0_pop;
 #endif
 #endif
 #if TRACK_PHASE_POPS
-cell_count_t phase_pops[GENS];
+index_t phase_pops[GENS];
 #endif
 typedef cell_t grid_item_t[WIDTH];
 
@@ -171,13 +169,19 @@ static inline bool solution_filter() {return true;}
 // END CONFIGURATION
 
 
+#define SIZE (HEIGHT * WIDTH)
+#define TOTAL_SIZE (GENS * SIZE)
+
 #define UNKNOWN (2)
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
+#define IS_VAR(x) ((x) > 3)
 #define VAR_TO_CELL_VAR(x) (6 + 4*(x))
 #define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
 
-#define MAX_STACK_DEPTH (HEIGHT * WIDTH * GENS)
+#define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
+
+#define MAX_STACK_DEPTH TOTAL_SIZE
 
 #if MULTI_RULE
 
@@ -483,7 +487,7 @@ bool next_stack_entry_is_first_in_frame = true;
 
 typedef struct stack_entry {
     bool is_first_in_frame;
-    cell_count_t index;
+    index_t index;
 } stack_entry;
 
 static stack_entry stack[MAX_STACK_DEPTH];
@@ -491,10 +495,10 @@ static stack_entry stack[MAX_STACK_DEPTH];
 static int sp = 0;
 
 static inline void print_frame(int i) {
-    cell_count_t index = stack[i].index;
+    index_t index = stack[i].index;
     int x = index % WIDTH;
     int y = (index / WIDTH) % HEIGHT;
-    int t = (index / (HEIGHT * WIDTH)) % GENS;
+    int t = (index / SIZE) % GENS;
     printf("x = %i, y = %i, t = %i, is_first = %s\n", x, y, t, stack[i].is_first_in_frame ? "true" : "false");
 }
 
@@ -568,18 +572,17 @@ static inline void print_grid(FILE* stream) {
 
 
 // a list of where variables are used in
-// format for each entry: {there_is_more, t, x, y}
-static int var_uses[VAR_COUNT][MAX_VAR_USES][4];
+// format for each entry: {t, x, y}
+static int var_uses[VAR_COUNT][MAX_VAR_USES][3];
+static int num_var_uses[VAR_COUNT];
 
 static inline void init_var_uses(void) {
-    int num_var_uses[VAR_COUNT];
     for (int i = 0; i < VAR_COUNT;i ++) {
         num_var_uses[i] = 0;
         for (int j = 0; j < MAX_VAR_USES; j++) {
             var_uses[i][j][0] = 0;
             var_uses[i][j][1] = 0;
             var_uses[i][j][2] = 0;
-            var_uses[i][j][3] = 0;
         }
     }
     for (int t = 0; t < GENS; t++) {
@@ -588,14 +591,10 @@ static inline void init_var_uses(void) {
                 cell_t value = initial_grid[t][y][x];
                 if (value > 3) {
                     int var = CELL_VAR_TO_VAR(value);
-                    if (num_var_uses[var] > 0) {
-                        var_uses[var][num_var_uses[var] - 1][0] = 1;
-                    }
                     int* data = var_uses[var][num_var_uses[var]++];
-                    data[0] = 0;
-                    data[1] = t;
-                    data[2] = x;
-                    data[3] = y;
+                    data[0] = t;
+                    data[1] = x;
+                    data[2] = y;
                 }
             }
         }
@@ -912,7 +911,7 @@ static inline bool _set_cell(int t, int x, int y, cell_t value) {
     #endif
     stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
     next_stack_entry_is_first_in_frame = false;
-    cell_count_t index = (((t * HEIGHT) + y) * WIDTH) + x;
+    index_t index = (((t * HEIGHT) + y) * WIDTH) + x;
     DPRINTF4("Actually setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", t, x, y, index, value, prev_value);
     stack[sp].index = index;
     sp++;
@@ -977,12 +976,11 @@ static bool set_cell(int t, int x, int y, cell_t value, set_cell_mode_t mode) {
     }
     cell_t var = CELL_VAR_TO_VAR(prev_value);
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, t, x, y);
-    for (int use = 0; use < MAX_VAR_USES; use++) {
-        int there_is_more = var_uses[var][use][0];
-        int t = var_uses[var][use][1];
-        int x = var_uses[var][use][2];
-        int y = var_uses[var][use][3];
-        DPRINTF4("Read variable data: there_is_more = %i, t = %i, x = %i, y = %i\n", there_is_more, t, x, y);
+    for (int use = 0; use < num_var_uses[var]; use++) {
+        int t = var_uses[var][use][0];
+        int x = var_uses[var][use][1];
+        int y = var_uses[var][use][2];
+        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
         cell_t prev_value = grid[t][y][x];
         prev_values[use] = prev_value;
         if (IS_KNOWN(prev_value)) {
@@ -995,24 +993,17 @@ static bool set_cell(int t, int x, int y, cell_t value, set_cell_mode_t mode) {
                 return false;
             }
         }
-        if (there_is_more == 0) {
-            break;
-        }
     }
     DPRINTF4("Checking variable set implications\n");
-    for (int use = 0; use < MAX_VAR_USES; use++) {
-        int there_is_more = var_uses[var][use][0];
-        int t = var_uses[var][use][1];
-        int x = var_uses[var][use][2];
-        int y = var_uses[var][use][3];
-        DPRINTF4("Read variable data: there_is_more = %i, t = %i, x = %i, y = %i\n", there_is_more, t, x, y);
+    for (int use = 0; use < num_var_uses[var]; use++) {
+        int t = var_uses[var][use][0];
+        int x = var_uses[var][use][1];
+        int y = var_uses[var][use][2];
+        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", t, x, y);
         if (!IS_KNOWN(prev_values[use])) {
             if (!CHECK_IMPLICATIONS(t, x, y)) {
                 return false;
             }
-        }
-        if (there_is_more == 0) {
-            break;
         }
     }
     return true;
@@ -1661,18 +1652,40 @@ static void run_depth(int depth
     #endif
 }
 
-int main(void) {
-    init_state();
-    init_var_uses();
-    generate_big_trs();
-    init_use_in_progress();
-    #if MULTI_RULE
-    init_multi_rule();
-    #endif
-    init_known_solutions();
-    DPRINTGRID2();
-    // preprocessing: search for and remove trivial cells
-    printf("Preprocessing\n");
+
+void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t cases_size) {
+    if (old == new) {
+        return;
+    }
+    DPRINTF2("Reassigning %i to %i\n", old, new);
+    for (int t = 0; t < GENS; t++) {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                if (grid[t][y][x] == old) {
+                    set_cell(t, x, y, new, NORMAL);
+                }
+                if (IS_VAR(new)) {
+                    cell_t var = CELL_VAR_TO_VAR(new);
+                    int* data = var_uses[var][num_var_uses[var]++];
+                    data[0] = t;
+                    data[1] = x;
+                    data[2] = y;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < cases_size; i++) {
+        if (cases[i] == old) {
+            cases[i] = new;
+        }
+    }
+}
+
+// searches for and removes trivial cells
+void preprocess(void) {
+    // run implications
+    DPRINTF3("Running implications\n");
+    DPRINTGRID3();
     for (int t = 0; t < GENS; t++) {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
@@ -1683,17 +1696,136 @@ int main(void) {
                         continue;
                     }
                     #endif
-                    printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x - 2, y - 2);
-                    return 0;
+                    printf("Contradiction found in preprocessing (in forward step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
+                    exit(0);
                 }
                 #if CHECK_BACKWARDS_IMPLICATIONS
                 if (!check_backward_implication(t, x, y)) {
-                    printf("Contradiction found in preprocessing (cell at t = %i, x = %i, y = %i)\n", t, x - 2, y - 2);
-                    return 0;
+                    printf("Contradiction found in preprocessing (in backward step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
+                    exit(0);
                 }
                 #endif
             }
         }
+    }
+    // check for duplicates of cases including variables
+    // and reassign those variables to be equal
+    DPRINTF3("Running cases\n");
+    DPRINTGRID3();
+    cell_t cases[TOTAL_SIZE * 8][10];
+    int case_count = 0;
+    for (int t = 0; t < GENS - 1; t++) {
+        for (int y = 1; y < HEIGHT - 1; y++) {
+            for (int x = 1; x < WIDTH - 1; x++) {
+                if (grid[t + 1][y][x] == UNKNOWN) {
+                    continue;
+                }
+                cell_t cells[10] = {
+                    grid[t][y - 1][x - 1], grid[t][y - 1][x], grid[t][y - 1][x + 1],
+                    grid[t][y][x - 1], grid[t][y][x], grid[t][y][x + 1],
+                    grid[t][y + 1][x - 1], grid[t][y + 1][x], grid[t][y + 1][x + 1],
+                    grid[t + 1][y][x],
+                };
+                bool found = false;
+                for (int i = 0; i < 9; i++) {
+                    if (IS_VAR(cells[i])) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    // assign all rotations and reflections of the case too
+                    for (int i = 0; i < 2; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            memcpy(cases[case_count], cells, sizeof(cells));
+                            case_count++;
+                            cell_t temp[10] = {
+                                cells[6], cells[3], cells[0],
+                                cells[7], cells[4], cells[1],
+                                cells[8], cells[5], cells[2],
+                                cells[9],
+                            };
+                            memcpy(cells, temp, sizeof(cells));
+                        }
+                        cell_t temp[10] = {
+                            cells[2], cells[1], cells[0],
+                            cells[5], cells[4], cells[3],
+                            cells[8], cells[7], cells[6],
+                            cells[9],
+                        };
+                        memcpy(cells, temp, sizeof(cells));
+                    }
+                }
+            }
+        }
+    }
+    for (int t = 0; t < GENS - 1; t++) {
+        for (int y = 1; y < HEIGHT - 1; y++) {
+            for (int x = 1; x < WIDTH - 1; x++) {
+                cell_t cells[10] = {
+                    grid[t][y - 1][x - 1], grid[t][y - 1][x], grid[t][y - 1][x + 1],
+                    grid[t][y][x - 1], grid[t][y][x], grid[t][y][x + 1],
+                    grid[t][y + 1][x - 1], grid[t][y + 1][x], grid[t][y + 1][x + 1],
+                    grid[t + 1][y][x],
+                };
+                bool found = false;
+                for (int i = 0; i < 9; i++) {
+                    if (IS_VAR(cells[i])) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    for (int i = 0; i < case_count; i++) {
+                        if (memcmp(cases[i], cells, sizeof(cell_t) * 9) == 0) {
+                            cell_t old_value = grid[t + 1][y][x];
+                            cell_t new_value = cases[i][9];
+                            if (IS_KNOWN(old_value) || old_value == new_value) {
+                                continue;
+                            } else if (IS_VAR(old_value)) {
+                                reassign_cell(old_value, new_value, (cell_t*)cases, sizeof(cases));
+                            } else {
+                                set_cell(t + 1, x, y, new_value, NORMAL);
+                                if (IS_VAR(new_value)) {
+                                    cell_t var = CELL_VAR_TO_VAR(new_value);
+                                    int* data = var_uses[var][num_var_uses[var]++];
+                                    data[0] = t + 1;
+                                    data[1] = x;
+                                    data[2] = y;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main(void) {
+    init_state();
+    init_var_uses();
+    generate_big_trs();
+    init_use_in_progress();
+    #if MULTI_RULE
+    init_multi_rule();
+    #endif
+    init_known_solutions();
+    DPRINTGRID2();
+    printf("Preprocessing\n");
+    cell_t old_grid[GENS][HEIGHT][WIDTH];
+    bool found = false;
+    for (int i = 0; i < 4096; i++) {
+        memcpy(old_grid, grid, sizeof(grid));
+        preprocess();
+        if (memcmp(old_grid, grid, sizeof(grid)) == 0) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        fprintf(stderr, "Error: Preprocessing did not finish\n");
+        return 1;
     }
     // remove trivial cells from search order
     for (int i = 0; i < unknown_cells; i++) {

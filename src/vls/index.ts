@@ -1053,14 +1053,14 @@ for (let line of code.split('\n')) {
             out.push(`typedef uint8_t cell_t;`);
         }
         continue;
-    } else if (line.startsWith('typedef') && line.endsWith('cell_count_t;')) {
+    } else if (line.startsWith('typedef') && line.endsWith('index_t;')) {
         let maxValue = (grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1)) * (grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1)) * grid.gens;
         if (maxValue > 65535) {
-            out.push(`typedef uint32_t cell_count_t;`);
+            out.push(`typedef uint32_t index_t;`);
         } else if (maxValue > 255) {
-            out.push(`typedef uint16_t cell_count_t;`);
+            out.push(`typedef uint16_t index_t;`);
         } else {
-            out.push(`typedef uint8_t cell_count_t;`);
+            out.push(`typedef uint8_t index_t;`);
         }
         continue;
     } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
@@ -1102,8 +1102,6 @@ for (let line of code.split('\n')) {
         value = grid.gens;
     } else if (name === 'VAR_COUNT') {
         value = grid.numVars;
-    } else if (name === 'MAX_VAR_USES') {
-        value = Math.max(1, ...Object.entries(cellCounts).filter(x => Number(x[0]) > 3).map(x => x[1]));
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
         value = 0;
         for (let [key, count] of Object.entries(cellCounts)) {
