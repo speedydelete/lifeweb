@@ -191,9 +191,9 @@ static inline void preprocess(void) {
     }
     // remove trivial cells from search order
     for (int i = 0; i < unknown_cells; i++) {
-        int* cell = search_order[i];
+        index_t* cell = search_order[i];
         if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]].value)) {
-            for (int j = i; j < unknown_cells - 1; j++) {
+            for (index_t j = i; j < unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(int) * 3);
             }
             i--;

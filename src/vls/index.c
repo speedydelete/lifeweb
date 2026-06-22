@@ -170,17 +170,13 @@ static inline void print_progress(FILE* stream, int depth) {
 
 #endif
 
-static void run_depth(int depth
+static void run_depth(int depth, cell* cell
     #if MULTI_RULE
-    , int search_order_depth, int force_value
+    , int force_value
     #endif
     );
 
-static inline void actual_run_depth(cell* cell, cell_value_t value, int depth
-    #if MULTI_RULE
-    , int search_order_depth
-    #endif
-    ) {
+static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 6
@@ -188,9 +184,9 @@ static inline void actual_run_depth(cell* cell, cell_value_t value, int depth
     #endif
     if (set_cell_and_propagate(cell, value)) {
         #if MULTI_RULE
-        run_depth(depth + 1, search_order_depth + 1, -1);
+        run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
-        run_depth(depth + 1);
+        run_depth(depth + 1, cell->next_in_search_order);
         #endif
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
@@ -206,10 +202,10 @@ static inline void actual_run_depth(cell* cell, cell_value_t value, int depth
         DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
         set_tr_info_for_depth[depth].value = 0;
         set_tr(tr, 0);
-        run_depth(depth + 1, search_order_depth, value);
+        run_depth(depth + 1, cell->next_in_search_order, value);
         set_tr_info_for_depth[depth].value = 1;
         set_tr(tr, 1);
-        run_depth(depth + 1, search_order_depth, value);
+        run_depth(depth + 1, cell->next_in_search_order, value);
         set_tr(tr, 3);
         set_tr_info_for_depth[depth].set = false;
         return;
@@ -218,9 +214,9 @@ static inline void actual_run_depth(cell* cell, cell_value_t value, int depth
     pop_frame();
 }
 
-static void run_depth(int depth
+static void run_depth(int depth, cell* cell
     #if MULTI_RULE
-    , int search_order_depth, int force_value
+    , int force_value
     #endif
     ) {
     #if DEBUG >= 3
@@ -249,19 +245,13 @@ static void run_depth(int depth
         real_printf("\n");
         #endif
     }
-    #if MULTI_RULE
-    int* cell_coords = search_order[search_order_depth];
-    #else
-    int* cell_coords = search_order[depth - 1];
-    cell* cell = &grid[cell_coords[0]][cell_coords[2]][cell_coords[1]];
-    #endif
     if (IS_KNOWN(cell->value)) {
         DPRINTF3("Cell is known, continuing\n");
         progress[depth] = -1;
         #if MULTI_RULE
-        run_depth(depth + 1, search_order_depth + 1, -1);
+        run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
-        run_depth(depth + 1);
+        run_depth(depth + 1, cell->next_in_search_order);
         #endif
         #if DEBUG >= 3
         current_depth--;
@@ -279,16 +269,16 @@ static void run_depth(int depth
         #endif
         {
             #if MULTI_RULE
-            actual_run_depth(cell, value, depth, search_order_depth);
+            actual_run_depth(depth, cell, value);
             #else
-            actual_run_depth(cell, value, depth);
+            actual_run_depth(depth, cell, value);
             #endif
             progress[depth] = 1;
         }
     #if MULTI_RULE
     } else {
         progress[depth] = -1;
-        actual_run_depth(cell, force_value, depth, search_order_depth);
+        actual_run_depth(depth, cell, force_value);
     }
     #endif
     #if DEBUG >= 3
@@ -317,6 +307,7 @@ int main(void) {
     #endif
     init_known_solutions();
     preprocess();
+    cell* initial_cell = add_search_orders();
     #ifdef LLS
     #ifndef RULE
     #error LLS mode is not supported with multi-rule searching yet
@@ -395,9 +386,9 @@ int main(void) {
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
         #if MULTI_RULE
-        run_depth(1, 0, -1);
+        run_depth(1, initial_cell, -1);
         #else
-        run_depth(1);
+        run_depth(1, initial_cell);
         #endif
         printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
@@ -405,9 +396,9 @@ int main(void) {
     printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
     #else
     #if MULTI_RULE
-    run_depth(1, 0, -1);
+    run_depth(1, initial_cell, -1);
     #else
-    run_depth(1);
+    run_depth(1, initial_cell);
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #endif

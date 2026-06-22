@@ -1122,7 +1122,7 @@ for (let line of code.split('\n')) {
             }
         }
         line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
-    } else if (line.startsWith('static int search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
+    } else if (line.startsWith('index_t search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
         line = line.slice(0, line.indexOf('{'));
         let order = options['search-order'] ?? defaultSearchOrder;
         if (order in searchOrderAliases) {
