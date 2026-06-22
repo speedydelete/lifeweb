@@ -9,6 +9,14 @@
 #include "base.c"
 
 
+// the transition lookup table for the 3-state rule including unknown cells
+// the result is 3 if it's rule-dependent, and it's + 4 if it should be updated when changing the rule
+// index format: 0b_01_23_45_67_89_ab_cd_ef_gh
+// 01 23 45
+// 67 89 ab
+// cd ef gh
+cell_t big_trs_forward[262144];
+
 static cell_t get_forward_big_tr(int prev, int tr, int depth) {
     int state = tr & 3;
     tr >>= 2;

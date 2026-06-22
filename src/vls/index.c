@@ -29,15 +29,18 @@ static inline double get_time() {
 static double start;
 static double last_progress_shown;
 
-static bool use_in_progress[TOTAL_MAX_DEPTH];
-
-static inline void init_use_in_progress(void) {
-    for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
-        use_in_progress[i] = false;
-    }
-}
+static int progress[TOTAL_MAX_DEPTH];
 
 #if MULTI_RULE
+
+typedef struct set_tr_info {
+    bool set;
+    int cell;
+    int tr;
+    int value;
+} set_tr_info;
+
+static set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
 
 static int tr_to_int_tr[512];
 
@@ -60,15 +63,6 @@ static inline void set_tr(int tr, int value) {
         }
     }
 }
-
-typedef struct set_tr_info {
-    bool set;
-    int cell;
-    int tr;
-    int value;
-} set_tr_info;
-
-static set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
 
 static inline void init_multi_rule() {
     for (int tr = 0; tr < 512; tr++) {
@@ -99,11 +93,7 @@ static inline void init_multi_rule() {
 }
 
 static inline void print_progress(FILE* stream, int depth) {
-    int search_order_pos = 0;
     for (int i = 0; i < depth - 1; i++) {
-        if (!use_in_progress[i]) {
-            continue;
-        }
         if (set_tr_info_for_depth[i].set) {
             int tr = set_tr_info_for_depth[i].tr;
             int value = set_tr_info_for_depth[i].value;
@@ -146,10 +136,14 @@ static inline void print_progress(FILE* stream, int depth) {
             }
             real_fprintf(stream, "[%s=%i]", tr_str, value);
         } else {
-            int* cell = search_order[search_order_pos];
-            search_order_pos++;
-            cell_t value = grid[cell[0]][cell[2]][cell[1]];
-            real_fprintf(stream, "%c", value ? '1' : '0');
+            int value = progress[i];
+            if (value == -1) {
+                continue;
+            } else if (value == 0) {
+                real_fprintf(stream, "0");
+            } else if (value == 1) {
+                real_fprintf(stream, "1");
+            }
         }
     }
 }
@@ -157,15 +151,20 @@ static inline void print_progress(FILE* stream, int depth) {
 #else
 
 static inline void print_progress(FILE* stream, int depth) {
-    int search_order_pos = 0;
-    for (int i = 0; i < depth - 1; i++) {
-        // if (!use_in_progress[i]) {
-        //     continue;
+    for (int i = 1; i < depth; i++) {
+        int value = progress[i];
+        // if (i == depth - 1) {
+        //     real_fprintf(stream, "%i", value);
+        // } else {
+        //     real_fprintf(stream, "%i ", value);
         // }
-        int* cell = search_order[search_order_pos];
-        search_order_pos++;
-        cell_t value = grid[cell[0]][cell[2]][cell[1]];
-        real_fprintf(stream, "%c", value ? '1' : '0');
+        if (value == -1) {
+            continue;
+        } else if (value == 0) {
+            real_fprintf(stream, "0");
+        } else if (value == 1) {
+            real_fprintf(stream, "1");
+        }
     }
 }
 
@@ -177,7 +176,7 @@ static void run_depth(int depth
     #endif
     );
 
-static inline void _run_depth(int* cell, cell_t value, int depth
+static inline void actual_run_depth(int* cell, cell_t value, int depth
     #if MULTI_RULE
     , int search_order_depth
     #endif
@@ -253,7 +252,8 @@ static void run_depth(int depth
     int* cell = search_order[depth - 1];
     #endif
     if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]])) {
-        use_in_progress[depth] = false;
+        DPRINTF3("Cell is known, continuing\n");
+        progress[depth] = -1;
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else
@@ -264,10 +264,10 @@ static void run_depth(int depth
         #endif
         return;
     }
-    use_in_progress[depth] = true;
     #if MULTI_RULE
     if (force_value == -1) {
     #endif
+        progress[depth] = 0;
         #if INITIAL_VALUE == 0
         for (int value = 0; value < 2; value++)
         #else
@@ -275,14 +275,16 @@ static void run_depth(int depth
         #endif
         {
             #if MULTI_RULE
-            _run_depth(cell, value, depth, search_order_depth);
+            actual_run_depth(cell, value, depth, search_order_depth);
             #else
-            _run_depth(cell, value, depth);
+            actual_run_depth(cell, value, depth);
             #endif
+            progress[depth] = 1;
         }
     #if MULTI_RULE
     } else {
-        _run_depth(cell, force_value, depth, search_order_depth);
+        progress[depth] = -1;
+        actual_run_depth(cell, force_value, depth, search_order_depth);
     }
     #endif
     #if DEBUG >= 3
@@ -306,7 +308,6 @@ int main(void) {
     init_state();
     init_var_uses();
     generate_big_trs();
-    init_use_in_progress();
     #if MULTI_RULE
     init_multi_rule();
     #endif

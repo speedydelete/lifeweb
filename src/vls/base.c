@@ -241,14 +241,6 @@ int unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
 
-// the transition lookup table for the 3-state rule including unknown cells
-// the result is 3 if it's rule-dependent, and it's + 4 if it should be updated when changing the rule
-// index format: 0b_01_23_45_67_89_ab_cd_ef_gh
-// 01 23 45
-// 67 89 ab
-// cd ef gh
-cell_t big_trs_forward[262144];
-
 #if MULTI_RULE
 
 static inline int unparse_transitions(char* out, int next_char, bool s) {
