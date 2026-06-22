@@ -20,7 +20,7 @@ static inline void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t c
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
                 if (grid[t][y][x] == old) {
-                    set_cell_and_propagate(t, x, y, new, NORMAL);
+                    set_cell_and_propagate(t, x, y, new);
                 }
                 if (IS_VAR(new)) {
                     cell_t var = CELL_VAR_TO_VAR(new);
@@ -32,7 +32,7 @@ static inline void reassign_cell(cell_t old, cell_t new, cell_t* cases, size_t c
             }
         }
     }
-    for (int i = 0; i < cases_size; i++) {
+    for (size_t i = 0; i < cases_size; i++) {
         if (cases[i] == old) {
             cases[i] = new;
         }
@@ -145,7 +145,7 @@ static inline void preprocess_cases(void) {
                             } else if (IS_VAR(old_value)) {
                                 reassign_cell(old_value, new_value, (cell_t*)cases, sizeof(cases));
                             } else {
-                                set_cell_and_propagate(t + 1, x, y, new_value, NORMAL);
+                                set_cell_and_propagate(t + 1, x, y, new_value);
                                 if (IS_VAR(new_value)) {
                                     cell_t var = CELL_VAR_TO_VAR(new_value);
                                     int* data = var_uses[var][num_var_uses[var]++];

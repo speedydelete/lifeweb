@@ -284,7 +284,7 @@ static inline hash_t hash_state() {
 hash_t known_solutions[1048576];
 
 static inline void init_known_solutions(void) {
-    for (int i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {
+    for (size_t i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {
         known_solutions[i] = 0;
     }
 }
@@ -327,7 +327,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     #endif
     #if FILTER_DUPLICATES
     hash_t hash = hash_state();
-    for (int i = 0; i < solutions_found; i++) {
+    for (size_t i = 0; i < solutions_found; i++) {
         hash_t value = known_solutions[i];
         if (value == 0) {
             break;

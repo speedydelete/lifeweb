@@ -185,7 +185,7 @@ static inline void actual_run_depth(int* cell, cell_t value, int depth
     #if DEBUG >= 6
     print_stack();
     #endif
-    if (set_cell_and_propagate(cell[0], cell[1], cell[2], value, NORMAL)) {
+    if (set_cell_and_propagate(cell[0], cell[1], cell[2], value)) {
         #if MULTI_RULE
         run_depth(depth + 1, search_order_depth + 1, -1);
         #else

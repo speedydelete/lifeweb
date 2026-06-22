@@ -156,13 +156,7 @@ static inline void generate_big_trs(void) {
 }
 
 
-// set_cell_and_propagate has different modes depending on its caller
-typedef enum set_cell_and_propagate_mode_t {
-    NORMAL,
-    IMPLICATION,
-} set_cell_and_propagate_mode_t;
-
-static bool set_cell_and_propagate(int t, int x, int y, cell_t value, set_cell_and_propagate_mode_t mode);
+static bool set_cell_and_propagate(int t, int x, int y, cell_t value);
 
 
 #if MULTI_RULE
@@ -217,7 +211,7 @@ static inline bool check_forward_implication(int t, int x, int y) {
                 #endif
                 return false;
             } else {
-                bool out = set_cell_and_propagate(t + 1, x, y, tr_value, IMPLICATION);
+                bool out = set_cell_and_propagate(t + 1, x, y, tr_value);
                 if (!out) {
                     return false;
                 }
@@ -260,7 +254,7 @@ static inline bool check_backward_implication(int t, int x, int y) {
         DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, t, x, y);
         return false;
     }
-    #define check(x, y, value) if (!set_cell_and_propagate(t, (x), (y), (value), NORMAL)) {return false;}
+    #define check(x, y, value) if (!set_cell_and_propagate(t, (x), (y), (value))) {return false;}
     if ((value & 3) != 2) {
         check(x + 1, y + 1, value & 3);
     }
@@ -325,7 +319,7 @@ cell_t prev_values[MAX_VAR_USES];
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static bool set_cell_and_propagate(int t, int x, int y, cell_t value, set_cell_and_propagate_mode_t mode) {
+static bool set_cell_and_propagate(int t, int x, int y, cell_t value) {
     cell_t prev_value = grid[t][y][x];
     DPRINTF3("Setting cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", t, x, y, value, prev_value);
     DPRINTGRID4();

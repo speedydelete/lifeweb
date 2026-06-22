@@ -67,6 +67,7 @@ Options:
         metrics can be any valid expression that it understands
         it knows about +, -, *, /, and ^ (exponentiation)
         also it supports unary + and - and parentheses
+        also you can use | for unary absolute value like |(x - 2)
         also you can use aliases like f2b, b2f, s2s, etc
         the default value is f2b for spaceships and 't, y, x' otherwise
 
@@ -790,6 +791,7 @@ type ParsedMetric = (string | number)[];
 const OPERATORS: {[key: string]: [number, 'left' | 'right']} = {
     'u+': [3, 'right'],
     'u-': [3, 'right'],
+    '|': [3, 'right'],
     '^': [2, 'right'],
     '*': [1, 'left'],
     '/': [1, 'left'],
@@ -841,14 +843,14 @@ function parseMetric(metric: string): ParsedMetric {
             while (ops[ops.length - 1] !== '(') {
                 let op = ops.pop();
                 if (op === undefined) {
-                    error(`Invalid search order metric (mismatched parentheses): '${metric}'`)
+                    error(`Invalid search order metric (mismatched parentheses): '${metric}'`);
                 }
                 out.push(op);
-                if (ops[ops.length - 1] !== '(') {
-                    error(`Invalid search order metric (please report what you did to cause this error, idk what could cause it): '${metric}'`);
-                }
-                ops.pop();
             }
+            if (ops[ops.length - 1] !== '(') {
+                error(`Invalid search order metric (please report what you did to cause this error, idk what could cause it): '${metric}'`);
+            }
+            ops.pop();
             expectUnary = false;
         } else {
             error(`Invalid search order metric (invalid character: '${token}'): '${metric}'`);
@@ -883,14 +885,20 @@ function runMetric([t, x, y]: [number, number, number], metric: ParsedMetric): n
         } else if (value === 'u-') {
             let value = stack.pop();
             if (value === undefined) {
-                error(`No argument for unary operator in search order metric`);
+                error(`No argument for unary operator '-' in search order metric`);
             }
             stack.push(-value);
+        } else if (value === '|') {
+            let value = stack.pop();
+            if (value === undefined) {
+                error(`No argument for unary operator '|' in search order metric`);
+            }
+            stack.push(Math.abs(value));
         } else {
             let b = stack.pop();
             let a = stack.pop();
             if (a === undefined || b === undefined) {
-                error(`No argument for unary operator in search order metric`);
+                error(`Less than 2 arguments for binary operator '${value}' in search order metric`);
             }
             let out: number;
             if (value === '+') {
