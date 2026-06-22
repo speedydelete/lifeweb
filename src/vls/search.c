@@ -79,18 +79,29 @@ static cell_t get_forward_big_tr(int prev, int tr, int depth) {
 // cd ef gh
 // return value is an int of the same format as the index but >> 2, so without ij
 // do nothing = 2, set off = 0, set on = 1, contradiction = 3, do nothing for any cell = 15
-static uint32_t big_trs_backward[1048576];
+uint32_t big_trs_backward[1048576];
+
+#if false
+#define SPECIALDEBUGPRINTF printf
+#else
+#define SPECIALDEBUGPRINTF(...)
+#endif
 
 static inline uint32_t get_backward_big_tr(int tr) {
     if ((tr & 3) == UNKNOWN) {
+        SPECIALDEBUGPRINTF("(tr & 3) == UNKNOWN, returning 15\n");
         return 15;
     }
     // check for contradiction
     cell_t target = big_trs_forward[tr >> 2];
-    if (target == UNKNOWN) {
-        return 15;
-    }
-    if (target != (tr & 3)) {
+    // if (target == UNKNOWN) {
+    //     return 15;
+    // }
+    // if (target != (tr & 3)) {
+    //     return 3;
+    // }
+    if (target != UNKNOWN && target != (tr & 3)) {
+        SPECIALDEBUGPRINTF("early contradiction detected, target = %i, tr & 3 = %i, returning 3\n", target, tr & 3);
         return 3;
     }
     uint32_t out = 0b101010101010101010;
@@ -100,23 +111,25 @@ static inline uint32_t get_backward_big_tr(int tr) {
         }
         int tr2 = tr & ~(3 << i);
         cell_t forward_0 = big_trs_forward[tr2 >> 2];
-        bool zero_possible = forward_0 == target || forward_0 == UNKNOWN;
+        bool zero_possible = forward_0 == (tr & 3) || forward_0 == UNKNOWN;
         cell_t forward_1 = big_trs_forward[(tr2 | (1 << i)) >> 2];
-        bool one_possible = forward_1 == target || forward_1 == UNKNOWN;
-        // if (tr == 131333) {
-        //     printf("%i, zero: %i -> %i -> %s, one: %i -> %i -> %s, target = %i\n", i, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", target);
-        // }
+        bool one_possible = forward_1 == (tr & 3) || forward_1 == UNKNOWN;
+        SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
+            SPECIALDEBUGPRINTF("must be 1\n");
             // must be 1
             out = (out & ~(3 << (i - 2))) | (1 << (i - 2));
         } else if (zero_possible && !one_possible) {
+            SPECIALDEBUGPRINTF("must be 0\n");
             // must be 0
             out = (out & ~(3 << (i - 2))) | (0 << (i - 2));
         } else if (!zero_possible && !one_possible) {
             // contradiction
+            SPECIALDEBUGPRINTF("contradiction detected, returning 3\n");
             return 3;
         }
     }
+    SPECIALDEBUGPRINTF("result: %i -> %i", tr, out);
     return out;
 }
 
@@ -147,7 +160,7 @@ static bool set_cell_and_propagate(int t, int x, int y, cell_t value, set_cell_a
 #if MULTI_RULE
 // the transition that caused the most recent rule-dependent "contradiction"
 // or -1 if it wasn't rule-dependent
-static int rule_dependent_tr = -1;
+int rule_dependent_tr = -1;
 #endif
 
 
@@ -231,6 +244,7 @@ static inline bool check_backward_implication(int t, int x, int y) {
            | (((int)(grid[t + 1][y][x] & 3)));
     #undef get
     int value = big_trs_backward[tr];
+    DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", t, x, y, tr, (int)value);
     if (value == 15) {
         return true;
     } else if (value == 3) {
@@ -299,7 +313,7 @@ static inline bool check_backward_implication(int t, int x, int y) {
 #endif
 
 
-static cell_t prev_values[MAX_VAR_USES];
+cell_t prev_values[MAX_VAR_USES];
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction

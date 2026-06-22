@@ -11,10 +11,10 @@
 
 
 #ifndef BENCHMARK
-static uint64_t solutions_found;
+uint64_t solutions_found;
 #endif
 
-static uint64_t branches;
+uint64_t branches;
 
 
 #if FILTER_DUPLICATES
@@ -150,7 +150,7 @@ static inline void transform_coords(bb_t* bb, int x, int y, axis_trans_t x_trans
 
 #if MULTI_RULE
 
-static bb_t zero_bb = {0, 0, 0, 0};
+static const bb_t zero_bb = {0, 0, 0, 0};
 
 static inline hash_t hash_with_offset(int offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
@@ -281,7 +281,7 @@ static inline hash_t hash_state() {
 #endif
 
 
-static hash_t known_solutions[1048576];
+hash_t known_solutions[1048576];
 
 static inline void init_known_solutions(void) {
     for (int i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {

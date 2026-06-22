@@ -1086,7 +1086,7 @@ for (let line of code.split('\n')) {
             out.push(`typedef uint8_t index_t;`);
         }
         continue;
-    } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();

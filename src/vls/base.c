@@ -208,8 +208,8 @@ static const char int_letters[INT_NUMBER_COUNT][MAX_LETTERS_PER_INT_NUM + 1] = {
 #define real_printf (printf)
 #define real_fprintf (fprintf)
 #if DEBUG >= 3
-#define INDENT (" ")
-static int current_depth = 0;
+#define INDENT ("    ")
+int current_depth = 0;
 #define DPRINTLINEPADDING() { \
     for (int i = 0; i < current_depth; i++) { \
         real_printf(INDENT); \
@@ -237,8 +237,8 @@ static int current_depth = 0;
 #define DFPRINTLINEPADDING(stream)
 #endif
 
-static int unknown_cells = TOTAL_UNKNOWN_CELLS;
-static int max_depth = TOTAL_MAX_DEPTH;
+int unknown_cells = TOTAL_UNKNOWN_CELLS;
+int max_depth = TOTAL_MAX_DEPTH;
 
 
 // the transition lookup table for the 3-state rule including unknown cells
@@ -247,7 +247,7 @@ static int max_depth = TOTAL_MAX_DEPTH;
 // 01 23 45
 // 67 89 ab
 // cd ef gh
-static cell_t big_trs_forward[262144];
+cell_t big_trs_forward[262144];
 
 #if MULTI_RULE
 
@@ -322,16 +322,16 @@ static inline void init_state(void) {
 }
 
 
-static bool next_stack_entry_is_first_in_frame = true;
+bool next_stack_entry_is_first_in_frame = true;
 
 typedef struct stack_entry {
     bool is_first_in_frame;
     index_t index;
 } stack_entry;
 
-static stack_entry stack[MAX_STACK_DEPTH];
+stack_entry stack[MAX_STACK_DEPTH];
 
-static int sp = 0;
+int sp = 0;
 
 static inline void print_frame(int i) {
     index_t index = stack[i].index;
@@ -486,8 +486,8 @@ static inline void print_grid(FILE* stream) {
 
 // a list of where variables are used in
 // format for each entry: {t, x, y}
-static int var_uses[VAR_COUNT][MAX_VAR_USES][3];
-static int num_var_uses[VAR_COUNT];
+int var_uses[VAR_COUNT][MAX_VAR_USES][3];
+int num_var_uses[VAR_COUNT];
 
 static inline void init_var_uses(void) {
     for (int i = 0; i < VAR_COUNT;i ++) {

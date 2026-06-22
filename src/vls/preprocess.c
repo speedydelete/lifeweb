@@ -162,12 +162,6 @@ static inline void preprocess_cases(void) {
     }
 }
 
-// searches for and removes trivial cells
-static inline void preprocess_one_iteration(void) {
-    preprocess_implications();
-    preprocess_cases();
-}
-
 static inline void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
@@ -175,7 +169,8 @@ static inline void preprocess(void) {
     bool found = false;
     for (int i = 0; i < 4096; i++) {
         memcpy(old_grid, grid, sizeof(grid));
-        preprocess();
+        preprocess_implications();
+        preprocess_cases();
         if (memcmp(old_grid, grid, sizeof(grid)) == 0) {
             found = true;
             break;

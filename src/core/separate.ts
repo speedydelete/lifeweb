@@ -17,7 +17,7 @@ TODO EXPLAIN THIS
 
 */
 
-import {Pattern, DataPattern} from '../core/index.js';
+import {Pattern, DataPattern} from './pattern.js';
 
 
 export class Separator<T extends Pattern = Pattern> extends DataPattern {

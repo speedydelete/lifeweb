@@ -292,6 +292,17 @@ static void run_depth(int depth
 
 
 int main(void) {
+    // for (int tr = 0; tr < 262144; tr++) {
+    //     big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
+    // }
+    // long value = strtol(
+    //     "00" "01" "10"
+    //     "00" "00" "00"
+    //     "00" "00" "00"
+    //     "01"
+    // , NULL, 2);
+    // printf("%ld -> %i\n", value, get_backward_big_tr(value));
+    // exit(0);
     init_state();
     init_var_uses();
     generate_big_trs();
@@ -300,6 +311,7 @@ int main(void) {
     init_multi_rule();
     #endif
     init_known_solutions();
+    preprocess();
     #ifdef LLS
     #ifndef RULE
     #error LLS mode is not supported with multi-rule searching yet
@@ -353,11 +365,12 @@ int main(void) {
     #endif
     #endif
     // long value = strtol(
-    //     "00" "01" "01"
-    //     "00" "00" "00"
-    //     "00" "00" "00"
+    //     "01" "01" "01"
+    //     "10" "01" "10"
+    //     "10" "10" "10"
+    //     "01"
     // , NULL, 2);
-    // printf("%ld -> %i\n", value, big_trs_forward[value]);
+    // printf("%ld -> %i\n", value, big_trs_backward[value]);
     printf("Running search\n");
     DPRINTGRID1();
     #if DEBUG >= 2
@@ -381,10 +394,10 @@ int main(void) {
         #else
         run_depth(1);
         #endif
-        printf("Iteration %i/%i complete in %.6f seconds\n", i, BENCHMARK, get_time() - start);
+        printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
     double time = get_time() - start;
-    printf("All iterations complete in %.6f seconds, average %.6f seconds/iteration\n", time, time / BENCHMARK);
+    printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
     #else
     #if MULTI_RULE
     run_depth(1, 0, -1);
