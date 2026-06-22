@@ -1088,13 +1088,6 @@ for (let line of code.split('\n')) {
         continue;
     } else if (line.startsWith('static cell_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
-    } else if (line.startsWith('static int search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
-        line = line.slice(0, line.indexOf('{'));
-        let order = options['search-order'] ?? defaultSearchOrder;
-        if (order in searchOrderAliases) {
-            order = searchOrderAliases[order];
-        }
-        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
@@ -1105,6 +1098,13 @@ for (let line of code.split('\n')) {
             }
         }
         line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
+    } else if (line.startsWith('static int search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
+        line = line.slice(0, line.indexOf('{'));
+        let order = options['search-order'] ?? defaultSearchOrder;
+        if (order in searchOrderAliases) {
+            order = searchOrderAliases[order];
+        }
+        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -1164,8 +1164,6 @@ for (let line of code.split('\n')) {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 0;
-    } else if (name === 'FILTER_EVERY_PHASE') {
-        value = mode === 'periodic' ? 'true' : 'false';
     } else if (name === 'LLS') {
         let path = await import('node:path');
         let fs = await import('node:fs/promises');
@@ -1194,17 +1192,6 @@ for (let line of code.split('\n')) {
             }
             value = JSON.stringify(file);
         }
-    } else if (name === 'MAX_SOLUTIONS') {
-        if (options['max-solutions'] === undefined) {
-            comment = true;
-            value = 67;
-        } else {
-            value = options['max-solutions'];
-        }
-    } else if (name === 'SHOW_SOLUTIONS') {
-        value = options['no-show-solutions'] ? 'false' : 'true';
-    } else if (name === 'REPORTING_INTERVAL') {
-        value = options['interval'] ?? 1;
     } else if (name === 'MAXPOP') {
         if (options['maxpop'] === undefined) {
             comment = true;
@@ -1212,6 +1199,19 @@ for (let line of code.split('\n')) {
         } else {
             value = options['maxpop'];
         }
+    } else if (name === 'SHOW_SOLUTIONS') {
+        value = options['no-show-solutions'] ? 'false' : 'true';
+    } else if (name === 'MAX_SOLUTIONS') {
+        if (options['max-solutions'] === undefined) {
+            comment = true;
+            value = 67;
+        } else {
+            value = options['max-solutions'];
+        }
+    } else if (name === 'FILTER_EVERY_PHASE') {
+        value = mode === 'periodic' ? 'true' : 'false';
+    } else if (name === 'REPORTING_INTERVAL') {
+        value = options['interval'] ?? 1;
     } else if (name === 'BENCHMARK') {
         if (options['benchmark'] == undefined) {
             comment = true;
