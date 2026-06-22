@@ -49,6 +49,8 @@ Options:
 
     -d, --debug <level>: set the debug level
 
+    --interval <seconds>: set the progress reporting interval
+
     -g, --gdb: run gdb instead and compile with debugging symbols
     --profile: compile with profiling symbols
 
@@ -124,6 +126,7 @@ type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string'
 const OPTIONS = {
     'help': true,
     'debug': 'number',
+    'interval': 'number',
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
@@ -1200,6 +1203,8 @@ for (let line of code.split('\n')) {
         }
     } else if (name === 'SHOW_SOLUTIONS') {
         value = options['no-show-solutions'] ? 'false' : 'true';
+    } else if (name === 'REPORTING_INTERVAL') {
+        value = options['interval'] ?? 1;
     } else if (name === 'MAXPOP') {
         if (options['maxpop'] === undefined) {
             comment = true;

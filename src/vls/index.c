@@ -136,6 +136,9 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // maximum population
 // #define MAXPOP 67
 
+// reporting interval
+#define REPORTING_INTERVAL 1
+
 // solution filtering
 
 #define FILTERING false
@@ -1605,7 +1608,7 @@ static void run_depth(int depth
     }
     DPRINTGRID3();
     double time = get_time();
-    if (time - last_progress_shown > 1) {
+    if (time - last_progress_shown > REPORTING_INTERVAL) {
         last_progress_shown = time;
         #ifndef BENCHMARK
         printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);

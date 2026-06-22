@@ -1,3 +1,5 @@
+
+
 {
     "name": "lifeweb",
     "version": "1.0.0",
@@ -19,10 +21,33 @@
         "esbuild": "^0.28.0"
     },
     "homepage": "https://github.com/speedydelete/lifeweb",
-    "wrecked": {
+    "wrecked_vls": {
+        "html": "src/vls/test.html",
+        "showErrors": true,
+        "imports": {
+            "./index.js": "src/vls/index.ts",
+            "./index.c": "src/vls/index.c"
+        }
+    },
+    "wrecked_identify": {
+        "html": "src/identify/index.html",
+        "showErrors": true,
+        "files": {
+            "<script type=\"module\" src=\"index.js\"></script>": "src/identify/index.ts"
+        }
+    },
+    "wrecked_editor": {
         "html": "src/editor/index.html",
         "files": {
             "<script type=\"module\" src=\"index.js\"></script>": "src/editor/index.ts"
+        }
+    },
+    "wrecked": {
+        "html": "src/vls/test.html",
+        "showErrors": true,
+        "imports": {
+            "./index.js": "src/vls/index.ts",
+            "./index.c": "src/vls/index.c"
         }
     }
 }
