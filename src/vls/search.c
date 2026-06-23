@@ -242,26 +242,6 @@ static inline bool check_backward_implication(cell* cell) {
     if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
         return true;
     }
-    #if TOP == NONE
-    if (cell->y == 1) {
-        return check_forward_implication(cell);
-    }
-    #endif
-    #if BOTTOM == NONE
-    if (cell->y == HEIGHT - 2) {
-        return check_forward_implication(cell);
-    }
-    #endif
-    #if LEFT == NONE
-    if (cell->x == 1) {
-        return check_forward_implication(cell);
-    }
-    #endif
-    #if RIGHT == NONE
-    if (cell->x == WIDTH - 2) {
-        return check_forward_implication(cell);
-    }
-    #endif
     uint32_t tr = (cell->nw->value << 18)
                 | (cell->w->value << 16)
                 | (cell->sw->value << 14)
