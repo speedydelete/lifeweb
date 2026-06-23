@@ -26,7 +26,7 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
         return 0;
     }
     if (depth == 8) {
-        if (IS_KNOWN(state)) {
+        if (state != UNKNOWN) {
             return trs[next | state];
         } else {
             cell_value_t a = trs[next | 0];
@@ -49,7 +49,7 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
             #endif
         }
     } else {
-        if (IS_KNOWN(state)) {
+        if (state != UNKNOWN) {
             return get_forward_big_tr(next | state, tr, depth + 1);
         } else {
             cell_value_t a = get_forward_big_tr(next | 0, tr, depth + 1);
@@ -208,8 +208,8 @@ static inline bool check_forward_implication(cell* cell) {
     }
     #endif
     if (value != tr_value) {
-        if (IS_KNOWN(tr_value)) {
-            if (IS_KNOWN(value)) {
+        if (tr_value != UNKNOWN) {
+            if (value != UNKNOWN) {
                 DPRINTGRID4();
                 DPRINTF4("Contradiction (forward, both known and unequal, t = %i, x = %i, y = %i)\n", cell->t, cell->x, cell->y);
                 #if MULTI_RULE
@@ -262,7 +262,7 @@ static inline bool check_backward_implication(cell* cell) {
         return false;
     }
     #define check(cell, value) \
-        if ((value) != 2) { \
+        if ((value) != UNKNOWN) { \
             if (!set_cell_and_propagate((cell), (value))) { \
                 return false; \
             } \
@@ -320,7 +320,7 @@ cell_value_t prev_values[MAX_VAR_USES];
 static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     DPRINTF3("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     DPRINTGRID4();
-    if (IS_KNOWN(cell->value)) {
+    if (cell->value != UNKNOWN) {
         #if DEBUG >= 4
         if (cell->value != value) {
             DPRINTF4("Contradiction (previous value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
@@ -341,7 +341,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         prev_values[use] = cell->value;
-        if (IS_KNOWN(cell->value)) {
+        if (cell->value != UNKNOWN) {
             if (cell->value != value) {
                 DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
                 return false;
@@ -356,7 +356,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
-        if (!IS_KNOWN(prev_values[use])) {
+        if (prev_values[use] == UNKNOWN) {
             if (!CHECK_IMPLICATIONS(cell)) {
                 return false;
             }

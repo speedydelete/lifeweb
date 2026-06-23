@@ -244,7 +244,7 @@ static void run_depth(int depth, cell* cell
         print_grid_2(depth, false);
     }
     #endif
-    if (IS_KNOWN(cell->value)) {
+    if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         progress[depth] = -1;
         #if MULTI_RULE

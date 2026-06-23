@@ -12,7 +12,6 @@
 #define TOTAL_SIZE (GENS * SIZE)
 
 #define UNKNOWN (2)
-#define IS_KNOWN(x) ((x) < UNKNOWN)
 
 #if VARIABLES
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
@@ -451,7 +450,7 @@ static inline void pop_frame(void) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static inline bool set_cell(cell* cell, cell_value_t value) {
-    if (IS_KNOWN(cell->value) && cell->value != value) {
+    if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     } else if (cell->value == value) {

@@ -164,8 +164,8 @@ static inline void preprocess_cases(void) {
                 for (int i = 0; i < case_count; i++) {
                     if (memcmp(cases[i], cells, sizeof(cell_value_t) * 9) == 0) {
                         case_cell_t new_cell = cases[i][9];
-                        if (IS_KNOWN(next_cell->value)) {
-                            if (IS_KNOWN(new_cell.value)) {
+                        if (next_cell->value != UNKNOWN) {
+                            if (new_cell.value != UNKNOWN) {
                                 if (next_cell->value != new_cell.value) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
                                 }
@@ -228,7 +228,7 @@ static inline void preprocess(void) {
     // remove trivial cells from search order
     for (index_t i = 0; i < unknown_cells; i++) {
         index_t* cell = search_order[i];
-        if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]].value)) {
+        if (grid[cell[0]][cell[2]][cell[1]].value != UNKNOWN) {
             for (index_t j = i; j < unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(index_t) * 3);
             }
