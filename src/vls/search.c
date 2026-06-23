@@ -17,7 +17,7 @@
 // 45 ab gh
 cell_value_t big_trs[262144];
 
-static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
+static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
@@ -40,10 +40,10 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
         }
     } else {
         if (state != UNKNOWN) {
-            return get_forward_big_tr(next | state, tr, depth + 1);
+            return get_big_tr(next | state, tr, depth + 1);
         } else {
-            cell_value_t a = get_forward_big_tr(next | 0, tr, depth + 1);
-            cell_value_t b = get_forward_big_tr(next | 1, tr, depth + 1);
+            cell_value_t a = get_big_tr(next | 0, tr, depth + 1);
+            cell_value_t b = get_big_tr(next | 1, tr, depth + 1);
             // unknown cell: if they disagree return unknown
             #if MULTI_RULE
             return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
@@ -76,7 +76,7 @@ uint32_t implications[1048576];
 #define SPECIALDEBUGPRINTF(...)
 #endif
 
-static inline uint32_t get_backward_big_tr(uint32_t tr) {
+static inline uint32_t get_implication_tr(uint32_t tr) {
     for (int i = 0; i < 20; i += 2) {
         if (((tr >> i) & 3) == 3) {
             return CONTRADICTION;
@@ -129,10 +129,10 @@ static inline uint32_t get_backward_big_tr(uint32_t tr) {
 
 static inline void generate_big_trs(void) {
     for (uint32_t tr = 0; tr < 262144; tr++) {
-        big_trs[tr] = get_forward_big_tr(0, tr, 0);
+        big_trs[tr] = get_big_tr(0, tr, 0);
     }
     for (uint32_t tr = 0; tr < 1048576; tr++) {
-        uint32_t value = get_backward_big_tr(tr);
+        uint32_t value = get_implication_tr(tr);
         implications[tr] = value == 0b10101010101010101010 ? DO_NOTHING : value;
     }
 }
@@ -159,23 +159,13 @@ static inline bool check_implication(cell* cell) {
     if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
         return true;
     }
-    uint32_t tr = (cell->nw->value << 18)
-                | (cell->w->value << 16)
-                | (cell->sw->value << 14)
-                | (cell->n->value << 12)
-                | (cell->value << 10)
-                | (cell->s->value << 8)
-                | (cell->ne->value << 6)
-                | (cell->e->value << 4)
-                | (cell->se->value << 2)
-                | (cell->next->value);
-    uint32_t value = implications[tr];
-    DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
+    uint32_t value = implications[cell->big_tr];
+    DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, cell->big_tr, (int)value);
     if (value == DO_NOTHING) {
         return true;
     } else if (value == CONTRADICTION) {
         DPRINTGRID4();
-        DPRINTF4("Contradiction (backward, value = CONTRADICTION, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
+        DPRINTF4("Contradiction (implication, value = CONTRADICTION, tr = %i, t = %i, x = %i, y = %i)\n", cell->big_tr, cell->t, cell->x, cell->y);
         return false;
     }
     #define check(cell, value) \

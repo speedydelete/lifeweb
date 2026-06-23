@@ -297,6 +297,22 @@ static inline void get_rule(char* out) {
 #endif
 
 
+static inline uint32_t get_cell_big_tr(cell* cell) {
+    if (cell == NULL || cell->next == NULL || cell->nw == NULL || cell->w == NULL || cell->sw == NULL || cell->n == NULL || cell->s == NULL || cell->ne == NULL || cell->e == NULL || cell->se == NULL) {
+        return 0;
+    }
+    return (cell->nw->value << 18)
+         | (cell->w->value << 16)
+         | (cell->sw->value << 14)
+         | (cell->n->value << 12)
+         | (cell->value << 10)
+         | (cell->s->value << 8)
+         | (cell->ne->value << 6)
+         | (cell->e->value << 4)
+         | (cell->se->value << 2)
+         | (cell->next->value);
+}
+
 static inline void init_state(void) {
     index_t index = 0;
     for (index_t t = 0; t < GENS; t++) {
@@ -311,6 +327,7 @@ static inline void init_state(void) {
                 #if VARIABLES
                 cell->var = initial_vars[t][y][x];
                 #endif
+                cell->big_tr = get_cell_big_tr(cell);
                 #if TIME_WRAP
                 if (t == 0) {
                     if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
@@ -425,6 +442,34 @@ static inline void pop_frame(void) {
         cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
         cell->value = value;
         set_cells--;
+        if (cell->prev != NULL) {
+            cell->prev->big_tr = (cell->prev->big_tr & ~3) | value;
+        }
+        if (cell->nw != NULL) {
+            cell->nw->big_tr = (cell->nw->big_tr & ~(3 << 2)) | (value << 2);
+        }
+        if (cell->w != NULL) {
+            cell->w->big_tr = (cell->w->big_tr & ~(3 << 4)) | (value << 4);
+        }
+        if (cell->sw != NULL) {
+            cell->sw->big_tr = (cell->sw->big_tr & ~(3 << 6)) | (value << 6);
+        }
+        if (cell->n != NULL) {
+            cell->n->big_tr = (cell->n->big_tr & ~(3 << 8)) | (value << 8);
+        }
+        cell->big_tr = (cell->big_tr & ~(3 << 10)) | (value << 10);
+        if (cell->s != NULL) {
+            cell->s->big_tr = (cell->s->big_tr & ~(3 << 12)) | (value << 12);
+        }
+        if (cell->ne != NULL) {
+            cell->ne->big_tr = (cell->ne->big_tr & ~(3 << 14)) | (value << 14);
+        }
+        if (cell->e != NULL) {
+            cell->e->big_tr = (cell->e->big_tr & ~(3 << 16)) | (value << 16);
+        }
+        if (cell->se != NULL) {
+            cell->se->big_tr = (cell->se->big_tr & ~(3 << 18)) | (value << 18);
+        }
         #ifdef SPECIAL_PHASE_0_POP
         if (t == 0 && value == 1) {
             phase_0_pop--;
@@ -482,6 +527,34 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     sp++;
     set_cells++;
     cell->value = value;
+    if (cell->prev != NULL) {
+        cell->prev->big_tr = (cell->prev->big_tr & ~3) | value;
+    }
+    if (cell->nw != NULL) {
+        cell->nw->big_tr = (cell->nw->big_tr & ~(3 << 2)) | (value << 2);
+    }
+    if (cell->w != NULL) {
+        cell->w->big_tr = (cell->w->big_tr & ~(3 << 4)) | (value << 4);
+    }
+    if (cell->sw != NULL) {
+        cell->sw->big_tr = (cell->sw->big_tr & ~(3 << 6)) | (value << 6);
+    }
+    if (cell->n != NULL) {
+        cell->n->big_tr = (cell->n->big_tr & ~(3 << 8)) | (value << 8);
+    }
+    cell->big_tr = (cell->big_tr & ~(3 << 10)) | (value << 10);
+    if (cell->s != NULL) {
+        cell->s->big_tr = (cell->s->big_tr & ~(3 << 12)) | (value << 12);
+    }
+    if (cell->ne != NULL) {
+        cell->ne->big_tr = (cell->ne->big_tr & ~(3 << 14)) | (value << 14);
+    }
+    if (cell->e != NULL) {
+        cell->e->big_tr = (cell->e->big_tr & ~(3 << 16)) | (value << 16);
+    }
+    if (cell->se != NULL) {
+        cell->se->big_tr = (cell->se->big_tr & ~(3 << 18)) | (value << 18);
+    }
     #if TOP != NONE
     if (y == TOP) {
         grid[t][0][x] = value;
