@@ -807,7 +807,7 @@ type ParsedMetric = (string | number)[];
 const OPERATORS: {[key: string]: [number, 'left' | 'right']} = {
     'u+': [3, 'right'],
     'u-': [3, 'right'],
-    '|': [3, 'right'],
+    'abs': [3, 'right'],
     '^': [2, 'right'],
     '*': [1, 'left'],
     '/': [1, 'left'],
@@ -823,6 +823,9 @@ function parseMetric(metric: string): ParsedMetric {
         if (match = metric.slice(i).match(NUMBER_REGEX)) {
             tokens.push(Number(match[0]));
             i += match[0].length - 1;
+        } else if (metric[i] === 'a' && metric[i + 1] === 'b' && metric[i + 2] === 's') {
+            tokens.push('abs');
+            i += 2;
         } else {
             tokens.push(metric[i]);
         }
@@ -904,10 +907,10 @@ function runMetric([t, x, y]: [number, number, number], metric: ParsedMetric): n
                 error(`No argument for unary operator '-' in search order metric`);
             }
             stack.push(-value);
-        } else if (value === '|') {
+        } else if (value === 'abs') {
             let value = stack.pop();
             if (value === undefined) {
-                error(`No argument for unary operator '|' in search order metric`);
+                error(`No argument for unary operator 'abs' in search order metric`);
             }
             stack.push(Math.abs(value));
         } else {
