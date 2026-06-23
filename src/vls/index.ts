@@ -38,7 +38,7 @@ Modes:
             state 3 (white) - can die but must be alive at the end
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
-            state 6 (gray) - unused
+            state 6 (gray) - alias for state 0
         if end is not provided it will report all solutions
         that lead to the state 3 and 5 cells being restored
         the catalyst can only start interacting at generation 2
@@ -739,6 +739,7 @@ if (mode === 'periodic') {
 } else if (mode === 'catalyst') {
 
     let startP = superBase.loadRLE(posArgs[0]);
+    startP.data = startP.data.map(x => x === 6 ? 0 : x);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
         error(`Invalid generations value: '${posArgs[1]}'`);
