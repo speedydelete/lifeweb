@@ -258,7 +258,7 @@ static inline bool check_backward_implication(cell* cell) {
         return true;
     } else if (value == CONTRADICTION) {
         DPRINTGRID4();
-        DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
+        DPRINTF4("Contradiction (backward, value = CONTRADICTION, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
         return false;
     }
     #define check(cell, value) \
