@@ -177,8 +177,6 @@ typedef struct cell {
     // the variable stored in the cell
     var_t var;
     #endif
-    // the big transition of the cell
-    uint32_t big_tr;
     // the next cell in the search order
     struct cell* next_in_search_order;
     // the previous cell (in time)
