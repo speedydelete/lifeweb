@@ -1214,7 +1214,6 @@ for (let line of code.split('\n')) {
                     try {
                         await fs.access(path.join(file, filename), fs.constants.X_OK);
                     } catch {
-                        console.log('hi');
                         continue;
                     }
                 } else if (filename === 'lss.py') {
