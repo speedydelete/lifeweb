@@ -30,17 +30,7 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
             return trs[next | state];
         } else {
             cell_value_t a = trs[next | 0];
-            // #if MULTI_RULE
-            // if (a == 3) {
-            //     return 3;
-            // }
-            // #endif
             cell_value_t b = trs[next | 1];
-            // #if MULTI_RULE
-            // if (b == 3) {
-            //     return 3;
-            // }
-            // #endif
             // unknown cell: if they disagree return unknown
             #if MULTI_RULE
             return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
@@ -53,17 +43,7 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
             return get_forward_big_tr(next | state, tr, depth + 1);
         } else {
             cell_value_t a = get_forward_big_tr(next | 0, tr, depth + 1);
-            // #if MULTI_RULE
-            // if (a == 3) {
-            //     return 3;
-            // }
-            // #endif
             cell_value_t b = get_forward_big_tr(next | 1, tr, depth + 1);
-            // #if MULTI_RULE
-            // if (b == 3) {
-            //     return 3;
-            // }
-            // #endif
             // unknown cell: if they disagree return unknown
             #if MULTI_RULE
             return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
