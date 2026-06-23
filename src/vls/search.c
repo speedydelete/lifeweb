@@ -178,16 +178,15 @@ static inline bool check_forward_implication(cell* cell) {
         return true;
     }
     #endif
-    uint32_t tr = 
-          ((cell->nw->value & 3) << 16)
-        | ((cell->w->value & 3) << 14)
-        | ((cell->sw->value & 3) << 12)
-        | ((cell->n->value & 3) << 10)
-        | ((cell->value & 3) << 8)
-        | ((cell->s->value & 3) << 6)
-        | ((cell->ne->value & 3) << 4)
-        | ((cell->e->value & 3) << 2)
-        | (cell->se->value & 3);
+    uint32_t tr = ((cell->nw->value & 3) << 16)
+                | ((cell->w->value & 3) << 14)
+                | ((cell->sw->value & 3) << 12)
+                | ((cell->n->value & 3) << 10)
+                | ((cell->value & 3) << 8)
+                | ((cell->s->value & 3) << 6)
+                | ((cell->ne->value & 3) << 4)
+                | ((cell->e->value & 3) << 2)
+                | (cell->se->value & 3);
     int value = cell->next->value;
     int tr_value = big_trs_forward[tr];
     DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", cell->t, cell->x, cell->y, tr, (int)value, (int)tr_value);
@@ -246,17 +245,16 @@ static inline bool check_backward_implication(cell* cell) {
         return true;
     }
     #endif
-    uint32_t tr = 
-          ((cell->nw->value & 3) << 18)
-        | ((cell->w->value & 3) << 16)
-        | ((cell->sw->value & 3) << 14)
-        | ((cell->n->value & 3) << 12)
-        | ((cell->value & 3) << 10)
-        | ((cell->s->value & 3) << 8)
-        | ((cell->ne->value & 3) << 6)
-        | ((cell->e->value & 3) << 4)
-        | ((cell->se->value & 3) << 2)
-        | ((cell->next->value) & 3);
+    uint32_t tr = ((cell->nw->value & 3) << 18)
+                | ((cell->w->value & 3) << 16)
+                | ((cell->sw->value & 3) << 14)
+                | ((cell->n->value & 3) << 12)
+                | ((cell->value & 3) << 10)
+                | ((cell->s->value & 3) << 8)
+                | ((cell->ne->value & 3) << 6)
+                | ((cell->e->value & 3) << 4)
+                | ((cell->se->value & 3) << 2)
+                | ((cell->next->value) & 3);
     uint32_t value = big_trs_backward[tr];
     DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == 15) {
@@ -353,13 +351,13 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         }
         #endif
         return cell->value == value;
-    } else if (cell->value < 4) {
+    } else if (cell->var == 0) {
         if (!set_cell(cell, value)) {
             return false;
         }
         return CHECK_IMPLICATIONS(cell);
     }
-    cell_value_t var = CELL_VAR_TO_VAR(cell->value);
+    var_t var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
     for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];

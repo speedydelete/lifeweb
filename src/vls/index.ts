@@ -50,7 +50,8 @@ Options:
     --interval <seconds>: set the progress reporting interval
     --partial-interval <seconds>: set the partial reporting interval
 
-    -g, --gdb: run gdb instead and compile with debugging symbols
+    -g: compile with debugging symbols
+    --gdb: compile with debugging symbols and run gdb
     --profile: compile with profiling symbols
 
     --benchmark <iterations>: run benchmarking
@@ -127,6 +128,7 @@ const OPTIONS = {
     'debug': 'number',
     'interval': 'number',
     'partial-interval': 'number',
+    'g': true,
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
@@ -156,7 +158,7 @@ type Option = keyof Options;
 const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
-    'g': 'gdb',
+    'g': 'g',
     'l': 'lls',
     'o': 'search-order',
     'i': 'initial-value',
@@ -336,6 +338,7 @@ class Grid {
     gens: number;
     size: number;
     data: number[][][];
+    vars: number[][][];
     numVars: number = 0;
 
     constructor(height: number, width: number, gens: number) {
@@ -344,20 +347,25 @@ class Grid {
         this.gens = gens;
         this.size = height * width;
         this.data = [];
+        this.vars = [];
         for (let t = 0; t < gens; t++) {
             let grid: number[][] = [];
+            let varsGrid: number[][] = [];
             for (let y = 0; y < height; y++) {
                 let row: number[] = [];
                 for (let x = 0; x < width; x++) {
                     row.push(0);
                 }
                 grid.push(row);
+                varsGrid.push(row.slice());
             }
             this.data.push(grid);
+            this.vars.push(varsGrid);
         }
     }
 
-    toString(top: Edge, bottom: Edge, left: Edge, right: Edge): string {
+    toString(top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {4
+        let data = useVars ? this.vars : this.data;
         let emptyRow: number[] = [];
         let realWidth = this.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
         for (let x = 0; x < realWidth; x++) {
@@ -371,23 +379,23 @@ class Grid {
                 if (left === 'none') {
                     row.push(0, 0);
                 } else if (left === 'even') {
-                    row.push(this.data[t][y][0]);
+                    row.push(data[t][y][0]);
                 } else if (left === 'odd') {
-                    row.push(this.data[t][y][1]);
+                    row.push(data[t][y][1]);
                 } else {
-                    row.push(this.data[t][y][this.width - 1]);
+                    row.push(data[t][y][this.width - 1]);
                 }
                 for (let x = 0; x < this.width; x++) {
-                    row.push(this.data[t][y][x]);
+                    row.push(data[t][y][x]);
                 }
                 if (right === 'none') {
                     row.push(0, 0);
                 } else if (right === 'even') {
-                    row.push(this.data[t][y][this.width - 1]);
+                    row.push(data[t][y][this.width - 1]);
                 } else if (right === 'odd') {
-                    row.push(this.data[t][y][this.width - 2]);
+                    row.push(data[t][y][this.width - 2]);
                 } else {
-                    row.push(this.data[t][y][0]);
+                    row.push(data[t][y][0]);
                 }
                 grid.push(row);
             }
@@ -441,8 +449,9 @@ class Grid {
         return this.data[t][y][x];
     }
 
-    set(t: number, x: number, y: number, value: number): void {
+    set(t: number, x: number, y: number, value: number, variable: number = 0): void {
         this.data[t][y][x] = value;
+        this.vars[t][y][x] = variable;
     }
 
     fill(value: number): void;
@@ -485,7 +494,7 @@ class Grid {
 
     getVar(): number {
         this.numVars++;
-        return 2 + this.numVars * 4;
+        return this.numVars;
     }
 
     removeUnusedVars(): void {
@@ -494,17 +503,18 @@ class Grid {
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
-                    let value = this.data[t][y][x];
-                    if (value > 3) {
-                        if (value in mapping) {
-                            value = mapping[value];
-                        } else {
-                            let mapped = this.getVar();
-                            mapping[value] = mapped;
-                            value = mapped;
-                        }
-                        this.data[t][y][x] = value;
+                    let value = this.vars[t][y][x];
+                    if (value === 0) {
+                        continue;
                     }
+                    if (value in mapping) {
+                        value = mapping[value];
+                    } else {
+                        let mapped = this.getVar();
+                        mapping[value] = mapped;
+                        value = mapped;
+                    }
+                    this.vars[t][y][x] = value;
                 }
             }
         }
@@ -619,8 +629,8 @@ if (mode === 'periodic') {
     // for (let y = 0; y < height - dy; y++) {
     //     for (let x = 0; x < width - dx; x++) {
     //         let value = grid.getVar();
-    //         grid.set(0, x, y, value);
-    //         grid.set(period, x + dx, y + dy, value);
+    //         grid.set(0, x, y, UNKNOWN, value);
+    //         grid.set(period, x + dx, y + dy, UNKNOWN, value);
     //     }
     // }
     // for (let t = 1; t < period; t++) {
@@ -719,16 +729,18 @@ if (mode === 'periodic') {
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let value = data[t][y][x];
+                let variable = 0;
                 if (typeof value === 'string') {
                     if (value === '*') {
-                        value = 2;
+                        // do nothing
                     } else if (value in vars) {
-                        value = vars[value];
+                        variable = vars[value];
                     } else {
                         let newVar = grid.getVar();
                         vars[value] = newVar;
-                        value = newVar;
+                        variable = newVar;
                     }
+                    value = UNKNOWN;
                 }
                 grid.set(t, x, y, value);
             }
@@ -762,9 +774,9 @@ if (mode === 'periodic') {
                 grid.set(1, x, y, gen1);
             } else if (start === 2) {
                 let variable = grid.getVar();
-                grid.set(0, x, y, variable);
-                grid.set(1, x, y, variable);
-                grid.set(gens, x, y, variable);
+                grid.set(0, x, y, UNKNOWN, variable);
+                grid.set(1, x, y, UNKNOWN, variable);
+                grid.set(gens, x, y, UNKNOWN, variable);
             } else if (start === 3) {
                 grid.set(0, x, y, 1);
                 grid.set(1, x, y, gen1);
@@ -1093,17 +1105,7 @@ for (let t = 0; t < grid.gens; t++) {
 
 let out: string[] = [];
 for (let line of code.split('\n')) {
-    if (line.startsWith('typedef') && line.endsWith('cell_value_t;')) {
-        let maxValue = grid.numVars === 0 ? 3 : 2 + grid.numVars * 4;
-        if (maxValue > 65535) {
-            out.push(`typedef uint32_t cell_value_t;`);
-        } else if (maxValue > 255) {
-            out.push(`typedef uint16_t cell_value_t;`);
-        } else {
-            out.push(`typedef uint8_t cell_value_t;`);
-        }
-        continue;
-    } else if (line.startsWith('typedef') && line.endsWith('index_t;')) {
+    if (line.startsWith('typedef') && line.endsWith('index_t;')) {
         let maxValue = (grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1)) * (grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1)) * grid.gens;
         if (maxValue > 65535) {
             out.push(`typedef uint32_t index_t;`);
@@ -1113,8 +1115,20 @@ for (let line of code.split('\n')) {
             out.push(`typedef uint8_t index_t;`);
         }
         continue;
+    } else if (line.startsWith('typedef') && line.endsWith('var_t;')) {
+        let maxValue = grid.numVars + 1;
+        if (maxValue > 65535) {
+            out.push(`typedef uint32_t var_t;`);
+        } else if (maxValue > 255) {
+            out.push(`typedef uint16_t var_t;`);
+        } else {
+            out.push(`typedef uint8_t var_t;`);
+        }
+        continue;
     } else if (line.startsWith('static const cell_value_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right) + ';';
+        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right, false) + ';';
+    } else if (line.startsWith('static const var_t initial_vars[GENS][HEIGHT][WIDTH] = ')) {
+        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right, true) + ';';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
@@ -1151,7 +1165,7 @@ for (let line of code.split('\n')) {
     } else if (name === 'GENS') {
         value = grid.gens;
     } else if (name === 'VAR_COUNT') {
-        value = grid.numVars;
+        value = grid.numVars + 1;
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
         value = 0;
         for (let [key, count] of Object.entries(cellCounts)) {
@@ -1303,9 +1317,12 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['g'] || options['gdb'] ? '-g -O3' : '-O3')} -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         console.log(command);
         execSync(command, {stdio: 'inherit'});
+        if (options['g'] && !options['gdb']) {
+            return;
+        }
         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
     } catch (error) {
         process.exit(1);

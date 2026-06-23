@@ -14,10 +14,6 @@
 #define UNKNOWN (2)
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
-#define IS_VAR(x) ((x) > 3)
-#define VAR_TO_CELL_VAR(x) (6 + 4*(x))
-#define CELL_VAR_TO_VAR(x) (((x) >> 2) - 1)
-
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
 
 #define MAX_STACK_DEPTH TOTAL_SIZE
@@ -311,10 +307,12 @@ static inline void init_state(void) {
                 cell->t = t;
                 cell->index = index++;
                 cell->value = initial_grid[t][y][x];
+                cell->var = initial_vars[t][y][x];
                 #if TIME_WRAP
                 if (t == 0) {
                     if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
                         cell->value = 0;
+                        cell->var = 0;
                         cell->prev = &grid[0][0][0];
                     } else {
                         cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
@@ -325,6 +323,7 @@ static inline void init_state(void) {
                 if (t == GENS - 1) {
                     if (y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT || x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH) {
                         cell->value = 0;
+                        cell->var = 0;
                         cell->next = &grid[0][0][0];
                     } else {
                         cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
@@ -447,6 +446,8 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     if (IS_KNOWN(cell->value) && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
+    } else if (cell->value == value) {
+        return true;
     }
     #ifdef SPECIAL_PHASE_0_POP
     if (t == 0 && value == 1) {
@@ -514,9 +515,11 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
 
 static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static inline void print_cell(FILE* stream, cell_value_t value) {
-    if (value > 3) {
-        value = CELL_VAR_TO_VAR(value) + 3;
+static inline void print_cell(FILE* stream, cell_value_t value, var_t var) {
+    if (value == 2) {
+        if (var > 0) {
+            value = 2 + var;
+        }
     }
     if (value < 64) {
         real_fprintf(stream, "%c", letters[value]);
@@ -540,7 +543,8 @@ static inline void print_grid(FILE* stream) {
         for (index_t y = 0; y < HEIGHT; y++) {
             DFPRINTLINEPADDING(stream);
             for (index_t x = 0; x < WIDTH; x++) {
-                print_cell(stream, grid[t][y][x].value);
+                cell* cell = &grid[t][y][x];
+                print_cell(stream, cell->value, cell->var);
             }
             real_fprintf(stream, "$\n");
         }
@@ -568,9 +572,8 @@ static inline void init_var_uses(void) {
         for (index_t y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
             for (index_t x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
                 cell* cell = &grid[t][y][x];
-                if (IS_VAR(cell->value)) {
-                    index_t var = CELL_VAR_TO_VAR(cell->value);
-                    var_uses[var][num_var_uses[var]++] = cell;
+                if (cell->var > 0) {
+                    var_uses[cell->var][num_var_uses[cell->var]++] = cell;
                 }
             }
         }

@@ -11,32 +11,6 @@
 #include "search.c"
 
 
-static inline void reassign_cell(cell_value_t old, cell_value_t new, cell_value_t* cases, size_t cases_size) {
-    if (old == new) {
-        return;
-    }
-    DPRINTF2("Reassigning %i to %i\n", old, new);
-    for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 0; y < HEIGHT; y++) {
-            for (index_t x = 0; x < WIDTH; x++) {
-                cell* cell = &grid[t][y][x];
-                if (cell->value == old) {
-                    set_cell_and_propagate(cell, new);
-                }
-                if (IS_VAR(new)) {
-                    cell_value_t var = CELL_VAR_TO_VAR(new);
-                    var_uses[var][num_var_uses[var]++] = cell;
-                }
-            }
-        }
-    }
-    for (size_t i = 0; i < cases_size; i++) {
-        if (cases[i] == old) {
-            cases[i] = new;
-        }
-    }
-}
-
 // runs implications
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
@@ -66,90 +40,150 @@ static inline void preprocess_implications(void) {
     }
 }
 
+
+typedef struct case_cell_t {
+    cell_value_t value;
+    var_t var;
+} case_cell_t;
+
+static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, size_t cases_size) {
+    if (old == new) {
+        return;
+    }
+    DPRINTF2("Reassigning %i to %i\n", old, new);
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
+                cell* cell = &grid[t][y][x];
+                if (cell->var == old) {
+                    cell->var = new;
+                    var_uses[new][num_var_uses[new]++] = cell;
+                }
+            }
+        }
+    }
+    for (size_t i = 0; i < cases_size; i++) {
+        if (cases[i].var == old) {
+            cases[i].var = new;
+        }
+    }
+}
+
 // check for duplicates of cases including variables
 // and reassign those variables to be equal
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
-    cell_value_t cases[TOTAL_SIZE * 8][10];
+    case_cell_t cases[TOTAL_SIZE * 8][10];
     int case_count = 0;
+    // first compute the cases
     for (index_t t = 0; t < GENS - 1; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
-                if (grid[t + 1][y][x].value == UNKNOWN) {
+                cell* cell = &grid[t][y][x];
+                // filter out where the cell value is unknown
+                if (cell->value == UNKNOWN && cell->var == 0) {
                     continue;
                 }
-                cell_value_t cells[10] = {
-                    grid[t][y - 1][x - 1].value, grid[t][y - 1][x].value, grid[t][y - 1][x + 1].value,
-                    grid[t][y][x - 1].value, grid[t][y][x].value, grid[t][y][x + 1].value,
-                    grid[t][y + 1][x - 1].value, grid[t][y + 1][x].value, grid[t][y + 1][x + 1].value,
-                    grid[t + 1][y][x].value,
-                };
+                case_cell_t cells[10];
                 bool found = false;
-                for (int i = 0; i < 9; i++) {
-                    if (IS_VAR(cells[i])) {
-                        found = true;
-                        break;
+                int i = 0;
+                for (int y2 = -1; y2 <= 1; y2++) {
+                    for (int x2 = -1; x2 <= 1; x2++) {
+                        struct cell* cell2 = &grid[t][y + y2][x + x2];
+                        cells[i].value = cell2->value;
+                        cells[i].var = cell2->var;
+                        i++;
+                        if (cell2->var > 0) {
+                            found = true;
+                        }
                     }
                 }
-                if (found) {
-                    // assign all rotations and reflections of the case too
-                    for (int i = 0; i < 2; i++) {
-                        for (int j = 0; j < 4; j++) {
-                            memcpy(cases[case_count], cells, sizeof(cells));
-                            case_count++;
-                            cell_value_t temp[10] = {
-                                cells[6], cells[3], cells[0],
-                                cells[7], cells[4], cells[1],
-                                cells[8], cells[5], cells[2],
-                                cells[9],
-                            };
-                            memcpy(cells, temp, sizeof(cells));
-                        }
-                        cell_value_t temp[10] = {
-                            cells[2], cells[1], cells[0],
-                            cells[5], cells[4], cells[3],
-                            cells[8], cells[7], cells[6],
+                struct cell* next_cell = &grid[t + 1][y][x];
+                cells[9].value = next_cell->value;
+                cells[9].var = next_cell->var;
+                if (next_cell->var > 0) {
+                    found = true;
+                }
+                if (!found) {
+                    return;
+                }
+                // assign all rotations and reflections of the case too
+                for (int i = 0; i < 2; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        memcpy(cases[case_count], cells, sizeof(cells));
+                        case_count++;
+                        case_cell_t temp[10] = {
+                            cells[6], cells[3], cells[0],
+                            cells[7], cells[4], cells[1],
+                            cells[8], cells[5], cells[2],
                             cells[9],
                         };
                         memcpy(cells, temp, sizeof(cells));
                     }
+                    case_cell_t temp[10] = {
+                        cells[2], cells[1], cells[0],
+                        cells[5], cells[4], cells[3],
+                        cells[8], cells[7], cells[6],
+                        cells[9],
+                    };
+                    memcpy(cells, temp, sizeof(cells));
                 }
             }
         }
     }
+    // now apply the cases
     for (index_t t = 0; t < GENS - 1; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
-                cell_value_t cells[10] = {
-                    grid[t][y - 1][x - 1].value, grid[t][y - 1][x].value, grid[t][y - 1][x + 1].value,
-                    grid[t][y][x - 1].value, grid[t][y][x].value, grid[t][y][x + 1].value,
-                    grid[t][y + 1][x - 1].value, grid[t][y + 1][x].value, grid[t][y + 1][x + 1].value,
-                    grid[t + 1][y][x].value,
-                };
+                case_cell_t cells[10];
                 bool found = false;
-                for (int i = 0; i < 9; i++) {
-                    if (IS_VAR(cells[i])) {
-                        found = true;
-                        break;
+                int i = 0;
+                for (int y2 = -1; y2 <= 1; y2++) {
+                    for (int x2 = -1; x2 <= 1; x2++) {
+                        struct cell* cell2 = &grid[t][y + y2][x + x2];
+                        cells[i].value = cell2->value;
+                        cells[i].var = cell2->var;
+                        i++;
+                        if (cell2->var > 0) {
+                            found = true;
+                        }
                     }
                 }
-                if (found) {
-                    for (int i = 0; i < case_count; i++) {
-                        if (memcmp(cases[i], cells, sizeof(cell_value_t) * 9) == 0) {
-                            cell_value_t old_value = grid[t + 1][y][x].value;
-                            cell_value_t new_value = cases[i][9];
-                            if (IS_KNOWN(old_value) || old_value == new_value) {
-                                continue;
-                            } else if (IS_VAR(old_value)) {
-                                reassign_cell(old_value, new_value, (cell_value_t*)cases, sizeof(cases));
-                            } else {
-                                cell* cell = &grid[t][y][x];
-                                set_cell_and_propagate(cell, new_value);
-                                if (IS_VAR(new_value)) {
-                                    cell_value_t var = CELL_VAR_TO_VAR(new_value);
-                                    var_uses[var][num_var_uses[var]++] = cell;
+                struct cell* next_cell = &grid[t + 1][y][x];
+                cells[9].value = next_cell->value;
+                cells[9].var = next_cell->var;
+                if (next_cell->var > 0) {
+                    found = true;
+                }
+                if (!found) {
+                    return;
+                }
+                for (int i = 0; i < case_count; i++) {
+                    if (memcmp(cases[i], cells, sizeof(cell_value_t) * 9) == 0) {
+                        case_cell_t new_cell = cases[i][9];
+                        if (IS_KNOWN(next_cell->value)) {
+                            if (IS_KNOWN(new_cell.value)) {
+                                if (next_cell->value != new_cell.value) {
+                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
                                 }
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            // sanity check
+                            if (new_cell.var == 0) {
+                                fprintf(stderr, "\nError: This error should not occur (new_cell.var == 0 but new_cell.value == UNKNOWN)\nPlease report this error\n");
+                                exit(1);
+                            }
+                            if (next_cell->var == 0) {
+                                // it was unknown, now we know it must be a certain variable
+                                var_t var = new_cell.var;
+                                next_cell->var = var;
+                                var_uses[var][num_var_uses[var]++] = next_cell;
+                            } else {
+                                // now we reassign all uses of the variable!
+                                reassign_variable(next_cell->var, new_cell.var, (case_cell_t*)cases, case_count);
                             }
                         }
                     }

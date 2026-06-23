@@ -373,8 +373,9 @@ int main(void) {
         int t = search_order[i][0];
         int x = search_order[i][1];
         int y = search_order[i][2];
+        cell* cell = &grid[t][y][x];
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
-        print_cell(stdout, grid[t][y][x].value);
+        print_cell(stdout, cell->value, cell->var);
         printf("\n");
     }
     #endif
