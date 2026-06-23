@@ -1303,7 +1303,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g' : '-O3')} -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function ${options['profile'] ? '-pg -O3' : (options['gdb'] ? '-g -Og' : '-O3')} -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         console.log(command);
         execSync(command, {stdio: 'inherit'});
         execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});

@@ -73,18 +73,17 @@ static inline void preprocess_cases(void) {
     DPRINTGRID3();
     cell_value_t cases[TOTAL_SIZE * 8][10];
     int case_count = 0;
-    for (index_t t = 0; t < GENS; t++) {
+    for (index_t t = 0; t < GENS - 1; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
-                cell* cell = &grid[t][y][x];
-                if (cell->next == NULL || cell->next->value == UNKNOWN) {
+                if (grid[t + 1][y][x].value == UNKNOWN) {
                     continue;
                 }
                 cell_value_t cells[10] = {
-                    cell->nw->value, cell->w->value, cell->sw->value,
-                    cell->n->value, cell->value, cell->s->value,
-                    cell->ne->value, cell->e->value, cell->se->value,
-                    cell->next->value,
+                    grid[t][y - 1][x - 1].value, grid[t][y - 1][x].value, grid[t][y - 1][x + 1].value,
+                    grid[t][y][x - 1].value, grid[t][y][x].value, grid[t][y][x + 1].value,
+                    grid[t][y + 1][x - 1].value, grid[t][y + 1][x].value, grid[t][y + 1][x + 1].value,
+                    grid[t + 1][y][x].value,
                 };
                 bool found = false;
                 for (int i = 0; i < 9; i++) {
@@ -119,18 +118,14 @@ static inline void preprocess_cases(void) {
             }
         }
     }
-    for (index_t t = 0; t < GENS; t++) {
+    for (index_t t = 0; t < GENS - 1; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
-                cell* cell = &grid[t][y][x];
-                if (cell->next == NULL) {
-                    continue;
-                }
                 cell_value_t cells[10] = {
-                    cell->nw->value, cell->w->value, cell->sw->value,
-                    cell->n->value, cell->value, cell->s->value,
-                    cell->ne->value, cell->e->value, cell->se->value,
-                    cell->next->value,
+                    grid[t][y - 1][x - 1].value, grid[t][y - 1][x].value, grid[t][y - 1][x + 1].value,
+                    grid[t][y][x - 1].value, grid[t][y][x].value, grid[t][y][x + 1].value,
+                    grid[t][y + 1][x - 1].value, grid[t][y + 1][x].value, grid[t][y + 1][x + 1].value,
+                    grid[t + 1][y][x].value,
                 };
                 bool found = false;
                 for (int i = 0; i < 9; i++) {
@@ -142,13 +137,14 @@ static inline void preprocess_cases(void) {
                 if (found) {
                     for (int i = 0; i < case_count; i++) {
                         if (memcmp(cases[i], cells, sizeof(cell_value_t) * 9) == 0) {
-                            cell_value_t old_value = cell->next->value;
+                            cell_value_t old_value = grid[t + 1][y][x].value;
                             cell_value_t new_value = cases[i][9];
                             if (IS_KNOWN(old_value) || old_value == new_value) {
                                 continue;
                             } else if (IS_VAR(old_value)) {
                                 reassign_cell(old_value, new_value, (cell_value_t*)cases, sizeof(cases));
                             } else {
+                                cell* cell = &grid[t][y][x];
                                 set_cell_and_propagate(cell, new_value);
                                 if (IS_VAR(new_value)) {
                                     cell_value_t var = CELL_VAR_TO_VAR(new_value);
@@ -193,7 +189,7 @@ static inline void preprocess(void) {
         index_t* cell = search_order[i];
         if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]].value)) {
             for (index_t j = i; j < unknown_cells - 1; j++) {
-                memcpy(search_order[j], search_order[j + 1], sizeof(index_t) * 3);
+                memcpy(search_order[j], search_order[j + 1], sizeof(int) * 3);
             }
             i--;
             unknown_cells--;
