@@ -27,7 +27,7 @@
 #define GENS 4
 
 // whether variables are present
-#define VARIABLES false
+#define VARIABLES true
 
 #if VARIABLES
 // the number of variables
@@ -79,9 +79,6 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // the rulestring
 #define RULE "B3/S23"
 
-// whether to check backwards implications
-#define CHECK_BACKWARDS_IMPLICATIONS true
-
 #else
 
 // special multi-rule parameters
@@ -92,10 +89,6 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // // the transitions that are allowed to change
 // // indexing: B0c, B1c, B1e, B2a, B2c, B2e, ..., B7e, B8c, S0c, S1c, ..., S7e, S8c
 // static const bool change_trs[102] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-// whether to check backwards implications
-// this is not supported yet for multi-rule
-#define CHECK_BACKWARDS_IMPLICATIONS false
 
 #endif
 
@@ -227,8 +220,24 @@ typedef cell grid_item_t[WIDTH];
 
 
 // filter function here
-#if FILTERING
-static inline bool solution_filter() {return true;}
+#if SOLUTION_FILTERING
+static inline bool solution_filter() {
+    // int total_pop = 0;
+    // int var_pop = 0;
+    // for (int y = 0; y < HEIGHT; y++) {
+    //     for (int x = 0; x < WIDTH; x++) {
+    //         if (grid[GENS - 1][y][x].value == 0) {
+    //             continue;
+    //         }
+    //         total_pop++;
+    //         if (initial_vars[GENS - 1][y][x] > 0) {
+    //             var_pop++;
+    //         }
+    //     }
+    // }
+    // return total_pop != var_pop;
+    return true;
+}
 #endif
 
 

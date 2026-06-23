@@ -192,7 +192,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
                 index_t real_x = 0;
                 index_t real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
-                out ^= grid[t][real_y][real_x];
+                out ^= grid[t][real_y][real_x].value;
                 out *= HASH_PRIME;
             }
         }
