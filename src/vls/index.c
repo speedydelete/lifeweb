@@ -298,7 +298,9 @@ int main(void) {
     // printf("%ld -> %i\n", value, get_backward_big_tr(value));
     // exit(0);
     init_state();
+    #if VARIABLES
     init_var_uses();
+    #endif
     generate_big_trs();
     #if MULTI_RULE
     init_multi_rule();
@@ -381,6 +383,7 @@ int main(void) {
     #endif
     start = get_time();
     last_progress_shown = start;
+    last_partial_shown = start;
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();

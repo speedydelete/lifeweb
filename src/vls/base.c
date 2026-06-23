@@ -14,7 +14,9 @@
 #define UNKNOWN (2)
 #define IS_KNOWN(x) ((x) < UNKNOWN)
 
+#if VARIABLES
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
+#endif
 
 #define MAX_STACK_DEPTH TOTAL_SIZE
 
@@ -307,12 +309,16 @@ static inline void init_state(void) {
                 cell->t = t;
                 cell->index = index++;
                 cell->value = initial_grid[t][y][x];
+                #if VARIABLES
                 cell->var = initial_vars[t][y][x];
+                #endif
                 #if TIME_WRAP
                 if (t == 0) {
                     if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
                         cell->value = 0;
+                        #if VARIABLES
                         cell->var = 0;
+                        #endif
                         cell->prev = &grid[0][0][0];
                     } else {
                         cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
@@ -323,7 +329,9 @@ static inline void init_state(void) {
                 if (t == GENS - 1) {
                     if (y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT || x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH) {
                         cell->value = 0;
+                        #if VARIABLES
                         cell->var = 0;
+                        #endif
                         cell->next = &grid[0][0][0];
                     } else {
                         cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
@@ -515,12 +523,18 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
 
 static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static inline void print_cell(FILE* stream, cell_value_t value, var_t var) {
+static inline void print_cell(FILE* stream, cell_value_t value
+    #if VARIABLES
+    , var_t var
+    #endif
+) {
+    #if VARIABLES
     if (value == 2) {
         if (var > 0) {
             value = 2 + var;
         }
     }
+    #endif
     if (value < 64) {
         real_fprintf(stream, "%c", letters[value]);
     } else {
@@ -544,7 +558,11 @@ static inline void print_grid(FILE* stream) {
             DFPRINTLINEPADDING(stream);
             for (index_t x = 0; x < WIDTH; x++) {
                 cell* cell = &grid[t][y][x];
+                #if VARIABLES
                 print_cell(stream, cell->value, cell->var);
+                #else
+                print_cell(stream, cell->value);
+                #endif
             }
             real_fprintf(stream, "$\n");
         }
@@ -556,6 +574,8 @@ static inline void print_grid(FILE* stream) {
     }
 }
 
+
+#if VARIABLES
 
 // a list of where variables are used in
 cell* var_uses[VAR_COUNT][MAX_VAR_USES];
@@ -579,3 +599,5 @@ static inline void init_var_uses(void) {
         }
     }
 }
+
+#endif

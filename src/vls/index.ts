@@ -1083,11 +1083,6 @@ let right: Edge = options['right'] ?? 'none';
 
 grid.removeUnusedVars();
 
-// prevent stuff from breaking
-if (grid.numVars === 0) {
-    grid.getVar();
-}
-
 let cellCounts: {[key: number]: number} = {};
 for (let t = 0; t < grid.gens; t++) {
     for (let y = 0; y < grid.height; y++) {
@@ -1156,7 +1151,7 @@ for (let line of code.split('\n')) {
         data = data.slice(1);
     }
     let name = data[1];
-    let value: string | number;
+    let value: string | number | boolean;
     let comment = false;
     if (name === 'HEIGHT') {
         value = grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1);
@@ -1164,6 +1159,8 @@ for (let line of code.split('\n')) {
         value = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
     } else if (name === 'GENS') {
         value = grid.gens;
+    } else if (name === 'VARIABLES') {
+        value = grid.numVars > 0;
     } else if (name === 'VAR_COUNT') {
         value = grid.numVars + 1;
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
@@ -1175,7 +1172,7 @@ for (let line of code.split('\n')) {
             value += count;
         }
     } else if (name === 'TIME_WRAP') {
-        value = timeWrap ? 'true' : 'false';
+        value = Boolean(timeWrap);
     } else if (name === 'TIME_WRAP_DX') {
         value = timeWrap ? timeWrap[0] : 67;
     } else if (name === 'TIME_WRAP_DY') {
@@ -1262,7 +1259,7 @@ for (let line of code.split('\n')) {
             value = options['maxpop'];
         }
     } else if (name === 'SHOW_SOLUTIONS') {
-        value = options['no-show-solutions'] ? 'false' : 'true';
+        value = !options['no-show-solutions'];
     } else if (name === 'MAX_SOLUTIONS') {
         if (options['max-solutions'] === undefined) {
             comment = true;
@@ -1271,7 +1268,7 @@ for (let line of code.split('\n')) {
             value = options['max-solutions'];
         }
     } else if (name === 'FILTER_EVERY_PHASE') {
-        value = mode === 'periodic' ? 'true' : 'false';
+        value = mode === 'periodic';
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;
     } else if (name === 'PARTIAL_REPORTING_INTERVAL') {

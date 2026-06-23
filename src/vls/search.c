@@ -337,7 +337,9 @@ static inline bool check_backward_implication(cell* cell) {
 #endif
 
 
+#if VARIABLES
 cell_value_t prev_values[MAX_VAR_USES];
+#endif
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
@@ -351,7 +353,9 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         }
         #endif
         return cell->value == value;
-    } else if (cell->var == 0) {
+    }
+    #if VARIABLES
+    else if (cell->var == 0) {
         if (!set_cell(cell, value)) {
             return false;
         }
@@ -385,4 +389,10 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         }
     }
     return true;
+    #else
+    if (!set_cell(cell, value)) {
+        return false;
+    }
+    return CHECK_IMPLICATIONS(cell);
+    #endif
 }

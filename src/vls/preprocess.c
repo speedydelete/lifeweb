@@ -41,6 +41,8 @@ static inline void preprocess_implications(void) {
 }
 
 
+#if VARIABLES
+
 typedef struct case_cell_t {
     cell_value_t value;
     var_t var;
@@ -193,6 +195,9 @@ static inline void preprocess_cases(void) {
     }
 }
 
+#endif
+
+
 static inline void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
@@ -204,7 +209,9 @@ static inline void preprocess(void) {
     bool found = false;
     for (int i = 0; i < 4096; i++) {
         preprocess_implications();
+        #if VARIABLES
         preprocess_cases();
+        #endif
         for (index_t i = 0; i < TOTAL_SIZE; i++) {
             new_grid[i] = ((cell*)grid)[i].value;
         }
