@@ -99,6 +99,11 @@ uint32_t big_trs_backward[1048576];
 #endif
 
 static inline uint32_t get_backward_big_tr(uint32_t tr) {
+    for (int i = 0; i < 20; i += 2) {
+        if (((tr >> i) & 3) == 3) {
+            return CONTRADICTION;
+        }
+    }
     // check for contradiction
     cell_value_t target = big_trs_forward[tr >> 2];
     if (target != UNKNOWN && (tr & 3) != UNKNOWN && target != (tr & 3)) {
