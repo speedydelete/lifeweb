@@ -326,7 +326,7 @@ static inline void print_grid_2(int depth, bool is_solution) {
                     fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
                     exit(1);
                 } else {
-                    printf("*");
+                    printf(".");
                 }
             } else {
                 real_printf("%c", value ? 'o' : '.');
