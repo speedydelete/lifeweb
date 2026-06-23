@@ -55,8 +55,7 @@ Options:
     --benchmark <iterations>: run benchmarking
 
     -l, --lls <file>: instead of searching, run LLS on the given file
-        must be an executable or a directory containing
-        an executable called "lls" or "lss"
+        must be a directory containing a file called "lls" or "lss.py"
 
     -o, --search-order <order>:
         Set the order in which cells are checked
@@ -1204,23 +1203,38 @@ for (let line of code.split('\n')) {
             comment = true;
             value = '"path/to/lls"';
         } else {
-            if ((await fs.stat(file)).isDirectory()) {
-                for (let filename of await fs.readdir(file)) {
-                    if (filename !== 'lls' && filename !== 'lss') {
-                        continue;
-                    }
-                    filename = path.join(file, filename);
-                    if ((await fs.stat(filename)).isDirectory()) {
-                        continue;
-                    }
+            if (!(await fs.stat(file)).isDirectory()) {
+                error(`Value for lls option must be a path to a directory`);
+            }
+            let found = false;
+
+            for (let filename of await fs.readdir(file)) {
+                let isLSS = false;
+                if (filename === 'lls') {
                     try {
                         await fs.access(filename, fs.constants.X_OK);
                     } catch {
                         continue;
                     }
-                    file = filename;
-                    break;
+                } else if (filename === 'lss.py') {
+                    isLSS = true;
+                } else {
+                    continue;
                 }
+                filename = path.join(file, filename);
+                if ((await fs.stat(filename)).isDirectory()) {
+                    continue;
+                }
+                if (isLSS) {
+                    file = path.join(file, 'venv/bin/python3') + ' ' + filename;
+                } else {
+                    file = filename;
+                }
+                found = true;
+                break;
+            }
+            if (!found) {
+                error(`Cannot find LLS/LSS`);
             }
             value = JSON.stringify(file);
         }

@@ -5,6 +5,7 @@
 
 #include <inttypes.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "params2.h"
 #include "base.c"
@@ -291,6 +292,13 @@ static inline void init_known_solutions(void) {
 
 
 static inline void print_progress(FILE* stream, int depth);
+
+static inline double get_time() {
+    return (double)(clock()) / CLOCKS_PER_SEC;
+}
+
+static double start;
+
 
 static inline void print_solution(bool preprocessing, int depth) {
     DPRINTF2("Checking solution:\n");

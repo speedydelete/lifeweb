@@ -367,11 +367,12 @@ static inline cell* add_search_orders(void) {
     index_t y = coords[2];
     cell* prev = &grid[t][y][x];
     cell* out = prev;
-    for (int i = 1; i < TOTAL_UNKNOWN_CELLS; i++) {
+    for (int i = 1; i < unknown_cells; i++) {
         index_t* coords = search_order[i];
         index_t t = coords[0];
         index_t x = coords[1];
         index_t y = coords[2];
+        // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
         cell* cell = &grid[t][y][x];
         prev->next_in_search_order = cell;
         prev = cell;

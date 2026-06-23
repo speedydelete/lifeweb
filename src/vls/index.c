@@ -10,9 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "params2.h"
@@ -22,11 +20,6 @@
 #include "preprocess.c"
 
 
-static inline double get_time() {
-    return (double)(clock()) / CLOCKS_PER_SEC;
-}
-
-static double start;
 static double last_progress_shown;
 
 static int progress[TOTAL_MAX_DEPTH];
@@ -261,19 +254,18 @@ static void run_depth(int depth, cell* cell
     #if MULTI_RULE
     if (force_value == -1) {
     #endif
-        progress[depth] = 0;
         #if INITIAL_VALUE == 0
         for (int value = 0; value < 2; value++)
         #else
         for (int value = 1; value >= 0; value--)
         #endif
         {
+            progress[depth] = value;
             #if MULTI_RULE
             actual_run_depth(depth, cell, value);
             #else
             actual_run_depth(depth, cell, value);
             #endif
-            progress[depth] = 1;
         }
     #if MULTI_RULE
     } else {
@@ -318,10 +310,10 @@ int main(void) {
     if (input_file == NULL) {
         perror("Error opening LLS input file");
     }
-    for (int t = 0; t < GENS; t++) {
-        for (int y = TOP == NONE ? 2 : 0; y < HEIGHT - (BOTTOM == NONE ? 2 : 0); y++) {
-            for (int x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
-                cell_t value = grid[t][y][x];
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = TOP == NONE ? 2 : 0; y < HEIGHT - (BOTTOM == NONE ? 2 : 0); y++) {
+            for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+                cell_value_t value = grid[t][y][x].value;
                 if (value == 0) {
                     fprintf(input_file, "0");
                 } else if (value == 1) {
