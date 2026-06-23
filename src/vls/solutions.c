@@ -300,6 +300,46 @@ static inline double get_time() {
 static double start;
 
 
+static inline void print_grid_2(int depth, bool is_solution) {
+    #if MULTI_RULE
+    char rule[256];
+    for (int i = 0; i < 256; i++) {
+        rule[i] = 0;
+    }
+    get_rule(rule);
+    #else
+    char* rule = RULE;
+    #endif
+    printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
+    index_t last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
+    for (index_t y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+        DPRINTLINEPADDING();
+        for (index_t x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
+            cell_value_t value = grid[0][y][x].value;
+            if (value > 1) {
+                if (is_solution) {
+                    fprintf(stderr, "\n");
+                    print_grid(stderr);
+                    fprintf(stderr, "\nStatus: ");
+                    // print_progress(stderr, depth, 70);
+                    print_progress(stderr, depth);
+                    fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
+                    exit(1);
+                } else {
+                    printf("*");
+                }
+            } else {
+                real_printf("%c", value ? 'o' : '.');
+            }
+        }
+        if (y == last_y - 1) {
+            real_printf("!\n");
+        } else {
+            real_printf("$\n");
+        }
+    }
+}
+
 static inline void print_solution(bool preprocessing, int depth) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
@@ -348,43 +388,12 @@ static inline void print_solution(bool preprocessing, int depth) {
     #endif
     solutions_found++;
     #if SHOW_SOLUTIONS
-    #if MULTI_RULE
-    char rule[256];
-    for (int i = 0; i < 256; i++) {
-        rule[i] = 0;
-    }
-    get_rule(rule);
-    #else
-    char* rule = RULE;
-    #endif
     if (preprocessing) {
-        printf("Solved in preprocessing, 1 solution:\nx = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
+        printf("Solved in preprocessing, 1 solution:\n");
     } else {
         printf("Solution found:\n");
-        printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     }
-    index_t last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
-    for (index_t y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
-        DPRINTLINEPADDING();
-        for (index_t x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
-            cell_value_t value = grid[0][y][x].value;
-            if (value > 1) {
-                fprintf(stderr, "\n");
-                print_grid(stderr);
-                fprintf(stderr, "\nStatus: ");
-                // print_progress(stderr, depth, 70);
-                print_progress(stderr, depth);
-                fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
-                exit(1);
-            }
-            real_printf("%c", value ? 'o' : '.');
-        }
-        if (y == last_y - 1) {
-            real_printf("!\n");
-        } else {
-            real_printf("$\n");
-        }
-    }
+    print_grid_2(depth, true);
     #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found > MAX_SOLUTIONS) {

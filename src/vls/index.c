@@ -20,8 +20,6 @@
 #include "preprocess.c"
 
 
-static double last_progress_shown;
-
 static int progress[TOTAL_MAX_DEPTH];
 
 #if MULTI_RULE
@@ -207,6 +205,9 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
     pop_frame();
 }
 
+static double last_progress_shown;
+static double last_partial_shown;
+
 static void run_depth(int depth, cell* cell
     #if MULTI_RULE
     , int force_value
@@ -229,15 +230,20 @@ static void run_depth(int depth, cell* cell
         return;
     }
     DPRINTGRID3();
+    #ifndef BENCHMARK
     double time = get_time();
     if (time - last_progress_shown > REPORTING_INTERVAL) {
         last_progress_shown = time;
-        #ifndef BENCHMARK
         printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
         print_progress(stdout, depth);
         real_printf("\n");
-        #endif
     }
+    if (time - last_partial_shown > PARTIAL_REPORTING_INTERVAL) {
+        last_partial_shown = time;
+        printf("Current partial:\n");
+        print_grid_2(depth, false);
+    }
+    #endif
     if (IS_KNOWN(cell->value)) {
         DPRINTF3("Cell is known, continuing\n");
         progress[depth] = -1;

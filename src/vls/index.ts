@@ -48,6 +48,7 @@ Options:
     -d, --debug <level>: set the debug level
 
     --interval <seconds>: set the progress reporting interval
+    --partial-interval <seconds>: set the partial reporting interval
 
     -g, --gdb: run gdb instead and compile with debugging symbols
     --profile: compile with profiling symbols
@@ -125,6 +126,7 @@ const OPTIONS = {
     'help': true,
     'debug': 'number',
     'interval': 'number',
+    'partial-interval': 'number',
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
@@ -1258,6 +1260,8 @@ for (let line of code.split('\n')) {
         value = mode === 'periodic' ? 'true' : 'false';
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;
+    } else if (name === 'PARTIAL_REPORTING_INTERVAL') {
+        value = options['partial-interval'] ?? 60;
     } else if (name === 'BENCHMARK') {
         if (options['benchmark'] == undefined) {
             comment = true;
