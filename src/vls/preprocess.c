@@ -230,7 +230,7 @@ static inline void preprocess(void) {
         index_t* cell = search_order[i];
         if (IS_KNOWN(grid[cell[0]][cell[2]][cell[1]].value)) {
             for (index_t j = i; j < unknown_cells - 1; j++) {
-                memcpy(search_order[j], search_order[j + 1], sizeof(int) * 3);
+                memcpy(search_order[j], search_order[j + 1], sizeof(index_t) * 3);
             }
             i--;
             unknown_cells--;

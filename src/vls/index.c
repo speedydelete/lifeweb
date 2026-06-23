@@ -289,12 +289,13 @@ int main(void) {
     // for (int tr = 0; tr < 262144; tr++) {
     //     big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
     // }
-    // long value = strtol(
-    //     "00" "01" "10"
-    //     "00" "00" "00"
-    //     "00" "00" "00"
-    //     "01"
-    // , NULL, 2);
+    // // long value = strtol(
+    // //     "00" "10" "10"
+    // //     "00" "00" "00"
+    // //     "00" "00" "00"
+    // //     "10"
+    // // , NULL, 2);
+    // long value = 98305;
     // printf("%ld -> %i\n", value, get_backward_big_tr(value));
     // exit(0);
     init_state();
@@ -377,7 +378,11 @@ int main(void) {
         int y = search_order[i][2];
         cell* cell = &grid[t][y][x];
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
+        #if VARIABLES
         print_cell(stdout, cell->value, cell->var);
+        #else
+        print_cell(stdout, cell->value);
+        #endif
         printf("\n");
     }
     #endif

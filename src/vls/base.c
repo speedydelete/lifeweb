@@ -456,6 +456,12 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         return false;
     } else if (cell->value == value) {
         return true;
+    } else if (cell->x < (LEFT == NONE ? 2 : 0)
+            || cell->x > (RIGHT == NONE ? WIDTH - 3 : WIDTH - 1)
+            || cell->y < (TOP == NONE ? 2 : 0)
+            || cell->y > (BOTTOM == NONE ? HEIGHT - 3 : HEIGHT - 1)) {
+        DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
+        return false;
     }
     #ifdef SPECIAL_PHASE_0_POP
     if (t == 0 && value == 1) {
