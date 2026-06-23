@@ -448,6 +448,29 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
+    // deal with out of bounds
+    if (value != 0) {
+        #if TOP == NONE
+        if (cell->y < 2) {
+            return false;
+        }
+        #endif
+        #if BOTTOM == NONE
+        if (cell->y >= HEIGHT - 2) {
+            return false;
+        }
+        #endif
+        #if LEFT == NONE
+        if (cell->x < 2) {
+            return false;
+        }
+        #endif
+        #if RIGHT == NONE
+        if (cell->x >= WIDTH - 2) {
+            return false;
+        }
+        #endif
+    }
     #ifdef SPECIAL_PHASE_0_POP
     if (t == 0 && value == 1) {
         phase_0_pop++;

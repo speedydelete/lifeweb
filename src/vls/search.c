@@ -11,20 +11,16 @@
 
 // the transition lookup table for the 3-state rule including unknown cells
 // the result is 3 if it's rule-dependent, and it's + 4 if it should be updated when changing the rule
-// index format: 0b_01_23_45_67_89_ab_cd_ef_gh
-// 01 23 45
-// 67 89 ab
-// cd ef gh
-cell_value_t big_trs_forward[262144];
+// indexed in ternary: abc_def_ghi
+// a d g
+// b e h
+// c f i
+cell_value_t big_trs_forward[19683];
 
 static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
-    int state = tr & 3;
-    tr >>= 2;
+    int state = tr % 3;
+    tr /= 3;
     int next = prev << 1;
-    // shortcut
-    if (state == 3) {
-        return 0;
-    }
     if (depth == 8) {
         if (IS_KNOWN(state)) {
             return trs[next | state];
@@ -81,13 +77,16 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
 // (ok fine it's not that crazy all previous lifesrcs do this)
 // we see what values of unknown cells we can set
 // because we know that they won't be settable
-// index format: 0b_01_23_45_67_89_ab_cd_ef_gh_ij
-// 01 23 45
-// 67 89 ab -> ij
-// cd ef gh
-// return value is a uint32_t of the same format as the index but >> 2, so without ij
-// do nothing = 2, set off = 0, set on = 1, contradiction = 3, do nothing for any cell = 15
-uint32_t big_trs_backward[1048576];
+// indexes are ternary: abcdefghij
+// a d g
+// b e h -> j
+// c f i
+// return value is an int32_t of the same format as the index but / 3, so no j
+// do nothing = 2, set off = 0, set on = 1
+// contradiction = BACKWARD_CONTRADICTION, do nothing = BACKWARD_DO_NOTHING
+#define BACKWARD_CONTRADICTION (0xffff)
+#define BACKWARD_DO_NOTHING (0xfffe)
+uint16_t big_trs_backward[59049];
 
 #if false
 #define SPECIALDEBUGPRINTF printf
@@ -95,62 +94,69 @@ uint32_t big_trs_backward[1048576];
 #define SPECIALDEBUGPRINTF(...)
 #endif
 
-static inline uint32_t get_backward_big_tr(uint32_t tr) {
-    if ((tr & 3) == UNKNOWN) {
-        SPECIALDEBUGPRINTF("(tr & 3) == UNKNOWN, returning 15\n");
-        return 15;
+static inline uint16_t get_backward_big_tr(uint32_t tr) {
+    if ((tr % 3) == UNKNOWN) {
+        SPECIALDEBUGPRINTF("(tr %% 3) == UNKNOWN, returning BACKWARD_DO_NOTHING\n");
+        return BACKWARD_DO_NOTHING;
     }
     // check for contradiction
-    cell_value_t target = big_trs_forward[tr >> 2];
+    cell_value_t target = big_trs_forward[tr / 3];
     // if (target == UNKNOWN) {
-    //     return 15;
+    //     return BACKWARD_DO_NOTHING;
     // }
-    // if (target != (tr & 3)) {
-    //     return 3;
+    // if (target != (tr % 3)) {
+    //     return BACKWARD_CONTRADICTION;
     // }
-    if (target != UNKNOWN && target != (tr & 3)) {
-        SPECIALDEBUGPRINTF("early contradiction detected, target = %i, tr & 3 = %i, returning 3\n", target, tr & 3);
-        return 3;
+    if (target != UNKNOWN && target != (tr % 3)) {
+        SPECIALDEBUGPRINTF("early contradiction detected, target = %i, tr %% 3 = %i, returning BACKWARD_CONTRADICTION\n", target, tr % 3);
+        return BACKWARD_CONTRADICTION;
     }
-    uint32_t out = 0b101010101010101010;
-    for (int i = 2; i < 20; i += 2) {
-        if (((tr >> i) & 3) != 2) {
+    // 222222222 in base 3
+    uint16_t out = 19682;
+    uint32_t mask = 3;
+    uint32_t out_mask = 1;
+    for (int i = 1; i < 10; i++) {
+        if (((tr / mask) % 3) != UNKNOWN) {
             continue;
         }
-        uint32_t tr2 = tr & ~(3 << i);
-        cell_value_t forward_0 = big_trs_forward[tr2 >> 2];
-        bool zero_possible = forward_0 == (tr & 3) || forward_0 == UNKNOWN;
-        cell_value_t forward_1 = big_trs_forward[(tr2 | (1 << i)) >> 2];
-        bool one_possible = forward_1 == (tr & 3) || forward_1 == UNKNOWN;
-        SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
+        // remove the unknown trit, setting it to 0
+        uint32_t tr2 = tr - (UNKNOWN * mask);
+        cell_value_t forward_0 = big_trs_forward[tr2 / 3];
+        bool zero_possible = forward_0 == (tr % 3) || forward_0 == UNKNOWN;
+        // and for this one we have to set the unknown trit to 1
+        cell_value_t forward_1 = big_trs_forward[(tr2 + (1 * mask)) / 3];
+        bool one_possible = forward_1 == (tr % 3) || forward_1 == UNKNOWN;
+        SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 / 3, forward_0, zero_possible ? "true" : "false", (tr2 + (1 * mask)) / 3, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
-            SPECIALDEBUGPRINTF("must be 1\n");
             // must be 1
-            out = (out & ~(3 << (i - 2))) | (1 << (i - 2));
+            SPECIALDEBUGPRINTF("must be 1\n");
+            out = out - (((out / out_mask) % 3) * out_mask) + 1 * out_mask;
         } else if (zero_possible && !one_possible) {
-            SPECIALDEBUGPRINTF("must be 0\n");
             // must be 0
-            out = (out & ~(3 << (i - 2))) | (0 << (i - 2));
+            SPECIALDEBUGPRINTF("must be 0\n");
+            out = out - (((out / out_mask) % 3) * out_mask) + 0 * out_mask;
         } else if (!zero_possible && !one_possible) {
             // contradiction
-            SPECIALDEBUGPRINTF("contradiction detected, returning 3\n");
-            return 3;
+            SPECIALDEBUGPRINTF("contradiction detected, returning BACKWARD_CONTRADICTION\n");
+            return BACKWARD_CONTRADICTION;
         }
+        mask *= 3;
+        out_mask *= 3;
     }
-    SPECIALDEBUGPRINTF("result: %i -> %i", tr, out);
+    SPECIALDEBUGPRINTF("finished normally\n");
     return out;
 }
 
 #endif
 
 static inline void generate_big_trs(void) {
-    for (uint32_t tr = 0; tr < 262144; tr++) {
+    for (uint32_t tr = 0; tr < 19683; tr++) {
         big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
     }
     #if CHECK_BACKWARDS_IMPLICATIONS
-    for (uint32_t tr = 0; tr < 1048576; tr++) {
+    for (uint32_t tr = 0; tr < 59049; tr++) {
         uint32_t value = get_backward_big_tr(tr);
-        big_trs_backward[tr] = value == 0b101010101010101010 ? 15 : value;
+        big_trs_backward[tr] = value == 19682 ? BACKWARD_DO_NOTHING : value;
     }
     #endif
 }
@@ -178,16 +184,15 @@ static inline bool check_forward_implication(cell* cell) {
         return true;
     }
     #endif
-    uint32_t tr = 
-          ((cell->nw->value & 3) << 16)
-        | ((cell->w->value & 3) << 14)
-        | ((cell->sw->value & 3) << 12)
-        | ((cell->n->value & 3) << 10)
-        | ((cell->value & 3) << 8)
-        | ((cell->s->value & 3) << 6)
-        | ((cell->ne->value & 3) << 4)
-        | ((cell->e->value & 3) << 2)
-        | (cell->se->value & 3);
+    int tr = ((int)(cell->nw->value & 3) * 6561)
+           + ((int)(cell->w->value & 3) * 2187)
+           + ((int)(cell->sw->value & 3) * 729)
+           + ((int)(cell->n->value & 3) * 243)
+           + ((int)(cell->value & 3) * 81)
+           + ((int)(cell->s->value & 3) * 27)
+           + ((int)(cell->ne->value & 3) * 9)
+           + ((int)(cell->e->value & 3) * 3)
+           + ((int)(cell->se->value & 3));
     int value = cell->next->value;
     int tr_value = big_trs_forward[tr];
     DPRINTF4("Forward: t = %i, x = %i, y = %i, tr = %i, value = %i, tr_value = %i\n", cell->t, cell->x, cell->y, tr, (int)value, (int)tr_value);
@@ -246,56 +251,40 @@ static inline bool check_backward_implication(cell* cell) {
         return true;
     }
     #endif
-    uint32_t tr = 
-          ((cell->nw->value & 3) << 18)
-        | ((cell->w->value & 3) << 16)
-        | ((cell->sw->value & 3) << 14)
-        | ((cell->n->value & 3) << 12)
-        | ((cell->value & 3) << 10)
-        | ((cell->s->value & 3) << 8)
-        | ((cell->ne->value & 3) << 6)
-        | ((cell->e->value & 3) << 4)
-        | ((cell->se->value & 3) << 2)
-        | ((cell->next->value) & 3);
+    uint32_t tr = ((uint32_t)(cell->nw->value & 3) * 19683)
+                + ((uint32_t)(cell->w->value & 3) * 6561)
+                + ((uint32_t)(cell->sw->value & 3) * 2187)
+                + ((uint32_t)(cell->n->value & 3) * 729)
+                + ((uint32_t)(cell->value & 3) * 243)
+                + ((uint32_t)(cell->s->value & 3) * 81)
+                + ((uint32_t)(cell->ne->value & 3) * 27)
+                + ((uint32_t)(cell->e->value & 3) * 9)
+                + ((uint32_t)(cell->se->value & 3) * 3)
+                + ((uint32_t)(cell->next->value & 3));
     uint32_t value = big_trs_backward[tr];
     DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
-    if (value == 15) {
+    if (value == BACKWARD_DO_NOTHING) {
         return true;
-    } else if (value == 3) {
+    } else if (value == BACKWARD_CONTRADICTION) {
         DPRINTGRID4();
         DPRINTF4("Contradiction (backward, value = 3, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
         return false;
     }
-    #define check(cell, value) if (!set_cell_and_propagate((cell), (value))) {return false;}
-    if ((value & 3) != 2) {
-        check(cell->se, value & 3);
-    }
-    if (((value >> 2) & 3) != 2) {
-        check(cell->e, (value >> 2) & 3);
-    }
-    if (((value >> 4) & 3) != 2) {
-        check(cell->ne, (value >> 4) & 3);
-    }
-    if (((value >> 6) & 3) != 2) {
-        check(cell->s, (value >> 6) & 3);
-    }
-    if (((value >> 8) & 3) != 2) {
-        check(cell, (value >> 8) & 3);
-    }
-    if (((value >> 10) & 3) != 2) {
-        check(cell->n, (value >> 10) & 3);
-    }
-    if (((value >> 12) & 3) != 2) {
-        // printf("cell->sw: t = %i, x = %i, y = %i, value = %i\n", cell->sw->t, cell->sw->x, cell->sw->y, cell->sw->value);
-        // printf("cell->sw->next: t = %i, x = %i, y = %i, value = %i\n", cell->sw->next->t, cell->sw->next->x, cell->sw->next->y, cell->sw->next->value);
-        check(cell->sw, (value >> 12) & 3);
-    }
-    if (((value >> 14) & 3) != 2) {
-        check(cell->w, (value >> 14) & 3);
-    }
-    if (((value >> 16) & 3) != 2) {
-        check(cell->nw, (value >> 16) & 3);
-    }
+    #define check(cell, value) \
+        if ((value) != 2) { \
+            if (!set_cell_and_propagate((cell), (value))) { \
+                return false; \
+            } \
+        }
+    check(cell->se, value % 3);
+    check(cell->e, (value / 3) % 3);
+    check(cell->ne, (value / 9) % 3);
+    check(cell->s, (value / 27) % 3);
+    check(cell, (value / 81) % 3);
+    check(cell->n, (value / 243) % 3);
+    check(cell->sw, (value / 729) % 3);
+    check(cell->w, (value / 2187) % 3);
+    check(cell->nw, (value / 6561) % 3);
     #undef check
     return true;
 }

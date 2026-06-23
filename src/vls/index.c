@@ -220,7 +220,7 @@ static void run_depth(int depth, cell* cell
     real_printf("\n");
     #endif
     branches++;
-    if (depth > max_depth || set_cells == unknown_cells) {
+    if (depth > max_depth || set_cells == unknown_cells || cell == NULL) {
         #ifndef BENCHMARK
         print_solution(false, depth);
         #endif
@@ -286,15 +286,15 @@ static void run_depth(int depth, cell* cell
 
 
 int main(void) {
-    // for (int tr = 0; tr < 262144; tr++) {
+    // for (int tr = 0; tr < 19683; tr++) {
     //     big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
     // }
     // long value = strtol(
-    //     "00" "01" "10"
-    //     "00" "00" "00"
-    //     "00" "00" "00"
-    //     "01"
-    // , NULL, 2);
+    //     "2" "0" "0"
+    //     "0" "0" "0"
+    //     "0" "0" "0"
+    //     "0"
+    // , NULL, 3);
     // printf("%ld -> %i\n", value, get_backward_big_tr(value));
     // exit(0);
     init_state();
