@@ -1,5 +1,5 @@
 
-import {MAPPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
+import {MAPPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -26,12 +26,11 @@ Modes:
     file <path>
         take in a LLS input file and try to find solutions
 
-    catalyst <start> <gens>
-        find a stable catalyst that completes the given partial
-        and recovers in or less than the given generations value
-        or if end is provided, find one that creates end
-        start and end are LifeHistory RLEs
-        for the start:
+    catalyst <start> <gens> [period] [phase-shift]
+        find a stable (or periodic with the given period) catalyst
+        that completes the given partial and recovers
+        in or less than the given generations value
+        the start is a LifeHistory RLE:
             state 0 (black) - dead
             state 1 (green) - alive
             state 2 (blue) - catalyst goes here
@@ -39,7 +38,7 @@ Modes:
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
             state 6 (gray) - alias for state 0
-        the catalyst can only start interacting at generation 2
+        the catalyst can only start interacting at generation (period + 1)
 
 Options:
 
@@ -304,7 +303,7 @@ if (posArgs.length === 0) {
 const MODES = ['periodic', 'parent', 'file', 'catalyst'];
 
 let rule = posArgs[0];
-let base = createPattern(rule);
+let base = createPattern(rule) as DataPattern;
 if (!(base instanceof MAPPattern)) {
     error(`Rule must be a non-B0 INT rule`);
 }
@@ -519,6 +518,31 @@ class Grid {
             }
         }
     }
+
+    // replaceSingleUseVars(): void {
+    //     let uses: {[key: number]: [number, number, number][]} = [];
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let y = 0; y < this.height; y++) {
+    //             for (let x = 0; x < this.width; x++) {
+    //                 let value = this.vars[t][y][x];
+    //                 if (value === 0) {
+    //                     continue;
+    //                 } else if (value in uses) {
+    //                     uses[value].push([t, x, y]);
+    //                 } else {
+    //                     uses[value] = [[t, x, y]];
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     for (let variable in uses) {
+    //         if (uses[variable].length === 1) {
+    //             let [t, x, y] = uses[variable][0];
+    //             this.set(t, x, y, UNKNOWN);
+    //         }
+    //     }
+    //     this.removeUnusedVars();
+    // }
 
     shrinkHeight(height: number, mode: 'before' | 'after'): void {
         this.height = height;
@@ -742,7 +766,7 @@ if (mode === 'periodic') {
                     }
                     value = UNKNOWN;
                 }
-                grid.set(t, x, y, value);
+                grid.set(t, x, y, value, variable);
             }
         }
     }
@@ -753,11 +777,30 @@ if (mode === 'periodic') {
     startP.data = startP.data.map(x => x === 6 ? 0 : x);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
-        error(`Invalid generations value: '${posArgs[1]}'`);
+        error(`Invalid generations value (expected integer): '${posArgs[1]}'`);
     }
-    let gen1P = base.copy();
-    gen1P.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
-    gen1P.runGeneration();
+    let period = 1;
+    if (posArgs[2] !== undefined) {
+        period = parseInt(posArgs[2]);
+        if (Number.isNaN(period)) {
+            error(`Invalid period value (expected integer): '${posArgs[1]}'`);
+        }
+    }
+    let phaseShift = 0;
+    if (posArgs[3] !== undefined) {
+        phaseShift = parseInt(posArgs[3]);
+        if (Number.isNaN(phaseShift)) {
+            error(`Invalid phase shift value (expected integer): '${posArgs[1]}'`);
+        }
+    }
+
+    let genPs: DataPattern[] = [];
+    let genPBase = base.copy();
+    genPBase.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
+    for (let i = 0; i < period; i++) {
+        genPBase.runGeneration();
+        genPs.push(genPBase.copy());
+    }
 
     grid = new Grid(startP.height, startP.width, gens + 1);
 
@@ -768,18 +811,26 @@ if (mode === 'periodic') {
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
             let start = startP.get(x, y);
-            let gen1 = gen1P.get(x, y);
+            let genValues = genPs.map(p => p.get(x, y));
             if (start === 0 || start === 1) {
                 grid.set(0, x, y, start);
-                grid.set(1, x, y, gen1);
+                for (let i = 0; i < genValues.length; i++) {
+                    grid.set(i + 1, x, y, genValues[i]);
+                }
             } else if (start === 2) {
-                let variable = grid.getVar();
-                grid.set(0, x, y, UNKNOWN, variable);
-                grid.set(1, x, y, UNKNOWN, variable);
-                grid.set(gens, x, y, UNKNOWN, variable);
+                let variables: number[] = [];
+                for (let t = 0; t < period; t++) {
+                    let variable = grid.getVar();
+                    variables.push(variable);
+                    grid.set(t, x, y, UNKNOWN, variable);
+                }
+                grid.set(period, x, y, UNKNOWN, variables[0]);
+                grid.set(gens, x, y, UNKNOWN, variables[(gens + phaseShift) % period]);
             } else if (start === 3) {
                 grid.set(0, x, y, 1);
-                grid.set(1, x, y, gen1);
+                for (let i = 0; i < genValues.length; i++) {
+                    grid.set(i + 1, x, y, genValues[i]);
+                }
                 grid.set(gens, x, y, 1);
             } else if (start === 4) {
                 for (let t = 0; t < gens; t++) {
