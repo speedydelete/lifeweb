@@ -220,7 +220,7 @@ index_t phase_pops[GENS];
 // define special tracking above!
 
 #define CUSTOM_INIT false
-#define CUSTOM_SOLUTION_FILTERING true
+#define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
 
 
@@ -347,15 +347,15 @@ static inline void custom_init() {
 }
 */
 static inline bool custom_solution_filter() {
-    #define on(x, y) (grid[0][(y) + 2][(x) + 2].value == 1)
-    #define off(x, y) (grid[0][(y) + 2][(x) + 2].value == 0)
-    return !(
-        off(16, 16) &&  on(17, 16) && off(18, 16) &&
-         on(16, 17) && off(17, 17) && off(18, 17) &&
-        off(16, 18) &&  on(17, 18) &&  on(18, 18)
-    );
-    #undef on
-    #undef off
+    // #define on(x, y) (grid[GENS - 1][(y) + 2][(x) + 2].value == 1)
+    // #define off(x, y) (grid[GENS - 1][(y) + 2][(x) + 2].value == 0)
+    // return !(
+    //     off(16, 16) &&  on(17, 16) && off(18, 16) &&
+    //      on(16, 17) && off(17, 17) && off(18, 17) &&
+    //     off(16, 18) &&  on(17, 18) &&  on(18, 18)
+    // );
+    // #undef on
+    // #undef off
 }
 #endif
 

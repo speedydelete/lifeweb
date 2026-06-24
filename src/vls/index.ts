@@ -30,7 +30,7 @@ Modes:
         find a stable (or periodic with the given period) catalyst
         that completes the given partial and recovers
         in or less than the given generations value
-        the start is a LifeHistory RLE:
+        the start is a LifeSuper RLE:
             state 0 (black) - dead
             state 1 (green) - alive
             state 2 (blue) - catalyst goes here
@@ -38,6 +38,7 @@ Modes:
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
             state 6 (gray) - alias for state 0
+            state 8 (purple) - forced catalyst stator
         the catalyst can only start interacting at generation (period + 1)
 
 Options:
@@ -823,15 +824,21 @@ if (mode === 'periodic') {
                 for (let i = 0; i < genValues.length; i++) {
                     grid.set(i + 1, x, y, genValues[i]);
                 }
-            } else if (start === 2) {
+            } else if (start === 2 || start === 8) {
                 let variables: number[] = [];
                 for (let t = 0; t < period; t++) {
                     let variable = grid.getVar();
                     variables.push(variable);
                     grid.set(t, x, y, UNKNOWN, variable);
                 }
-                grid.set(period, x, y, UNKNOWN, variables[0]);
-                grid.set(gens, x, y, UNKNOWN, variables[(gens + phaseShift) % period]);
+                if (start === 2) {
+                    grid.set(period, x, y, UNKNOWN, variables[0]);
+                    grid.set(gens, x, y, UNKNOWN, variables[(gens + phaseShift) % period]);
+                } else {
+                    for (let t = period; t < grid.gens; t++) {
+                        grid.set(t, x, y, UNKNOWN, variables[t % period]);
+                    }
+                }
             } else if (start === 3) {
                 grid.set(0, x, y, 1);
                 for (let i = 0; i < genValues.length; i++) {
