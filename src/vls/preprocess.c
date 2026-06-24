@@ -70,7 +70,7 @@ static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, s
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
-    case_cell_t cases[TOTAL_SIZE * 8][10];
+    case_cell_t** cases = malloc(TOTAL_SIZE * 8 * 10 * sizeof(case_cell_t));
     int case_count = 0;
     // first compute the cases
     for (index_t t = 0; t < GENS - 1; t++) {
@@ -187,6 +187,7 @@ static inline void preprocess_cases(void) {
             }
         }
     }
+    free(cases);
 }
 
 #endif

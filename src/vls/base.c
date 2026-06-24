@@ -238,7 +238,7 @@ int current_depth = 0;
 #define DFPRINTLINEPADDING(stream)
 #endif
 
-int unknown_cells = TOTAL_UNKNOWN_CELLS;
+index_t unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
 
@@ -377,7 +377,7 @@ static inline cell* add_search_orders(void) {
     index_t y = coords[2];
     cell* prev = &grid[t][y][x];
     cell* out = prev;
-    for (int i = 1; i < unknown_cells; i++) {
+    for (index_t i = 1; i < unknown_cells; i++) {
         index_t* coords = search_order[i];
         index_t t = coords[0];
         index_t x = coords[1];

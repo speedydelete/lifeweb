@@ -156,8 +156,6 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // filtering
 
-#define SOLUTION_FILTERING false
-
 // whether to keep track of various things
 #define TRACK_PHASE_POPS false
 
@@ -218,6 +216,8 @@ index_t phase_0_pop;
 index_t phase_pops[GENS];
 #endif
 
+
+#define SOLUTION_FILTERING false
 
 // filter function here
 #if SOLUTION_FILTERING

@@ -312,56 +312,75 @@ int main(void) {
     init_known_solutions();
     preprocess();
     cell* initial_cell = add_search_orders();
+    DPRINTGRID1();
     #ifdef LLS
     #ifndef RULE
     #error LLS mode is not supported with multi-rule searching yet
     #else
+    #if VARIABLES
     static const char* lls_letters = "abcdefghikjlmnopqrstuvwxyz0123456";
+    #endif
     FILE* input_file;
     input_file = fopen(".lls_input_file.csv", "w");
     if (input_file == NULL) {
         perror("Error opening LLS input file");
     }
     for (index_t t = 0; t < GENS; t++) {
+        fputs("0,", input_file);
+        for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+            fputs("0,", input_file);
+        }
+        fputs("0\n", input_file);
         for (index_t y = TOP == NONE ? 2 : 0; y < HEIGHT - (BOTTOM == NONE ? 2 : 0); y++) {
+            fputs("0,", input_file);
             for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
                 cell_value_t value = grid[t][y][x].value;
                 if (value == 0) {
-                    fprintf(input_file, "0");
+                    putc('0', input_file);
                 } else if (value == 1) {
-                    fprintf(input_file, "1");
-                } else if (value == 2) {
-                    fprintf(input_file, "*");
+                    putc('1', input_file);
                 } else {
-                    value = CELL_VAR_TO_VAR(value);
-                    while (value > 32) {
-                        fprintf(input_file, "%c", lls_letters[value & 31]);
-                        value >>= 5;
+                    #if VARIABLES
+                    var_t var = grid[t][y][x].value;
+                    if (var == 0) {
+                        putc('*', input_file);
+                    } else {
+                        while (var > 32) {
+                            putc(lls_letters[value & 31], input_file);
+                            value >>= 5;
+                        }
+                        putc(lls_letters[value], input_file);
                     }
-                    fprintf(input_file, "%c", lls_letters[value]);
+                    #else
+                    putc('*', input_file);
+                    #endif
                 }
-                if (x != WIDTH - 1) {
-                    fprintf(input_file, ",");
-                }
+                putc(',', input_file);
             }
-            fprintf(input_file, "\n");
+            fputs("0\n", input_file);
         }
-        fprintf(input_file, "\n");
+        fputs("0,", input_file);
+        for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+            fputs("0,", input_file);
+        }
+        fputs("0\n", input_file);
+        putc('\n', input_file);
     }
     fclose(input_file);
-    return system(
-        LLS
-        " .lls_input_file.csv"
+    char* command = LLS
         #if CHECK_EMPTY
         " -c"
         #endif
         " -r '"RULE"'"
+        " .lls_input_file.csv"
         #ifdef MAX_SOLUTIONS
         " -n '"MAX_SOLUTIONS"'"
         #else
         " -n"
         #endif
-    );
+    ;
+    printf("%s\n", command);
+    return system(command);
     #endif
     #endif
     // long value = strtol(
@@ -372,10 +391,9 @@ int main(void) {
     // , NULL, 2);
     // printf("%ld -> %i\n", value, big_trs_backward[value]);
     printf("Running search\n");
-    DPRINTGRID1();
     #if DEBUG >= 2
     printf("Search order:\n");
-    for (int i = 0; i < unknown_cells; i++) {
+    for (index_t i = 0; i < unknown_cells; i++) {
         int t = search_order[i][0];
         int x = search_order[i][1];
         int y = search_order[i][2];
