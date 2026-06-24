@@ -1377,7 +1377,7 @@ export async function main() {
         if (options['g'] && !options['gdb']) {
             return;
         }
-        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: ['inherit']});
+        execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: ['inherit']});
     } catch (error) {
         process.exit(1);
     }
