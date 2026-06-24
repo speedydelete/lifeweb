@@ -154,7 +154,7 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // filtering
 
-#define SOLUTION_FILTERING true
+#define SOLUTION_FILTERING false
 
 // whether to keep track of various things
 #define TRACK_PHASE_POPS false
