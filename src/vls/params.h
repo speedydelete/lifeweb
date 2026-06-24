@@ -154,11 +154,10 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 // partial reporting interval
 #define PARTIAL_REPORTING_INTERVAL 60
 
-// filtering
+
 
 // whether to keep track of various things
 #define TRACK_PHASE_POPS false
-
 
 // don't change this stuff
 
@@ -217,12 +216,69 @@ index_t phase_pops[GENS];
 #endif
 
 
+// custom stuff
+// define special tracking above!
+
+#define CUSTOM_INIT true
 #define CUSTOM_SOLUTION_FILTERING true
 #define CUSTOM_PRUNING false
+
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+int cat_min_x = WIDTH;
+int cat_max_x = -1;
+int cat_min_y = HEIGHT;
+int cat_max_y = -1;
+
+#if CUSTOM_INIT
+static inline void custom_init() {
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            if (grid[0][y][x].var != 0) {
+                cat_min_x = MIN(cat_min_x, x);
+                cat_max_x = MAX(cat_max_x, x);
+                cat_min_y = MIN(cat_min_y, y);
+                cat_max_y = MAX(cat_max_y, y);
+            }
+        }
+    }
+}
+#endif
+
+#define EATER_Y_OFFSET 0
+
+#if false
+#include <stdio.h>
+#define FILTERPRINTF printf
+#else
+#define FILTERPRINTF(...)
+#endif
 
 // filter function here
 #if CUSTOM_SOLUTION_FILTERING
 static inline bool custom_solution_filter() {
+    #define get(x, y) (grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value)
+    #define on(x2, y2) (get(x + (x2), y2) == 1)
+    #define off(x2, y2) (get(x + (x2), y2) == 0)
+    /*
+    #define get(x, y) ({ \
+        FILTERPRINTF("    getting (%i, %i) -> %i\n", (x), (cat_min_y) + (y) + (EATER_Y_OFFSET), grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value); \
+        grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value; \
+    })
+    #define on(x2, y2) ({ \
+        bool out = get(x + (x2), y2) == 1; \
+        FILTERPRINTF("    on(%i, %i) -> %i\n", (x2), (y2), out); \
+        out; \
+    })
+    #define off(x2, y2) ({ \
+        bool out = get(x + (x2), y2) == 0; \
+        FILTERPRINTF("    off(%i, %i) -> %i\n", (x2), (y2), out); \
+        out; \
+    })
+    */
+    // check for non-eater
     int total_pop = 0;
     int var_pop = 0;
     for (int y = 0; y < HEIGHT; y++) {
@@ -236,7 +292,57 @@ static inline bool custom_solution_filter() {
             }
         }
     }
-    return total_pop != var_pop;
+    FILTERPRINTF("total_pop = %i, var_pop = %i\n", total_pop, var_pop);
+    if (total_pop != var_pop) {
+        FILTERPRINTF("total_pop != var_pop, returning true\n");
+        return true;
+    }
+    for (int x = cat_min_x; x <= cat_max_x - 3; x++) {
+        // check for eater head
+        // OO.
+        // O.O
+        FILTERPRINTF("checking for eater head for x = %i\n", x);
+        if ( on(0, 0) &&  on(1, 0) && off(2, 0) &&
+             on(0, 1) && off(1, 1) &&  on(2, 1)) {
+            return false;
+        }
+        // check for beehive
+        // .OO.
+        // O..O
+        // .O**
+        FILTERPRINTF("checking for beehive for x = %i\n", x);
+        if (off(0, 0) &&  on(1, 0) &&  on(2, 0) && off(3, 0) &&
+             on(0, 1) && off(1, 1) && off(2, 1) &&  on(3, 1) &&
+            off(0, 2) &&  on(1, 2)) {
+            return false;
+        }
+        // check for sparky eater
+        // ...
+        // O.O
+        // OOO
+        // ..O
+        FILTERPRINTF("checking for sparky eater for x = %i\n", x);
+        if (off(0, 0) && off(1, 0) && off(2, 0) &&
+             on(0, 1) && off(1, 1) &&  on(2, 1) &&
+             on(0, 2) &&  on(1, 2) &&  on(2, 2) &&
+            off(0, 3) && off(1, 3) &&  on(2, 3)) {
+            return false;
+        }
+        // check for anything above row EATER_Y_OFFSET + 1
+        // this will intercept the T before it hits the eaters
+        FILTERPRINTF("checking for interceptor (2)\n");
+        for (int y = 0; y <= EATER_Y_OFFSET + 1; y++) {
+            if (on(0, y)) {
+                FILTERPRINTF("interceptor found\n");
+                return true;
+            }
+        }
+    }
+    FILTERPRINTF("returning normally\n");
+    return true;
+    #undef get
+    #undef on
+    #undef offf
 }
 #endif
 

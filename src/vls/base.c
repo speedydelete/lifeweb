@@ -419,7 +419,13 @@ static inline void push_frame(void) {
     next_stack_entry_is_first_in_frame = true;
 }
 
-static inline void pop_frame(void) {
+static inline
+#ifdef SPECIAL_PHASE_0_POP
+bool
+#else
+void
+#endif
+    pop_frame(void) {
     DPRINTF4("Popping frame\n");
     while (sp > 0) {
         #if DEBUG >= 4
@@ -427,14 +433,9 @@ static inline void pop_frame(void) {
         #endif
         cell* cell = stack[sp - 1].cell;
         cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
-        cell->value = value;
-        set_cells--;
         #ifdef SPECIAL_PHASE_0_POP
-        if (t == 0 && value == 1) {
+        if (cell->t == 0 && cell->value == 1) {
             phase_0_pop--;
-            if (phase_0_pop > MAXPOP) {
-                return false;
-            }
         }
         #endif
         #if TRACK_PHASE_POPS
@@ -442,12 +443,17 @@ static inline void pop_frame(void) {
             phase_pops[t]++;
         }
         #endif
+        cell->value = value;
+        set_cells--;
         sp--;
         if (stack[sp].is_first_in_frame) {
             break;
         }
     }
     DPRINTF4("Pop complete\n");
+    #ifdef SPECIAL_PHASE_0_POP
+    return true;
+    #endif
 }
 
 // set a cell to a value, taking care of edges and filters but not propagating implications
@@ -467,7 +473,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         return false;
     }
     #ifdef SPECIAL_PHASE_0_POP
-    if (t == 0 && value == 1) {
+    if (cell->t == 0 && value == 1) {
         phase_0_pop++;
         if (phase_0_pop > MAXPOP) {
             return false;

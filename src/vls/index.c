@@ -184,7 +184,13 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         #endif
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
+        #if SPECIAL_PHASE_0_POP
+        if (!pop_frame()) {
+            return;
+        }
+        #else
         pop_frame();
+        #endif
         int tr = rule_dependent_tr;
         rule_dependent_tr = -1;
         // if (possible_trs_count == 0) {
@@ -205,7 +211,13 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         return;
     #endif
     }
+    #if SPECIAL_PHASE_0_POP
+    if (!pop_frame()) {
+        return;
+    }
+    #else
     pop_frame();
+    #endif
 }
 
 static double last_progress_shown;
@@ -316,6 +328,9 @@ int main(void) {
     #endif
     init_known_solutions();
     preprocess();
+    #if CUSTOM_INIT
+    custom_init();
+    #endif
     cell* initial_cell = add_search_orders();
     DPRINTGRID1();
     #ifdef LLS
