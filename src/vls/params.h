@@ -220,7 +220,7 @@ index_t phase_pops[GENS];
 // define special tracking above!
 
 #define CUSTOM_INIT false
-#define CUSTOM_SOLUTION_FILTERING false
+#define CUSTOM_SOLUTION_FILTERING true
 #define CUSTOM_PRUNING false
 
 
@@ -258,11 +258,12 @@ static inline void custom_init() {
 
 // filter function here
 #if CUSTOM_SOLUTION_FILTERING
-static inline bool custom_solution_filter() {
+/*
+ static inline bool custom_solution_filter() {
     #define get(x, y) (grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value)
     #define on(x2, y2) (get(x + (x2), y2) == 1)
     #define off(x2, y2) (get(x + (x2), y2) == 0)
-    /*
+    / *
     #define get(x, y) ({ \
         FILTERPRINTF("    getting (%i, %i) -> %i\n", (x), (cat_min_y) + (y) + (EATER_Y_OFFSET), grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value); \
         grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value; \
@@ -277,7 +278,7 @@ static inline bool custom_solution_filter() {
         FILTERPRINTF("    off(%i, %i) -> %i\n", (x2), (y2), out); \
         out; \
     })
-    */
+    * /
     // check for non-eater
     int total_pop = 0;
     int var_pop = 0;
@@ -341,6 +342,18 @@ static inline bool custom_solution_filter() {
     FILTERPRINTF("returning normally\n");
     return true;
     #undef get
+    #undef on
+    #undef off
+}
+*/
+static inline bool custom_solution_filter() {
+    #define on(x, y) (grid[0][(y) + 2][(x) + 2].value == 1)
+    #define off(x, y) (grid[0][(y) + 2][(x) + 2].value == 0)
+    return !(
+        off(16, 16) &&  on(17, 16) && off(18, 16) &&
+         on(16, 17) && off(17, 17) && off(18, 17) &&
+        off(16, 18) &&  on(17, 18) &&  on(18, 18)
+    );
     #undef on
     #undef off
 }
