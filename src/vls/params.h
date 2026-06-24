@@ -219,8 +219,8 @@ index_t phase_pops[GENS];
 // custom stuff
 // define special tracking above!
 
-#define CUSTOM_INIT true
-#define CUSTOM_SOLUTION_FILTERING true
+#define CUSTOM_INIT false
+#define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
 
 
@@ -247,7 +247,7 @@ static inline void custom_init() {
 }
 #endif
 
-#define EATER_Y_OFFSET 0
+#define EATER_Y_OFFSET 2
 
 #if false
 #include <stdio.h>
@@ -342,7 +342,7 @@ static inline bool custom_solution_filter() {
     return true;
     #undef get
     #undef on
-    #undef offf
+    #undef off
 }
 #endif
 

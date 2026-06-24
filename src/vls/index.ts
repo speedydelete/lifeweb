@@ -55,6 +55,8 @@ Options:
 
     --benchmark <iterations>: run benchmarking
 
+    --file <file>: also write to that file
+
     -l, --lls <file>: instead of searching, run LLS on the given file
         must be a directory containing a file called "lls" or "lss.py"
 
@@ -131,6 +133,7 @@ const OPTIONS = {
     'gdb': true,
     'profile': true,
     'benchmark': 'string',
+    'file': 'string',
     'lls': 'string',
     'search-order': 'string',
     'initial-value': 'number',
@@ -1374,7 +1377,7 @@ export async function main() {
         if (options['g'] && !options['gdb']) {
             return;
         }
-        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}`, {stdio: 'inherit'});
+        execSync(`${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: ['inherit']});
     } catch (error) {
         process.exit(1);
     }
