@@ -361,8 +361,8 @@ static inline void print_solution(bool preprocessing, int depth) {
         return;
     }
     #endif
-    #if SOLUTION_FILTERING
-    if (!solution_filter()) {
+    #if CUSTOM_SOLUTION_FILTERING
+    if (!custom_solution_filter()) {
         DPRINTF2("Dropping solution (filtered)\n");
         return;
     }
