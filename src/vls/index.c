@@ -232,6 +232,11 @@ static void run_depth(int depth, cell* cell
         #endif
         return;
     }
+    #if CUSTOM_PRUNING
+    if (!custom_prune()) {
+        return;
+    }
+    #endif
     DPRINTGRID3();
     #ifndef BENCHMARK
     double time = get_time();

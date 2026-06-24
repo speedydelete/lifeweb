@@ -217,11 +217,12 @@ index_t phase_pops[GENS];
 #endif
 
 
-#define SOLUTION_FILTERING false
+#define CUSTOM_SOLUTION_FILTERING true
+#define CUSTOM_PRUNING false
 
 // filter function here
-#if SOLUTION_FILTERING
-static inline bool solution_filter() {
+#if CUSTOM_SOLUTION_FILTERING
+static inline bool custom_solution_filter() {
     int total_pop = 0;
     int var_pop = 0;
     for (int y = 0; y < HEIGHT; y++) {
@@ -238,6 +239,13 @@ static inline bool solution_filter() {
     return total_pop != var_pop;
 }
 #endif
+
+#if CUSTOM_PRUNING
+static inline bool custom_prune() {
+    return true;
+}
+#endif
+
 
 
 // misc options
