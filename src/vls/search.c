@@ -184,12 +184,12 @@ static inline bool check_implication(cell* cell) {
                 return false; \
             } \
         }
+    check(cell, (value >> 10) & 3);
     check(cell->next, value & 3);
     check(cell->se, (value >> 2) & 3);
     check(cell->e, (value >> 4) & 3);
     check(cell->ne, (value >> 6) & 3);
     check(cell->s, (value >> 8) & 3);
-    check(cell, (value >> 10) & 3);
     check(cell->n, (value >> 12) & 3);
     check(cell->sw, (value >> 14) & 3);
     check(cell->w, (value >> 16) & 3);

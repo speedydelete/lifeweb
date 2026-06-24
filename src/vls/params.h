@@ -154,7 +154,7 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // filtering
 
-#define SOLUTION_FILTERING false
+#define SOLUTION_FILTERING true
 
 // whether to keep track of various things
 #define TRACK_PHASE_POPS false
@@ -222,21 +222,20 @@ typedef cell grid_item_t[WIDTH];
 // filter function here
 #if SOLUTION_FILTERING
 static inline bool solution_filter() {
-    // int total_pop = 0;
-    // int var_pop = 0;
-    // for (int y = 0; y < HEIGHT; y++) {
-    //     for (int x = 0; x < WIDTH; x++) {
-    //         if (grid[GENS - 1][y][x].value == 0) {
-    //             continue;
-    //         }
-    //         total_pop++;
-    //         if (initial_vars[GENS - 1][y][x] > 0) {
-    //             var_pop++;
-    //         }
-    //     }
-    // }
-    // return total_pop != var_pop;
-    return true;
+    int total_pop = 0;
+    int var_pop = 0;
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            if (grid[GENS - 1][y][x].value == 0) {
+                continue;
+            }
+            total_pop++;
+            if (initial_vars[GENS - 1][y][x] > 0) {
+                var_pop++;
+            }
+        }
+    }
+    return total_pop != var_pop;
 }
 #endif
 
