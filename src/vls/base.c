@@ -7,6 +7,10 @@
 
 #include "params2.h"
 
+#if MULTI_RULE
+#include <string.h>
+#endif
+
 
 #define SIZE (HEIGHT * WIDTH)
 #define TOTAL_SIZE (GENS * SIZE)

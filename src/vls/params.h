@@ -37,6 +37,7 @@
 // the type of cells, don't change this
 // 0 = dead, 1 = alive, 2 = unknown
 typedef uint8_t cell_value_t;
+
 // the smallest integer type that can store the size of the grid
 typedef uint16_t index_t;
 #if VARIABLES
@@ -66,6 +67,7 @@ static const var_t initial_vars[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0
 
 // the transition lookup table for the rule
 // if multi-rule, rule-dependent ones are 3
+#define TRS_RULE_DEPENDANT 3
 static
 #if !MULTI_RULE
 const
@@ -215,8 +217,6 @@ index_t phase_0_pop;
 #if TRACK_PHASE_POPS
 index_t phase_pops[GENS];
 #endif
-
-typedef cell grid_item_t[WIDTH];
 
 
 // filter function here

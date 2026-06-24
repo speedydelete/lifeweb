@@ -25,18 +25,17 @@ typedef struct bb_t {
     index_t y_offset;
 } bb_t;
 
-static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
-    bb->height = HEIGHT - 4;
-    bb->width = WIDTH - 4;
-    bb->x_offset = 2;
-    bb->y_offset = 2;
-    #define get(x, y) (grid[(y) + bb->y_offset][(x) + bb->x_offset].value)
+static inline void get_true_bb(bb_t* bb, cell_value_t t) {
+    bb->height = HEIGHT;
+    bb->width = WIDTH;
+    bb->x_offset = 0;
+    bb->y_offset = 0;
     // top
     index_t shrink_top = 0;
-    for (index_t y = 0; y < bb->height; y++) {
+    for (int y = 0; y < HEIGHT; y++) {
         bool found = false;
-        for (index_t x = 0; x < bb->width; x++) {
-            if (get(x, y) != 0) {
+        for (int x = 0; x < WIDTH; x++) {
+            if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
             }
@@ -51,10 +50,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->y_offset += shrink_top;
     // bottom
     index_t shrink_bottom = 0;
-    for (int y = bb->height - 1; y >= 0; y--) {
+    for (int y = HEIGHT - 1; y >= 0; y--) {
         bool found = false;
-        for (index_t x = 0; x < bb->width; x++) {
-            if (get(x, y) != 0) {
+        for (int x = 0; x < WIDTH; x++) {
+            if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
             }
@@ -68,10 +67,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->height -= shrink_bottom;
     // left
     index_t shrink_left = 0;
-    for (index_t x = 0; x < bb->width; x++) {
+    for (int x = 0; x < WIDTH; x++) {
         bool found = false;
-        for (index_t y = 0; y < bb->height; y++) {
-            if (get(x, y) != 0) {
+        for (int y = 0; y < HEIGHT; y++) {
+            if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
             }
@@ -86,10 +85,10 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
     bb->x_offset += shrink_left;
     // right
     index_t shrink_right = 0;
-    for (int x = bb->width - 1; x >= 0; x--) {
+    for (int x = WIDTH - 1; x >= 0; x--) {
         bool found = false;
-        for (index_t y = 0; y < bb->height; y++) {
-            if (get(x, y) != 0) {
+        for (int y = 0; y < HEIGHT; y++) {
+            if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
             }
@@ -101,7 +100,6 @@ static inline void get_true_bb(bb_t* bb, grid_item_t* grid) {
         }
     }
     bb->width -= shrink_right;
-    #undef get
 }
 
 
@@ -119,7 +117,7 @@ typedef enum axis_trans_t {
     NEG_Y,
 } axis_trans_t;
 
-static inline void transform_coords(bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
+static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
     if (x_trans == POS_X) {
         *x_out = x;
     } else if (x_trans == POS_Y) {
@@ -154,12 +152,12 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
     bb_t bb;
-    get_true_bb(&bb, grid[GENS - offset]);
+    get_true_bb(&bb, GENS - offset);
     index_t x_offset_0 = bb.x_offset;
     index_t y_offset_0 = bb.y_offset;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
         index_t t = (fake_t + offset) % GENS;
-        get_true_bb(&bb, grid[t]);
+        get_true_bb(&bb, t);
         // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         index_t height = bb.height;
         index_t width = bb.width;
@@ -226,7 +224,7 @@ static inline hash_t hash_state() {
 
 #else
 
-static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash(cell_value_t t, bb_t* bb, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     index_t height = bb->height;
     index_t width = bb->width;
@@ -245,32 +243,32 @@ static inline hash_t hash(grid_item_t* grid, bb_t* bb, axis_trans_t x_trans, axi
             index_t real_x = 0;
             index_t real_y = 0;
             transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
-            out ^= grid[real_y][real_x].value;
+            out ^= grid[t][real_y][real_x].value;
             out *= HASH_PRIME;
         }
     }
     return out;
 }
 
-static inline hash_t octohash(grid_item_t* grid) {
+static inline hash_t octohash(cell_value_t t) {
     bb_t bb;
-    get_true_bb(&bb, grid);
-    hash_t out = hash(grid, &bb, POS_X, POS_Y);
-    out = min_hash(out, hash(grid, &bb, POS_X, NEG_Y));
-    out = min_hash(out, hash(grid, &bb, NEG_X, POS_Y));
-    out = min_hash(out, hash(grid, &bb, NEG_X, NEG_Y));
-    out = min_hash(out, hash(grid, &bb, POS_Y, POS_X));
-    out = min_hash(out, hash(grid, &bb, POS_Y, NEG_X));
-    out = min_hash(out, hash(grid, &bb, NEG_Y, POS_X));
-    out = min_hash(out, hash(grid, &bb, NEG_Y, NEG_X));
+    get_true_bb(&bb, t);
+    hash_t out = hash(t, &bb, POS_X, POS_Y);
+    out = min_hash(out, hash(t, &bb, POS_X, NEG_Y));
+    out = min_hash(out, hash(t, &bb, NEG_X, POS_Y));
+    out = min_hash(out, hash(t, &bb, NEG_X, NEG_Y));
+    out = min_hash(out, hash(t, &bb, POS_Y, POS_X));
+    out = min_hash(out, hash(t, &bb, POS_Y, NEG_X));
+    out = min_hash(out, hash(t, &bb, NEG_Y, POS_X));
+    out = min_hash(out, hash(t, &bb, NEG_Y, NEG_X));
     return out;
 }
 
 static inline hash_t hash_state() {
-    hash_t out = octohash(grid[0]);
+    hash_t out = octohash(0);
     #if FILTER_EVERY_PHASE
     for (index_t i = 1; i < GENS; i++) {
-        out = min_hash(out, octohash(grid[i]));
+        out = min_hash(out, octohash(i));
     }
     #endif
     return out;

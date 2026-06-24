@@ -43,12 +43,17 @@ static inline void set_tr(int tr, int value) {
         trs[tr2] = value;
     }
     for (int tr = 0; tr < 262144; tr++) {
-        if (big_trs_forward[tr] == 3 || big_trs_forward[tr] >= 4) {
-            int value = get_forward_big_tr(0, tr, 0);
+        if (IS_BIG_TRS_RULE_DEPENDANT(big_trs[tr])) {
+            cell_value_t value = get_big_tr(0, tr, 0);
             if (value < 4) {
                 value += 4;
             }
-            big_trs_forward[tr] = value;
+            big_trs[tr] = value;
+        }
+    }
+    for (int tr = 0; tr < 1048576; tr++) {
+        if (implications[tr] == IMPLICATION_RULE_DEPENDANT) {
+            implications[tr] = get_implication(tr);
         }
     }
 }

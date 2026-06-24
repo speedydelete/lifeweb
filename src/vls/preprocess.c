@@ -20,6 +20,12 @@ static inline void preprocess_implications(void) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
                 cell* cell = &grid[t][y][x];
                 if (!check_implication(cell)) {
+                    #if MULTI_RULE
+                    if (rule_dependent_tr != -1) {
+                        rule_dependent_tr = -1;
+                        continue;
+                    }
+                    #endif
                     printf("Contradiction found in preprocessing (in backward step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
                     exit(0);
                 }
