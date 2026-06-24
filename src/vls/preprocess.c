@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "params2.h"
 #include "base.c"
 #include "search.c"
+#include "solutions.c"
 
 
 // runs implications

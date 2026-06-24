@@ -17,7 +17,7 @@
 // 45 ab gh
 cell_value_t big_trs[262144];
 
-static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
+static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
@@ -40,10 +40,10 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
         }
     } else {
         if (state != UNKNOWN) {
-            return get_forward_big_tr(next | state, tr, depth + 1);
+            return get_big_tr(next | state, tr, depth + 1);
         } else {
-            cell_value_t a = get_forward_big_tr(next | 0, tr, depth + 1);
-            cell_value_t b = get_forward_big_tr(next | 1, tr, depth + 1);
+            cell_value_t a = get_big_tr(next | 0, tr, depth + 1);
+            cell_value_t b = get_big_tr(next | 1, tr, depth + 1);
             // unknown cell: if they disagree return unknown
             #if MULTI_RULE
             return a == b ? (a == 3 ? 4 + UNKNOWN : a) : UNKNOWN;
@@ -54,21 +54,19 @@ static cell_value_t get_forward_big_tr(int prev, uint32_t tr, int depth) {
     }
 }
 
-// backwards lookup table
-// this is about as crazy as it sounds so hear me out
-// (ok fine it's not that crazy all previous lifesrcs do this)
-// we see what values of unknown cells we can set
-// because we know that they won't be settable
+// implication table
+// tells us what values of unknown cells we can set
 // index format: 0b_01_23_45_67_89_ab_cd_ef_gh_ij
 // 01 67 cd
 // 23 89 ef -> ij
 // 45 ab gh
 // return value is a uint32_t of the same format as the index
-// do nothing = 2, set off = 0, set on = 1, contradiction = 3, do nothing for any cell = 15
-uint32_t implications[1048576];
+// do nothing = 2, set off = 0, set on = 1
+// and special CONTRADICTION and DO_NOTHING values (DO_NOTHING means for all cells!)
+int32_t implications[1048576];
 
-#define CONTRADICTION 3
-#define DO_NOTHING 15
+#define CONTRADICTION -1
+#define DO_NOTHING -2
 
 #if false
 #define SPECIALDEBUGPRINTF printf
@@ -76,7 +74,7 @@ uint32_t implications[1048576];
 #define SPECIALDEBUGPRINTF(...)
 #endif
 
-static inline uint32_t get_backward_big_tr(uint32_t tr) {
+static inline int32_t get_implication(uint32_t tr) {
     for (int i = 0; i < 20; i += 2) {
         if (((tr >> i) & 3) == 3) {
             return CONTRADICTION;
@@ -88,7 +86,7 @@ static inline uint32_t get_backward_big_tr(uint32_t tr) {
         SPECIALDEBUGPRINTF("early contradiction detected, target = %i, tr & 3 = %i, returning CONTRADICTION\n", target, tr & 3);
         return CONTRADICTION;
     }
-    uint32_t out = 0b10101010101010101010;
+    int32_t out = 0b10101010101010101010;
     if ((tr & 3) == UNKNOWN) {
         cell_value_t value = big_trs[tr >> 2];
         if (value != UNKNOWN) {
@@ -119,7 +117,7 @@ static inline uint32_t get_backward_big_tr(uint32_t tr) {
             out = (out & ~(3 << i)) | (0 << i);
         } else if (!zero_possible && !one_possible) {
             // contradiction
-            SPECIALDEBUGPRINTF("contradiction detected, returning 3\n");
+            SPECIALDEBUGPRINTF("contradiction detected, returning CONTRADICTION\n");
             return CONTRADICTION;
         }
     }
@@ -129,10 +127,21 @@ static inline uint32_t get_backward_big_tr(uint32_t tr) {
 
 static inline void generate_big_trs(void) {
     for (uint32_t tr = 0; tr < 262144; tr++) {
-        big_trs[tr] = get_forward_big_tr(0, tr, 0);
+        big_trs[tr] = get_big_tr(0, tr, 0);
+    }
+    for (uint32_t tr = 0; tr < 512; tr++) {
+        implications[((tr & 256) << 10)
+                   | ((tr & 128) << 9)
+                   | ((tr & 64) << 8)
+                   | ((tr & 32) << 7)
+                   | ((tr & 16) << 6)
+                   | ((tr & 8) << 5)
+                   | ((tr & 4) << 4)
+                   | ((tr & 2) << 3)
+                   | ((tr & 1) << 2)] = trs[tr];
     }
     for (uint32_t tr = 0; tr < 1048576; tr++) {
-        uint32_t value = get_backward_big_tr(tr);
+        int32_t value = get_implication(tr);
         implications[tr] = value == 0b10101010101010101010 ? DO_NOTHING : value;
     }
 }
@@ -169,7 +178,7 @@ static inline bool check_implication(cell* cell) {
                 | (cell->e->value << 4)
                 | (cell->se->value << 2)
                 | (cell->next->value);
-    uint32_t value = implications[tr];
+    int32_t value = implications[tr];
     DPRINTF4("Backward: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
         return true;
