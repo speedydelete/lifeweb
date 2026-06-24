@@ -647,6 +647,9 @@ if (mode === 'periodic') {
         searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
+        searchOrderAliases['gfind-f2b'] = `-t, ${mainAxis}, ${sideAxis}`;
+        searchOrderAliases['gfind-b2f'] = `-t, -${mainAxis}, ${sideAxis}`;
+        searchOrderAliases['gfind-s2s'] = `-t, ${sideAxis}, ${mainAxis}`;
     }
 
     // grid = new Grid(height, width, period + 1);
