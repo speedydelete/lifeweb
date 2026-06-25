@@ -247,7 +247,7 @@ static inline void custom_init() {
 }
 #endif
 
-#define EATER_Y_OFFSET 2
+#define EATER_Y_OFFSET 4
 
 #if false
 #include <stdio.h>
@@ -259,7 +259,7 @@ static inline void custom_init() {
 // filter function here
 #if CUSTOM_SOLUTION_FILTERING
 static inline bool custom_solution_filter() {
-    #define get(x, y) (grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value)
+    #define get(x, y) (grid[0][(cat_min_y) + (y) + (Y_OFFSET)][(x)].value)
     #define on(x2, y2) (get(x + (x2), y2) == 1)
     #define off(x2, y2) (get(x + (x2), y2) == 0)
     /*
@@ -298,6 +298,7 @@ static inline bool custom_solution_filter() {
         return true;
     }
     for (int x = cat_min_x; x <= cat_max_x - 3; x++) {
+        #define Y_OFFSET (EATER_Y_OFFSET)
         // check for eater head
         // OO.
         // O.O
@@ -328,15 +329,31 @@ static inline bool custom_solution_filter() {
             off(0, 3) && off(1, 3) &&  on(2, 3)) {
             return false;
         }
-        // check for anything above or on row 1
+        #if EATER_Y_OFFSET > 2
+        #undef Y_OFFSET
+        #define Y_OFFSET (EATER_Y_OFFSET - 1)
+        // check for eater tail bridge snake or whatever it's called
+        // OO
+        // O.
+        // .O
+        if ( on(0, 0) &&  on(1, 0) &&
+             on(0, 1) && off(1, 1) &&
+            off(0, 2) &&  on(1, 2)) {
+            return false;
+        }
+        #endif
+        #undef Y_OFFSET
+        #define Y_OFFSET 0
+        // check for anything above or on row EATER_Y_OFFSET_1 + 1
         // this will intercept the T before it hits the eaters
         FILTERPRINTF("checking for interceptor\n");
-        for (int y = 0; y <= 1; y++) {
+        for (int y = 0; y <= EATER_Y_OFFSET + 1; y++) {
             if (on(0, y)) {
                 FILTERPRINTF("interceptor found\n");
                 return true;
             }
         }
+        #undef Y_OFFSET
     }
     FILTERPRINTF("returning normally\n");
     return true;
