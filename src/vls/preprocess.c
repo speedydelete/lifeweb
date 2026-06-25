@@ -42,6 +42,8 @@ typedef struct case_cell_t {
     var_t var;
 } case_cell_t;
 
+typedef case_cell_t case_t[10];
+
 static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, size_t cases_size) {
     if (old == new) {
         return;
@@ -70,7 +72,7 @@ static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, s
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
-    case_cell_t** cases = malloc(TOTAL_SIZE * 8 * 10 * sizeof(case_cell_t));
+    case_t* cases = malloc(TOTAL_SIZE * 8 * sizeof(case_t));
     int case_count = 0;
     // first compute the cases
     for (index_t t = 0; t < GENS - 1; t++) {
@@ -102,7 +104,7 @@ static inline void preprocess_cases(void) {
                     found = true;
                 }
                 if (!found) {
-                    return;
+                    continue;
                 }
                 // assign all rotations and reflections of the case too
                 for (int i = 0; i < 2; i++) {
@@ -153,10 +155,10 @@ static inline void preprocess_cases(void) {
                     found = true;
                 }
                 if (!found) {
-                    return;
+                    continue;
                 }
                 for (int i = 0; i < case_count; i++) {
-                    if (memcmp(cases[i], cells, sizeof(cell_value_t) * 9) == 0) {
+                    if (memcmp(cases[i], &cells, sizeof(case_cell_t) * 9) == 0) {
                         case_cell_t new_cell = cases[i][9];
                         if (next_cell->value != UNKNOWN) {
                             if (new_cell.value != UNKNOWN) {
@@ -169,8 +171,9 @@ static inline void preprocess_cases(void) {
                         } else {
                             // sanity check
                             if (new_cell.var == 0) {
-                                fprintf(stderr, "\nError: This error should not occur (new_cell.var == 0 but new_cell.value == UNKNOWN)\nPlease report this error\n");
-                                exit(1);
+                                // fprintf(stderr, "\nError: This error should not occur (new_cell.var == 0 but new_cell.value == UNKNOWN)\nPlease report this error\n");
+                                // exit(1);
+                                continue;
                             }
                             if (next_cell->var == 0) {
                                 // it was unknown, now we know it must be a certain variable
@@ -179,7 +182,7 @@ static inline void preprocess_cases(void) {
                                 var_uses[var][num_var_uses[var]++] = next_cell;
                             } else {
                                 // now we reassign all uses of the variable!
-                                reassign_variable(next_cell->var, new_cell.var, (case_cell_t*)cases, case_count);
+                                reassign_variable(next_cell->var, new_cell.var, (case_cell_t*)cases, case_count * 10);
                             }
                         }
                     }

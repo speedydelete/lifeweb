@@ -732,6 +732,9 @@ function parseTable(data: string): TableData {
         sections.push({values: current, neighborhood, symmetry});
         current = [];
     }
+    if (states > 5) {
+        throw new Error('no');
+    }
     fullNeighborhood = TREE_NEIGHBORHOOD;
     let out: (number | number[])[][] = [];
     let length = 0;

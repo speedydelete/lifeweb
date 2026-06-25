@@ -361,15 +361,15 @@ int main(void) {
                     putc('1', input_file);
                 } else {
                     #if VARIABLES
-                    var_t var = grid[t][y][x].value;
+                    var_t var = grid[t][y][x].var;
                     if (var == 0) {
                         putc('*', input_file);
                     } else {
                         while (var > 32) {
-                            putc(lls_letters[value & 31], input_file);
-                            value >>= 5;
+                            putc(lls_letters[var & 31], input_file);
+                            var >>= 5;
                         }
-                        putc(lls_letters[value], input_file);
+                        putc(lls_letters[var], input_file);
                     }
                     #else
                     putc('*', input_file);
