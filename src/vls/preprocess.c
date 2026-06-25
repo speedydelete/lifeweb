@@ -162,26 +162,28 @@ static inline void preprocess_cases(void) {
                         case_cell_t new_cell = cases[i][9];
                         if (next_cell->value != UNKNOWN) {
                             if (new_cell.value != UNKNOWN) {
+                                // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
                                 }
                             } else {
+                                // no point setting a known cell to an unknown cell
                                 continue;
                             }
                         } else {
-                            // sanity check
-                            if (new_cell.var == 0) {
-                                // fprintf(stderr, "\nError: This error should not occur (new_cell.var == 0 but new_cell.value == UNKNOWN)\nPlease report this error\n");
-                                // exit(1);
+                            if (new_cell.value != UNKNOWN) {
+                                // if we are setting it to a known cell, that's easy!
+                                next_cell->value = new_cell.value;
+                            } else if (new_cell.var == 0) {
+                                // this seriously should not be happening
                                 continue;
-                            }
-                            if (next_cell->var == 0) {
+                            } else if (next_cell->var == 0) {
                                 // it was unknown, now we know it must be a certain variable
                                 var_t var = new_cell.var;
                                 next_cell->var = var;
                                 var_uses[var][num_var_uses[var]++] = next_cell;
                             } else {
-                                // now we reassign all uses of the variable!
+                                // we reassign all uses of the variable
                                 reassign_variable(next_cell->var, new_cell.var, (case_cell_t*)cases, case_count * 10);
                             }
                         }
