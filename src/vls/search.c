@@ -153,7 +153,7 @@ static inline int32_t get_implication(uint32_t tr) {
         SPECIALDEBUGPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
         return CONTRADICTION;
     }
-    int32_t out = 0b10101010101010101010;
+    int32_t out = 699050;
     if (next == UNKNOWN) {
         if (target != UNKNOWN) {
             out = (out & ~3) | target;
@@ -201,7 +201,7 @@ static inline int32_t get_implication(uint32_t tr) {
             return CONTRADICTION;
         }
     }
-    out = out == 0b10101010101010101010 ? DO_NOTHING : out;
+    out = out == 699050 ? DO_NOTHING : out;
     SPECIALDEBUGPRINTF("result: %i -> %i\n", tr, out);
     return out;
 }
