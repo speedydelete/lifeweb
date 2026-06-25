@@ -219,8 +219,8 @@ index_t phase_pops[GENS];
 // custom stuff
 // define special tracking above!
 
-#define CUSTOM_INIT false
-#define CUSTOM_SOLUTION_FILTERING false
+#define CUSTOM_INIT true
+#define CUSTOM_SOLUTION_FILTERING true
 #define CUSTOM_PRUNING false
 
 
@@ -258,12 +258,11 @@ static inline void custom_init() {
 
 // filter function here
 #if CUSTOM_SOLUTION_FILTERING
-/*
- static inline bool custom_solution_filter() {
+static inline bool custom_solution_filter() {
     #define get(x, y) (grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value)
     #define on(x2, y2) (get(x + (x2), y2) == 1)
     #define off(x2, y2) (get(x + (x2), y2) == 0)
-    / *
+    /*
     #define get(x, y) ({ \
         FILTERPRINTF("    getting (%i, %i) -> %i\n", (x), (cat_min_y) + (y) + (EATER_Y_OFFSET), grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value); \
         grid[0][(cat_min_y) + (y) + (EATER_Y_OFFSET)][(x)].value; \
@@ -278,7 +277,7 @@ static inline void custom_init() {
         FILTERPRINTF("    off(%i, %i) -> %i\n", (x2), (y2), out); \
         out; \
     })
-    * /
+    */
     // check for non-eater
     int total_pop = 0;
     int var_pop = 0;
@@ -293,7 +292,7 @@ static inline void custom_init() {
             }
         }
     }
-    FILTERPRINTF("total_pop = %i, var_pop = %i\n", total_pop, var_pop);
+    FILTERPRINTF("total_pop = %i, var_pop = %i, cat_min_y = %i\n", total_pop, var_pop, cat_min_y);
     if (total_pop != var_pop) {
         FILTERPRINTF("total_pop != var_pop, returning true\n");
         return true;
@@ -322,17 +321,17 @@ static inline void custom_init() {
         // O.O
         // OOO
         // ..O
-        FILTERPRINTF("checking for sparky eater for x = %i\n", x);
-        if (off(0, 0) && off(1, 0) && off(2, 0) &&
-             on(0, 1) && off(1, 1) &&  on(2, 1) &&
-             on(0, 2) &&  on(1, 2) &&  on(2, 2) &&
-            off(0, 3) && off(1, 3) &&  on(2, 3)) {
-            return false;
-        }
-        // check for anything above row EATER_Y_OFFSET + 1
+        // FILTERPRINTF("checking for sparky eater for x = %i\n", x);
+        // if (off(0, 0) && off(1, 0) && off(2, 0) &&
+        //      on(0, 1) && off(1, 1) &&  on(2, 1) &&
+        //      on(0, 2) &&  on(1, 2) &&  on(2, 2) &&
+        //     off(0, 3) && off(1, 3) &&  on(2, 3)) {
+        //     return false;
+        // }
+        // check for anything above or on row 1
         // this will intercept the T before it hits the eaters
-        FILTERPRINTF("checking for interceptor (2)\n");
-        for (int y = 0; y <= EATER_Y_OFFSET + 1; y++) {
+        FILTERPRINTF("checking for interceptor\n");
+        for (int y = 0; y <= 1; y++) {
             if (on(0, y)) {
                 FILTERPRINTF("interceptor found\n");
                 return true;
@@ -345,7 +344,7 @@ static inline void custom_init() {
     #undef on
     #undef off
 }
-*/
+/*
 static inline bool custom_solution_filter() {
     // #define on(x, y) (grid[GENS - 1][(y) + 2][(x) + 2].value == 1)
     // #define off(x, y) (grid[GENS - 1][(y) + 2][(x) + 2].value == 0)
@@ -357,6 +356,7 @@ static inline bool custom_solution_filter() {
     // #undef on
     // #undef off
 }
+*/
 #endif
 
 #if CUSTOM_PRUNING
