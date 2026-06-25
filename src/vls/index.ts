@@ -47,19 +47,22 @@ Options:
 
     -d, --debug <level>: set the debug level
 
-    --interval <seconds>: set the progress reporting interval
-    --partial-interval <seconds>: set the partial reporting interval
-
     -g: compile with debugging symbols
     --gdb: compile with debugging symbols and run gdb
     --profile: compile with profiling symbols
 
+    -l, --lls <file>: instead of searching, run LLS on the given file
+        must be a directory containing a file called "lls" or "lss.py"
+
     --benchmark <iterations>: run benchmarking
+
+    --interval <seconds>: set the progress reporting interval
+    --partial-interval <seconds>: set the partial reporting interval
 
     --file <file>: also write to that file
 
-    -l, --lls <file>: instead of searching, run LLS on the given file
-        must be a directory containing a file called "lls" or "lss.py"
+    --rulespace <rulespace>: set the rulespace, options:
+        int, ot
 
     -o, --search-order <order>:
         Set the order in which cells are checked
@@ -120,7 +123,7 @@ Options:
             agar:
                 wraps around all 4 sides, so it will look for agars
 
-    --maxpop <cells>: Set the maximum population during the search.
+    --maxpop <cells>: set the maximum population during the search
 `;
 
 type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string' | 'number' | Set<string>)[] | [true, 'string' | 'number' | Set<string>];
@@ -128,14 +131,15 @@ type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string'
 const OPTIONS = {
     'help': true,
     'debug': 'number',
-    'interval': 'number',
-    'partial-interval': 'number',
     'g': true,
     'gdb': true,
+    'lls': 'string',
     'profile': true,
     'benchmark': 'string',
+    'interval': 'number',
+    'partial-interval': 'number',
     'file': 'string',
-    'lls': 'string',
+    'rulespace': new Set(['int', 'ot'] as const),
     'search-order': 'string',
     'initial-value': 'number',
     'max-solutions': 'number',
@@ -1245,6 +1249,8 @@ for (let line of code.split('\n')) {
         value = String(multiRule);
     } else if (name === 'RULE') {
         value = `"${rule}"`;
+    } else if (name === 'BINDS') {
+        value = `BINDS_${(options['rulespace'] ?? 'int').toUpperCase()}`;
     // } else if (name === 'MAX_RULE_CHANGES') {
     //     value = 0;
     //     for (let i = 0; i < 512; i++) {
