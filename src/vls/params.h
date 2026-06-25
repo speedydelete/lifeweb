@@ -219,8 +219,8 @@ index_t phase_pops[GENS];
 // custom stuff
 // define special tracking above!
 
-#define CUSTOM_INIT true
-#define CUSTOM_SOLUTION_FILTERING true
+#define CUSTOM_INIT false
+#define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
 
 
