@@ -230,7 +230,7 @@ export function createPattern(rule: string, namedRules?: {[key: string]: string}
     } else if (errors.length === 1) {
         throw new RuleError(errors[0]);
     } else {
-        throw new RuleError(errors[0] + ', ' + errors.slice(1).map(x => x[0].toLowerCase() + x[1]).join(', '))
+        throw new RuleError(errors[0] + ', ' + errors.slice(1).map(x => x[0].toLowerCase() + x.slice(1)).join(', '))
     }
 }
 
