@@ -91,13 +91,7 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         #endif
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
-        #ifdef SPECIAL_PHASE_0_POP
-        if (!pop_frame()) {
-            return;
-        }
-        #else
         pop_frame();
-        #endif
         int32_t tr = rule_dependent_tr;
         rule_dependent_tr = -1;
         progress[depth].tr_is_set = true;
@@ -114,13 +108,7 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         return;
     #endif
     }
-    #ifdef SPECIAL_PHASE_0_POP
-    if (!pop_frame()) {
-        return;
-    }
-    #else
     pop_frame();
-    #endif
 }
 
 static double last_progress_shown;

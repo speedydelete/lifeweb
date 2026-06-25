@@ -420,13 +420,7 @@ static inline void push_frame(void) {
     next_stack_entry_is_first_in_frame = true;
 }
 
-static inline
-#ifdef SPECIAL_PHASE_0_POP
-bool
-#else
-void
-#endif
-    pop_frame(void) {
+static inline void pop_frame(void) {
     DPRINTF4("Popping frame\n");
     while (sp > 0) {
         #if DEBUG >= 4
@@ -441,7 +435,7 @@ void
         #endif
         #if TRACK_PHASE_POPS
         if (value == 1) {
-            phase_pops[t]++;
+            phase_pops[cell->t]--;
         }
         #endif
         cell->value = value;
@@ -452,9 +446,6 @@ void
         }
     }
     DPRINTF4("Pop complete\n");
-    #ifdef SPECIAL_PHASE_0_POP
-    return true;
-    #endif
 }
 
 // set a cell to a value, taking care of edges and filters but not propagating implications
@@ -473,6 +464,13 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
+    stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
+    next_stack_entry_is_first_in_frame = false;
+    DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
+    stack[sp].cell = cell;
+    sp++;
+    set_cells++;
+    cell->value = value;
     #ifdef SPECIAL_PHASE_0_POP
     if (cell->t == 0 && value == 1) {
         phase_0_pop++;
@@ -483,16 +481,14 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     #endif
     #if TRACK_PHASE_POPS
     if (value == 1) {
-        phase_pops[t]++;
+        phase_pops[cell->t]++;
+        #ifdef MAXPOP
+        if (cell->t == 0 && phase_pops[0] > MAXPOP) {
+            return false;
+        }
+        #endif
     }
     #endif
-    stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
-    next_stack_entry_is_first_in_frame = false;
-    DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
-    stack[sp].cell = cell;
-    sp++;
-    set_cells++;
-    cell->value = value;
     #if TOP != NONE
     if (y == TOP) {
         grid[t][0][x] = value;
