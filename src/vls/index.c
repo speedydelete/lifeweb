@@ -18,42 +18,46 @@
 #include "preprocess.c"
 
 
-static int progress[TOTAL_MAX_DEPTH];
-
 #if MULTI_RULE
 
-typedef struct set_tr_info {
-    bool set;
-    int cell;
+typedef struct progress_entry {
+    bool tr_is_set;
     int tr;
     int value;
-} set_tr_info;
+} progress_entry;
 
-static set_tr_info set_tr_info_for_depth[TOTAL_MAX_DEPTH];
+progress_entry progress[TOTAL_MAX_DEPTH];
 
-static int tr_to_int_tr[512];
+int tr_to_int_tr[512];
 
 static inline void set_tr(int tr, int value) {
     DPRINTF3("Setting transition %i to %i\n", tr, value);
     for (int i = 0; i < MAX_MAP_TRS_PER_INT_TR + 1; i++) {
-        int tr2 = int_transitions[tr_to_int_tr[tr]][i];
+        int16_t tr2 = int_transitions[tr_to_int_tr[tr]][i];
         if (tr2 == -1) {
             break;
         }
-        trs[tr2] = value;
-    }
-    for (int tr = 0; tr < 262144; tr++) {
-        if (IS_BIG_TRS_RULE_DEPENDANT(big_trs[tr])) {
-            cell_value_t value = get_big_tr(0, tr, 0);
-            if (value < 4) {
-                value += 4;
-            }
-            big_trs[tr] = value;
+        if (tr & (1 << 4)) {
+            tr2 |= (1 << 4);
         }
+        trs[tr2] = value;
+        big_trs[TR_TO_BIG_TR(tr2)] = value;
     }
-    for (int tr = 0; tr < 1048576; tr++) {
-        if (implications[tr] == IMPLICATION_RULE_DEPENDANT) {
-            implications[tr] = get_implication(tr);
+    for (int i = 0; i < MAX_MAP_TRS_PER_INT_TR + 1; i++) {
+        int16_t tr2 = int_transitions[tr_to_int_tr[tr]][i];
+        if (tr2 == -1) {
+            break;
+        }
+        if (tr & (1 << 4)) {
+            tr2 |= (1 << 4);
+        }
+        uint32_t tr3 = TR_TO_BIG_TR((uint32_t)tr2) << 2;
+        if (value == 3) {
+            implications[tr3] = IMPLICATION_RULE_DEPENDANT;
+            implications[tr3 | 1] = IMPLICATION_RULE_DEPENDANT;
+        } else {
+            implications[tr3] = get_implication(tr3);
+            implications[tr3 | 1] = get_implication(tr3 | 1);
         }
     }
 }
@@ -77,20 +81,20 @@ static inline void init_multi_rule() {
             }
         }
         if (!found) {
-            fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
+            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
             exit(1);
         }
     }
     for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
-        set_tr_info_for_depth[i].set = false;
+        progress[i].tr_is_set = false;
     }
 }
 
 static inline void print_progress(FILE* stream, int depth) {
-    for (int i = 0; i < depth - 1; i++) {
-        if (set_tr_info_for_depth[i].set) {
-            int tr = set_tr_info_for_depth[i].tr;
-            int value = set_tr_info_for_depth[i].value;
+    for (int i = 1; i < depth; i++) {
+        if (progress[i].tr_is_set) {
+            int tr = progress[i].tr;
+            int value = progress[i].value;
             char tr_str[4];
             if (tr & (1 << 4)) {
                 tr &= ~(1 << 4);
@@ -125,12 +129,12 @@ static inline void print_progress(FILE* stream, int depth) {
                 }
             }
             if (!found) {
-                fprintf(stderr, "\nError: This error should not occur (nonexistent transition: %i)\nPlease report this error\n", tr);
+                fprintf(stderr, "\nError: This error should not occur (nonexistent transition in print_progress: %i)\nPlease report this error\n", tr);
                 exit(1);
             }
             real_fprintf(stream, "[%s=%i]", tr_str, value);
         } else {
-            int value = progress[i];
+            int value = progress[i].value;
             if (value == -1) {
                 continue;
             } else if (value == 0) {
@@ -143,6 +147,8 @@ static inline void print_progress(FILE* stream, int depth) {
 }
 
 #else
+
+int progress[TOTAL_MAX_DEPTH];
 
 static inline void print_progress(FILE* stream, int depth) {
     for (int i = 1; i < depth; i++) {
@@ -191,23 +197,19 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         #else
         pop_frame();
         #endif
-        int tr = rule_dependent_tr;
+        int32_t tr = rule_dependent_tr;
         rule_dependent_tr = -1;
-        // if (possible_trs_count == 0) {
-        //     DPRINTF4("Skipping branching rule on transition %i (depth = %i)\n", tr, depth);
-        //     continue;
-        // }
-        set_tr_info_for_depth[depth].set = true;
-        set_tr_info_for_depth[depth].tr = tr;
+        progress[depth].tr_is_set = true;
+        progress[depth].tr = tr;
         DPRINTF3("Branching rule on transition %i (depth = %i)\n", tr, depth);
-        set_tr_info_for_depth[depth].value = 0;
+        progress[depth].value = 0;
         set_tr(tr, 0);
-        run_depth(depth + 1, cell->next_in_search_order, value);
-        set_tr_info_for_depth[depth].value = 1;
+        run_depth(depth + 1, cell, value);
+        progress[depth].value = 1;
         set_tr(tr, 1);
-        run_depth(depth + 1, cell->next_in_search_order, value);
+        run_depth(depth + 1, cell, value);
         set_tr(tr, 3);
-        set_tr_info_for_depth[depth].set = false;
+        progress[depth].tr_is_set = false;
         return;
     #endif
     }
@@ -235,6 +237,10 @@ static void run_depth(int depth, cell* cell
     real_printf("\n");
     #endif
     branches++;
+    if (depth > max_depth) {
+        fprintf(stderr, "\nError: This error should not occur (infinite recursion detected)\nPlease report this error\n");
+        exit(1);
+    }
     if (depth > max_depth || set_cells == unknown_cells) {
         #ifndef BENCHMARK
         print_solution(false, depth);
@@ -266,10 +272,11 @@ static void run_depth(int depth, cell* cell
     #endif
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
-        progress[depth] = -1;
         #if MULTI_RULE
+        progress[depth].value = -1;
         run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
+        progress[depth] = -1;
         run_depth(depth + 1, cell->next_in_search_order);
         #endif
         #if DEBUG >= 3
@@ -286,16 +293,17 @@ static void run_depth(int depth, cell* cell
         for (int value = 1; value >= 0; value--)
         #endif
         {
-            progress[depth] = value;
             #if MULTI_RULE
+            progress[depth].value = value;
             actual_run_depth(depth, cell, value);
             #else
+            progress[depth] = value;
             actual_run_depth(depth, cell, value);
             #endif
         }
     #if MULTI_RULE
     } else {
-        progress[depth] = -1;
+        progress[depth].value = -1;
         actual_run_depth(depth, cell, force_value);
     }
     #endif
@@ -307,7 +315,7 @@ static void run_depth(int depth, cell* cell
 
 int main(void) {
     // for (int tr = 0; tr < 262144; tr++) {
-    //     big_trs_forward[tr] = get_forward_big_tr(0, tr, 0);
+    //     big_trs[tr] = get_big_tr(0, tr, 0);
     // }
     // // long value = strtol(
     // //     "00" "10" "10"
@@ -315,8 +323,8 @@ int main(void) {
     // //     "00" "00" "00"
     // //     "10"
     // // , NULL, 2);
-    // long value = 98305;
-    // printf("%ld -> %i\n", value, get_backward_big_tr(value));
+    // long value = 165378;
+    // printf("%ld -> %i\n", value, get_implication(value));
     // exit(0);
     init_state();
     #if VARIABLES
@@ -403,13 +411,6 @@ int main(void) {
     return system(command);
     #endif
     #endif
-    // long value = strtol(
-    //     "01" "01" "01"
-    //     "10" "01" "10"
-    //     "10" "10" "10"
-    //     "01"
-    // , NULL, 2);
-    // printf("%ld -> %i\n", value, big_trs_backward[value]);
     printf("Running search\n");
     #if DEBUG >= 2
     printf("Search order:\n");

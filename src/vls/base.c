@@ -25,17 +25,17 @@
 
 #if MULTI_RULE
 
-#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + MAX_RULE_CHANGES)
+#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + MAX_RULE_CHANGES + 2)
 
-#define TR_TO_BIG_TR(x) ((x) & 1) | (((x) & 2) << 1) | (((x) & 4) << 2) | (((x) & 8) << 3) | (((x) & 16) << 4) | (((x) & 32) << 5) | (((x) & 64) << 6) | (((x) & 128) << 7) | (((x) & 256) << 8)
-#define BIG_TR_TO_TR(x) ((x) & 1) | (((x) >> 1) & 2) | (((x) >> 2) & 4) | (((x) >> 3) & 8) | (((x) >> 4) & 16) | (((x) >> 5) & 32) | (((x) >> 6) & 64) | (((x) >> 7) & 128) | (((x) >> 8) & 256)
+#define TR_TO_BIG_TR(x) (((x) & 1) | (((x) & 2) << 1) | (((x) & 4) << 2) | (((x) & 8) << 3) | (((x) & 16) << 4) | (((x) & 32) << 5) | (((x) & 64) << 6) | (((x) & 128) << 7) | (((x) & 256) << 8))
+#define BIG_TR_TO_TR(x) (((x) & 1) | (((x) >> 1) & 2) | (((x) >> 2) & 4) | (((x) >> 3) & 8) | (((x) >> 4) & 16) | (((x) >> 5) & 32) | (((x) >> 6) & 64) | (((x) >> 7) & 128) | (((x) >> 8) & 256))
 
 #define INT_TRANSITION_COUNT 102
 #define MAX_MAP_TRS_PER_INT_TR 8
 #define INT_NUMBER_COUNT 9
 #define MAX_LETTERS_PER_INT_NUM 13
 
-static const uint16_t int_transitions[INT_TRANSITION_COUNT][MAX_MAP_TRS_PER_INT_TR + 1] = {
+static const int16_t int_transitions[INT_TRANSITION_COUNT][MAX_MAP_TRS_PER_INT_TR + 1] = {
     {0, -1, -1, -1, -1, -1, -1, -1, -1},
     {4, 256, 1, 64, -1, -1, -1, -1, -1},
     {2, 128, 8, 32, -1, -1, -1, -1, -1},

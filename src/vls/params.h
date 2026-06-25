@@ -329,16 +329,31 @@ static inline bool custom_solution_filter() {
             off(0, 3) && off(1, 3) &&  on(2, 3)) {
             return false;
         }
+        // check for eater tail bridge snake or whatever it's called
         #if EATER_Y_OFFSET > 2
         #undef Y_OFFSET
         #define Y_OFFSET (EATER_Y_OFFSET - 1)
-        // check for eater tail bridge snake or whatever it's called
         // OO
         // O.
         // .O
         if ( on(0, 0) &&  on(1, 0) &&
              on(0, 1) && off(1, 1) &&
             off(0, 2) &&  on(1, 2)) {
+            return false;
+        }
+        #endif
+        // check for weird eater
+        #if EATER_Y_OFFSET > 2
+        #undef Y_OFFSET
+        #define Y_OFFSET (EATER_Y_OFFSET - 2)
+        // O*
+        // .*
+        // OO
+        // O*
+        if ( on(0, 0) &&
+            off(0, 1) &&
+             on(0, 2) &&  on(1, 2) &&
+             on(0, 3)) {
             return false;
         }
         #endif

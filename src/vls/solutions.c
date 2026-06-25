@@ -152,7 +152,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
     bb_t bb;
-    get_true_bb(&bb, GENS - offset);
+    get_true_bb(&bb, (GENS - offset) % GENS);
     index_t x_offset_0 = bb.x_offset;
     index_t y_offset_0 = bb.y_offset;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
