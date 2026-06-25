@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdlib.h>
+
 #include "params2.h"
 #include "base.c"
 
@@ -327,3 +329,74 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     return CHECK_IMPLICATIONS(cell);
     #endif
 }
+
+
+#if MULTI_RULE
+
+int tr_to_bound_tr[512];
+
+static inline void set_tr(int tr, int value) {
+    DPRINTF3("Setting transition %i to %i\n", tr, value);
+    for (int i = 0; i < MAX_MAP_TRS_PER_BOUND_TR + 1; i++) {
+        int16_t tr2 = bound_trs[tr_to_bound_tr[tr]][i];
+        if (tr2 == -1) {
+            break;
+        }
+        if (tr & (1 << 4)) {
+            tr2 |= (1 << 4);
+        }
+        trs[tr2] = value;
+        big_trs[TR_TO_BIG_TR(tr2)] = value;
+    }
+    // i'm not sure if you need to do this
+    // so i hope you don't
+    // for (int i = 0; i < 262144; i++) {
+    //     if (IS_BIG_TRS_RULE_DEPENDANT(big_trs[i])) {
+    //         big_trs[i] = get_big_tr(0, i, 0);
+    //     }
+    // }
+    for (int i = 0; i < MAX_MAP_TRS_PER_BOUND_TR + 1; i++) {
+        int16_t tr2 = bound_trs[tr_to_bound_tr[tr]][i];
+        if (tr2 == -1) {
+            break;
+        }
+        if (tr & (1 << 4)) {
+            tr2 |= (1 << 4);
+        }
+        uint32_t tr3 = TR_TO_BIG_TR((uint32_t)tr2) << 2;
+        if (value == 3) {
+            implications[tr3] = IMPLICATION_RULE_DEPENDANT;
+            implications[tr3 | 1] = IMPLICATION_RULE_DEPENDANT;
+        } else {
+            implications[tr3] = get_implication(tr3);
+            implications[tr3 | 1] = get_implication(tr3 | 1);
+        }
+    }
+}
+
+static inline void init_tr_to_bound_tr() {
+    for (int tr = 0; tr < 512; tr++) {
+        bool found = false;
+        for (int i = 0; i < BOUND_TRANSITION_COUNT; i++) {
+            for (int j = 0; j < MAX_MAP_TRS_PER_BOUND_TR; j++) {
+                int value = bound_trs[i][j];
+                if (value == -1) {
+                    break;
+                } else if (value == tr) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                tr_to_bound_tr[tr] = i;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
+            exit(1);
+        }
+    }
+}
+
+#endif

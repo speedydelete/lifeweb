@@ -28,111 +28,12 @@ typedef struct progress_entry {
 
 progress_entry progress[TOTAL_MAX_DEPTH];
 
-int tr_to_int_tr[512];
-
-static inline void set_tr(int tr, int value) {
-    DPRINTF3("Setting transition %i to %i\n", tr, value);
-    for (int i = 0; i < MAX_MAP_TRS_PER_INT_TR + 1; i++) {
-        int16_t tr2 = int_transitions[tr_to_int_tr[tr]][i];
-        if (tr2 == -1) {
-            break;
-        }
-        if (tr & (1 << 4)) {
-            tr2 |= (1 << 4);
-        }
-        trs[tr2] = value;
-        big_trs[TR_TO_BIG_TR(tr2)] = value;
-    }
-    for (int i = 0; i < MAX_MAP_TRS_PER_INT_TR + 1; i++) {
-        int16_t tr2 = int_transitions[tr_to_int_tr[tr]][i];
-        if (tr2 == -1) {
-            break;
-        }
-        if (tr & (1 << 4)) {
-            tr2 |= (1 << 4);
-        }
-        uint32_t tr3 = TR_TO_BIG_TR((uint32_t)tr2) << 2;
-        if (value == 3) {
-            implications[tr3] = IMPLICATION_RULE_DEPENDANT;
-            implications[tr3 | 1] = IMPLICATION_RULE_DEPENDANT;
-        } else {
-            implications[tr3] = get_implication(tr3);
-            implications[tr3 | 1] = get_implication(tr3 | 1);
-        }
-    }
-}
-
-static inline void init_multi_rule() {
-    for (int tr = 0; tr < 512; tr++) {
-        bool found = false;
-        for (int i = 0; i < INT_TRANSITION_COUNT; i++) {
-            for (int j = 0; j < INT_NUMBER_COUNT; j++) {
-                int value = int_transitions[i][j];
-                if (value == -1) {
-                    break;
-                } else if (value == tr) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                tr_to_int_tr[tr] = i;
-                break;
-            }
-        }
-        if (!found) {
-            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
-            exit(1);
-        }
-    }
-    for (int i = 0; i < TOTAL_MAX_DEPTH; i++) {
-        progress[i].tr_is_set = false;
-    }
-}
-
 static inline void print_progress(FILE* stream, int depth) {
     for (int i = 1; i < depth; i++) {
         if (progress[i].tr_is_set) {
             int tr = progress[i].tr;
             int value = progress[i].value;
-            char tr_str[4];
-            if (tr & (1 << 4)) {
-                tr &= ~(1 << 4);
-                tr_str[0] = 'S';
-            } else {
-                tr_str[0] = 'B';
-            }
-            int index = 0;
-            bool found = false;
-            for (int i = 0; i < 9; i++) {
-                for (int j = 0; j < 14; j++) {
-                    char letter = int_letters[i][j];
-                    if (letter == 0) {
-                        break;
-                    }
-                    for (int k = 0; k < 9; k++) {
-                        if (tr == int_transitions[index][k]) {
-                            found = true;
-                            tr_str[1] = i + '0';
-                            tr_str[2] = letter;
-                            tr_str[3] = '\0';
-                            break;
-                        }
-                    }
-                    if (found) {
-                        break;
-                    }
-                    index++;
-                }
-                if (found) {
-                    break;
-                }
-            }
-            if (!found) {
-                fprintf(stderr, "\nError: This error should not occur (nonexistent transition in print_progress: %i)\nPlease report this error\n", tr);
-                exit(1);
-            }
-            real_fprintf(stream, "[%s=%i]", tr_str, value);
+            real_fprintf(stream, "[%s=%i]", bound_trs_names[tr_to_bound_tr[tr]], value);
         } else {
             int value = progress[i].value;
             if (value == -1) {
@@ -332,7 +233,7 @@ int main(void) {
     #endif
     generate_big_trs();
     #if MULTI_RULE
-    init_multi_rule();
+    init_tr_to_bound_tr();
     #endif
     init_known_solutions();
     preprocess();

@@ -85,6 +85,12 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 
 // special multi-rule parameters
 
+// the binding mode
+#define BINDS_INT 0
+#define BINDS_OT 1
+#define BINDS_CUSTOM 2
+#define BINDS BINDS_OT
+
 // the base-2 logarithm of the number of rules in the rulespace
 #define MAX_RULE_CHANGES 512
 
