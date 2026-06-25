@@ -321,13 +321,13 @@ static inline bool custom_solution_filter() {
         // O.O
         // OOO
         // ..O
-        // FILTERPRINTF("checking for sparky eater for x = %i\n", x);
-        // if (off(0, 0) && off(1, 0) && off(2, 0) &&
-        //      on(0, 1) && off(1, 1) &&  on(2, 1) &&
-        //      on(0, 2) &&  on(1, 2) &&  on(2, 2) &&
-        //     off(0, 3) && off(1, 3) &&  on(2, 3)) {
-        //     return false;
-        // }
+        FILTERPRINTF("checking for sparky eater for x = %i\n", x);
+        if (off(0, 0) && off(1, 0) && off(2, 0) &&
+             on(0, 1) && off(1, 1) &&  on(2, 1) &&
+             on(0, 2) &&  on(1, 2) &&  on(2, 2) &&
+            off(0, 3) && off(1, 3) &&  on(2, 3)) {
+            return false;
+        }
         // check for anything above or on row 1
         // this will intercept the T before it hits the eaters
         FILTERPRINTF("checking for interceptor\n");
