@@ -359,6 +359,7 @@ int main(void) {
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     if (solutions_found == 0) {
+        memcpy(trs, max_partial_trs, sizeof(trs));
         printf("Max partial (%i known cells):\n", max_partial_set_cells);
         print_grid_2(max_partial, 0, false);
     }
