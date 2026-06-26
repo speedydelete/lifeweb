@@ -1247,8 +1247,6 @@ for (let line of code.split('\n')) {
         value = timeWrap ? timeWrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
         value = String(multiRule);
-    } else if (name === 'RULE') {
-        value = `"${rule}"`;
     } else if (name === 'BINDS') {
         value = `BINDS_${(options['rulespace'] ?? 'int').toUpperCase()}`;
     // } else if (name === 'MAX_RULE_CHANGES') {
@@ -1337,8 +1335,6 @@ for (let line of code.split('\n')) {
         } else {
             value = options['max-solutions'];
         }
-    } else if (name === 'FILTER_EVERY_PHASE') {
-        value = mode === 'periodic';
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;
     } else if (name === 'MAX_PARTIAL_REPORTING_INTERVAL') {

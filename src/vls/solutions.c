@@ -144,19 +144,16 @@ static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_t
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
 
-#if MULTI_RULE
-
 static const bb_t zero_bb = {0, 0, 0, 0};
+
+#if TIME_WRAP
 
 static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
-    bb_t bb;
-    get_true_bb(&bb, (GENS - offset) % GENS);
-    index_t x_offset_0 = bb.x_offset;
-    index_t y_offset_0 = bb.y_offset;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
         index_t t = (fake_t + offset) % GENS;
+        bb_t bb;
         get_true_bb(&bb, t);
         // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         index_t height = bb.height;
@@ -171,18 +168,20 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
             x_offset = y_offset;
             y_offset = temp;
         }
+        if (fake_t > t) {
+            x_offset -= TIME_WRAP_DX;
+            y_offset -= TIME_WRAP_DY;
+        }
         out ^= height;
         out *= HASH_PRIME;
         out ^= width;
         out *= HASH_PRIME;
-        index_t dx = x_offset - x_offset_0;
-        index_t dy = y_offset - y_offset_0;
-        index_t dx2 = 0;
-        index_t dy2 = 0;
-        transform_coords(&zero_bb, dx, dy, x_trans, y_trans, &dx2, &dy2);
-        out ^= dx2;
+        index_t dx = 0;
+        index_t dy = 0;
+        transform_coords(&zero_bb, x_offset, y_offset, x_trans, y_trans, &dx, &dy);
+        out ^= dx;
         out *= HASH_PRIME;
-        out ^= dy2;
+        out ^= dy;
         out *= HASH_PRIME;
         for (index_t y = 0; y < height; y++) {
             for (index_t x = 0; x < width; x++) {
@@ -201,24 +200,12 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
 static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
-    #if FILTER_EVERY_PHASE
+    #if TIME_WRAP
     for (index_t offset = 1; offset < GENS; offset++) {
         // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
     #endif
-    return out;
-}
-
-static inline hash_t hash_state() {
-    hash_t out = hash(POS_X, POS_Y);
-    out = min_hash(out, hash(POS_X, NEG_Y));
-    out = min_hash(out, hash(NEG_X, POS_Y));
-    out = min_hash(out, hash(NEG_X, NEG_Y));
-    out = min_hash(out, hash(POS_Y, POS_X));
-    out = min_hash(out, hash(POS_Y, NEG_X));
-    out = min_hash(out, hash(NEG_Y, POS_X));
-    out = min_hash(out, hash(NEG_Y, NEG_X));
     return out;
 }
 
@@ -250,40 +237,44 @@ static inline hash_t hash(cell_value_t t, bb_t* bb, axis_trans_t x_trans, axis_t
     return out;
 }
 
-static inline hash_t octohash(cell_value_t t) {
-    bb_t bb;
-    get_true_bb(&bb, t);
-    hash_t out = hash(t, &bb, POS_X, POS_Y);
-    out = min_hash(out, hash(t, &bb, POS_X, NEG_Y));
-    out = min_hash(out, hash(t, &bb, NEG_X, POS_Y));
-    out = min_hash(out, hash(t, &bb, NEG_X, NEG_Y));
-    out = min_hash(out, hash(t, &bb, POS_Y, POS_X));
-    out = min_hash(out, hash(t, &bb, POS_Y, NEG_X));
-    out = min_hash(out, hash(t, &bb, NEG_Y, POS_X));
-    out = min_hash(out, hash(t, &bb, NEG_Y, NEG_X));
-    return out;
-}
+#endif
 
 static inline hash_t hash_state() {
-    hash_t out = octohash(0);
-    #if FILTER_EVERY_PHASE
-    for (index_t i = 1; i < GENS; i++) {
-        out = min_hash(out, octohash(i));
-    }
+    #if MULTI_RULE
+    get_rule_symmetry();
     #endif
+    hash_t out = hash(POS_X, POS_Y);
+    if (rule_symmetry.flip_y) {
+        out = min_hash(out, hash(POS_X, NEG_Y));
+    }
+    if (rule_symmetry.flip_x) {
+        out = min_hash(out, hash(NEG_X, POS_Y));
+    }
+    if (rule_symmetry.rotate_180) {
+        out = min_hash(out, hash(NEG_X, NEG_Y));
+    }
+    if (rule_symmetry.flip_diagonal) {
+        
+    }
+    out = min_hash(out, hash(POS_Y, POS_X));
+    out = min_hash(out, hash(POS_Y, NEG_X));
+    out = min_hash(out, hash(NEG_Y, POS_X));
+    out = min_hash(out, hash(NEG_Y, NEG_X));
     return out;
 }
-
-#endif
 
 
 hash_t known_solutions[1048576];
 
 static inline void init_known_solutions(void) {
+    #if !MULTI_RULE
+    get_rule_symmetry();
+    #endif
     for (size_t i = 0; i < sizeof(known_solutions) / sizeof(hash_t); i++) {
         known_solutions[i] = 0;
     }
 }
+
 
 #endif
 
@@ -298,15 +289,11 @@ double start;
 
 
 static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool is_solution) {
-    #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
         rule[i] = 0;
     }
     get_rule(rule);
-    #else
-    char* rule = RULE;
-    #endif
     printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     index_t last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
     for (index_t y = (TOP == NONE ? 2 : 1); y < last_y; y++) {

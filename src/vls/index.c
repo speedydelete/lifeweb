@@ -170,7 +170,7 @@ static void run_depth(int depth, cell* cell
         memcpy(temp_trs, trs, sizeof(trs));
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
-        printf("New max partial (%i known cells):\n", set_cells);
+        printf("New max partial (%i known cells):\n", max_partial_set_cells);
         print_grid_2(max_partial, depth, false);
         #if MULTI_RULE
         memcpy(trs, temp_trs, sizeof(trs));
