@@ -393,6 +393,31 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
 
 int tr_to_bound_tr[512];
 
+static inline void init_tr_to_bound_tr() {
+    for (int tr = 0; tr < 512; tr++) {
+        bool found = false;
+        for (int i = 0; i < BOUND_TRANSITION_COUNT; i++) {
+            for (int j = 0; j < MAX_MAP_TRS_PER_BOUND_TR; j++) {
+                int value = bound_trs[i][j];
+                if (value == -1) {
+                    break;
+                } else if (value == tr) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                tr_to_bound_tr[tr] = i;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
+            exit(1);
+        }
+    }
+}
+
 static inline void set_tr(int tr, int value) {
     DPRINTF3("Setting transition %i to %i\n", tr, value);
     for (int i = 0; i < MAX_MAP_TRS_PER_BOUND_TR + 1; i++) {
@@ -428,31 +453,6 @@ static inline void set_tr(int tr, int value) {
         } else {
             implications[tr3] = get_implication(tr3);
             implications[tr3 | 1] = get_implication(tr3 | 1);
-        }
-    }
-}
-
-static inline void init_tr_to_bound_tr() {
-    for (int tr = 0; tr < 512; tr++) {
-        bool found = false;
-        for (int i = 0; i < BOUND_TRANSITION_COUNT; i++) {
-            for (int j = 0; j < MAX_MAP_TRS_PER_BOUND_TR; j++) {
-                int value = bound_trs[i][j];
-                if (value == -1) {
-                    break;
-                } else if (value == tr) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                tr_to_bound_tr[tr] = i;
-                break;
-            }
-        }
-        if (!found) {
-            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
-            exit(1);
         }
     }
 }

@@ -159,7 +159,7 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 // reporting interval
 #define REPORTING_INTERVAL 1
 // partial reporting interval
-#define PARTIAL_REPORTING_INTERVAL 60
+#define MAX_PARTIAL_REPORTING_INTERVAL 1
 
 
 

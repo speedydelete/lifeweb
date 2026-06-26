@@ -1,11 +1,6 @@
 
 // defines main searching
 
-// for checking static:
-// \n(?!#|//|static|\n|    |\}|typedef)
-// for checking inline:
-// (?<=\n)static [^ (]+ (?!main|run_depth|set_cell|get_forward_big_tr|_get_possible_trs)[a-zA-Z_]+\(
-
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -71,6 +66,7 @@ static inline void print_progress(FILE* stream, int depth) {
 
 #endif
 
+
 static void run_depth(int depth, cell* cell
     #if MULTI_RULE
     , int force_value
@@ -111,8 +107,11 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
     pop_frame();
 }
 
-static double last_progress_shown;
-static double last_partial_shown;
+double last_progress_shown;
+double last_max_partial_shown;
+cell max_partial[GENS][HEIGHT][WIDTH];
+index_t max_partial_set_cells;
+index_t last_printed_max_partial_set_cells;
 
 static void run_depth(int depth, cell* cell
     #if MULTI_RULE
@@ -153,10 +152,15 @@ static void run_depth(int depth, cell* cell
         print_progress(stdout, depth);
         real_printf("\n");
     }
-    if (time - last_partial_shown > PARTIAL_REPORTING_INTERVAL) {
-        last_partial_shown = time;
-        printf("Current partial:\n");
-        print_grid_2(depth, false);
+    if (set_cells > max_partial_set_cells) {
+        memcpy(max_partial, grid, sizeof(grid));
+        max_partial_set_cells = set_cells;
+    }
+    if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_set_cells > last_printed_max_partial_set_cells) {
+        last_max_partial_shown = time;
+        last_printed_max_partial_set_cells = max_partial_set_cells;
+        printf("New max partial (%i known cells):\n", set_cells);
+        print_grid_2(max_partial, depth, false);
     }
     #endif
     if (cell->value != UNKNOWN) {
@@ -319,7 +323,7 @@ int main(void) {
     #endif
     start = get_time();
     last_progress_shown = start;
-    last_partial_shown = start;
+    last_max_partial_shown = start;
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
@@ -339,6 +343,10 @@ int main(void) {
     run_depth(1, initial_cell);
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+    if (solutions_found == 0) {
+        printf("Max partial (%i known cells):\n", set_cells);
+        print_grid_2(max_partial, 0, false);
+    }
     #endif
     return 0;
 }

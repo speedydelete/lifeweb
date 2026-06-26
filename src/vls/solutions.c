@@ -294,10 +294,10 @@ static inline double get_time() {
     return (double)(clock()) / CLOCKS_PER_SEC;
 }
 
-static double start;
+double start;
 
 
-static inline void print_grid_2(int depth, bool is_solution) {
+static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool is_solution) {
     #if MULTI_RULE
     char rule[256];
     for (int i = 0; i < 256; i++) {
@@ -390,7 +390,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     } else {
         printf("Solution found:\n");
     }
-    print_grid_2(depth, true);
+    print_grid_2(grid, depth, true);
     #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found > MAX_SOLUTIONS) {

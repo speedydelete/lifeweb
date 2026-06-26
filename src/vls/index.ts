@@ -57,7 +57,7 @@ Options:
     --benchmark <iterations>: run benchmarking
 
     --interval <seconds>: set the progress reporting interval
-    --partial-interval <seconds>: set the partial reporting interval
+    --partial-interval <seconds>: set the minimum partial reporting interval
 
     --file <file>: also write to that file
 
@@ -1341,8 +1341,8 @@ for (let line of code.split('\n')) {
         value = mode === 'periodic';
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;
-    } else if (name === 'PARTIAL_REPORTING_INTERVAL') {
-        value = options['partial-interval'] ?? 60;
+    } else if (name === 'MAX_PARTIAL_REPORTING_INTERVAL') {
+        value = options['partial-interval'] ?? 1;
     } else if (name === 'BENCHMARK') {
         if (options['benchmark'] == undefined) {
             comment = true;
