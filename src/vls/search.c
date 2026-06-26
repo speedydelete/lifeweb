@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <stdlib.h>
-
 #include "params2.h"
 #include "base.c"
 
@@ -119,6 +117,7 @@ static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
 // 45 ab gh
 // return value is a uint32_t of the same format as the index
 // do nothing = 2, set off = 0, set on = 1
+// but with an optional 21st bit that represents whether any neighbors are set or only the result is
 // and special CONTRADICTION, DO_NOTHING, and IMPLICATION_RULE_DEPENDANT values (DO_NOTHING means for all cells)
 int32_t implications[1048576];
 
@@ -153,7 +152,7 @@ static inline int32_t get_implication(uint32_t tr) {
         SPECIALDEBUGPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
         return CONTRADICTION;
     }
-    int32_t out = 0b10101010101010101010;
+    int32_t out = 699050;
     if (next == UNKNOWN) {
         if (target != UNKNOWN) {
             out = (out & ~3) | target;
@@ -201,7 +200,11 @@ static inline int32_t get_implication(uint32_t tr) {
             return CONTRADICTION;
         }
     }
-    out = out == 0b10101010101010101010 ? DO_NOTHING : out;
+    if (out == 699050) {
+        out = DO_NOTHING;
+    } else if ((out & 1048572) != 699048) {
+        out |= (1 << 21);
+    }
     SPECIALDEBUGPRINTF("result: %i -> %i\n", tr, out);
     return out;
 }
@@ -287,8 +290,11 @@ static inline bool check_implication(cell* cell) {
                 return false; \
             } \
         }
-    check(cell, (value >> 10) & 3);
     check(cell->next, value & 3);
+    if ((value & (1 << 21)) == 0) {
+        return true;
+    }
+    check(cell, (value >> 10) & 3);
     check(cell->se, (value >> 2) & 3);
     check(cell->e, (value >> 4) & 3);
     check(cell->ne, (value >> 6) & 3);
@@ -296,7 +302,7 @@ static inline bool check_implication(cell* cell) {
     check(cell->n, (value >> 12) & 3);
     check(cell->sw, (value >> 14) & 3);
     check(cell->w, (value >> 16) & 3);
-    check(cell->nw, value >> 18);
+    check(cell->nw, (value >> 18) & 3);
     #undef check
     return true;
 }
