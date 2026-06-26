@@ -61,6 +61,7 @@ static const var_t initial_vars[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0
 #if TIME_WRAP
 #define TIME_WRAP_DX 2
 #define TIME_WRAP_DY 0
+#define FILTER_SUBPERIOD true
 #endif
 
 // whether to do multi-rule searching

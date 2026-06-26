@@ -15,9 +15,6 @@ uint64_t solutions_found;
 uint64_t branches;
 
 
-#if FILTER_DUPLICATES
-
-
 typedef struct bb_t {
     index_t height;
     index_t width;
@@ -144,6 +141,35 @@ static inline void transform_coords(const bb_t* bb, int x, int y, axis_trans_t x
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
 
+static inline hash_t hash_at_time(int t, axis_trans_t x_trans, axis_trans_t y_trans) {
+    bb_t bb;
+    get_true_bb(&bb, t);
+    bool transpose = x_trans != POS_X && x_trans != NEG_X;
+    index_t height = bb.height;
+    index_t width = bb.width;
+    // printf("height = %i, width = %i, x_offset = %i, y_offset = %i\n", height, width, bb.x_offset, bb.y_offset);
+    if (transpose) {
+        index_t temp = height;
+        height = width;
+        width = temp;
+    }
+    hash_t out = HASH_OFFSET;
+    out ^= height;
+    out *= HASH_PRIME;
+    out ^= width;
+    out *= HASH_PRIME;
+    for (index_t y = 0; y < height; y++) {
+        for (index_t x = 0; x < width; x++) {
+            int real_x = 0;
+            int real_y = 0;
+            transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
+            out ^= grid[t][real_y][real_x].value;
+            out *= HASH_PRIME;
+        }
+    }
+    return out;
+}
+
 #if TIME_WRAP
 
 #define NO_OFFSET (HEIGHT + WIDTH + 1)
@@ -231,36 +257,12 @@ static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
 #else
 
 static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
-    bb_t bb;
-    get_true_bb(&bb, 0);
-    bool transpose = x_trans != POS_X && x_trans != NEG_X;
-    index_t height = bb.height;
-    index_t width = bb.width;
-    if (transpose) {
-        index_t temp = height;
-        height = width;
-        width = temp;
-    }
-    hash_t out = HASH_OFFSET;
-    out ^= bb.height;
-    out *= HASH_PRIME;
-    out ^= bb.width;
-    out *= HASH_PRIME;
-    for (index_t y = 0; y < height; y++) {
-        for (index_t x = 0; x < width; x++) {
-            int real_x = 0;
-            int real_y = 0;
-            transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
-            out ^= grid[0][real_y][real_x].value;
-            out *= HASH_PRIME;
-        }
-    }
-    return out;
+    return hash_at_time(0, x_trans, y_trans);
 }
 
 #endif
 
-static inline hash_t hash_state() {
+static inline hash_t hash_full() {
     #if MULTI_RULE
     get_rule_symmetry();
     #endif
@@ -302,9 +304,6 @@ static inline void init_known_solutions(void) {
         known_solutions[i] = 0;
     }
 }
-
-
-#endif
 
 
 static inline void print_progress(FILE* stream, int depth);
@@ -355,6 +354,7 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
 static inline void print_solution(bool preprocessing, int depth) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
+    // apply empty pattern filter
     #if CHECK_EMPTY
     bool found = false;
     for (index_t y = 0; y < HEIGHT; y++) {
@@ -376,14 +376,29 @@ static inline void print_solution(bool preprocessing, int depth) {
         return;
     }
     #endif
+    // apply subperiod filter
+    #if TIME_WRAP && FILTER_SUBPERIOD
+    hash_t hashes[GENS];
+    for (int i = 0; i < GENS; i++) {
+        hash_t hash = hash_at_time(i, POS_X, POS_Y);
+        for (int j = 0; j < i; j++) {
+            if (hash == hashes[j]) {
+                return;
+            }
+        }
+        hashes[i] = hash;
+    }
+    #endif
+    // apply solution filter
     #if CUSTOM_SOLUTION_FILTERING
     if (!custom_solution_filter()) {
         DPRINTF2("Dropping solution (filtered)\n");
         return;
     }
     #endif
+    // apply duplicate filter
     #if FILTER_DUPLICATES
-    hash_t hash = hash_state();
+    hash_t hash = hash_full();
     for (size_t i = 0; i < solutions_found; i++) {
         hash_t value = known_solutions[i];
         if (value == 0) {
@@ -398,6 +413,7 @@ static inline void print_solution(bool preprocessing, int depth) {
         known_solutions[solutions_found] = hash;
     }
     #endif
+    // show the solution
     solutions_found++;
     #if SHOW_SOLUTIONS
     if (preprocessing) {
