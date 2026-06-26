@@ -6,7 +6,7 @@
 #include "params2.h"
 #include "base.c"
 
-#if VARIABLES
+#if MULTI_RULE
 #include <stdio.h>
 #endif
 
@@ -126,6 +126,7 @@ int32_t implications[1048576];
 #define IMPLICATION_RULE_DEPENDANT -3
 
 #if false
+#include <stdio.h>
 #define SPECIALDEBUGPRINTF printf
 #else
 #define SPECIALDEBUGPRINTF(...)

@@ -230,26 +230,28 @@ static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
 
 #else
 
-static inline hash_t hash(cell_value_t t, bb_t* bb, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
+    bb_t bb;
+    get_true_bb(&bb, 0);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
-    index_t height = bb->height;
-    index_t width = bb->width;
+    index_t height = bb.height;
+    index_t width = bb.width;
     if (transpose) {
         index_t temp = height;
         height = width;
         width = temp;
     }
     hash_t out = HASH_OFFSET;
-    out ^= bb->height;
+    out ^= bb.height;
     out *= HASH_PRIME;
-    out ^= bb->width;
+    out ^= bb.width;
     out *= HASH_PRIME;
     for (index_t y = 0; y < height; y++) {
         for (index_t x = 0; x < width; x++) {
-            index_t real_x = 0;
-            index_t real_y = 0;
-            transform_coords(bb, x, y, x_trans, y_trans, &real_x, &real_y);
-            out ^= grid[t][real_y][real_x].value;
+            int real_x = 0;
+            int real_y = 0;
+            transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
+            out ^= grid[0][real_y][real_x].value;
             out *= HASH_PRIME;
         }
     }
