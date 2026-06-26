@@ -366,10 +366,12 @@ static inline bool set_cell(cell* cell, cell_value_t value)
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static inline bool set_cell(cell* cell, cell_value_t value) {
-    if (value != 1) {
+    if (!(value == 0 && cell->prev != NULL && cell->prev->value == 1)) {
         return internal_set_cell(cell, value);
     }
-    internal_set_cell(cell, value);
+    if (!internal_set_cell(cell, value)) {
+        return false;
+    }
     // #if !TIME_WRAP
     // if (cell->t + STATES - 2 > GENS) {
     //     return false;
