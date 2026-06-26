@@ -18,11 +18,13 @@ static inline void preprocess_implications(void) {
     for (index_t t = 0; t < GENS; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
+                push_frame();
                 cell* cell = &grid[t][y][x];
                 if (!check_implication(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = -1;
+                        pop_frame();
                         continue;
                     }
                     #endif
@@ -242,5 +244,6 @@ static inline void preprocess(void) {
         print_solution(true, 1);
         exit(0);
     }
+    sp = 0;
     printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
 }

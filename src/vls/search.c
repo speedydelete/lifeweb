@@ -388,6 +388,8 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
 
 #if MULTI_RULE
 
+#include <stdlib.h>
+
 int tr_to_bound_tr[512];
 
 static inline void set_tr(int tr, int value) {
