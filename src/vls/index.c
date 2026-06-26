@@ -111,6 +111,9 @@ double last_progress_shown;
 double last_max_partial_shown;
 cell max_partial[GENS][HEIGHT][WIDTH];
 index_t max_partial_set_cells;
+#if MULTI_RULE
+cell_value_t max_partial_trs[512];
+#endif
 index_t last_printed_max_partial_set_cells;
 
 static void run_depth(int depth, cell* cell
@@ -155,12 +158,24 @@ static void run_depth(int depth, cell* cell
     if (set_cells > max_partial_set_cells) {
         memcpy(max_partial, grid, sizeof(grid));
         max_partial_set_cells = set_cells;
+        #if MULTI_RULE
+        memcpy(max_partial_trs, trs, sizeof(trs));
+        #endif
     }
     if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_set_cells > last_printed_max_partial_set_cells) {
         last_max_partial_shown = time;
         last_printed_max_partial_set_cells = max_partial_set_cells;
+        #if MULTI_RULE
+        cell_value_t* temp_trs = malloc(sizeof(trs));
+        memcpy(temp_trs, trs, sizeof(trs));
+        memcpy(trs, max_partial_trs, sizeof(trs));
+        #endif
         printf("New max partial (%i known cells):\n", set_cells);
         print_grid_2(max_partial, depth, false);
+        #if MULTI_RULE
+        memcpy(trs, temp_trs, sizeof(trs));
+        free(temp_trs);
+        #endif
     }
     #endif
     if (cell->value != UNKNOWN) {
