@@ -203,7 +203,8 @@ static inline int32_t get_implication(uint32_t tr) {
     if (out == 699050) {
         out = DO_NOTHING;
     } else if ((out & 1048572) != 699048) {
-        out |= (1 << 21);
+        // this makes it slower for some reason
+        // out |= (1 << 21);
     }
     SPECIALDEBUGPRINTF("result: %i -> %i\n", tr, out);
     return out;
@@ -295,9 +296,9 @@ static inline bool check_implication(cell* cell) {
             } \
         }
     check(cell->next, value & 3);
-    if ((value & (1 << 21)) == 0) {
-        return true;
-    }
+    // if ((value & (1 << 21)) == 0) {
+    //     return true;
+    // }
     check(cell, (value >> 10) & 3);
     check(cell->se, (value >> 2) & 3);
     check(cell->e, (value >> 4) & 3);
