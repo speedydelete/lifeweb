@@ -246,6 +246,10 @@ static inline bool check_implication(cell* cell) {
         return true;
     }
     #endif
+    // if (cell->last_update == cell_update_count) {
+    //     return true;
+    // }
+    // cell->last_update = cell_update_count;
     if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
         return true;
     }
@@ -307,18 +311,18 @@ static inline bool check_implication(cell* cell) {
     return true;
 }
 
-#define CHECK_IMPLICATIONS(cell) ( \
-       check_implication((cell)) \
-    && check_implication((cell)->prev) \
-    && check_implication((cell)->nw) \
-    && check_implication((cell)->n) \
-    && check_implication((cell)->ne) \
-    && check_implication((cell)->w) \
-    && check_implication((cell)->e) \
-    && check_implication((cell)->sw) \
-    && check_implication((cell)->s) \
-    && check_implication((cell)->se) \
-)
+static inline bool check_implications(cell* cell) {
+    return check_implication((cell))
+        && check_implication((cell)->prev)
+        && check_implication((cell)->nw)
+        && check_implication((cell)->n)
+        && check_implication((cell)->ne)
+        && check_implication((cell)->w)
+        && check_implication((cell)->e)
+        && check_implication((cell)->sw)
+        && check_implication((cell)->s)
+        && check_implication((cell)->se);
+}
 
 
 #if VARIABLES
@@ -343,7 +347,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         if (!set_cell(cell, value)) {
             return false;
         }
-        return CHECK_IMPLICATIONS(cell);
+        return check_implications(cell);
     }
     var_t var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
@@ -367,7 +371,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         if (prev_values[use] == UNKNOWN) {
-            if (!CHECK_IMPLICATIONS(cell)) {
+            if (!check_implications(cell)) {
                 return false;
             }
         }
@@ -377,7 +381,7 @@ static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     if (!set_cell(cell, value)) {
         return false;
     }
-    return CHECK_IMPLICATIONS(cell);
+    return check_implications(cell);
     #endif
 }
 

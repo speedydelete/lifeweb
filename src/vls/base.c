@@ -316,6 +316,7 @@ static inline void init_state(void) {
                 #if VARIABLES
                 cell->var = initial_vars[t][y][x];
                 #endif
+                // cell->last_update = 0;
                 #if TIME_WRAP
                 if (t == 0) {
                     if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
@@ -448,6 +449,8 @@ static inline void pop_frame(void) {
     DPRINTF4("Pop complete\n");
 }
 
+// uint64_t cell_update_count = 0;
+
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
@@ -471,6 +474,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     sp++;
     set_cells++;
     cell->value = value;
+    // cell_update_count++;
     #ifdef SPECIAL_PHASE_0_POP
     if (cell->t == 0 && value == 1) {
         phase_0_pop++;

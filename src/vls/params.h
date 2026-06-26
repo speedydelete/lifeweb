@@ -183,6 +183,9 @@ typedef struct cell {
     // the variable stored in the cell
     var_t var;
     #endif
+    // this code makes it slower for some reason
+    // // the last time it was updated
+    // uint64_t last_update;
     // the next cell in the search order
     struct cell* next_in_search_order;
     // the previous cell (in time)
