@@ -117,7 +117,7 @@ typedef enum axis_trans_t {
     NEG_Y,
 } axis_trans_t;
 
-static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
+static inline void transform_coords(const bb_t* bb, int x, int y, axis_trans_t x_trans, axis_trans_t y_trans, int* x_out, int* y_out) {
     if (x_trans == POS_X) {
         *x_out = x;
     } else if (x_trans == POS_Y) {
@@ -144,22 +144,25 @@ static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_t
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
 
-static const bb_t zero_bb = {0, 0, 0, 0};
-
 #if TIME_WRAP
 
+#define NO_OFFSET (HEIGHT + WIDTH + 1)
+
 static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
+    // printf("    hashing with offset %i (x_trans = %i, y_trans = %i)\n", offset, x_trans, y_trans);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
+    int x_offset_0 = NO_OFFSET;
+    int y_offset_0 = NO_OFFSET;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
         index_t t = (fake_t + offset) % GENS;
         bb_t bb;
         get_true_bb(&bb, t);
-        // printf("t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", t, bb.height, bb.width, bb.x_offset, bb.y_offset);
+        // printf("        fake_t = %i, t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         index_t height = bb.height;
         index_t width = bb.width;
-        index_t x_offset = bb.x_offset;
-        index_t y_offset = bb.y_offset;
+        int x_offset = bb.x_offset;
+        int y_offset = bb.y_offset;
         if (transpose) {
             index_t temp = height;
             height = width;
@@ -168,41 +171,57 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
             x_offset = y_offset;
             y_offset = temp;
         }
-        if (fake_t > t) {
-            x_offset -= TIME_WRAP_DX;
-            y_offset -= TIME_WRAP_DY;
+        if (x_offset_0 == NO_OFFSET) {
+            x_offset_0 = x_offset;
+            y_offset_0 = y_offset;
+            x_offset = 0;
+            y_offset = 0;
+        } else {
+            x_offset -= x_offset_0;
+            y_offset -= y_offset_0;
         }
+        if (fake_t > t) {
+            x_offset += TIME_WRAP_DX;
+            y_offset += TIME_WRAP_DY;
+        }
+        // printf("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
         out ^= height;
         out *= HASH_PRIME;
         out ^= width;
         out *= HASH_PRIME;
-        index_t dx = 0;
-        index_t dy = 0;
-        transform_coords(&zero_bb, x_offset, y_offset, x_trans, y_trans, &dx, &dy);
-        out ^= dx;
+        // int dx = 0;
+        // int dy = 0;
+        // int x_offset_2 = bb.y_offset;
+        // int y_offset_2 = bb.y_offset;
+        // bb.x_offset = 0;
+        // bb.y_offset = 0;
+        // transform_coords(&bb, x_offset, y_offset, x_trans, y_trans, &dx, &dy);
+        // bb.x_offset = x_offset_2;
+        // bb.y_offset = y_offset_2;
+        // printf("        resolved coords: dx = %i, dy = %i\n", dx, dy);
+        out ^= x_offset;
         out *= HASH_PRIME;
-        out ^= dy;
+        out ^= y_offset;
         out *= HASH_PRIME;
         for (index_t y = 0; y < height; y++) {
             for (index_t x = 0; x < width; x++) {
-                index_t real_x = 0;
-                index_t real_y = 0;
+                int real_x = 0;
+                int real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
                 out ^= grid[t][real_y][real_x].value;
                 out *= HASH_PRIME;
             }
         }
     }
-    // printf("value: %"PRIu64"\n", out);
+    // printf("    value: %"PRIu64"\n", out);
     return out;
 }
 
 static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
-    // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
+    // printf("hashing: x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
     #if TIME_WRAP
     for (index_t offset = 1; offset < GENS; offset++) {
-        // printf("x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, offset);
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
     #endif
@@ -243,6 +262,8 @@ static inline hash_t hash_state() {
     #if MULTI_RULE
     get_rule_symmetry();
     #endif
+    // printf("rule symmetry: flip_x = %i, flip_y = %i, rotate_left = %i, rotate_right = %i, rotate_180 = %i, flip_diagonal = %i, flip_anti_diagonal = %i\n", rule_symmetry.flip_x, rule_symmetry.flip_y, rule_symmetry.rotate_left, rule_symmetry.rotate_right, rule_symmetry.rotate_180, rule_symmetry.flip_diagonal, rule_symmetry.flip_anti_diagonal);
+    // print_grid(stdout);
     hash_t out = hash(POS_X, POS_Y);
     if (rule_symmetry.flip_y) {
         out = min_hash(out, hash(POS_X, NEG_Y));
@@ -254,12 +275,17 @@ static inline hash_t hash_state() {
         out = min_hash(out, hash(NEG_X, NEG_Y));
     }
     if (rule_symmetry.flip_diagonal) {
-        
+        out = min_hash(out, hash(POS_Y, POS_X));
     }
-    out = min_hash(out, hash(POS_Y, POS_X));
-    out = min_hash(out, hash(POS_Y, NEG_X));
-    out = min_hash(out, hash(NEG_Y, POS_X));
-    out = min_hash(out, hash(NEG_Y, NEG_X));
+    if (rule_symmetry.flip_anti_diagonal) {
+        out = min_hash(out, hash(NEG_Y, NEG_X));
+    }
+    if (rule_symmetry.rotate_left) {
+        out = min_hash(out, hash(POS_Y, NEG_X));
+    }
+    if (rule_symmetry.rotate_right) {
+        out = min_hash(out, hash(NEG_Y, POS_X));
+    }
     return out;
 }
 

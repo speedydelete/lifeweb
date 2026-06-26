@@ -227,7 +227,7 @@ static inline void get_rule_symmetry(void) {
         if (trs[i] != trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
             D2v = false;
         }
-        if (trs[i] != trs[(i & 341) | ((i >> 2) & 136) | ((i << 2) & 34)]) {
+        if (trs[i] != trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
             D2s = false;
         }
         if (trs[i] != trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
