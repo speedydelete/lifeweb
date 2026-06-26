@@ -1,5 +1,5 @@
 
-import {MAPPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
+import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -312,8 +312,8 @@ const MODES = ['periodic', 'parent', 'file', 'catalyst'];
 
 let rule = posArgs[0];
 let base = createPattern(rule) as DataPattern;
-if (!(base instanceof MAPPattern)) {
-    error(`Rule must be a non-B0 INT rule`);
+if (!(base instanceof MAPPattern || base instanceof MAPGenPattern)) {
+    error(`Rule must be a non-B0 INT or INT Generations rule`);
 }
 let superBase = createPattern(rule + 'Super') as SuperPattern;
 let mode = posArgs[1];
@@ -327,7 +327,7 @@ if (!MODES.includes(mode)) {
     mode = posArgs[0];
     posArgs = posArgs.slice(1);
     maxBase = createPattern(maxRule) as MAPPattern;
-    if (!(maxBase instanceof MAPPattern)) {
+    if (!(maxBase instanceof MAPPattern || maxBase instanceof MAPGenPattern)) {
         error(`Rule must be a non-B0 INT rule`);
     }
 }
@@ -1246,7 +1246,9 @@ for (let line of code.split('\n')) {
     } else if (name === 'TIME_WRAP_DY') {
         value = timeWrap ? timeWrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
-        value = String(multiRule);
+        value = multiRule;
+    } else if (name === 'STATES') {
+        value = base.rule.states;
     } else if (name === 'BINDS') {
         value = `BINDS_${(options['rulespace'] ?? 'int').toUpperCase()}`;
     // } else if (name === 'MAX_RULE_CHANGES') {

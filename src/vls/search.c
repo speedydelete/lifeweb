@@ -55,7 +55,6 @@ static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", 
 #endif
 
 
-
 // the transition lookup table for the 3-state rule including unknown cells
 // the result is + 4 if it should be updated when changing the rule
 // index format: 0b_01_23_45_67_89_ab_cd_ef_gh
@@ -63,7 +62,7 @@ static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", 
 // 23 89 ef
 // 45 ab gh
 cell_value_t big_trs[262144];
-#define IS_BIG_TRS_RULE_DEPENDANT(x) ((x) > 3)
+#define IS_BIG_TRS_RULE_DEPENDANT(x) ((x) >= 4)
 #define TO_BIG_TRS_RULE_DEPENDANT(x) ((x) + 4)
 #define FROM_BIG_TRS_RULE_DEPENDANT(x) ((x) - 4)
 
@@ -71,10 +70,21 @@ static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
-    // shortcut
+    #if STATES > 2
+    if (state == 3) {
+        // if the center cell is state 3, the output must be state 0
+        if (depth == 4) {
+            return 0;
+        }
+        // if it's not the center cell, just set it to state 0 and proceed
+        state = 0;
+    }
+    #else
+    // shortcut (0 is a filler value)
     if (state == 3) {
         return 0;
     }
+    #endif
     if (depth == 8) {
         if (state != UNKNOWN) {
             #if MULTI_RULE
@@ -133,15 +143,22 @@ int32_t implications[1048576];
 #endif
 
 static inline int32_t get_implication(uint32_t tr) {
+    #if STATES == 2
     // invalid transition
     for (int i = 0; i < 20; i += 2) {
         if (((tr >> i) & 3) == 3) {
             return CONTRADICTION;
         }
     }
+    #endif
     cell_value_t next = tr & 3;
+    #if STATES > 2
+    cell_value_t next2 = next == 3 ? 0 : next;
+    #else
+    #define next2 next
+    #endif
     cell_value_t target = big_trs[tr >> 2];
-    SPECIALDEBUGPRINTF("target = %i\n", target);
+    SPECIALDEBUGPRINTF("next = %i, next2 = %i, target = %i\n", next, next2, target);
     #if MULTI_RULE
     if (IS_BIG_TRS_RULE_DEPENDANT(target)) {
         // return IMPLICATION_RULE_DEPENDANT;
@@ -149,16 +166,17 @@ static inline int32_t get_implication(uint32_t tr) {
     }
     #endif
     // check for contradiction
-    if (target != UNKNOWN && next != UNKNOWN && target != next) {
+    if (target != UNKNOWN && next2 != UNKNOWN && target != next2) {
         SPECIALDEBUGPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
         return CONTRADICTION;
     }
     int32_t out = 699050;
-    if (next == UNKNOWN) {
+    if (next2 == UNKNOWN) {
         if (target != UNKNOWN) {
             out = (out & ~3) | target;
             tr = (tr & ~3) | target;
             next = target;
+            next2 = target;
         } else {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
             SPECIALDEBUGPRINTF("tr = %i, no implication possible, target = %i, next = %i, returning DO_NOTHING\n", tr, target, next);
@@ -177,7 +195,7 @@ static inline int32_t get_implication(uint32_t tr) {
             forward_0 = FROM_BIG_TRS_RULE_DEPENDANT(forward_0);
         }
         #endif
-        bool zero_possible = forward_0 == next || forward_0 == UNKNOWN;
+        bool zero_possible = forward_0 == next2 || forward_0 == UNKNOWN;
         cell_value_t forward_1 = big_trs[(tr2 | (1 << i)) >> 2];
         #if MULTI_RULE
         if (IS_BIG_TRS_RULE_DEPENDANT(forward_1)) {
@@ -185,7 +203,7 @@ static inline int32_t get_implication(uint32_t tr) {
             forward_1 = FROM_BIG_TRS_RULE_DEPENDANT(forward_1);
         }
         #endif
-        bool one_possible = forward_1 == next || forward_1 == UNKNOWN;
+        bool one_possible = forward_1 == next2 || forward_1 == UNKNOWN;
         SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
             SPECIALDEBUGPRINTF("must be 1\n");
@@ -277,6 +295,18 @@ static inline bool check_implication(cell* cell) {
     }
     #if MULTI_RULE
     if (value == IMPLICATION_RULE_DEPENDANT) {
+        #if STATES > 2
+        rule_dependent_tr =
+                ((cell->nw->value & 1) << 8)
+              | ((cell->w->value & 1) << 7)
+              | ((cell->sw->value & 1) << 6)
+              | ((cell->n->value & 1) << 5)
+              | ((cell->value & 1) << 4)
+              | ((cell->s->value & 1) << 3)
+              | ((cell->ne->value & 1) << 2)
+              | ((cell->e->value & 1) << 1)
+              | ((cell->se->value & 1));
+        #else
         rule_dependent_tr =
                 (cell->nw->value << 8)
               | (cell->w->value << 7)
@@ -287,15 +317,18 @@ static inline bool check_implication(cell* cell) {
               | (cell->ne->value << 2)
               | (cell->e->value << 1)
               | (cell->se->value);
+        #endif
         return false;
     }
     #endif
+    #if STATES > 2
     #define check(cell, value) \
         if ((value) != UNKNOWN) { \
             if (!set_cell_and_propagate((cell), (value))) { \
                 return false; \
             } \
         }
+    #endif
     check(cell->next, value & 3);
     // if ((value & (1 << 21)) == 0) {
     //     return true;

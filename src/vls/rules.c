@@ -176,13 +176,26 @@ static inline int unparse_transitions(char* out, int next_char, bool s) {
     return next_char;
 }
 
+#if STATES > 2
+#include <stdio.h>
+#endif
+
 static inline void get_rule(char* out) {
+    #if STATES > 2
+    int next_char = 0;
+    next_char = unparse_transitions(out, next_char, true);
+    out[next_char++] = '/';
+    next_char = unparse_transitions(out, next_char, false);
+    out[next_char++] = '/';
+    sprintf(&out[next_char], "%i", STATES);
+    #else
     int next_char = 0;
     out[next_char++] = 'B';
     next_char = unparse_transitions(out, next_char, false);
     out[next_char++] = '/';
     out[next_char++] = 'S';
     next_char = unparse_transitions(out, next_char, true);
+    #endif
 }
 
 

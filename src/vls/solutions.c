@@ -315,6 +315,10 @@ static inline double get_time() {
 double start;
 
 
+#if STATES > 2
+const char* dying_state_chars[254] = {"B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "pA", "pB", "pC", "pD", "pE", "pF", "pG", "pH", "pI", "pJ", "pK", "pL", "pM", "pN", "pO", "pP", "pQ", "pR", "pS", "pT", "pU", "pV", "pW", "pX", "qA", "qB", "qC", "qD", "qE", "qF", "qG", "qH", "qI", "qJ", "qK", "qL", "qM", "qN", "qO", "qP", "qQ", "qR", "qS", "qT", "qU", "qV", "qW", "qX", "rA", "rB", "rC", "rD", "rE", "rF", "rG", "rH", "rI", "rJ", "rK", "rL", "rM", "rN", "rO", "rP", "rQ", "rR", "rS", "rT", "rU", "rV", "rW", "rX", "sA", "sB", "sC", "sD", "sE", "sF", "sG", "sH", "sI", "sJ", "sK", "sL", "sM", "sN", "sO", "sP", "sQ", "sR", "sS", "sT", "sU", "sV", "sW", "sX", "tA", "tB", "tC", "tD", "tE", "tF", "tG", "tH", "tI", "tJ", "tK", "tL", "tM", "tN", "tO", "tP", "tQ", "tR", "tS", "tT", "tU", "tV", "tW", "tX", "uA", "uB", "uC", "uD", "uE", "uF", "uG", "uH", "uI", "uJ", "uK", "uL", "uM", "uN", "uO", "uP", "uQ", "uR", "uS", "uT", "uU", "uV", "uW", "uX", "vA", "vB", "vC", "vD", "vE", "vF", "vG", "vH", "vI", "vJ", "vK", "vL", "vM", "vN", "vO", "vP", "vQ", "vR", "vS", "vT", "vU", "vV", "vW", "vX", "wA", "wB", "wC", "wD", "wE", "wF", "wG", "wH", "wI", "wJ", "wK", "wL", "wM", "wN", "wO", "wP", "wQ", "wR", "wS", "wT", "wU", "wV", "wW", "wX", "xA", "xB", "xC", "xD", "xE", "xF", "xG", "xH", "xI", "xJ", "xK", "xL", "xM", "xN", "xO", "xP", "xQ", "xR", "xS", "xT", "xU", "xV", "xW", "xX", "yA", "yB", "yC", "yD", "yE", "yF", "yG", "yH", "yI", "yJ", "yK", "yL", "yM", "yN", "yO"};
+#endif
+
 static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool is_solution) {
     char rule[256];
     for (int i = 0; i < 256; i++) {
@@ -327,7 +331,7 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
         DPRINTLINEPADDING();
         for (index_t x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
             cell_value_t value = grid[0][y][x].value;
-            if (value > 1) {
+            if (value == UNKNOWN) {
                 if (is_solution) {
                     fprintf(stderr, "\n");
                     print_grid(stderr);
@@ -340,7 +344,21 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
                     printf(".");
                 }
             } else {
+                #if STATES > 2
+                if (value == DYING) {
+                    int value = 0;
+                    cell* cell = grid[0][y][x].prev;
+                    while (cell != NULL && cell->value != 1) {
+                        value++;
+                        cell = cell->prev;
+                    }
+                    printf("%s", dying_state_chars[value]);
+                } else {
+                    real_printf("%c", value ? 'A' : '.');
+                }
+                #else
                 real_printf("%c", value ? 'o' : '.');
+                #endif
             }
         }
         if (y == last_y - 1) {

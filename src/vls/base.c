@@ -274,7 +274,12 @@ static inline void pop_frame(void) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static inline bool set_cell(cell* cell, cell_value_t value) {
+#if STATES > 2
+static inline bool internal_set_cell(cell* cell, cell_value_t value)
+#else
+static inline bool set_cell(cell* cell, cell_value_t value)
+#endif
+{
     if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
@@ -356,6 +361,35 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     return true;
 }
 
+#if STATES > 2
+// set a cell to a value, taking care of edges and filters but not propagating implications
+// returns true if no contradiction, false if contradiction
+// also pushes an entry to the stack
+static inline bool set_cell(cell* cell, cell_value_t value) {
+    if (value != 1) {
+        return internal_set_cell(cell, value);
+    }
+    internal_set_cell(cell, value);
+    // #if !TIME_WRAP
+    // if (cell->t + STATES - 2 > GENS) {
+    //     return false;
+    // }
+    // #endif
+    for (int i = 0; i < STATES - 2; i++) {
+        cell = cell->next;
+        // #if !TIME_WRAP
+        // if (cell == NULL) {
+        //     return false;
+        // }
+        // #endif
+        if (!internal_set_cell(cell, DYING)) {
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 
 static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
@@ -365,11 +399,25 @@ static inline void print_cell(FILE* stream, cell_value_t value
     #endif
 ) {
     #if VARIABLES
+    #if STATES > 2
+    if (value == 2) {
+        if (var > 0) {
+            value = 3 + var;
+        }
+    }
+    #else
     if (value == 2) {
         if (var > 0) {
             value = 2 + var;
         }
     }
+    #endif
+    #else
+    #if STATES > 2
+    if (value == 4) {
+        value = 3;
+    }
+    #endif
     #endif
     if (value < 64) {
         real_fprintf(stream, "%c", letters[value]);
