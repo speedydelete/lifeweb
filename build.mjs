@@ -77,15 +77,15 @@ async function buildIdentify() {
     if (!exists(path('identify'))) {
         await fs.mkdir(path('identify'));
     }
-    let data = (await fs.readFile(path('src/identify/index.html'))).toString();
-    await fs.writeFile(path('src/identify/index.html'), data);
+    let data = (await fs.readFile(path('src/identify/website.html'))).toString();
+    await fs.writeFile(path('src/identify/website.html'), data);
     await fs.writeFile(path('identify/index.html'), await minify.minify(Buffer.from(data, 'utf-8'), {
         keep_html_and_head_opening_tags: true,
         minify_css: true,
         minify_js: true,
     }));
     await esbuild.build({
-        entryPoints: [path('src/identify/index.ts')],
+        entryPoints: [path('src/identify/website.ts')],
         bundle: true,
         outfile: path('identify/index.js'),
         format: 'esm',
