@@ -66,7 +66,13 @@ cell_value_t big_trs[262144];
 #define TO_BIG_TRS_RULE_DEPENDANT(x) ((x) + 4)
 #define FROM_BIG_TRS_RULE_DEPENDANT(x) ((x) - 4)
 
-static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
+#if STATES > 2
+static cell_value_t internal_get_big_tr(int prev, uint32_t tr, int depth)
+#define get_big_tr internal_get_big_tr
+#else
+static cell_value_t get_big_tr(int prev, uint32_t tr, int depth)
+#endif
+{
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
@@ -118,6 +124,17 @@ static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
         }
     }
 }
+
+#if STATES > 2
+#undef get_big_tr
+static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
+    cell_value_t out = internal_get_big_tr(prev, tr, depth);
+    // if (out == 0 && (tr & (1 << 4))) {
+    //     out = 3;
+    // }
+    return out;
+}
+#endif
 
 // implication table
 // tells us what values of unknown cells we can set
@@ -196,6 +213,9 @@ static inline int32_t get_implication(uint32_t tr) {
         }
         #endif
         bool zero_possible = forward_0 == next2 || forward_0 == UNKNOWN;
+        // #if STATES > 2
+        // zero_possible = zero_possible || forward_0 == DYING;
+        // #endif
         cell_value_t forward_1 = big_trs[(tr2 | (1 << i)) >> 2];
         #if MULTI_RULE
         if (IS_BIG_TRS_RULE_DEPENDANT(forward_1)) {
@@ -321,14 +341,12 @@ static inline bool check_implication(cell* cell) {
         return false;
     }
     #endif
-    #if STATES > 2
     #define check(cell, value) \
         if ((value) != UNKNOWN) { \
             if (!set_cell_and_propagate((cell), (value))) { \
                 return false; \
             } \
         }
-    #endif
     check(cell->next, value & 3);
     // if ((value & (1 << 21)) == 0) {
     //     return true;

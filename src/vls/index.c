@@ -90,17 +90,17 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         pop_frame();
         int32_t tr = rule_dependent_tr;
         rule_dependent_tr = -1;
-        progress[depth].tr_is_set = true;
-        progress[depth].tr = tr;
+        progress[depth + 1].tr_is_set = true;
+        progress[depth + 1].tr = tr;
         DPRINTF3("Branching rule on transition %i (aka %s), (depth = %i)\n", tr, bound_trs_names[tr_to_bound_tr[tr]], depth);
-        progress[depth].value = 0;
+        progress[depth + 1].value = 0;
         set_tr(tr, 0);
         run_depth(depth + 1, cell, value);
-        progress[depth].value = 1;
+        progress[depth + 1].value = 1;
         set_tr(tr, 1);
         run_depth(depth + 1, cell, value);
         set_tr(tr, 3);
-        progress[depth].tr_is_set = false;
+        progress[depth + 1].tr_is_set = false;
         return;
     #endif
     }
@@ -211,7 +211,6 @@ static void run_depth(int depth, cell* cell
         }
     #if MULTI_RULE
     } else {
-        progress[depth].value = -1;
         actual_run_depth(depth, cell, force_value);
     }
     #endif

@@ -366,29 +366,51 @@ static inline bool set_cell(cell* cell, cell_value_t value)
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static inline bool set_cell(cell* cell, cell_value_t value) {
-    if (!(value == 0 && cell->prev != NULL && cell->prev->value == 1)) {
-        return internal_set_cell(cell, value);
-    }
-    if (!internal_set_cell(cell, value)) {
-        return false;
-    }
-    // #if !TIME_WRAP
-    // if (cell->t + STATES - 2 > GENS) {
-    //     return false;
-    // }
-    // #endif
-    for (int i = 0; i < STATES - 2; i++) {
-        cell = cell->next;
-        // #if !TIME_WRAP
-        // if (cell == NULL) {
-        //     return false;
-        // }
-        // #endif
+    if (value == 0 && cell->prev != NULL && cell->prev->value == 1) {
         if (!internal_set_cell(cell, DYING)) {
             return false;
         }
+        // #if !TIME_WRAP
+        // if (cell->t + STATES - 2 > GENS) {
+        //     return false;
+        // }
+        // #endif
+        for (int i = 0; i < STATES - 3; i++) {
+            cell = cell->next;
+            // #if !TIME_WRAP
+            // if (cell == NULL) {
+            //     return false;
+            // }
+            // #endif
+            if (!internal_set_cell(cell, DYING)) {
+                return false;
+            }
+        }
+        return true;
+    } else if (value == 1 && cell->next != NULL && cell->next->value == 0) {
+        if (!internal_set_cell(cell, 1)) {
+            return false;
+        }
+        // #if !TIME_WRAP
+        // if (cell->t + STATES - 2 > GENS) {
+        //     return false;
+        // }
+        // #endif
+        for (int i = 0; i < STATES - 2; i++) {
+            cell = cell->next;
+            // #if !TIME_WRAP
+            // if (cell == NULL) {
+            //     return false;
+            // }
+            // #endif
+            if (!internal_set_cell(cell, DYING)) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        return internal_set_cell(cell, value);
     }
-    return true;
 }
 #endif
 
