@@ -1,4 +1,7 @@
 
+import * as t from '@babel/types';
+import {parseExpression} from '@babel/parser';
+
 import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
@@ -617,39 +620,25 @@ if (mode === 'periodic') {
 
     if (dx !== 0 || dy !== 0) {
         defaultSearchOrder = 'f2b';
-        let mainAxis: string;
-        let sideAxis: string;
-        if (dx < 0) {
-            if (dy < 0) {
-                mainAxis = 'x+y';
-                sideAxis = 'x-y';
-            } else if (dy === 0) {
-                mainAxis = 'x';
-                sideAxis = 'y';
-            } else {
-                mainAxis = 'y-x';
-                sideAxis = 'x+y';
-            }
-        } else if (dx === 0) {
-            if (dy < 0) {
-                mainAxis = 'y';
-                sideAxis = 'x';
-            } else {
-                mainAxis = '-y';
-                sideAxis = 'x';
-            }
+        let mainAxis = '';
+        let sideAxis = '';
+        if (dx === 0) {
+            mainAxis += '0';
+            sideAxis += 'x';
         } else {
-            if (dy < 0) {
-                mainAxis = 'x-y';
-                sideAxis = 'x+y';
-            } else if (dy === 0) {
-                mainAxis = `-x`;
-                sideAxis = 'y';
-            } else {
-                mainAxis = '-x-y';
-                sideAxis = 'x-y';
-            }
+            mainAxis += `(${(dy === 0 ? dx < 0 : dy < 0) ? 1 : -1}*x)`;
+            sideAxis += `(${(dy === 0 ? 0 : 1)}*x)`;
         }
+        mainAxis += '+';
+        sideAxis += '+';
+        if (dx === 0) {
+            mainAxis += `(${dy < 0 ? 1 : -1}*y)`;
+            sideAxis += '0';
+        } else {
+            mainAxis += `(${dy && (dx > 0 ? -1 : 1)}*y)`;
+            sideAxis += `(${dx * dy > 0 ? -1 : 1}*y)`;
+        }
+        console.log(`Main axis: ${mainAxis}, side axis: ${sideAxis}`);
         searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
@@ -881,150 +870,110 @@ if (mode === 'periodic') {
 }
 
 
-const NUMBER_REGEX = /^([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/;
-
-type ParsedMetric = (string | number)[];
-
-const OPERATORS: {[key: string]: [number, 'left' | 'right']} = {
-    'u+': [3, 'right'],
-    'u-': [3, 'right'],
-    'abs': [3, 'right'],
-    '^': [2, 'right'],
-    '*': [1, 'left'],
-    '/': [1, 'left'],
-    '+': [0, 'left'],
-    '-': [0, 'left'],
-};
-
-function parseMetric(metric: string): ParsedMetric {
-    metric = metric.replaceAll(/\s+/g, '');
-    let tokens: (string | number)[] = [];
-    let match: RegExpMatchArray | null;
-    for (let i = 0; i < metric.length; i++) {
-        if (match = metric.slice(i).match(NUMBER_REGEX)) {
-            tokens.push(Number(match[0]));
-            i += match[0].length - 1;
-        } else if (metric[i] === 'a' && metric[i + 1] === 'b' && metric[i + 2] === 's') {
-            tokens.push('abs');
-            i += 2;
+function runMetric(cell: [number, number, number], node: t.Expression | t.PrivateName): number | boolean {
+    if (node.type === 'Identifier') {
+        if (node.name === 't') {
+            return cell[0];
+        } else if (node.name === 'x') {
+            return cell[1];
+        } else if (node.name === 'y') {
+            return cell[2];
         } else {
-            tokens.push(metric[i]);
+            error(`Invalid variable: '${node.name}'`);
         }
-    }
-    let out: ParsedMetric = [];
-    let ops: string[] = [];
-    let expectUnary = true;
-    for (let token of tokens) {
-        if (typeof token === 'number' || token === 't' || token === 'x' || token === 'y') {
-            out.push(token);
-            expectUnary = false;
-        } else if (token in OPERATORS) {
-            if (expectUnary && (token === '+' || token === '-')) {
-                token = 'u' + token;
-            }
-            let [precedence, associativity] = OPERATORS[token];
-            while (ops.length > 0) {
-                let op = ops[ops.length - 1];
-                if (op === '(') {
-                    break;
-                }
-                if (!(OPERATORS[op][0] > precedence || (OPERATORS[op][0] === precedence && associativity === 'left'))) {
-                    break;
-                }
-                ops.pop();
-                out.push(op);
-            }
-            ops.push(token);
-            expectUnary = true;
-        } else if (token === '(') {
-            ops.push(token);
-            expectUnary = true;
-        } else if (token === ')') {
-            while (ops[ops.length - 1] !== '(') {
-                let op = ops.pop();
-                if (op === undefined) {
-                    error(`Invalid search order metric (mismatched parentheses): '${metric}'`);
-                }
-                out.push(op);
-            }
-            if (ops[ops.length - 1] !== '(') {
-                error(`Invalid search order metric (please report what you did to cause this error, idk what could cause it): '${metric}'`);
-            }
-            ops.pop();
-            expectUnary = false;
+    } else if (node.type === 'NumericLiteral') {
+        return node.value;
+    } else if (node.type === 'BooleanLiteral') {
+        return node.value;
+    } else if (node.type === 'UnaryExpression') {
+        let value = runMetric(cell, node.argument);
+        if (node.operator === '-') {
+            return -value;
+        } else if (node.operator === '+') {
+            return +value;
         } else {
-            error(`Invalid search order metric (invalid character: '${token}'): '${metric}'`);
+            error(`Invalid unary operator: '${node.operator}'`);
         }
-    }
-    while (ops.length > 0) {
-        let op = ops.pop();
-        if (op === undefined) {
-            break;
-        }
-        if (op === '(') {
-            error(`Invalid search order metric (mismatched parentheses): '${metric}'`)
-        }
-        out.push(op);
-    }
-    return out;
-}
-
-function runMetric([t, x, y]: [number, number, number], metric: ParsedMetric): number {
-    let stack: number[] = [];
-    for (let value of metric) {
-        if (typeof value === 'number') {
-            stack.push(value);
-        } else if (value === 't') {
-            stack.push(t);
-        } else if (value === 'x') {
-            stack.push(x);
-        } else if (value === 'y') {
-            stack.push(y);
-        } else if (value === 'u+') {
-            continue;
-        } else if (value === 'u-') {
-            let value = stack.pop();
-            if (value === undefined) {
-                error(`No argument for unary operator '-' in search order metric`);
-            }
-            stack.push(-value);
-        } else if (value === 'abs') {
-            let value = stack.pop();
-            if (value === undefined) {
-                error(`No argument for unary operator 'abs' in search order metric`);
-            }
-            stack.push(Math.abs(value));
+    } else if (node.type === 'BinaryExpression') {
+        let left = runMetric(cell, node.left);
+        let right = runMetric(cell, node.right);
+        if (node.operator === '==') {
+            return left === right;
+        } else if (node.operator === '!=') {
+            return left !== right;
+        } else if (node.operator === '<') {
+            return left < right;
+        } else if (node.operator === '<=') {
+            return left <= right;
+        } else if (node.operator === '>') {
+            return left > right;
+        } else if (node.operator === '>=') {
+            return left >= right;
+        } else if (node.operator === '<<') {
+            return Number(left) << Number(right);
+        } else if (node.operator === '>>') {
+            return Number(left) >> Number(right);
+        } else if (node.operator === '>>>') {
+            return Number(left) >>> Number(right);
+        } else if (node.operator === '+') {
+            return Number(left) + Number(right);
+        } else if (node.operator === '-') {
+            return Number(left) - Number(right);
+        } else if (node.operator === '*') {
+            return Number(left) * Number(right);
+        } else if (node.operator === '/') {
+            return Number(left) / Number(right);
+        } else if (node.operator === '%') {
+            return Number(left) % Number(right);
+        } else if (node.operator === '**') {
+            return Number(left) ** Number(right);
+        } else if (node.operator === '|') {
+            return Number(left) | Number(right);
+        } else if (node.operator === '^') {
+            return Number(left) ^ Number(right);
+        } else if (node.operator === '&') {
+            return Number(left) & Number(right);
         } else {
-            let b = stack.pop();
-            let a = stack.pop();
-            if (a === undefined || b === undefined) {
-                error(`Less than 2 arguments for binary operator '${value}' in search order metric`);
-            }
-            let out: number;
-            if (value === '+') {
-                out = a + b;
-            } else if (value === '-') {
-                out = a - b;
-            } else if (value === '*') {
-                out = a * b;
-            } else if (value === '/') {
-                out = a / b;
+            error(`Invalid binary operator: '${node.operator}'`);
+        }
+    } else if (node.type === 'LogicalExpression') {
+        if (node.operator === '&&') {
+            return runMetric(cell, node.left) && runMetric(cell, node.right);
+        } else if (node.operator === '||') {
+            return runMetric(cell, node.left) || runMetric(cell, node.right);
+        } else {
+            error(`Invalid binary operator: '${node.operator}'`);
+        }
+    } else if (node.type === 'ConditionalExpression') {
+        return runMetric(cell, node.test) ? runMetric(cell, node.consequent) : runMetric(cell, node.alternate);
+    } else if (node.type === 'CallExpression') {
+        if (node.callee.type !== 'Identifier') {
+            error(`Cannot call non-constant function`);
+        }
+        let args: (number | boolean)[] = [];
+        for (let arg of node.arguments) {
+            if (arg.type === 'SpreadElement' || arg.type === 'ArgumentPlaceholder') {
+                error(`Invalid node: '${arg.type}'`);
             } else {
-                throw new Error(`This error should not occur, please report it (invalid value in runMetric: '${value}')`);
+                args.push(runMetric(cell, arg));
             }
-            stack.push(out);
         }
+        if (node.callee.name === 'abs') {
+            if (node.arguments.length !== 1) {
+                error(`abs() function takes 1 argument`);
+            }
+            return Math.abs(Number(args[0]));
+        } else {
+            error(`Invalid function: '${node.callee.name}'`);
+        }
+    } else {
+        error(`Invalid node: '${node.type}'`);
     }
-    let out = stack.pop();
-    if (out === undefined) {
-        error(`Nothing to return in search order metric`);
-    }
-    return out;
 }
 
-function searchOrderSort(a: [number, number, number], b: [number, number, number], order: ParsedMetric[]): number {
+function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
     for (let metric of order) {
-        let score = runMetric(a, metric) - runMetric(b, metric);
+        let score = Number(runMetric(a, metric)) - Number(runMetric(b, metric));
         if (score !== 0) {
             return score;
         }
@@ -1043,7 +992,18 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
             }
         }
     }
-    let parsedOrder = order.split(',').map(x => x.replaceAll(/\s+/g, '')).filter(x => x.length > 0).map(parseMetric);
+    let parsedOrder: t.Expression[] = [];
+    for (let metric of order.split(',')) {
+        metric = metric.trim();
+        if (metric === '') {
+            continue;
+        }
+        try {
+            parsedOrder.push(parseExpression(metric));
+        } catch (e) {
+            error(`Syntax error while parsing metric '${metric}': ${e instanceof Error ? e.message : e}`);
+        }
+    }
     return cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
 }
 
