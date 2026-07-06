@@ -2,6 +2,7 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
+import {Grid, runScript} from './compiler.js';
 import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
@@ -43,6 +44,9 @@ Modes:
             state 6 (gray) - alias for state 0
             state 8 (purple) - forced catalyst stator
         the catalyst can only start interacting at generation (period + 1)
+
+    script <file>
+        take in a script and run it
 
 Options:
 
@@ -309,7 +313,7 @@ if (posArgs.length === 0) {
     error(`Expected at least 2 positional arguments`);
 }
 
-const MODES = ['periodic', 'parent', 'file', 'catalyst'];
+const MODES = ['periodic', 'parent', 'file', 'catalyst', 'script'];
 
 let rule = posArgs[0];
 let base = createPattern(rule) as DataPattern;
@@ -335,265 +339,6 @@ if (!MODES.includes(mode)) {
 
 
 const UNKNOWN = 2;
-
-type Edge = 'none' | 'even' | 'odd' | 'wrap';
-
-
-class Grid {
-
-    height: number;
-    width: number;
-    gens: number;
-    size: number;
-    data: number[][][];
-    vars: number[][][];
-    numVars: number = 0;
-
-    constructor(height: number, width: number, gens: number) {
-        this.height = height;
-        this.width = width;
-        this.gens = gens;
-        this.size = height * width;
-        this.data = [];
-        this.vars = [];
-        for (let t = 0; t < gens; t++) {
-            let grid: number[][] = [];
-            let varsGrid: number[][] = [];
-            for (let y = 0; y < height; y++) {
-                let row: number[] = [];
-                for (let x = 0; x < width; x++) {
-                    row.push(0);
-                }
-                grid.push(row);
-                varsGrid.push(row.slice());
-            }
-            this.data.push(grid);
-            this.vars.push(varsGrid);
-        }
-    }
-
-    toString(top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {4
-        let data = useVars ? this.vars : this.data;
-        let emptyRow: number[] = [];
-        let realWidth = this.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
-        for (let x = 0; x < realWidth; x++) {
-            emptyRow.push(0);
-        }
-        let out: number[][][] = [];
-        for (let t = 0; t < this.gens; t++) {
-            let grid: number[][] = [];
-            for (let y = 0; y < this.height; y++) {
-                let row: number[] = [];
-                if (left === 'none') {
-                    row.push(0, 0);
-                } else if (left === 'even') {
-                    row.push(data[t][y][0]);
-                } else if (left === 'odd') {
-                    row.push(data[t][y][1]);
-                } else {
-                    row.push(data[t][y][this.width - 1]);
-                }
-                for (let x = 0; x < this.width; x++) {
-                    row.push(data[t][y][x]);
-                }
-                if (right === 'none') {
-                    row.push(0, 0);
-                } else if (right === 'even') {
-                    row.push(data[t][y][this.width - 1]);
-                } else if (right === 'odd') {
-                    row.push(data[t][y][this.width - 2]);
-                } else {
-                    row.push(data[t][y][0]);
-                }
-                grid.push(row);
-            }
-            let toInsertBefore: number[][] = [];
-            if (top === 'none') {
-                toInsertBefore = [emptyRow, emptyRow];
-            } else if (top === 'wrap') {
-                toInsertBefore = [grid[grid.length - 1]];
-            } else {
-                let row = (top === 'even' ? grid[0] : grid[1]).slice();
-                if (left === 'even') {
-                    row[0] = row[1];
-                } else if (left === 'odd') {
-                    row[0] = row[2];
-                }
-                if (right === 'even') {
-                    row[realWidth - 1] = row[realWidth - 2];
-                } else if (right === 'odd') {
-                    row[realWidth - 1] = row[realWidth - 3];
-                }
-                toInsertBefore = [row];
-            }
-            if (bottom === 'none') {
-                grid.push(emptyRow, emptyRow);
-            } else if (bottom === 'wrap') {
-                grid.push(grid[0]);
-            } else {
-                let row = (bottom === 'even' ? grid[this.height - 1] : grid[this.height - 2]).slice();
-                if (left === 'even') {
-                    row[0] = row[1];
-                } else if (left === 'odd') {
-                    row[0] = row[2];
-                }
-                if (right === 'even') {
-                    row[realWidth - 1] = row[realWidth - 2];
-                } else if (right === 'odd') {
-                    row[realWidth - 1] = row[realWidth - 3];
-                }
-                grid.push(row);
-            }
-            grid.unshift(...toInsertBefore);
-            out.push(grid);
-        }
-        return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
-    }
-
-    get(t: number, x: number, y: number): number {
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
-            return 0;
-        }
-        return this.data[t][y][x];
-    }
-
-    set(t: number, x: number, y: number, value: number, variable: number = 0): void {
-        this.data[t][y][x] = value;
-        this.vars[t][y][x] = variable;
-    }
-
-    fill(value: number): void;
-    fill(t: number, value: number): void;
-    fill(t: number, x: number, value: number): void;
-    fill(t: number, x: number, y: number, value: number): void;
-    fill(inputT: number | undefined, inputX?: number, inputY?: number, value?: number): void {
-        if (value === undefined) {
-            if (inputX === undefined) {
-                if (inputT === undefined) {
-                    throw new TypeError(`Grid.prototype.fill called with 0 arguments`);
-                }
-                value = inputT;
-                inputT = undefined;
-            } else if (inputY === undefined) {
-                value = inputX;
-                inputX = undefined;
-            } else {
-                value = inputY;
-                inputY = undefined;
-            }
-        }
-        for (let t = 0; t < this.gens; t++) {
-            if (inputT !== undefined && t !== inputT) {
-                continue;
-            }
-            for (let y = 0; y < this.height; y++) {
-                if (inputY !== undefined && y !== inputY) {
-                    continue;
-                }
-                for (let x = 0; x < this.width; x++) {
-                    if (inputX !== undefined && x !== inputX) {
-                        continue;
-                    }
-                    this.data[t][y][x] = value;
-                }
-            }
-        }
-    }
-
-    getVar(): number {
-        this.numVars++;
-        return this.numVars;
-    }
-
-    removeUnusedVars(): void {
-        this.numVars = 0;
-        let mapping: {[key: number]: number} = {};
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let value = this.vars[t][y][x];
-                    if (value === 0) {
-                        continue;
-                    }
-                    if (value in mapping) {
-                        value = mapping[value];
-                    } else {
-                        let mapped = this.getVar();
-                        mapping[value] = mapped;
-                        value = mapped;
-                    }
-                    this.vars[t][y][x] = value;
-                }
-            }
-        }
-    }
-
-    // replaceSingleUseVars(): void {
-    //     let uses: {[key: number]: [number, number, number][]} = [];
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let y = 0; y < this.height; y++) {
-    //             for (let x = 0; x < this.width; x++) {
-    //                 let value = this.vars[t][y][x];
-    //                 if (value === 0) {
-    //                     continue;
-    //                 } else if (value in uses) {
-    //                     uses[value].push([t, x, y]);
-    //                 } else {
-    //                     uses[value] = [[t, x, y]];
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     for (let variable in uses) {
-    //         if (uses[variable].length === 1) {
-    //             let [t, x, y] = uses[variable][0];
-    //             this.set(t, x, y, UNKNOWN);
-    //         }
-    //     }
-    //     this.removeUnusedVars();
-    // }
-
-    shrinkHeight(height: number, mode: 'before' | 'after'): void {
-        this.height = height;
-        for (let t = 0; t < this.gens; t++) {
-            this.data[t] = mode === 'before' ? this.data[t].slice(0, height) : this.data[t].slice(height);
-        }
-        this.removeUnusedVars();
-    }
-
-    shrinkWidth(width: number, mode: 'before' | 'after'): void {
-        this.width = width;
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.data[t][y] = mode === 'before' ? this.data[t][y].slice(0, width) : this.data[t][y].slice(width);
-            }
-        }
-        this.removeUnusedVars();
-    }
-
-    restrict(t: number, rle: string, xOffset: number, yOffset: number) {
-        let p = base.loadRLE(rle);
-        p.offsetBy(xOffset, yOffset);
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                if (p.get(x, y) === 0) {
-                    this.set(t, x, y, 0);
-                }
-            }
-        }
-    }
-
-    setFrom(t: number, rle: string, xOffset: number, yOffset: number) {
-        let p = base.loadRLE(rle);
-        p.offsetBy(xOffset, yOffset);
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                this.set(t, x, y, p.get(x, y));
-            }
-        }
-    }
-
-}
 
 
 let grid: Grid;
@@ -690,6 +435,9 @@ if (mode === 'periodic') {
 
 } else if (mode === 'parent') {
 
+    if (posArgs.length !== 1) {
+        error(`Expected 1 positional argument for parent mode`);
+    }
     let p = base.loadRLE(posArgs[0]).shrinkToFit();
     let height = p.height + 2;
     let width = p.width + 2;
@@ -721,6 +469,9 @@ if (mode === 'periodic') {
 
 } else if (mode === 'file') {
 
+    if (posArgs.length !== 1) {
+        error(`Expected 1 positional argument for parent mode`);
+    }
     let fs = await import('node:fs/promises');
     let file = (await fs.readFile(posArgs[0])).toString();
     let data: (string | number)[][][] = [];
@@ -774,6 +525,9 @@ if (mode === 'periodic') {
 
 } else if (mode === 'catalyst') {
 
+    if (posArgs.length === 0 || posArgs.length > 4) {
+        error(`Expected 1 to 4 positional arguments for catalyst mode`);
+    }
     let startP = superBase.loadRLE(posArgs[0]);
     startP.data = startP.data.map(x => x === 6 ? 0 : x);
     let gens = parseInt(posArgs[1]);
@@ -862,6 +616,14 @@ if (mode === 'periodic') {
     for (let [x, y] of toSet) {
         grid.set(gens, x, y, UNKNOWN);
     }
+
+} else if (mode === 'script') {
+
+    if (posArgs.length !== 1) {
+        error(`Expected 1 positional argument for script mode`);
+    }
+    let fs = await import('node:fs/promises');
+    grid = runScript((await fs.readFile(posArgs[0])).toString());
 
 } else {
 
@@ -1102,6 +864,8 @@ if (options['restrict']) {
 }
 
 
+type Edge = 'none' | 'even' | 'odd' | 'wrap';
+
 const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: Edge, bottom: Edge, left: Edge, right: Edge]} = {
     'D2_-1': ['none', 'odd', 'none', 'none'],
     'D2_-2': ['none', 'even', 'none', 'none'],
@@ -1163,6 +927,86 @@ for (let t = 0; t < grid.gens; t++) {
 }
 
 
+
+
+function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {4
+    let data = useVars ? grid.vars : grid.data;
+    let emptyRow: number[] = [];
+    let realWidth = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
+    for (let x = 0; x < realWidth; x++) {
+        emptyRow.push(0);
+    }
+    let out: number[][][] = [];
+    for (let t = 0; t < grid.gens; t++) {
+        let layer: number[][] = [];
+        for (let y = 0; y < grid.height; y++) {
+            let row: number[] = [];
+            if (left === 'none') {
+                row.push(0, 0);
+            } else if (left === 'even') {
+                row.push(data[t][y][0]);
+            } else if (left === 'odd') {
+                row.push(data[t][y][1]);
+            } else {
+                row.push(data[t][y][grid.width - 1]);
+            }
+            for (let x = 0; x < grid.width; x++) {
+                row.push(data[t][y][x]);
+            }
+            if (right === 'none') {
+                row.push(0, 0);
+            } else if (right === 'even') {
+                row.push(data[t][y][grid.width - 1]);
+            } else if (right === 'odd') {
+                row.push(data[t][y][grid.width - 2]);
+            } else {
+                row.push(data[t][y][0]);
+            }
+            layer.push(row);
+        }
+        let toInsertBefore: number[][] = [];
+        if (top === 'none') {
+            toInsertBefore = [emptyRow, emptyRow];
+        } else if (top === 'wrap') {
+            toInsertBefore = [layer[layer.length - 1]];
+        } else {
+            let row = (top === 'even' ? layer[0] : layer[1]).slice();
+            if (left === 'even') {
+                row[0] = row[1];
+            } else if (left === 'odd') {
+                row[0] = row[2];
+            }
+            if (right === 'even') {
+                row[realWidth - 1] = row[realWidth - 2];
+            } else if (right === 'odd') {
+                row[realWidth - 1] = row[realWidth - 3];
+            }
+            toInsertBefore = [row];
+        }
+        if (bottom === 'none') {
+            layer.push(emptyRow, emptyRow);
+        } else if (bottom === 'wrap') {
+            layer.push(layer[0]);
+        } else {
+            let row = (bottom === 'even' ? layer[grid.height - 1] : layer[grid.height - 2]).slice();
+            if (left === 'even') {
+                row[0] = row[1];
+            } else if (left === 'odd') {
+                row[0] = row[2];
+            }
+            if (right === 'even') {
+                row[realWidth - 1] = row[realWidth - 2];
+            } else if (right === 'odd') {
+                row[realWidth - 1] = row[realWidth - 3];
+            }
+            layer.push(row);
+        }
+        layer.unshift(...toInsertBefore);
+        out.push(layer);
+    }
+    return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
+}
+
 let out: string[] = [];
 for (let line of code.split('\n')) {
     if (line.startsWith('typedef') && line.endsWith('index_t;')) {
@@ -1186,9 +1030,9 @@ for (let line of code.split('\n')) {
         }
         continue;
     } else if (line.startsWith('static const cell_value_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right, false) + ';';
+        line = line.slice(0, line.indexOf('{')) + gridToString(grid, top, bottom, left, right, false) + ';';
     } else if (line.startsWith('static const var_t initial_vars[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + grid.toString(top, bottom, left, right, true) + ';';
+        line = line.slice(0, line.indexOf('{')) + gridToString(grid, top, bottom, left, right, true) + ';';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
