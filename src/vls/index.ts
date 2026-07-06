@@ -64,19 +64,19 @@ Options:
     --rulespace <rulespace>: set the rulespace, options:
         int, ot
 
-    -o, --search-order <order>:
-        Set the order in which cells are checked
-        defined as a comma-separated list of metrics
+    -m, --method <method>:
+        Set the method used for searching
+
+        Cell-by-cell method:
+        Syntax is "cell <search-order> [i=<initial-value>]"
+        the search order is defined as a comma-separated list of metrics
         later metrics are tiebreakers for earlier metrics
-        metrics can be any valid expression that it understands
-        it knows about +, -, *, /, and ^ (exponentiation)
-        also it supports unary + and - and parentheses
-        also you can use | for unary absolute value like |(x - 2)
+        metrics are normal mathematical expressions
+        use variables "x", "y", and "t" for x, y, and time respectively
         also you can use aliases like f2b, b2f, s2s, etc
         the default value is f2b for spaceships and 't, y, x' otherwise
-
-    -i, --initial-value <value>:
-        set the initial value of unknown cells, default 0
+        the initial value, if given, is used to set the initial value
+        of unknown cells, the default value is 0
 
     -n, --max-solutions: set the maximum solution count, default infinity
     --no-show-solutions: Disable showing solutions at all.
@@ -140,8 +140,7 @@ const OPTIONS = {
     'partial-interval': 'number',
     'file': 'string',
     'rulespace': new Set(['int', 'ot'] as const),
-    'search-order': 'string',
-    'initial-value': 'number',
+    'method': 'string',
     'max-solutions': 'number',
     'no-show-solutions': true,
     'pattern': [true, 'string'],
@@ -167,8 +166,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'd': 'debug',
     'g': 'g',
     'l': 'lls',
-    'o': 'search-order',
-    'i': 'initial-value',
+    'm': 'method',
     'n': 'max-solutions',
     'p': 'pattern',
     'f': 'filter',
@@ -1049,6 +1047,42 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
     return cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
 }
 
+let method: 'cell';
+let searchOrder: string | undefined = undefined;
+let methodArg = options['method'];
+let initialValue = 0;
+if (methodArg === undefined) {
+    method = 'cell';
+    searchOrder = defaultSearchOrder;
+} else {
+    let index = methodArg.indexOf(' ');
+    if (index === -1) {
+        error(`Invalid value for method option (no space character detected): '${methodArg}'`);
+    }
+    method = methodArg.slice(0, index) as typeof method;
+    if (method !== 'cell') {
+        error(`Invalid value for method option (expected 'cell', got '${method}'): '${methodArg}'`);
+    }
+    searchOrder = methodArg.slice(index + 1);
+    index = searchOrder.lastIndexOf(' ');
+    if (index !== -1) {
+        let part0 = searchOrder.slice(0, index);
+        let part1 = searchOrder.slice(index + 1);
+        if (part1.startsWith('i=')) {
+            searchOrder = part0;
+            initialValue = Number(part1.slice(2));
+            if (initialValue !== 0 && initialValue !== 1) {
+                error(`Invalid initial value: '${part1.slice(2)}'`);
+            }
+        }
+    }
+}
+if (searchOrder !== undefined) {
+    while (searchOrder in searchOrderAliases) {
+        searchOrder = searchOrderAliases[searchOrder];
+    }
+}
+
 
 if (options['pattern']) {
     for (let value of options['pattern']) {
@@ -1206,12 +1240,15 @@ for (let line of code.split('\n')) {
         }
         line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
     } else if (line.startsWith('index_t search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
-        line = line.slice(0, line.indexOf('{'));
-        let order = options['search-order'] ?? defaultSearchOrder;
-        if (order in searchOrderAliases) {
-            order = searchOrderAliases[order];
+        if (method === 'cell') {
+            if (searchOrder === undefined) {
+                throw new Error('This error should not occur (no search order but cell method is used), please report this error');
+            }
+            line = line.slice(0, line.indexOf('{'));
+            line += '{' + getSearchOrder(grid, searchOrder).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
+        } else {
+            continue;
         }
-        line += '{' + getSearchOrder(grid, order).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -1279,8 +1316,10 @@ for (let line of code.split('\n')) {
         value = left === 'wrap' ? 'WRAP_WIDTH' : left.toUpperCase();
     } else if (name === 'RIGHT') {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
+    } else if (name === 'METHOD') {
+        value = method;
     } else if (name === 'INITIAL_VALUE') {
-        value = options['initial-value'] ?? 0;
+        value = initialValue;
     } else if (name === 'LLS') {
         let path = await import('node:path');
         let fs = await import('node:fs/promises');

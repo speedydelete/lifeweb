@@ -100,17 +100,10 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
 }
 
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202300L)
-typedef unsigned _BitInt(128) hash_t;
-#define PRIhash "w128u"
-#define HASH_OFFSET ((((hash_t)0x6c62272e07bb0142ULL) << 64) | ((hash_t)0x62b821756295c58dULL))
-#define HASH_PRIME ((((hash_t)0x0000000001000000ULL) << 64) | ((hash_t)0x000000000000013bULL))
-#else
 typedef uint64_t hash_t;
 #define PRIhash PRIu64
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
-#endif
 
 static inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
@@ -273,10 +266,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
         }
     }
     // HASHDPRINTF("    value: %w128u\n", out);
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
     HASHDPRINTF("    value: %"PRIhash"\n", out);
-    #pragma clang diagnostic pop
     return out;
 }
 
@@ -288,10 +278,7 @@ static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
     #endif
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
     HASHDPRINTF("Final hash: %"PRIhash"\n", out);
-    #pragma clang diagnostic pop
     return out;
 }
 
@@ -331,10 +318,7 @@ static inline hash_t hash_full() {
     if (rule_symmetry.rotate_right) {
         out = min_hash(out, hash(NEG_Y, POS_X));
     }
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
     HASHDPRINTF("Final final hash: %"PRIhash"\n", out);
-    #pragma clang diagnostic pop
     return out;
 }
 
