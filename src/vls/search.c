@@ -154,9 +154,9 @@ int32_t implications[1048576];
 
 #if false
 #include <stdio.h>
-#define SPECIALDEBUGPRINTF printf
+#define IMPLICATIONDPRINTF printf
 #else
-#define SPECIALDEBUGPRINTF(...)
+#define IMPLICATIONDPRINTF(...)
 #endif
 
 static inline int32_t get_implication(uint32_t tr) {
@@ -175,7 +175,7 @@ static inline int32_t get_implication(uint32_t tr) {
     #define next2 next
     #endif
     cell_value_t target = big_trs[tr >> 2];
-    SPECIALDEBUGPRINTF("next = %i, next2 = %i, target = %i\n", next, next2, target);
+    IMPLICATIONDPRINTF("next = %i, next2 = %i, target = %i\n", next, next2, target);
     #if MULTI_RULE
     if (IS_BIG_TRS_RULE_DEPENDANT(target)) {
         // return IMPLICATION_RULE_DEPENDANT;
@@ -184,7 +184,7 @@ static inline int32_t get_implication(uint32_t tr) {
     #endif
     // check for contradiction
     if (target != UNKNOWN && next2 != UNKNOWN && target != next2) {
-        SPECIALDEBUGPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
+        IMPLICATIONDPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
         return CONTRADICTION;
     }
     int32_t out = 699050;
@@ -196,7 +196,7 @@ static inline int32_t get_implication(uint32_t tr) {
             next2 = target;
         } else {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
-            SPECIALDEBUGPRINTF("tr = %i, no implication possible, target = %i, next = %i, returning DO_NOTHING\n", tr, target, next);
+            IMPLICATIONDPRINTF("tr = %i, no implication possible, target = %i, next = %i, returning DO_NOTHING\n", tr, target, next);
             return DO_NOTHING;
         }
     }
@@ -224,18 +224,18 @@ static inline int32_t get_implication(uint32_t tr) {
         }
         #endif
         bool one_possible = forward_1 == next2 || forward_1 == UNKNOWN;
-        SPECIALDEBUGPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
+        IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
-            SPECIALDEBUGPRINTF("must be 1\n");
+            IMPLICATIONDPRINTF("must be 1\n");
             // must be 1
             out = (out & ~(3 << i)) | (1 << i);
         } else if (zero_possible && !one_possible) {
-            SPECIALDEBUGPRINTF("must be 0\n");
+            IMPLICATIONDPRINTF("must be 0\n");
             // must be 0
             out = (out & ~(3 << i)) | (0 << i);
         } else if (!zero_possible && !one_possible) {
             // contradiction
-            SPECIALDEBUGPRINTF("contradiction detected, returning CONTRADICTION\n");
+            IMPLICATIONDPRINTF("contradiction detected, returning CONTRADICTION\n");
             return CONTRADICTION;
         }
     }
@@ -245,7 +245,7 @@ static inline int32_t get_implication(uint32_t tr) {
         // this makes it slower for some reason
         // out |= (1 << 21);
     }
-    SPECIALDEBUGPRINTF("result: %i -> %i\n", tr, out);
+    IMPLICATIONDPRINTF("result: %i -> %i\n", tr, out);
     return out;
 }
 

@@ -29,9 +29,9 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->y_offset = 0;
     // top
     index_t shrink_top = 0;
-    for (int y = 0; y < HEIGHT; y++) {
+    for (index_t y = 0; y < HEIGHT; y++) {
         bool found = false;
-        for (int x = 0; x < WIDTH; x++) {
+        for (index_t x = 0; x < WIDTH; x++) {
             if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
@@ -64,9 +64,9 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->height -= shrink_bottom;
     // left
     index_t shrink_left = 0;
-    for (int x = 0; x < WIDTH; x++) {
+    for (index_t x = 0; x < WIDTH; x++) {
         bool found = false;
-        for (int y = 0; y < HEIGHT; y++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
             if (grid[t][y][x].value != 0) {
                 found = true;
                 break;
@@ -100,7 +100,17 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
 }
 
 
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202300L)
+typedef unsigned _BitInt(128) hash_t;
+#define PRIhash "w128u"
+#define HASH_OFFSET ((((hash_t)0x6c62272e07bb0142ULL) << 64) | ((hash_t)0x62b821756295c58dULL))
+#define HASH_PRIME ((((hash_t)0x0000000001000000ULL) << 64) | ((hash_t)0x000000000000013bULL))
+#else
 typedef uint64_t hash_t;
+#define PRIhash PRIu64
+#define HASH_OFFSET (0xcbf29ce484222325ULL)
+#define HASH_PRIME (0x00000100000001b3ULL)
+#endif
 
 static inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
@@ -114,7 +124,7 @@ typedef enum axis_trans_t {
     NEG_Y,
 } axis_trans_t;
 
-static inline void transform_coords(const bb_t* bb, int x, int y, axis_trans_t x_trans, axis_trans_t y_trans, int* x_out, int* y_out) {
+static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
     if (x_trans == POS_X) {
         *x_out = x;
     } else if (x_trans == POS_Y) {
@@ -138,16 +148,20 @@ static inline void transform_coords(const bb_t* bb, int x, int y, axis_trans_t x
 }
 
 
-#define HASH_OFFSET (0xcbf29ce484222325ULL)
-#define HASH_PRIME (0x00000100000001b3ULL)
+#if false
+#include <stdio.h>
+#define HASHDPRINTF printf
+#else
+#define HASHDPRINTF(...)
+#endif
 
-static inline hash_t hash_at_time(int t, axis_trans_t x_trans, axis_trans_t y_trans) {
+static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t y_trans) {
     bb_t bb;
     get_true_bb(&bb, t);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     index_t height = bb.height;
     index_t width = bb.width;
-    // printf("height = %i, width = %i, x_offset = %i, y_offset = %i\n", height, width, bb.x_offset, bb.y_offset);
+    HASHDPRINTF("height = %i, width = %i, x_offset = %i, y_offset = %i\n", height, width, bb.x_offset, bb.y_offset);
     if (transpose) {
         index_t temp = height;
         height = width;
@@ -160,8 +174,8 @@ static inline hash_t hash_at_time(int t, axis_trans_t x_trans, axis_trans_t y_tr
     out *= HASH_PRIME;
     for (index_t y = 0; y < height; y++) {
         for (index_t x = 0; x < width; x++) {
-            int real_x = 0;
-            int real_y = 0;
+            index_t real_x = 0;
+            index_t real_y = 0;
             transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
             out ^= grid[t][real_y][real_x].value;
             out *= HASH_PRIME;
@@ -175,42 +189,61 @@ static inline hash_t hash_at_time(int t, axis_trans_t x_trans, axis_trans_t y_tr
 #define NO_OFFSET (HEIGHT + WIDTH + 1)
 
 static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
-    // printf("    hashing with offset %i (x_trans = %i, y_trans = %i)\n", offset, x_trans, y_trans);
+    HASHDPRINTF("    hashing with offset %i (x_trans = %i, y_trans = %i)\n", offset, x_trans, y_trans);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
-    int x_offset_0 = NO_OFFSET;
-    int y_offset_0 = NO_OFFSET;
+    // determine x_offset_0 and y_offset_0
+    index_t zero_fake_t = (-offset + GENS) % GENS;
+    index_t t = (zero_fake_t + offset) % GENS;
+    if (t != 0) {
+        fprintf(stderr, "\nError: This error should not occur (in duplicate solution detection, t = %i, nonzero, zero_fake_t = %i)\nPlease report this error\n", t, zero_fake_t);
+        exit(1);
+    }
+    bb_t bb;
+    get_true_bb(&bb, t);
+    index_t x_offset_0 = bb.x_offset;
+    index_t y_offset_0 = bb.y_offset;
+    if (transpose) {
+        index_t temp = x_offset_0;
+        x_offset_0 = y_offset_0;
+        y_offset_0 = temp;
+    }
+    HASHDPRINTF("        zero_fake_t = %i, t = %i, height = %i, width = %i, x_offset_0 = %i, y_offset_0 = %i\n", zero_fake_t, t, bb.height, bb.width, x_offset_0, y_offset_0);
+    // index_t x_offset_0 = NO_OFFSET;
+    // index_t y_offset_0 = NO_OFFSET;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
         index_t t = (fake_t + offset) % GENS;
-        bb_t bb;
         get_true_bb(&bb, t);
-        // printf("        fake_t = %i, t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.height, bb.width, bb.x_offset, bb.y_offset);
+        HASHDPRINTF("        fake_t = %i, t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.height, bb.width, bb.x_offset, bb.y_offset);
         index_t height = bb.height;
         index_t width = bb.width;
         int x_offset = bb.x_offset;
         int y_offset = bb.y_offset;
         if (transpose) {
-            index_t temp = height;
+            int temp = height;
             height = width;
             width = temp;
             temp = x_offset;
             x_offset = y_offset;
             y_offset = temp;
         }
-        if (x_offset_0 == NO_OFFSET) {
-            x_offset_0 = x_offset;
-            y_offset_0 = y_offset;
-            x_offset = 0;
-            y_offset = 0;
-        } else {
-            x_offset -= x_offset_0;
-            y_offset -= y_offset_0;
-        }
+        x_offset -= x_offset_0;
+        y_offset -= y_offset_0;
+        HASHDPRINTF("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
+        // if (x_offset_0 == NO_OFFSET) {
+        //     x_offset_0 = x_offset;
+        //     y_offset_0 = y_offset;
+        //     x_offset = 0;
+        //     y_offset = 0;
+        // } else {
+        //     x_offset -= x_offset_0;
+        //     y_offset -= y_offset_0;
+        // }
         if (fake_t > t) {
             x_offset += TIME_WRAP_DX;
             y_offset += TIME_WRAP_DY;
         }
-        // printf("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
+        HASHDPRINTF("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
         out ^= height;
         out *= HASH_PRIME;
         out ^= width;
@@ -231,26 +264,34 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
         out *= HASH_PRIME;
         for (index_t y = 0; y < height; y++) {
             for (index_t x = 0; x < width; x++) {
-                int real_x = 0;
-                int real_y = 0;
+                index_t real_x = 0;
+                index_t real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
                 out ^= grid[t][real_y][real_x].value;
                 out *= HASH_PRIME;
             }
         }
     }
-    // printf("    value: %"PRIu64"\n", out);
+    // HASHDPRINTF("    value: %w128u\n", out);
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
+    HASHDPRINTF("    value: %"PRIhash"\n", out);
+    #pragma clang diagnostic pop
     return out;
 }
 
 static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
-    // printf("hashing: x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
+    HASHDPRINTF("hashing: x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
     #if TIME_WRAP
-    for (index_t offset = 1; offset < GENS; offset++) {
+    for (int offset = 1; offset < GENS; offset++) {
         out = min_hash(out, hash_with_offset(offset, x_trans, y_trans));
     }
     #endif
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
+    HASHDPRINTF("Final hash: %"PRIhash"\n", out);
+    #pragma clang diagnostic pop
     return out;
 }
 
@@ -290,6 +331,10 @@ static inline hash_t hash_full() {
     if (rule_symmetry.rotate_right) {
         out = min_hash(out, hash(NEG_Y, POS_X));
     }
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
+    HASHDPRINTF("Final final hash: %"PRIhash"\n", out);
+    #pragma clang diagnostic pop
     return out;
 }
 
@@ -326,10 +371,10 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
     }
     get_rule(rule);
     printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
-    index_t last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
-    for (index_t y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+    int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
+    for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
         DPRINTLINEPADDING();
-        for (index_t x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
+        for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
             cell_value_t value = grid[0][y][x].value;
             if (value == UNKNOWN) {
                 if (is_solution) {
@@ -375,8 +420,8 @@ static inline void print_solution(bool preprocessing, int depth) {
     // apply empty pattern filter
     #if CHECK_EMPTY
     bool found = false;
-    for (index_t y = 0; y < HEIGHT; y++) {
-        for (index_t x = 0; x < WIDTH; x++) {
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
             if (grid[0][y][x].value != 0) {
                 found = true;
                 break;
