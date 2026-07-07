@@ -383,7 +383,6 @@ if (mode === 'periodic') {
             mainAxis += `(${dy && (dx > 0 ? -1 : 1)}*y)`;
             sideAxis += `(${dx * dy > 0 ? -1 : 1}*y)`;
         }
-        console.log(`Main axis: ${mainAxis}, side axis: ${sideAxis}`);
         searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
