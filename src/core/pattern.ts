@@ -453,6 +453,30 @@ export abstract class Pattern {
     abstract hash32(): number;
     /** Hashes the pattern into a 64-bit number. */
     abstract hash64(): bigint;
+    /** Hashes the pattern into a 128-bit number. */
+    abstract hash128(): bigint;
+
+    /** Gets the (128-bit) octohash of the pattern (see https://conwaylife.com/forums/viewtopic.php?f=2&t=4660). */
+    octohash(): Uint8Array<ArrayBuffer> {
+        let p = this.copy();
+        let num = 1n << 128n;
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 4; j++) {
+                let value = p.hash128();
+                if (value < num) {
+                    num = value;
+                }
+                p.rotateLeft();
+            }
+            p.flipHorizontal();
+        }
+        let out = new Uint8Array(16);
+        for (let i = 0; i < 16; i++) {
+            out[i] = Number(num & 0xffn);
+            num >>= 8n;
+        }
+        return out;
+    }
 
     /** Shrinks the pattern so there are cells touching every edge`. */
     abstract shrinkToFit(): this;
@@ -1092,19 +1116,27 @@ export abstract class DataPattern extends Pattern {
         }
     }
 
-    // these come from https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+    // these come from https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 
     hash32(): number {
         let out = 0x811c9dc5;
+        out ^= this.height;
+        out *= 0x01000193;
+        out &= 0xffffffff;
+        out ^= this.width;
+        out *= 0x01000193;
+        out &= 0xffffffff;
         if (this.rule.states === 2) {
             for (let i = 0; i < this.data.length; i += 8) {
                 out ^= this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5);
                 out *= 0x01000193;
+                out &= 0xffffffff;
             }
         } else {
             for (let i = 0; i < this.data.length; i++) {
                 out ^= this.data[i];
                 out *= 0x01000193;
+                out &= 0xffffffff;
             }
         }
         return out;
@@ -1112,18 +1144,37 @@ export abstract class DataPattern extends Pattern {
 
     hash64(): bigint {
         let out = 0xcbf29ce484222325n;
+        out = ((out ^ BigInt(this.height)) * 0x00000100000001b3n) & 0xffffffffffffffffn;
+        out = ((out ^ BigInt(this.width)) * 0x00000100000001b3n) & 0xffffffffffffffffn;
         if (this.rule.states === 2) {
             for (let i = 0; i < this.data.length; i += 8) {
                 out ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
-                out = (out + 0x00000100000001b3n) % (2n ** 64n);
+                out = (out * 0x00000100000001b3n) & 0xffffffffffffffffn;
             }
         } else {
             for (let i = 0; i < this.data.length; i++) {
                 out ^= BigInt(this.data[i]);
-                out = (out + 0x00000100000001b3n) % (2n ** 64n);
+                out = (out * 0x00000100000001b3n) & 0xffffffffffffffffn;
             }
         }
-        
+        return out;
+    }
+
+    hash128(): bigint {
+        let out = 0x6c62272e07bb014262b821756295c58dn;
+        out = ((out ^ BigInt(this.height)) * 0x0000000001000000000000000000013bn) & 0xffffffffffffffffffffffffffffffffn;
+        out = ((out ^ BigInt(this.width)) * 0x0000000001000000000000000000013bn) & 0xffffffffffffffffffffffffffffffffn
+        if (this.rule.states === 2) {
+            for (let i = 0; i < this.data.length; i += 8) {
+                out ^= BigInt(this.data[i] | (this.data[i + 1] << 1) | (this.data[i + 2] << 2) | (this.data[i + 3] << 3) | (this.data[i + 4] << 4) | (this.data[i + 5] << 5) | (this.data[i + 6] << 5) | (this.data[i + 7] << 5));
+                out = (out * 0x0000000001000000000000000000013bn) & 0xffffffffffffffffffffffffffffffffn;
+            }
+        } else {
+            for (let i = 0; i < this.data.length; i++) {
+                out ^= BigInt(this.data[i]);
+                out = (out * 0x0000000001000000000000000000013bn) & 0xffffffffffffffffffffffffffffffffn;
+            }
+        }
         return out;
     }
 
