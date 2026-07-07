@@ -48,7 +48,7 @@ async function buildEditor() {
         minify_css: true,
         minify_js: true,
     }));
-    await fs.writeFile(path('editor/stdlib.rpf'), await fs.readFile('src/editor/stdlib.rpf'));
+    await fs.copyFile(path('src/editor/stdlib.rpf'), path('editor/stdlib.rpf'));
     await esbuild.build({
         entryPoints: [path('src/editor/index.ts')],
         bundle: true,
@@ -78,7 +78,6 @@ async function buildIdentify() {
         await fs.mkdir(path('identify'));
     }
     let data = (await fs.readFile(path('src/identify/website.html'))).toString();
-    await fs.writeFile(path('src/identify/website.html'), data);
     await fs.writeFile(path('identify/index.html'), await minify.minify(Buffer.from(data, 'utf-8'), {
         keep_html_and_head_opening_tags: true,
         minify_css: true,
