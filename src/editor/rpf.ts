@@ -777,37 +777,15 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     hash32(): number {
-        let data = this.getData();
-        let out = 0x811c9dc5;
-        if (this.rule.states === 2) {
-            for (let i = 0; i < data.length; i += 8) {
-                out ^= data[i] | (data[i + 1] << 1) | (data[i + 2] << 2) | (data[i + 3] << 3) | (data[i + 4] << 4) | (data[i + 5] << 5) | (data[i + 6] << 5) | (data[i + 7] << 5);
-                out *= 0x01000193;
-            }
-        } else {
-            for (let i = 0; i < data.length; i++) {
-                out ^= data[i];
-                out *= 0x01000193;
-            }
-        }
-        return out;
+        return this.toPattern().hash32();
     }
 
     hash64(): bigint {
-        let data = this.getData();
-        let out = 0xcbf29ce484222325n;
-        if (this.rule.states === 2) {
-            for (let i = 0; i < data.length; i += 8) {
-                out ^= BigInt(data[i] | (data[i + 1] << 1) | (data[i + 2] << 2) | (data[i + 3] << 3) | (data[i + 4] << 4) | (data[i + 5] << 5) | (data[i + 6] << 5) | (data[i + 7] << 5));
-                out = (out + 0x00000100000001b3n) % (2n ** 64n);
-            }
-        } else {
-            for (let i = 0; i < data.length; i++) {
-                out ^= BigInt(data[i]);
-                out = (out + 0x00000100000001b3n) % (2n ** 64n);
-            }
-        }
-        return out;
+        return this.toPattern().hash64();
+    }
+
+    hash128(): bigint {
+        return this.toPattern().hash128();
     }
 
     shrinkToFit(): this {
