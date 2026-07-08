@@ -108,7 +108,10 @@ async function buildIdentify() {
     });
 }
 
-buildTypescript();
+if (!process.argv.includes('no-ts')) {
+    buildTypescript();
+}
+
 buildLifewebJS();
 buildEditor();
 buildIdentify();

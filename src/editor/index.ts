@@ -1,32 +1,35 @@
 
 import * as lifeweb from '../core/index.js';
+
 Object.assign(globalThis, lifeweb);
 
+let global = globalThis as any;
+
 import {RPFError, ROTATION_COMBINE, applyRotation, transformCoordinates, isInside, getOverlap, RPFPattern, File, Directory, RPFFile} from './rpf.js';
-(globalThis as any).RPFError = RPFError;
-(globalThis as any).ROTATION_COMBINE = ROTATION_COMBINE;
-(globalThis as any).applyRotation = applyRotation;
-(globalThis as any).transformCoordinates = transformCoordinates;
-(globalThis as any).isInside = isInside;
-(globalThis as any).getOverlap = getOverlap;
-(globalThis as any).RPFPattern = RPFPattern;
-(globalThis as any).FSFile = File;
-(globalThis as any).Directory = Directory;
-(globalThis as any).RPFFile = RPFFile;
+global.RPFError = RPFError;
+global.ROTATION_COMBINE = ROTATION_COMBINE;
+global.applyRotation = applyRotation;
+global.transformCoordinates = transformCoordinates;
+global.isInside = isInside;
+global.getOverlap = getOverlap;
+global.RPFPattern = RPFPattern;
+global.FSFile = File;
+global.Directory = Directory;
+global.RPFFile = RPFFile;
 
 import {run, addHook, removeHook, setEvent, pushUndo, applyUndo, updateSizes, parse, loadPattern, FSFolderElement, FSFileElement, FSRPFItemElement, FSRPFFileElement, loadFile, runFile} from './base.js';
-(globalThis as any).run = run;
-(globalThis as any).addHook = addHook;
-(globalThis as any).removeHook = removeHook;
-(globalThis as any).pushUndo = pushUndo;
-(globalThis as any).applyUndo = applyUndo;
-(globalThis as any).parse = parse;
-(globalThis as any).FSFolderElement = FSFolderElement;
-(globalThis as any).FSFileElement = FSFileElement;
-(globalThis as any).FSRPFItemElement = FSRPFItemElement;
-(globalThis as any).FSRPFFileElement = FSRPFFileElement;
-(globalThis as any).loadFile = loadFile;
-(globalThis as any).runFile = runFile;
+global.run = run;
+global.addHook = addHook;
+global.removeHook = removeHook;
+global.pushUndo = pushUndo;
+global.applyUndo = applyUndo;
+global.parse = parse;
+global.FSFolderElement = FSFolderElement;
+global.FSFileElement = FSFileElement;
+global.FSRPFItemElement = FSRPFItemElement;
+global.FSRPFFileElement = FSRPFFileElement;
+global.loadFile = loadFile;
+global.runFile = runFile;
 
 import './shared_actions.js';
 import './normal_actions.js';

@@ -4,6 +4,112 @@ import {run, addHook, pushUndo, parse} from './base.js';
 import {drawPattern} from './normal_actions.js';
 
 
+interface RPFDrawStateDataPart {
+    normal: string[];
+    envelope: string[];
+    connections: string[];
+}
+
+interface RPFDrawStateData {
+    normal: RPFDrawStateDataPart;
+    selected: RPFDrawStateDataPart;
+    hover: RPFDrawStateDataPart;
+}
+
+let start = performance.now();
+
+function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover', type: 'normal' | 'envelope' | 'connections'): void {
+    // if (performance.now() - start < 1000) {
+    //     console.log('drawing RPF', p.key, xPos, yPos, startRotation, mode);
+    // }
+    if (p.envelope) {
+        drawPattern(p.envelope.p, states[mode].envelope, xPos + p.envelope.x, yPos + p.envelope.y, startRotation);
+    }
+    if (p.conduit) {
+        for (let obj of p.conduit.inputs.concat(p.conduit.outputs)) {
+            if (obj.p instanceof RPFPattern) {
+                drawRPF(obj.p, states, xPos + obj.x, yPos + obj.y, ROTATION_COMBINE[startRotation][obj.rotation], mode, 'connections');
+            }
+        }
+    }
+    for (let value of p.data) {
+        let p = value.p;
+        let mode2: typeof mode;
+        if (mode === 'selected' || rpfSel.has(value)) {
+            mode2 = 'selected';
+        } else if (mode === 'hover' || value === rpfHover) {
+            mode2 = 'hover';
+        } else {
+            mode2 = 'normal';
+        }
+        let rotation = ROTATION_COMBINE[startRotation][value.rotation];
+        let xOffset = xPos + value.x;
+        let yOffset = yPos + value.y;
+        let [minX, minY] = p.getFullOffset();
+        minX += xOffset;
+        minY += yOffset;
+        if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
+            continue;
+        }
+        if (p instanceof RPFPattern) {
+            drawRPF(p, states, xOffset, yOffset, rotation, mode2, type);
+        } else {
+            drawPattern(p, states[mode2][type], xOffset, yOffset, rotation);
+        }
+    }
+}
+
+(globalThis as any).drawRPF = drawRPF;
+
+let interactionLevelElt = getElement('interaction-level');
+let selectMenuElt = getElement('select-menu');
+
+addHook(rpfActions, 'frame', () => {
+    interactionLevelElt.textContent = String(interactionLevel);
+    let states: RPFDrawStateData = {
+        normal: {
+            normal: p.rule.states === 2 ? [theme.twoState] : theme.multiState(p.rule.states),
+            envelope: [theme.envelope],
+            connections: [theme.connections],
+        },
+        selected: {
+            normal: [theme.rpfSelection],
+            envelope: [theme.selectedEnvelope],
+            connections: [theme.selectedConnections],
+        },
+        hover: {
+            normal: [theme.rpfHover],
+            envelope: [theme.hoverEnvelope],
+            connections: [theme.hoverConnections],
+        },
+    };
+    ctx.fillStyle = theme.empty;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawRPF(rpfP, states, 0, 0, 'F', 'normal', 'normal');
+    if (rpfSel.size > 0) {
+        selectMenuElt.style.display = 'flex';
+    } else {
+        selectMenuElt.style.display = 'none';
+    }
+    if (rpfPasting) {
+        let q = rpfPasting[0];
+        drawRPF(q, states, mouseX, mouseY, rpfPasting[1], 'normal', 'normal');
+        ctx.save();
+        let xOffset = -topLeftX - mouseX;
+        let yOffset = -topLeftY - mouseY;
+        let xMod = xOffset % 1;
+        let yMod = yOffset % 1;
+        ctx.scale(scale, scale);
+        ctx.translate(-xMod, -yMod);
+        xOffset -= xMod;
+        yOffset -= yMod;
+        ctx.fillStyle = theme.pasting;
+        ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, q.width + fillExpand, q.height + fillExpand);
+        ctx.restore();
+    }
+});
+
+
 export function editCellRPF(isStart: boolean): void {
     if (!rpfEditing) {
         throw new Error(`editCellRPF called with no rpfEditing`);
@@ -37,41 +143,6 @@ export function editCellRPF(isStart: boolean): void {
     q.xOffset = 0;
     q.yOffset = 0;
 }
-
-interface RPFDrawStateData {
-    normal: string[];
-    selected: string[];
-    hover: string[];
-}
-
-function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover'): void {
-    for (let value of p.data) {
-        let p = value.p;
-        let mode2: typeof mode;
-        if (mode === 'selected' || rpfSel.has(value)) {
-            mode2 = 'selected';
-        } else if (mode === 'hover' || value === rpfHover) {
-            mode2 = 'hover';
-        } else {
-            mode2 = 'normal';
-        }
-        let rotation = ROTATION_COMBINE[startRotation][value.rotation];
-        let xOffset = xPos + value.x;
-        let yOffset = yPos + value.y;
-        let [minX, minY] = p.getFullOffset();
-        minX += xOffset;
-        minY += yOffset;
-        if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
-            continue;
-        }
-        if (p instanceof RPFPattern) {
-            drawRPF(p, states, xOffset, yOffset, rotation, mode2);
-        } else {
-            drawPattern(p, states[mode2], xOffset, yOffset, rotation);
-        }
-    }
-}
-
 
 addHook(rpfActions, 'click-canvas', event => {
     if (!(event instanceof MouseEvent)) {
@@ -128,48 +199,6 @@ addHook(rpfActions, 'unclick-canvas', event => {
     }
 });
 
-let interactionLevelElt = getElement('interaction-level');
-let selectMenuElt = getElement('select-menu');
-
-addHook(rpfActions, 'frame', () => {
-    interactionLevelElt.textContent = String(interactionLevel);
-    let normal = [theme.empty];
-    if (p.rule.states === 2) {
-        normal.push(theme.twoState);
-    } else {
-        normal.push(...theme.multiState(p.rule.states));
-    }
-    let selected = normal.slice();
-    selected[1] = theme.rpfSelection;
-    let hover = normal.slice();
-    hover[1] = theme.rpfHover;
-    let states = {normal, selected, hover};
-    ctx.fillStyle = normal[0];
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawRPF(rpfP, states, 0, 0, 'F', 'normal');
-    if (rpfSel.size > 0) {
-        selectMenuElt.style.display = 'flex';
-    } else {
-        selectMenuElt.style.display = 'none';
-    }
-    if (rpfPasting) {
-        let q = rpfPasting[0];
-        drawRPF(q, states, mouseX, mouseY, rpfPasting[1], 'normal');
-        ctx.save();
-        let xOffset = -topLeftX - mouseX;
-        let yOffset = -topLeftY - mouseY;
-        let xMod = xOffset % 1;
-        let yMod = yOffset % 1;
-        ctx.scale(scale, scale);
-        ctx.translate(-xMod, -yMod);
-        xOffset -= xMod;
-        yOffset -= yMod;
-        ctx.fillStyle = theme.pasting;
-        ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, q.width + fillExpand, q.height + fillExpand);
-        ctx.restore();
-    }
-});
-
 addHook(rpfActions, 'set-cursor-to-main', () => {
     if (cursorMode === 'edit' && rpfEditing) {
         rpfSel.delete(rpfEditing);
@@ -199,6 +228,17 @@ addHook(rpfActions, 'set-cursor-to-edit', () => {
 
 addHook(rpfActions, 'set-cursor-to-select', () => {
     throw new Error(`Cannot set cursor to select in RPF mode`);
+});
+
+addHook(rpfActions, 'inc-interaction-level', () => {
+    interactionLevel++;
+});
+
+addHook(rpfActions, 'dec-interaction-level', () => {
+    interactionLevel--;
+    if (interactionLevel < 0) {
+        interactionLevel = 0;
+    }
 });
 
 
@@ -448,18 +488,6 @@ addHook(rpfActions, 'select-all', event => {
     }
     for (let value of rpfP.data) {
         rpfSel.add(value);
-    }
-});
-
-
-addHook(rpfActions, 'inc-interaction-level', () => {
-    interactionLevel++;
-});
-
-addHook(rpfActions, 'dec-interaction-level', () => {
-    interactionLevel--;
-    if (interactionLevel < 0) {
-        interactionLevel = 0;
     }
 });
 

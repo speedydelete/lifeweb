@@ -11,6 +11,7 @@ block:
 
 blinker:
 #periodic 0 0 2
+#envelope 0 -1 252
 #manualverified speedydelete 2025-05-12
 *111
 
@@ -252,10 +253,18 @@ hwss:
 
 // conduit objects
 
+herschel:
+*74e
 
+bhep:
+*pe4
 
 
 // conduits
 
 BFx59H:
-#conduit 54 53
+#conduit 54 53 input bhep output herschel 21 1 Fx
+#envelope -2 -2 0gssvvvvvvvuvuuuususssssoogz33fvvvvvvfff73337733773311zxcn11zx11
+#manualverified speedydelete 2025-07-08
+block 4 3
+snake 1 10 R

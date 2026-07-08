@@ -49,7 +49,11 @@ declare global {
         rpfHover: string;
         pasting: string;
         envelope: string;
-        intermediateObjects: string;
+        selectedEnvelope: string;
+        hoverEnvelope: string;
+        connections: string;
+        selectedConnections: string;
+        hoverConnections: string;
     }
 
     var theme: Theme;
@@ -238,7 +242,11 @@ theme = {
     rpfHover: `#ffc3d3`,
     pasting: `rgba(255, 0, 0, 0.5)`,
     envelope: `#0000cf`,
-    intermediateObjects: `#ff0000`,
+    selectedEnvelope: `#3f007f`,
+    hoverEnvelope: `#3f00af`,
+    connections: `#ff0000`,
+    selectedConnections: `#ff0000`,
+    hoverConnections: `#ff0000`,
 };
 
 fs = new Directory('', '/');

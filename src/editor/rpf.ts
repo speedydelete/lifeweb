@@ -34,27 +34,34 @@ export const ROTATION_COMBINE: {[K in Rotation]: {[K in Rotation]: Rotation}} = 
     Rx: {F: 'Rx', Fx: 'R', L: 'Fx', Lx: 'B', B: 'Lx', Bx: 'L', R: 'Bx', Rx: 'F'},
 };
 
+export const TRANSPOSE_ROTATIONS = new Set<Rotation>(['L', 'Lx', 'R', 'Rx']);
+
 export function applyRotation<T extends Pattern>(p: T, rotation: Rotation): T {
     if (rotation === 'F') {
         return p;
     } else if (rotation === 'Fx') {
-        return p.flipVertical();
+        return p.flipVertical().shrinkToFit();
     } else if (rotation === 'L') {
-        return p.rotateLeft();
+        return p.rotateLeft().shrinkToFit();
     } else if (rotation === 'Lx') {
-        return p.flipDiagonal();
+        return p.flipDiagonal().shrinkToFit();
     } else if (rotation === 'B') {
-        return p.flipHorizontal();
+        return p.flipHorizontal().shrinkToFit();
     } else if (rotation === 'Bx') {
-        return p.rotate180();
+        return p.rotate180().shrinkToFit();
     } else if (rotation === 'R') {
-        return p.rotateRight();
+        return p.rotateRight().shrinkToFit();
     } else {
-        return p.flipAntiDiagonal();
+        return p.flipAntiDiagonal().shrinkToFit();
     }
 }
 
-export function transformCoordinates(x: number, y: number, width: number, height: number, rotation: Rotation): [number, number] {
+export function transformCoordinates(x: number, y: number, height: number, width: number, rotation: Rotation): [number, number] {
+    if (TRANSPOSE_ROTATIONS.has(rotation)) {
+        let temp = height;
+        height = width;
+        width = temp;
+    }
     if (rotation === 'F') {
         return [x, y];
     } else if (rotation === 'Fx') {
@@ -254,7 +261,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             out.push(`#creates ${this._stringifyObject(file, dir, this.creates)}`);
         }
         if (this.envelope) {
-            out.push(`#envelope ${this.envelope.x}`)
+            out.push(`#envelope ${this.envelope.x} ${this.envelope.y} ${this.envelope.p.toApgcode()}`);
         }
         if (this.conduit) {
             let data = this.conduit;
@@ -340,27 +347,46 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                         inputs: [],
                         outputs: [],
                     };
-                    for (let i = 3; i < parts.length; i++) {
-                        let type = parts[i];
+                    parts = parts.slice(3);
+                    let objectParts: string[][] = [];
+                    let currentObjectPart: string[] = [];
+                    for (let part of parts) {
+                        if (part === 'input' || part === 'output') {
+                            if (currentObjectPart.length > 0) {
+                                objectParts.push(currentObjectPart);
+                            }
+                            currentObjectPart = [part];
+                        } else {
+                            currentObjectPart.push(part);
+                        }
+                    }
+                    if (currentObjectPart.length > 0) {
+                        objectParts.push(currentObjectPart);
+                    }
+                    for (let object of objectParts) {
+                        let type = object[0];
                         if (type !== 'input' && type !== 'output') {
                             throw new RPFError(`Expected 'input' or 'output' in #conduit`);
                         }
-                        if (!parts[i + 1]) {
+                        if (!object[1]) {
                             throw new RPFError(`Expected object after '${type}'`);
                         }
-                        let p = parts[i + 1].startsWith('*') ? file.base.loadApgcode(parts[i + 1].slice(1)).shrinkToFit() : file.lookupName(parts[i + 1]);
+                        let p = object[1].startsWith('*') ? file.base.loadApgcode(object[1].slice(1)).shrinkToFit() : file.lookupName(object[1]);
                         if (!p) {
-                            throw new RPFError(`Cannot find RPF object '${parts[1]}'`);
+                            throw new RPFError(`Cannot find RPF object '${object[1]}'`);
                         }
-                        if (parts[4] !== undefined && !ROTATIONS.includes(parts[4])) {
-                            throw new RPFError(`Invalid rotation: '${parts[4]}'`);
+                        if (object[4] !== undefined && !ROTATIONS.includes(object[4])) {
+                            throw new RPFError(`Invalid rotation: '${object[4]}'`);
+                        }
+                        if (object.length > 5) {
+                            throw new RPFError(`Extra data in conduit object: '${object.join(' ')}'`);
                         }
                         let obj: PartialRPFObjectData<T> = {
                             p,
-                            x: parts[2] === undefined ? 0 : Number(parts[2]),
-                            y: parts[3] === undefined ? 0 : Number(parts[3]),
-                            rotation: parts[4] === undefined ? 'F' : parts[4] as Rotation,
-                            time: parts[4] === undefined ? 0 : Number(parts[4]),
+                            x: object[2] === undefined ? 0 : Number(object[2]),
+                            y: object[3] === undefined ? 0 : Number(object[3]),
+                            rotation: object[4] === undefined ? 'F' : object[4] as Rotation,
+                            time: object[4] === undefined ? 0 : Number(object[4]),
                         };
                         if (type === 'input') {
                             conduit.inputs.push(obj);
@@ -463,7 +489,12 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     getObjectAt(x: number, y: number, level: number, depth: number = 0): RPFObjectData | undefined {
         for (let value of this.data) {
-            let [x2, y2] = transformCoordinates(x - value.x, y - value.y, value.p.width, value.p.height, value.rotation);
+            let [x2, y2] = transformCoordinates(x - value.x, y - value.y, value.p.height, value.p.width, value.rotation);
+            if (value.p instanceof RPFPattern && value.p.envelope) {
+                if (value.p.envelope.p.get(x2 - value.p.envelope.x, y2 - value.p.envelope.y)) {
+                    return value;
+                }
+            }
             if (value.p.get(x2, y2)) {
                 if (level === depth) {
                     return value;
@@ -591,7 +622,11 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                 time: obj.time,
             })),
         } : undefined;
-        p.envelope = structuredClone(this.envelope);
+        p.envelope = this.envelope ? {
+            x: this.envelope.x,
+            y: this.envelope.y,
+            p: deep ? this.envelope.p.copy() : this.envelope.p,
+        } : undefined;
     }
 
     copy(): this {

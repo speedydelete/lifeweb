@@ -59,6 +59,9 @@ addHook(sharedActions, 'move-mouse-off-of-canvas', () => {
     posElt.style.display = 'none';
 });
 
+let wheelEvent: WheelEvent | undefined = undefined;
+let totalDeltaY = 0;
+
 addHook(sharedActions, 'scroll-canvas', event => {
     if (!(event instanceof WheelEvent)) {
         throw new Error(`scroll called with non-MouseEvent value`);
@@ -68,8 +71,6 @@ addHook(sharedActions, 'scroll-canvas', event => {
     wheelEvent = event;
 });
 
-let wheelEvent: WheelEvent | undefined = undefined;
-let totalDeltaY = 0;
 
 let frameCount = 0;
 
@@ -132,6 +133,7 @@ addHook(sharedActions, 'frame', async () => {
     }
     frameCount++;
 });
+
 
 addHook(sharedActions, 'set-cursor-to-main', () => {
     cursorMode = 'main';

@@ -1,7 +1,87 @@
 
 import {INSERT_OR, INSERT_COPY, INSERT_AND, INSERT_XOR, Pattern} from '../core/index.js';
-import {Rotation, transformCoordinates} from './rpf.js';
+import {ROTATION_COMBINE, Rotation, TRANSPOSE_ROTATIONS, transformCoordinates} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
+
+
+let start = performance.now();
+
+export function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
+    ctx.save();
+    let [pXOffset, pYOffset] = p.getFullOffset();
+    let xOffset = -p.xOffset - topLeftX - x;
+    let yOffset = -p.yOffset - topLeftY - y;
+    let xMod = xOffset % 1;
+    let yMod = yOffset % 1;
+    ctx.scale(scale, scale);
+    ctx.translate(-xMod, -yMod);
+    xOffset -= xMod;
+    yOffset -= yMod;
+    let startY = Math.max(0, -yOffset) + (pYOffset - p.yOffset);
+    let endY = p.height - Math.min(0, yOffset) - 1;
+    let startX = Math.max(0, -xOffset) + (pXOffset - p.xOffset);
+    let endX = p.width - Math.min(0, xOffset) - 1;
+    // if (performance.now() - start < 1000) {
+    //     console.log('drawing pattern', p, x, y, rotation, xOffset, yOffset, p.height, p.width, startX, endX, startY, endY);
+    // }
+    if (rotation && TRANSPOSE_ROTATIONS.has(rotation)) {
+        let oldEndX = endX;
+        let oldEndY = endY;
+        endX = oldEndY - startY + startX;
+        endY = oldEndX - startX + startY;
+    }
+    if (performance.now() - start < 1000) {
+        console.log(startX, endX, startY, endY, rotation);
+    }
+    for (let screenY = startY; screenY <= endY; screenY++) {
+        for (let screenX = startX; screenX <= endX; screenX++) {
+            let x = screenX + xOffset;
+            let y = screenY + yOffset;
+            if (rotation && rotation !== 'F') {
+                [x, y] = transformCoordinates(x, y, p.height, p.width, rotation);
+            }
+            let cell = p.get(x, y);
+            // if (performance.now() - start < 1000 && states[0] !== theme.envelope) {
+            //     console.log(`cell is ${cell}: oldX = ${screenX + xOffset}, oldY = ${screenY + yOffset}, x = ${x}, y = ${y}`);
+            // }
+            if (cell !== 0) {
+                ctx.fillStyle = states[cell - 1];
+                ctx.fillRect(screenX - fillOffset, screenY - fillOffset, 1 + fillExpand, 1 + fillExpand);
+            }
+        }
+    }
+    if (restore) {
+        ctx.restore();
+    }
+    return {xOffset, yOffset, xMod, yMod};
+}
+
+(globalThis as any).drawPattern = drawPattern;
+
+let selectMenuElt = getElement('select-menu');
+
+addHook(normalActions, 'frame', () => {
+    let states = p.rule.states === 2 ? [theme.twoState] : theme.multiState(p.rule.states);
+    ctx.fillStyle = theme.empty;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let {xMod, yMod} = drawPattern(p, states, undefined, undefined, undefined, false);
+    if (sel) {
+        ctx.fillStyle = theme.selection;
+        ctx.fillRect(sel.x + topLeftX + xMod - fillOffset, sel.y + topLeftY + yMod - fillOffset, sel.width + fillExpand, sel.height + fillExpand);
+        selectMenuElt.style.display = 'flex';
+    } else {
+        selectMenuElt.style.display = 'none';
+    }
+    ctx.restore();
+    if (pasting) {
+        pasting.xOffset = mouseX;
+        pasting.yOffset = mouseY;
+        let {xOffset, yOffset} = drawPattern(pasting, states, undefined, undefined, undefined, false);
+        ctx.fillStyle = theme.pasting;
+        ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
+        ctx.restore();
+    }
+});
 
 
 function editCell(isStart: boolean): void {
@@ -72,73 +152,6 @@ addHook(normalActions, 'move-mouse-over-canvas', event => {
 addHook(normalActions, 'unclick-canvas', () => {
     if (cursorMode === 'select' && sel !== undefined) {
         pushUndo();
-    }
-});
-
-export function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
-    ctx.save();
-    let [pXOffset, pYOffset] = p.getFullOffset();
-    let xOffset = -p.xOffset - topLeftX - x;
-    let yOffset = -p.yOffset - topLeftY - y;
-    let xMod = xOffset % 1;
-    let yMod = yOffset % 1;
-    ctx.scale(scale, scale);
-    ctx.translate(-xMod, -yMod);
-    xOffset -= xMod;
-    yOffset -= yMod;
-    let startY = Math.max(0, -yOffset) + (pYOffset - p.yOffset);
-    let endY = Math.max(pixelHeight, p.height - yOffset);
-    let startX = Math.max(0, -xOffset) + (pXOffset - p.xOffset);
-    let endX = Math.max(pixelWidth, p.width - xOffset);
-    for (let screenY = startY; screenY <= endY; screenY++) {
-        for (let screenX = startX; screenX <= endX; screenX++) {
-            let x = screenX + xOffset;
-            let y = screenY + yOffset;
-            if (rotation && rotation !== 'F') {
-                [x, y] = transformCoordinates(x, y, p.width, p.height, rotation);
-            }
-            let cell = p.get(x, y);
-            if (cell !== 0) {
-                ctx.fillStyle = states[cell];
-                ctx.fillRect(screenX - fillOffset, screenY - fillOffset, 1 + fillExpand, 1 + fillExpand);
-            }
-        }
-    }
-    if (restore) {
-        ctx.restore();
-    }
-    return {xOffset, yOffset, xMod, yMod};
-}
-
-(globalThis as any).drawPattern = drawPattern;
-
-let selectMenuElt = getElement('select-menu');
-
-addHook(normalActions, 'frame', () => {
-    let states = [theme.empty];
-    if (p.rule.states === 2) {
-        states.push(theme.twoState);
-    } else {
-        states.push(...theme.multiState(p.rule.states));
-    }
-    ctx.fillStyle = states[0];
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    let {xMod, yMod} = drawPattern(p, states, undefined, undefined, undefined, false);
-    if (sel) {
-        ctx.fillStyle = theme.selection;
-        ctx.fillRect(sel.x + topLeftX + xMod - fillOffset, sel.y + topLeftY + yMod - fillOffset, sel.width + fillExpand, sel.height + fillExpand);
-        selectMenuElt.style.display = 'flex';
-    } else {
-        selectMenuElt.style.display = 'none';
-    }
-    ctx.restore();
-    if (pasting) {
-        pasting.xOffset = mouseX;
-        pasting.yOffset = mouseY;
-        let {xOffset, yOffset} = drawPattern(pasting, states, undefined, undefined, undefined, false);
-        ctx.fillStyle = theme.pasting;
-        ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
-        ctx.restore();
     }
 });
 
