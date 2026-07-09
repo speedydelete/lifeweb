@@ -22,6 +22,7 @@ beehive:
 
 glider:
 #periodic 1 1 4
+#envelope 0 0 776
 #manualverified speedydelete 2025-05-12
 *456
 
@@ -189,59 +190,68 @@ very_long_boat:
 
 toad:
 #periodic 0 0 2
+#envelope -1 0 2ff4
 #manualverified speedydelete 2025-05-12
 *7e
 
 beacon:
 #periodic 0 0 2
+#envelope 0 0 33cc
 #manualverified speedydelete 2025-05-12
 *318c
 
 clock:
 #periodic 0 0 2
+#envelope 0 0 6bd6
 #manualverified speedydelete 2025-05-12
 *2a54
 
 caterer:
 #periodic 0 0 3
+#envelope 0 -1 8uvascz6f5
 #manualverified speedydelete 2025-05-12
 *4hh186z07
 
 figure_eight:
 #periodic 0 0 8
+#envelope -2 -2 csvvu8gzx12fvv76
 #manualverified speedydelete 2025-05-12
+*3bg2kgzy011
 
 pentadecathlon:
 #periodic 0 0 15
+#envelope -3 -3 goossuuvvuussoogz0113377ff773311
 #manualverified speedydelete 2025-05-12
 *2252222522
 
 blocker:
 #periodic 0 0 8
+#envelope 0 -1 cvffuussuczy2111
 #manualverified speedydelete 2025-05-12
 *66wba4666
 
 unix:
 #periodic 0 0 6
+#envelope 0 -1 cvf7fmoogzy04ef77
 #manualverified speedydelete 2025-05-12
 *66w7bcczy166
 
 
 // xWSS's
 
-lwss:
+LWSS:
 #name LWSS
 #periodic 2 0 4
 #manualverified speedydelete 2025-05-12
 *5889e
 
-mwss:
+MWSS:
 #name MWSS
 #periodic 2 0 4
 #manualverified speedydelete 2025-05-12
 *aghgis
 
-hwss:
+HWSS:
 #name HWSS
 #periodic 2 0 4
 #manualverified speedydelete 2025-05-12
@@ -256,14 +266,23 @@ hwss:
 herschel:
 *74e
 
-bhep:
+B-heptomino:
 *pe4
 
 
 // conduits
 
+snark:
+#conduit 29 43 input glider 9 6 F output glider 14 8 Fx 24
+#envelope 0 0 y5gggsq23zy0ssvvvvvvuusssz8e133011fvvv7711zy2ogku7vmf1u08ozy4643y011
+#manualverified speedydelete 2025-07-09
+eater_1 0 10 Bx
+eater_1 12 0 L
+block 9 11
+*oggs2uge1u08ozw643y011 6 15
+
 BFx59H:
-#conduit 54 53 input bhep output herschel 21 1 Fx
+#conduit 54 53 input B-heptomino output herschel 21 1 Fx
 #envelope -2 -2 0gssvvvvvvvuvuuuususssssoogz33fvvvvvvfff73337733773311zxcn11zx11
 #manualverified speedydelete 2025-07-08
 block 4 3

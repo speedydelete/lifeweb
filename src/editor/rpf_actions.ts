@@ -1,5 +1,5 @@
 
-import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, File} from './rpf.js';
+import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, File, transformCoordinates} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
 import {drawPattern} from './normal_actions.js';
 
@@ -16,9 +16,15 @@ interface RPFDrawStateData {
     hover: RPFDrawStateDataPart;
 }
 
-let start = performance.now();
+// let start = performance.now();
 
-function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover', type: 'normal' | 'envelope' | 'connections'): void {
+function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover', type: 'normal' | 'envelope' | 'connections'): boolean {
+    let [minX, minY] = p.getFullOffset();
+    minX += xPos;
+    minY += yPos;
+    if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
+        return false;
+    }
     // if (performance.now() - start < 1000) {
     //     console.log('drawing RPF', p.key, xPos, yPos, startRotation, mode);
     // }
@@ -27,9 +33,27 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
     }
     if (p.conduit) {
         for (let obj of p.conduit.inputs.concat(p.conduit.outputs)) {
-            if (obj.p instanceof RPFPattern) {
-                drawRPF(obj.p, states, xPos + obj.x, yPos + obj.y, ROTATION_COMBINE[startRotation][obj.rotation], mode, 'connections');
+            if (!(obj.p instanceof RPFPattern)) {
+                continue;
             }
+            let rotation = ROTATION_COMBINE[startRotation][obj.rotation];
+            if (obj.p.periodic && (obj.p.periodic.dx !== 0 || obj.p.periodic.dy !== 0) && obj.p.envelope) {
+                let [dx, dy] = transformCoordinates(obj.p.periodic.dx, obj.p.periodic.dy, 1, 1, rotation);
+                if (p.conduit.inputs.includes(obj)) {
+                    dx = -dx;
+                    dy = -dy;
+                }
+                let x = xPos + obj.x + obj.p.envelope.x;
+                let y = yPos + obj.y + obj.p.envelope.y;
+                for (let i = 0; i < 65536; i++) {
+                    if (!drawPattern(obj.p.envelope.p, states[mode].envelope, x, y, rotation)) {
+                        break;
+                    }
+                    x += dx;
+                    y += dy;
+                }
+            }
+            drawRPF(obj.p, states, xPos + obj.x, yPos + obj.y, rotation, mode, 'connections');
         }
     }
     for (let value of p.data) {
@@ -57,6 +81,7 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
             drawPattern(p, states[mode2][type], xOffset, yOffset, rotation);
         }
     }
+    return true;
 }
 
 (globalThis as any).drawRPF = drawRPF;

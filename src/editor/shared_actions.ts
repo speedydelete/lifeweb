@@ -128,6 +128,8 @@ addHook(sharedActions, 'frame', async () => {
         topLeftX = (mouseX - x * newScale) / newScale;
         topLeftY = (mouseY - y * newScale) / newScale;
         scale = newScale;
+        pixelHeight = canvas.height / scale;
+        pixelWidth = canvas.width / scale;
         totalDeltaY = 0;
         wheelEvent = undefined;
     }
@@ -513,7 +515,6 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
             await updateFileSystem(value, out);
             out.data[name].handle = value;
         } else {
-            console.log(value);
             let fileBlob = await value.getFile();
             if (name in out.data) {
                 if (out.data[name] instanceof Directory) {

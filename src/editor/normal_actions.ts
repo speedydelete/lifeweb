@@ -4,11 +4,16 @@ import {ROTATION_COMBINE, Rotation, TRANSPOSE_ROTATIONS, transformCoordinates} f
 import {run, addHook, pushUndo, parse} from './base.js';
 
 
-let start = performance.now();
+// let start = performance.now();
 
-export function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): {xOffset: number, yOffset: number, xMod: number, yMod: number} {
+export function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): false | {xOffset: number, yOffset: number, xMod: number, yMod: number} {
     ctx.save();
     let [pXOffset, pYOffset] = p.getFullOffset();
+    let minX = pXOffset + x;
+    let minY = pYOffset + y;
+    if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
+        return false;
+    }
     let xOffset = -p.xOffset - topLeftX - x;
     let yOffset = -p.yOffset - topLeftY - y;
     let xMod = xOffset % 1;
@@ -30,9 +35,9 @@ export function drawPattern(p: Pattern, states: string[], x: number = 0, y: numb
         endX = oldEndY - startY + startX;
         endY = oldEndX - startX + startY;
     }
-    if (performance.now() - start < 1000) {
-        console.log(startX, endX, startY, endY, rotation);
-    }
+    // if (performance.now() - start < 1000) {
+    //     console.log(startX, endX, startY, endY, rotation);
+    // }
     for (let screenY = startY; screenY <= endY; screenY++) {
         for (let screenX = startX; screenX <= endX; screenX++) {
             let x = screenX + xOffset;
@@ -64,10 +69,13 @@ addHook(normalActions, 'frame', () => {
     let states = p.rule.states === 2 ? [theme.twoState] : theme.multiState(p.rule.states);
     ctx.fillStyle = theme.empty;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    let {xMod, yMod} = drawPattern(p, states, undefined, undefined, undefined, false);
+    let value = drawPattern(p, states, undefined, undefined, undefined, false);
     if (sel) {
-        ctx.fillStyle = theme.selection;
-        ctx.fillRect(sel.x + topLeftX + xMod - fillOffset, sel.y + topLeftY + yMod - fillOffset, sel.width + fillExpand, sel.height + fillExpand);
+        if (value) {
+            let {xMod, yMod} = value;
+            ctx.fillStyle = theme.selection;
+            ctx.fillRect(sel.x + topLeftX + xMod - fillOffset, sel.y + topLeftY + yMod - fillOffset, sel.width + fillExpand, sel.height + fillExpand);
+        }
         selectMenuElt.style.display = 'flex';
     } else {
         selectMenuElt.style.display = 'none';
@@ -76,9 +84,12 @@ addHook(normalActions, 'frame', () => {
     if (pasting) {
         pasting.xOffset = mouseX;
         pasting.yOffset = mouseY;
-        let {xOffset, yOffset} = drawPattern(pasting, states, undefined, undefined, undefined, false);
-        ctx.fillStyle = theme.pasting;
-        ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
+        let value = drawPattern(pasting, states, undefined, undefined, undefined, false);
+        if (value) {
+            let {xOffset, yOffset} = value;
+            ctx.fillStyle = theme.pasting;
+            ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, pasting.width + fillExpand, pasting.height + fillExpand);
+        }
         ctx.restore();
     }
 });

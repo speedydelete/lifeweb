@@ -137,7 +137,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     // we set optional values to undefined so the V8 hidden classes are the same
     name?: string = undefined;
     desc?: string = undefined;
-    periodic?: [number, number, number] = undefined;
+    periodic?: {dx: number, dy: number, period: number} = undefined;
     creates?: {
         p: T | RPFPattern<T>;
         x: number;
@@ -255,7 +255,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             out.push(`#desc ${this.desc.replaceAll('\\', '\\\\').replaceAll('\n', '\\n')}`);
         }
         if (this.periodic) {
-            out.push(`#periodic ${this.periodic.join(' ')}`);
+            out.push(`#periodic ${this.periodic.dx} ${this.periodic.dy} ${this.periodic.period}`);
         }
         if (this.creates) {
             out.push(`#creates ${this._stringifyObject(file, dir, this.creates)}`);
@@ -316,7 +316,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                     if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
                         throw new RPFError(`Invalid #periodic: '${line}'`);
                     }
-                    out.periodic = [dx, dy, period];
+                    out.periodic = {dx, dy, period};
                 } else if (parts[0] === '#creates') {
                     if (!parts[1]) {
                         throw new RPFError(`Expected object after '#creates'`);
@@ -378,7 +378,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                         if (object[4] !== undefined && !ROTATIONS.includes(object[4])) {
                             throw new RPFError(`Invalid rotation: '${object[4]}'`);
                         }
-                        if (object.length > 5) {
+                        if (object.length > 6) {
                             throw new RPFError(`Extra data in conduit object: '${object.join(' ')}'`);
                         }
                         let obj: PartialRPFObjectData<T> = {
@@ -386,7 +386,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                             x: object[2] === undefined ? 0 : Number(object[2]),
                             y: object[3] === undefined ? 0 : Number(object[3]),
                             rotation: object[4] === undefined ? 'F' : object[4] as Rotation,
-                            time: object[4] === undefined ? 0 : Number(object[4]),
+                            time: object[5] === undefined ? 0 : Number(object[5]),
                         };
                         if (type === 'input') {
                             conduit.inputs.push(obj);
@@ -520,7 +520,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         if (!this.periodic) {
             return;
         }
-        let [dx, dy, period] = this.periodic;
+        let {dx, dy, period} = this.periodic;
         let moves = dx !== 0 || dy !== 0;
         if (this.creates) {
             let prefix = speedToString(dx, dy, period) + ' ';
@@ -532,14 +532,14 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             if (!q.periodic) {
                 return `${prefix} ${moves ? 'puffer' : 'factory'}`;
             }
-            let qMoves = q.periodic[0] !== 0 || q.periodic[1] !== 0;
+            let qMoves = q.periodic.dx !== 0 || q.periodic.dy !== 0;
             if (q.creates) {
                 prefix = speedToString(dx, dy, period) + ' ';
                 prefix += moves ? 'M' : 'S';
                 prefix += qMoves ? 'M' : 'S';
                 let r = q.creates.p;
                 if (r instanceof RPFPattern && r.periodic) {
-                    prefix += (r.periodic[0] !== 0 || r.periodic[1] !== 0) ? 'M' : 'S';
+                    prefix += (r.periodic.dx !== 0 || r.periodic.dy !== 0) ? 'M' : 'S';
                 } else {
                     prefix += '?';
                 }

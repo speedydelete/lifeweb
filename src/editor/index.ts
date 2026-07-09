@@ -141,7 +141,7 @@ B3/S23
 import * from stdlib.rpf
 
 main:
-BFx59H
+snark
 `;
 
 window.addEventListener('load', () => setTimeout(async () => {
