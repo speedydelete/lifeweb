@@ -75,15 +75,15 @@ Options:
         Set the method used for searching
 
         Cell-by-cell method:
-        Syntax is "cell <search-order> [i=<initial-value>]"
+        Syntax is "cell <search-order>"
         the search order is defined as a comma-separated list of metrics
         later metrics are tiebreakers for earlier metrics
         metrics are normal mathematical expressions
         use variables "x", "y", and "t" for x, y, and time respectively
         also you can use aliases like f2b, b2f, s2s, etc
         the default value is f2b for spaceships and 't, y, x' otherwise
-        the initial value, if given, is used to set the initial value
-        of unknown cells, the default value is 0
+
+    -i, --initial-value <value>: set the initial tested value for cells
 
     -n, --max-solutions: set the maximum solution count, default infinity
     --no-show-solutions: Disable showing solutions at all.
@@ -148,6 +148,7 @@ const OPTIONS = {
     'file': 'string',
     'rulespace': new Set(['int', 'ot'] as const),
     'method': 'string',
+    'initial-value': 'number',
     'max-solutions': 'number',
     'no-show-solutions': true,
     'pattern': [true, 'string'],
@@ -174,6 +175,7 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'g': 'g',
     'l': 'lls',
     'm': 'method',
+    'i': 'initial-value',
     'n': 'max-solutions',
     'p': 'pattern',
     'f': 'filter',
@@ -771,7 +773,6 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
 let method: 'cell';
 let searchOrder: string | undefined = undefined;
 let methodArg = options['method'];
-let initialValue = 0;
 if (methodArg === undefined) {
     method = 'cell';
     searchOrder = defaultSearchOrder;
@@ -785,18 +786,6 @@ if (methodArg === undefined) {
         error(`Invalid value for method option (expected 'cell', got '${method}'): '${methodArg}'`);
     }
     searchOrder = methodArg.slice(index + 1);
-    index = searchOrder.lastIndexOf(' ');
-    if (index !== -1) {
-        let part0 = searchOrder.slice(0, index);
-        let part1 = searchOrder.slice(index + 1);
-        if (part1.startsWith('i=')) {
-            searchOrder = part0;
-            initialValue = Number(part1.slice(2));
-            if (initialValue !== 0 && initialValue !== 1) {
-                error(`Invalid initial value: '${part1.slice(2)}'`);
-            }
-        }
-    }
 }
 if (searchOrder !== undefined) {
     while (searchOrder in searchOrderAliases) {
@@ -1122,7 +1111,7 @@ for (let line of code.split('\n')) {
     } else if (name === 'METHOD') {
         value = method;
     } else if (name === 'INITIAL_VALUE') {
-        value = initialValue;
+        value = options['initial-value'] ?? 0;
     } else if (name === 'LLS') {
         let path = await import('node:path');
         let fs = await import('node:fs/promises');
