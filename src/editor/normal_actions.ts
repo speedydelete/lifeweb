@@ -1,6 +1,6 @@
 
 import {INSERT_OR, INSERT_COPY, INSERT_AND, INSERT_XOR, Pattern} from '../core/index.js';
-import {ROTATION_COMBINE, Rotation, TRANSPOSE_ROTATIONS, transformCoordinates} from './rpf.js';
+import {Rotation, TRANSPOSE_ROTATIONS, transformCoordinates} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
 
 
@@ -9,6 +9,7 @@ import {run, addHook, pushUndo, parse} from './base.js';
 export function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): false | {xOffset: number, yOffset: number, xMod: number, yMod: number} {
     ctx.save();
     let [pXOffset, pYOffset] = p.getFullOffset();
+    // culling
     let minX = pXOffset + x;
     let minY = pYOffset + y;
     if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
@@ -43,7 +44,14 @@ export function drawPattern(p: Pattern, states: string[], x: number = 0, y: numb
             let x = screenX + xOffset;
             let y = screenY + yOffset;
             if (rotation && rotation !== 'F') {
-                [x, y] = transformCoordinates(x, y, p.height, p.width, rotation);
+                let height = p.height;
+                let width = p.width;
+                if (TRANSPOSE_ROTATIONS.has(rotation)) {
+                    let temp = height;
+                    height = width;
+                    width = temp;
+                }
+                [x, y] = transformCoordinates(x, y, height, width, rotation);
             }
             let cell = p.get(x, y);
             // if (performance.now() - start < 1000 && states[0] !== theme.envelope) {

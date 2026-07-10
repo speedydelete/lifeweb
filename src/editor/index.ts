@@ -5,13 +5,12 @@ Object.assign(globalThis, lifeweb);
 
 let global = globalThis as any;
 
-import {RPFError, ROTATION_COMBINE, applyRotation, transformCoordinates, isInside, getOverlap, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+import {RPFError, ROTATION_COMBINE, applyRotation, transformCoordinates, transformCoordinatesOfPart, RPFPattern, File, Directory, RPFFile} from './rpf.js';
 global.RPFError = RPFError;
 global.ROTATION_COMBINE = ROTATION_COMBINE;
 global.applyRotation = applyRotation;
 global.transformCoordinates = transformCoordinates;
-global.isInside = isInside;
-global.getOverlap = getOverlap;
+global.transformCoordinatesOfPart = transformCoordinatesOfPart;
 global.RPFPattern = RPFPattern;
 global.FSFile = File;
 global.Directory = Directory;
@@ -141,7 +140,7 @@ B3/S23
 import * from stdlib.rpf
 
 main:
-snark
+snark 0 0 F
 `;
 
 window.addEventListener('load', () => setTimeout(async () => {

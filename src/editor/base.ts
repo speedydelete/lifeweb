@@ -1,6 +1,6 @@
 
 import {Pattern, parse as parseRLE} from '../core/index.js';
-import {Rotation, RPFObjectData, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+import {Rotation, RPFReference, RPFPattern, File, Directory, RPFFile} from './rpf.js';
 
 
 declare global {
@@ -61,7 +61,7 @@ declare global {
     interface UndoState {
         p: Pattern;
         hasRan: boolean;
-        rpfEditing?: RPFObjectData;
+        rpfEditing?: RPFReference;
     }
 
     var p: Pattern;
@@ -105,11 +105,11 @@ declare global {
     var prevEditX: number | undefined;
     var prevEditY: number | undefined;
     var interactionLevel: number;
-    var rpfEditing: RPFObjectData | undefined;
+    var rpfEditing: RPFReference | undefined;
 
     var sel: {x: number, y: number, height: number, width: number} | undefined;
-    var rpfSel: Set<RPFObjectData>;
-    var rpfHover: RPFObjectData | undefined;
+    var rpfSel: Set<RPFReference>;
+    var rpfHover: RPFReference | undefined;
     var pasting: Pattern | undefined;
     var rpfPasting: [RPFPattern, Rotation] | undefined;
     var pasteMode: 'or' | 'copy' | 'and' | 'xor';

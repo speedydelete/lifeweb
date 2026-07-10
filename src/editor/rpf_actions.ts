@@ -1,5 +1,5 @@
 
-import {Rotation, ROTATION_COMBINE, RPFObjectData, RPFPattern, File, transformCoordinates} from './rpf.js';
+import {Rotation, ROTATION_COMBINE, TRANSPOSE_ROTATIONS, RPFReference, RPFPattern, File, transformCoordinates, transformCoordinatesOfPart} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
 import {drawPattern} from './normal_actions.js';
 
@@ -16,71 +16,106 @@ interface RPFDrawStateData {
     hover: RPFDrawStateDataPart;
 }
 
-// let start = performance.now();
+// let isFirstFrame = true;
+// let level = -1;
+
+// function log(...args: unknown[]): void {
+//     if (!isFirstFrame) {
+//         return;
+//     }
+//     if (level === 0) {
+//         console.log(...args);
+//     } else {
+//         console.log(' '.repeat(4 * level - 1), ...args);
+//     }
+// }
 
 function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover', type: 'normal' | 'envelope' | 'connections'): boolean {
+    // culling
     let [minX, minY] = p.getFullOffset();
     minX += xPos;
     minY += yPos;
     if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
         return false;
     }
-    // if (performance.now() - start < 1000) {
-    //     console.log('drawing RPF', p.key, xPos, yPos, startRotation, mode);
-    // }
+    // level++;
+    // log('drawing RPF', p.key, xPos, yPos, startRotation, mode);
     if (p.envelope) {
-        drawPattern(p.envelope.p, states[mode].envelope, xPos + p.envelope.x, yPos + p.envelope.y, startRotation);
+        let data = p.envelope;
+        let [x, y] = transformCoordinatesOfPart(data.x, data.y, p.height, p.width, data.p.height, data.p.width, startRotation);
+        drawPattern(data.p, states[mode].envelope, x + xPos, y + yPos, startRotation);
     }
+    // level++;
     if (p.conduit) {
-        for (let obj of p.conduit.inputs.concat(p.conduit.outputs)) {
-            if (!(obj.p instanceof RPFPattern)) {
+        for (let ref of p.conduit.inputs.concat(p.conduit.outputs)) {
+            let q = ref.p;
+            if (!(q instanceof RPFPattern)) {
                 continue;
             }
-            let rotation = ROTATION_COMBINE[startRotation][obj.rotation];
-            if (obj.p.periodic && (obj.p.periodic.dx !== 0 || obj.p.periodic.dy !== 0) && obj.p.envelope) {
-                let [dx, dy] = transformCoordinates(obj.p.periodic.dx, obj.p.periodic.dy, 1, 1, rotation);
-                if (p.conduit.inputs.includes(obj)) {
+            let x = ref.x;
+            let y = ref.y;
+            // log(`drawing conduit RPF ${q.key}: x = ${x}, y = ${y}, value.rotation = ${ref.rotation}`);
+            // log(`p.height = ${p.height}, p.width = ${p.width}, q.height = ${q.height}, q.width = ${q.width}, rotation = ${startRotation}`);
+            [x, y] = transformCoordinatesOfPart(x, y, p.height, p.width, q.height, q.width, startRotation);
+            let rotation = ROTATION_COMBINE[startRotation][ref.rotation];
+            // log(`transformed: x = ${x}, y = ${y}, rotation = ${rotation}`);
+            x += xPos;
+            y += yPos;
+            // log(`added: x = ${x}, y = ${y}`);
+            if (q.periodic && (q.periodic.dx !== 0 || q.periodic.dy !== 0) && q.envelope) {
+                let [dx, dy] = transformCoordinates(q.periodic.dx, q.periodic.dy, 1, 1, rotation);
+                if (p.conduit.inputs.includes(ref) && !TRANSPOSE_ROTATIONS.has(rotation)) {
                     dx = -dx;
                     dy = -dy;
                 }
-                let x = xPos + obj.x + obj.p.envelope.x;
-                let y = yPos + obj.y + obj.p.envelope.y;
+                let x2 = x + q.envelope.x;
+                let y2 = y + q.envelope.y;
                 for (let i = 0; i < 65536; i++) {
-                    if (!drawPattern(obj.p.envelope.p, states[mode].envelope, x, y, rotation)) {
+                    if (!drawPattern(q.envelope.p, states[mode].envelope, x2, y2, rotation)) {
                         break;
                     }
-                    x += dx;
-                    y += dy;
+                    x2 += dx;
+                    y2 += dy;
                 }
             }
-            drawRPF(obj.p, states, xPos + obj.x, yPos + obj.y, rotation, mode, 'connections');
+            drawRPF(q, states, x, y, rotation, mode, 'connections');
         }
     }
-    for (let value of p.data) {
-        let p = value.p;
+    for (let ref of p.data) {
+        let q = ref.p;
         let mode2: typeof mode;
-        if (mode === 'selected' || rpfSel.has(value)) {
+        if (mode === 'selected' || rpfSel.has(ref)) {
             mode2 = 'selected';
-        } else if (mode === 'hover' || value === rpfHover) {
+        } else if (mode === 'hover' || ref === rpfHover) {
             mode2 = 'hover';
         } else {
             mode2 = 'normal';
         }
-        let rotation = ROTATION_COMBINE[startRotation][value.rotation];
-        let xOffset = xPos + value.x;
-        let yOffset = yPos + value.y;
-        let [minX, minY] = p.getFullOffset();
-        minX += xOffset;
-        minY += yOffset;
-        if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
+        let x = ref.x;
+        let y = ref.y;
+        // log(`drawing ${q instanceof RPFPattern ? `RPF ${q.key}` : `pattern`}: x = ${x}, y = ${y}, ref.rotation = ${ref.rotation}`);
+        // log(`p.height = ${p.height}, p.width = ${p.width}, q.height = ${q.height}, q.width = ${q.width}, rotation = ${startRotation}`);
+        [x, y] = transformCoordinatesOfPart(x, y, p.height, p.width, q.height, q.width, startRotation);
+        let rotation = ROTATION_COMBINE[startRotation][ref.rotation];
+        // log(`transformed: x = ${x}, y = ${y}, rotation = ${rotation}`);
+        x += xPos;
+        y += yPos;
+        // log(`added: x = ${x}, y = ${y}`);
+        // culling
+        let [minX, minY] = q.getFullOffset();
+        minX += x;
+        minY += y;
+        if (minX + q.width < -topLeftX || minY + q.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
             continue;
         }
-        if (p instanceof RPFPattern) {
-            drawRPF(p, states, xOffset, yOffset, rotation, mode2, type);
+        if (q instanceof RPFPattern) {
+            drawRPF(q, states, x, y, rotation, mode2, type);
         } else {
-            drawPattern(p, states[mode2][type], xOffset, yOffset, rotation);
+            drawPattern(q, states[mode2][type], x, y, rotation);
         }
     }
+    // level--;
+    // level--;
     return true;
 }
 
@@ -132,6 +167,7 @@ addHook(rpfActions, 'frame', () => {
         ctx.fillRect(-xOffset - fillOffset, -yOffset - fillOffset, q.width + fillExpand, q.height + fillExpand);
         ctx.restore();
     }
+    // isFirstFrame = false;
 });
 
 
@@ -201,7 +237,7 @@ addHook(rpfActions, 'move-mouse-over-canvas', event => {
             editCellRPF(false);
         }
     } else {
-        rpfHover = rpfP.getObjectAt(mouseX, mouseY, interactionLevel);
+        rpfHover = rpfP.getRefAt(mouseX, mouseY, interactionLevel);
     }
 });
 
@@ -210,7 +246,7 @@ addHook(rpfActions, 'unclick-canvas', event => {
         throw new Error(`unclick-canvas called with non-MouseEvent value`);
     }
     if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
-        let value = rpfP.getObjectAt(mouseX, mouseY, interactionLevel);
+        let value = rpfP.getRefAt(mouseX, mouseY, interactionLevel);
         if (value) {
             if (rpfSel.has(value)) {
                 rpfSel.delete(value);
@@ -228,21 +264,15 @@ addHook(rpfActions, 'set-cursor-to-main', () => {
     if (cursorMode === 'edit' && rpfEditing) {
         rpfSel.delete(rpfEditing);
         if (rpfEditing.p.population === 0) {
-            rpfP.removeObject(rpfEditing);
+            rpfP.remove(rpfEditing);
         }
     }
 });
 
 addHook(rpfActions, 'set-cursor-to-edit', () => {
     if (rpfSel.size === 0) {
-        rpfEditing = {
-            p: rpfP.base.clearedCopy(),
-            x: 0,
-            y: 0,
-            rotation: 'F',
-            time: 0,
-        };
-        rpfP.addObject(rpfEditing);
+        rpfEditing = new RPFReference(rpfP, rpfP.base.clearedCopy());
+        rpfP.add(rpfEditing);
         rpfSel.add(rpfEditing);
     } else if (rpfSel.size === 1) {
         rpfEditing = Array.from(rpfSel)[0];
@@ -287,32 +317,26 @@ addHook(rpfActions, 'sel-group', () => {
     let q = rpfP.clearedCopy();
     q.setKey(key);
     for (let value of rpfSel) {
-        q.addObject(value);
+        q.add(value);
     }
     let minX = Infinity;
     let minY = Infinity;
-    for (let obj of q.data) {
-        minX = Math.min(minX, obj.x);
-        minY = Math.min(minY, obj.y);
+    for (let ref of q.data) {
+        minX = Math.min(minX, ref.x);
+        minY = Math.min(minY, ref.y);
     }
-    for (let obj of q.data) {
-        obj.x -= minX;
-        obj.y -= minY;
+    for (let ref of q.data) {
+        ref.x -= minX;
+        ref.y -= minY;
     }
     for (let value of rpfSel) {
         rpfP.data.delete(value);
     }
     rpfP.recomputeSizes();
-    let obj: RPFObjectData = {
-        p: q,
-        x: minX,
-        y: minY,
-        rotation: 'F',
-        time: 0,
-    };
-    rpfP.addObject(obj);
+    let ref = new RPFReference(rpfP, q, minX, minY);
+    rpfP.add(ref);
     rpfSel.clear();
-    rpfSel.add(obj);
+    rpfSel.add(ref);
     rpfFile.data[q.key] = q;
 });
 
@@ -321,16 +345,17 @@ addHook(rpfActions, 'sel-ungroup', () => {
         return;
     }
     pushUndo();
-    let objs: RPFObjectData[] = [];
-    for (let value of rpfSel) {
-        objs.push(value);
-        rpfP.data.delete(value);
-    }
-    objs = objs.map(x => x.p instanceof RPFPattern ? Array.from(x.p.data).map(y => ({p: y.p, x: y.x + x.x, y: y.y + x.y, rotation: y.rotation, time : y.time})) : x).flat();
-    rpfSel.clear();
-    for (let obj of objs) {
-        rpfP.addObject(obj);
-        rpfSel.add(obj);
+    for (let ref of rpfSel) {
+        if (!(ref.p instanceof RPFPattern)) {
+            continue;
+        }
+        let parent = ref.parent;
+        parent.data.delete(ref);
+        for (let ref2 of ref.p.data) {
+            ref2.parent = parent;
+            parent.add(ref2);
+            rpfSel.add(ref2);
+        }
     }
 });
 
@@ -378,7 +403,7 @@ addHook(rpfActions, 'sel-clear', () => {
 addHook(rpfActions, 'sel-flip-horizontal', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['Bx'];
+        value.applyTransform('Bx');
     }
     rpfP.recomputeSizes();
 });
@@ -386,7 +411,7 @@ addHook(rpfActions, 'sel-flip-horizontal', () => {
 addHook(rpfActions, 'sel-flip-vertical', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['Fx'];
+        value.applyTransform('Fx');
     }
     rpfP.recomputeSizes();
 });
@@ -394,7 +419,7 @@ addHook(rpfActions, 'sel-flip-vertical', () => {
 addHook(rpfActions, 'sel-rotate-left', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['L'];
+        value.applyTransform('L');
     }
     rpfP.recomputeSizes();
 });
@@ -402,7 +427,7 @@ addHook(rpfActions, 'sel-rotate-left', () => {
 addHook(rpfActions, 'sel-rotate-right', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['R'];
+        value.applyTransform('R');
     }
     rpfP.recomputeSizes();
 });
@@ -410,7 +435,7 @@ addHook(rpfActions, 'sel-rotate-right', () => {
 addHook(rpfActions, 'sel-rotate-180', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['B'];
+        value.applyTransform('B');
     }
     rpfP.recomputeSizes();
 });
@@ -418,7 +443,7 @@ addHook(rpfActions, 'sel-rotate-180', () => {
 addHook(rpfActions, 'sel-flip-diagonal', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['Lx'];
+        value.applyTransform('Lx');
     }
     rpfP.recomputeSizes();
 });
@@ -426,7 +451,7 @@ addHook(rpfActions, 'sel-flip-diagonal', () => {
 addHook(rpfActions, 'sel-flip-anti-diagonal', () => {
     pushUndo();
     for (let value of rpfSel) {
-        value.rotation = ROTATION_COMBINE[value.rotation]['Rx'];
+        value.applyTransform('Rx');
     }
     rpfP.recomputeSizes();
 });
@@ -441,7 +466,7 @@ addHook(rpfActions, 'copy', () => {
         q.key = '__copy__';
         q.data = new Set();
         for (let value of rpfSel) {
-            q.data.add({p: value.p, x: value.x, y: value.y, rotation: value.rotation, time: value.time});
+            q.data.add(value.copy(q));
         }
         q.recomputeSizes();
         q.offsetBy(-q.minX, -q.minY);
@@ -496,13 +521,13 @@ addHook(rpfActions, 'end-paste', () => {
         }
     }
     if (q.key === '__copy__') {
-        for (let value of q.data) {
-            value.x += mouseX;
-            value.y += mouseY;
-            toAddTo.addObject(value);
+        for (let ref of q.data) {
+            ref.x += mouseX;
+            ref.y += mouseY;
+            toAddTo.add(ref);
         }
     } else {
-        toAddTo.addObject({p: q, x: mouseX, y: mouseY, rotation: rpfPasting[1], time: 0});
+        toAddTo.add(new RPFReference(toAddTo, q, mouseX, mouseY, rpfPasting[1]));
     }
     rpfPasting = undefined;
 });
