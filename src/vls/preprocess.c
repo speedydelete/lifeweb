@@ -8,7 +8,7 @@
 #include "params2.h"
 #include "base.c"
 #include "implications.c"
-#include "solutions.c"
+#include "output.c"
 
 
 // runs implications
@@ -227,6 +227,7 @@ static inline void preprocess(void) {
         fprintf(stderr, "Error: Preprocessing did not finish\n");
         exit(1);
     }
+    #if METHOD == METHOD_CELL
     // remove trivial cells from search order
     for (index_t i = 0; i < unknown_cells; i++) {
         index_t* cell = search_order[i];
@@ -238,6 +239,7 @@ static inline void preprocess(void) {
             unknown_cells--;
         }
     }
+    #endif
     int trivial = set_cells;
     set_cells = 0;
     if (unknown_cells == 0) {

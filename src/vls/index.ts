@@ -83,7 +83,8 @@ Options:
         also you can use aliases like f2b, b2f, s2s, etc
         the default value is f2b for spaceships and 't, y, x' otherwise
 
-    -i, --initial-value <value>: set the initial tested value for cells
+    -i, --initial-value <value>:
+        set the initial tested value for cells, default 1
 
     -n, --max-solutions: set the maximum solution count, default infinity
     --no-show-solutions: Disable showing solutions at all.
@@ -770,8 +771,9 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
     return cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
 }
 
-let method: 'cell';
+let method: 'cell' | 'path';
 let searchOrder: string | undefined = undefined;
+let initialCell: [number, number, number] | undefined = undefined;
 let methodArg = options['method'];
 if (methodArg === undefined) {
     method = 'cell';
@@ -782,10 +784,18 @@ if (methodArg === undefined) {
         error(`Invalid value for method option (no space character detected): '${methodArg}'`);
     }
     method = methodArg.slice(0, index) as typeof method;
-    if (method !== 'cell') {
-        error(`Invalid value for method option (expected 'cell', got '${method}'): '${methodArg}'`);
+    let data = methodArg.slice(index + 1);
+    if (method === 'cell') {
+        searchOrder = data;
+    } else if (method === 'path') {
+        let nums = data.split(' ').map(Number);
+        if (nums.length !== 3 || nums.some(x => Number.isNaN(x))) {
+            error(`Expected 3 values after 'path': '${methodArg}`);
+        }
+        initialCell = nums as [number, number, number];
+    } else {
+        error(`Invalid value for method option (expected 'cell' or 'path', got '${method}'): '${methodArg}'`);
     }
-    searchOrder = methodArg.slice(index + 1);
 }
 if (searchOrder !== undefined) {
     while (searchOrder in searchOrderAliases) {
@@ -1109,9 +1119,30 @@ for (let line of code.split('\n')) {
     } else if (name === 'RIGHT') {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'METHOD') {
-        value = method;
+        value = `METHOD_${method.toUpperCase()}`;
+    } else if (name === 'INITIAL_CELL_X') {
+        if (initialCell) {
+            value = initialCell[0];
+        } else {
+            comment = true;
+            value = 67;
+        }
+    } else if (name === 'INITIAL_CELL_Y') {
+        if (initialCell) {
+            value = initialCell[1];
+        } else {
+            comment = true;
+            value = 67;
+        }
+    } else if (name === 'INITIAL_CELL_T') {
+        if (initialCell) {
+            value = initialCell[2];
+        } else {
+            comment = true;
+            value = 67;
+        }
     } else if (name === 'INITIAL_VALUE') {
-        value = options['initial-value'] ?? 0;
+        value = options['initial-value'] ?? 1;
     } else if (name === 'LLS') {
         let path = await import('node:path');
         let fs = await import('node:fs/promises');
@@ -1217,7 +1248,6 @@ export async function main() {
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
         let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function -Wno-unknown-pragmas ${options['profile'] ? '-pg -O3' : (options['g'] || options['gdb'] ? '-g -O3' : '-O3')} -march=native -flto -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        console.log(command);
         execSync(command, {stdio: 'inherit'});
         if (options['g'] && !options['gdb']) {
             return;

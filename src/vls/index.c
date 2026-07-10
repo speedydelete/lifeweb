@@ -8,11 +8,13 @@
 
 #include "params2.h"
 #include "base.c"
-#include "solutions.c"
+#include "output.c"
 #include "preprocess.c"
 
 #if METHOD == METHOD_CELL
 #include "search_cell.c"
+#elif METHOD == METHOD_PATH
+#include "search_path.c"
 #else
 #error "Invalid method"
 #endif
@@ -44,7 +46,9 @@ int main(void) {
     #if CUSTOM_INIT
     custom_init();
     #endif
+    #if METHOD == CELL
     cell* initial_cell = add_search_orders();
+    #endif
     DPRINTGRID1();
     #ifdef LLS
     #ifndef RULE

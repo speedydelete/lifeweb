@@ -190,29 +190,6 @@ static inline void init_state(void) {
     #endif
 }
 
-// sets the next_in_search_order fields in all the cells
-// returns the first cell in the search order
-static inline cell* add_search_orders(void) {
-    index_t* coords = search_order[0];
-    index_t t = coords[0];
-    index_t x = coords[1];
-    index_t y = coords[2];
-    cell* prev = &grid[t][y][x];
-    cell* out = prev;
-    for (index_t i = 1; i < unknown_cells; i++) {
-        index_t* coords = search_order[i];
-        index_t t = coords[0];
-        index_t x = coords[1];
-        index_t y = coords[2];
-        // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
-        cell* cell = &grid[t][y][x];
-        prev->next_in_search_order = cell;
-        prev = cell;
-    }
-    prev->next_in_search_order = NULL;
-    return out;
-}
-
 
 bool next_stack_entry_is_first_in_frame = true;
 
