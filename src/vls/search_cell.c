@@ -61,17 +61,23 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         pop_frame();
         int32_t tr = rule_dependent_tr;
         rule_dependent_tr = -1;
-        progress[depth + 1].tr_is_set = true;
-        progress[depth + 1].tr = tr;
+        progress_pos++;
+        progress[progress_pos].tr_is_set = true;
+        progress[progress_pos].tr = tr;
         DPRINTF3("Branching rule on transition %i (aka %s), (depth = %i)\n", tr, bound_trs_names[tr_to_bound_tr[tr]], depth);
-        progress[depth + 1].value = 0;
+        progress[progress_pos].value = 0;
         set_tr(tr, 0);
+        progress_pos++;
         run_depth(depth + 1, cell, value);
-        progress[depth + 1].value = 1;
+        progress_pos--;
+        progress[progress_pos].value = 1;
         set_tr(tr, 1);
+        progress_pos++;
         run_depth(depth + 1, cell, value);
+        progress_pos--;
         set_tr(tr, 3);
-        progress[depth + 1].tr_is_set = false;
+        progress[progress_pos].tr_is_set = false;
+        progress_pos--;
         return;
     #endif
     }
@@ -94,9 +100,9 @@ static void run_depth(int depth, cell* cell
         fprintf(stderr, "\nError: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);
     }
-    if (depth > max_depth || set_cells == unknown_cells) {
+    if (set_cells == unknown_cells) {
         #ifndef BENCHMARK
-        print_solution(false, depth);
+        print_solution(false);
         #endif
         #if DEBUG >= 3
         current_depth--;
@@ -109,14 +115,12 @@ static void run_depth(int depth, cell* cell
     }
     #endif
     DPRINTGRID3();
-    print_state_if_needed(depth);
+    print_state_if_needed();
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE
-        progress[depth].value = -1;
         run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
-        progress[depth] = -1;
         run_depth(depth + 1, cell->next_in_search_order);
         #endif
         #if DEBUG >= 3
@@ -134,11 +138,15 @@ static void run_depth(int depth, cell* cell
         #endif
         {
             #if MULTI_RULE
-            progress[depth].value = value;
+            progress[progress_pos].value = value;
+            progress_pos++;
             actual_run_depth(depth, cell, value);
+            progress_pos--;
             #else
-            progress[depth] = value;
+            progress[progress_pos] = value;
+            progress_pos++;
             actual_run_depth(depth, cell, value);
+            progress_pos--;
             #endif
         }
     #if MULTI_RULE

@@ -143,20 +143,28 @@ int main(void) {
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
+        #if METHOD == METHOD_CELL
         #if MULTI_RULE
-        run_depth(1, initial_cell, -1);
+        run_depth(0, initial_cell, -1);
         #else
-        run_depth(1, initial_cell);
+        run_depth(0, initial_cell);
+        #endif
+        #else
+        run_depth(1);
         #endif
         printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
     double time = get_time() - start;
     printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
     #else
+    #if METHOD == METHOD_CELL
     #if MULTI_RULE
-    run_depth(1, initial_cell, -1);
+    run_depth(0, initial_cell, -1);
     #else
-    run_depth(1, initial_cell);
+    run_depth(0, initial_cell);
+    #endif
+    #else
+    run_depth(1);
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     if (solutions_found == 0) {
@@ -164,7 +172,7 @@ int main(void) {
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
         printf("Max partial (%i known cells):\n", max_partial_set_cells);
-        print_grid_2(max_partial, 0, false);
+        print_grid_2(max_partial, false);
     }
     #endif
     return 0;

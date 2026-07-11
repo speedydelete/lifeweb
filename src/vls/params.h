@@ -135,10 +135,12 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // for path method only
 
-// the initial cell to search
-#define INITIAL_CELL_X 67
-#define INITIAL_CELL_Y 67
-#define INITIAL_CELL_T 67
+// the layer to search
+#define SEARCH_LAYER 67
+
+#define INITIAL_PATH_SIZE 67
+
+const index_t initial_path[INITIAL_PATH_SIZE][3] = {};
 
 #endif
 
@@ -196,8 +198,10 @@ typedef struct cell {
     // this code makes it slower for some reason
     // // the last time it was updated
     // uint64_t last_update;
+    #if METHOD == METHOD_CELL
     // the next cell in the search order
     struct cell* next_in_search_order;
+    #endif
     // the previous cell (in time)
     struct cell* prev;
     // the next cell (in time)

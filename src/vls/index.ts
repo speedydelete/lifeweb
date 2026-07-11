@@ -4,6 +4,7 @@ import {parseExpression} from '@babel/parser';
 
 import {Grid, runScript} from './compiler.js';
 import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
+import {DatabaseSync} from 'node:sqlite';
 
 
 function error(msg: string): never {
@@ -367,25 +368,40 @@ if (mode === 'periodic') {
     }
 
     if (dx !== 0 || dy !== 0) {
+        let mainAxis: string;
+        let sideAxis: string;
+        if (dx < 0) {
+            if (dy < 0) {
+                mainAxis = 'x+y';
+                sideAxis = 'x-y';
+            } else if (dy === 0) {
+                mainAxis = 'x';
+                sideAxis = 'y';
+            } else {
+                mainAxis = 'y-x';
+                sideAxis = 'x+y';
+            }
+        } else if (dx === 0) {
+            if (dy < 0) {
+                mainAxis = 'y';
+                sideAxis = 'x';
+            } else {
+                mainAxis = '-y';
+                sideAxis = 'x';
+            }
+        } else {
+            if (dy < 0) {
+                mainAxis = 'x-y';
+                sideAxis = 'x+y';
+            } else if (dy === 0) {
+                mainAxis = `-x`;
+                sideAxis = 'y';
+            } else {
+                mainAxis = '-x-y';
+                sideAxis = 'x-y';
+            }
+        }
         defaultSearchOrder = 'f2b';
-        let mainAxis = '';
-        let sideAxis = '';
-        if (dx === 0) {
-            mainAxis += '0';
-            sideAxis += 'x';
-        } else {
-            mainAxis += `(${(dy === 0 ? dx < 0 : dy < 0) ? 1 : -1}*x)`;
-            sideAxis += `(${(dy === 0 ? 0 : 1)}*x)`;
-        }
-        mainAxis += '+';
-        sideAxis += '+';
-        if (dx === 0) {
-            mainAxis += `(${dy < 0 ? 1 : -1}*y)`;
-            sideAxis += '0';
-        } else {
-            mainAxis += `(${dy && (dx > 0 ? -1 : 1)}*y)`;
-            sideAxis += `(${dx * dy > 0 ? -1 : 1}*y)`;
-        }
         searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
         searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
         searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
@@ -745,7 +761,7 @@ function searchOrderSort(a: [number, number, number], b: [number, number, number
     return 0;
 }
 
-function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
+function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): [number, number, number][] {
     let cells: [number, number, number][] = [];
     for (let t = 0; t < grid.gens; t++) {
         for (let y = 0; y < grid.height; y++) {
@@ -768,16 +784,32 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
             error(`Syntax error while parsing metric '${metric}': ${e instanceof Error ? e.message : e}`);
         }
     }
-    return cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
+    let out = cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
+    if (!returnOnlyHighest) {
+        return out;
+    }
+    let prevValue = out[0];
+    let out2: [number, number, number][] = [prevValue];
+    for (let value of out.slice(1)) {
+        if (searchOrderSort(prevValue, value, parsedOrder) !== 0) {
+            break;
+        }
+        out2.push(value);
+        prevValue = value;
+    }
+    return out2;
 }
 
 let method: 'cell' | 'path';
 let searchOrder: string | undefined = undefined;
-let initialCell: [number, number, number] | undefined = undefined;
+let initialPath: [number, number, number][] = [];
 let methodArg = options['method'];
 if (methodArg === undefined) {
     method = 'cell';
     searchOrder = defaultSearchOrder;
+    while (searchOrder in searchOrderAliases) {
+        searchOrder = searchOrderAliases[searchOrder];
+    }
 } else {
     let index = methodArg.indexOf(' ');
     if (index === -1) {
@@ -787,19 +819,28 @@ if (methodArg === undefined) {
     let data = methodArg.slice(index + 1);
     if (method === 'cell') {
         searchOrder = data;
-    } else if (method === 'path') {
-        let nums = data.split(' ').map(Number);
-        if (nums.length !== 3 || nums.some(x => Number.isNaN(x))) {
-            error(`Expected 3 values after 'path': '${methodArg}`);
+        while (searchOrder in searchOrderAliases) {
+            searchOrder = searchOrderAliases[searchOrder];
         }
-        initialCell = nums as [number, number, number];
+    } else if (method === 'path') {
+        if (data.match(/^(\d+,* *,*)*\d+$/)) {
+            for (let cell of data.split(',')) {
+                cell = cell.trim();
+                let coords = cell.split(' ').map(Number);
+                if (coords.length !== 3 || coords.some(x => Number.isNaN(x))) {
+                    error(`Invalid cell: '${cell}'`);
+                }
+                initialPath.push(coords as [number, number, number]);
+            }
+        } else {
+            searchOrder = data === '' ? defaultSearchOrder : data;
+            while (searchOrder in searchOrderAliases) {
+                searchOrder = searchOrderAliases[searchOrder];
+            }
+            initialPath = getSearchOrder(grid, searchOrder, true);
+        }
     } else {
         error(`Invalid value for method option (expected 'cell' or 'path', got '${method}'): '${methodArg}'`);
-    }
-}
-if (searchOrder !== undefined) {
-    while (searchOrder in searchOrderAliases) {
-        searchOrder = searchOrderAliases[searchOrder];
     }
 }
 
@@ -1047,7 +1088,14 @@ for (let line of code.split('\n')) {
                 throw new Error('This error should not occur (no search order but cell method is used), please report this error');
             }
             line = line.slice(0, line.indexOf('{'));
-            line += '{' + getSearchOrder(grid, searchOrder).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
+            line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
+        } else {
+            continue;
+        }
+    } else if (line.startsWith('const index_t initial_path[INITIAL_PATH_SIZE][3] = ')) {
+        if (method === 'path') {
+            line = line.slice(0, line.indexOf('{'));
+            line += '{' + initialPath.map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
         } else {
             continue;
         }
@@ -1120,27 +1168,10 @@ for (let line of code.split('\n')) {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
-    } else if (name === 'INITIAL_CELL_X') {
-        if (initialCell) {
-            value = initialCell[0];
-        } else {
-            comment = true;
-            value = 67;
-        }
-    } else if (name === 'INITIAL_CELL_Y') {
-        if (initialCell) {
-            value = initialCell[1];
-        } else {
-            comment = true;
-            value = 67;
-        }
-    } else if (name === 'INITIAL_CELL_T') {
-        if (initialCell) {
-            value = initialCell[2];
-        } else {
-            comment = true;
-            value = 67;
-        }
+    } else if (name === 'SEARCH_LAYER') {
+        value = initialPath[0][2];
+    } else if (name === 'INITIAL_PATH_LENGTH') {
+        value = initialPath.length;
     } else if (name === 'INITIAL_VALUE') {
         value = options['initial-value'] ?? 1;
     } else if (name === 'LLS') {

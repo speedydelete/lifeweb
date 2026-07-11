@@ -8,6 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
+#include "implications.c"
 
 
 uint64_t solutions_found;
@@ -335,7 +336,7 @@ static inline void init_known_solutions(void) {
 }
 
 
-static inline void print_progress(FILE* stream, int depth);
+static inline void print_progress(FILE* stream);
 
 static inline double get_time() {
     return (double)(clock()) / CLOCKS_PER_SEC;
@@ -348,7 +349,7 @@ double start;
 const char* dying_state_chars[254] = {"B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "pA", "pB", "pC", "pD", "pE", "pF", "pG", "pH", "pI", "pJ", "pK", "pL", "pM", "pN", "pO", "pP", "pQ", "pR", "pS", "pT", "pU", "pV", "pW", "pX", "qA", "qB", "qC", "qD", "qE", "qF", "qG", "qH", "qI", "qJ", "qK", "qL", "qM", "qN", "qO", "qP", "qQ", "qR", "qS", "qT", "qU", "qV", "qW", "qX", "rA", "rB", "rC", "rD", "rE", "rF", "rG", "rH", "rI", "rJ", "rK", "rL", "rM", "rN", "rO", "rP", "rQ", "rR", "rS", "rT", "rU", "rV", "rW", "rX", "sA", "sB", "sC", "sD", "sE", "sF", "sG", "sH", "sI", "sJ", "sK", "sL", "sM", "sN", "sO", "sP", "sQ", "sR", "sS", "sT", "sU", "sV", "sW", "sX", "tA", "tB", "tC", "tD", "tE", "tF", "tG", "tH", "tI", "tJ", "tK", "tL", "tM", "tN", "tO", "tP", "tQ", "tR", "tS", "tT", "tU", "tV", "tW", "tX", "uA", "uB", "uC", "uD", "uE", "uF", "uG", "uH", "uI", "uJ", "uK", "uL", "uM", "uN", "uO", "uP", "uQ", "uR", "uS", "uT", "uU", "uV", "uW", "uX", "vA", "vB", "vC", "vD", "vE", "vF", "vG", "vH", "vI", "vJ", "vK", "vL", "vM", "vN", "vO", "vP", "vQ", "vR", "vS", "vT", "vU", "vV", "vW", "vX", "wA", "wB", "wC", "wD", "wE", "wF", "wG", "wH", "wI", "wJ", "wK", "wL", "wM", "wN", "wO", "wP", "wQ", "wR", "wS", "wT", "wU", "wV", "wW", "wX", "xA", "xB", "xC", "xD", "xE", "xF", "xG", "xH", "xI", "xJ", "xK", "xL", "xM", "xN", "xO", "xP", "xQ", "xR", "xS", "xT", "xU", "xV", "xW", "xX", "yA", "yB", "yC", "yD", "yE", "yF", "yG", "yH", "yI", "yJ", "yK", "yL", "yM", "yN", "yO"};
 #endif
 
-static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool is_solution) {
+static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], bool is_solution) {
     char rule[256];
     for (int i = 0; i < 256; i++) {
         rule[i] = 0;
@@ -365,8 +366,7 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
                     fprintf(stderr, "\n");
                     print_grid(stderr);
                     fprintf(stderr, "\nStatus: ");
-                    // print_progress(stderr, depth, 70);
-                    print_progress(stderr, depth);
+                    print_progress(stderr);
                     fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
                     exit(1);
                 } else {
@@ -398,7 +398,7 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], int depth, bool 
     }
 }
 
-static inline void print_solution(bool preprocessing, int depth) {
+static inline void print_solution(bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
     // apply empty pattern filter
@@ -468,7 +468,7 @@ static inline void print_solution(bool preprocessing, int depth) {
     } else {
         printf("Solution found:\n");
     }
-    print_grid_2(grid, depth, true);
+    print_grid_2(grid, true);
     #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found > MAX_SOLUTIONS) {
@@ -478,6 +478,8 @@ static inline void print_solution(bool preprocessing, int depth) {
     #endif
 }
 
+
+int progress_pos = 0;
 
 #if MULTI_RULE
 
@@ -489,21 +491,15 @@ typedef struct progress_entry {
 
 progress_entry progress[TOTAL_MAX_DEPTH];
 
-static inline void print_progress(FILE* stream, int depth) {
-    for (int i = 1; i < depth; i++) {
+static inline void print_progress(FILE* stream) {
+    for (int i = 0; i < progress_pos; i++) {
         if (progress[i].tr_is_set) {
             int tr = progress[i].tr;
             int value = progress[i].value;
             real_fprintf(stream, "[%s=%i]", bound_trs_names[tr_to_bound_tr[tr]], value);
         } else {
             int value = progress[i].value;
-            if (value == -1) {
-                continue;
-            } else if (value == 0) {
-                real_fprintf(stream, "0");
-            } else if (value == 1) {
-                real_fprintf(stream, "1");
-            }
+            real_fprintf(stream, "%c", value == 0 ? '0' : '1');
         }
     }
 }
@@ -512,21 +508,10 @@ static inline void print_progress(FILE* stream, int depth) {
 
 int progress[TOTAL_MAX_DEPTH];
 
-static inline void print_progress(FILE* stream, int depth) {
-    for (int i = 1; i < depth; i++) {
+static inline void print_progress(FILE* stream) {
+    for (int i = 0; i < progress_pos; i++) {
         int value = progress[i];
-        // if (i == depth - 1) {
-        //     real_fprintf(stream, "%i", value);
-        // } else {
-        //     real_fprintf(stream, "%i ", value);
-        // }
-        if (value == -1) {
-            continue;
-        } else if (value == 0) {
-            real_fprintf(stream, "0");
-        } else if (value == 1) {
-            real_fprintf(stream, "1");
-        }
+        real_fprintf(stream, "%c", value == 0 ? '0' : '1');
     }
 }
 
@@ -542,13 +527,13 @@ cell_value_t max_partial_trs[512];
 #endif
 index_t last_printed_max_partial_set_cells;
 
-static inline void print_state_if_needed(int depth) {
+static inline void print_state_if_needed() {
     #ifndef BENCHMARK
     double time = get_time();
     if (time - last_progress_shown > REPORTING_INTERVAL) {
         last_progress_shown = time;
         printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
-        print_progress(stdout, depth);
+        print_progress(stdout);
         real_printf("\n");
     }
     if (set_cells > max_partial_set_cells) {
@@ -567,7 +552,7 @@ static inline void print_state_if_needed(int depth) {
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
         printf("New max partial (%i known cells):\n", max_partial_set_cells);
-        print_grid_2(max_partial, depth, false);
+        print_grid_2(max_partial, false);
         #if MULTI_RULE
         memcpy(trs, temp_trs, sizeof(trs));
         free(temp_trs);
