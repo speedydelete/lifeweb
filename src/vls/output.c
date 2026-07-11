@@ -523,11 +523,11 @@ static inline void print_progress(FILE* stream) {
 double last_progress_shown;
 double last_max_partial_shown;
 cell max_partial[GENS][HEIGHT][WIDTH];
-int max_partial_size;
+int max_partial_size = -1;
 #if MULTI_RULE
 cell_value_t max_partial_trs[512];
 #endif
-int last_printed_max_partial_size;
+int last_printed_max_partial_size = -1;
 
 #if METHOD == METHOD_CELL
 cell* initial_cell;
