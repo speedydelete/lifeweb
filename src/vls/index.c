@@ -171,7 +171,7 @@ int main(void) {
         #if MULTI_RULE
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
-        printf("Max partial (%i known cells):\n", max_partial_size);
+        printf("Max partial (size: %i):\n", max_partial_size);
         print_grid_2(max_partial, false);
     }
     #endif

@@ -545,14 +545,32 @@ static inline void print_state_if_needed() {
     int partial_size;
     for (partial_size = 0; partial_size < TOTAL_SIZE && cell != NULL; partial_size++) {
         if (cell->value == UNKNOWN) {
-            partial_size--;
+            break;
+        }
+        struct cell* prev = cell->prev;
+        if (prev == NULL) {
+            break;
+        }
+        #define null_check(x) ((x) == NULL ? 0 : (x)->value)
+        uint32_t tr = 
+                (null_check(prev->nw) << 16)
+              | (null_check(prev->w) << 14)
+              | (null_check(prev->sw) << 12)
+              | (null_check(prev->n) << 10)
+              | (prev->value << 8)
+              | (null_check(prev->s) << 6)
+              | (null_check(prev->ne) << 4)
+              | (null_check(prev->e) << 2)
+              | (null_check(prev->se) << 0);
+        #undef null_check
+        if (cell->value != big_trs[tr]) {
             break;
         }
         cell = cell->next;
     }
     if (partial_size > max_partial_size) {
         memcpy(max_partial, grid, sizeof(grid));
-        max_partial_size = set_cells;
+        max_partial_size = partial_size;
         #if MULTI_RULE
         memcpy(max_partial_trs, trs, sizeof(trs));
         #endif
@@ -566,7 +584,7 @@ static inline void print_state_if_needed() {
         memcpy(temp_trs, trs, sizeof(trs));
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
-        printf("New max partial (%i known cells):\n", max_partial_size);
+        printf("New max partial (size: %i):\n", max_partial_size);
         print_grid_2(max_partial, false);
         #if MULTI_RULE
         memcpy(trs, temp_trs, sizeof(trs));
