@@ -385,7 +385,7 @@ cell_value_t prev_values[MAX_VAR_USES];
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
 static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
-    DPRINTF3("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
+    DPRINTF4("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     DPRINTGRID4();
     if (cell->value != UNKNOWN) {
         #if DEBUG >= 4

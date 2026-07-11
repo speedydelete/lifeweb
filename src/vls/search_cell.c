@@ -100,7 +100,7 @@ static void run_depth(int depth, cell* cell
         fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);
     }
-    if (set_cells == unknown_cells) {
+    if (set_cells >= unknown_cells) {
         #ifndef BENCHMARK
         print_solution(false);
         #endif
@@ -134,12 +134,7 @@ static void run_depth(int depth, cell* cell
     #if MULTI_RULE
     if (force_value == -1) {
     #endif
-        #if INITIAL_VALUE == 0
-        for (int value = 0; value < 2; value++)
-        #else
-        for (int value = 1; value >= 0; value--)
-        #endif
-        {
+        INITIAL_VALUE_LOOP {
             #if MULTI_RULE
             progress[progress_pos].value = value;
             progress_pos++;

@@ -149,7 +149,7 @@ const OPTIONS = {
     'file': 'string',
     'rulespace': new Set(['int', 'ot'] as const),
     'method': 'string',
-    'initial-value': 'number',
+    'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
     'max-solutions': 'number',
     'no-show-solutions': true,
     'pattern': [true, 'string'],
@@ -1180,8 +1180,10 @@ for (let line of code.split('\n')) {
         value = method === 'path' ? initialPath[0][0] : 67;
     } else if (name === 'INITIAL_PATH_LENGTH') {
         value = initialPath.length;
+    // } else if (name === 'SKIP_STATOR_VARIANTS') {
+    //     value = mode === 'catalyst';
     } else if (name === 'INITIAL_VALUE') {
-        value = options['initial-value'] ?? 1;
+        value = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
     } else if (name === 'LLS') {
         let path = await import('node:path');
         let fs = await import('node:fs/promises');

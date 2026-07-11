@@ -14,6 +14,9 @@
 #include "output.c"
 
 
+// pls work
+#define MAX_PATH_LENGTH (2 * (HEIGHT + WIDTH + 1))
+
 typedef struct path_implic {
     index_t index;
     cell_value_t value;
@@ -22,14 +25,14 @@ typedef struct path_implic {
 typedef struct path_cell {
     cell* cell;
     cell_value_t value;
-    path_implic implics[2][SIZE];
+    path_implic implics[2][MAX_PATH_LENGTH];
     int implics_count[2];
 } path_cell;
 
 typedef struct path {
     int length;
-    path_cell cells[SIZE];
-    int current[SIZE];
+    path_cell cells[MAX_PATH_LENGTH];
+    int current[MAX_PATH_LENGTH];
     // bool run_before;
     // int prev_run[SIZE];
 } path;
@@ -77,6 +80,11 @@ static inline bool get_path(path* path, bool is_initial) {
                 path->length++;
             }
         }
+    }
+    // seriously
+    if (path->length == 0) {
+        print_solution(false);
+        return false;
     }
     // get the implications
     for (int i = 0; i < path->length; i++) {
@@ -237,12 +245,7 @@ static void solve_path(int depth, path* path, int index) {
     }
     path_cell* cell = &path->cells[index];
     int* prev = malloc(path->length * sizeof(int));
-    #if INITIAL_VALUE == 0
-    for (int value = 0; value < 2; value++)
-    #else
-    for (int value = 1; value >= 0; value--)
-    #endif
-    {
+    INITIAL_VALUE_LOOP {
         memcpy(prev, path->current, path->length * sizeof(int));
         path->current[index] = value;
         bool contradiction = false;
@@ -332,7 +335,7 @@ static void run_depth(int depth) {
         fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);
     }
-    if (set_cells == unknown_cells) {
+    if (set_cells >= unknown_cells) {
         #ifndef BENCHMARK
         print_solution(false);
         #endif

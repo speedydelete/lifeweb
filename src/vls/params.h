@@ -170,9 +170,18 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 // format is {t, x, y}
 const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 
+// // whether to check for and skip stator variants
+// #define SKIP_STATOR_VARIANTS false
+
 #endif
 
 // initial value for unknown cells
+#define IV_0 0
+#define IV_1 1
+#define IV_SAME_0 2
+#define IV_SAME_1 3
+#define IV_DIFFERENT_0 4
+#define IV_DIFFERENT_1 5
 #define INITIAL_VALUE 0
 
 // whether to use LLS instead

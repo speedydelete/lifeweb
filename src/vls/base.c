@@ -236,8 +236,12 @@ static inline void pop_frame(void) {
             phase_pops[cell->t]--;
         }
         #endif
+        if (value == UNKNOWN) {
+            set_cells--;
+        } else if (cell->value == UNKNOWN && value != UNKNOWN) {
+            set_cells++;
+        }
         cell->value = value;
-        set_cells--;
         sp--;
         if (stack[sp].is_first_in_frame) {
             break;
@@ -481,4 +485,28 @@ static inline void init_var_uses(void) {
     }
 }
 
+#endif
+
+
+#if INITIAL_VALUE != IV_0 && INITIAL_VALUE != IV_1
+int get_same_for_iv(cell* cell_to_use) {
+    cell* cell = &grid[0][cell_to_use->y][cell_to_use->x];
+    for (int i = 0; i < GENS; i++) {
+        if (cell->value != UNKNOWN) {
+            return cell->value;
+        }
+        cell = cell->next;
+    }
+    return (INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_DIFFERENT_1) ? 0 : 1;
+}
+#endif
+
+#if INITIAL_VALUE == IV_0
+#define INITIAL_VALUE_LOOP for (int value = 0; value < 2; value++)
+#elif INITIAL_VALUE == IV_1
+#define INITIAL_VALUE_LOOP for (int value = 1; value >= 0; value--)
+#elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
+#define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
+#elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
+#define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell) == 0 ? 1 : 0; for (int i = 0; i < 2; i++, value = (value + 1) % 2)
 #endif
