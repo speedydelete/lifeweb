@@ -8,7 +8,9 @@
 
 #include "params2.h"
 #include "base.c"
+#ifndef BENCHMARK
 #include "implications.c"
+#endif
 
 
 uint64_t solutions_found;

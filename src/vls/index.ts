@@ -81,8 +81,8 @@ Options:
         later metrics are tiebreakers for earlier metrics
         metrics are normal mathematical expressions
         use variables "x", "y", and "t" for x, y, and time respectively
-        also you can use aliases like f2b, b2f, s2s, etc
-        the default value is f2b for spaceships and 't, y, x' otherwise
+        also you can use aliases like (reverse-)(gfind-)(f2b|b2f|s2s)a
+        the default value is gfind-f2b for spaceships and 't, y, x' otherwise
 
     -i, --initial-value <value>:
         set the initial tested value for cells, default 1
@@ -401,16 +401,19 @@ if (mode === 'periodic') {
                 sideAxis = 'x-y';
             }
         }
-        defaultSearchOrder = 'f2b';
-        searchOrderAliases['f2b'] = `t, ${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['b2f'] = `t, -${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['s2s'] = `t, ${sideAxis}, ${mainAxis}`;
-        searchOrderAliases['gfind-f2b'] = `-t, ${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['gfind-b2f'] = `-t, -${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['gfind-s2s'] = `-t, ${sideAxis}, ${mainAxis}`;
-        searchOrderAliases['reverse-gfind-f2b'] = `t, ${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['reverse-gfind-b2f'] = `t, -${mainAxis}, ${sideAxis}`;
-        searchOrderAliases['reverse-gfind-s2s'] = `t, ${sideAxis}, ${mainAxis}`;
+        defaultSearchOrder = 'gfind-f2b';
+        searchOrderAliases['f2b'] = `t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['b2f'] = `t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['s2s'] = `t, (x*${dy} + y*${dx})`;
+        searchOrderAliases['reverse-f2b'] = `-t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['reverse-b2f'] = `-t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['reverse-s2s'] = `-t, (x*${dy} + y*${dx})`;
+        searchOrderAliases['gfind-f2b'] = `-(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['gfind-b2f'] = `(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['gfind-s2s'] = `(x*${dy} + y*${dx}), -t`;
+        searchOrderAliases['reverse-gfind-f2b'] = `-(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['reverse-gfind-b2f'] = `(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['reverse-gfind-s2s'] = `(x*${dy} + y*${dx}), t`;
     }
 
     // grid = new Grid(height, width, period + 1);
@@ -1169,7 +1172,7 @@ for (let line of code.split('\n')) {
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
     } else if (name === 'SEARCH_LAYER') {
-        value = initialPath[0][2];
+        value = method === 'path' ? initialPath[0][2] : 67;
     } else if (name === 'INITIAL_PATH_LENGTH') {
         value = initialPath.length;
     } else if (name === 'INITIAL_VALUE') {
