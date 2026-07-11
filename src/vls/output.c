@@ -521,11 +521,15 @@ static inline void print_progress(FILE* stream) {
 double last_progress_shown;
 double last_max_partial_shown;
 cell max_partial[GENS][HEIGHT][WIDTH];
-index_t max_partial_set_cells;
+int max_partial_size;
 #if MULTI_RULE
 cell_value_t max_partial_trs[512];
 #endif
-index_t last_printed_max_partial_set_cells;
+int last_printed_max_partial_size;
+
+#if METHOD == METHOD_CELL
+cell* initial_cell;
+#endif
 
 static inline void print_state_if_needed() {
     #ifndef BENCHMARK
@@ -536,22 +540,33 @@ static inline void print_state_if_needed() {
         print_progress(stdout);
         real_printf("\n");
     }
-    if (set_cells > max_partial_set_cells) {
+    #if METHOD == METHOD_CELL
+    cell* cell = initial_cell;
+    int partial_size;
+    for (partial_size = 0; partial_size < TOTAL_SIZE && cell != NULL; partial_size++) {
+        if (cell->value == UNKNOWN) {
+            partial_size--;
+            break;
+        }
+        cell = cell->next;
+    }
+    if (partial_size > max_partial_size) {
         memcpy(max_partial, grid, sizeof(grid));
-        max_partial_set_cells = set_cells;
+        max_partial_size = set_cells;
         #if MULTI_RULE
         memcpy(max_partial_trs, trs, sizeof(trs));
         #endif
     }
-    if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_set_cells > last_printed_max_partial_set_cells) {
+    #endif
+    if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
         last_max_partial_shown = time;
-        last_printed_max_partial_set_cells = max_partial_set_cells;
+        last_printed_max_partial_size = max_partial_size;
         #if MULTI_RULE
         cell_value_t* temp_trs = malloc(sizeof(trs));
         memcpy(temp_trs, trs, sizeof(trs));
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
-        printf("New max partial (%i known cells):\n", max_partial_set_cells);
+        printf("New max partial (%i known cells):\n", max_partial_size);
         print_grid_2(max_partial, false);
         #if MULTI_RULE
         memcpy(trs, temp_trs, sizeof(trs));

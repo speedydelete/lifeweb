@@ -16,7 +16,7 @@
 
 // sets the next_in_search_order fields in all the cells
 // returns the first cell in the search order
-static inline cell* add_search_orders(void) {
+static inline void add_search_orders(void) {
     index_t* coords = search_order[0];
     index_t t = coords[0];
     index_t x = coords[1];
@@ -34,7 +34,7 @@ static inline cell* add_search_orders(void) {
         prev = cell;
     }
     prev->next_in_search_order = NULL;
-    return out;
+    initial_cell = out;
 }
 
 
