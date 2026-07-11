@@ -566,7 +566,7 @@ static inline void print_state_if_needed() {
         if (cell->value != big_trs[tr]) {
             break;
         }
-        cell = cell->next;
+        cell = cell->next_in_search_order;
     }
     if (partial_size > max_partial_size) {
         memcpy(max_partial, grid, sizeof(grid));
