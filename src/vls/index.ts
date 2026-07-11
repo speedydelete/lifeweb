@@ -1180,8 +1180,8 @@ for (let line of code.split('\n')) {
         value = method === 'path' ? initialPath[0][0] : 67;
     } else if (name === 'INITIAL_PATH_LENGTH') {
         value = initialPath.length;
-    // } else if (name === 'SKIP_STATOR_VARIANTS') {
-    //     value = mode === 'catalyst';
+    } else if (name === 'SKIP_STATOR_VARIANTS') {
+        value = mode === 'catalyst';
     } else if (name === 'INITIAL_VALUE') {
         value = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
     } else if (name === 'LLS') {

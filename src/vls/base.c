@@ -502,9 +502,9 @@ int get_same_for_iv(cell* cell_to_use) {
 #endif
 
 #if INITIAL_VALUE == IV_0
-#define INITIAL_VALUE_LOOP for (int value = 0; value < 2; value++)
+#define INITIAL_VALUE_LOOP for (int value = 0, i = 0; value < 2; value++, i++)
 #elif INITIAL_VALUE == IV_1
-#define INITIAL_VALUE_LOOP for (int value = 1; value >= 0; value--)
+#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; value >= 0; value--, i++)
 #elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
 #define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
 #elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1

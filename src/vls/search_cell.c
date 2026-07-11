@@ -38,23 +38,26 @@ static inline void add_search_orders(void) {
 }
 
 
-static void run_depth(int depth, cell* cell
+// returns number of iterations to backjump
+static int run_depth(int depth, cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
     );
 
-static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
+// returns number of iterations to backjump
+static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 6
     print_stack();
     #endif
+    int out = 0;
     if (set_cell_and_propagate(cell, value)) {
         #if MULTI_RULE
-        run_depth(depth + 1, cell->next_in_search_order, -1);
+        out = run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
-        run_depth(depth + 1, cell->next_in_search_order);
+        out = run_depth(depth + 1, cell->next_in_search_order);
         #endif
     #if MULTI_RULE
     } else if (rule_dependent_tr != -1) {
@@ -78,13 +81,14 @@ static inline void actual_run_depth(int depth, cell* cell, cell_value_t value) {
         set_tr(tr, 3);
         progress[progress_pos].tr_is_set = false;
         progress_pos--;
-        return;
     #endif
     }
     pop_frame();
+    return out;
 }
 
-static void run_depth(int depth, cell* cell
+// returns number of iterations to backjump
+static int run_depth(int depth, cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
@@ -107,14 +111,14 @@ static void run_depth(int depth, cell* cell
         #if DEBUG >= 3
         debug_depth--;
         #endif
-        return;
+        return 0;
     }
     #if CUSTOM_PRUNING
     if (!custom_prune()) {
         #if DEBUG >= 3
         debug_depth--;
         #endif
-        return;
+        return 0;
     }
     #endif
     DPRINTGRID3();
@@ -122,14 +126,14 @@ static void run_depth(int depth, cell* cell
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE
-        run_depth(depth + 1, cell->next_in_search_order, -1);
+        int out = run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
-        run_depth(depth + 1, cell->next_in_search_order);
+        int out = run_depth(depth + 1, cell->next_in_search_order);
         #endif
         #if DEBUG >= 3
         debug_depth--;
         #endif
-        return;
+        return out == 0 ? 0 : out - 1;
     }
     #if MULTI_RULE
     if (force_value == -1) {
@@ -141,10 +145,13 @@ static void run_depth(int depth, cell* cell
             actual_run_depth(depth, cell, value);
             progress_pos--;
             #else
-            progress[progress_pos] = value;
+            progress[progress_pos] = i;
             progress_pos++;
-            actual_run_depth(depth, cell, value);
+            int out = actual_run_depth(depth, cell, value);
             progress_pos--;
+            if (out != 0) {
+                return out - 1;
+            }
             #endif
         }
     #if MULTI_RULE
@@ -155,6 +162,7 @@ static void run_depth(int depth, cell* cell
     #if DEBUG >= 3
     debug_depth--;
     #endif
+    return 0;
 }
 
 

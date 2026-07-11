@@ -170,10 +170,10 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 // format is {t, x, y}
 const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 
-// // whether to check for and skip stator variants
-// #define SKIP_STATOR_VARIANTS false
-
 #endif
+
+// whether to check for and skip stator variants
+#define SKIP_STATOR_VARIANTS false
 
 // initial value for unknown cells
 #define IV_0 0
