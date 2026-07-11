@@ -4,7 +4,6 @@ import {parseExpression} from '@babel/parser';
 
 import {Grid, runScript} from './compiler.js';
 import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
-import {DatabaseSync} from 'node:sqlite';
 
 
 function error(msg: string): never {
@@ -313,8 +312,8 @@ if (options['help']) {
 }
 
 
-if (posArgs.length === 0) {
-    error(`Expected at least 2 positional arguments`);
+if (posArgs.length < 2) {
+    error(`Expected at least 2 positional arguments (got ${posArgs.length})`);
 }
 
 const MODES = ['periodic', 'parent', 'file', 'catalyst', 'script'];
@@ -355,7 +354,7 @@ let timeWrap: false | [number, number] = false;
 if (mode === 'periodic') {
 
     if (posArgs.length !== 3) {
-        error(`Expected 3 positional arguments for periodic mode`);
+        error(`Expected 3 positional arguments for periodic mode (got ${posArgs.length})`);
     }
     let {dx, dy, period} = parseSpeed(posArgs[0]);
     let height = parseInt(posArgs[1]);
@@ -457,7 +456,7 @@ if (mode === 'periodic') {
 } else if (mode === 'parent') {
 
     if (posArgs.length !== 1) {
-        error(`Expected 1 positional argument for parent mode`);
+        error(`Expected 1 positional argument for parent mode (got ${posArgs.length})`);
     }
     let p = base.loadRLE(posArgs[0]).shrinkToFit();
     let height = p.height + 2;
@@ -491,7 +490,7 @@ if (mode === 'periodic') {
 } else if (mode === 'file') {
 
     if (posArgs.length !== 1) {
-        error(`Expected 1 positional argument for parent mode`);
+        error(`Expected 1 positional argument for file mode (got ${posArgs.length})`);
     }
     let fs = await import('node:fs/promises');
     let file = (await fs.readFile(posArgs[0])).toString();
@@ -547,7 +546,7 @@ if (mode === 'periodic') {
 } else if (mode === 'catalyst') {
 
     if (posArgs.length === 0 || posArgs.length > 4) {
-        error(`Expected 1 to 4 positional arguments for catalyst mode`);
+        error(`Expected 1 to 4 positional arguments for catalyst mode (got ${posArgs.length})`);
     }
     let startP = superBase.loadRLE(posArgs[0]);
     startP.data = startP.data.map(x => x === 6 ? 0 : x);
@@ -641,7 +640,7 @@ if (mode === 'periodic') {
 } else if (mode === 'script') {
 
     if (posArgs.length !== 1) {
-        error(`Expected 1 positional argument for script mode`);
+        error(`Expected 1 positional argument for script mode (got ${posArgs.length})`);
     }
     let fs = await import('node:fs/promises');
     grid = runScript((await fs.readFile(posArgs[0])).toString());
@@ -814,18 +813,24 @@ if (methodArg === undefined) {
         searchOrder = searchOrderAliases[searchOrder];
     }
 } else {
+    let data: string;
     let index = methodArg.indexOf(' ');
     if (index === -1) {
-        error(`Invalid value for method option (no space character detected): '${methodArg}'`);
+        method = methodArg as typeof method;
+        data = '';
+    } else {
+        method = methodArg.slice(0, index) as typeof method;
+        data = methodArg.slice(index + 1);
     }
-    method = methodArg.slice(0, index) as typeof method;
-    let data = methodArg.slice(index + 1);
     if (method === 'cell') {
-        searchOrder = data;
+        searchOrder = data === '' ? defaultSearchOrder : data;
         while (searchOrder in searchOrderAliases) {
             searchOrder = searchOrderAliases[searchOrder];
         }
     } else if (method === 'path') {
+        if (defaultSearchOrder === 'gfind-f2b') {
+            defaultSearchOrder = 'f2b';
+        }
         if (data.match(/^(\d+,* *,*)*\d+$/)) {
             for (let cell of data.split(',')) {
                 cell = cell.trim();
@@ -1095,7 +1100,7 @@ for (let line of code.split('\n')) {
         } else {
             continue;
         }
-    } else if (line.startsWith('const index_t initial_path[INITIAL_PATH_SIZE][3] = ')) {
+    } else if (line.startsWith('const index_t initial_path[INITIAL_PATH_LENGTH][3] = ')) {
         if (method === 'path') {
             line = line.slice(0, line.indexOf('{'));
             line += '{' + initialPath.map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
@@ -1171,8 +1176,8 @@ for (let line of code.split('\n')) {
         value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
-    } else if (name === 'SEARCH_LAYER') {
-        value = method === 'path' ? initialPath[0][2] : 67;
+    } else if (name === 'SEARCH_T') {
+        value = method === 'path' ? initialPath[0][0] : 67;
     } else if (name === 'INITIAL_PATH_LENGTH') {
         value = initialPath.length;
     } else if (name === 'INITIAL_VALUE') {
@@ -1281,7 +1286,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function -Wno-unknown-pragmas ${options['profile'] ? '-pg -O3' : (options['g'] || options['gdb'] ? '-g -O3' : '-O3')} -march=native -flto -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        let command = `gcc --std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function -Wno-unknown-pragmas ${options['profile'] ? '-pg -O3' : (options['g'] || options['gdb'] ? '-g -O0' : '-O3')} -march=native -flto -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         execSync(command, {stdio: 'inherit'});
         if (options['g'] && !options['gdb']) {
             return;

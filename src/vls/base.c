@@ -89,26 +89,26 @@
 #define real_printf (printf)
 #define real_fprintf (fprintf)
 #if DEBUG >= 3
-#define INDENT ("    ")
-int current_depth = 0;
+#define INDENT ("  ")
+int debug_depth = 0;
 #define DPRINTLINEPADDING() { \
-    for (int i = 0; i < current_depth; i++) { \
+    for (int i = 0; i < debug_depth; i++) { \
         real_printf(INDENT); \
     } \
 }
 #define DFPRINTLINEPADDING(stream) { \
-    for (int i = 0; i < current_depth; i++) { \
+    for (int i = 0; i < debug_depth; i++) { \
         real_fprintf(stream, INDENT); \
     } \
 }
 #define printf(...) { \
-    for (int i = 0; i < current_depth; i++) { \
+    for (int i = 0; i < debug_depth; i++) { \
         real_printf(INDENT); \
     } \
     real_printf(__VA_ARGS__); \
 }
 #define fprintf(stream, ...) { \
-    for (int i = 0; i < current_depth; i++) { \
+    for (int i = 0; i < debug_depth; i++) { \
         real_fprintf(stream, INDENT); \
     } \
     real_fprintf(stream, __VA_ARGS__); \

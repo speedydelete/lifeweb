@@ -166,7 +166,7 @@ static inline void preprocess_cases(void) {
                             if (new_cell.value != UNKNOWN) {
                                 // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
-                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
+                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - LEFT_OFFSET, y - TOP_OFFSET);
                                 }
                             } else {
                                 // no point setting a known cell to an unknown cell
@@ -227,8 +227,8 @@ static inline void preprocess(void) {
         fprintf(stderr, "Error: Preprocessing did not finish\n");
         exit(1);
     }
+    // remove trivial cells
     #if METHOD == METHOD_CELL
-    // remove trivial cells from search order
     for (index_t i = 0; i < unknown_cells; i++) {
         index_t* cell = search_order[i];
         if (grid[cell[0]][cell[2]][cell[1]].value != UNKNOWN) {
@@ -239,6 +239,8 @@ static inline void preprocess(void) {
             unknown_cells--;
         }
     }
+    #elif METHOD == METHOD_PATH
+    unknown_cells -= set_cells;
     #endif
     int trivial = set_cells;
     set_cells = 0;

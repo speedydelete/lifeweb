@@ -8,7 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
-#ifndef BENCHMARK
+#if METHOD == METHOD_CELL
 #include "implications.c"
 #endif
 
@@ -192,7 +192,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
     index_t zero_fake_t = (-offset + GENS) % GENS;
     index_t t = (zero_fake_t + offset) % GENS;
     if (t != 0) {
-        fprintf(stderr, "\nError: This error should not occur (in duplicate solution detection, t = %i, nonzero, zero_fake_t = %i)\nPlease report this error\n", t, zero_fake_t);
+        fprintf(stderr, "Error: This error should not occur (in duplicate solution detection, t = %i, nonzero, zero_fake_t = %i)\nPlease report this error\n", t, zero_fake_t);
         exit(1);
     }
     bb_t bb;
@@ -359,7 +359,7 @@ static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], bool is_solution
     get_rule(rule);
     printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
     int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
-    for (int y = (TOP == NONE ? 2 : 1); y < last_y; y++) {
+    for (int y = TOP_OFFSET; y < last_y; y++) {
         DPRINTLINEPADDING();
         for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
             cell_value_t value = grid[0][y][x].value;

@@ -464,7 +464,7 @@ static inline void init_tr_to_bound_tr() {
             }
         }
         if (!found) {
-            fprintf(stderr, "\nError: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
+            fprintf(stderr, "Error: This error should not occur (nonexistent transition in init_multi_rule: %i)\nPlease report this error\n", tr);
             exit(1);
         }
     }

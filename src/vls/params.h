@@ -114,6 +114,32 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 #define LEFT NONE
 #define RIGHT NONE
 
+// don't change this
+
+#if TOP == NONE
+#define TOP_OFFSET 2
+#else
+#define TOP_OFFSET 1
+#endif
+
+#if BOTTOM == NONE
+#define BOTTOM_OFFSET 2
+#else
+#define BOTTOM_OFFSET 1
+#endif
+
+#if LEFT == NONE
+#define LEFT_OFFSET 2
+#else
+#define LEFT_OFFSET 1
+#endif
+
+#if RIGHT == NONE
+#define RIGHT_OFFSET 2
+#else
+#define RIGHT_OFFSET 1
+#endif
+
 
 // search method parameters
 
@@ -136,11 +162,13 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 // for path method only
 
 // the layer to search
-#define SEARCH_LAYER 67
+#define SEARCH_T 67
 
-#define INITIAL_PATH_SIZE 67
-
-const index_t initial_path[INITIAL_PATH_SIZE][3] = {};
+// the length of the starting path
+#define INITIAL_PATH_LENGTH 67
+// the starting path
+// format is {t, x, y}
+const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 
 #endif
 

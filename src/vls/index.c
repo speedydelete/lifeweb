@@ -121,7 +121,7 @@ int main(void) {
     #endif
     #endif
     printf("Running search\n");
-    #if DEBUG >= 2
+    #if DEBUG >= 2 && METHOD == METHOD_CELL
     printf("Search order:\n");
     for (index_t i = 0; i < unknown_cells; i++) {
         int t = search_order[i][0];
@@ -150,7 +150,7 @@ int main(void) {
         run_depth(0, initial_cell);
         #endif
         #else
-        run_depth(1);
+        run_depth(0);
         #endif
         printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
@@ -164,7 +164,7 @@ int main(void) {
     run_depth(0, initial_cell);
     #endif
     #else
-    run_depth(1);
+    run_depth(0);
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     if (solutions_found == 0) {

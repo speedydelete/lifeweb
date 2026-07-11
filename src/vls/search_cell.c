@@ -90,14 +90,14 @@ static void run_depth(int depth, cell* cell
     #endif
     ) {
     #if DEBUG >= 3
-    current_depth++;
+    debug_depth++;
     printf("Running depth %i: ", depth);
-    print_progress(stdout, depth);
+    print_progress(stdout);
     real_printf("\n");
     #endif
     branches++;
     if (depth > max_depth) {
-        fprintf(stderr, "\nError: This error should not occur (infinite recursion detected)\nPlease report this error\n");
+        fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);
     }
     if (set_cells == unknown_cells) {
@@ -105,12 +105,15 @@ static void run_depth(int depth, cell* cell
         print_solution(false);
         #endif
         #if DEBUG >= 3
-        current_depth--;
+        debug_depth--;
         #endif
         return;
     }
     #if CUSTOM_PRUNING
     if (!custom_prune()) {
+        #if DEBUG >= 3
+        debug_depth--;
+        #endif
         return;
     }
     #endif
@@ -124,7 +127,7 @@ static void run_depth(int depth, cell* cell
         run_depth(depth + 1, cell->next_in_search_order);
         #endif
         #if DEBUG >= 3
-        current_depth--;
+        debug_depth--;
         #endif
         return;
     }
@@ -155,7 +158,7 @@ static void run_depth(int depth, cell* cell
     }
     #endif
     #if DEBUG >= 3
-    current_depth--;
+    debug_depth--;
     #endif
 }
 
