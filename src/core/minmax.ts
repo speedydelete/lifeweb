@@ -46,8 +46,12 @@ function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): bo
 /** Finds minimum and maximum rules for patterns in non-B0 isotropic rules
  * @param allTrs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
  */
-function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number, spec: INTSpec): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
-    let [b, s] = arrayToTransitions(p.trs, spec);
+function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+    let value = arrayToTransitions(p.trs, spec);
+    if (!value) {
+        return false;
+    }
+    let [b, s] = value;
     let minB = new Set(b);
     let minS = new Set(s);
     let maxB = new Set(b);
@@ -101,8 +105,12 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
 /** Finds minimum and maximum rules for patterns in B0 isotropic rules
  * @param allTrs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
  */
-function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number, spec: INTSpec): {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
-    let [b, s] = arrayToTransitions(p.evenTrs.map(x => 1 - x), spec);
+function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+    let value = arrayToTransitions(p.evenTrs.map(x => 1 - x), spec);
+    if (!value) {
+        return false;
+    }
+    let [b, s] = value;
     b.push('0c');
     let minB = new Set(b);
     let minS = new Set(s);
@@ -233,6 +241,19 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData
         out = isotropicMinmax(p, data, gens, step, spec);
     } else {
         out = isotropicB0Minmax(p, data, gens, step, spec);
+    }
+    if (!out) {
+        let min: string, max: string;
+        if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
+            [min, max] = mapStringMinmax(p, data, gens, step);
+        } else {
+            [min, max] = mapB0StringMinmax(p, data, gens, step);
+        }
+        if (p instanceof MAPGenPattern) {
+            min += '/' + p.rule.states;
+            max += '/' + p.rule.states;
+        }
+        return [min, max];
     }
     let minB = unparseTransitions(out.minB, spec);
     let minS = unparseTransitions(out.minS, spec);

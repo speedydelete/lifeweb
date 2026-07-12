@@ -3,7 +3,7 @@
 
 import {LifewebError, RuleError, lcm} from './util.js';
 import {RuleSymmetry, SYMMETRY_MEET, Rule, Pattern, IdentityPattern} from './pattern.js';
-import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
+import {unparseMAPRuleFull, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {HistoryPattern, SuperPattern, InvestigatorPattern} from './super.js';
 import {FinitePattern, TorusPattern} from './bounded.js';
@@ -410,26 +410,7 @@ export function getBlackWhiteReversal(rule: string): string {
         } else {
             trs = p.evenTrs.reverse();
         }
-        if (p.rule.symmetry === 'D8') {
-            let bStr: string;
-            let sStr: string;
-            if (rule.endsWith('H')) {
-                let [bTrs, sTrs] = arrayToTransitions(trs, HEX_INT);
-                bStr = unparseTransitions(bTrs, HEX_INT);
-                sStr = unparseTransitions(sTrs, HEX_INT);
-            } else {
-                let [bTrs, sTrs] = arrayToTransitions(trs, INT);
-                bStr = unparseTransitions(bTrs, INT);
-                sStr = unparseTransitions(sTrs, INT);
-            }
-            if (p instanceof MAPGenPattern) {
-                return `${sStr}/${bStr}/${p.rule.states}`;
-            } else {
-                return `B${bStr}/S${sStr}`;
-            }
-        } else {
-            return unparseMAP(trs, p.rule.states);
-        }
+        return unparseMAPRuleFull(trs, p.rule.states);
     } else if (p instanceof HROTPattern || p instanceof HROTB0Pattern) {
         let b: Uint8Array;
         let s: Uint8Array;
