@@ -526,11 +526,11 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
         for (let i = 0; i < 32; i++) {
             typeTrs[i] = trs[((i & 0b10000) << 3) | ((i & 0b1110) << 2) | ((i & 0b1) << 1)];
         }
-    } else if (!nh.includes('-1,1') && !nh.includes('1,-1')) {
+    } else if (!nh.includes('-1,-1') && !nh.includes('1,1')) {
         // hexagonal
         typeTrs = new Uint8Array(128);
         for (let i = 0; i < 128; i++) {
-            typeTrs[i] = trs[((i & 0b1100000) << 2) | ((i & 0b11100) << 1) | ((i & 0b11) << 0)];
+            typeTrs[i] = trs[((i & 0b1100_000) << 2) | ((i & 0b11100) << 1) | ((i & 0b11) << 0)];
         }
     } else {
         // normal
@@ -706,7 +706,6 @@ export function unparseMAPRuleFull(trs: Uint8Array, states: number): string {
     for (let nhLetter of ['M', 'H'] as const) {
         let spec = INT_SPECS[nhLetter];
         let value = arrayToTransitions(trs, spec);
-        console.log(value);
         if (!value) {
             continue;
         }

@@ -478,3 +478,5 @@ export function getBlackWhiteReversal(rule: string): string {
 // console.log(p.toRLE());
 // p.runGeneration();
 // console.log(p.toRLE());
+
+console.log(createPattern('MAPFgBoAGgAgABoAIAAgAAAAA').rule.str);
