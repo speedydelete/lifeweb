@@ -11,7 +11,7 @@ export let path: (typeof import('node:path'))['posix'];
     (globalThis as any).path = path;
 })();
 
-import {LifewebError, Rect, Rule, Pattern, MAPPattern, speedToString, createPattern} from '../core/index.js';
+import {LifewebError, Rect, Rule, Pattern, IdentityPattern, speedToString, createPattern} from '../core/index.js';
 
 
 export class RPFError extends LifewebError {
@@ -260,8 +260,6 @@ export class RPFReference<T extends Pattern = Pattern> extends PartialRPFReferen
 }
 
 
-let envelopeBase = createPattern('B3/S23') as MAPPattern;
-
 export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     base: T;
@@ -295,7 +293,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     envelope?: {
         x: number;
         y: number;
-        p: MAPPattern;
+        p: IdentityPattern;
     } = undefined;
 
     constructor(base: T, key: string, path: string) {
@@ -431,7 +429,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                 } else if (parts[0] === '#envelope') {
                     let x = Number(parts[1]);
                     let y = Number(parts[2]);
-                    let p = envelopeBase.loadApgcode(parts[3]).shrinkToFit();
+                    let p = IdentityPattern.loadApgcode(parts[3]).shrinkToFit();
                     out.setEnvelope(x, y, p);
                 }
             } else {
@@ -1008,7 +1006,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return new RPFFile(this.base, this.path.slice(0, this.path.lastIndexOf('/')), data);
     }
 
-    setEnvelope(x: number, y: number, p: MAPPattern): this {
+    setEnvelope(x: number, y: number, p: IdentityPattern): this {
         this.height = Math.max(this.minY + this.height, y + p.height) - this.minY;
         this.width = Math.max(this.minX + this.width, x + p.width) - this.minX;
         this.minX = Math.min(this.minX, x);

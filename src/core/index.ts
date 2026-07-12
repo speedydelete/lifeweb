@@ -2,7 +2,7 @@
 /* The main file, exporting everything and also implementing many utility functions. */
 
 import {LifewebError, RuleError, lcm} from './util.js';
-import {SYMMETRY_MEET, Rule, Pattern, RuleSymmetry} from './pattern.js';
+import {RuleSymmetry, SYMMETRY_MEET, Rule, Pattern, IdentityPattern} from './pattern.js';
 import {INT, HEX_INT, unparseTransitions, arrayToTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern, createMAPPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern, createHROTPattern} from './hrot.js';
 import {HistoryPattern, SuperPattern, InvestigatorPattern} from './super.js';
@@ -35,8 +35,10 @@ import './mapsep.js';
  */
 export function createPattern(rule: string, namedRules?: {[key: string]: string}, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0), prevName?: string): Pattern {
     rule = rule.trim();
-    if (rule.toLowerCase() === 'life' && !(namedRules && 'life' in namedRules)) {
+    if (rule.toLowerCase() === 'life') {
         return createPattern('B3/S23', namedRules, height, width, data, prevName);
+    } else if (rule.toLowerCase() === 'identity') {
+        return new IdentityPattern(height, width, data);
     }
     let errors: string[] = [];
     try {

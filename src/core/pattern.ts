@@ -1413,3 +1413,63 @@ export abstract class DataPattern extends Pattern {
     abstract loadRLE(code: string): this;
 
 }
+
+
+export const IDENTITY_RULE: Rule = {
+    str: 'Identity',
+    states: 256,
+    neighborhood: [[0, 0]],
+    symmetry: 'D8',
+    period: 1,
+    range: 0,
+};
+
+export class IdentityPattern extends DataPattern {
+
+    constructor(height: number, width: number, data: Uint8Array) {
+        super(height, width, data, IDENTITY_RULE);
+    }
+
+    runGeneration(): this {
+        return this;
+    }
+
+    copy(): this {
+        return new IdentityPattern(this.height, this.width, this.data) as this;
+    }
+
+    clearedCopy(): this {
+        return new IdentityPattern(0, 0, new Uint8Array(0)) as this;
+    }
+
+    copyPart(x: number, y: number, height: number, width: number): this {
+        let data = new Uint8Array(width * height);
+        let loc = 0;
+        for (let row = y; row < y + height; row++) {
+            data.set(this.data.slice(row * this.width + x, row * this.width + x + width), loc);
+            loc += width;
+        }
+        return new IdentityPattern(height, width, data) as this;
+    }
+
+    loadApgcode(code: string): this {
+        let [height, width, data] = this._loadApgcode(code);
+        return new IdentityPattern(height, width, data) as this;
+    }
+
+    loadRLE(rle: string): this {
+        let [height, width, data] = this._loadRLE(rle);
+        return new IdentityPattern(height, width, data) as this;
+    }
+
+    static loadApgcode(code: string): IdentityPattern {
+        let [height, width, data] = DataPattern.prototype._loadApgcode(code);
+        return new IdentityPattern(height, width, data);
+    }
+
+    static loadRLE(rle: string): IdentityPattern {
+        let [height, width, data] = DataPattern.prototype._loadRLE(rle);
+        return new IdentityPattern(height, width, data);
+    }
+
+}
