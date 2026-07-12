@@ -346,7 +346,7 @@ export function arrayToTransitions(array: Uint8Array, spec: INTSpec): false | [s
             return false;
         }
         if (sCount === value.length) {
-            b.push(tr);
+            s.push(tr);
         } else if (sCount !== 0) {
             return false;
         }
@@ -499,25 +499,25 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     // ghi    cfi
     // because of how lifeweb orders its trs variables
     // as opposed to how the MAP notation is defined
-    // let realOut = new Uint8Array(512);
-    // for (let i = 0; i < 512; i++) {
-    //     if (trs[i]) {
-    //         realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
-    //     }
-    // }
-    return [trs, states];
+    let realOut = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) {
+        if (trs[i]) {
+            realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        }
+    }
+    return [realOut, states];
 }
 
 /** The reverse of `parseMAP`, takes in a Uint8Array and outputs the corresponding MAP rule. */
 export function unparseMAP(trs: Uint8Array, states: number): string {
     // unflip it diagonally (which is the same as flipping it diagonally)
-    // let newTrs = new Uint8Array(512);
-    // for (let i = 0; i < 512; i++) {
-    //     if (trs[i]) {
-    //         newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
-    //     }
-    // }
-    // trs = newTrs;
+    let newTrs = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) {
+        if (trs[i]) {
+            newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        }
+    }
+    trs = newTrs;
     let nh = findTransitionsNeighborhood(trs).map(x => String(x[0]) + ',' + String(x[1]));
     let typeTrs: Uint8Array;
     if (nh.every(x => x.includes('0'))) {
