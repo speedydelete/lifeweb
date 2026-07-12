@@ -1745,7 +1745,7 @@ export function createMAPPattern(rule: string, height: number = 0, width: number
         str: ruleStr,
         states,
         symmetry,
-        period: 2,
+        period: trs[0] ? 2 : 1,
         range,
         neighborhood,
     };
