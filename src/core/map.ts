@@ -479,14 +479,15 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     } else if (type === 'vn') {
         for (let i = 0; i < 512; i++) {
             let j = ((i & 0b010000000) >> 3) | ((i & 0b000111000) >> 2) | ((i & 0b00000010) >> 1);
-            if (parsed[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+            if (parsed[Math.floor(j / 8)] & (1 << (7 - (j % 8)))) {
                 trs[i] = 1;
             }
         }
     } else {
         for (let i = 0; i < 512; i++) {
             let j = (i & 0b011_111_110) >> 1;
-            if (parsed[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+            console.log(i, j, )
+            if (parsed[Math.floor(j / 8)] & (1 << (7 - (j % 8)))) {
                 trs[i] = 1;
             }
         }
