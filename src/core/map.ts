@@ -514,8 +514,8 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
     // unflip it diagonally (which is the same as flipping it diagonally)
     let newTrs = new Uint8Array(512);
     for (let i = 0; i < 512; i++) {
-        if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            newTrs[i] = 1;
+        if (trs[i]) {
+            newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
         }
     }
     trs = newTrs;
