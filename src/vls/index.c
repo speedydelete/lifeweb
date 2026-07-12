@@ -139,7 +139,9 @@ int main(void) {
     #endif
     start = get_time();
     last_progress_shown = start;
+    #if MAX_PARTIALS
     last_max_partial_shown = start;
+    #endif
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
@@ -171,8 +173,10 @@ int main(void) {
         #if MULTI_RULE
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
+        #if MAX_PARTIALS
         printf("Max partial (size: %i):\n", max_partial_size);
         print_grid_2(max_partial, false);
+        #endif
     }
     #endif
     return 0;

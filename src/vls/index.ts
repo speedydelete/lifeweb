@@ -64,6 +64,12 @@ Options:
     --benchmark <iterations>: run benchmarking
 
     --interval <seconds>: set the progress reporting interval
+
+    --partial-type <'none'|'cell'|'start'>:
+        type of max partials to report (default 'cell')
+        none: report no max partials
+        cell: report by number of set cells
+        start: report by number of correct cells at start of search order
     --partial-interval <seconds>: set the minimum partial reporting interval
 
     --file <file>: also write to that file
@@ -145,6 +151,7 @@ const OPTIONS = {
     'profile': true,
     'benchmark': 'string',
     'interval': 'number',
+    'partial-type': new Set(['none', 'cell', 'start'] as const),
     'partial-interval': 'number',
     'file': 'string',
     'rulespace': new Set(['int', 'ot'] as const),
@@ -1298,6 +1305,8 @@ for (let line of code.split('\n')) {
         }
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;
+    } else if (name === 'MAX_PARTIAL_TYPE') {
+        value = `MAX_PARTIAL_TYPE_${(options['partial-type'] ?? 'cell').toUpperCase()}`;
     } else if (name === 'MAX_PARTIAL_REPORTING_INTERVAL') {
         value = options['partial-interval'] ?? 1;
     } else if (name === 'BENCHMARK') {

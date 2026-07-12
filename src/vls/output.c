@@ -8,7 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
-#if METHOD == METHOD_CELL
+#if METHOD == METHOD_CELL && MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
 #include "implications.c"
 #endif
 
@@ -521,6 +521,8 @@ static inline void print_progress(FILE* stream) {
 
 
 double last_progress_shown;
+#if MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE
+#define MAX_PARTIALS true
 double last_max_partial_shown;
 cell max_partial[GENS][HEIGHT][WIDTH];
 int max_partial_size = 0;
@@ -528,6 +530,9 @@ int max_partial_size = 0;
 cell_value_t max_partial_trs[512];
 #endif
 int last_printed_max_partial_size = 0;
+#else
+#define MAX_PARTIALS false
+#endif
 
 #if METHOD == METHOD_CELL
 cell* initial_cell;
@@ -542,9 +547,13 @@ static inline void print_state_if_needed() {
         print_progress(stdout);
         real_printf("\n");
     }
+    #if MAX_PARTIALS
+    int partial_size;
+    #if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_CELL
+    partial_size = set_cells;
+    #elif MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
     #if METHOD == METHOD_CELL
     cell* cell = initial_cell;
-    int partial_size;
     for (partial_size = 0; partial_size < TOTAL_SIZE && cell != NULL; partial_size++) {
         if (cell->value == UNKNOWN) {
             break;
@@ -570,6 +579,10 @@ static inline void print_state_if_needed() {
         }
         cell = cell->next_in_search_order;
     }
+    #else
+    #error "Max partial type 'start' is only supported for 'cell' search method"
+    #endif
+    #endif
     if (partial_size > max_partial_size) {
         memcpy(max_partial, grid, sizeof(grid));
         max_partial_size = partial_size;
@@ -577,7 +590,6 @@ static inline void print_state_if_needed() {
         memcpy(max_partial_trs, trs, sizeof(trs));
         #endif
     }
-    #endif
     if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
         last_max_partial_shown = time;
         last_printed_max_partial_size = max_partial_size;
@@ -593,5 +605,6 @@ static inline void print_state_if_needed() {
         free(temp_trs);
         #endif
     }
+    #endif
     #endif
 }

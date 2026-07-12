@@ -207,7 +207,13 @@ const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 
 // reporting interval
 #define REPORTING_INTERVAL 1
-// partial reporting interval
+
+// type of max partials to report
+#define MAX_PARTIAL_TYPE_NONE 0
+#define MAX_PARTIAL_TYPE_CELL 1
+#define MAX_PARTIAL_TYPE_START 2
+#define MAX_PARTIAL_TYPE MAX_PARTIAL_TYPE_CELL
+// max partial reporting interval
 #define MAX_PARTIAL_REPORTING_INTERVAL 1
 
 
