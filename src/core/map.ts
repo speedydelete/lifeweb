@@ -534,9 +534,9 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
         // normal
         typeTrs = trs;
     }
-    let unparsed = new Uint8Array(trs.length / 8);
-    for (let i = 0; i < trs.length; i++) {
-        if (trs[i]) {
+    let unparsed = new Uint8Array(typeTrs.length / 8);
+    for (let i = 0; i < typeTrs.length; i++) {
+        if (typeTrs[i]) {
             unparsed[Math.floor(i / 8)] |= (1 << (7 - i % 8));
         }
     }
