@@ -431,7 +431,7 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     data = data.replaceAll('=', '');
     let type: 'normal' | 'vn' | 'hex';
     let states = 2;
-    if (data.length !== 86 && data.length !== 6 && data.length !== 20) {
+    if (data.length !== 86 && data.length !== 6 && data.length !== 22) {
         let index = data.lastIndexOf('/');
         if (index === -1) {
             throw new RuleError(`Invalid MAP string (bad length and no /): '${original}'`);
