@@ -501,8 +501,8 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     // as opposed to how the MAP notation is defined
     let realOut = new Uint8Array(512);
     for (let i = 0; i < 512; i++) {
-        if (trs[i]) {
-            realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            realOut[i] = 1;
         }
     }
     return [realOut, states];
@@ -526,7 +526,7 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
         for (let i = 0; i < 32; i++) {
             typeTrs[i] = trs[((i & 0b10000) << 3) | ((i & 0b1110) << 2) | ((i & 0b1) << 1)];
         }
-    } else if (!nh.includes('-1,-1') && !nh.includes('1,1')) {
+    } else if (!nh.includes('-1,1') && !nh.includes('1,-1')) {
         // hexagonal
         typeTrs = new Uint8Array(128);
         for (let i = 0; i < 128; i++) {
@@ -539,7 +539,7 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
     let unparsed = new Uint8Array(typeTrs.length / 8);
     for (let i = 0; i < typeTrs.length; i++) {
         if (typeTrs[i]) {
-            unparsed[Math.floor(i / 8)] |= (1 << (7 - i % 8));
+            unparsed[Math.floor(i / 8)] |= (1 << (7 - (i % 8)));
         }
     }
     let out = 'MAP' + btoa(String.fromCharCode(...unparsed)).replaceAll('=', '');
