@@ -509,15 +509,14 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
 /** The reverse of `parseMAP`, takes in a Uint8Array and outputs the corresponding MAP rule. */
 export function unparseMAP(trs: Uint8Array, states: number): string {
     // unflip it diagonally (which is the same as flipping it diagonally)
-    let newTrs = new Uint8Array(64);
+    let newTrs = new Uint8Array(512);
     for (let i = 0; i < 512; i++) {
         if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            newTrs[Math.floor(i / 8)] |= (1 << (7 - i % 8));
+            newTrs[i] = 1;
         }
     }
     trs = newTrs;
     let nh = findTransitionsNeighborhood(trs).map(x => String(x[0]) + ',' + String(x[1]));
-    let type: 'normal' | 'vn' | 'hex';
     let typeTrs: Uint8Array;
     if (nh.every(x => x.includes('0'))) {
         // von neumann
@@ -547,7 +546,6 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
     }
     return out;
 }
-
 
 /** Parses all notations for MAP rules. */
 export function parseMAPRuleFull(rule: string): {trs: Uint8Array, states: number} {
