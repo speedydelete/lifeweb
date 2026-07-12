@@ -297,7 +297,9 @@ export function unparseTransitions(trs: string[], spec: INTSpec): string {
                     minus += char;
                 }
             }
-            if (chars.length > minus.length || (chars.length === minus.length && spec.preferMinus)) {
+            if (minus.length === 1) {
+                continue;
+            } else if (chars.length > minus.length || (chars.length === minus.length && spec.preferMinus)) {
                 out += minus;
             } else {
                 out += chars;
