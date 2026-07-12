@@ -10,12 +10,14 @@
         "src",
         "lib"
     ],
+    "dependencies": {
+        "@babel/parser": "^8.0.4"
+    },
     "devDependencies": {
         "@types/node": "^26.1.1",
         "typescript": "^7.0.2"
     },
     "optionalDependencies": {
-        "@babel/parser": "^8.0.4",
         "@minify-html/node": "^0.18.1",
         "esbuild": "^0.28.1"
     },
