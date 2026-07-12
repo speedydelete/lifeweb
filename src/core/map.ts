@@ -324,7 +324,7 @@ export function transitionsToArray(b: string[], s: string[], spec: INTSpec): Uin
 }
 
 /** The reverse of `transitionsToArray`, takes in a 512-bit Uint8Array and outputs the B/S transition lists. */
-export function arrayToTransitions(array: Uint8Array, spec: INTSpec): [string[], string[]] {
+export function arrayToTransitions(array: Uint8Array, spec: INTSpec): false | [string[], string[]] {
     let b: string[] = [];
     let s: string[] = [];
     for (let [tr, value] of Object.entries(spec.trs)) {
@@ -338,14 +338,81 @@ export function arrayToTransitions(array: Uint8Array, spec: INTSpec): [string[],
                 sCount++;
             }
         }
-        if (bCount >= Math.ceil(value.length / 2)) {
+        if (bCount === value.length) {
             b.push(tr);
+        } else if (bCount !== 0) {
+            return false;
         }
-        if (sCount >= Math.ceil(value.length / 2)) {
-            s.push(tr);
+        if (sCount === value.length) {
+            b.push(tr);
+        } else if (sCount !== 0) {
+            return false;
         }
     }
     return [b, s];
+}
+
+
+export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
+    let C2 = true;
+    let C4 = true;
+    let D2h = true;
+    let D2v = true;
+    let D2s = true;
+    let D2b = true;
+    for (let i = 0; i < 512; i++) {
+        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
+        if (trs[i] !== trs[j]) {
+            C2 = false;
+            C4 = false;
+            break;
+        }
+    }
+    if (C2) {
+        for (let i = 0; i < 512; i++) {
+            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                C4 = false;
+                break;
+            }
+        }
+    }
+    for (let i = 0; i < 512; i++) {
+        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+            D2h = false;
+        }
+        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+            D2v = false;
+        }
+        if (trs[i] !== trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
+            D2s = false;
+        }
+        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            D2b = false;
+        }
+    }
+    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
+}
+
+export function findTransitionsNeighborhood(trs: Uint8Array): [number, number][] {
+    let out: [number, number][] = [];
+    let bit = 0;
+    for (let y = -1; y <= 1; y++) {
+        for (let x = -1; x <= 1; x++) {
+            let found = false;
+            for (let i = 0; i < 512; i++) {
+                if (trs[i] !== trs[i ^ (1 << bit)]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                out.push([x, y]);
+            }
+            bit++;
+        }
+    }
+    return out;
 }
 
 
@@ -385,66 +452,277 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     } else {
         throw new RuleError(`Invalid MAP string (bad length: ${data.length}): '${original}'`);
     }
-    let out: number[] = [];
+    let parsed: number[] = [];
     for (let i = 0; i < data.length; i += 4) {
         let a = BASE64.indexOf(data[i]);
         let b = BASE64.indexOf(data[i + 1]);
         let c = BASE64.indexOf(data[i + 2]);
         let d = BASE64.indexOf(data[i + 3]);
-        out.push((a << 2) | (b >> 4));
+        parsed.push((a << 2) | (b >> 4));
         if (c === -1) {
             break;
         }
         if (d === -1) {
-            out.push(((b & 15) << 4) | (c >> 2));
+            parsed.push(((b & 15) << 4) | (c >> 2));
             break;
         }
-        out.push(((b & 15) << 4) | (c >> 2));
-        out.push(((c & 3) << 6) | d);
+        parsed.push(((b & 15) << 4) | (c >> 2));
+        parsed.push(((c & 3) << 6) | d);
     }
     let trs = new Uint8Array(512);
-    // flip diagonally
-    // abc    adg
-    // def -> beh
-    // ghi    cfi
-    // because of how lifeweb orders its trs variables
     if (type === 'normal') {
         for (let i = 0; i < 512; i++) {
-            if (out[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
-                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+            if (parsed[Math.floor(i / 8)] & (1 << (7 - (i % 8)))) {
+                trs[i] = 1;
             }
         }
     } else if (type === 'vn') {
         for (let i = 0; i < 512; i++) {
             let j = ((i & 0b010000000) >> 3) | ((i & 0b000111000) >> 2) | ((i & 0b00000010) >> 1);
-            if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
-                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+            if (parsed[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+                trs[i] = 1;
             }
         }
     } else {
         for (let i = 0; i < 512; i++) {
             let j = (i & 0b011_111_110) >> 1;
-            if (out[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
-                trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+            if (parsed[Math.floor(j / 8) & (1 << (7 - (j % 8)))]) {
+                trs[i] = 1;
             }
         }
     }
-    return [trs, states];
+    // flip diagonally
+    // abc    adg
+    // def -> beh
+    // ghi    cfi
+    // because of how lifeweb orders its trs variables
+    // as opposed to how the MAP notation is defined
+    let realOut = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) {
+        if (trs[i]) {
+            realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        }
+    }
+    return [realOut, states];
 }
 
 /** The reverse of `parseMAP`, takes in a Uint8Array and outputs the corresponding MAP rule. */
 export function unparseMAP(trs: Uint8Array, states: number): string {
-    let out = new Uint8Array(64);
+    // unflip it diagonally (which is the same as flipping it diagonally)
+    let newTrs = new Uint8Array(64);
     for (let i = 0; i < 512; i++) {
         if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            out[Math.floor(i / 8)] |= (1 << (7 - i % 8));
+            newTrs[Math.floor(i / 8)] |= (1 << (7 - i % 8));
         }
     }
-    let str = 'MAP' + btoa(String.fromCharCode(...out)).replaceAll('=', '');
-    if (states !== 2) {
-        str += '/' + states;
+    trs = newTrs;
+    let nh = findTransitionsNeighborhood(trs).map(x => String(x[0]) + ',' + String(x[1]));
+    let type: 'normal' | 'vn' | 'hex';
+    let typeTrs: Uint8Array;
+    if (nh.every(x => x.includes('0'))) {
+        // von neumann
+        typeTrs = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+            typeTrs[i] = trs[((i & 0b10000) << 3) | ((i & 0b1110) << 2) | ((i & 0b1) << 1)];
+        }
+    } else if (!nh.includes('-1,1') && !nh.includes('1,-1')) {
+        // hexagonal
+        typeTrs = new Uint8Array(128);
+        for (let i = 0; i < 128; i++) {
+            typeTrs[i] = trs[((i & 0b1100000) << 2) | ((i & 0b11100) << 1) | ((i & 0b11) << 0)];
+        }
+    } else {
+        // normal
+        typeTrs = trs;
     }
-    return str;
+    let unparsed = new Uint8Array(trs.length / 8);
+    for (let i = 0; i < trs.length; i++) {
+        if (trs[i]) {
+            unparsed[Math.floor(i / 8)] |= (1 << (7 - i % 8));
+        }
+    }
+    let out = 'MAP' + btoa(String.fromCharCode(...unparsed)).replaceAll('=', '');
+    if (states !== 2) {
+        out += '/' + states;
+    }
+    return out;
+}
+
+
+/** Parses all notations for MAP rules. */
+export function parseMAPRuleFull(rule: string): {trs: Uint8Array, states: number} {
+    let trs = new Uint8Array(512);
+    let states = 2;
+    let nhLetter: keyof typeof INT_SPECS = 'M';
+    let match: RegExpMatchArray | null;
+    if (rule.startsWith('MAP') || rule.startsWith('xmap')) {
+        // MAP
+        [trs, states] = parseMAP(rule);
+    } else if (rule.startsWith('W')) {
+        // wolfram rules
+        // remove state count
+        if (match = rule.match(/\/[gGcC]?([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)$/)) {
+            states = Number(match[1]);
+            rule = rule.slice(0, -match[0].length);
+        }
+        let num = Number(rule.slice(1));
+        if (Number.isNaN(num)) {
+            throw new RuleError(`Invalid W rule: '${rule.slice(1)}'`);
+        }
+        for (let i = 0; i < 512; i++) {
+            trs[i | (1 << 4)] = 1;
+        }
+        for (let i = 0; i < 8; i++) {
+            if (num & (1 << i)) {
+                trs[((i & 0b100) << 6) | ((i & 0b10) << 4) | ((i & 0b1) << 2)] = 1;
+            }
+        }
+    } else {
+        // remove state count
+        if (match = rule.match(/^[gG]([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/)) {
+            states = Number(match[1]);
+            rule = rule.slice(match[0].length);
+        }
+        // split it into parts, like 'B3/S23' becomes ['B3', 'S23']
+        let parts: string[] = [];
+        let currentPart = '';
+        for (let i = 0; i < rule.length; i++) {
+            let char = rule[i];
+            if (char === '/' || char === '_') {
+                parts.push(currentPart);
+                currentPart = '';
+            } else if ('BSADGCbsdg'.includes(char) && currentPart.length > 0) {
+                parts.push(currentPart);
+                currentPart = char;
+            } else {
+                currentPart += char;
+            }
+        }
+        parts.push(currentPart);
+        // find the neighborhood specifier like 'H' or 'V'
+        for (let i = 0; i < parts.length; i++) {
+            let part = parts[i];
+            if (part.length === 0) {
+                continue;
+            }
+            let end = part[part.length - 1].toUpperCase();
+            if (end in INT_SPECS) {
+                nhLetter = end as typeof nhLetter;
+                parts[i] = part.slice(0, -1);
+            }
+        }
+        let spec = INT_SPECS[nhLetter];
+        let bFound = false;
+        let sFound = false;
+        for (let i = 0; i < parts.length; i++) {
+            let part = parts[i];
+            let start = part[0]?.toUpperCase();
+            let letter: 'B' | 'S' | 'A' | 'D';
+            let parsedTrs: string[];
+            if (start === 'B' || start === 'S' || start === 'A' || start === 'D') {
+                if (start === 'A' && !bFound) {
+                    for (let i = 0; i < 512; i++) {
+                        if (!(i & (1 << 4))) {
+                            trs[i] = 1;
+                        }
+                    }
+                }
+                if (start === 'D' && !sFound) {
+                    for (let i = 0; i < 512; i++) {
+                        if (i & (1 << 4)) {
+                            trs[i] = 1;
+                        }
+                    }
+                }
+                if (start === 'B' || start === 'A') {
+                    bFound = true;
+                }
+                if (start === 'S' || start === 'D') {
+                    sFound = true;
+                }
+                letter = start;
+                parsedTrs = parseTransitions(part.slice(1), spec);
+            } else if (start === 'G' || start === 'C') {
+                states = Number(part.slice(1));
+                if (Number.isNaN(states)) {
+                    throw new RuleError(`Invalid state count: '${part.slice(1)}'`);
+                }
+                continue;
+            } else {
+                // if there's no letter, take it to be a S/B/C generations rule
+                if (parts.length > 2 && i === parts.length - 1) {
+                    states = Number(part);
+                    if (Number.isNaN(states)) {
+                        throw new RuleError(`Invalid state count: '${part}'`);
+                    }
+                    continue;
+                } else {
+                    letter = i === 0 ? 'S' : 'B';
+                    parsedTrs = parseTransitions(part, spec);
+                }
+            }
+            let setTo = letter === 'B' || letter === 'S' ? 1 : 0;
+            let or = letter === 'S' || letter === 'D' ? 1 << 4 : 0;
+            for (let tr of parsedTrs) {
+                for (let i of spec.trs[tr]) {
+                    trs[i | or] = setTo;
+                }
+            }
+        }
+    }
+    return {trs, states};
+}
+
+/** Unparses a MAP rule into a more human-readable notation if possible, or regular MAP form if not. */
+export function unparseMAPRuleFull(trs: Uint8Array, states: number): string {
+    // check for wolfram rule
+    let wNum = 0;
+    let found = false;
+    for (let i = 0; i < 512; i++) {
+        if (i & (1 << 4)) {
+            if (!trs[i]) {
+                found = true;
+                break;
+            }
+        } else {
+            // check for non-W birth condition
+            if (trs[i] && (i & 0b011_011_011) !== 0) {
+                found = true;
+                break;
+            }
+            let bit = ((i & 0b100_000_000) >> 6) | ((i & 0b100_000) >> 4) | ((i & 0b100) >> 2);
+            wNum |= (1 << bit);
+        }
+    }
+    if (!found) {
+        let out = `W${wNum}`;
+        if (states > 2) {
+            out += `/${states}`;
+        }
+        return out;
+    }
+    // check for INT family rule
+    // maybe add von neumann unparsing here too?
+    for (let nhLetter of ['M', 'H'] as const) {
+        let spec = INT_SPECS[nhLetter];
+        let value = arrayToTransitions(trs, spec);
+        if (!value) {
+            continue;
+        }
+        let b = unparseTransitions(value[0], spec);
+        let s = unparseTransitions(value[1], spec);
+        let out: string;
+        if (states === 2) {
+            out = `B${b}/S${s}`;
+        } else {
+            out = `${s}/${b}/${states}`;
+        }
+        if (nhLetter !== 'M') {
+            out += nhLetter;
+        }
+        return out;
+    }
+    return unparseMAP(trs, states);
 }
 
 
@@ -1446,285 +1724,49 @@ export class MAPGenPattern extends DataPattern {
 }
 
 
-export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
-    let C2 = true;
-    let C4 = true;
-    let D2h = true;
-    let D2v = true;
-    let D2s = true;
-    let D2b = true;
-    for (let i = 0; i < 512; i++) {
-        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
-        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
-        if (trs[i] !== trs[j]) {
-            C2 = false;
-            C4 = false;
-            break;
-        }
-    }
-    if (C2) {
-        for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
-                C4 = false;
-                break;
-            }
-        }
-    }
-    for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
-            D2h = false;
-        }
-        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
-            D2v = false;
-        }
-        if (trs[i] !== trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
-            D2s = false;
-        }
-        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            D2b = false;
-        }
-    }
-    return getRuleSymmetryFromBases(C2, C4, D2h, D2v, D2s, D2b);
-}
-
-export function findTransitionsNeighborhood(trs: Uint8Array): [number, number][] {
-    let out: [number, number][] = [];
-    let bit = 0;
-    for (let y = -1; y <= 1; y++) {
-        for (let x = -1; x <= 1; x++) {
-            let found = false;
-            for (let i = 0; i < 512; i++) {
-                if (trs[i] !== trs[i ^ (1 << bit)]) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                out.push([x, y]);
-            }
-            bit++;
-        }
-    }
-    return out;
-}
-
-
-/** Parses the rulestring format for MAP rules and their subsets. */
+/** Creates patterns for MAP rules given a rulestring and optional pattern data. */
 export function createMAPPattern(rule: string, height: number = 0, width: number = 0, data: Uint8Array = new Uint8Array(0)): string | MAPPattern | MAPB0Pattern | MAPGenPattern {
-    let ruleStr: string;
-    let trs = new Uint8Array(512);
-    let nhLetter: keyof typeof INT_SPECS = 'M';
-    let states = 2;
-    let match: RegExpMatchArray | null;
-    if (rule.startsWith('MAP') || rule.startsWith('xmap')) {
-        // MAP
-        [trs, states] = parseMAP(rule);
-        ruleStr = unparseMAP(trs, states);
-    } else if (rule.startsWith('W')) {
-        // wolfram rules
-        // remove state count
-        if (match = rule.match(/\/[gGcC]?([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)$/)) {
-            states = Number(match[1]);
-            rule = rule.slice(0, -match[0].length);
-        }
-        let num = Number(rule.slice(1));
-        if (Number.isNaN(num)) {
-            throw new RuleError(`Invalid W rule: '${rule.slice(1)}'`);
-        }
+    let {trs, states} = parseMAPRuleFull(rule);
+    if (states > 256) {
+        throw new RuleError(`Cannot have more than 256 states`);
+    }
+    // deal with B0 and S8 rules
+    if (trs[0] && trs[511]) {
+        let newTrs = new Uint8Array(512);
         for (let i = 0; i < 512; i++) {
-            trs[i | (1 << 4)] = 1;
+            newTrs[i] = 1 - trs[511 - i];
         }
-        for (let i = 0; i < 8; i++) {
-            if (num & (1 << i)) {
-                trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = 1;
-            }
-        }
-        ruleStr = 'W' + num;
-        if (states !== 2) {
-            ruleStr += '/' + states;
-        }
-    } else {
-        // remove state count
-        if (match = rule.match(/^[gG]([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)/)) {
-            states = Number(match[1]);
-            rule = rule.slice(match[0].length);
-        }
-        // split it into parts, like 'B3/S23' becomes ['B3', 'S23']
-        let parts: string[] = [];
-        let currentPart = '';
-        for (let i = 0; i < rule.length; i++) {
-            let char = rule[i];
-            if (char === '/' || char === '_') {
-                parts.push(currentPart);
-                currentPart = '';
-            } else if ('BSADGCbsdg'.includes(char) && currentPart.length > 0) {
-                parts.push(currentPart);
-                currentPart = char;
-            } else {
-                currentPart += char;
-            }
-        }
-        parts.push(currentPart);
-        // find the neighborhood specifier like 'H' or 'V'
-        for (let i = 0; i < parts.length; i++) {
-            let part = parts[i];
-            if (part.length === 0) {
-                continue;
-            }
-            let end = part[part.length - 1].toUpperCase();
-            if (end in INT_SPECS) {
-                nhLetter = end as typeof nhLetter;
-                parts[i] = part.slice(0, -1);
-            }
-        }
-        let spec = INT_SPECS[nhLetter];
-        let bFound = false;
-        let sFound = false;
-        for (let i = 0; i < parts.length; i++) {
-            let part = parts[i];
-            let start = part[0]?.toUpperCase();
-            let letter: 'B' | 'S' | 'A' | 'D';
-            let parsedTrs: string[];
-            if (start === 'B' || start === 'S' || start === 'A' || start === 'D') {
-                if (start === 'A' && !bFound) {
-                    for (let i = 0; i < 512; i++) {
-                        if (!(i & (1 << 4))) {
-                            trs[i] = 1;
-                        }
-                    }
-                }
-                if (start === 'D' && !sFound) {
-                    for (let i = 0; i < 512; i++) {
-                        if (i & (1 << 4)) {
-                            trs[i] = 1;
-                        }
-                    }
-                }
-                if (start === 'B' || start === 'A') {
-                    bFound = true;
-                }
-                if (start === 'S' || start === 'D') {
-                    sFound = true;
-                }
-                letter = start;
-                parsedTrs = parseTransitions(part.slice(1), spec);
-            } else if (start === 'G' || start === 'C') {
-                states = Number(part.slice(1));
-                if (Number.isNaN(states)) {
-                    throw new RuleError(`Invalid state count: '${part.slice(1)}'`);
-                }
-                continue;
-            } else {
-                // if there's no letter, take it to be a S/B/C generations rule
-                if (parts.length > 2 && i === parts.length - 1) {
-                    states = Number(part);
-                    if (Number.isNaN(states)) {
-                        throw new RuleError(`Invalid state count: '${part}'`);
-                    }
-                    continue;
-                } else {
-                    letter = i === 0 ? 'S' : 'B';
-                    parsedTrs = parseTransitions(part, spec);
-                }
-            }
-            let setTo = letter === 'B' || letter === 'S' ? 1 : 0;
-            let or = letter === 'S' || letter === 'D' ? 1 << 4 : 0;
-            for (let tr of parsedTrs) {
-                for (let i of spec.trs[tr]) {
-                    trs[i | or] = setTo;
-                }
-            }
-        }
-        let [bTrs, sTrs] = arrayToTransitions(trs, spec);
-        let b = unparseTransitions(bTrs, spec);
-        let s = unparseTransitions(sTrs, spec);
-        if (states === 2) {
-            ruleStr = `B${b}/S${s}`;
-        } else {
-            ruleStr = `${s}/${b}/${states}`;
-        }
-        if (nhLetter !== 'M') {
-            ruleStr += nhLetter;
-        }
+        trs = newTrs;
     }
     let symmetry = findTransitionsSymmetry(trs);
-    // turn MAP rules that are actually INT rules into INT rules
-    if (ruleStr.startsWith('MAP') && symmetry === 'D8') {
-        let [bTrs, sTrs] = arrayToTransitions(trs, INT);
-        let b = unparseTransitions(bTrs, INT);
-        let s = unparseTransitions(sTrs, INT);
-        if (states > 2) {
-            ruleStr = `${s}/${b}/${states}`;
-        } else {
-            ruleStr = `B${b}/S${s}`;
-        }
-    }
     let neighborhood = findTransitionsNeighborhood(trs);
     let range = neighborhood.length === 1 && neighborhood[0][0] === 0 && neighborhood[0][1] === 0 ? 0 : 1;
-    if (trs[0]) {
-        if (trs[511]) {
-            // deal with B0 rules
-            if (ruleStr.startsWith('W')) {
-                let num = Number(rule.slice(1));
-                for (let i = 0; i < 8; i++) {
-                    trs[((i & 4) << 6) | ((i & 2) << 4) | ((i & 1) << 2)] = (num & (1 << i)) ? 0 : 1;
-                }
-            } else {
-                let newTrs = new Uint8Array(512);
-                for (let i = 0; i < 512; i++) {
-                    newTrs[i] = 1 - trs[511 - i];
-                }
-                trs = newTrs;
-                if (ruleStr.startsWith('MAP') || ruleStr.startsWith('xmap')) {
-                    ruleStr = unparseMAP(trs, states);
-                } else {
-                    let spec = INT_SPECS[nhLetter];
-                    let [bTrs, sTrs] = arrayToTransitions(trs, spec);
-                    let b = unparseTransitions(bTrs, spec);
-                    let s = unparseTransitions(sTrs, spec);
-                    if (states > 2) {
-                        ruleStr = `${s}/${b}/${states}`;
-                    } else {
-                        ruleStr = `B${b}/S${s}`;
-                    }
-                    if (nhLetter !== 'M') {
-                        ruleStr += nhLetter;
-                    }
-                }
-            }
-        } else {
-            let evenTrs = new Uint8Array(512);
-            let oddTrs = new Uint8Array(512);
-            for (let i = 0; i < 512; i++) {
-                evenTrs[i] = 1 - trs[i];
-                oddTrs[i] = trs[511 - i];
-            }
-            let ruleData: Rule = {
-                str: ruleStr,
-                states,
-                symmetry,
-                period: 2,
-                range,
-                neighborhood,
-            };
-            if (states > 2) {
-                throw new RuleError(`Generations B0 is not supported`);
-            } else {
-                return new MAPB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
-            }
-        }
-    }
+    let ruleStr = unparseMAPRuleFull(trs, states);
     let ruleData: Rule = {
         str: ruleStr,
         states,
-        neighborhood,
         symmetry,
-        period: 1,
+        period: 2,
         range,
+        neighborhood,
     };
-    if (states > 2) {
-        return new MAPGenPattern(height, width, data, ruleData, trs);
+    if (trs[0]) {
+        let evenTrs = new Uint8Array(512);
+        let oddTrs = new Uint8Array(512);
+        for (let i = 0; i < 512; i++) {
+            evenTrs[i] = 1 - trs[i];
+            oddTrs[i] = trs[511 - i];
+        }
+        if (states > 2) {
+            throw new RuleError(`Generations B0 is not supported`);
+        } else {
+            return new MAPB0Pattern(height, width, data, ruleData, evenTrs, oddTrs);
+        }
     } else {
-        return new MAPPattern(height, width, data, ruleData, trs);
+        if (states > 2) {
+            return new MAPGenPattern(height, width, data, ruleData, trs);
+        } else {
+            return new MAPPattern(height, width, data, ruleData, trs);
+        }
     }
 }
