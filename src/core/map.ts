@@ -447,7 +447,7 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
         type = 'normal';
     } else if (data.length === 6) {
         type = 'vn';
-    } else if (data.length === 20) {
+    } else if (data.length === 22) {
         type = 'hex';
     } else {
         throw new RuleError(`Invalid MAP string (bad length: ${data.length}): '${original}'`);
