@@ -2,10 +2,11 @@
 /** Finds the minimum and maximum rule of patterns. */
 
 import {LifewebError} from './util.js';
-import {Pattern} from './pattern.js';
+import {Pattern, IdentityPattern, DataPattern} from './pattern.js';
 import {INTSpec, INT, INT_SPECS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
+import {FinitePattern, TorusPattern} from './bounded.js';
 import {TreePattern} from './ruleloader.js';
 
 
@@ -587,6 +588,14 @@ export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseDa
         return alternatingMinmax(p, data, gens, step, ot);
     } else if (p instanceof TreePattern) {
         return [p.rule.str, p.rule.str];
+    } else if (p instanceof IdentityPattern) {
+        return ['Identity', 'Identity'];
+    } else if (p instanceof FinitePattern || p instanceof TorusPattern) {
+        let q = p.pattern;
+        q.setData(p.height, p.width, p.data);
+        return findMinmax(q, gens, data, step, ot).map(rule => {
+            return `${rule}:${p instanceof FinitePattern ? 'P' : 'T'}${p.width},${p.height}`;
+        }) as [string, string];
     } else {
         throw new MinmaxError(`Unknown pattern: ${p.constructor.name}`);
     }
