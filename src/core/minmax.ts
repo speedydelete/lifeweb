@@ -593,7 +593,7 @@ export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseDa
     } else if (p instanceof FinitePattern || p instanceof TorusPattern) {
         let q = p.pattern;
         q.setData(p.height, p.width, p.data);
-        return findMinmax(q, gens, data, step, ot).map(rule => {
+        return findMinmax(q, gens, undefined, step, ot).map(rule => {
             return `${rule}:${p instanceof FinitePattern ? 'P' : 'T'}${p.width},${p.height}`;
         }) as [string, string];
     } else {
