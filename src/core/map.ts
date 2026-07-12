@@ -488,7 +488,6 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     } else {
         for (let i = 0; i < 512; i++) {
             let j = (i & 0b011_111_110) >> 1;
-            console.log(i, j, )
             if (parsed[Math.floor(j / 8)] & (1 << (7 - (j % 8)))) {
                 trs[i] = 1;
             }
@@ -500,25 +499,25 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
     // ghi    cfi
     // because of how lifeweb orders its trs variables
     // as opposed to how the MAP notation is defined
-    let realOut = new Uint8Array(512);
-    for (let i = 0; i < 512; i++) {
-        if (trs[i]) {
-            realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
-        }
-    }
-    return [realOut, states];
+    // let realOut = new Uint8Array(512);
+    // for (let i = 0; i < 512; i++) {
+    //     if (trs[i]) {
+    //         realOut[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+    //     }
+    // }
+    return [trs, states];
 }
 
 /** The reverse of `parseMAP`, takes in a Uint8Array and outputs the corresponding MAP rule. */
 export function unparseMAP(trs: Uint8Array, states: number): string {
     // unflip it diagonally (which is the same as flipping it diagonally)
-    let newTrs = new Uint8Array(512);
-    for (let i = 0; i < 512; i++) {
-        if (trs[i]) {
-            newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
-        }
-    }
-    trs = newTrs;
+    // let newTrs = new Uint8Array(512);
+    // for (let i = 0; i < 512; i++) {
+    //     if (trs[i]) {
+    //         newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+    //     }
+    // }
+    // trs = newTrs;
     let nh = findTransitionsNeighborhood(trs).map(x => String(x[0]) + ',' + String(x[1]));
     let typeTrs: Uint8Array;
     if (nh.every(x => x.includes('0'))) {
@@ -707,6 +706,7 @@ export function unparseMAPRuleFull(trs: Uint8Array, states: number): string {
     for (let nhLetter of ['M', 'H'] as const) {
         let spec = INT_SPECS[nhLetter];
         let value = arrayToTransitions(trs, spec);
+        console.log(value);
         if (!value) {
             continue;
         }
