@@ -3,7 +3,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {Grid, runScript} from './compiler.js';
-import {MAPPattern, MAPGenPattern, DataPattern, SuperPattern, parseSpeed, createPattern} from '../core/index.js';
+import {DataPattern, IdentityPattern, MAPPattern, MAPGenPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -323,7 +323,6 @@ let base = createPattern(rule) as DataPattern;
 if (!(base instanceof MAPPattern || base instanceof MAPGenPattern)) {
     error(`Rule must be a non-B0 INT or INT Generations rule`);
 }
-let superBase = createPattern(rule + 'Super') as SuperPattern;
 let mode = posArgs[1];
 posArgs = posArgs.slice(2);
 let multiRule = false;
@@ -548,7 +547,7 @@ if (mode === 'periodic') {
     if (posArgs.length === 0 || posArgs.length > 4) {
         error(`Expected 1 to 4 positional arguments for catalyst mode (got ${posArgs.length})`);
     }
-    let startP = superBase.loadRLE(posArgs[0]);
+    let startP = IdentityPattern.loadRLE(posArgs[0]);
     startP.data = startP.data.map(x => x === 6 ? 0 : x);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
@@ -878,7 +877,7 @@ if (options['filter']) {
         if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
             error(`Invalid generation for filtering: '${gen}'`);
         }
-        let p = superBase.loadRLE(parts[1]);
+        let p = IdentityPattern.loadRLE(parts[1]);
         for (let y = 0; y < p.height; y++) {
             for (let x = 0; x < p.width; x++) {
                 let value = p.get(x, y);
