@@ -398,7 +398,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
 
 static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static inline void print_cell(FILE* stream, cell_value_t value
+static inline void print_cell(FILE* stream, int value
     #if VARIABLES
     , var_t var
     #endif

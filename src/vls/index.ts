@@ -316,7 +316,7 @@ if (posArgs.length < 2) {
     error(`Expected at least 2 positional arguments (got ${posArgs.length})`);
 }
 
-const MODES = ['periodic', 'parent', 'file', 'catalyst', 'script'];
+const MODES = ['periodic', 'parent', 'file', 'catalyst', 'custom-osc', 'script'];
 
 let rule = posArgs[0];
 let base = createPattern(rule) as DataPattern;
@@ -366,39 +366,6 @@ if (mode === 'periodic') {
     }
 
     if (dx !== 0 || dy !== 0) {
-        let mainAxis: string;
-        let sideAxis: string;
-        if (dx < 0) {
-            if (dy < 0) {
-                mainAxis = 'x+y';
-                sideAxis = 'x-y';
-            } else if (dy === 0) {
-                mainAxis = 'x';
-                sideAxis = 'y';
-            } else {
-                mainAxis = 'y-x';
-                sideAxis = 'x+y';
-            }
-        } else if (dx === 0) {
-            if (dy < 0) {
-                mainAxis = 'y';
-                sideAxis = 'x';
-            } else {
-                mainAxis = '-y';
-                sideAxis = 'x';
-            }
-        } else {
-            if (dy < 0) {
-                mainAxis = 'x-y';
-                sideAxis = 'x+y';
-            } else if (dy === 0) {
-                mainAxis = `-x`;
-                sideAxis = 'y';
-            } else {
-                mainAxis = '-x-y';
-                sideAxis = 'x-y';
-            }
-        }
         defaultSearchOrder = 'gfind-f2b';
         searchOrderAliases['f2b'] = `t, -(x*${dx} + y*${dy})`;
         searchOrderAliases['b2f'] = `t, (x*${dx} + y*${dy})`;
@@ -634,6 +601,96 @@ if (mode === 'periodic') {
     }
     for (let [x, y] of toSet) {
         grid.set(gens, x, y, UNKNOWN);
+    }
+
+} else if (mode === 'custom-osc') {
+
+    if (posArgs.length < 2) {
+        error(`Expected at least 2 positional arguments for custom-osc mode (got ${posArgs.length})`);
+    }
+    let gens = Number(posArgs[0]);
+    let p = IdentityPattern.loadRLE(posArgs[1]);
+    if (Number.isNaN(gens)) {
+        error(`Invalid generations value: '${gens}'`);
+    }
+
+    grid = new Grid(p.height, p.width, gens);
+    timeWrap = [0, 0];
+
+    let meanings: {[key: number]: [string, string[]]} = {};
+    let match: RegExpMatchArray | null;
+    for (let specifier of posArgs.slice(2)) {
+        let originalSpecifier = specifier;
+        specifier = specifier.replaceAll(/\s+/g, '');
+        if (!(match = specifier.match(/^(\d+):(.*)$/))) {
+            error(`Invalid meaning specifier: '${originalSpecifier}'`);
+        }
+        let state = Number(match[1]);
+        if (state < 7) {
+            error(`Cannot set meaning of state ${state} (specifier: '${originalSpecifier}')`);
+        }
+        meanings[state] = [originalSpecifier, match[2].split(',')];
+    }
+
+    for (let t = 1; t < grid.gens; t++) {
+        grid.fill(t, UNKNOWN);
+    }
+
+    for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+            let value = p.get(x, y);
+            if (value === 0 || value === 1) {
+                grid.set(0, x, y, value);
+            } else if (value === 2 || value === 6) {
+            } else if (value === 3 || value === 4) {
+                let cellValue = value % 2;
+                for (let t = 0; t < gens; t++) {
+                    grid.set(t, x, y, cellValue);
+                }
+            } else {
+                if (value in meanings) {
+                    let period = gens;
+                    let out: (number | [number, number])[] = [];
+                    for (let t = 0; t < gens; t++) {
+                        out.push(UNKNOWN);
+                    }
+                    for (let part of meanings[value][1]) {
+                        if (match = part.match(/^p(\d+)$/)) {
+                            period = Number(match[1]);
+                            let vars: number[] = [];
+                            for (let i = 0; i < period; i++) {
+                                vars.push(grid.getVar());
+                            }
+                            out = [];
+                            for (let t = 0; t < gens; t++) {
+                                out.push([UNKNOWN, vars[t % period]]);
+                            }
+                        } else if (match = part.match(/^(\d+)=([01*])$/)) {
+                            let t = Number(match[1]);
+                            let state = match[2] === '*' ? UNKNOWN : Number(match[2]);
+                            let prev = JSON.stringify(out[t]);
+                            for (let i = 0; i < out.length; i++) {
+                                if (JSON.stringify(out[i]) === prev) {
+                                    out[i] = state;
+                                }
+                            }
+                        } else {
+                            error(`Invalid meaning part: '${part}' (specifier: '${meanings[value][0]}')`);
+                        }
+                    }
+                    for (let t = 0; t < gens; t++) {
+                        let value = out[t];
+                        if (typeof value === 'number') {
+                            grid.set(t, x, y, value);
+                        } else {
+                            grid.set(t, x, y, ...value);
+                        }
+                    }
+                } else {
+                    error(`State ${value} is not defined (at x = ${x}, y = ${y})`);
+                }
+            }
+        }
     }
 
 } else if (mode === 'script') {
@@ -971,9 +1028,6 @@ for (let t = 0; t < grid.gens; t++) {
         }
     }
 }
-
-
-
 
 function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {4
     let data = useVars ? grid.vars : grid.data;

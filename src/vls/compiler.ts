@@ -97,7 +97,7 @@ export class Grid {
 
     removeUnusedVars(): void {
         this.numVars = 0;
-        let mapping: {[key: number]: number} = {};
+        let mapping: {[key: number]: number} = {0: 0};
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
@@ -105,14 +105,16 @@ export class Grid {
                     if (value === 0) {
                         continue;
                     }
-                    if (value in mapping) {
-                        value = mapping[value];
-                    } else {
-                        let mapped = this.getVar();
-                        mapping[value] = mapped;
-                        value = mapped;
+                    if (!(value in mapping)) {
+                        mapping[value] = this.getVar();
                     }
-                    this.vars[t][y][x] = value;
+                }
+            }
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    this.vars[t][y][x] = mapping[this.vars[t][y][x]];
                 }
             }
         }
