@@ -365,3 +365,37 @@ if (cmd in COMMANDS) {
 if (import.meta.main || (typeof process === 'object' && process && Array.isArray(process.argv) && process.argv[0].endsWith('lib/uc/index.js'))) {
     run();
 }
+
+
+// import {ChannelInfo} from './base.js';
+// import {checkElbow} from './channel.js';
+
+// const OBJECTS = ['xs4_33', 'xs6_2552', 'xs7_2596', 'xs7_6952', 'xs7_4a96', 'xs5_253', 'xs5_256', 'xs5_352', 'xs6_356', 'xs6_653', 'xs4_252', 'xs8_6996', 'xs7_ca52', 'xs7_25ac', 'xs7_35a4', 'xs6_25a4', 'xs6_4a52'];
+
+
+// let info: ChannelInfo = {
+//     ship: c.SPACESHIPS['xq4_153'],
+//     channels: [0],
+//     period: 1,
+//     minSpacings: [[512]],
+//     minSpacing: 512,
+//     maxNextSpacing: 1024,
+//     initialBound: 16,
+//     compatibleWith: [],
+// };
+
+// let recipes = await loadRecipes();
+// let elbows = recipes.channels['Single-channel (14)'].elbows;
+
+// for (let object of OBJECTS) {
+//     for (let lane = -10; lane < 30; lane++) {
+//         let elbow = `${object}/${lane}`;
+//         console.log(`Checking ${elbow}`);
+//         let value = checkElbow(info, elbows, parseElbow(`${elbow}`));
+//         if (value) {
+//             elbows[elbow] = value;
+//         }
+//         await saveRecipes(recipes);
+//     }
+
+// }

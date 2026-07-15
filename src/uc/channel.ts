@@ -75,7 +75,7 @@ export function createChannelPattern(info: ChannelInfo, elbow: string | Pick<Elb
 }
 
 
-function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefined | ElbowData['string'] {
+export function checkElbow(info: ChannelInfo, elbows: ElbowData, elbow: Elbow): undefined | ElbowData['string'] {
     elbow = structuredClone(elbow);
     let elbowObjCode = elbow.code.slice(elbow.code.indexOf('_') + 1);
     let out: ElbowData[string] = [];
