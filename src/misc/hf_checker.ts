@@ -1,10 +1,11 @@
 
-import * as fs from 'node:fs/promises';
 import {createInterface} from 'node:readline';
 import {Pattern, MAPPattern, getKnots, INTSeparator, createPattern} from '../core/index.js';
 
 
 let base = createPattern('B3/S23') as MAPPattern;
+
+let knots = getKnots(base.trs);
 
 
 const X = -1;
@@ -125,6 +126,20 @@ function hasObjectAt(p: Pattern, x: number, y: number, obj: string, loose: boole
             [0, 0, 1, 1, 1, 0, 0],
             [0, 0, 0, 0, 0, 0, 0],
             [X, 0, 0, 0, 0, 0, X],
+        ];
+    } else if (obj === 'nedouble16glider') {
+        value = [
+            [X, X, X, X, X, 0, 0, 0, 0, 0, X],
+            [X, X, X, X, 0, 0, 0, 0, 0, 0, 0],
+            [X, X, X, 0, 0, 0, 1, 1, 1, 0, 0],
+            [X, X, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [X, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, X],
+            [0, 0, 1, 1, 1, 0, 0, 0, 0, X, X],
+            [0, 0, 0, 0, 1, 0, 0, 0, X, X, X],
+            [0, 0, 0, 1, 0, 0, 0, X, X, X, X],
+            [0, 0, 0, 0, 0, 0, X, X, X, X, X],
+            [0, 0, 0, 0, 0, X, X, X, X, X, X],
         ];
     } else if (obj === 'nwloaf') {
         value = [
@@ -336,6 +351,7 @@ let objPatterns = Object.fromEntries(Object.entries({
     'neglider': '153',
     'swglider': '654',
     'seglider': '456',
+    'nedouble16glider': 'ggg0153z021',
     'nwloaf': '6952',
     'neloaf': '2596',
     'swloaf': '69a4',
@@ -364,31 +380,12 @@ function getObjectPattern(obj: string): Pattern {
 }
 
 
-let knots = getKnots(base.trs);
-
-function getInputCoords(p: Pattern): string | [number, number] {
-    let sep = new INTSeparator(p as MAPPattern, knots);
-    let x = undefined;
-    let y = undefined;
-    for (let obj of sep.getObjects()) {
-        if (obj.toApgcode() === INPUT_APGCODE) {
-            x = obj.xOffset;
-            y = obj.yOffset;
-        }
-    }
-    if (x === undefined || y === undefined) {
-        return 'cannot find input';
-    }
-    return [x, y];
-}
-
-
 interface HFObject {
     obj: string;
     x: number;
     y: number;
     gliders: {
-        dir: 'NW' | 'NE' | 'SW' | 'SE';
+        dir: 'NW' | 'NE' | 'SW' | 'SE' | 'NE double 16';
         x: number;
         y: number;
     }[];
@@ -396,6 +393,7 @@ interface HFObject {
 
 let hfObjects: HFObject[] = [
     {obj: 'block', x: -1, y: -4, gliders: [{dir: 'NE', x: -1, y: 0}]},
+    {obj: 'block', x: 0, y: -6, gliders: [{dir: 'NE double 16', x: -3, y: -2}]},
     {obj: 'horizontal beehive', x: -2, y: 1, gliders: [{dir: 'SW', x: 2, y: -3}]},
     {obj: 'NE loaf', x: -2, y: 0, gliders: [{dir: 'NE', x: -7, y: 2}, {dir: 'SE', x: -7, y: -1}]},
     {obj: 'SW loaf', x: 4, y: 0, gliders: [{dir: 'NE', x: -1, y: 0}]},
