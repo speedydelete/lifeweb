@@ -465,6 +465,8 @@ function confirmHF(catP: Pattern, hfX: number, hfY: number, current: HFCheckCurr
         if (hasObjectAt(p, hfX + obj.x, hfY + obj.y, obj.obj)) {
             // skip when it happens at the start
             if (!notFound) {
+                p.runGeneration();
+                p.shrinkToFit();
                 continue;
             }
             let genStr = current.time === Infinity ? `${p.generation}+` : `${p.generation} for ${current.time} generations`;
