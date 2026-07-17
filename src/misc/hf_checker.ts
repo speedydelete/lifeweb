@@ -526,7 +526,6 @@ function checkHF(p: Pattern): undefined | string {
             current = {obj, startGen: p.generation, missingCatCells: getMissingCatCells(p, catP), time: 0};
         } else if ((!obj && current) || (obj && current && obj !== current.obj)) {
             current.time = p.generation - current.startGen;
-            console.log(p.generation, current.startGen, current.time);
             let out = confirmHF(catP, hfX, hfY, current);
             if (out) {
                 return out;
