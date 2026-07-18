@@ -355,6 +355,30 @@ export function arrayToTransitions(array: Uint8Array, spec: INTSpec): false | [s
 }
 
 
+function flipTrVertical(i: number): number {
+    return ((i & 0b000_000_111) << 6) | (i & 0b000_111_000) | (i >> 6);
+}
+
+function flipTrHorizontal(i: number): number {
+    return ((i & 0b001_001_001) << 2) | (i & 0b010_010_010) | ((i & 0b100_100_100) >> 2)
+}
+
+function rotateTrRight(i: number): number {
+    return ((i & 0b100_001_000) >> 2) | ((i & 0b010_000_000) >> 4) | ((i & 0b001_000_000) >> 6) | ((i & 0b000_100_001) << 2) | (i & 0b000_010_000) | ((i & 0b000_000_100) << 6) | ((i & 0b000_000_010) << 4);
+}
+
+function rotateTr180(i: number): number {
+    return flipTrHorizontal(flipTrVertical(i));
+}
+
+function flipTrDiagonal(i: number): number {
+    return (i & 0b100_010_001) | ((i & 0b010_001_000) >> 2) | ((i & 0b001_000_000) >> 4) | ((i & 0b000_100_010) << 2) | ((i & 0b000_000_100) << 4);
+}
+
+function flipTrAntiDiagonal(i: number): number {
+    return flipTrVertical(flipTrDiagonal(i));
+}
+
 export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
     let C2 = true;
     let C4 = true;
@@ -363,9 +387,7 @@ export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
     let D2s = true;
     let D2b = true;
     for (let i = 0; i < 512; i++) {
-        let j = ((i << 6) & 448) | (i & 56) | (i >> 6);
-        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
-        if (trs[i] !== trs[j]) {
+        if (trs[i] !== trs[rotateTr180(i)]) {
             C2 = false;
             C4 = false;
             break;
@@ -373,23 +395,23 @@ export function findTransitionsSymmetry(trs: Uint8Array): RuleSymmetry {
     }
     if (C2) {
         for (let i = 0; i < 512; i++) {
-            if (trs[i] !== trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+            if (trs[i] !== trs[rotateTrRight(i)]) {
                 C4 = false;
                 break;
             }
         }
     }
     for (let i = 0; i < 512; i++) {
-        if (trs[i] !== trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+        if (trs[i] !== trs[flipTrHorizontal(i)]) {
             D2h = false;
         }
-        if (trs[i] !== trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+        if (trs[i] !== trs[flipTrVertical(i)]) {
             D2v = false;
         }
-        if (trs[i] !== trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
+        if (trs[i] !== trs[flipTrAntiDiagonal(i)]) {
             D2s = false;
         }
-        if (trs[i] !== trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+        if (trs[i] !== trs[flipTrDiagonal(i)]) {
             D2b = false;
         }
     }
@@ -487,21 +509,17 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
         }
     } else {
         for (let i = 0; i < 512; i++) {
-            let j = ((i & 0b110_000_000) >> 2) | ((i & 0b000_111_000) >> 1) | ((i & 0b000_000_011) >> 0);
+            let j = ((i & 0b110_000_000) >> 2) | ((i & 0b000_111_000) >> 1) | (i & 0b000_000_011);
             if (parsed[Math.floor(j / 8)] & (1 << (7 - (j % 8)))) {
                 trs[i] = 1;
             }
         }
     }
-    // flip diagonally
-    // abc    adg
-    // def -> beh
-    // ghi    cfi
-    // because of how lifeweb orders its trs variables
+    // flip diagonally because of how lifeweb orders its trs variables
     // as opposed to how the MAP notation is defined
     let realOut = new Uint8Array(512);
     for (let i = 0; i < 512; i++) {
-        if (trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+        if (trs[flipTrDiagonal(i)]) {
             realOut[i] = 1;
         }
     }
@@ -513,8 +531,8 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
     // unflip it diagonally (which is the same as flipping it diagonally)
     let newTrs = new Uint8Array(512);
     for (let i = 0; i < 512; i++) {
-        if (trs[i]) {
-            newTrs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)] = 1;
+        if (trs[flipTrDiagonal(i)]) {
+            newTrs[i] = 1;
         }
     }
     trs = newTrs;
