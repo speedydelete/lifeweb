@@ -30,7 +30,7 @@ export interface PhaseData<T extends Pattern = Pattern> {
 /** Verifies that a pattern is consistent with a given `PhaseData`. */
 function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
     p = p.copy();
-    for (let i = 0; i <= gens; i++) {
+    for (let i = 0; i <= gens; i += step) {
         if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
             return false;
         }
