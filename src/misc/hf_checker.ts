@@ -587,11 +587,11 @@ const RESTORE_EXTRA_GENS = 512;
 // only for checkHF, should be greater than or equal to MAX_GENS + RESTORE_EXTRA_GENS
 const CONFIRM_HF_GENS = 1024;
 
-// let rl = createInterface({
-//     input: process.stdin,
-//     terminal: true,
-// });
-// rl.on('line', onLine);
+let rl = createInterface({
+    input: process.stdin,
+    terminal: true,
+});
+rl.on('line', onLine);
 
 // let data = (await fs.readFile('out3.txt')).toString();
 // for (let line of data.split('\n').slice(37904)) {
