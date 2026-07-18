@@ -398,7 +398,7 @@ let hfObjects: HFObject[] = [
     {obj: 'NE loaf', x: -2, y: 0, gliders: [{dir: 'NE', x: -7, y: 2}, {dir: 'SE', x: -7, y: -1}]},
     {obj: 'SW loaf', x: 4, y: 0, gliders: [{dir: 'NE', x: -1, y: 0}]},
     {obj: 'NW boat', x: 1, y: 1, gliders: [{dir: 'NW', x: -4, y: 0}]},
-    {obj: 'SW boat', x: -1, y: 4, gliders: [{dir: 'NW', x: 2, y: 1}]},
+    {obj: 'SW boat', x: 1, y: -4, gliders: [{dir: 'NW', x: 2, y: 1}]},
     {obj: 'NW/SE barge', x: -1, y: -1, gliders: [{dir: 'SE', x: 0, y: -6}]},
     {obj: 'vertical bi-block', x: -1, y: -2, gliders: [{dir: 'SE', x: -6, y: -6}]},
     {obj: 'vertical bi-block', x: 1, y: -3, gliders: [{dir: 'SE', x: -4, y: -4}]},
@@ -419,6 +419,9 @@ const CONFIRM_HF_ADJUST = 64;
 const CONFIRM_HF_EXPAND = 96;
 
 function confirmHF(catP: Pattern, hfX: number, hfY: number, current: HFCheckCurrentData): undefined | string {
+    // console.log(catP.toRLE());
+    // console.log(hfX, hfY);
+    // console.log(current);
     let obj = current.obj;
     // check that the glider can get through
     let catP2 = catP.copy();
@@ -429,13 +432,13 @@ function confirmHF(catP: Pattern, hfX: number, hfY: number, current: HFCheckCurr
         let p = catP2.copy();
         let x2;
         let y2;
-        if (dir === 'NW') {
+        if (dir.startsWith('NW')) {
             x2 = x + CONFIRM_HF_ADJUST;
             y2 = y + CONFIRM_HF_ADJUST;
-        } else if (dir === 'NE') {
+        } else if (dir.startsWith('NE')) {
             x2 = x - CONFIRM_HF_ADJUST;
             y2 = y + CONFIRM_HF_ADJUST;
-        } else if (dir === 'SW') {
+        } else if (dir.startsWith('SW')) {
             x2 = x + CONFIRM_HF_ADJUST;
             y2 = y - CONFIRM_HF_ADJUST;
         } else {
@@ -554,7 +557,7 @@ function onLine(line: string) {
         prev = 'winner';
     } else if (line.includes('LifeBellman')) {
         prev = 'winner';
-    } else if (line === 'Completed:' || line === 'Result found:' || line.startsWith('Eater found') || line.startsWith('Non-eater found')) {
+    } else if (line === 'Completed:' || line === 'Result found:' || line.startsWith('Eater found') || line.startsWith('Non-eater found') || line === 'Bad:') {
         prev = 'completed';
     } else if (prev === 'winner') {
         prev = 'other';
@@ -578,20 +581,28 @@ function onLine(line: string) {
 
 
 const MAX_GENS = 256;
-const INPUT_APGCODE = '456';
 
 // only for checkPi and checkHF
 const RESTORE_EXTRA_GENS = 512;
 // only for checkHF, should be greater than or equal to MAX_GENS + RESTORE_EXTRA_GENS
 const CONFIRM_HF_GENS = 1024;
 
-let rl = createInterface({
-    input: process.stdin,
-    terminal: true,
-});
-rl.on('line', onLine);
+// let rl = createInterface({
+//     input: process.stdin,
+//     terminal: true,
+// });
+// rl.on('line', onLine);
 
 // let data = (await fs.readFile('out3.txt')).toString();
 // for (let line of data.split('\n').slice(37904)) {
 //     onLine(line);
 // }
+
+onLine('Completed:');
+onLine('8b2o$8bobo$10bo4b2o$6b4ob2o2bo2bo$6bo2bobobobob2o$9bobobobo$10b2obobo$14bo2$2o$bo$bobo$2b2o$9b3o$9bobo$9bo2bo$10b2o3$12b2o$12bo$13b3o$15bo!');
+
+onLine('Completed:');
+onLine('18b2o$18bo$16bobo$16b2o$8b3o$8bobo$8bo2bo$2b2o5b2o$bobo$bo$2o!');
+
+onLine('Completed:');
+onLine('15bo$13b3o$12bo$4b2o6b2o$4bobo$5bo3$17b2o$17b2o3$2o7b3o$2o7bobo$9bo2bo$10b2o3b2o$15bobo$17bo$17b2o!');
