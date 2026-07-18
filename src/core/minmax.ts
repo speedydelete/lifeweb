@@ -560,6 +560,9 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
             newData.hashes.push(data.hashes[j]);
             newData.phases.push(data.phases[j]);
         }
+        if (newData.pops.length === 0) {
+            continue;
+        }
         let minmax = findMinmax(q, Math.floor((gens - i) / count), newData, count, ot);
         min.push(minmax[0]);
         max.push(minmax[1]);
