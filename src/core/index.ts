@@ -478,3 +478,8 @@ export function getBlackWhiteReversal(rule: string): string {
 // console.log(p.toRLE());
 // p.runGeneration();
 // console.log(p.toRLE());
+
+// let p = parse(`x = 3, y = 3, rule = B3/S23|B3/S23
+// bo$2bo$3o!`);
+// import {findMinmax} from './minmax.js';
+// console.log(findMinmax(p, 1));

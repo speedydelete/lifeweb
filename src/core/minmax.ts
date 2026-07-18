@@ -2,7 +2,7 @@
 /** Finds the minimum and maximum rule of patterns. */
 
 import {LifewebError} from './util.js';
-import {Pattern, IdentityPattern, DataPattern} from './pattern.js';
+import {Pattern, IdentityPattern} from './pattern.js';
 import {INTSpec, INT, INT_SPECS, arrayToTransitions, unparseTransitions, unparseMAP, MAPPattern, MAPB0Pattern, MAPGenPattern} from './map.js';
 import {unparseHROTRanges, HROTPattern, HROTB0Pattern} from './hrot.js';
 import {AlternatingPattern} from './alternating.js';
@@ -30,15 +30,17 @@ export interface PhaseData<T extends Pattern = Pattern> {
 /** Verifies that a pattern is consistent with a given `PhaseData`. */
 function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
     p = p.copy();
+    let counter = 0;
     for (let i = 0; i <= gens; i += step) {
-        if (p.hash32() !== data.hashes[i] || p.population !== data.pops[i]) {
+        if (p.hash32() !== data.hashes[counter] || p.population !== data.pops[counter]) {
             return false;
         }
-        if (!p.isEqual(data.phases[i])) {
+        if (!p.isEqual(data.phases[counter])) {
             return false;
         }
         p.run(step);
         p.shrinkToFit();
+        counter++;
     }
     return true;
 }
@@ -552,20 +554,18 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
     let count = p.patterns.length * step;
     for (let i = 0; i < count; i += step) {
         let q = p.patterns[i % p.patterns.length].copy();
-        let phase = data.phases[i] as AlternatingPattern;
-        q.setData(phase.height, phase.width, phase.data);
+        let phase = data.phases[i];
+        q.setData(phase.height, phase.width, phase.getData());
+        q.xOffset = phase.xOffset;
+        q.yOffset = phase.yOffset;
         let newData: PhaseData = {pops: [], hashes: [], phases: []};
-        for (let j = i; j < gens; j += count) {
+        for (let j = i; j <= gens; j += count) {
             newData.pops.push(data.pops[j]);
             newData.hashes.push(data.hashes[j]);
             newData.phases.push(data.phases[j]);
         }
-        let minmax: [string, string];
-        if (newData.pops.length === 0) {
-            minmax = findMinmax(q, 0);
-        } else {
-            minmax = findMinmax(q, Math.floor((gens - i) / count), newData, count, ot);
-        }
+        let newGens = Math.ceil((gens - i) / count) + 1;
+        let minmax = findMinmax(q, newGens, newData, count, ot);
         min.push(minmax[0]);
         max.push(minmax[1]);
     }
@@ -578,22 +578,22 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
  * @param ot Whether to use outer-totalistic minmax instead of isotropic minmax when available.
 */
 export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseData<T>, step: number = 1, ot?: boolean): [string, string] {
-    p = p.copy().shrinkToFit() as T;
+    p = p.copy().shrinkToFit();
     if (data === undefined) {
         let pops: number[] = [p.population];
         let hashes: number[] = [p.hash32()];
-        let phases: T[] = [p.copy() as T];
-        let q = p.copy() as T;
+        let phases: T[] = [p.copy()];
+        let q = p.copy();
         for (let i = 0; i < gens + 1; i++) {
             q.run(step);
             q.shrinkToFit();
             pops.push(q.population);
             hashes.push(q.hash32());
-            phases.push(q.copy() as T);
+            phases.push(q.copy());
         }
         data = {pops, hashes, phases};
     } else {
-        let q = data.phases[data.phases.length - 1].copy() as T;
+        let q = data.phases[data.phases.length - 1].copy();
         q.run(step);
         q.shrinkToFit();
         data.pops.push(q.population);
