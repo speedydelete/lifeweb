@@ -134,7 +134,7 @@ for (let i = 0; i < 512; i++) {
     }
 }
 
-/* We precompute a 512-byte array containing all the knot information for a rule. For 2-island knots, the byte is 0 if merging should not happen or 1 if merging should happen. It is also 0 if it isn't a knot at all. For 3+-island knots, it is more complicated.*/
+// We precompute a 512-byte array containing all the knot information for a rule. For 2-island knots, the byte is 0 if merging should not happen or 1 if merging should happen. It is also 0 if it isn't a knot at all. For 3+-island knots, it is more complicated.
 
 const KNOT_TYPE = 0xF0;
 

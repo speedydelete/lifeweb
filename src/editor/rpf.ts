@@ -21,7 +21,7 @@ export class RPFError extends LifewebError {
 
 
 export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
-const ROTATIONS = new Set(['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx']);
+export const ROTATIONS = new Set(['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx'] as Rotation[]);
 
 export const ROTATION_COMBINE: {[K in Rotation]: {[K in Rotation]: Rotation}} = {
   F: { F: 'F', Fx: 'Fx', L: 'L', Lx: 'Lx', B: 'B', Bx: 'Bx', R: 'R', Rx: 'Rx' },
@@ -446,7 +446,20 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return out;
     }
 
-    add(ref: RPFReference<T>): this {
+    createRef(p: T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): RPFReference<T> {
+        return new RPFReference(this, p, x, y, rotation, time);
+    }
+
+    createPartialRef(p: T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): PartialRPFReference<T> {
+        return new PartialRPFReference(this, p, x, y, rotation, time);
+    }
+
+    add(ref: RPFReference<T>): this;
+    add(p: T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): this;
+    add(ref: RPFReference<T> | T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): this {
+        if (!(ref instanceof RPFReference)) {
+            ref = this.createRef(ref, x, y, rotation, time);
+        }
         if (this.data.has(ref)) {
             return this;
         }

@@ -242,32 +242,62 @@ unix:
 LWSS:
 #name LWSS
 #periodic 2 0 4
+#envelope 0 0 vvvvv
 #manualverified speedydelete 2025-05-12
 *5889e
 
 MWSS:
 #name MWSS
 #periodic 2 0 4
+#envelope 0 0 vuvuvuz131313
 #manualverified speedydelete 2025-05-12
 *aghgis
 
 HWSS:
 #name HWSS
 #periodic 2 0 4
+#envelope 0 0 vvvvvvvz3333333
 #manualverified speedydelete 2025-05-12
 *aghhgis
 
 
-// other catalysts
+// other still lifes
 
 
 // conduit objects
 
+R-pentomino:
+*472
+
+B-heptomino:
+*d72
+
+B-heptaplet:
+*pe4
+
 herschel:
 *74e
 
-B-heptomino:
-*pe4
+century:
+*c957
+
+dove:
+*ci97
+
+E-heptomino:
+*1572
+
+pi-heptomino:
+*557
+
+queen_bee:
+*3us8z31
+
+wing:
+*c53
+
+U-turner:
+*77ac
 
 
 // conduits
