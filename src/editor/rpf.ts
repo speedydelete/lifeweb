@@ -148,54 +148,76 @@ export class PartialRPFReference<T extends Pattern = Pattern> {
         }
     }
 
-    toString(file: RPFFile<T> | undefined, dir: string): string {
-        let str: string | undefined = undefined;
+    _toString(): string {
         if (this.p instanceof RPFPattern) {
-            let dir2 = path.dirname(this.p.path);
-            if (!file || dir === dir2) {
-                str = this.p.key;
-            } else {
+            if (this.p.location) {
+                let file = this.parent.file;
+                let location = this.p.location;
+                let dir2 = path.dirname(location.path);
+                let out: string | undefined;
                 for (let imported of file.starImports) {
                     if (dir2 === imported.path) {
-                        str = this.p.key;
+                        out = location.key;
                         break;
                     }
                 }
-                if (str === undefined) {
+                if (out === undefined) {
                     for (let [key, imported] of Object.entries(file.imports)) {
                         if (dir2 === imported.path) {
-                            str = `${key}.${this.p.key}`;
+                            out = `${key}.${location.key}`;
                             break;
                         }
                     }
                 }
-                if (str === undefined) {
-                    str = this.p.path;
+                if (out === undefined) {
+                    out = location.path;
                 }
+                return out;
+            } else {
+                let out = '{\n';
+                for (let line of this.p.toString().split('\n')) {
+                    out += '    ' + line + '\n';
+                }
+                out += '}';
+                return out;
             }
         } else {
-            str = '*' + this.p.toApgcode();
+            return '*' + this.p.toApgcode();
         }
+    }
+
+    toString(): string {
+        let out = this._toString();
         if (this.x !== 0 || this.y !== 0 || this.rotation !== 'F' || this.time !== 0) {
-            str += ` ${this.x} ${this.y}`;
+            out += ` ${this.x} ${this.y}`;
             if (this.rotation !== 'F' || this.time !== 0) {
-                str += ` ${this.rotation}`;
+                out += ` ${this.rotation}`;
                 if (this.time !== 0) {
-                    str += ` ${this.time}`;
+                    out += ` ${this.time}`;
                 }
             }
         }
-        return str;
+        return out;
     }
 
     static fromString<T extends Pattern>(file: RPFFile<T>, parent: RPFPattern<T>, data: string[]): PartialRPFReference<T> {
+        let p: T | RPFPattern<T>;
+        if (data[0] === '{') {
+            let index = data.findLastIndex(value => value === '}');
+            if (index === -1) {
+                throw new RPFError(`Mismatched braces`);
+            }
+        } else {
+            let q = data[0].startsWith('*') ? file.base.loadApgcode(data[0].slice(1)).shrinkToFit() : file.lookupName(data[0]);
+            if (q === undefined) {
+                throw new RPFError(`Cannot find RPF object '${data[0]}'`);
+            }
+            p = q;
+        }
         if (data.length > 5) {
             throw new RPFError(`Extra data in partial RPF reference: '${data.join(' ')}'`);
         }
-        let p = data[0].startsWith('*') ? file.base.loadApgcode(data[0].slice(1)).shrinkToFit() : file.lookupName(data[0]);
-        if (!p) {
-            throw new RPFError(`Cannot find RPF object '${data[0]}'`);
-        }
+
         let x = data[1] === undefined ? 0 : Number(data[1]);
         let y = data[2] === undefined ? 0 : Number(data[2]);
         let rotation = data[3] === undefined ? 'F' : data[3] as Rotation;
@@ -231,6 +253,20 @@ export class PartialRPFReference<T extends Pattern = Pattern> {
 
 export class RPFReference<T extends Pattern = Pattern> extends PartialRPFReference<T> {
 
+    toString(): string {
+        let out = this._toString();
+        if (this.x !== 0 || this.y !== 0 || this.rotation !== 'F' || this.time !== 0) {
+            out += ` ${this.x} ${this.y}`;
+            if (this.rotation !== 'F' || this.time !== 0) {
+                out += ` ${this.rotation}`;
+                if (this.time !== 0) {
+                    out += ` ${this.time}`;
+                }
+            }
+        }
+        return out;
+    }
+
     static fromString<T extends Pattern>(file: RPFFile<T>, parent: RPFPattern<T>, data: string[]): RPFReference<T> {
         if (data.length > 5) {
             throw new RPFError(`Extra data in RPF reference: '${data.join(' ')}'`);
@@ -262,9 +298,11 @@ export class RPFReference<T extends Pattern = Pattern> extends PartialRPFReferen
 
 export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
-    base: T;
-    key: string;
-    path: string;
+    /** The file that it's part of. */
+    file: RPFFile<T>;
+    /** Only present if it isn't anonymous. */
+    location?: {key: string, path: string};
+
     data: Set<RPFReference<T>> = new Set();
 
     minX: number = 0;
@@ -296,19 +334,17 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         p: IdentityPattern;
     } = undefined;
 
-    constructor(base: T, key: string, path: string) {
+    constructor(file: RPFFile<T>, location?: {key: string, path: string}) {
         super();
-        this.base = base;
-        this.key = key;
-        this.path = path;
-        this.rule = base.rule;
+        this.file = file;
+        this.location = location;
+        this.rule = file.base.rule;
     }
 
-    toString(file?: RPFFile<T>, pasting?: boolean): string {
-        let dir = path.dirname(this.path);
-        let out: string[] = [`${this.key}:`];
-        if (pasting) {
-            out.push(`#pasting ${this.key}`);
+    toString(): string {
+        let out: string[] = [];
+        if (this.location) {
+            out.push(`${this.location.key}:`);
         }
         if (this.name) {
             out.push(`#name ${this.name}`);
@@ -320,7 +356,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             out.push(`#periodic ${this.periodic.dx} ${this.periodic.dy} ${this.periodic.period}`);
         }
         if (this.creates) {
-            out.push(`#creates ${this.creates.times.join(',')} ${this.creates.ref.toString(file, dir)}`);
+            out.push(`#creates ${this.creates.times.join(',')} ${this.creates.ref.toString()}`);
         }
         if (this.envelope) {
             out.push(`#envelope ${this.envelope.x} ${this.envelope.y} ${this.envelope.p.toApgcode()}`);
@@ -334,108 +370,123 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
                 str += ` ${data.repeatTime}`;
             }
             for (let input of data.inputs) {
-                str += ` input ${input.toString(file, dir)}`;
+                str += ` input ${input.toString()}`;
             }
             for (let output of data.outputs) {
-                str += ` output ${output.toString(file, dir)}`;
+                str += ` output ${output.toString()}`;
             }
         }
         for (let value of this.data) {
-            out.push(value.toString(file, dir));
+            out.push(value.toString());
         }
         return out.join('\n');
     }
 
-    static fromString<T extends Pattern>(data: string, file: RPFFile<T>): RPFPattern<T> {
+    static fromString<T extends Pattern>(file: RPFFile<T>, data: string): RPFPattern<T> {
         data = data.trim();
         let lines = data.split('\n').map(x => x.trim()).filter(x => x !== '' && !x.startsWith('//'));
-        if (!lines[0].endsWith(':')) {
-            throw new RPFError(`Invalid first line of RPF object: '${lines[0]}'`);
+        let out: RPFPattern<T>;
+        if (lines[0].endsWith(':')) {
+            let key = lines[0].slice(0, -1);
+            out = new RPFPattern(file, {key, path: path.join(file.path, key)});
+        } else {
+            out = new RPFPattern(file);
         }
-        let key = lines[0].slice(0, -1);
-        let out = new RPFPattern(file.base, key, path.join(file.path, key));
+        let nonMetadata: string[] = [];
         for (let i = 1; i < lines.length; i++) {
             let line = lines[i];
             let parts = line.split(' ');
-            if (parts[0].startsWith('#')) {
-                if (parts[0] === '#pasting') {
-                    let key = parts.slice(1).join(' ');
-                    if (key in file.data) {
-                        return file.data[key];
-                    }
-                } else if (parts[0] === '#name') {
-                    out.name = parts.slice(1).join(' ');
-                } else if (parts[0] === '#desc') {
-                    out.desc = parts.slice(1).join(' ').replaceAll('\\n', '\n').replaceAll('\\\\', '\\');
-                } else if (parts[0] === '#periodic') {
-                    if (parts.length < 4) {
-                        throw new RPFError(`Invalid #periodic: '${line}'`);
-                    }
-                    let [dx, dy, period] = parts.slice(1).map(Number);
-                    if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
-                        throw new RPFError(`Invalid #periodic: '${line}'`);
-                    }
-                    out.periodic = {dx, dy, period};
-                } else if (parts[0] === '#creates') {
-                    if (!parts[1] || !parts[2]) {
-                        throw new RPFError(`Expected object after '#creates'`);
-                    }
-                    let times = parts[1].split(',').map(Number);
-                    if (times.some(x => Number.isNaN(x))) {
-                        throw new RPFError(`Invalid times: '${times}'`);
-                    }
-                    out.creates = {ref: RPFReference.fromString(file, out, parts.slice(2)), times};
-                } else if (parts[0] === '#conduit') {
-                    if (parts.length < 3) {
-                        throw new Error(`Expected 2 values after '#conduit'`);
-                    }
-                    let ranges = parts[2].split(',').map(Number);
-                    let conduit: RPFPattern<T>['conduit'] = {
-                        recoveryTime: Number(parts[1]),
-                        repeatTime: ranges[ranges.length - 1],
-                        overclock: ranges.slice(0, -1),
-                        inputs: [],
-                        outputs: [],
-                    };
-                    parts = parts.slice(3);
-                    let refs: string[][] = [];
-                    let currentRef: string[] = [];
-                    for (let part of parts) {
-                        if (part === 'input' || part === 'output') {
-                            if (currentRef.length > 0) {
-                                refs.push(currentRef);
-                            }
-                            currentRef = [part];
-                        } else {
-                            currentRef.push(part);
-                        }
-                    }
-                    if (currentRef.length > 0) {
-                        refs.push(currentRef);
-                    }
-                    for (let data of refs) {
-                        let type = data[0];
-                        if (type !== 'input' && type !== 'output') {
-                            throw new RPFError(`Expected 'input' or 'output' in #conduit`);
-                        }
-                        let ref = PartialRPFReference.fromString(file, out, data.slice(1));
-                        if (type === 'input') {
-                            conduit.inputs.push(ref);
-                        } else {
-                            conduit.outputs.push(ref);
-                        }
-                    }
-                    out.conduit = conduit;
-                } else if (parts[0] === '#envelope') {
-                    let x = Number(parts[1]);
-                    let y = Number(parts[2]);
-                    let p = IdentityPattern.loadApgcode(parts[3]).shrinkToFit();
-                    out.setEnvelope(x, y, p);
+            if (!line.startsWith('#')) {
+                for (let part of parts) {
+                    nonMetadata.push(part);
                 }
-            } else {
-                out.data.add(RPFReference.fromString(file, out, parts));
+                nonMetadata.push('\n');
+            }
+            if (parts[0] === '#pasting') {
+                let key = parts.slice(1).join(' ');
+                if (key in file.data) {
+                    return file.data[key];
+                }
+            } else if (parts[0] === '#name') {
+                out.name = parts.slice(1).join(' ');
+            } else if (parts[0] === '#desc') {
+                out.desc = parts.slice(1).join(' ').replaceAll('\\n', '\n').replaceAll('\\\\', '\\');
+            } else if (parts[0] === '#periodic') {
+                if (parts.length < 4) {
+                    throw new RPFError(`Invalid #periodic: '${line}'`);
+                }
+                let [dx, dy, period] = parts.slice(1).map(Number);
+                if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
+                    throw new RPFError(`Invalid #periodic: '${line}'`);
+                }
+                out.periodic = {dx, dy, period};
+            } else if (parts[0] === '#creates') {
+                if (!parts[1] || !parts[2]) {
+                    throw new RPFError(`Expected object after '#creates'`);
+                }
+                let times = parts[1].split(',').map(Number);
+                if (times.some(x => Number.isNaN(x))) {
+                    throw new RPFError(`Invalid times: '${times}'`);
+                }
+                out.creates = {ref: RPFReference.fromString(file, out, parts.slice(2)), times};
+            } else if (parts[0] === '#conduit') {
+                if (parts.length < 3) {
+                    throw new Error(`Expected 2 values after '#conduit'`);
+                }
+                let ranges = parts[2].split(',').map(Number);
+                let conduit: RPFPattern<T>['conduit'] = {
+                    recoveryTime: Number(parts[1]),
+                    repeatTime: ranges[ranges.length - 1],
+                    overclock: ranges.slice(0, -1),
+                    inputs: [],
+                    outputs: [],
+                };
+                parts = parts.slice(3);
+                let refs: string[][] = [];
+                let currentRef: string[] = [];
+                for (let part of parts) {
+                    if (part === 'input' || part === 'output') {
+                        if (currentRef.length > 0) {
+                            refs.push(currentRef);
+                        }
+                        currentRef = [part];
+                    } else {
+                        currentRef.push(part);
+                    }
+                }
+                if (currentRef.length > 0) {
+                    refs.push(currentRef);
+                }
+                for (let data of refs) {
+                    let type = data[0];
+                    if (type !== 'input' && type !== 'output') {
+                        throw new RPFError(`Expected 'input' or 'output' in #conduit`);
+                    }
+                    let ref = PartialRPFReference.fromString(file, out, data.slice(1));
+                    if (type === 'input') {
+                        conduit.inputs.push(ref);
+                    } else {
+                        conduit.outputs.push(ref);
+                    }
+                }
+                out.conduit = conduit;
+            } else if (parts[0] === '#envelope') {
+                let x = Number(parts[1]);
+                let y = Number(parts[2]);
+                let p = IdentityPattern.loadApgcode(parts[3]).shrinkToFit();
+                out.setEnvelope(x, y, p);
             }
         }
+        for (let token of nonMetadata) {
+            if (token === '{') {
+                let braceCount = 1;
+                for (let i = 0; i < braceCount.length; i++) {
+
+                }
+            }
+        }
+                out.data.add(RPFReference.fromString(file, out, parts));
+
         out.recomputeSizes();
         return out;
     }
@@ -1026,6 +1077,244 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         this.minY = Math.min(this.minY, y);
         this.envelope = {x, y, p};
         return this;
+    }
+
+}
+
+
+const EOF = '';
+
+type Matcher = [string | string[] | RegExp, string];
+
+const T_INTEGER = [/^-?\d+$/, 'integer'] as Matcher;
+const T_ROTATION = [['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx'], 'rotation'] as Matcher;
+const T_APGCODE = [/^[a-z0-9]+$/, 'apgcode'] as Matcher;
+const T_LEFT_BRACE = ['{', 'left brace'] as Matcher;
+const T_RIGHT_BRACE = ['}', 'right brace'] as Matcher;
+const T_NEWLINE = ['\n', 'newline'] as Matcher;
+
+class RPFParser<T extends Pattern> {
+
+    base: T;
+    file: RPFFile<T>;
+    code: string;
+    tokens: string[];
+    tokenPositions: number[];
+    pos: number;
+
+    constructor(base: T, file: string | RPFFile<T>, code: string) {
+        this.base = base;
+        this.file = typeof file === 'string' ? new RPFFile(base, file, {}) : file;
+        this.code = code;
+        this.tokens = [];
+        this.tokenPositions = [];
+        let currentValue = '';
+        let currentPos = 0;
+        for (let i = 0; i < code.length; i++) {
+            let char = code[i];
+            if (char === ' ' || char === '\n') {
+                if (currentValue.length === 0) {
+                    currentPos++;
+                    continue;
+                }
+                this.tokens.push(currentValue);
+                this.tokenPositions.push(currentPos);
+                if (char === '\n') {
+                    this.tokens.push('\n');
+                    this.tokenPositions.push(i);
+                }
+                currentValue = '';
+                currentPos = i + 1;
+            } else {
+                currentValue += char;
+            }
+        }
+        if (currentValue !== '') {
+            this.tokens.push(currentValue);
+            this.tokenPositions.push(currentPos);
+        }
+        this.pos = 0;
+    }
+
+    error(msg: string, increment: number = 0): never {
+        let pos = this.tokenPositions[this.pos + increment];
+        let line = 0;
+        let col = 0;
+        for (let i = 0; i < pos; i++) {
+            if (this.code[i] === '\n') {
+                col = 0;
+                line++;
+            } else {
+                col++;
+            }
+        }
+        throw new RPFError(`Syntax error (at ${this.file.path}:${line}:${col}): ${msg}`);
+    }
+
+    peek(): string | typeof EOF {
+        return this.tokens[this.pos] ?? EOF;
+    }
+
+    advance(): string {
+        let out = this.peek();
+        if (out !== EOF) {
+            this.pos++;
+        }
+        return out;
+    }
+
+    match(...data: Matcher[]): boolean {
+        for (let i = 0; i < data.length; i++) {
+            let matcher = data[i][0];
+            let token = this.tokens[this.pos + i] ?? EOF;
+            if (Array.isArray(matcher)) {
+                let found = false;
+                for (let value of matcher) {
+                    if (value === token) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    return false;
+                }
+            } else {
+                if (!token.match(matcher)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    expect(...data: Matcher[]): void {
+        for (let i = 0; i < data.length; i++) {
+            let [matcher, errorMsg] = data[i];
+            let token = this.tokens[this.pos + i] ?? EOF;
+            if (Array.isArray(matcher)) {
+                let found = false;
+                for (let value of matcher) {
+                    if (value === token) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else {
+                if (!token.match(matcher)) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            }
+        }
+    }
+
+    eat(...data: Matcher[]): void {
+        this.expect(...data);
+        for (let i = 0; i < data.length; i++) {
+            this.advance();
+        }
+    }
+
+    _literalOrIdentifier(): T | RPFPattern<T> {
+        if (this.match(T_APGCODE)) {
+            return this.file.base.loadApgcode(this.advance());
+        } else {
+            let value = this.peek();
+            let out = this.file.lookupName(value);
+            if (!out) {
+                this.error(`Cannot resolve name '${value}'`);
+            }
+            return out;
+        }
+    }
+
+    partialReference(parent: RPFPattern<T>): PartialRPFReference<T> {
+        let p = this._literalOrIdentifier();
+        let x = 0;
+        let y = 0;
+        let rotation: Rotation = 'F';
+        let time: number = 0;
+        if (this.match(T_INTEGER)) {
+            x = Number(this.advance());
+            if (this.match(T_INTEGER)) {
+                y = Number(this.advance());
+                if (this.match(T_ROTATION)) {
+                    rotation = this.advance() as Rotation;
+                    if (this.match(T_INTEGER)) {
+                        time = Number(this.advance());
+                    }
+                }
+            }
+        }
+        return new PartialRPFReference(parent, p, x, y, rotation, time);
+    }
+
+    reference(parent: RPFPattern<T>): RPFReference<T> {
+        let p: T | RPFPattern<T>;
+        if (this.match(T_LEFT_BRACE)) {
+            this.advance();
+            p = this.pattern();
+            this.eat(T_RIGHT_BRACE);
+        } else {
+            p = this._literalOrIdentifier();
+        }
+        let x = 0;
+        let y = 0;
+        let rotation: Rotation = 'F';
+        let time: number = 0;
+        if (this.match(T_INTEGER)) {
+            x = Number(this.advance());
+            if (this.match(T_INTEGER)) {
+                y = Number(this.advance());
+                if (this.match(T_ROTATION)) {
+                    rotation = this.advance() as Rotation;
+                    if (this.match(T_INTEGER)) {
+                        time = Number(this.advance());
+                    }
+                }
+            }
+        }
+        return new RPFReference(parent, p, x, y, rotation, time);
+    }
+
+    patternMetadata(p: RPFPattern<T>): void {
+        let type = this.advance();
+    }
+
+    pattern(location?: {key: string, path: string}): RPFPattern<T> {
+        let out = new RPFPattern<T>(this.file, location);
+        while (!(this.match(T_RIGHT_BRACE) || this.match(T_NEWLINE, T_NEWLINE))) {
+            if (this.match([/^#/, ''])) {
+                this.patternMetadata(out);
+                this.eat(T_NEWLINE);
+            } else {
+                out.add(this.reference(out));
+                this.eat(T_NEWLINE);
+            }
+        }
+        return out;
     }
 
 }
