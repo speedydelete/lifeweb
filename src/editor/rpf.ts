@@ -1,5 +1,7 @@
 
 export let path: (typeof import('node:path'))['posix'];
+let normalize: (typeof path)['normalize'];
+let join: (typeof path)['join'];
 (async () => {
     if (typeof window === 'object' && window === globalThis) {
         // @ts-ignore
@@ -9,6 +11,8 @@ export let path: (typeof import('node:path'))['posix'];
         path = (await import('node:path')).posix;
     }
     (globalThis as any).path = path;
+    normalize = path.normalize;
+    join = path.join;
 })();
 
 import {LifewebError, Rect, Rule, Pattern, IdentityPattern, speedToString, createPattern} from '../core/index.js';
@@ -110,7 +114,7 @@ export function transformCoordinatesOfPart(x: number, y: number, height1: number
 }
 
 
-export class PartialRPFReference<T extends Pattern = Pattern> {
+export class RPFReference<T extends Pattern = Pattern> {
 
     parent: RPFPattern<T>;
     p: T | RPFPattern<T>;
@@ -150,27 +154,26 @@ export class PartialRPFReference<T extends Pattern = Pattern> {
 
     _toString(): string {
         if (this.p instanceof RPFPattern) {
-            if (this.p.location) {
+            if (this.p.key) {
                 let file = this.parent.file;
-                let location = this.p.location;
-                let dir2 = path.dirname(location.path);
+                let pFile = this.p.file;
                 let out: string | undefined;
                 for (let imported of file.starImports) {
-                    if (dir2 === imported.path) {
-                        out = location.key;
+                    if (pFile.path === imported.path) {
+                        out = this.p.key;
                         break;
                     }
                 }
                 if (out === undefined) {
                     for (let [key, imported] of Object.entries(file.imports)) {
-                        if (dir2 === imported.path) {
-                            out = `${key}.${location.key}`;
+                        if (pFile.path === imported.path) {
+                            out = `${key}.${this.p.key}`;
                             break;
                         }
                     }
                 }
                 if (out === undefined) {
-                    out = location.path;
+                    out = this.p.key;
                 }
                 return out;
             } else {
@@ -200,40 +203,12 @@ export class PartialRPFReference<T extends Pattern = Pattern> {
         return out;
     }
 
-    static fromString<T extends Pattern>(file: RPFFile<T>, parent: RPFPattern<T>, data: string[]): PartialRPFReference<T> {
-        let p: T | RPFPattern<T>;
-        if (data[0] === '{') {
-            let index = data.findLastIndex(value => value === '}');
-            if (index === -1) {
-                throw new RPFError(`Mismatched braces`);
-            }
-        } else {
-            let q = data[0].startsWith('*') ? file.base.loadApgcode(data[0].slice(1)).shrinkToFit() : file.lookupName(data[0]);
-            if (q === undefined) {
-                throw new RPFError(`Cannot find RPF object '${data[0]}'`);
-            }
-            p = q;
-        }
-        if (data.length > 5) {
-            throw new RPFError(`Extra data in partial RPF reference: '${data.join(' ')}'`);
-        }
-
-        let x = data[1] === undefined ? 0 : Number(data[1]);
-        let y = data[2] === undefined ? 0 : Number(data[2]);
-        let rotation = data[3] === undefined ? 'F' : data[3] as Rotation;
-        if (!ROTATIONS.has(rotation)) {
-            throw new RPFError(`Invalid rotation: '${data[3]}'`);
-        }
-        let time = data[4] === undefined ? 0 : Number(data[4]);
-        return new PartialRPFReference(parent, p, x, y, rotation, time);
+    copy(parent: RPFPattern<T>): RPFReference<T> {
+        return new RPFReference(parent, this.p, this.x, this.y, this.rotation, this.time);
     }
 
-    copy(parent: RPFPattern<T>): PartialRPFReference<T> {
-        return new PartialRPFReference(parent, this.p, this.x, this.y, this.rotation, this.time);
-    }
-
-    deepCopy(parent: RPFPattern<T>): PartialRPFReference<T> {
-        return new PartialRPFReference(parent, this.p instanceof RPFPattern ? this.p.deepCopy() : this.p.copy(), this.x, this.y, this.rotation, this.time);
+    deepCopy(parent: RPFPattern<T>): RPFReference<T> {
+        return new RPFReference(parent, this.p instanceof RPFPattern ? this.p.deepCopy() : this.p.copy(), this.x, this.y, this.rotation, this.time);
     }
 
     applyTransform(rotation: Rotation): this {
@@ -251,57 +226,12 @@ export class PartialRPFReference<T extends Pattern = Pattern> {
 }
 
 
-export class RPFReference<T extends Pattern = Pattern> extends PartialRPFReference<T> {
-
-    toString(): string {
-        let out = this._toString();
-        if (this.x !== 0 || this.y !== 0 || this.rotation !== 'F' || this.time !== 0) {
-            out += ` ${this.x} ${this.y}`;
-            if (this.rotation !== 'F' || this.time !== 0) {
-                out += ` ${this.rotation}`;
-                if (this.time !== 0) {
-                    out += ` ${this.time}`;
-                }
-            }
-        }
-        return out;
-    }
-
-    static fromString<T extends Pattern>(file: RPFFile<T>, parent: RPFPattern<T>, data: string[]): RPFReference<T> {
-        if (data.length > 5) {
-            throw new RPFError(`Extra data in RPF reference: '${data.join(' ')}'`);
-        }
-        let p = data[0].startsWith('*') ? file.base.loadApgcode(data[0].slice(1)).shrinkToFit() : file.lookupName(data[0]);
-        if (!p) {
-            throw new RPFError(`Cannot find RPF object '${data[0]}'`);
-        }
-        let x = data[1] === undefined ? 0 : Number(data[1]);
-        let y = data[2] === undefined ? 0 : Number(data[2]);
-        let rotation = data[3] === undefined ? 'F' : data[3] as Rotation;
-        if (!ROTATIONS.has(rotation)) {
-            throw new RPFError(`Invalid rotation: '${data[3]}'`);
-        }
-        let time = data[4] === undefined ? 0 : Number(data[4]);
-        return new RPFReference(parent, p, x, y, rotation, time);
-    }
-
-    copy(parent: RPFPattern<T>): RPFReference<T> {
-        return new RPFReference(parent, this.p, this.x, this.y, this.rotation, this.time);
-    }
-
-    deepCopy(parent: RPFPattern<T>): RPFReference<T> {
-        return new RPFReference(parent, this.p instanceof RPFPattern ? this.p.deepCopy() : this.p.copy(), this.x, this.y, this.rotation, this.time);
-    }
-
-}
-
-
 export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 
     /** The file that it's part of. */
     file: RPFFile<T>;
     /** Only present if it isn't anonymous. */
-    location?: {key: string, path: string};
+    key?: string;
 
     data: Set<RPFReference<T>> = new Set();
 
@@ -325,8 +255,8 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         recoveryTime: number;
         repeatTime: number;
         overclock: number[];
-        inputs: PartialRPFReference<T>[];
-        outputs: PartialRPFReference<T>[];
+        inputs: RPFReference<T>[];
+        outputs: RPFReference<T>[];
     } = undefined;
     envelope?: {
         x: number;
@@ -334,18 +264,15 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         p: IdentityPattern;
     } = undefined;
 
-    constructor(file: RPFFile<T>, location?: {key: string, path: string}) {
+    constructor(file: RPFFile<T>, key?: string) {
         super();
         this.file = file;
-        this.location = location;
+        this.key = key;
         this.rule = file.base.rule;
     }
 
     toString(): string {
         let out: string[] = [];
-        if (this.location) {
-            out.push(`${this.location.key}:`);
-        }
         if (this.name) {
             out.push(`#name ${this.name}`);
         }
@@ -365,7 +292,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
             let data = this.conduit;
             let str = `#conduit ${data.recoveryTime}`;
             if (data.overclock.length > 0) {
-                str += ` ${data.overclock.join(',')},${data.repeatTime}`;
+                str += ` ${data.overclock.join(',')},${data.repeatTime}+`;
             } else {
                 str += ` ${data.repeatTime}`;
             }
@@ -382,127 +309,14 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return out.join('\n');
     }
 
-    static fromString<T extends Pattern>(file: RPFFile<T>, data: string): RPFPattern<T> {
-        data = data.trim();
-        let lines = data.split('\n').map(x => x.trim()).filter(x => x !== '' && !x.startsWith('//'));
-        let out: RPFPattern<T>;
-        if (lines[0].endsWith(':')) {
-            let key = lines[0].slice(0, -1);
-            out = new RPFPattern(file, {key, path: path.join(file.path, key)});
-        } else {
-            out = new RPFPattern(file);
-        }
-        let nonMetadata: string[] = [];
-        for (let i = 1; i < lines.length; i++) {
-            let line = lines[i];
-            let parts = line.split(' ');
-            if (!line.startsWith('#')) {
-                for (let part of parts) {
-                    nonMetadata.push(part);
-                }
-                nonMetadata.push('\n');
-            }
-            if (parts[0] === '#pasting') {
-                let key = parts.slice(1).join(' ');
-                if (key in file.data) {
-                    return file.data[key];
-                }
-            } else if (parts[0] === '#name') {
-                out.name = parts.slice(1).join(' ');
-            } else if (parts[0] === '#desc') {
-                out.desc = parts.slice(1).join(' ').replaceAll('\\n', '\n').replaceAll('\\\\', '\\');
-            } else if (parts[0] === '#periodic') {
-                if (parts.length < 4) {
-                    throw new RPFError(`Invalid #periodic: '${line}'`);
-                }
-                let [dx, dy, period] = parts.slice(1).map(Number);
-                if (Number.isNaN(dx) || Number.isNaN(dy) || Number.isNaN(period)) {
-                    throw new RPFError(`Invalid #periodic: '${line}'`);
-                }
-                out.periodic = {dx, dy, period};
-            } else if (parts[0] === '#creates') {
-                if (!parts[1] || !parts[2]) {
-                    throw new RPFError(`Expected object after '#creates'`);
-                }
-                let times = parts[1].split(',').map(Number);
-                if (times.some(x => Number.isNaN(x))) {
-                    throw new RPFError(`Invalid times: '${times}'`);
-                }
-                out.creates = {ref: RPFReference.fromString(file, out, parts.slice(2)), times};
-            } else if (parts[0] === '#conduit') {
-                if (parts.length < 3) {
-                    throw new Error(`Expected 2 values after '#conduit'`);
-                }
-                let ranges = parts[2].split(',').map(Number);
-                let conduit: RPFPattern<T>['conduit'] = {
-                    recoveryTime: Number(parts[1]),
-                    repeatTime: ranges[ranges.length - 1],
-                    overclock: ranges.slice(0, -1),
-                    inputs: [],
-                    outputs: [],
-                };
-                parts = parts.slice(3);
-                let refs: string[][] = [];
-                let currentRef: string[] = [];
-                for (let part of parts) {
-                    if (part === 'input' || part === 'output') {
-                        if (currentRef.length > 0) {
-                            refs.push(currentRef);
-                        }
-                        currentRef = [part];
-                    } else {
-                        currentRef.push(part);
-                    }
-                }
-                if (currentRef.length > 0) {
-                    refs.push(currentRef);
-                }
-                for (let data of refs) {
-                    let type = data[0];
-                    if (type !== 'input' && type !== 'output') {
-                        throw new RPFError(`Expected 'input' or 'output' in #conduit`);
-                    }
-                    let ref = PartialRPFReference.fromString(file, out, data.slice(1));
-                    if (type === 'input') {
-                        conduit.inputs.push(ref);
-                    } else {
-                        conduit.outputs.push(ref);
-                    }
-                }
-                out.conduit = conduit;
-            } else if (parts[0] === '#envelope') {
-                let x = Number(parts[1]);
-                let y = Number(parts[2]);
-                let p = IdentityPattern.loadApgcode(parts[3]).shrinkToFit();
-                out.setEnvelope(x, y, p);
-            }
-        }
-        for (let token of nonMetadata) {
-            if (token === '{') {
-                let braceCount = 1;
-                for (let i = 0; i < braceCount.length; i++) {
-
-                }
-            }
-        }
-                out.data.add(RPFReference.fromString(file, out, parts));
-
-        out.recomputeSizes();
-        return out;
-    }
-
-    fromPattern(key: string, file: RPFFile<T>, p: T | RPFPattern<T>): RPFPattern<T> {
-        let out = new RPFPattern(this.base, key, path.join(file.path, key));
-        out.add(new RPFReference(out, p));
+    fromPattern(p: T | RPFPattern<T>): RPFPattern<T> {
+        let out = new RPFPattern(this.file);
+        out.add(p);
         return out;
     }
 
     createRef(p: T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): RPFReference<T> {
         return new RPFReference(this, p, x, y, rotation, time);
-    }
-
-    createPartialRef(p: T | RPFPattern<T>, x?: number, y?: number, rotation?: Rotation, time?: number): PartialRPFReference<T> {
-        return new PartialRPFReference(this, p, x, y, rotation, time);
     }
 
     add(ref: RPFReference<T>): this;
@@ -562,12 +376,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         return this;
     }
 
-    setKey(key: string): this {
-        this.key = key;
-        this.path = path.join(path.dirname(this.path), key);
-        return this;
-    }
-
     getRefAt(x: number, y: number, level: number): RPFReference | undefined {
         for (let ref of this.data) {
             if (x < ref.minX || y < ref.minY || x > ref.minX + ref.width || y > ref.minY + ref.height) {
@@ -592,8 +400,15 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
         }
     }
 
-    getName(capitalize: boolean = false): string {
-        let out = this.name ?? this.key.replaceAll('_', ' ');
+    getName(capitalize: boolean = false): string | undefined {
+        let out: string;
+        if (this.name) {
+            out = this.name;
+        } else if (this.key) {
+            out = this.key.replaceAll('_', ' ');
+        } else {
+            return;
+        }
         if (capitalize) {
             out = out[0].toUpperCase() + out.slice(1);
         }
@@ -678,7 +493,9 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     assignMetadata(p: RPFPattern<T>, deep: boolean): void {
+        p.key = this.key;
         p.name = this.name;
+        p.desc = this.desc;
         p.periodic = structuredClone(this.periodic);
         p.creates = this.creates ? {
             ref: deep ? this.creates.ref.deepCopy(p) : this.creates.ref.copy(p),
@@ -697,7 +514,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     copy(): this {
-        let out = new RPFPattern(this.base, this.key, this.path);
+        let out = new RPFPattern(this.file);
         this.assignMetadata(out, false);
         for (let value of this.data) {
             out.add(value.copy(out));
@@ -706,7 +523,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     deepCopy(): RPFPattern<T> {
-        let out = new RPFPattern(this.base, this.key, this.path);
+        let out = new RPFPattern(this.file);
         this.assignMetadata(out, true);
         for (let value of this.data) {
             out.add(value.deepCopy(out));
@@ -715,13 +532,13 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     clearedCopy(): this {
-        let out = new RPFPattern(this.base, this.key, this.path);
+        let out = new RPFPattern(this.file);
         this.assignMetadata(out, false);
         return out as this;
     }
 
     clearedDeepCopy(): this {
-        let out = new RPFPattern(this.base, this.key, this.path);
+        let out = new RPFPattern(this.file);
         this.assignMetadata(out, true);
         return out as this;
     }
@@ -794,7 +611,7 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     toPattern(): T {
-        let p = this.base.clearedCopy();
+        let p = this.file.base.clearedCopy();
         p.ensure(this.width, this.height);
         for (let value of this.data) {
             let q = value.p.copy();
@@ -1044,30 +861,15 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
     }
 
     loadApgcode(code: string): this {
-        let out = new RPFPattern(this.base, this.key, this.path);
-        out.add(new RPFReference<T>(out, this.base.loadApgcode(code)));
+        let out = new RPFPattern(this.file);
+        out.add(this.file.base.loadApgcode(code));
         return out as this;
     }
 
     loadRLE(rle: string): this {
-        let out = new RPFPattern(this.base, this.key, this.path);
-        out.add(new RPFReference<T>(out, this.base.loadRLE(rle)));
+        let out = new RPFPattern(this.file);
+        out.add(this.file.base.loadRLE(rle));
         return out as this;
-    }
-
-    _toRPFFile(out: {[key: string]: RPFPattern<T>}): void {
-        out[this.key] = this;
-        for (let value of this.data) {
-            if (value.p instanceof RPFPattern) {
-                value.p._toRPFFile(out);
-            }
-        }
-    }
-
-    toRPFFile(): RPFFile<T> {
-        let data: {[key: string]: RPFPattern<T>} = {};
-        this._toRPFFile(data);
-        return new RPFFile(this.base, this.path.slice(0, this.path.lastIndexOf('/')), data);
     }
 
     setEnvelope(x: number, y: number, p: IdentityPattern): this {
@@ -1082,244 +884,6 @@ export class RPFPattern<T extends Pattern = Pattern> extends Pattern {
 }
 
 
-const EOF = '';
-
-type Matcher = [string | string[] | RegExp, string];
-
-const T_INTEGER = [/^-?\d+$/, 'integer'] as Matcher;
-const T_ROTATION = [['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx'], 'rotation'] as Matcher;
-const T_APGCODE = [/^[a-z0-9]+$/, 'apgcode'] as Matcher;
-const T_LEFT_BRACE = ['{', 'left brace'] as Matcher;
-const T_RIGHT_BRACE = ['}', 'right brace'] as Matcher;
-const T_NEWLINE = ['\n', 'newline'] as Matcher;
-
-class RPFParser<T extends Pattern> {
-
-    base: T;
-    file: RPFFile<T>;
-    code: string;
-    tokens: string[];
-    tokenPositions: number[];
-    pos: number;
-
-    constructor(base: T, file: string | RPFFile<T>, code: string) {
-        this.base = base;
-        this.file = typeof file === 'string' ? new RPFFile(base, file, {}) : file;
-        this.code = code;
-        this.tokens = [];
-        this.tokenPositions = [];
-        let currentValue = '';
-        let currentPos = 0;
-        for (let i = 0; i < code.length; i++) {
-            let char = code[i];
-            if (char === ' ' || char === '\n') {
-                if (currentValue.length === 0) {
-                    currentPos++;
-                    continue;
-                }
-                this.tokens.push(currentValue);
-                this.tokenPositions.push(currentPos);
-                if (char === '\n') {
-                    this.tokens.push('\n');
-                    this.tokenPositions.push(i);
-                }
-                currentValue = '';
-                currentPos = i + 1;
-            } else {
-                currentValue += char;
-            }
-        }
-        if (currentValue !== '') {
-            this.tokens.push(currentValue);
-            this.tokenPositions.push(currentPos);
-        }
-        this.pos = 0;
-    }
-
-    error(msg: string, increment: number = 0): never {
-        let pos = this.tokenPositions[this.pos + increment];
-        let line = 0;
-        let col = 0;
-        for (let i = 0; i < pos; i++) {
-            if (this.code[i] === '\n') {
-                col = 0;
-                line++;
-            } else {
-                col++;
-            }
-        }
-        throw new RPFError(`Syntax error (at ${this.file.path}:${line}:${col}): ${msg}`);
-    }
-
-    peek(): string | typeof EOF {
-        return this.tokens[this.pos] ?? EOF;
-    }
-
-    advance(): string {
-        let out = this.peek();
-        if (out !== EOF) {
-            this.pos++;
-        }
-        return out;
-    }
-
-    match(...data: Matcher[]): boolean {
-        for (let i = 0; i < data.length; i++) {
-            let matcher = data[i][0];
-            let token = this.tokens[this.pos + i] ?? EOF;
-            if (Array.isArray(matcher)) {
-                let found = false;
-                for (let value of matcher) {
-                    if (value === token) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    return false;
-                }
-            } else if (typeof matcher === 'string') {
-                if (matcher !== token) {
-                    return false;
-                }
-            } else {
-                if (!token.match(matcher)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    expect(...data: Matcher[]): void {
-        for (let i = 0; i < data.length; i++) {
-            let [matcher, errorMsg] = data[i];
-            let token = this.tokens[this.pos + i] ?? EOF;
-            if (Array.isArray(matcher)) {
-                let found = false;
-                for (let value of matcher) {
-                    if (value === token) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            } else if (typeof matcher === 'string') {
-                if (matcher !== token) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            } else {
-                if (!token.match(matcher)) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            }
-        }
-    }
-
-    eat(...data: Matcher[]): void {
-        this.expect(...data);
-        for (let i = 0; i < data.length; i++) {
-            this.advance();
-        }
-    }
-
-    _literalOrIdentifier(): T | RPFPattern<T> {
-        if (this.match(T_APGCODE)) {
-            return this.file.base.loadApgcode(this.advance());
-        } else {
-            let value = this.peek();
-            let out = this.file.lookupName(value);
-            if (!out) {
-                this.error(`Cannot resolve name '${value}'`);
-            }
-            return out;
-        }
-    }
-
-    partialReference(parent: RPFPattern<T>): PartialRPFReference<T> {
-        let p = this._literalOrIdentifier();
-        let x = 0;
-        let y = 0;
-        let rotation: Rotation = 'F';
-        let time: number = 0;
-        if (this.match(T_INTEGER)) {
-            x = Number(this.advance());
-            if (this.match(T_INTEGER)) {
-                y = Number(this.advance());
-                if (this.match(T_ROTATION)) {
-                    rotation = this.advance() as Rotation;
-                    if (this.match(T_INTEGER)) {
-                        time = Number(this.advance());
-                    }
-                }
-            }
-        }
-        return new PartialRPFReference(parent, p, x, y, rotation, time);
-    }
-
-    reference(parent: RPFPattern<T>): RPFReference<T> {
-        let p: T | RPFPattern<T>;
-        if (this.match(T_LEFT_BRACE)) {
-            this.advance();
-            p = this.pattern();
-            this.eat(T_RIGHT_BRACE);
-        } else {
-            p = this._literalOrIdentifier();
-        }
-        let x = 0;
-        let y = 0;
-        let rotation: Rotation = 'F';
-        let time: number = 0;
-        if (this.match(T_INTEGER)) {
-            x = Number(this.advance());
-            if (this.match(T_INTEGER)) {
-                y = Number(this.advance());
-                if (this.match(T_ROTATION)) {
-                    rotation = this.advance() as Rotation;
-                    if (this.match(T_INTEGER)) {
-                        time = Number(this.advance());
-                    }
-                }
-            }
-        }
-        return new RPFReference(parent, p, x, y, rotation, time);
-    }
-
-    patternMetadata(p: RPFPattern<T>): void {
-        let type = this.advance();
-    }
-
-    pattern(location?: {key: string, path: string}): RPFPattern<T> {
-        let out = new RPFPattern<T>(this.file, location);
-        while (!(this.match(T_RIGHT_BRACE) || this.match(T_NEWLINE, T_NEWLINE))) {
-            if (this.match([/^#/, ''])) {
-                this.patternMetadata(out);
-                this.eat(T_NEWLINE);
-            } else {
-                out.add(this.reference(out));
-                this.eat(T_NEWLINE);
-            }
-        }
-        return out;
-    }
-
-}
-
-
 export class FSError extends LifewebError {
     name: 'FSError' = 'FSError';
     [Symbol.toStringTag] = 'FSError';
@@ -1329,8 +893,11 @@ type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new
 type FileSystemDirectoryHandle = typeof globalThis extends {FileSystemDirectoryHandle: new () => infer T} ? T : unknown;
 
 
+const DUMMY_IDENTITY_PATTERN = new IdentityPattern(0, 0, new Uint8Array(0));
+
 export class File {
 
+    parent: Directory;
     name: string;
     path: string;
     value: string;
@@ -1338,9 +905,10 @@ export class File {
     lastModified: number;
     handle?: FileSystemFileHandle;
 
-    constructor(name: string, path: string, value: string | RPFFile) {
+    constructor(parent: Directory, name: string, value: string | RPFFile) {
+        this.parent = parent;
         this.name = name;
-        this.path = path;
+        this.path = join(parent.path, name);
         if (typeof value === 'string') {
             this.value = value;
         } else {
@@ -1361,11 +929,12 @@ export class File {
         this.lastModified = Date.now();
     }
 
-    getRPF(basePath: string): RPFFile {
+    getRPF(): RPFFile {
         if (this.rpf) {
             return this.rpf;
         }
-        this.rpf = RPFFile.fromString(this.value, basePath);
+        let parser = new RPFParser(DUMMY_IDENTITY_PATTERN, this.path, this.value);
+        this.rpf = parser.parseFile(this.parent);
         return this.rpf;
     }
 
@@ -1395,143 +964,146 @@ export class Directory {
 
     constructor(name: string, path: string, data: Directory['data'] = {}, handle?: FileSystemDirectoryHandle) {
         this.name = name;
-        this.path = path;
+        this.path = normalize(path);
+        if (!this.path.endsWith('/')) {
+            this.path += '/';
+        }
         this.data = data;
         this.handle = handle;
     }
 
-    exists(name: string): boolean {
-        name = path.normalize(name);
-        if (name.startsWith('/')) {
-            name = name.slice(1);
+    exists(path: string): boolean {
+        path = normalize(path);
+        if (path.startsWith('/')) {
+            path = path.slice(1);
         }
-        if (name.includes('/')) {
-            let index = name.indexOf('/');
-            let start = name.slice(0, index);
+        if (path.includes('/')) {
+            let index = path.indexOf('/');
+            let start = path.slice(0, index);
             let dir = this.data[start];
             if (dir instanceof Directory) {
-                return dir.exists(name.slice(index + 1));
+                return dir.exists(path.slice(index + 1));
             } else {
                 return false;
             }
         }
-        return name in this.data;
+        return path in this.data;
     }
 
-    read(name: string): Directory | File {
-        name = path.normalize(name);
-        if (name.startsWith('/')) {
-            name = name.slice(1);
+    read(path: string): Directory | File {
+        path = normalize(path);
+        if (path.startsWith('/')) {
+            path = path.slice(1);
         }
-        if (name.includes('/')) {
-            let index = name.indexOf('/');
-            let start = name.slice(0, index);
+        if (path.includes('/')) {
+            let index = path.indexOf('/');
+            let start = path.slice(0, index);
             let dir = this.data[start];
             if (!dir) {
                 throw new FSError(`Directory '${start}' does not exist`);
             } else if (dir instanceof Directory) {
-                return dir.read(name.slice(index + 1));
+                return dir.read(path.slice(index + 1));
             } else {
                 throw new FSError(`File '${start}' is not a directory`);
             }
         }
-        if (name in this.data) {
-            return this.data[name];
+        if (path in this.data) {
+            return this.data[path];
         } else {
             throw new FSError(`File '${name}' does not exist`);
         }
     }
 
-    write(name: string, value: string | RPFFile | File): void {
-        name = path.normalize(name);
-        if (name.startsWith('/')) {
-            name = name.slice(1);
+    write(path: string, value: string | RPFFile | File): void {
+        path = normalize(path);
+        if (path.startsWith('/')) {
+            path = path.slice(1);
         }
-        if (name.includes('/')) {
-            let index = name.indexOf('/');
-            let start = name.slice(0, index);
+        if (path.includes('/')) {
+            let index = path.indexOf('/');
+            let start = path.slice(0, index);
             let dir = this.data[start];
             if (!dir) {
                 throw new FSError(`Directory '${start}' does not exist`);
             } else if (dir instanceof Directory) {
-                dir.write(name.slice(index + 1), value);
+                dir.write(path.slice(index + 1), value);
                 return;
             } else {
                 throw new FSError(`File '${start}' is not a directory`);
             }
         }
-        if (name in this.data) {
-            let file = this.data[name];
+        if (path in this.data) {
+            let file = this.data[path];
             if (file instanceof Directory) {
-                throw new FSError(`Cannot write to file '${name}', is a directory`);
+                throw new FSError(`Cannot write to file '${path}', is a directory`);
             }
             if (value instanceof File) {
-                this.data[name] = value;
+                this.data[path] = value;
             } else {
                 file.write(value);
             }
         } else {
             if (typeof value === 'string') {
-                this.data[name] = new File(name, path.join(this.path, name), value);
+                this.data[path] = new File(this, path, value);
             } else if (value instanceof RPFFile) {
-                let file = new File(name, path.join(this.path, name), value.toString());
+                let file = new File(this, path, value.toString());
                 file.rpf = value;
-                this.data[name] = file;
+                this.data[path] = file;
             } else {
                 value.lastModified = Date.now();
-                this.data[name] = value;
+                this.data[path] = value;
             }
         }
     }
 
-    mkdir(name: string): Directory {
-        name = path.normalize(name);
-        if (name.startsWith('/')) {
-            name = name.slice(1);
+    mkdir(path: string): Directory {
+        path = normalize(path);
+        if (path.startsWith('/')) {
+            path = path.slice(1);
         }
-        if (name.includes('/')) {
-            let index = name.indexOf('/');
-            let start = name.slice(0, index);
+        if (path.includes('/')) {
+            let index = path.indexOf('/');
+            let start = path.slice(0, index);
             let dir = this.data[start];
             if (!dir) {
                 throw new FSError(`Directory '${start}' does not exist`);
             } else if (dir instanceof Directory) {
-                return dir.mkdir(name.slice(index + 1));
+                return dir.mkdir(path.slice(index + 1));
             } else {
                 throw new FSError(`File '${start}' is not a directory`);
             }
         }
-        if (!(name in this.data)) {
-            let out = new Directory(name, path.join(this.path, name));
-            this.data[name] = out;
+        if (!(path in this.data)) {
+            let out = new Directory(path, join(this.path, path));
+            this.data[path] = out;
             return out;
         } else {
-            throw new FSError(`File '${name}' already exists`);
+            throw new FSError(`File '${path}' already exists`);
         }
     }
 
-    rm(name: string): void {
-        name = path.normalize(name);
-        if (name.startsWith('/')) {
-            name = name.slice(1);
+    rm(path: string): void {
+        path = normalize(path);
+        if (path.startsWith('/')) {
+            path = path.slice(1);
         }
-        if (name.includes('/')) {
-            let index = name.indexOf('/');
-            let start = name.slice(0, index);
+        if (path.includes('/')) {
+            let index = path.indexOf('/');
+            let start = path.slice(0, index);
             let dir = this.data[start];
             if (!dir) {
                 throw new FSError(`Directory '${start}' does not exist`);
             } else if (dir instanceof Directory) {
-                dir.rm(name.slice(index + 1));
+                dir.rm(path.slice(index + 1));
                 return;
             } else {
                 throw new FSError(`File '${start}' is not a directory`);
             }
         }
-        if (name in this.data) {
-            delete this.data[name];
+        if (path in this.data) {
+            delete this.data[path];
         } else {
-            throw new FSError(`File '${name}' does not exist`);
+            throw new FSError(`File '${path}' does not exist`);
         }
     }
 
@@ -1546,9 +1118,9 @@ export class RPFFile<T extends Pattern = Pattern> {
     starImports: RPFFile<T>[] = [];
     data: {[key: string]: RPFPattern<T>};
 
-    constructor(base: T, path: string, data: {[key: string]: RPFPattern<T>}) {
+    constructor(base: T, path: string, data: {[key: string]: RPFPattern<T>} = {}) {
         this.base = base;
-        this.path = path;
+        this.path = normalize(path);
         this.data = data;
     }
 
@@ -1558,7 +1130,7 @@ export class RPFFile<T extends Pattern = Pattern> {
             let value = new Set<string>();
             for (let item of this.data[key].data) {
                 if (item.p instanceof RPFPattern) {
-                    if (item.p.key in this.data) {
+                    if (item.p.key && item.p.key in this.data) {
                         value.add(item.p.key);
                     }
                 }
@@ -1589,75 +1161,8 @@ export class RPFFile<T extends Pattern = Pattern> {
         let out = `\n${this.base.rule.str}\n`;
         for (let layer of layers) {
             for (let key of layer.sort()) {
-                out += '\n' + this.data[key].toString(this) + '\n';
+                out += `\n${key}:\n${this.data[key].toString()}\n`;
             }
-        }
-        return out;
-    }
-
-    static fromString<T extends Pattern = Pattern>(data: string, basePath: string, fs?: Directory): RPFFile<T> {
-        let groups: string[] = [];
-        let currentGroup: string[] = [];
-        for (let line of data.split('\n')) {
-            line = line.trim();
-            if (line === '' || line.startsWith('//')) {
-                continue;
-            }
-            if (line.endsWith(':')) {
-                groups.push(currentGroup.join('\n'));
-                currentGroup = [line];
-            } else {
-                currentGroup.push(line);
-            }
-        }
-        groups.push(currentGroup.join('\n'));
-        let headerLines = groups[0].split('\n');
-        let base = createPattern(headerLines[0]) as T;
-        let out = new RPFFile(base, basePath, {});
-        for (let line of headerLines.slice(1)) {
-            if (line.startsWith('import ')) {
-                if (!fs) {
-                    throw new RPFError(`Import statement in RPF but no file system given`);
-                }
-                let rename: string | undefined;
-                let specifier: string;
-                if (line.startsWith('import * from ')) {
-                    rename = undefined;
-                    specifier = line.slice('import * from '.length);
-                } else {
-                    let match = line.match(/import \* as (\S+) from /);
-                    if (!match) {
-                        throw new RPFError(`Invalid import (unrecognized format): '${line}'`);
-                    }
-                    rename = match[1];
-                    specifier = line.slice(match[0].length);
-                }
-                if (!path.isAbsolute(specifier)) {
-                    specifier = path.join(path.dirname(out.path), specifier);
-                }
-                let value = fs.read(specifier);
-                let rpf: RPFFile<T>;
-                if (value instanceof Directory) {
-                    throw new RPFError(`Cannot import from '${specifier}' (is a directory)`);
-                } else if (value.rpf) {
-                    rpf = value.rpf as RPFFile<T>;
-                } else {
-                    rpf = RPFFile.fromString<T>(value.value, basePath);
-                    value.rpf = rpf;
-                }
-                if (rename === undefined) {
-                    out.starImports.push(rpf);
-                } else {
-                    out.imports[rename] = rpf;
-                }
-            } else {
-                console.log('SERIOUSLY');
-                throw new RPFError(`Invalid header line: '${line}'`);
-            }
-        }
-        for (let i = 1; i < groups.length; i++) {
-            let p = RPFPattern.fromString(groups[i], out);
-            out.data[p.key] = p;
         }
         return out;
     }
@@ -1682,6 +1187,376 @@ export class RPFFile<T extends Pattern = Pattern> {
             }
         }
         return undefined;
+    }
+
+}
+
+
+const EOF = '';
+
+type Matcher = [string | Set<string> | RegExp, string];
+
+const T_EOF: Matcher = [EOF, 'end of file'];
+const T_NEWLINE: Matcher = ['\n', 'newline'];
+const T_LEFT_BRACE: Matcher = ['{', 'left brace'];
+const T_RIGHT_BRACE: Matcher = ['}', 'right brace'];
+
+const T_NATURAL_NUMBER: Matcher = [/^\d+$/, 'natural number'];
+const T_INTEGER: Matcher = [/^-?\d+$/, 'integer'];
+const T_ROTATION: Matcher = [ROTATIONS, 'rotation'];
+const T_APGCODE: Matcher = [/^[a-z0-9]+$/, 'apgcode'];
+const T_KEY_INDICATOR: Matcher = [/^.*:$/, 'key indicator'];
+
+export class RPFParser<T extends Pattern> {
+
+    base: T;
+    file: RPFFile<T>;
+    code: string;
+    tokens: string[];
+    tokenPositions: number[];
+    pos: number;
+
+    constructor(base: T, file: string | RPFFile<T>, code: string) {
+        this.base = base;
+        this.file = typeof file === 'string' ? new RPFFile(base, file) : file;
+        // remove comments
+        let commentsRemoved = '';
+        for (let i = 0; i < code.length; i++) {
+            if (code[i] === '/' && code[i + 1] === '/') {
+                while (code[i] !== '\n') {
+                    i++;
+                }
+            } else {
+                commentsRemoved += code[i];
+            }
+        }
+        code = commentsRemoved.trim();
+        this.code = code;
+        this.tokens = [];
+        this.tokenPositions = [];
+        let currentValue = '';
+        let currentPos = 0;
+        for (let i = 0; i < code.length; i++) {
+            let char = code[i];
+            if (char === ' ' || char === '\n') {
+                if (currentValue.length === 0) {
+                    currentPos++;
+                    continue;
+                }
+                this.tokens.push(currentValue);
+                this.tokenPositions.push(currentPos);
+                if (char === '\n') {
+                    this.tokens.push('\n');
+                    this.tokenPositions.push(i);
+                }
+                currentValue = '';
+                currentPos = i + 1;
+            } else {
+                currentValue += char;
+            }
+        }
+        if (currentValue !== '') {
+            this.tokens.push(currentValue);
+            this.tokenPositions.push(currentPos);
+        }
+        if (this.tokens[this.tokens.length - 1] !== '\n') {
+            this.tokens.push('\n');
+            this.tokenPositions.push(code.length);
+        }
+        this.pos = 0;
+    }
+
+    error(msg: string, increment: number = 0): never {
+        let pos = this.tokenPositions[this.pos + increment];
+        let line = 0;
+        let col = 0;
+        for (let i = 0; i < pos; i++) {
+            if (this.code[i] === '\n') {
+                col = 0;
+                line++;
+            } else {
+                col++;
+            }
+        }
+        throw new RPFError(`Syntax error (at ${this.file.path}:${line}:${col}): ${msg}`);
+    }
+
+    peek(): string | typeof EOF {
+        return this.tokens[this.pos] ?? EOF;
+    }
+
+    advance(): string {
+        let out = this.tokens[this.pos];
+        if (out === undefined) {
+            return EOF;
+        } else {
+            this.pos++;
+            return out;
+        }
+    }
+
+    match(...data: (Matcher | Matcher[0])[]): boolean {
+        for (let i = 0; i < data.length; i++) {
+            let matcher = data[i];
+            if (Array.isArray(matcher)) {
+                matcher = matcher[0];
+            }
+            let token = this.tokens[this.pos + i] ?? EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (value === token) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    return false;
+                }
+            } else {
+                if (!token.match(matcher)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    expect(...data: Matcher[]): void {
+        for (let i = 0; i < data.length; i++) {
+            let [matcher, errorMsg] = data[i];
+            let token = this.tokens[this.pos + i] ?? EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (value === token) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else {
+                if (!token.match(matcher)) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            }
+        }
+    }
+
+    eat(...data: Matcher[]): string[] {
+        this.expect(...data);
+        let out: string[] = [];
+        for (let i = 0; i < data.length; i++) {
+            out.push(this.advance());
+        }
+        return out;
+    }
+
+    _literalOrIdentifier(): T | RPFPattern<T> {
+        if (this.match(T_APGCODE)) {
+            return this.file.base.loadApgcode(this.advance());
+        } else {
+            let value = this.advance();
+            let out = this.file.lookupName(value);
+            if (!out) {
+                this.error(`Cannot resolve name '${value}'`, -1);
+            }
+            return out;
+        }
+    }
+
+    reference(parent: RPFPattern<T>): RPFReference<T> {
+        let p: T | RPFPattern<T>;
+        if (this.match(T_LEFT_BRACE)) {
+            this.advance();
+            p = this.pattern();
+            this.eat(T_RIGHT_BRACE);
+        } else {
+            p = this._literalOrIdentifier();
+        }
+        let x = 0;
+        let y = 0;
+        let rotation: Rotation = 'F';
+        let time: number = 0;
+        if (this.match(T_INTEGER)) {
+            x = Number(this.advance());
+            if (this.match(T_INTEGER)) {
+                y = Number(this.advance());
+                if (this.match(T_ROTATION)) {
+                    rotation = this.advance() as Rotation;
+                    if (this.match(T_INTEGER)) {
+                        time = Number(this.advance());
+                    }
+                }
+            }
+        }
+        return new RPFReference(parent, p, x, y, rotation, time);
+    }
+
+    getUntilLineEnd(): string {
+        let out: string[] = [];
+        while (true) {
+            let value = this.advance();
+            if (value === EOF || value === '\n') {
+                break;
+            }
+            out.push(value);
+        }
+        return out.join(' ');
+    }
+
+    patternMetadata(out: RPFPattern<T>): void {
+        let type = this.advance();
+        if (type === '#pasting') {
+            throw new Error('fix #pasting');
+        } else if (type === '#name') {
+            out.name = this.getUntilLineEnd();
+        } else if (type === '#desc') {
+            out.desc = this.getUntilLineEnd().replaceAll('\\n', '\n').replaceAll('\\\\', '\\');
+        } else if (type === '#periodic') {
+            let dx = Number(this.eat(T_INTEGER)[0]);
+            let dy = Number(this.eat(T_INTEGER)[0]);
+            let period = Number(this.eat(T_APGCODE)[0]);
+            out.periodic = {dx, dy, period};
+            this.eat(T_NEWLINE);
+        } else if (type === '#creates') {
+            let times = this.eat([/^\d+(,\d+)*$/, 'comma-separated list of natural numbers'])[0].split(',').map(Number);
+            out.creates = {ref: this.reference(out), times};
+        } else if (type === '#conduit') {
+            let recoveryTime = Number(this.eat(T_NATURAL_NUMBER)[0]);
+            let useTimes = this.eat([/^(\d+,)*\d+\+$/, 'repeat time ranges'])[0].slice(0, -1).split(',').map(Number);
+            let conduit: RPFPattern<T>['conduit'] = {
+                recoveryTime,
+                repeatTime: useTimes[useTimes.length - 1],
+                overclock: useTimes.slice(0, -1),
+                inputs: [],
+                outputs: [],
+            };
+            while (true) {
+                if (this.match('input') || this.match('output')) {
+                    let type = this.advance() as 'input' | 'output';
+                    let value = this.reference(out);
+                    if (type === 'input') {
+                        conduit.inputs.push(value);
+                    } else {
+                        conduit.outputs.push(value);
+                    }
+                } else if (this.match(T_NEWLINE)) {
+                    break;
+                } else {
+                    this.error(`Expected 'input', 'output', or a newline`);
+                }
+            }
+            out.conduit = conduit;
+        } else if (type === '#envelope') {
+            let x = Number(this.eat(T_INTEGER)[0]);
+            let y = Number(this.eat(T_INTEGER)[0]);
+            let p = IdentityPattern.loadApgcode(this.eat(T_APGCODE)[0]).shrinkToFit();
+            out.setEnvelope(x, y, p);
+        }
+    }
+
+    pattern(key?: string): RPFPattern<T> {
+        let out = new RPFPattern<T>(this.file, key);
+        while (!(this.match(T_RIGHT_BRACE) || this.match(T_EOF) || this.match(T_KEY_INDICATOR))) {
+            if (this.match([/^#/, ''])) {
+                this.patternMetadata(out);
+                this.eat(T_NEWLINE);
+            } else {
+                out.add(this.reference(out));
+                this.eat(T_NEWLINE);
+            }
+        }
+        return out;
+    }
+
+    import(out: RPFFile<T>, fs: Directory) {
+        this.eat(['*', 'star']);
+        let rename: string | undefined = undefined;
+        if (this.match('as')) {
+            this.advance();
+            rename = this.advance();
+            if (!rename.match(/^[a-zA-Z_][a-zA-Z0-9]*$/)) {
+                this.error(`Invalid characters in import rename: '${name}'`, -1);
+            }
+            if (rename === '__proto__') {
+                this.error(`Import rename cannot be '__proto__'`, -1);
+            }
+        }
+        this.eat(['from', `'from'`]);
+        let specifier = this.getUntilLineEnd();
+        if (!path.isAbsolute(specifier)) {
+            specifier = path.join(path.dirname(out.path), specifier);
+        }
+        let value = fs.read(specifier);
+        let rpf: RPFFile<T>;
+        if (value instanceof Directory) {
+            throw new RPFError(`Cannot import from '${specifier}' (is a directory)`);
+        } else {
+            rpf = value.getRPF() as RPFFile<T>;
+        }
+        if (rename === undefined) {
+            out.starImports.push(rpf);
+        } else {
+            out.imports[rename] = rpf;
+        }
+    }
+
+    parseFile(fs?: Directory): RPFFile<T> {
+        let ruleTokens: string[] = [];
+        while (!this.match(T_NEWLINE)) {
+            ruleTokens.push(this.advance());
+        }
+        this.eat(T_NEWLINE);
+        let base = createPattern(ruleTokens.join(' ')) as T;
+        this.base = base;
+        let out = new RPFFile(base, this.file.path);
+        this.file = out;
+        while (!this.match(T_KEY_INDICATOR, T_NEWLINE)) {
+            this.expect(['import', 'import statement']);
+            if (!fs) {
+                throw new RPFError(`Import statement in RPF but no file system given`);
+            }
+            this.import(out, fs);
+        }
+        while (!this.match(T_EOF)) {
+            let key = this.eat(T_KEY_INDICATOR)[0];
+            if (key === '') {
+                this.error(`Key cannot be empty`, -1);
+            }
+            if (key === '__proto__') {
+                this.error(`Key cannot be '__proto__'`, -1);
+            }
+            if (key.match(/^[a-zA-Z_][a-zA-Z0-9]*$/)) {
+                this.error(`Invalid characters in key: '${key}'`, -1);
+            }
+            this.eat(T_NEWLINE);
+            out.data[key] = this.pattern(key);
+        }
+        this.expect(T_EOF);
+        return out;
     }
 
 }
