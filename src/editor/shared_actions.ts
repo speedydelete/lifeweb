@@ -5,74 +5,10 @@ import {path, RPFError, RPFPattern, File, Directory, RPFFile} from './rpf.js';
 import {run, addHook, pushUndo, applyUndo, loadPattern, FSFolderElement, FSFileElement, FSRPFFileElement} from './base.js';
 
 
-let posElt = getElement('position');
-let xElt = getElement('x');
-let yElt = getElement('y');
-let stateElt = getElement('state');
-
-addHook(sharedActions, 'click-canvas', event => {
-    if (!(event instanceof MouseEvent)) {
-        throw new Error(`click-canvas called with non-MouseEvent value`);
-    }
-    if (event.buttons !== 1) {
-        return;
-    }
-    isDragging = true;
-    dragStart = [event.clientX, event.clientY];
-    dragOffsetStart = [topLeftX, topLeftY];
-});
-
-addHook(sharedActions, 'move-mouse-over-canvas', event => {
-    if (!(event instanceof MouseEvent)) {
-        throw new Error(`move-mouse-over-canvas called with non-MouseEvent value`);
-    }
-    let rect = canvas.getBoundingClientRect();
-    mouseX = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale);
-    mouseY = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale);
-    xElt.textContent = String(mouseX);
-    yElt.textContent = String(mouseY);
-    stateElt.textContent = String(p.get(mouseX - p.xOffset, mouseY - p.yOffset));
-});
-
-addHook(sharedActions, 'move-mouse-onto-canvas', event => {
-    if (!(event instanceof MouseEvent)) {
-        throw new Error(`move-mouse-onto-canvas called with non-MouseEvent value`);
-    }
-    let rect = canvas.getBoundingClientRect();
-    mouseX = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale);
-    mouseY = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale);
-    posElt.style.display = 'flex';
-});
-
-addHook(sharedActions, 'unclick-canvas', () => {
-    isDragging = false;
-    prevEditX = undefined;
-    prevEditY = undefined;
-    drawDeleteMode = false;
-});
-
-addHook(sharedActions, 'move-mouse-off-of-canvas', () => {
-    isDragging = false;
-    prevEditX = undefined;
-    prevEditY = undefined;
-    drawDeleteMode = false;
-    posElt.style.display = 'none';
-});
+let frameCount = 0;
 
 let wheelEvent: WheelEvent | undefined = undefined;
 let totalDeltaY = 0;
-
-addHook(sharedActions, 'scroll-canvas', event => {
-    if (!(event instanceof WheelEvent)) {
-        throw new Error(`scroll called with non-MouseEvent value`);
-    }
-    event.preventDefault();
-    totalDeltaY += event.deltaY;
-    wheelEvent = event;
-});
-
-
-let frameCount = 0;
 
 let speedElt = getElement('speed');
 let scaleElt = getElement('scale');
@@ -84,7 +20,7 @@ let pasteCopyButton = getElement('paste-copy');
 let pasteAndButton = getElement('paste-and');
 let pasteXorButton = getElement('paste-xor');
 
-addHook(sharedActions, 'frame', async () => {
+addHook('frame', async () => {
     if (running && frameCount % stepEvery === 0) {
         for (let i = 0; i < step; i++) {
             p.runGeneration();
@@ -137,30 +73,76 @@ addHook(sharedActions, 'frame', async () => {
 });
 
 
-addHook(sharedActions, 'set-cursor-to-main', () => {
-    cursorMode = 'main';
-    cursorMainButton.classList.add('selected');
-    cursorEditButton.classList.remove('selected');
-    cursorSelectButton.classList.remove('selected');
-    canvas.style.cursor = 'default';
+addHook('window-visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && rootDirHandle) {
+        await updateFileSystem(rootDirHandle, fs);
+        await run('render-file-system');
+    }
 });
 
-addHook(sharedActions, 'set-cursor-to-edit', () => {
-    cursorMode = 'edit';
-    cursorMainButton.classList.remove('selected');
-    cursorEditButton.classList.add('selected');
-    cursorSelectButton.classList.remove('selected');
-    canvas.style.cursor = 'default';
+
+addHook('scroll-canvas', event => {
+    if (!(event instanceof WheelEvent)) {
+        throw new Error(`scroll called with non-MouseEvent value`);
+    }
+    event.preventDefault();
+    totalDeltaY += event.deltaY;
+    wheelEvent = event;
+});
+
+
+let posElt = getElement('position');
+let xElt = getElement('x');
+let yElt = getElement('y');
+let stateElt = getElement('state');
+
+addHook('click-canvas', event => {
+    if (!(event instanceof MouseEvent)) {
+        throw new Error(`click-canvas called with non-MouseEvent value`);
+    }
+    if (event.buttons !== 1) {
+        return;
+    }
+    isDragging = true;
+    dragStart = [event.clientX, event.clientY];
+    dragOffsetStart = [topLeftX, topLeftY];
+});
+
+addHook('move-mouse-over-canvas', event => {
+    if (!(event instanceof MouseEvent)) {
+        throw new Error(`move-mouse-over-canvas called with non-MouseEvent value`);
+    }
+    let rect = canvas.getBoundingClientRect();
+    mouseX = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale);
+    mouseY = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale);
+    xElt.textContent = String(mouseX);
+    yElt.textContent = String(mouseY);
+    stateElt.textContent = String(p.get(mouseX - p.xOffset, mouseY - p.yOffset));
+});
+
+addHook('unclick-canvas', () => {
+    isDragging = false;
     prevEditX = undefined;
     prevEditY = undefined;
+    drawDeleteMode = false;
 });
 
-addHook(sharedActions, 'set-cursor-to-select', () => {
-    cursorMode = 'select';
-    cursorMainButton.classList.remove('selected');
-    cursorEditButton.classList.remove('selected');
-    cursorSelectButton.classList.add('selected');
-    canvas.style.cursor = 'crosshair';
+addHook('move-mouse-onto-canvas', event => {
+    if (!(event instanceof MouseEvent)) {
+        throw new Error(`move-mouse-onto-canvas called with non-MouseEvent value`);
+    }
+    let rect = canvas.getBoundingClientRect();
+    mouseX = Math.floor((event.clientX - rect.left - topLeftX * scale) / scale);
+    mouseY = Math.floor((event.clientY - rect.top - topLeftY * scale) / scale);
+    posElt.style.display = 'flex';
+});
+
+addHook('move-mouse-off-of-canvas', () => {
+    isDragging = false;
+    prevEditX = undefined;
+    prevEditY = undefined;
+    drawDeleteMode = false;
+    posElt.style.display = 'none';
 });
 
 
@@ -169,7 +151,7 @@ let pauseButton = getElement('pause');
 let stepButton = getElement('step');
 let resetButton = getElement('reset');
 
-addHook(sharedActions, 'run', () => {
+addHook('run', () => {
     pushUndo();
     if (!hasRan) {
         beforeRunning = p.copy();
@@ -184,7 +166,7 @@ addHook(sharedActions, 'run', () => {
     resetButton.classList.remove('selected');
 });
 
-addHook(sharedActions, 'pause', () => {
+addHook('pause', () => {
     running = false;
     runButton.style.display = 'block';
     pauseButton.style.display = 'none';
@@ -194,7 +176,7 @@ addHook(sharedActions, 'pause', () => {
     resetButton.classList.remove('selected');
 });
 
-addHook(sharedActions, 'step', () => {
+addHook('step', () => {
     if (running) {
         running = false;
         runButton.style.display = 'block';
@@ -213,7 +195,7 @@ addHook(sharedActions, 'step', () => {
     resetButton.classList.remove('selected');
 });
 
-addHook(sharedActions, 'reset', () => {
+addHook('reset', () => {
     pushUndo();
     hasRan = false;
     running = false;
@@ -226,7 +208,7 @@ addHook(sharedActions, 'reset', () => {
     resetButton.classList.add('selected');
 });
 
-addHook(sharedActions, 'set-speed', () => {
+addHook('set-speed', () => {
     let value = prompt('Enter speed (as a positive integer n or a fraction of the form 1/n):');
     if (!value) {
         return;
@@ -246,7 +228,26 @@ addHook(sharedActions, 'set-speed', () => {
 });
 
 
-addHook(sharedActions, 'undo', () => {
+addHook('set-cursor-to-main', () => {
+    cursorMode = 'main';
+    cursorMainButton.classList.add('selected');
+    cursorEditButton.classList.remove('selected');
+    cursorSelectButton.classList.remove('selected');
+    canvas.style.cursor = 'default';
+});
+
+addHook('set-cursor-to-edit', () => {
+    cursorMode = 'edit';
+    cursorMainButton.classList.remove('selected');
+    cursorEditButton.classList.add('selected');
+    cursorSelectButton.classList.remove('selected');
+    canvas.style.cursor = 'default';
+    prevEditX = undefined;
+    prevEditY = undefined;
+});
+
+
+addHook('undo', () => {
     redoBuffer.push({p: p.copy(), hasRan});
     let state = undoBuffer.pop();
     if (state) {
@@ -254,7 +255,7 @@ addHook(sharedActions, 'undo', () => {
     }
 });
 
-addHook(sharedActions, 'redo', () => {
+addHook('redo', () => {
     let state = redoBuffer.pop();
     if (state) {
         pushUndo();
@@ -263,7 +264,7 @@ addHook(sharedActions, 'redo', () => {
 });
 
 
-addHook(sharedActions, 'set-scale', () => {
+addHook('set-scale', () => {
     let value = prompt('Enter scale:');
     if (!value) {
         return;
@@ -271,7 +272,7 @@ addHook(sharedActions, 'set-scale', () => {
     scale = Number(value);
 });
 
-addHook(sharedActions, 'faster', event => {
+addHook('faster', event => {
     if (event) {
         event.preventDefault();
     }
@@ -286,7 +287,7 @@ addHook(sharedActions, 'faster', event => {
     }
 });
 
-addHook(sharedActions, 'slower', event => {
+addHook('slower', event => {
     if (event) {
         event.preventDefault();
     }
@@ -302,29 +303,28 @@ addHook(sharedActions, 'slower', event => {
 });
 
 
-addHook(sharedActions, 'exit-paste', () => {
+addHook('exit-paste', () => {
     pasting = undefined;
-    rpfPasting = undefined;
 });
 
-addHook(sharedActions, 'cut', async () => {
+addHook('cut', async () => {
     await run('copy');
     await run('sel-clear');
 });
 
-addHook(sharedActions, 'set-paste-mode-to-or', () => {
+addHook('set-paste-mode-to-or', () => {
     pasteMode = 'or';
 });
 
-addHook(sharedActions, 'set-paste-mode-to-copy', () => {
+addHook('set-paste-mode-to-copy', () => {
     pasteMode = 'copy';
 });
 
-addHook(sharedActions, 'set-paste-mode-to-and', () => {
+addHook('set-paste-mode-to-and', () => {
     pasteMode = 'and';
 });
 
-addHook(sharedActions, 'set-paste-mode-to-xor', () => {
+addHook('set-paste-mode-to-xor', () => {
     pasteMode = 'xor';
 });
 
@@ -332,7 +332,7 @@ addHook(sharedActions, 'set-paste-mode-to-xor', () => {
 let commandWrapperElt = getElement('command-wrapper');
 let commandElt = getElement('command');
 
-addHook(sharedActions, 'open-command', event => {
+addHook('open-command', event => {
     if (event) {
         event.preventDefault();
     }
@@ -341,7 +341,7 @@ addHook(sharedActions, 'open-command', event => {
     commandElt.focus();
 });
 
-addHook(sharedActions, 'command-keypress', async event => {
+addHook('command-keypress', async event => {
     if (!(event instanceof KeyboardEvent)) {
         throw new Error(`command-keypress called with non-MouseEvent value`);
     }
@@ -377,7 +377,7 @@ addHook(sharedActions, 'command-keypress', async event => {
     }
 });
 
-addHook(sharedActions, 'run-command', () => {
+addHook('run-command', () => {
     commandWrapperElt.style.display = 'none';
     let cmd = commandElt.textContent;
     try {
@@ -411,7 +411,7 @@ addHook(sharedActions, 'run-command', () => {
     commandHistory.push(cmd);
 });
 
-addHook(sharedActions, 'click-off-command', () => {
+addHook('click-off-command', () => {
     commandWrapperElt.style.display = 'none';
 });
 
@@ -425,9 +425,9 @@ let pasteModeMenuElt = getElement('paste-mode-menu');
 let interactionLevelMenuElt = getElement('interaction-level-menu');
 let selGroupButton = getElement('sel-group');
 let selUngroupButton = getElement('sel-ungroup');
-let rpfCMElt = getElement('rpf-context-menu');
+let contextMenuElt = getElement('context-menu');
 
-addHook(sharedActions, 'load-pattern', () => {
+addHook('load-pattern', () => {
     p.xOffset = 0;
     p.yOffset = 0;
     scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
@@ -449,13 +449,11 @@ addHook(sharedActions, 'load-pattern', () => {
     beforeRunning = p.copy();
     hasRan = false;
     cursorMode = 'main';
-    sel = undefined;
+    sel.clear();
     pasting = undefined;
-    rpfPasting = undefined;
     pasteModeMenuElt.style.display = 'none';
-    rpfSel.clear();
-    rpfCMShown = false;
-    rpfCMElt.style.display = 'none';
+    contextMenuShown = false;
+    contextMenuElt.style.display = 'none';
     if (p instanceof RPFPattern) {
         cursorSelectButton.style.display = 'none';
         selGroupButton.style.display = 'block';
@@ -473,18 +471,18 @@ addHook(sharedActions, 'load-pattern', () => {
 
 let rleElt = getElement('rle', 'textarea');
 
-addHook(sharedActions, 'view-rle', () => {
+addHook('view-rle', () => {
     loadPattern(rleElt.value);
 });
 
 
 let helpElt = getElement('help');
 
-addHook(sharedActions, 'show-help', () => {
+addHook('show-help', () => {
     helpElt.style.display = 'block';
 });
 
-addHook(sharedActions, 'hide-help', () => {
+addHook('hide-help', () => {
     helpElt.style.display = 'none';
 });
 
@@ -527,9 +525,8 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
             let file = out.data[name] as File;
             file.handle = value;
             if (fileBlob.name.endsWith('.rpf')) {
-                let rpf: RPFFile;
                 try {
-                    rpf = RPFFile.fromString(file.value, file.path, fs);
+                    file.getRPF();
                 } catch (error) {
                     if (error instanceof RPFError) {
                         continue;
@@ -537,7 +534,6 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
                         throw error;
                     }
                 }
-                file.rpf = rpf;
             }
         }
     }
@@ -546,14 +542,7 @@ async function updateFileSystem(dir: FileSystemDirectoryHandle, toAddTo: Directo
     }
 }
 
-addHook(sharedActions, 'window-visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && rootDirHandle) {
-        await updateFileSystem(rootDirHandle, fs);
-        await run('render-file-system');
-    }
-});
-
-addHook(sharedActions, 'open-folder', async () => {
+addHook('open-folder', async () => {
     let dir: FileSystemDirectoryHandle;
     try {
         dir = await showDirectoryPicker({id: 'lifeweb-editor-rpf-open', mode: 'readwrite'} as Parameters<typeof showDirectoryPicker>[0]);
@@ -639,11 +628,11 @@ function renderFileSystem(dir: Directory, elt: HTMLElement | FSFolderElement, de
     }));
 }
 
-addHook(sharedActions, 'render-file-system', () => {
+addHook('render-file-system', () => {
     renderFileSystem(fs, fsWrapperElt);
 });
 
-addHook(sharedActions, 'open-file', event => {
+addHook('open-file', event => {
     if (!(event instanceof CustomEvent)) {
         throw new Error(`command-keypress called with non-CustomEvent value`);
     }
@@ -658,7 +647,7 @@ addHook(sharedActions, 'open-file', event => {
 });
 
 
-addHook(sharedActions, 'download-rle', () => {
+addHook('download-rle', () => {
     let link = document.createElement('a');
     link.download = currentFile ? path.basename(currentFile.name) + '.rle' : 'pattern.rle';
     link.href = URL.createObjectURL(new Blob([p.toRLE()]));

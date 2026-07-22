@@ -1,7 +1,7 @@
 
-import {Rotation, ROTATION_COMBINE, TRANSPOSE_ROTATIONS, RPFReference, RPFPattern, File, transformCoordinates, transformCoordinatesOfPart} from './rpf.js';
+import {Pattern} from '../core/index.js';
+import {path, Rotation, ROTATION_COMBINE, TRANSPOSE_ROTATIONS, RPFReference, RPFPattern, File, transformCoordinates, transformCoordinatesOfPart} from './rpf.js';
 import {run, addHook, pushUndo, parse} from './base.js';
-import {drawPattern} from './normal_actions.js';
 
 
 interface RPFDrawStateDataPart {
@@ -29,6 +29,71 @@ interface RPFDrawStateData {
 //         console.log(' '.repeat(4 * level - 1), ...args);
 //     }
 // }
+
+// let start = performance.now();
+
+function drawPattern(p: Pattern, states: string[], x: number = 0, y: number = 0, rotation?: Rotation, restore: boolean = true): false | {xOffset: number, yOffset: number, xMod: number, yMod: number} {
+    ctx.save();
+    let [pXOffset, pYOffset] = p.getFullOffset();
+    // culling
+    let minX = pXOffset + x;
+    let minY = pYOffset + y;
+    if (minX + p.width < -topLeftX || minY + p.height < -topLeftY || minX > -topLeftX + pixelWidth || minY > -topLeftY + pixelHeight) {
+        return false;
+    }
+    let xOffset = -p.xOffset - topLeftX - x;
+    let yOffset = -p.yOffset - topLeftY - y;
+    let xMod = xOffset % 1;
+    let yMod = yOffset % 1;
+    ctx.scale(scale, scale);
+    ctx.translate(-xMod, -yMod);
+    xOffset -= xMod;
+    yOffset -= yMod;
+    let startY = Math.max(0, -yOffset) + (pYOffset - p.yOffset);
+    let endY = p.height - Math.min(0, yOffset) - 1;
+    let startX = Math.max(0, -xOffset) + (pXOffset - p.xOffset);
+    let endX = p.width - Math.min(0, xOffset) - 1;
+    // if (performance.now() - start < 1000) {
+    //     console.log('drawing pattern', p, x, y, rotation, xOffset, yOffset, p.height, p.width, startX, endX, startY, endY);
+    // }
+    if (rotation && TRANSPOSE_ROTATIONS.has(rotation)) {
+        let oldEndX = endX;
+        let oldEndY = endY;
+        endX = oldEndY - startY + startX;
+        endY = oldEndX - startX + startY;
+    }
+    // if (performance.now() - start < 1000) {
+    //     console.log(startX, endX, startY, endY, rotation);
+    // }
+    for (let screenY = startY; screenY <= endY; screenY++) {
+        for (let screenX = startX; screenX <= endX; screenX++) {
+            let x = screenX + xOffset;
+            let y = screenY + yOffset;
+            if (rotation && rotation !== 'F') {
+                let height = p.height;
+                let width = p.width;
+                if (TRANSPOSE_ROTATIONS.has(rotation)) {
+                    let temp = height;
+                    height = width;
+                    width = temp;
+                }
+                [x, y] = transformCoordinates(x, y, height, width, rotation);
+            }
+            let cell = p.get(x, y);
+            // if (performance.now() - start < 1000 && states[0] !== theme.envelope) {
+            //     console.log(`cell is ${cell}: oldX = ${screenX + xOffset}, oldY = ${screenY + yOffset}, x = ${x}, y = ${y}`);
+            // }
+            if (cell !== 0) {
+                ctx.fillStyle = states[cell - 1];
+                ctx.fillRect(screenX - fillOffset, screenY - fillOffset, 1 + fillExpand, 1 + fillExpand);
+            }
+        }
+    }
+    if (restore) {
+        ctx.restore();
+    }
+    return {xOffset, yOffset, xMod, yMod};
+}
 
 function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: number, startRotation: Rotation, mode: 'normal' | 'selected' | 'hover', type: 'normal' | 'envelope' | 'connections'): boolean {
     // culling
@@ -84,9 +149,9 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
     for (let ref of p.data) {
         let q = ref.p;
         let mode2: typeof mode;
-        if (mode === 'selected' || rpfSel.has(ref)) {
+        if (mode === 'selected' || sel.has(ref)) {
             mode2 = 'selected';
-        } else if (mode === 'hover' || ref === rpfHover) {
+        } else if (mode === 'hover' || ref === hover) {
             mode2 = 'hover';
         } else {
             mode2 = 'normal';
@@ -119,12 +184,13 @@ function drawRPF(p: RPFPattern, states: RPFDrawStateData, xPos: number, yPos: nu
     return true;
 }
 
+(globalThis as any).drawPattern = drawPattern;
 (globalThis as any).drawRPF = drawRPF;
 
 let interactionLevelElt = getElement('interaction-level');
 let selectMenuElt = getElement('select-menu');
 
-addHook(rpfActions, 'frame', () => {
+addHook('frame', () => {
     interactionLevelElt.textContent = String(interactionLevel);
     let states: RPFDrawStateData = {
         normal: {
@@ -133,27 +199,27 @@ addHook(rpfActions, 'frame', () => {
             connections: [theme.connections],
         },
         selected: {
-            normal: [theme.rpfSelection],
+            normal: [theme.selection],
             envelope: [theme.selectedEnvelope],
             connections: [theme.selectedConnections],
         },
         hover: {
-            normal: [theme.rpfHover],
+            normal: [theme.hover],
             envelope: [theme.hoverEnvelope],
             connections: [theme.hoverConnections],
         },
     };
     ctx.fillStyle = theme.empty;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawRPF(rpfP, states, 0, 0, 'F', 'normal', 'normal');
-    if (rpfSel.size > 0) {
+    drawRPF(p, states, 0, 0, 'F', 'normal', 'normal');
+    if (sel.size > 0) {
         selectMenuElt.style.display = 'flex';
     } else {
         selectMenuElt.style.display = 'none';
     }
-    if (rpfPasting) {
-        let q = rpfPasting[0];
-        drawRPF(q, states, mouseX, mouseY, rpfPasting[1], 'normal', 'normal');
+    if (pasting) {
+        let q = pasting[0];
+        drawRPF(q, states, mouseX, mouseY, pasting[1], 'normal', 'normal');
         ctx.save();
         let xOffset = -topLeftX - mouseX;
         let yOffset = -topLeftY - mouseY;
@@ -172,8 +238,8 @@ addHook(rpfActions, 'frame', () => {
 
 
 export function editCellRPF(isStart: boolean): void {
-    if (!rpfEditing) {
-        throw new Error(`editCellRPF called with no rpfEditing`);
+    if (!editing) {
+        throw new Error(`editCellRPF called with no editing`);
     }
     let x = mouseX - p.xOffset;
     let y = mouseY - p.yOffset;
@@ -182,9 +248,9 @@ export function editCellRPF(isStart: boolean): void {
     }
     prevEditX = x;
     prevEditY = y;
-    x -= rpfEditing.x;
-    y -= rpfEditing.y;
-    let q = rpfEditing.p;
+    x -= editing.x;
+    y -= editing.y;
+    let q = editing.p;
     if (x < 0 || y < 0) {
         let x2 = -Math.min(x, 0);
         let y2 = -Math.min(y, 0);
@@ -199,20 +265,20 @@ export function editCellRPF(isStart: boolean): void {
     q.ensure(x + 1, y + 1);
     q.set(x, y, drawDeleteMode ? 0 : drawState);
     q.shrinkToFit();
-    rpfEditing.x += q.xOffset;
-    rpfEditing.y += q.yOffset;
+    editing.x += q.xOffset;
+    editing.y += q.yOffset;
     q.xOffset = 0;
     q.yOffset = 0;
 }
 
-addHook(rpfActions, 'click-canvas', event => {
+addHook('click-canvas', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`click-canvas called with non-MouseEvent value`);
     }
     if (event.buttons !== 1) {
         return;
     }
-    if (rpfPasting) {
+    if (pasting) {
         run('end-paste');
         return;
     }
@@ -222,12 +288,12 @@ addHook(rpfActions, 'click-canvas', event => {
     }
 });
 
-addHook(rpfActions, 'move-mouse-over-canvas', event => {
+addHook('move-mouse-over-canvas', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`move-mouse-over-canvas called with non-MouseEvent value`);
     }
     if (isDragging) {
-        if (rpfPasting) {
+        if (pasting) {
             return;
         }
         if (cursorMode === 'main') {
@@ -237,59 +303,55 @@ addHook(rpfActions, 'move-mouse-over-canvas', event => {
             editCellRPF(false);
         }
     } else {
-        rpfHover = rpfP.getRefAt(mouseX, mouseY, interactionLevel);
+        hover = p.getRefAt(mouseX, mouseY, interactionLevel);
     }
 });
 
-addHook(rpfActions, 'unclick-canvas', event => {
+addHook('unclick-canvas', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`unclick-canvas called with non-MouseEvent value`);
     }
     if (cursorMode === 'main' && dragStart[0] === event.clientX && dragStart[1] === event.clientY) {
-        let value = rpfP.getRefAt(mouseX, mouseY, interactionLevel);
+        let value = p.getRefAt(mouseX, mouseY, interactionLevel);
         if (value) {
-            if (rpfSel.has(value)) {
-                rpfSel.delete(value);
+            if (sel.has(value)) {
+                sel.delete(value);
             } else {
-                rpfSel.add(value);
+                sel.add(value);
             }
         } else {
-            rpfSel.clear();
+            sel.clear();
         }
-        rpfP.recomputeSizes();
+        p.recomputeSizes();
     }
 });
 
-addHook(rpfActions, 'set-cursor-to-main', () => {
-    if (cursorMode === 'edit' && rpfEditing) {
-        rpfSel.delete(rpfEditing);
-        if (rpfEditing.p.population === 0) {
-            rpfP.remove(rpfEditing);
+addHook('set-cursor-to-main', () => {
+    if (cursorMode === 'edit' && editing) {
+        sel.delete(editing);
+        if (editing.p.population === 0) {
+            p.remove(editing);
         }
     }
 });
 
-addHook(rpfActions, 'set-cursor-to-edit', () => {
-    if (rpfSel.size === 0) {
-        rpfEditing = new RPFReference(rpfP, rpfP.base.clearedCopy());
-        rpfP.add(rpfEditing);
-        rpfSel.add(rpfEditing);
-    } else if (rpfSel.size === 1) {
-        rpfEditing = Array.from(rpfSel)[0];
+addHook('set-cursor-to-edit', () => {
+    if (sel.size === 0) {
+        editing = p.createRef(p.file.base.clearedCopy());
+        p.add(editing);
+        sel.add(editing);
+    } else if (sel.size === 1) {
+        editing = Array.from(sel)[0];
     } else {
         throw new Error(`Cannot edit multiple objects at once!`);
     }
 });
 
-addHook(rpfActions, 'set-cursor-to-select', () => {
-    throw new Error(`Cannot set cursor to select in RPF mode`);
-});
-
-addHook(rpfActions, 'inc-interaction-level', () => {
+addHook('inc-interaction-level', () => {
     interactionLevel++;
 });
 
-addHook(rpfActions, 'dec-interaction-level', () => {
+addHook('dec-interaction-level', () => {
     interactionLevel--;
     if (interactionLevel < 0) {
         interactionLevel = 0;
@@ -297,16 +359,16 @@ addHook(rpfActions, 'dec-interaction-level', () => {
 });
 
 
-addHook(rpfActions, 'sel-cancel', () => {
-    if (rpfSel.size === 0) {
+addHook('sel-cancel', () => {
+    if (sel.size === 0) {
         return;
     }
     pushUndo();
-    rpfSel.clear();
+    sel.clear();
 });
 
-addHook(rpfActions, 'sel-group', () => {
-    if (rpfSel.size === 0) {
+addHook('sel-group', () => {
+    if (sel.size === 0) {
         return;
     }
     let key = prompt('Enter new object ID:');
@@ -314,9 +376,9 @@ addHook(rpfActions, 'sel-group', () => {
         return;
     }
     pushUndo();
-    let q = rpfP.clearedCopy();
-    q.setKey(key);
-    for (let value of rpfSel) {
+    let q = p.clearedCopy();
+    q.key = key;
+    for (let value of sel) {
         q.add(value);
     }
     let minX = Infinity;
@@ -329,23 +391,23 @@ addHook(rpfActions, 'sel-group', () => {
         ref.x -= minX;
         ref.y -= minY;
     }
-    for (let value of rpfSel) {
-        rpfP.data.delete(value);
+    for (let value of sel) {
+        p.data.delete(value);
     }
-    rpfP.recomputeSizes();
-    let ref = new RPFReference(rpfP, q, minX, minY);
-    rpfP.add(ref);
-    rpfSel.clear();
-    rpfSel.add(ref);
+    p.recomputeSizes();
+    let ref = new RPFReference(p, q, minX, minY);
+    p.add(ref);
+    sel.clear();
+    sel.add(ref);
     rpfFile.data[q.key] = q;
 });
 
-addHook(rpfActions, 'sel-ungroup', () => {
-    if (rpfSel.size === 0) {
+addHook('sel-ungroup', () => {
+    if (sel.size === 0) {
         return;
     }
     pushUndo();
-    for (let ref of rpfSel) {
+    for (let ref of sel) {
         if (!(ref.p instanceof RPFPattern)) {
             continue;
         }
@@ -354,118 +416,118 @@ addHook(rpfActions, 'sel-ungroup', () => {
         for (let ref2 of ref.p.data) {
             ref2.parent = parent;
             parent.add(ref2);
-            rpfSel.add(ref2);
+            sel.add(ref2);
         }
     }
 });
 
-addHook(rpfActions, 'sel-move-up', () => {
+addHook('sel-move-up', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.y--;
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-move-down', () => {
+addHook('sel-move-down', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.y++;
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-move-left', () => {
+addHook('sel-move-left', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.x--;
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-move-right', () => {
+addHook('sel-move-right', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.x++;
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-clear', () => {
+addHook('sel-clear', () => {
     pushUndo();
-    for (let value of rpfSel) {
-        rpfP.data.delete(value);
+    for (let value of sel) {
+        p.data.delete(value);
     }
-    rpfSel.clear();
-    rpfP.recomputeSizes();
+    sel.clear();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-flip-horizontal', () => {
+addHook('sel-flip-horizontal', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('Bx');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-flip-vertical', () => {
+addHook('sel-flip-vertical', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('Fx');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-rotate-left', () => {
+addHook('sel-rotate-left', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('L');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-rotate-right', () => {
+addHook('sel-rotate-right', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('R');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-rotate-180', () => {
+addHook('sel-rotate-180', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('B');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-flip-diagonal', () => {
+addHook('sel-flip-diagonal', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('Lx');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'sel-flip-anti-diagonal', () => {
+addHook('sel-flip-anti-diagonal', () => {
     pushUndo();
-    for (let value of rpfSel) {
+    for (let value of sel) {
         value.applyTransform('Rx');
     }
-    rpfP.recomputeSizes();
+    p.recomputeSizes();
 });
 
-addHook(rpfActions, 'copy', () => {
-    if (rpfSel.size === 0) {
+addHook('copy', () => {
+    if (sel.size === 0) {
         navigator.clipboard.writeText(rpfFile.toString());
-    } else if (rpfSel.size === 1) {
-        navigator.clipboard.writeText(Array.from(rpfSel)[0].p.toString(rpfFile, true));
+    } else if (sel.size === 1) {
+        navigator.clipboard.writeText(Array.from(sel)[0].p.toString());
     } else {
-        let q = rpfP.clearedCopy();
+        let q = p.clearedCopy();
         q.key = '__copy__';
         q.data = new Set();
-        for (let value of rpfSel) {
+        for (let value of sel) {
             q.data.add(value.copy(q));
         }
         q.recomputeSizes();
@@ -474,7 +536,7 @@ addHook(rpfActions, 'copy', () => {
     }
 });
 
-addHook(rpfActions, 'start-paste', async event => {
+addHook('start-paste', async event => {
     if (event) {
         event.preventDefault();
     }
@@ -489,11 +551,7 @@ addHook(rpfActions, 'start-paste', async event => {
             alert(`No rpfFile when running RPF start-paste!`);
             return;
         }
-        let key = prompt(`Enter key:`);
-        if (key === null) {
-            return;
-        }
-        q = rpfP.fromPattern(key, rpfFile, q);
+        q = p.fromPattern(q);
     }
     if (!(q instanceof RPFPattern)) {
         throw new Error(`This error should not occur (please check devtools and report the traceback)`);
@@ -503,19 +561,19 @@ addHook(rpfActions, 'start-paste', async event => {
     }
     q.offsetBy(-q.minX, -q.minY);
     alert(q.width + ' ' + q.height);
-    rpfPasting = [q, 'F'];
+    pasting = [q, 'F'];
     run('set-cursor-to-main');
 });
 
-addHook(rpfActions, 'end-paste', () => {
-    if (!rpfPasting) {
+addHook('end-paste', () => {
+    if (!pasting) {
         return;
     }
     pushUndo();
-    let q = rpfPasting[0];
-    let toAddTo = rpfP;
-    if (rpfSel.size === 1) {
-        let r = Array.from(rpfSel)[0].p;
+    let q = pasting[0];
+    let toAddTo = p;
+    if (sel.size === 1) {
+        let r = Array.from(sel)[0].p;
         if (r instanceof RPFPattern) {
             toAddTo = r;
         }
@@ -527,22 +585,22 @@ addHook(rpfActions, 'end-paste', () => {
             toAddTo.add(ref);
         }
     } else {
-        toAddTo.add(new RPFReference(toAddTo, q, mouseX, mouseY, rpfPasting[1]));
+        toAddTo.add(new RPFReference(toAddTo, q, mouseX, mouseY, pasting[1]));
     }
-    rpfPasting = undefined;
+    pasting = undefined;
 });
 
-addHook(rpfActions, 'select-all', event => {
+addHook('select-all', event => {
     if (event) {
         event.preventDefault();
     }
-    for (let value of rpfP.data) {
-        rpfSel.add(value);
+    for (let value of p.data) {
+        sel.add(value);
     }
 });
 
 
-addHook(rpfActions, 'canvas-drop', event => {
+addHook('canvas-drop', event => {
     if (!(event instanceof DragEvent)) {
         throw new Error(`canvas-drop called with non-DragEvent value`);
     }
@@ -561,19 +619,19 @@ addHook(rpfActions, 'canvas-drop', event => {
     if (file.name === '/stdlib.rpf' && !rpfFile.starImports.includes(stdlib)) {
         rpfFile.starImports.push(stdlib);
     }
-    rpfPasting = [rpf.data[key], 'F'];
+    pasting = [rpf.data[key], 'F'];
     run('set-cursor-to-main');
 });
 
 
 let rightElt = getElement('right');
 
-let rpfCMElt = getElement('rpf-context-menu');
-let rpfCMNameElt = getElement('cm-name');
-let rpfCMPathElt = getElement('cm-path');
-let rpfCMDescElt = getElement('cm-desc');
+let contextMenuElt = getElement('rpf-context-menu');
+let contextMenuNameElt = getElement('cm-name');
+let contextMenuPathElt = getElement('cm-path');
+let contextMenuDescElt = getElement('cm-desc');
 
-addHook(rpfActions, 'right-click-canvas', event => {
+addHook('right-click-canvas', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`right-click-canvas called with non-MouseEvent value`);
     }
@@ -581,26 +639,26 @@ addHook(rpfActions, 'right-click-canvas', event => {
         return;
     }
     event.preventDefault();
-    if (rpfCMShown) {
-        rpfCMShown = false;
-        rpfCMElt.style.display = 'none';
+    if (contextMenuShown) {
+        contextMenuShown = false;
+        contextMenuElt.style.display = 'none';
     } else {
-        if (!rpfHover) {
+        if (!hover) {
             return;
         }
-        let q = rpfHover.p;
+        let q = hover.p;
         if (!(q instanceof RPFPattern)) {
             return;
         }
-        rpfCMShown = true;
+        contextMenuShown = true;
         let rect = rightElt.getBoundingClientRect();
         let x = event.clientX - rect.left + 4;
         let y = event.clientY - rect.top + 4;
-        rpfCMElt.style.display = 'flex';
-        rpfCMElt.style.left = x + 'px';
-        rpfCMElt.style.top = y + 'px';
-        rpfCMNameElt.textContent = q.getName(true);
-        rpfCMPathElt.textContent = q.path;
+        contextMenuElt.style.display = 'flex';
+        contextMenuElt.style.left = x + 'px';
+        contextMenuElt.style.top = y + 'px';
+        contextMenuNameElt.textContent = q.getName(true) ?? '[unnamed]';
+        contextMenuPathElt.textContent = path.join(q.file.path, );
         let desc = '';
         if (q.periodic) {
             desc += q.getTypeDescription() + '\n';
@@ -608,22 +666,22 @@ addHook(rpfActions, 'right-click-canvas', event => {
         if (q.desc !== undefined) {
             desc += q.desc;
         }
-        rpfCMDescElt.textContent = desc;
+        contextMenuDescElt.textContent = desc;
     }
 });
 
-addHook(rpfActions, 'window-click', event => {
+addHook('window-click', event => {
     if (!(event instanceof MouseEvent)) {
         throw new Error(`window-click called with non-MouseEvent value`);
     }
-    if (rpfCMShown && event.target instanceof HTMLElement && !rpfCMElt.contains(event.target)) {
-        rpfCMShown = false;
-        rpfCMElt.style.display = 'none';
+    if (contextMenuShown && event.target instanceof HTMLElement && !contextMenuElt.contains(event.target)) {
+        contextMenuShown = false;
+        contextMenuElt.style.display = 'none';
     }
 });
 
 
-addHook(rpfActions, 'save', event => {
+addHook('save', event => {
     if (event) {
         event.preventDefault();
     }

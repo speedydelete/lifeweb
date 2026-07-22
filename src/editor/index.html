@@ -314,7 +314,7 @@ textarea:hover, textarea:focus {
     user-select: none;
 }
 
-#rpf-context-menu {
+#context-menu {
     display: none;
     position: absolute;
     z-index: 3;
@@ -327,7 +327,7 @@ textarea:hover, textarea:focus {
     border-radius: 0.5rem;
 }
 
-#rpf-context-menu > * {
+#context-menu > * {
     display: block;
     width: 100%;
     text-align: left;
@@ -342,7 +342,7 @@ textarea:hover, textarea:focus {
     font-weight: bold;
 }
 
-/* #right #rpf-context-menu > button:hover {
+/* #right #context-menu > button:hover {
     background-color: #cfcfcf;
 } */
 
@@ -583,7 +583,7 @@ bo$2bo$3o!</textarea>
                         <line x1="12" y1="0" x2="16" y2="4" stroke="#ffffff" />
                     </svg>
                 </button>
-                <button id="cursor-select" data-title="select">
+                <!-- <button id="cursor-select" data-title="select">
                     <svg viewBox="0 0 16 16" image-rendering="crispEdges">
                         <line x1="0" y1="0" x2="2" y2="0" stroke="#ffffff" stroke-width="2" />
                         <line x1="4" y1="0" x2="7" y2="0" stroke="#ffffff" stroke-width="2" />
@@ -602,7 +602,7 @@ bo$2bo$3o!</textarea>
                         <line x1="16" y1="9" x2="16" y2="12" stroke="#ffffff" stroke-width="2" />
                         <line x1="16" y1="14" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
                     </svg>
-                </button>
+                </button> -->
                 <div class="spacer"></div>
                 <button id="undo" data-title="undo">
                     <svg viewBox="0 0 16 16">
@@ -767,7 +767,7 @@ bo$2bo$3o!</textarea>
                     </svg>
                 </button>
             </div>
-            <div id="rpf-context-menu">
+            <div id="context-menu">
                 <div id="cm-name"></div>
                 <div id="cm-path"></div>
                 <div id="cm-desc"></div>
@@ -825,9 +825,7 @@ function getElement(id, type) {
     return out;
 }
 
-var sharedActions = {};
-var normalActions = {};
-var rpfActions = {};
+var actions = {};
 var eventListeners = {};
 var keybinds = {};
 var extensions = {};
@@ -836,7 +834,6 @@ var theme;
 
 var p;
 var rpfFile;
-var rpfP;
 
 var mouseX = 0;
 var mouseY = 0;
@@ -875,16 +872,14 @@ var drawDeleteMode = false;
 var prevEditX = undefined;
 var prevEditY = undefined;
 var interactionLevel = 0;
-var rpfEditing = undefined;
+var editing = undefined;
 
-var sel = undefined;
-var rpfSel = new Set();
-var rpfHover = undefined;
+var sel = new Set();
+var hover = undefined;
 var pasting = undefined;
-var rpfPasting = undefined;
 var pasteMode = 'or';
 
-var rpfCMShown = false;
+var contextMenuShown = false;
 
 var commandHistory = [];
 var commandHistoryPos = undefined;
@@ -896,7 +891,7 @@ var leftRightResizeOffset = 0;
 var rootDirHandle = undefined;
 var fs = undefined;
 var currentFile = undefined;
-var stdlib = rpfFile;
+var stdlib = undefined;
 
         </script>
         <script type="module" src="index.js"></script>

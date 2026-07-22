@@ -1,6 +1,6 @@
 
 import {Pattern, parse as parseRLE} from '../core/index.js';
-import {Rotation, RPFReference, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+import {Rotation, RPFReference, RPFPattern, File, Directory, RPFFile, RPFParser} from './rpf.js';
 
 
 declare global {
@@ -17,7 +17,7 @@ declare global {
         | 'window-click' | 'window-visibilitychange'
         | 'scroll-canvas' | 'click-canvas' | 'move-mouse-over-canvas' | 'unclick-canvas' | 'move-mouse-onto-canvas' | 'move-mouse-off-of-canvas' | 'right-click-canvas'
         | 'run' | 'pause' | 'step' | 'reset' | 'set-speed'
-        | 'set-cursor-to-main' | 'set-cursor-to-edit' | 'set-cursor-to-select'
+        | 'set-cursor-to-main' | 'set-cursor-to-edit'
         | 'undo' | 'redo'
         | 'set-scale' | 'faster' | 'slower'
         | 'sel-cancel' | 'sel-group' | 'sel-ungroup' | 'sel-move-up' | 'sel-move-down' | 'sel-move-left' | 'sel-move-right' | 'sel-clear' | 'sel-flip-horizontal' | 'sel-flip-vertical' | 'sel-rotate-left' | 'sel-rotate-right' | 'sel-rotate-180' | 'sel-flip-diagonal' | 'sel-flip-anti-diagonal'
@@ -33,9 +33,7 @@ declare global {
 
     type Hook = (event?: Event) => void;
 
-    var sharedActions: {[K in DefaultAction]?: Hook[]};
-    var normalActions: {[K in DefaultAction]?: Hook[]};
-    var rpfActions: {[K in DefaultAction]?: Hook[]};
+    var actions: {[K in DefaultAction]?: Hook[]};
     var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]};
     var keybinds: {[key: string]: DefaultAction};
     var extensions: {[key: string]: (name: string, file: File) => void};
@@ -45,8 +43,7 @@ declare global {
         twoState: string;
         multiState(states: number): string[];
         selection: string;
-        rpfSelection: string;
-        rpfHover: string;
+        hover: string;
         pasting: string;
         envelope: string;
         selectedEnvelope: string;
@@ -59,13 +56,12 @@ declare global {
     var theme: Theme;
 
     interface UndoState {
-        p: Pattern;
+        p: RPFPattern;
         hasRan: boolean;
-        rpfEditing?: RPFReference;
+        editing?: RPFReference;
     }
 
-    var p: Pattern;
-    var rpfP: RPFPattern;
+    var p: RPFPattern;
     var rpfFile: RPFFile;
 
     var canvas: HTMLCanvasElement;
@@ -79,7 +75,7 @@ declare global {
 
     var undoBuffer: UndoState[];
     var redoBuffer: UndoState[];
-    var beforeRunning: Pattern;
+    var beforeRunning: RPFPattern;
     var hasRan: boolean;
 
     var scale: number;
@@ -105,16 +101,14 @@ declare global {
     var prevEditX: number | undefined;
     var prevEditY: number | undefined;
     var interactionLevel: number;
-    var rpfEditing: RPFReference | undefined;
+    var editing: RPFReference | undefined;
 
-    var sel: {x: number, y: number, height: number, width: number} | undefined;
-    var rpfSel: Set<RPFReference>;
-    var rpfHover: RPFReference | undefined;
-    var pasting: Pattern | undefined;
-    var rpfPasting: [RPFPattern, Rotation] | undefined;
+    var sel: Set<RPFReference>;
+    var hover: RPFReference | undefined;
+    var pasting: [RPFPattern, Rotation] | undefined;
     var pasteMode: 'or' | 'copy' | 'and' | 'xor';
 
-    var rpfCMShown: boolean;
+    var contextMenuShown: boolean;
 
     var commandHistory: string[];
     var commandHistoryPos: number | undefined;
@@ -132,27 +126,14 @@ declare global {
 
 
 export async function run(action: DefaultAction, event?: Event): Promise<void> {
-    if (p instanceof RPFPattern) {
-        if (rpfActions[action]) {
-            for (let hook of rpfActions[action]) {
-                hook(event);
-            }
-        }
-    } else {
-        if (normalActions[action]) {
-            for (let hook of normalActions[action]) {
-                hook(event);
-            }
-        }
-    }
-    if (sharedActions[action]) {
-        for (let hook of sharedActions[action]) {
+    if (actions[action]) {
+        for (let hook of actions[action]) {
             hook(event);
         }
     }
 }
 
-export function addHook<T extends DefaultAction>(actions: {[K in T]?: Hook[]}, action: T, hook: Hook): void {
+export function addHook<T extends DefaultAction>(action: T, hook: Hook): void {
     if (!actions[action]) {
         actions[action] = [hook];
     } else {
@@ -160,7 +141,7 @@ export function addHook<T extends DefaultAction>(actions: {[K in T]?: Hook[]}, a
     }
 }
 
-export function removeHook<T extends DefaultAction>(actions: {[K in T]?: Hook[]}, action: T, hook: Hook): void {
+export function removeHook<T extends DefaultAction>(action: T, hook: Hook): void {
     if (!actions[action]) {
         return;
     }
@@ -241,9 +222,8 @@ theme = {
         }
         return out;
     },
-    selection: `rgba(0, 255, 0, 0.5)`,
-    rpfSelection: `#ff93d3`,
-    rpfHover: `#ffc3d3`,
+    selection: `#ff93d3`,
+    hover: `#ffc3d3`,
     pasting: `rgba(255, 0, 0, 0.5)`,
     envelope: `#00007f`,
     selectedEnvelope: `#3f003f`,
@@ -257,14 +237,14 @@ fs = new Directory('', '/');
 
 
 export function pushUndo(): void {
-    undoBuffer.push({p: p.copy(), hasRan, rpfEditing});
+    undoBuffer.push({p: p.copy(), hasRan, editing});
 }
 
 export function applyUndo(state: UndoState): void {
     running = false;
     p = state.p.copy();
     hasRan = state.hasRan;
-    rpfEditing = state.rpfEditing;
+    editing = state.editing;
 }
 
 
@@ -285,10 +265,12 @@ export function parse(data: string, preserveSizes?: boolean): Pattern | [string,
         return parseRLE(data, undefined, preserveSizes);
     } catch (error) {
         try {
-            return RPFPattern.fromString(data, rpfFile ?? new RPFFile(p, '/', {}));
+            let parser = new RPFParser(p.file.base, p.file, data);
+            return parser.pattern();
         } catch (error2) {
             try {
-                let out = RPFFile.fromString(data, '/main', fs);
+                let parser = new RPFParser(p.file.base, '/main', data);
+                let out = parser.parseFile(fs);
                 if (!out.data['main']) {
                     throw new Error(`No 'main' entry presented in loaded RPF!`);
                 } else {
@@ -311,7 +293,8 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
             q = parseRLE(q);
         } catch (error) {
             try {
-                q = RPFFile.fromString(q as string, '/main', fs);
+                let parser = new RPFParser(p.file.base, '/main', q as string);
+                q = parser.parseFile(fs);
             } catch (error2) {
                 console.error(error);
                 console.error(error2);
@@ -320,21 +303,21 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
             }
         }
     }
-    if (q instanceof Pattern) {
-        p = q;
-        if (p instanceof RPFPattern) {
-            rpfFile = new RPFFile(p, '/', {});
-            rpfFile.data['main'] = p;
-        }
-    } else {
+    if (q instanceof RPFFile) {
         rpfFile = q;
         p = rpfFile.data['main'];
         if (!p) {
             p = oldP;
             throw new Error(`No 'main' entry present in loaded RPF`);
         }
+    } else if (q instanceof RPFPattern) {
+
+    } else {
+        p = p.fromPattern(q);
+        p.key = 'main';
+        rpfFile = new RPFFile(p, '/main', {'main': p});
+        fs.write('main', rpfFile);
     }
-    rpfP = p instanceof RPFPattern ? p : (undefined as unknown as RPFPattern);
     run('load-pattern');
 }
 
@@ -471,7 +454,7 @@ export class FSRPFItemElement extends HTMLElement {
         super();
         this.file = file;
         this.p = p;
-        let name = p.getName();
+        let name = p.getName() ?? '[unnamed]';
         let root = this.attachShadow({mode: 'open'});
         let nameElt = document.createElement('span');
         nameElt.textContent = name;

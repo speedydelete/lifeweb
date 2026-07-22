@@ -31,8 +31,7 @@ global.loadFile = loadFile;
 global.runFile = runFile;
 
 import './shared_actions.js';
-import './normal_actions.js';
-import './rpf_actions.js';
+import './rpf_editor.js';
 
 
 let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibilitychange')]?: DefaultAction}} = {
@@ -45,7 +44,6 @@ let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibility
     'speed': {'click': 'set-speed'},
     'cursor-main': {'click': 'set-cursor-to-main'},
     'cursor-edit': {'click': 'set-cursor-to-edit'},
-    'cursor-select': {'click': 'set-cursor-to-select'},
     'undo': {'click': 'undo'},
     'redo': {'click': 'redo'},
     'scale-wrapper': {'click': 'set-scale'},
