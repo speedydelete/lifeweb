@@ -28,14 +28,14 @@ export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
 export const ROTATIONS = new Set(['F', 'Fx', 'L', 'Lx', 'B', 'Bx', 'R', 'Rx'] as Rotation[]);
 
 export const ROTATION_COMBINE: {[K in Rotation]: {[K in Rotation]: Rotation}} = {
-  F: { F: 'F', Fx: 'Fx', L: 'L', Lx: 'Lx', B: 'B', Bx: 'Bx', R: 'R', Rx: 'Rx' },
-  Fx: { F: 'Fx', Fx: 'F', L: 'Lx', Lx: 'L', B: 'Bx', Bx: 'B', R: 'Rx', Rx: 'R' },
-  L: { F: 'L', Fx: 'Rx', L: 'B', Lx: 'Fx', B: 'R', Bx: 'Lx', R: 'F', Rx: 'Bx' },
-  Lx: { F: 'Lx', Fx: 'R', L: 'Bx', Lx: 'F', B: 'Rx', Bx: 'L', R: 'Fx', Rx: 'B' },
-  B: { F: 'B', Fx: 'Bx', L: 'R', Lx: 'Rx', B: 'F', Bx: 'Fx', R: 'L', Rx: 'Lx' },
-  Bx: { F: 'Bx', Fx: 'B', L: 'Rx', Lx: 'R', B: 'Fx', Bx: 'F', R: 'Lx', Rx: 'L' },
-  R: { F: 'R', Fx: 'Lx', L: 'F', Lx: 'Bx', B: 'L', Bx: 'Rx', R: 'B', Rx: 'Fx' },
-  Rx: { F: 'Rx', Fx: 'L', L: 'Fx', Lx: 'B', B: 'Lx', Bx: 'R', R: 'Bx', Rx: 'F' }
+    F: {F: 'F', Fx: 'Fx', L: 'L', Lx: 'Lx', B: 'B', Bx: 'Bx', R: 'R', Rx: 'Rx'},
+    Fx: {F: 'Fx', Fx: 'F', L: 'Lx', Lx: 'L', B: 'Bx', Bx: 'B', R: 'Rx', Rx: 'R'},
+    L: {F: 'L', Fx: 'Rx', L: 'B', Lx: 'Fx', B: 'R', Bx: 'Lx', R: 'F', Rx: 'Bx'},
+    Lx: {F: 'Lx', Fx: 'R', L: 'Bx', Lx: 'F', B: 'Rx', Bx: 'L', R: 'Fx', Rx: 'B'},
+    B: {F: 'B', Fx: 'Bx', L: 'R', Lx: 'Rx', B: 'F', Bx: 'Fx', R: 'L', Rx: 'Lx'},
+    Bx: {F: 'Bx', Fx: 'B', L: 'Rx', Lx: 'R', B: 'Fx', Bx: 'F', R: 'Lx', Rx: 'L'},
+    R: {F: 'R', Fx: 'Lx', L: 'F', Lx: 'Bx', B: 'L', Bx: 'Rx', R: 'B', Rx: 'Fx'},
+    Rx: {F: 'Rx', Fx: 'L', L: 'Fx', Lx: 'B', B: 'Lx', Bx: 'R', R: 'Bx', Rx: 'F'},
 };
 
 export const TRANSPOSE_ROTATIONS = new Set<Rotation>(['L', 'Lx', 'R', 'Rx']);

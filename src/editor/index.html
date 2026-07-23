@@ -256,17 +256,6 @@ textarea:hover, textarea:focus {
     outline: none;
 }
 
-#paste-mode-menu {
-    display: none;
-    position: absolute;
-    top: 3.5rem;
-    right: 0;
-    padding: 0.5rem;
-    flex-direction: row;
-    gap: 0.5rem;
-    background-color: transparent;
-}
-
 #select-menu {
     display: none;
     position: absolute;
@@ -290,7 +279,7 @@ textarea:hover, textarea:focus {
 }
 
 #interaction-level-menu {
-    display: none;
+    display: flex;
     position: absolute;
     bottom: 0;
     right: 0;
@@ -565,7 +554,7 @@ bo$2bo$3o!</textarea>
                     </svg>
                 </button>
                 <div class="spacer"></div>
-                <button id="cursor-main" class="selected" data-title="pan">
+                <button id="cursor-main" class="selected" data-title="pan/select">
                     <svg viewBox="0 0 16 16">
                         <polygon points="3,0 3,14 6,11 8,15 10,14 8,11 13,11" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="round" />
                     </svg>
@@ -583,26 +572,6 @@ bo$2bo$3o!</textarea>
                         <line x1="12" y1="0" x2="16" y2="4" stroke="#ffffff" />
                     </svg>
                 </button>
-                <!-- <button id="cursor-select" data-title="select">
-                    <svg viewBox="0 0 16 16" image-rendering="crispEdges">
-                        <line x1="0" y1="0" x2="2" y2="0" stroke="#ffffff" stroke-width="2" />
-                        <line x1="4" y1="0" x2="7" y2="0" stroke="#ffffff" stroke-width="2" />
-                        <line x1="9" y1="0" x2="12" y2="0" stroke="#ffffff" stroke-width="2" />
-                        <line x1="14" y1="0" x2="16" y2="0" stroke="#ffffff" stroke-width="2" />
-                        <line x1="0" y1="0" x2="0" y2="2" stroke="#ffffff" stroke-width="2" />
-                        <line x1="0" y1="4" x2="0" y2="7" stroke="#ffffff" stroke-width="2" />
-                        <line x1="0" y1="9" x2="0" y2="12" stroke="#ffffff" stroke-width="2" />
-                        <line x1="0" y1="14" x2="0" y2="16" stroke="#ffffff" stroke-width="2" />
-                        <line x1="0" y1="16" x2="2" y2="16" stroke="#ffffff" stroke-width="3" />
-                        <line x1="4" y1="16" x2="7" y2="16" stroke="#ffffff" stroke-width="3" />
-                        <line x1="9" y1="16" x2="12" y2="16" stroke="#ffffff" stroke-width="3" />
-                        <line x1="14" y1="16" x2="16" y2="16" stroke="#ffffff" stroke-width="3" />
-                        <line x1="16" y1="0" x2="16" y2="2" stroke="#ffffff" stroke-width="2" />
-                        <line x1="16" y1="4" x2="16" y2="7" stroke="#ffffff" stroke-width="2" />
-                        <line x1="16" y1="9" x2="16" y2="12" stroke="#ffffff" stroke-width="2" />
-                        <line x1="16" y1="14" x2="16" y2="16" stroke="#ffffff" stroke-width="2" />
-                    </svg>
-                </button> -->
                 <div class="spacer"></div>
                 <button id="undo" data-title="undo">
                     <svg viewBox="0 0 16 16">
@@ -623,12 +592,6 @@ bo$2bo$3o!</textarea>
                 <div id="position" data-title="cell state at cursor position"><span id="x">0</span>,&nbsp;<span id="y">0</span>&nbsp;=&nbsp;<span id="state">0</span></div>
             </div>
             <canvas id="canvas" tabindex="-1"></canvas>
-            <div id="paste-mode-menu">
-                <button id="paste-or" class="selected">OR</button>
-                <button id="paste-copy">CPY</button>
-                <button id="paste-and">AND</button>
-                <button id="paste-xor">XOR</button>
-            </div>
             <div id="select-menu">
                 <div>
                     <button id="sel-cancel" data-title="cancel" class="tooltip-top">
@@ -811,6 +774,9 @@ window.addEventListener('unhandledrejection', event => alert(formatError(event.r
 
 var BUILD_NUMBER = 723;
 
+
+// base.ts
+
 function getElement(id, type) {
     let out = document.getElementById(id);
     if (!out) {
@@ -825,46 +791,76 @@ function getElement(id, type) {
     return out;
 }
 
-var actions = {};
-var eventListeners = {};
-var keybinds = {};
-var extensions = {};
-
-var theme;
-
 var p;
 var rpfFile;
-
-var mouseX = 0;
-var mouseY = 0;
 
 var canvas = getElement('canvas', 'canvas');
 var ctx = canvas.getContext('2d', {alpha: false});
 
-var fillOffset = -0.02;
-var fillExpand = 0.04;
+var actions = {};
+
+var eventListeners = {};
+
+var keybinds = {};
+
+var theme;
+
+var frameCount = 0;
+
+
+// undo_redo.ts
 
 var undoBuffer = [];
 var redoBuffer = [];
-var beforeRunning = p;
-var hasRan = false;
+
+
+// change_view.ts
+
+var mouseX = 0;
+var mouseY = 0;
 
 var scale = 10;
+var scaleStrength = 0.3;
+
 var topLeftX = 0;
 var topLeftY = 0;
+
 var pixelHeight = 0;
 var pixelWidth = 0;
 
-var scaleStrength = 0.3;
+var isDragging = false;
+var dragStart;
+var dragOffsetStart;
+var dragSelectStart;
 
+
+// rendering.ts
+
+var fillOffset = -0.02;
+var fillExpand = 0.04;
+
+
+// pattern_running.ts
+
+var running = false;
 var step = 1;
 var stepEvery = 1;
-var running = false;
+var beforeRunning = p;
+var hasRan = false;
 
-var isDragging = false;
-var dragStart = [0, 0];
-var dragOffsetStart = [0, 0];
-var dragSelectStart = [0, 0];
+
+// commands.ts
+
+var commandHistory = [];
+var commandHistoryPos = undefined;
+var beforeHistoryCommand = '/';
+
+
+// file_system.ts
+
+var currentFile;
+var extensions = {};
+
 
 var cursorMode = 'main';
 var drawState = 1;
@@ -878,15 +874,6 @@ var sel = new Set();
 var hover = undefined;
 var pasting = undefined;
 var pasteMode = 'or';
-
-var contextMenuShown = false;
-
-var commandHistory = [];
-var commandHistoryPos = undefined;
-var beforeHistoryCommand = '/';
-
-var leftRightResizing = false;
-var leftRightResizeOffset = 0;
 
 var rootDirHandle = undefined;
 var fs = undefined;

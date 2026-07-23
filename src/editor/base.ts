@@ -12,6 +12,17 @@ declare global {
     function getElement(id: string): HTMLElement;
     function getElement<T extends keyof HTMLElementTagNameMap = keyof HTMLElementTagNameMap>(id: string, type: T): HTMLElementTagNameMap[T];
 
+    var p: RPFPattern;
+    var rpfFile: RPFFile;
+
+    var canvas: HTMLCanvasElement;
+    var ctx: CanvasRenderingContext2D;
+
+}
+
+
+declare global {
+
     type DefaultAction =
         | 'frame'
         | 'window-click' | 'window-visibilitychange'
@@ -34,96 +45,8 @@ declare global {
     type Hook = (event?: Event) => void;
 
     var actions: {[K in DefaultAction]?: Hook[]};
-    var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]};
-    var keybinds: {[key: string]: DefaultAction};
-    var extensions: {[key: string]: (name: string, file: File) => void};
-
-    interface Theme {
-        empty: string;
-        twoState: string;
-        multiState(states: number): string[];
-        selection: string;
-        hover: string;
-        pasting: string;
-        envelope: string;
-        selectedEnvelope: string;
-        hoverEnvelope: string;
-        connections: string;
-        selectedConnections: string;
-        hoverConnections: string;
-    }
-
-    var theme: Theme;
-
-    interface UndoState {
-        p: RPFPattern;
-        hasRan: boolean;
-        editing?: RPFReference;
-    }
-
-    var p: RPFPattern;
-    var rpfFile: RPFFile;
-
-    var canvas: HTMLCanvasElement;
-    var ctx: CanvasRenderingContext2D;
-
-    var mouseX: number;
-    var mouseY: number;
-
-    var fillOffset: number;
-    var fillExpand: number;
-
-    var undoBuffer: UndoState[];
-    var redoBuffer: UndoState[];
-    var beforeRunning: RPFPattern;
-    var hasRan: boolean;
-
-    var scale: number;
-    var topLeftX: number;
-    var topLeftY: number;
-    var pixelHeight: number;
-    var pixelWidth: number;
-
-    var scaleStrength: number;
-
-    var step: number;
-    var stepEvery: number;
-    var running: boolean;
-
-    var isDragging: boolean;
-    var dragStart: [number, number];
-    var dragOffsetStart: [number, number];
-    var dragSelectStart: [number, number];
-
-    var cursorMode: 'main' | 'edit' | 'select';
-    var drawState: number;
-    var drawDeleteMode: boolean;
-    var prevEditX: number | undefined;
-    var prevEditY: number | undefined;
-    var interactionLevel: number;
-    var editing: RPFReference | undefined;
-
-    var sel: Set<RPFReference>;
-    var hover: RPFReference | undefined;
-    var pasting: [RPFPattern, Rotation] | undefined;
-    var pasteMode: 'or' | 'copy' | 'and' | 'xor';
-
-    var contextMenuShown: boolean;
-
-    var commandHistory: string[];
-    var commandHistoryPos: number | undefined;
-    var beforeHistoryCommand: string;
-
-    var leftRightResizing: boolean;
-    var leftRightResizeOffset: number;
-
-    var rootDirHandle: FileSystemDirectoryHandle | undefined;
-    var fs: Directory;
-    var currentFile: File | undefined;
-    var stdlib: RPFFile;
 
 }
-
 
 export async function run(action: DefaultAction, event?: Event): Promise<void> {
     if (actions[action]) {
@@ -152,6 +75,16 @@ export function removeHook<T extends DefaultAction>(action: T, hook: Hook): void
             break;
         }
     }
+}
+
+
+
+declare global {
+
+    var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]};
+
+    var keybinds: {[key: string]: DefaultAction};
+
 }
 
 export function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultAction): void {
@@ -212,6 +145,27 @@ window.addEventListener('keydown', event => {
 });
 
 
+declare global {
+
+    interface Theme {
+        empty: string;
+        twoState: string;
+        multiState(states: number): string[];
+        selection: string;
+        hover: string;
+        pasting: string;
+        envelope: string;
+        selectedEnvelope: string;
+        hoverEnvelope: string;
+        connections: string;
+        selectedConnections: string;
+        hoverConnections: string;
+    }
+
+    var theme: Theme;
+
+}
+
 theme = {
     empty: '#000000',
     twoState: '#ffffff',
@@ -233,31 +187,51 @@ theme = {
     hoverConnections: `#ff0000`,
 };
 
-fs = new Directory('', '/');
 
+declare global {
 
-export function pushUndo(): void {
-    undoBuffer.push({p: p.copy(), hasRan, editing});
+    var frameCount: number;
+
 }
 
-export function applyUndo(state: UndoState): void {
-    running = false;
-    p = state.p.copy();
-    hasRan = state.hasRan;
-    editing = state.editing;
-}
+addHook('frame', () => {
+    frameCount++;
+});
+
+    var scale: number;
+    var topLeftX: number;
+    var topLeftY: number;
+    var pixelHeight: number;
+    var pixelWidth: number;
+
+    var scaleStrength: number;
+
+    var isDragging: boolean;
+    var dragStart: [number, number];
+    var dragOffsetStart: [number, number];
+    var dragSelectStart: [number, number];
+
+    var cursorMode: 'main' | 'edit' | 'select';
+    var drawState: number;
+    var drawDeleteMode: boolean;
+    var prevEditX: number | undefined;
+    var prevEditY: number | undefined;
+    var interactionLevel: number;
+    var editing: RPFReference | undefined;
+
+    var sel: Set<RPFReference>;
+    var hover: RPFReference | undefined;
+    var pasting: [RPFPattern, Rotation] | undefined;
+
+    var leftRightResizing = false;
+    var leftRightResizeOffset = 0;
+
+    var rootDirHandle: FileSystemDirectoryHandle | undefined;
+    var fs = new Directory('', '/');
+    var currentFile: File | undefined;
+    var stdlib: RPFFile;
 
 
-export function updateSizes() {
-    let bb = canvas.getBoundingClientRect();
-    canvas.height = Math.min(bb.bottom, window.innerHeight) - bb.top;
-    canvas.width = Math.min(bb.right, window.innerWidth) - bb.left;
-    ctx.imageSmoothingEnabled = false;
-    pixelHeight = canvas.height / scale;
-    pixelWidth = canvas.width / scale;
-}
-
-window.addEventListener('resize', updateSizes);
 
 
 export function parse(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
@@ -321,286 +295,13 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
     run('load-pattern');
 }
 
-
-canvas.addEventListener('dragover', event => {
-    event.preventDefault();
+addHook('load-pattern', () => {
+    p.xOffset = 0;
+    p.yOffset = 0;
+    scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
+    topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
+    topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
+    let offset = p.getFullOffset();
+    topLeftX -= offset[0];
+    topLeftY -= offset[1];
 });
-
-
-let fsFolderTemplate = getElement('fs-folder-template', 'template').content;
-
-export class FSFolderElement extends HTMLElement {
-
-    static observedAttributes = ['name', 'open'];
-
-    file: Directory;
-
-    _iconOpenElt: HTMLElement;
-    _iconClosedElt: HTMLElement;
-    _nameElt: HTMLElement;
-    _mainElt: HTMLElement;
-
-    constructor(file: Directory, name: string, showLeftBar: boolean = true) {
-        super();
-        this.file = file;
-        let root = this.attachShadow({mode: 'open'});
-        root.appendChild(document.importNode(fsFolderTemplate, true));
-        this._iconOpenElt = root.getElementById('icon-open') as HTMLElement;
-        this._iconClosedElt = root.getElementById('icon-closed') as HTMLElement;
-        this._nameElt = root.getElementById('name') as HTMLElement;
-        this._mainElt = root.getElementById('main') as HTMLElement;
-        (root.getElementById('top') as HTMLElement).addEventListener('click', () => {
-            this.open = !this.open;
-        });
-        if (this.getAttribute('open') !== null) {
-            this._iconOpenElt.style.display = 'block';
-            this._iconClosedElt.style.display = 'none';
-            this._mainElt.style.display = 'flex';
-        }
-        this.setAttribute('name', name);
-        if (!showLeftBar) {
-            (root.getElementById('left-bar') as HTMLElement).style.display = 'none';
-        }
-    }
-
-    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
-        if (name === 'name') {
-            this._nameElt.textContent = newValue;
-        } else if (name === 'open') {
-            if (newValue !== null) {
-                this._iconOpenElt.style.display = 'block';
-                this._iconClosedElt.style.display = 'none';
-                this._mainElt.style.display = 'flex';
-            } else {
-                this._iconOpenElt.style.display = 'none';
-                this._iconClosedElt.style.display = 'block';
-                this._mainElt.style.display = 'none';
-            }
-        }
-    }
-
-    get open(): boolean {
-        return this.getAttribute('open') !== null;
-    }
-
-    set open(value: boolean) {
-        if (value) {
-            this.setAttribute('open', 'open');
-        } else {
-            this.removeAttribute('open');
-        }
-    }
-
-    get name(): string {
-        return this.getAttribute('name') ?? '';
-    }
-
-    set name(value: string) {
-        this.setAttribute('name', value);
-    }
-
-}
-
-customElements.define('fs-folder', FSFolderElement);
-
-
-let fsFileTemplate = getElement('fs-file-template', 'template').content;
-
-export class FSFileElement extends HTMLElement {
-
-    static observedAttributes = ['name'];
-
-    file: File;
-
-    _nameElt: HTMLElement;
-
-    constructor(file: File, name: string) {
-        super();
-        this.file = file;
-        let root = this.attachShadow({mode: 'open'});
-        root.appendChild(document.importNode(fsFileTemplate, true));
-        this._nameElt = root.getElementById('name') as HTMLElement;
-        this.addEventListener('dblclick', () => {
-            run('open-file', new CustomEvent('open-file', {detail: {name: this.name, file: this.file}}));
-        });
-        this.setAttribute('name', name);
-    }
-
-    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
-        if (name === 'name') {
-            this._nameElt.textContent = newValue;
-        }
-    }
-
-    get name(): string {
-        return this.getAttribute('name') ?? '';
-    }
-
-    set name(value: string) {
-        this.setAttribute('name', value);
-    }
-
-}
-
-customElements.define('fs-file', FSFileElement);
-
-
-export class FSRPFItemElement extends HTMLElement {
-
-    file: RPFFile;
-    p: RPFPattern;
-
-    constructor(file: RPFFile, p: RPFPattern) {
-        super();
-        this.file = file;
-        this.p = p;
-        let name = p.getName() ?? '[unnamed]';
-        let root = this.attachShadow({mode: 'open'});
-        let nameElt = document.createElement('span');
-        nameElt.textContent = name;
-        root.appendChild(nameElt);
-        this.draggable = true;
-        this.addEventListener('dragstart', event => {
-            let transfer = event.dataTransfer as DataTransfer;
-            transfer.dropEffect = 'link';
-            transfer.setData('application/x-lifeweb-editor-drag', file.path + '\n' + p.key);
-            let parent = this.parentElement as HTMLElement;
-            let old = parent.style.overflowY;
-            parent.style.overflowY = 'visible';
-            let rect = nameElt.getBoundingClientRect();
-            transfer.setDragImage(nameElt, rect.width / 2, rect.height / 2);
-            requestAnimationFrame(() => {
-                parent.style.overflowY = old;
-            });
-        });
-    }
-
-}
-
-customElements.define('fs-rpf-item', FSRPFItemElement);
-
-
-export class FSRPFFileElement extends HTMLElement {
-
-    static observedAttributes = ['name', 'open'];
-
-    file: File & {rpf: RPFFile};
-
-    _iconOpenElt: HTMLElement;
-    _iconClosedElt: HTMLElement;
-    _nameElt: HTMLElement;
-    _mainElt: HTMLElement;
-
-    constructor(file: File & {rpf: RPFFile}, name: string) {
-        super();
-        this.file = file;
-        let root = this.attachShadow({mode: 'open'});
-        root.appendChild(document.importNode(fsFolderTemplate, true));
-        this._iconOpenElt = root.getElementById('icon-open') as HTMLElement;
-        this._iconClosedElt = root.getElementById('icon-closed') as HTMLElement;
-        this._nameElt = root.getElementById('name') as HTMLElement;
-        this._mainElt = root.getElementById('main') as HTMLElement;
-        this._mainElt.style.maxHeight = '200px';
-        this._mainElt.style.overflowY = 'auto';
-        let topElt = root.getElementById('top') as HTMLElement;
-        topElt.addEventListener('click', () => {
-            this.open = !this.open;
-        });
-        (root.getElementById('left-bar') as HTMLElement).style.display = 'none';
-        if (this.getAttribute('open') !== null) {
-            this._iconOpenElt.style.display = 'block';
-            this._iconClosedElt.style.display = 'none';
-            this._mainElt.style.display = 'flex';
-        }
-        this.setAttribute('name', name);
-        this.updateContents();
-    }
-
-    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
-        if (name === 'name') {
-            this._nameElt.textContent = newValue;
-        } else if (name === 'open') {
-            if (newValue !== null) {
-                this._iconOpenElt.style.display = 'block';
-                this._iconClosedElt.style.display = 'none';
-                this._mainElt.style.display = 'flex';
-            } else {
-                this._iconOpenElt.style.display = 'none';
-                this._iconClosedElt.style.display = 'block';
-                this._mainElt.style.display = 'none';
-            }
-        }
-    }
-
-    get open(): boolean {
-        return this.getAttribute('open') !== null;
-    }
-
-    set open(value: boolean) {
-        if (value) {
-            this.setAttribute('open', 'open');
-        } else {
-            this.removeAttribute('open');
-        }
-    }
-
-    get name(): string {
-        return this.getAttribute('name') ?? '';
-    }
-
-    set name(value: string) {
-        this.setAttribute('name', value);
-    }
-
-    updateContents(): void {
-        let rpf = this.file.rpf;
-        let out: HTMLElement[] = [];
-        for (let value of Object.values(rpf.data)) {
-            out.push(new FSRPFItemElement(this.file.rpf, value));
-        }
-        this.replaceChildren(...out);
-    }
-
-}
-
-customElements.define('fs-rpf-file', FSRPFFileElement);
-
-
-export function loadFile(name: string, file: File): void {
-    if (file.rpf) {
-        loadPattern(file.rpf);
-    } else {
-        loadPattern(file.value);
-        if (p instanceof RPFFile) {
-            file.rpf = rpfFile;
-        }
-    }
-    currentFile = file;
-}
-
-export function runFile(name: string, file: File): void {
-    try {
-        (new Function(`(async()=>{${file.value})()`))();
-    } catch (error) {
-        let msg: string;
-        // @ts-ignore
-        if (typeof globalThis.formatError === 'function') {
-            // @ts-ignore
-            msg = globalThis.formatError(error);
-        } else {
-            msg = String(error);
-        }
-        alert(msg);
-    }
-}
-
-extensions = {
-
-    '.rle': loadFile,
-    '.rpf': loadFile,
-
-    '.js': runFile,
-    '.mjs': runFile,
-    '.cjs': runFile,
-
-};

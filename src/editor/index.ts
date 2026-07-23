@@ -16,13 +16,15 @@ global.FSFile = File;
 global.Directory = Directory;
 global.RPFFile = RPFFile;
 
-import {run, addHook, removeHook, setEvent, pushUndo, applyUndo, updateSizes, parse, loadPattern, FSFolderElement, FSFileElement, FSRPFItemElement, FSRPFFileElement, loadFile, runFile} from './base.js';
+import {run, addHook, removeHook, setEvent, pushUndo, applyUndo, updateSizes, parse, loadPattern} from './base.js';
 global.run = run;
 global.addHook = addHook;
 global.removeHook = removeHook;
 global.pushUndo = pushUndo;
 global.applyUndo = applyUndo;
 global.parse = parse;
+
+import {FSFolderElement, FSFileElement, FSRPFItemElement, FSRPFFileElement, loadFile, runFile} from './behaviors/file_system.js';
 global.FSFolderElement = FSFolderElement;
 global.FSFileElement = FSFileElement;
 global.FSRPFItemElement = FSRPFItemElement;
@@ -30,8 +32,28 @@ global.FSRPFFileElement = FSRPFFileElement;
 global.loadFile = loadFile;
 global.runFile = runFile;
 
-import './shared_actions.js';
-import './rpf_editor.js';
+// we have to be careful about the import order here
+// because of the addHook calls
+
+// critical setup
+import './behaviors/file_system.js';
+import './behaviors/undo_redo.js';
+import './behaviors/change_view.js';
+
+// core features
+import './behaviors/rendering.js';
+import './behaviors/zoom.js';
+import './behaviors/pattern_running.js';
+import './behaviors/selection.js';
+import './behaviors/editing.js';
+import './behaviors/copy_paste.js';
+
+// misc features
+import './behaviors/commands.js';
+import './behaviors/context_menu.js';
+import './behaviors/help.js';
+import './behaviors/save.js';
+import './behaviors/view_rle_box.js';
 
 
 let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibilitychange')]?: DefaultAction}} = {
