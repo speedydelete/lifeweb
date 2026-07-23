@@ -1,13 +1,13 @@
 
-import {addHook} from '../base.js';
+// import {addHook} from '../base.js';
 
 
-let helpElt = getElement('help');
+// let helpElt = getElement('help');
 
-addHook('show-help', () => {
-    helpElt.style.display = 'block';
-});
+// addHook('show-help', () => {
+//     helpElt.style.display = 'block';
+// });
 
-addHook('hide-help', () => {
-    helpElt.style.display = 'none';
-});
+// addHook('hide-help', () => {
+//     helpElt.style.display = 'none';
+// });

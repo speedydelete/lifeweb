@@ -1,9 +1,9 @@
 
-import {addHook, loadPattern} from '../base.js';
+// import {addHook, loadPattern} from '../base.js';
 
 
-let rleElt = getElement('rle', 'textarea');
+// let rleElt = getElement('rle', 'textarea');
 
-addHook('view-rle', () => {
-    loadPattern(rleElt.value);
-});
+// addHook('view-rle', () => {
+//     loadPattern(rleElt.value);
+// });
