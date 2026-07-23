@@ -694,30 +694,35 @@ export function parseMAPRuleFull(rule: string): {trs: Uint8Array, states: number
 /** Unparses a MAP rule into a more human-readable notation if possible, or regular MAP form if not. */
 export function unparseMAPRuleFull(trs: Uint8Array, states: number): string {
     // check for wolfram rule
-    let wNum = 0;
-    let found = false;
-    for (let i = 0; i < 512; i++) {
-        if (i & (1 << 4)) {
-            if (!trs[i]) {
-                found = true;
-                break;
+    let sym = findTransitionsSymmetry(trs);
+    if (sym === 'C1' || sym === 'D2|') {
+        let wNum = 0;
+        let found = false;
+        for (let i = 0; i < 512; i++) {
+            if (i & (1 << 4)) {
+                if (!trs[i]) {
+                    found = true;
+                    break;
+                }
+            } else {
+                if (trs[i]) {
+                    // check for non-W birth condition
+                    if (trs[i] && (i & 0b011_011_011) !== 0) {
+                        found = true;
+                        break;
+                    }
+                    let bit = ((i & 0b100_000_000) >> 6) | ((i & 0b100_000) >> 4) | ((i & 0b100) >> 2);
+                    wNum |= (1 << bit);
+                }
             }
-        } else {
-            // check for non-W birth condition
-            if (trs[i] && (i & 0b011_011_011) !== 0) {
-                found = true;
-                break;
+        }
+        if (!found) {
+            let out = `W${wNum}`;
+            if (states > 2) {
+                out += `/${states}`;
             }
-            let bit = ((i & 0b100_000_000) >> 6) | ((i & 0b100_000) >> 4) | ((i & 0b100) >> 2);
-            wNum |= (1 << bit);
+            return out;
         }
-    }
-    if (!found) {
-        let out = `W${wNum}`;
-        if (states > 2) {
-            out += `/${states}`;
-        }
-        return out;
     }
     // check for INT family rule
     // maybe add von neumann unparsing here too?
