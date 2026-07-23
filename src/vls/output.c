@@ -8,7 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
-#if METHOD == METHOD_CELL && MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
+#if METHOD == METHOD_CELL && MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE
 #include "implications.c"
 #endif
 
@@ -473,7 +473,7 @@ static inline void print_solution(bool preprocessing) {
     print_grid_2(grid, true);
     #endif
     #ifdef MAX_SOLUTIONS
-    if (solutions_found > MAX_SOLUTIONS) {
+    if (solutions_found >= MAX_SOLUTIONS) {
         printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches (exited early, max solution count reached)\n", solutions_found, get_time() - start, branches);
         exit(0);
     }
