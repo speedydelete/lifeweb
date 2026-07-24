@@ -1,25 +1,23 @@
 
-import {readSync} from 'node:fs';
 import * as fs from 'node:fs/promises';
+import readline from 'node:readline/promises';
+
 import {INT, MAPPattern, INTSeparator, createPattern, parse} from '../core/index.js';
-import {ROTATIONS, applyRotation, RPFReference, RPFPattern, RPFFile, RPFParser} from './rpf.js';
+import {ROTATIONS, applyRotation, RPFReference, RPFPattern, RPFParser} from './rpf.js';
 
 
-function getChar(): string {
-    let buffer = Buffer.alloc(1);
-    readSync(process.stdin.fd, buffer, 0, 1, null);
-    return buffer.toString('latin1');
-}
+let rl = readline.createInterface({input: process.stdin, output: process.stdout});
 
+let base = createPattern('B3/S23') as MAPPattern;
 
 let stdlibCode = (await fs.readFile(`${import.meta.dirname}/../../src/editor/stdlib.rpf`)).toString();
-let parser = new RPFParser(createPattern('B3/S23') as MAPPattern, '/stdlib.rpf', stdlibCode);
+let parser = new RPFParser(base, '/stdlib.rpf', stdlibCode);
 let stdlib = parser.parseFile();
 
 let out = new RPFPattern(stdlib);
 
-let catalysts: {[key: string]: RPFReference} = {};
-let activeRegions: {[key: string]: RPFReference} = {};
+let catalysts: {[key: string]: RPFReference<MAPPattern>} = {};
+let activeRegions: {[key: string]: RPFReference<MAPPattern>} = {};
 for (let obj of Object.values(stdlib.data)) {
     if (obj.conduit || obj.data.size !== 1) {
         continue;
@@ -49,6 +47,7 @@ for (let obj of Object.values(stdlib.data)) {
         }
     }
 }
+catalysts = {};
 
 
 // set up knots to merge all quasi objects
@@ -67,7 +66,7 @@ for (let [tr, value] of [['3c', 0x18], ['3y', 0x28], ['4c', 0x38], ['4y', 0x47],
 
 let p = parse((await fs.readFile('in.rle')).toString()) as MAPPattern;
 
-let catP = p.clearedCopy().expand(0, p.height, 0, p.width);
+let catP = base.copy().expand(0, p.height, 0, p.width);
 let inputP = catP.copy();
 let outputP = catP.copy();
 for (let y = 0; y < p.height; y++) {
@@ -98,16 +97,99 @@ for (let p of catSep.getObjects()) {
     if (!(code in catalysts)) {
         console.log('Unrecognized catalyst:');
         console.log(p.toRLE());
-        process.stdout.write(`Enter 'y' to add, or anything else to exit: `);
-        let data = '';
-        let char: string;
-        while ((char = getChar()) !== '\n') {
-            data += char;
+        try {
+            let value = await rl.question(`Enter 'y' to add as a primitive, or anything else to exit: `);
+            if (value === 'y') {
+                out.add(p, x, y);
+            } else {
+                process.exit(0);
+            }
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                process.stdout.write('\n');
+                process.exit(0);
+            } else {
+                throw error;
+            }
         }
-        if (data === 'y') {
-            out.add(p, x, y);
-        } else {
-            process.exit(0);
-        }
+    } else {
+        let ref = catalysts[code].copy(out);
+        ref.x += x;
+        ref.y += y;
+        out.add(ref);
     }
 }
+
+let inputs: RPFReference<MAPPattern>[] = [];
+let inputSep = new INTSeparator(inputP, knots);
+for (let p of inputSep.getObjects()) {
+    p = p.copy();
+    let x = p.xOffset;
+    let y = p.yOffset;
+    p.xOffset = 0;
+    p.yOffset = 0;
+    let code = p.toApgcode();
+    if (!(code in activeRegions)) {
+        console.log('Unrecognized active region:');
+        console.log(p.toRLE());
+        try {
+            let value = await rl.question(`Enter 'y' to add as a primitive, or anything else to exit: `);
+            if (value === 'y') {
+                inputs.push(out.createRef(p, x, y));
+            } else {
+                process.exit(0);
+            }
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                process.stdout.write('\n');
+                process.exit(0);
+            } else {
+                throw error;
+            }
+        }
+    } else {
+        let ref = activeRegions[code].copy(out);
+        ref.x += x;
+        ref.y += y;
+        inputs.push(ref);
+    }
+}
+
+let outputs: RPFReference<MAPPattern>[] = [];
+let outputSep = new INTSeparator(inputP, knots);
+for (let p of outputSep.getObjects()) {
+    p = p.copy();
+    let x = p.xOffset;
+    let y = p.yOffset;
+    p.xOffset = 0;
+    p.yOffset = 0;
+    let code = p.toApgcode();
+    if (!(code in activeRegions)) {
+        console.log('Unrecognized active region:');
+        console.log(p.toRLE());
+        try {
+            let value = await rl.question(`Enter 'y' to add as a primitive, or anything else to exit: `);
+            if (value === 'y') {
+                outputs.push(out.createRef(p, x, y));
+            } else {
+                process.exit(0);
+            }
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                process.stdout.write('\n');
+                process.exit(0);
+            } else {
+                throw error;
+            }
+        }
+    } else {
+        let ref = activeRegions[code].copy(out);
+        ref.x += x;
+        ref.y += y;
+        outputs.push(ref);
+    }
+}
+
+
+console.log('\n' + out.toString());
+process.exit(0);
