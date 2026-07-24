@@ -47,7 +47,6 @@ for (let obj of Object.values(stdlib.data)) {
         }
     }
 }
-catalysts = {};
 
 
 // set up knots to merge all quasi objects
