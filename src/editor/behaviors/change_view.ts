@@ -9,10 +9,8 @@ declare global {
 
     var scale: number;
     var scaleStrength: number;
-
     var topLeftX: number;
     var topLeftY: number;
-
     var pixelHeight: number;
     var pixelWidth: number;
 
@@ -22,6 +20,11 @@ declare global {
     var dragSelectStart: [number, number];
 
 }
+
+scale = 10;
+scaleStrength = 0.3;
+
+isDragging = false;
 
 
 export function updateSizes() {
@@ -42,6 +45,16 @@ addHook('set-scale', () => {
     }
     scale = Number(value);
     updateSizes();
+});
+
+
+addHook('load-pattern', () => {
+    scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
+    topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
+    topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
+    let offset = p.getFullOffset();
+    topLeftX -= offset[0];
+    topLeftY -= offset[1];
 });
 
 

@@ -1,16 +1,20 @@
 
 declare let showDirectoryPicker: (options?: {id?: string, mode?: 'read' | 'readwrite', startIn?: string | FileSystemFileHandle}) => Promise<FileSystemDirectoryHandle>;
 // import {showDirectoryPicker} from 'file-system-access';
-import {RPFError, RPFPattern, Directory, File, RPFFile} from '../rpf.js';
+import {path, RPFError, RPFPattern, Directory, File, RPFFile} from '../rpf.js';
 import {run, addHook, loadPattern} from '../base.js';
 
 
 declare global {
-
-    var currentFile: string;
+    var rootDirHandle: FileSystemDirectoryHandle | undefined;
+    var fs: Directory;
+    var currentFile: File | undefined;
+    var stdlib: RPFFile;
     var extensions: {[key: string]: (name: string, file: File) => void};
-
 }
+rootDirHandle = undefined;
+currentFile = undefined;
+extensions = {};
 
 
 canvas.addEventListener('dragover', event => {

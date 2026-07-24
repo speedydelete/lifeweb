@@ -326,7 +326,7 @@ textarea:hover, textarea:focus {
     color: inherit;
 }
 
-#cm-name {
+#context-menu-name {
     font-size: 1.5rem;
     font-weight: bold;
 }
@@ -731,9 +731,9 @@ bo$2bo$3o!</textarea>
                 </button>
             </div>
             <div id="context-menu">
-                <div id="cm-name"></div>
-                <div id="cm-path"></div>
-                <div id="cm-desc"></div>
+                <div id="context-menu-name"></div>
+                <div id="context-menu-path"></div>
+                <div id="context-menu-desc"></div>
             </div>
             <div id="command-wrapper">/<div id="command" contenteditable="true"></div></div>
         </div>
@@ -766,13 +766,13 @@ function formatError(error) {
         let module = atob(match[1]);
         str = str.replaceAll(match[0], module.slice(2, module.indexOf('*/'))) + (str.toLowerCase().includes('failed to fetch') ? '\\n\\n' + module : '');
     }
-    return error;
+    return str;
 }
 
-window.addEventListener('error', event => alert(formatError((event.error))));
+window.addEventListener('error', event => alert(formatError(event.error)));
 window.addEventListener('unhandledrejection', event => alert(formatError(event.reason)));
 
-var BUILD_NUMBER = 723;
+var BUILD_NUMBER = 781;
 
 
 // base.ts
@@ -793,42 +793,35 @@ function getElement(id, type) {
 
 var p;
 var rpfFile;
-
-var canvas = getElement('canvas', 'canvas');
-var ctx = canvas.getContext('2d', {alpha: false});
-
-var actions = {};
-
-var eventListeners = {};
-
-var keybinds = {};
-
+var canvas;
+var ctx;
+var actions;
+var eventListeners;
+var keybinds;
 var theme;
-
-var frameCount = 0;
+var frameCount;
+var cursorMode;
 
 
 // undo_redo.ts
 
-var undoBuffer = [];
-var redoBuffer = [];
+var undoBuffer;
+var redoBuffer;
 
 
 // change_view.ts
 
-var mouseX = 0;
-var mouseY = 0;
+var mouseX;
+var mouseY;
 
-var scale = 10;
-var scaleStrength = 0.3;
+var scale;
+var scaleStrength;
+var topLeftX;
+var topLeftY;
+var pixelHeight;
+var pixelWidth;
 
-var topLeftX = 0;
-var topLeftY = 0;
-
-var pixelHeight = 0;
-var pixelWidth = 0;
-
-var isDragging = false;
+var isDragging;
 var dragStart;
 var dragOffsetStart;
 var dragSelectStart;
@@ -836,49 +829,55 @@ var dragSelectStart;
 
 // rendering.ts
 
-var fillOffset = -0.02;
-var fillExpand = 0.04;
+var fillOffset;
+var fillExpand;
 
 
 // pattern_running.ts
 
-var running = false;
-var step = 1;
-var stepEvery = 1;
-var beforeRunning = p;
-var hasRan = false;
+var running;
+var step;
+var stepEvery;
+var beforeRunning;
+var hasRan;
+
+
+// selection.ts
+
+var interactionLevel;
+var hover;
+var sel;
+
+
+// editing.ts
+
+var editing;
+var drawState;
+var drawDeleteMode;
+var prevEditX;
+var prevEditY;
+
+
+// copy_paste.ts
+
+var pasting;
 
 
 // commands.ts
 
-var commandHistory = [];
-var commandHistoryPos = undefined;
-var beforeHistoryCommand = '/';
+var commandHistory;
+var commandHistoryPos;
+var beforeHistoryCommand;
 
 
 // file_system.ts
 
+var rootDirHandle;
+var fs;
 var currentFile;
-var extensions = {};
+var stdlib;
+var extensions;
 
-
-var cursorMode = 'main';
-var drawState = 1;
-var drawDeleteMode = false;
-var prevEditX = undefined;
-var prevEditY = undefined;
-var interactionLevel = 0;
-var editing = undefined;
-
-var sel = new Set();
-var hover = undefined;
-var pasting = undefined;
-var pasteMode = 'or';
-
-var rootDirHandle = undefined;
-var fs = undefined;
-var currentFile = undefined;
-var stdlib = undefined;
 
         </script>
         <script type="module" src="index.js"></script>

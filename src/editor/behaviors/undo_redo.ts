@@ -4,17 +4,17 @@ import {addHook} from '../base.js';
 
 
 declare global {
-
     interface UndoState {
         p: RPFPattern;
         hasRan: boolean;
         editing?: RPFReference;
     }
-
     var undoBuffer: UndoState[];
     var redoBuffer: UndoState[];
-
 }
+
+undoBuffer = [];
+redoBuffer = [];
 
 
 export function pushUndo(): void {
@@ -37,6 +37,8 @@ addHook('undo', () => {
     }
 });
 
+keybinds['Ctrl-z'] = 'undo';
+
 addHook('redo', () => {
     let state = redoBuffer.pop();
     if (state) {
@@ -44,3 +46,6 @@ addHook('redo', () => {
         applyUndo(state);
     }
 });
+
+keybinds['Ctrl-y'] = 'redo';
+keybinds['Ctrl-Shift-z'] = 'redo';

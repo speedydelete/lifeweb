@@ -15,13 +15,14 @@ let join: (typeof path)['join'];
     join = path.join;
 })();
 
-import {LifewebError, Rect, Rule, Pattern, IdentityPattern, speedToString, createPattern} from '../core/index.js';
+import {LifewebError, Rect, Rule, Pattern, IdentityPattern, PLACEHOLDER_PATTERN, speedToString, createPattern} from '../core/index.js';
 
 
 export class RPFError extends LifewebError {
     name = 'RPFError';
     [Symbol.toStringTag] = 'RPFError';
 };
+
 
 
 export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
@@ -893,8 +894,6 @@ type FileSystemFileHandle = typeof globalThis extends {FileSystemFileHandle: new
 type FileSystemDirectoryHandle = typeof globalThis extends {FileSystemDirectoryHandle: new () => infer T} ? T : unknown;
 
 
-const DUMMY_IDENTITY_PATTERN = new IdentityPattern(0, 0, new Uint8Array(0));
-
 export class File {
 
     parent: Directory;
@@ -933,7 +932,7 @@ export class File {
         if (this.rpf) {
             return this.rpf;
         }
-        let parser = new RPFParser(DUMMY_IDENTITY_PATTERN, this.path, this.value);
+        let parser = new RPFParser(PLACEHOLDER_PATTERN, this.path, this.value);
         this.rpf = parser.parseFile(this.parent);
         return this.rpf;
     }
@@ -1205,6 +1204,7 @@ const T_NATURAL_NUMBER: Matcher = [/^\d+$/, 'natural number'];
 const T_INTEGER: Matcher = [/^-?\d+$/, 'integer'];
 const T_ROTATION: Matcher = [ROTATIONS, 'rotation'];
 const T_APGCODE: Matcher = [/^[a-z0-9]+$/, 'apgcode'];
+const T_STAR_THEN_APGCODE: Matcher = [/^\*[a-z0-9]+$/, '* then apgcode'];
 const T_KEY_INDICATOR: Matcher = [/^.*:$/, 'key indicator'];
 
 export class RPFParser<T extends Pattern> {
@@ -1219,18 +1219,6 @@ export class RPFParser<T extends Pattern> {
     constructor(base: T, file: string | RPFFile<T>, code: string) {
         this.base = base;
         this.file = typeof file === 'string' ? new RPFFile(base, file) : file;
-        // remove comments
-        let commentsRemoved = '';
-        for (let i = 0; i < code.length; i++) {
-            if (code[i] === '/' && code[i + 1] === '/') {
-                while (code[i] !== '\n') {
-                    i++;
-                }
-            } else {
-                commentsRemoved += code[i];
-            }
-        }
-        code = commentsRemoved.trim();
         this.code = code;
         this.tokens = [];
         this.tokenPositions = [];
@@ -1251,6 +1239,10 @@ export class RPFParser<T extends Pattern> {
                 }
                 currentValue = '';
                 currentPos = i + 1;
+            } else if (char === '/' && code[i + 1] === '/') {
+                while (code[i] !== '\n') {
+                    i++;
+                }
             } else {
                 currentValue += char;
             }
@@ -1268,7 +1260,7 @@ export class RPFParser<T extends Pattern> {
 
     error(msg: string, increment: number = 0): never {
         let pos = this.tokenPositions[this.pos + increment];
-        let line = 0;
+        let line = 1;
         let col = 0;
         for (let i = 0; i < pos; i++) {
             if (this.code[i] === '\n') {
@@ -1375,8 +1367,8 @@ export class RPFParser<T extends Pattern> {
     }
 
     _literalOrIdentifier(): T | RPFPattern<T> {
-        if (this.match(T_APGCODE)) {
-            return this.file.base.loadApgcode(this.advance());
+        if (this.match(T_STAR_THEN_APGCODE)) {
+            return this.file.base.loadApgcode(this.advance().slice(1));
         } else {
             let value = this.advance();
             let out = this.file.lookupName(value);
@@ -1417,12 +1409,8 @@ export class RPFParser<T extends Pattern> {
 
     getUntilLineEnd(): string {
         let out: string[] = [];
-        while (true) {
-            let value = this.advance();
-            if (value === EOF || value === '\n') {
-                break;
-            }
-            out.push(value);
+        while (!this.match(T_NEWLINE)) {
+            out.push(this.advance());
         }
         return out.join(' ');
     }
@@ -1440,7 +1428,6 @@ export class RPFParser<T extends Pattern> {
             let dy = Number(this.eat(T_INTEGER)[0]);
             let period = Number(this.eat(T_APGCODE)[0]);
             out.periodic = {dx, dy, period};
-            this.eat(T_NEWLINE);
         } else if (type === '#creates') {
             let times = this.eat([/^\d+(,\d+)*$/, 'comma-separated list of natural numbers'])[0].split(',').map(Number);
             out.creates = {ref: this.reference(out), times};
@@ -1473,15 +1460,19 @@ export class RPFParser<T extends Pattern> {
         } else if (type === '#envelope') {
             let x = Number(this.eat(T_INTEGER)[0]);
             let y = Number(this.eat(T_INTEGER)[0]);
-            let p = IdentityPattern.loadApgcode(this.eat(T_APGCODE)[0]).shrinkToFit();
+            let p = PLACEHOLDER_PATTERN.loadApgcode(this.eat(T_APGCODE)[0]).shrinkToFit();
             out.setEnvelope(x, y, p);
+        } else {
+            while (!this.match(T_NEWLINE)) {
+                this.advance();
+            }
         }
     }
 
     pattern(key?: string): RPFPattern<T> {
         let out = new RPFPattern<T>(this.file, key);
         while (!(this.match(T_RIGHT_BRACE) || this.match(T_EOF) || this.match(T_KEY_INDICATOR))) {
-            if (this.match([/^#/, ''])) {
+            if (this.match(/^#/)) {
                 this.patternMetadata(out);
                 this.eat(T_NEWLINE);
             } else {
@@ -1507,6 +1498,7 @@ export class RPFParser<T extends Pattern> {
         }
         this.eat(['from', `'from'`]);
         let specifier = this.getUntilLineEnd();
+        this.eat(T_NEWLINE);
         if (!path.isAbsolute(specifier)) {
             specifier = path.join(path.dirname(out.path), specifier);
         }
@@ -1535,21 +1527,21 @@ export class RPFParser<T extends Pattern> {
         let out = new RPFFile(base, this.file.path);
         this.file = out;
         while (!this.match(T_KEY_INDICATOR, T_NEWLINE)) {
-            this.expect(['import', 'import statement']);
+            this.eat(['import', 'import statement']);
             if (!fs) {
                 throw new RPFError(`Import statement in RPF but no file system given`);
             }
             this.import(out, fs);
         }
         while (!this.match(T_EOF)) {
-            let key = this.eat(T_KEY_INDICATOR)[0];
+            let key = this.eat(T_KEY_INDICATOR)[0].slice(0, -1);
             if (key === '') {
                 this.error(`Key cannot be empty`, -1);
             }
             if (key === '__proto__') {
                 this.error(`Key cannot be '__proto__'`, -1);
             }
-            if (key.match(/^[a-zA-Z_][a-zA-Z0-9]*$/)) {
+            if (!key.match(/^[a-zA-Z_-][a-zA-Z0-9_-]*$/)) {
                 this.error(`Invalid characters in key: '${key}'`, -1);
             }
             this.eat(T_NEWLINE);

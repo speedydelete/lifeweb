@@ -5,11 +5,12 @@ import {addHook} from '../base.js';
 
 
 declare global {
-
     var fillOffset: number;
     var fillExpand: number;
-
 }
+
+fillOffset = -0.02;
+fillExpand = 0.04;
 
 
 interface RPFDrawStateDataPart {

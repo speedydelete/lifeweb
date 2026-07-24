@@ -1,6 +1,36 @@
 
-import {RPFPattern} from '../rpf.js';
-import {addHook, pushUndo} from '../base.js';
+import {RPFPattern, RPFReference} from '../rpf.js';
+import {addHook} from '../base.js';
+import {pushUndo} from './undo_redo.js';
+
+
+declare global {
+    var interactionLevel: number;
+    var hover: RPFReference | undefined;
+    var sel: Set<RPFReference>;
+}
+
+interactionLevel = 0;
+hover = undefined;
+sel = new Set();
+
+
+let interactionLevelElt = getElement('interaction-level');
+
+addHook('frame', () => {
+    interactionLevelElt.textContent = String(interactionLevel);
+});
+
+addHook('inc-interaction-level', () => {
+    interactionLevel++;
+});
+
+addHook('dec-interaction-level', () => {
+    interactionLevel--;
+    if (interactionLevel < 0) {
+        interactionLevel = 0;
+    }
+});
 
 
 let selectMenuElt = getElement('select-menu');
@@ -13,6 +43,12 @@ addHook('frame', () => {
     }
 });
 
+
+addHook('move-mouse-over-canvas', () => {
+    if (!isDragging && !pasting) {
+        hover = p.getRefAt(mouseX, mouseY, interactionLevel);
+    }
+});
 
 addHook('unclick-canvas', event => {
     if (!(event instanceof MouseEvent)) {
@@ -29,7 +65,6 @@ addHook('unclick-canvas', event => {
         } else {
             sel.clear();
         }
-        p.recomputeSizes();
     }
 });
 

@@ -1,23 +1,22 @@
 
-import {run, addHook, pushUndo} from '../base.js';
+import {RPFReference} from '../rpf.js';
+import {run, addHook} from '../base.js';
+import {pushUndo} from './undo_redo.js';
 
 
-let interactionLevelElt = getElement('interaction-level');
+declare global {
+    var editing: RPFReference | undefined;
+    var drawState: number;
+    var drawDeleteMode: boolean;
+    var prevEditX: number | undefined;
+    var prevEditY: number | undefined;
+}
 
-addHook('frame', () => {
-    interactionLevelElt.textContent = String(interactionLevel);
-});
-
-addHook('inc-interaction-level', () => {
-    interactionLevel++;
-});
-
-addHook('dec-interaction-level', () => {
-    interactionLevel--;
-    if (interactionLevel < 0) {
-        interactionLevel = 0;
-    }
-});
+editing = undefined;
+drawState = 1;
+drawDeleteMode = false;
+prevEditX = undefined;
+prevEditY = undefined;
 
 
 export function editCell(isStart: boolean): void {
@@ -85,8 +84,6 @@ addHook('move-mouse-over-canvas', event => {
         } else if (cursorMode === 'edit') {
             editCell(false);
         }
-    } else {
-        hover = p.getRefAt(mouseX, mouseY, interactionLevel);
     }
 });
 
@@ -99,7 +96,6 @@ addHook('unclick-canvas', () => {
 
 let cursorMainButton = getElement('cursor-main');
 let cursorEditButton = getElement('cursor-edit');
-let cursorSelectButton = getElement('cursor-select');
 
 addHook('set-cursor-to-main', () => {
     if (cursorMode === 'edit' && editing) {
@@ -111,7 +107,6 @@ addHook('set-cursor-to-main', () => {
     cursorMode = 'main';
     cursorMainButton.classList.add('selected');
     cursorEditButton.classList.remove('selected');
-    cursorSelectButton.classList.remove('selected');
     canvas.style.cursor = 'default';
 });
 
@@ -128,7 +123,6 @@ addHook('set-cursor-to-edit', () => {
     cursorMode = 'edit';
     cursorMainButton.classList.remove('selected');
     cursorEditButton.classList.add('selected');
-    cursorSelectButton.classList.remove('selected');
     canvas.style.cursor = 'default';
     prevEditX = undefined;
     prevEditY = undefined;
@@ -138,5 +132,4 @@ addHook('load-pattern', () => {
     cursorMode = 'main';
     cursorMainButton.classList.add('selected');
     cursorEditButton.classList.remove('selected');
-    cursorSelectButton.classList.remove('selected');
 });

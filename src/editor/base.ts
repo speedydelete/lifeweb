@@ -1,6 +1,12 @@
 
-import {Pattern, parse as parseRLE} from '../core/index.js';
-import {Rotation, RPFReference, RPFPattern, File, Directory, RPFFile, RPFParser} from './rpf.js';
+import {LifewebError, Pattern, PLACEHOLDER_PATTERN, parse} from '../core/index.js';
+import {RPFPattern, RPFFile, RPFParser} from './rpf.js';
+
+
+window.onbeforeunload = event => {
+    event.preventDefault();
+    return `Are you sure you want to leave? Patterns may not be saved yet.`;
+};
 
 
 declare global {
@@ -19,6 +25,13 @@ declare global {
     var ctx: CanvasRenderingContext2D;
 
 }
+
+canvas = getElement('canvas', 'canvas');
+ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+
+canvas.addEventListener('click', () => {
+    canvas.focus();
+});
 
 
 declare global {
@@ -47,6 +60,8 @@ declare global {
     var actions: {[K in DefaultAction]?: Hook[]};
 
 }
+
+actions = {};
 
 export async function run(action: DefaultAction, event?: Event): Promise<void> {
     if (actions[action]) {
@@ -80,12 +95,10 @@ export function removeHook<T extends DefaultAction>(action: T, hook: Hook): void
 
 
 declare global {
-
     var eventListeners: {[key: string]: [DefaultAction, (event: Event) => void]};
-
-    var keybinds: {[key: string]: DefaultAction};
-
 }
+
+eventListeners = {};
 
 export function setEvent(id: string, event: keyof HTMLElementEventMap, action: DefaultAction): void {
     let elt = id === 'window' ? window : getElement(id);
@@ -98,11 +111,12 @@ export function setEvent(id: string, event: keyof HTMLElementEventMap, action: D
     eventListeners[key] = [action, listener];
 }
 
+
+declare global {
+    var keybinds: {[key: string]: DefaultAction};
+}
+
 keybinds = {
-    '=': 'faster',
-    '-': 'slower',
-    'Ctrl-z': 'undo',
-    'Ctrl-R': 'redo',
     'Backspace': 'sel-clear',
     'ArrowUp': 'sel-move-up',
     'ArrowDown': 'sel-move-down',
@@ -146,7 +160,6 @@ window.addEventListener('keydown', event => {
 
 
 declare global {
-
     interface Theme {
         empty: string;
         twoState: string;
@@ -161,9 +174,7 @@ declare global {
         selectedConnections: string;
         hoverConnections: string;
     }
-
     var theme: Theme;
-
 }
 
 theme = {
@@ -189,59 +200,37 @@ theme = {
 
 
 declare global {
-
     var frameCount: number;
-
 }
+
+frameCount = 0;
 
 addHook('frame', () => {
     frameCount++;
 });
 
-    var scale: number;
-    var topLeftX: number;
-    var topLeftY: number;
-    var pixelHeight: number;
-    var pixelWidth: number;
 
-    var scaleStrength: number;
+declare global {
+    var cursorMode: 'main' | 'edit';
+}
 
-    var isDragging: boolean;
-    var dragStart: [number, number];
-    var dragOffsetStart: [number, number];
-    var dragSelectStart: [number, number];
-
-    var cursorMode: 'main' | 'edit' | 'select';
-    var drawState: number;
-    var drawDeleteMode: boolean;
-    var prevEditX: number | undefined;
-    var prevEditY: number | undefined;
-    var interactionLevel: number;
-    var editing: RPFReference | undefined;
-
-    var sel: Set<RPFReference>;
-    var hover: RPFReference | undefined;
-    var pasting: [RPFPattern, Rotation] | undefined;
-
-    var leftRightResizing = false;
-    var leftRightResizeOffset = 0;
-
-    var rootDirHandle: FileSystemDirectoryHandle | undefined;
-    var fs = new Directory('', '/');
-    var currentFile: File | undefined;
-    var stdlib: RPFFile;
+cursorMode = 'main';
 
 
-
-
-export function parse(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
+export function parsePattern(data: string, preserveSizes?: boolean): Pattern | [string, string, string] {
     try {
-        return parseRLE(data, undefined, preserveSizes);
+        return parse(data, undefined, preserveSizes);
     } catch (error) {
+        if (!(error instanceof LifewebError)) {
+            throw error;
+        }
         try {
             let parser = new RPFParser(p.file.base, p.file, data);
             return parser.pattern();
         } catch (error2) {
+            if (!(error2 instanceof LifewebError)) {
+                throw error2;
+            }
             try {
                 let parser = new RPFParser(p.file.base, '/main', data);
                 let out = parser.parseFile(fs);
@@ -251,6 +240,9 @@ export function parse(data: string, preserveSizes?: boolean): Pattern | [string,
                     return out.data['main'];
                 }
             } catch (error3) {
+                if (!(error3 instanceof LifewebError)) {
+                    throw error3;
+                }
                 console.error(error);
                 console.error(error2);
                 console.error(error3);
@@ -264,12 +256,18 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
     let oldP = p;
     if (typeof q === 'string') {
         try {
-            q = parseRLE(q);
+            q = parse(q);
         } catch (error) {
+            if (!(error instanceof LifewebError)) {
+                throw error;
+            }
             try {
-                let parser = new RPFParser(p.file.base, '/main', q as string);
+                let parser = new RPFParser(PLACEHOLDER_PATTERN, '/main', q as string);
                 q = parser.parseFile(fs);
             } catch (error2) {
+                if (!(error2 instanceof LifewebError)) {
+                    throw error2;
+                }
                 console.error(error);
                 console.error(error2);
                 alert(`Invalid pattern!:\n\n${error}\n\n${error2}`);
@@ -298,10 +296,4 @@ export function loadPattern(q: string | RPFFile | Pattern): void {
 addHook('load-pattern', () => {
     p.xOffset = 0;
     p.yOffset = 0;
-    scale = Math.min(32, canvas.height / p.height / 1.5, canvas.width / p.width / 1.5);
-    topLeftX = (canvas.width / 2 / scale) - (p.width / 2);
-    topLeftY = (canvas.height / 2 / scale) - (p.height / 2);
-    let offset = p.getFullOffset();
-    topLeftX -= offset[0];
-    topLeftY -= offset[1];
 });

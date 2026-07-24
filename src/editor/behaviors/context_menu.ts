@@ -7,10 +7,10 @@ let contextMenuShown = false;
 
 let rightElt = getElement('right');
 
-let contextMenuElt = getElement('rpf-context-menu');
-let contextMenuNameElt = getElement('cm-name');
-let contextMenuPathElt = getElement('cm-path');
-let contextMenuDescElt = getElement('cm-desc');
+let contextMenuElt = getElement('context-menu');
+let contextMenuNameElt = getElement('context-menu-name');
+let contextMenuPathElt = getElement('context-menu-path');
+let contextMenuDescElt = getElement('context-menu-desc');
 
 addHook('right-click-canvas', event => {
     if (!(event instanceof MouseEvent)) {

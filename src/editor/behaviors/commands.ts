@@ -3,12 +3,14 @@ import {run, addHook} from '../base.js';
 
 
 declare global {
-
     var commandHistory: string[];
     var commandHistoryPos: number | undefined;
     var beforeHistoryCommand: string;
-
 }
+
+commandHistory = [];
+commandHistoryPos = undefined;
+beforeHistoryCommand = '/';
 
 
 let commandWrapperElt = getElement('command-wrapper');

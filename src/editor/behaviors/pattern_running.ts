@@ -5,14 +5,18 @@ import {pushUndo} from './undo_redo.js';
 
 
 declare global {
-
     var running: boolean;
     var step: number;
     var stepEvery: number;
     var beforeRunning: RPFPattern;
     var hasRan: boolean;
-
 }
+
+running = false;
+step = 1;
+stepEvery = 1;
+beforeRunning = p;
+hasRan = false;
 
 
 let speedElt = getElement('speed');
@@ -158,3 +162,6 @@ addHook('set-speed', () => {
         alert(`Error: Invalid speed: ${value}`);
     }
 });
+
+keybinds['='] = 'faster';
+keybinds['-'] = 'slower';

@@ -1,6 +1,14 @@
 
-import {RPFPattern} from '../rpf.js';
-import {run, addHook, pushUndo, parse} from '../base.js';
+import {Rotation, RPFPattern} from '../rpf.js';
+import {run, addHook, parsePattern} from '../base.js';
+import {pushUndo} from './undo_redo.js';
+
+
+declare global {
+    var pasting: [RPFPattern, Rotation] | undefined;
+}
+
+pasting = undefined;
 
 
 addHook('cut', async () => {
@@ -32,7 +40,7 @@ addHook('start-paste', async event => {
         event.preventDefault();
     }
     let text = await navigator.clipboard.readText();
-    let q = parse(text, true);
+    let q = parsePattern(text, true);
     if (Array.isArray(q)) {
         alert(`Invalid pattern:\n\n${q[0]}\n\n${q[1]}\n\n${q[2]}`);
         return;
@@ -83,35 +91,6 @@ addHook('end-paste', () => {
 
 addHook('exit-paste', () => {
     pasting = undefined;
-});
-
-
-addHook('set-paste-mode-to-or', () => {
-    pasteMode = 'or';
-});
-
-addHook('set-paste-mode-to-copy', () => {
-    pasteMode = 'copy';
-});
-
-addHook('set-paste-mode-to-and', () => {
-    pasteMode = 'and';
-});
-
-addHook('set-paste-mode-to-xor', () => {
-    pasteMode = 'xor';
-});
-
-let pasteOrButton = getElement('paste-or');
-let pasteCopyButton = getElement('paste-copy');
-let pasteAndButton = getElement('paste-and');
-let pasteXorButton = getElement('paste-xor');
-
-addHook('frame', () => {
-    pasteOrButton.className = pasteMode === 'or' ? 'selected' : '';
-    pasteCopyButton.className = pasteMode === 'copy' ? 'selected' : '';
-    pasteAndButton.className = pasteMode === 'and' ? 'selected' : '';
-    pasteXorButton.className = pasteMode === 'xor' ? 'selected' : '';
 });
 
 addHook('load-pattern', () => {

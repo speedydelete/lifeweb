@@ -3,26 +3,55 @@ import * as lifeweb from '../core/index.js';
 
 Object.assign(globalThis, lifeweb);
 
+// we have to be careful about the import order here
+// because of the addHook calls
+// stuff that has to be imported first
+import './behaviors/undo_redo.js';
+import './behaviors/change_view.js';
+// other stuff
+import './behaviors/commands.js';
+import './behaviors/context_menu.js';
+import './behaviors/copy_paste.js';
+import './behaviors/editing.js';
+import './behaviors/file_system.js';
+import './behaviors/help.js';
+import './behaviors/left_right_resize.js';
+import './behaviors/pattern_running.js';
+import './behaviors/rendering.js';
+import './behaviors/selection.js';
+import './behaviors/view_rle_box.js';
+
 let global = globalThis as any;
 
-import {RPFError, ROTATION_COMBINE, applyRotation, transformCoordinates, transformCoordinatesOfPart, RPFPattern, File, Directory, RPFFile} from './rpf.js';
+import {RPFError, ROTATIONS, ROTATION_COMBINE, TRANSPOSE_ROTATIONS, applyRotation, transformCoordinates, transformCoordinatesOfPart, RPFReference, RPFPattern, File, Directory, RPFFile, RPFParser} from './rpf.js';
 global.RPFError = RPFError;
+global.ROTATIONS = ROTATIONS;
 global.ROTATION_COMBINE = ROTATION_COMBINE;
+global.TRANSPOSE_ROTATIONS = TRANSPOSE_ROTATIONS;
 global.applyRotation = applyRotation;
 global.transformCoordinates = transformCoordinates;
 global.transformCoordinatesOfPart = transformCoordinatesOfPart;
+global.RPFReference = RPFReference;
 global.RPFPattern = RPFPattern;
 global.FSFile = File;
 global.Directory = Directory;
 global.RPFFile = RPFFile;
+global.RPFParser = RPFParser;
 
-import {run, addHook, removeHook, setEvent, pushUndo, applyUndo, updateSizes, parse, loadPattern} from './base.js';
+import {run, addHook, removeHook, setEvent, parsePattern, loadPattern} from './base.js';
 global.run = run;
 global.addHook = addHook;
 global.removeHook = removeHook;
 global.pushUndo = pushUndo;
 global.applyUndo = applyUndo;
-global.parse = parse;
+global.parsePattern = parsePattern;
+global.loadPattern = loadPattern;
+
+import {pushUndo, applyUndo} from './behaviors/undo_redo.js';
+global.pushUndo = pushUndo;
+global.applyUndo = applyUndo;
+
+import {updateSizes} from './behaviors/change_view.js';
 
 import {FSFolderElement, FSFileElement, FSRPFItemElement, FSRPFFileElement, loadFile, runFile} from './behaviors/file_system.js';
 global.FSFolderElement = FSFolderElement;
@@ -31,29 +60,6 @@ global.FSRPFItemElement = FSRPFItemElement;
 global.FSRPFFileElement = FSRPFFileElement;
 global.loadFile = loadFile;
 global.runFile = runFile;
-
-// we have to be careful about the import order here
-// because of the addHook calls
-
-// critical setup
-import './behaviors/file_system.js';
-import './behaviors/undo_redo.js';
-import './behaviors/change_view.js';
-
-// core features
-import './behaviors/rendering.js';
-import './behaviors/zoom.js';
-import './behaviors/pattern_running.js';
-import './behaviors/selection.js';
-import './behaviors/editing.js';
-import './behaviors/copy_paste.js';
-
-// misc features
-import './behaviors/commands.js';
-import './behaviors/context_menu.js';
-import './behaviors/help.js';
-import './behaviors/save.js';
-import './behaviors/view_rle_box.js';
 
 
 let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibilitychange')]?: DefaultAction}} = {
@@ -69,10 +75,6 @@ let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibility
     'undo': {'click': 'undo'},
     'redo': {'click': 'redo'},
     'scale-wrapper': {'click': 'set-scale'},
-    'paste-or': {'click': 'set-paste-mode-to-or'},
-    'paste-copy': {'click': 'set-paste-mode-to-copy'},
-    'paste-and': {'click': 'set-paste-mode-to-and'},
-    'paste-xor': {'click': 'set-paste-mode-to-xor'},
     'sel-cancel': {'click': 'sel-cancel'},
     'sel-group': {'click': 'sel-group'},
     'sel-ungroup': {'click': 'sel-ungroup'},
@@ -99,56 +101,6 @@ let startEvents: {[key: string]: {[K in (keyof HTMLElementEventMap | 'visibility
 };
 
 
-window.onbeforeunload = event => {
-    event.preventDefault();
-    return `Are you sure you want to leave? Patterns may not be saved yet.`;
-};
-
-canvas.addEventListener('click', () => {
-    canvas.focus();
-});
-
-
-document.querySelectorAll('[data-title]').forEach(elt => {
-    elt.addEventListener('mouseenter', () => {
-        let rect = elt.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight/2) {
-            elt.classList.add('tooltip-top');
-        } else {
-            elt.classList.remove('tooltip-top');
-        }
-    });
-});
-
-
-let leftElt = getElement('left');
-let rightElt = getElement('right');
-let leftRightResizerElt = getElement('left-right-resizer');
-
-let leftRightResizeOffset = 0;
-
-leftRightResizerElt.addEventListener('mousedown', event => {
-    leftRightResizing = true;
-    let rect = leftRightResizerElt.getBoundingClientRect();
-    leftRightResizeOffset = event.clientX - rect.left;
-});
-
-window.addEventListener('mousemove', event => {
-    if (!leftRightResizing) {
-        return;
-    }
-    let newPos = event.clientX - leftRightResizeOffset;
-    leftElt.style.right = `${window.innerWidth - newPos}px`;
-    leftRightResizerElt.style.left = `${newPos}px`;
-    rightElt.style.left = `calc(${newPos}px + 1rem)`;
-    updateSizes();
-});
-
-window.addEventListener('mouseup', () => {
-    leftRightResizing = false;
-});
-
-
 async function frame() {
     await run('frame');
     requestAnimationFrame(frame);
@@ -169,8 +121,9 @@ window.addEventListener('load', () => setTimeout(async () => {
     //     // @ts-ignore
     //     globalThis.showDirectoryPicker = (await import('https://esm.sh/file-system-access')).showDirectoryPicker;
     // }
-    // @ts-ignore
-    stdlib = RPFFile.fromString((await import('./stdlib.rpf')).default, '/stdlib.rpf', fs);
+    fs = new Directory('', '/');
+    let parser = new RPFParser(lifeweb.PLACEHOLDER_PATTERN, '/stdlib.rpf', (await import('./stdlib.rpf' as any)).default as string);
+    stdlib = parser.parseFile(fs);
     fs.write('stdlib.rpf', stdlib);
     run('render-file-system');
     for (let [key, value] of Object.entries(startEvents)) {

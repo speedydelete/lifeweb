@@ -303,7 +303,7 @@ U-turner:
 // conduits
 
 snark:
-#conduit 29 43 input glider 9 6 F output glider 14 8 Fx 24
+#conduit 29 43+ input glider 9 6 F output glider 14 8 Fx 24
 #envelope 0 0 y5gggsq23zy0ssvvvvvvuusssz8e133011fvvv7711zy2ogku7vmf1u08ozy4643y011
 #manualverified speedydelete 2025-07-09
 eater_1 0 10 Bx
@@ -312,7 +312,7 @@ block 9 11
 *oggs2uge1u08ozw643y011 6 15
 
 BFx59H:
-#conduit 54 53 input B-heptomino output herschel 21 1 Fx
+#conduit 54 53+ input B-heptomino output herschel 21 1 Fx
 #envelope -2 -2 0gssvvvvvvvuvuuuususssssoogz33fvvvvvvfff73337733773311zxcn11zx11
 #manualverified speedydelete 2025-07-08
 block 4 3
