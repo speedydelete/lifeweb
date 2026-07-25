@@ -101,7 +101,7 @@ static int run_depth(int depth, cell* cell
     #endif
     branches++;
     if (depth > max_depth) {
-        fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
+        real_fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);
     }
     if (set_cells >= unknown_cells) {

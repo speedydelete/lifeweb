@@ -8,7 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
-#if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
+#if MULTI_RULE || MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
 #include "implications.c"
 #endif
 
@@ -189,14 +189,14 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
-    index_t zero_fake_t = (-offset + GENS) % GENS;
-    index_t t = (zero_fake_t + offset) % GENS;
-    if (t != 0) {
-        fprintf(stderr, "Error: This error should not occur (in duplicate solution detection, t = %i, nonzero, zero_fake_t = %i)\nPlease report this error\n", t, zero_fake_t);
-        exit(1);
-    }
+    // index_t zero_fake_t = (-offset + GENS) % GENS;
+    // index_t t = (zero_fake_t + offset) % GENS;
+    // if (t != 0) {
+    //     fprintf(stderr, "Error: This error should not occur (in duplicate solution detection, t = %i, nonzero, zero_fake_t = %i)\nPlease report this error\n", t, zero_fake_t);
+    //     exit(1);
+    // }
     bb_t bb;
-    get_true_bb(&bb, t);
+    get_true_bb(&bb, offset);
     index_t x_offset_0 = bb.x_offset;
     index_t y_offset_0 = bb.y_offset;
     if (transpose) {
@@ -204,7 +204,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
         x_offset_0 = y_offset_0;
         y_offset_0 = temp;
     }
-    HASHDPRINTF("        zero_fake_t = %i, t = %i, height = %i, width = %i, x_offset_0 = %i, y_offset_0 = %i\n", zero_fake_t, t, bb.height, bb.width, x_offset_0, y_offset_0);
+    HASHDPRINTF("        offset = %i, height = %i, width = %i, x_offset_0 = %i, y_offset_0 = %i\n", offset, bb.height, bb.width, x_offset_0, y_offset_0);
     // index_t x_offset_0 = NO_OFFSET;
     // index_t y_offset_0 = NO_OFFSET;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
@@ -236,8 +236,13 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
         //     y_offset -= y_offset_0;
         // }
         if (fake_t > t) {
-            x_offset += TIME_WRAP_DX;
-            y_offset += TIME_WRAP_DY;
+            if (transpose) {
+                x_offset += TIME_WRAP_DY;
+                y_offset += TIME_WRAP_DX;
+            } else {
+                x_offset += TIME_WRAP_DX;
+                y_offset += TIME_WRAP_DY;
+            }
         }
         HASHDPRINTF("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
         out ^= height;

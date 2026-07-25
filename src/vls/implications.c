@@ -225,7 +225,7 @@ static inline void generate_big_trs(void) {
     #if MULTI_RULE
     for (uint32_t tr = 0; tr < 512; tr++) {
         if (trs[tr] == 3) {
-            uint32_t tr2 = TR_TO_BIG_TR(tr) << 2;
+            uint32_t tr2 = tr_to_big_tr(tr) << 2;
             implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDANT;
             implications[tr2 | ON] = IMPLICATION_RULE_DEPENDANT;
         }
@@ -527,7 +527,7 @@ static inline void set_tr(int tr, int value) {
             tr2 |= (1 << 4);
         }
         trs[tr2] = value;
-        big_trs[TR_TO_BIG_TR(tr2)] = value;
+        big_trs[tr_to_big_tr(tr2)] = value;
     }
     // i'm not sure if you need to do this
     // so i hope you don't
@@ -544,7 +544,7 @@ static inline void set_tr(int tr, int value) {
         if (tr & (1 << 4)) {
             tr2 |= (1 << 4);
         }
-        uint32_t tr3 = TR_TO_BIG_TR((uint32_t)tr2) << 2;
+        uint32_t tr3 = tr_to_big_tr((uint32_t)tr2) << 2;
         if (value == 3) {
             implications[tr3] = IMPLICATION_RULE_DEPENDANT;
             implications[tr3 | 1] = IMPLICATION_RULE_DEPENDANT;

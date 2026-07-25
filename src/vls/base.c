@@ -30,8 +30,19 @@
 
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
 
-#define TR_TO_BIG_TR(x) (((x) & 1) | (((x) & 2) << 1) | (((x) & 4) << 2) | (((x) & 8) << 3) | (((x) & 16) << 4) | (((x) & 32) << 5) | (((x) & 64) << 6) | (((x) & 128) << 7) | (((x) & 256) << 8))
-#define BIG_TR_TO_TR(x) (((x) & 1) | (((x) >> 1) & 2) | (((x) >> 2) & 4) | (((x) >> 3) & 8) | (((x) >> 4) & 16) | (((x) >> 5) & 32) | (((x) >> 6) & 64) | (((x) >> 7) & 128) | (((x) >> 8) & 256))
+static inline uint32_t tr_to_big_tr(uint32_t tr) {
+    uint32_t out = 0;
+    out |= ((tr & 1) ? ON : OFF) << 0;
+    out |= ((tr & 2) ? ON : OFF) << 2;
+    out |= ((tr & 4) ? ON : OFF) << 4;
+    out |= ((tr & 8) ? ON : OFF) << 6;
+    out |= ((tr & 16) ? ON : OFF) << 8;
+    out |= ((tr & 32) ? ON : OFF) << 10;
+    out |= ((tr & 64) ? ON : OFF) << 12;
+    out |= ((tr & 128) ? ON : OFF) << 14;
+    out |= ((tr & 256) ? ON : OFF) << 16;
+    return out;
+}
 
 #else
 
