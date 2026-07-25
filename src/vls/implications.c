@@ -208,7 +208,7 @@ static inline int32_t get_implication(uint32_t tr) {
         }
     }
     // this makes it slower for some reason
-    // if ((out & 1048572) != 699048) {
+    // if ((out & 0b11111111001111111100) != 0) {
     //     out |= (1 << 21);
     // }
     IMPLICATIONDPRINTF("result: %i -> %i\n", tr, out);
@@ -254,115 +254,28 @@ static inline bool check_implication(cell* cell) {
         return false;
     }
     #endif
-    // if (cell->last_update == cell_update_count) {
-    //     return true;
-    // }
-    // cell->last_update = cell_update_count;
-    uint32_t tr;
-    if (cell->x == 0) {
-        if (cell->y == 0) {
-            tr = (OFF << 18)
-               | (OFF << 16)
-               | (OFF << 14)
-               | (OFF << 12)
-               | (cell->value << 10)
-               | (cell->s->value << 8)
-               | (OFF << 6)
-               | (cell->e->value << 4)
-               | (cell->se->value << 2)
-               | (cell->next->value);
-        } else if (cell->y == HEIGHT - 1) {
-            tr = (OFF << 18)
-               | (OFF << 16)
-               | (OFF << 14)
-               | (cell->n->value << 12)
-               | (cell->value << 10)
-               | (OFF << 8)
-               | (cell->ne->value << 6)
-               | (cell->e->value << 4)
-               | (OFF << 2)
-               | (cell->next->value);
-        } else {
-            tr = (OFF << 18)
-               | (OFF << 16)
-               | (OFF << 14)
-               | (cell->n->value << 12)
-               | (cell->value << 10)
-               | (cell->s->value << 8)
-               | (cell->ne->value << 6)
-               | (cell->e->value << 4)
-               | (cell->se->value << 2)
-               | (cell->next->value);
+    if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
+        if (cell->next == NULL) {
+            return true;
         }
-    } else if (cell->x == WIDTH - 1) {
-        if (cell->y == 0) {
-            tr = (OFF << 18)
-               | (cell->w->value << 16)
-               | (cell->sw->value << 14)
-               | (OFF << 12)
-               | (cell->value << 10)
-               | (cell->s->value << 8)
-               | (OFF << 6)
-               | (OFF << 4)
-               | (OFF << 2)
-               | (cell->next->value);
-        } else if (cell->y == HEIGHT - 1) {
-            tr = (cell->nw->value << 18)
-               | (cell->w->value << 16)
-               | (OFF << 14)
-               | (cell->n->value << 12)
-               | (cell->value << 10)
-               | (OFF << 8)
-               | (OFF << 6)
-               | (OFF << 4)
-               | (OFF << 2)
-               | (cell->next->value);
+        if (cell->next->value == UNKNOWN) {
+            set_cell_and_propagate(cell->next, 0);
+        } else if (cell->next->value == OFF) {
+            return true;
         } else {
-            tr = (cell->nw->value << 18)
-               | (cell->w->value << 16)
-               | (cell->sw->value << 14)
-               | (cell->n->value << 12)
-               | (cell->value << 10)
-               | (cell->s->value << 8)
-               | (OFF << 6)
-               | (OFF << 4)
-               | (OFF << 2)
-               | (cell->next->value);
+            return false;
         }
-    } else if (cell->y == 0) {
-        tr = (OFF << 18)
-           | (cell->w->value << 16)
-           | (cell->sw->value << 14)
-           | (OFF << 12)
-           | (cell->value << 10)
-           | (cell->s->value << 8)
-           | (OFF << 6)
-           | (cell->e->value << 4)
-           | (cell->se->value << 2)
-           | (cell->next->value);
-    } else if (cell->y == HEIGHT - 1) {
-        tr = (cell->nw->value << 18)
-           | (cell->w->value << 16)
-           | (OFF << 14)
-           | (cell->n->value << 12)
-           | (cell->value << 10)
-           | (OFF << 8)
-           | (cell->ne->value << 6)
-           | (cell->e->value << 4)
-           | (OFF << 2)
-           | (cell->next->value);
-    } else {
-        tr = (cell->nw->value << 18)
-           | (cell->w->value << 16)
-           | (cell->sw->value << 14)
-           | (cell->n->value << 12)
-           | (cell->value << 10)
-           | (cell->s->value << 8)
-           | (cell->ne->value << 6)
-           | (cell->e->value << 4)
-           | (cell->se->value << 2)
-           | (cell->next->value);
     }
+    uint32_t tr = (cell->nw->value << 18)
+        | (cell->w->value << 16)
+        | (cell->sw->value << 14)
+        | (cell->n->value << 12)
+        | (cell->value << 10)
+        | (cell->s->value << 8)
+        | (cell->ne->value << 6)
+        | (cell->e->value << 4)
+        | (cell->se->value << 2)
+        | (cell->next->value);
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
@@ -394,10 +307,10 @@ static inline bool check_implication(cell* cell) {
             } \
         }
     check(cell->next, value & 3);
+    check(cell, (value >> 10) & 3);
     // if ((value & (1 << 21)) == 0) {
     //     return true;
     // }
-    check(cell, (value >> 10) & 3);
     check(cell->se, (value >> 2) & 3);
     check(cell->e, (value >> 4) & 3);
     check(cell->ne, (value >> 6) & 3);
