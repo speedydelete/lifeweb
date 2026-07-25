@@ -56,7 +56,6 @@ Options:
 
     -g: compile with debugging symbols
     --gdb: compile with debugging symbols and run gdb
-    --profile: compile with profiling symbols
 
     -l, --lls <file>: instead of searching, run LLS on the given file
         must be a directory containing a file called "lls" or "lss.py"
@@ -148,7 +147,6 @@ const OPTIONS = {
     'g': true,
     'gdb': true,
     'lls': 'string',
-    'profile': true,
     'benchmark': 'string',
     'interval': 'number',
     'partial-type': new Set(['none', 'cell', 'start'] as const),
@@ -1341,7 +1339,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `clang --std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas ${options['profile'] ? '-pg -O3' : (options['g'] || options['gdb'] ? '-g -O3' : '-O3')} -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        let command = `clang --std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas ${options['g'] || options['gdb'] ? '-g -O3' : '-O3'} -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         execSync(command, {stdio: 'inherit'});
         if (options['g'] && !options['gdb']) {
             return;

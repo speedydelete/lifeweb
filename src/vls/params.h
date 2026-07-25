@@ -70,7 +70,7 @@ static const var_t initial_vars[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0
 
 // the transition lookup table for the rule
 // if multi-rule, rule-dependent ones are 3
-#define TRS_RULE_DEPENDANT 3
+#define TRS_RULE_DEPENDENT 3
 static
 #if !MULTI_RULE
 const

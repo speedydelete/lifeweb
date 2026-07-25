@@ -67,7 +67,7 @@ static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
         progress_pos++;
         progress[progress_pos].tr_is_set = true;
         progress[progress_pos].tr = tr;
-        DPRINTF3("Branching rule on transition %i (aka %s), (depth = %i)\n", tr, bound_trs_names[tr_to_bound_tr[tr]], depth);
+        DPRINTF3("Branching rule on transition %i (aka %s), depth = %i\n", tr, bound_trs_names[tr_to_bound_tr[tr]], depth);
         progress[progress_pos].value = 0;
         set_tr(tr, 0);
         progress_pos++;
