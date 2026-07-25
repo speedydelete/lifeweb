@@ -138,6 +138,7 @@ int32_t implications[1048576];
 #define IMPLICATIONDPRINTF(...)
 #endif
 
+__attribute__((always_inline))
 static inline int32_t get_implication(uint32_t tr) {
     // invalid transition
     for (int i = 0; i < 20; i += 2) {
