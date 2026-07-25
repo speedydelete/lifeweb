@@ -239,7 +239,7 @@ int32_t rule_dependent_tr = -1;
 #endif
 
 // returns false if contradiction, true if no contradiction
-static inline bool check_implication(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
