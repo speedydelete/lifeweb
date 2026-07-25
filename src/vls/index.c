@@ -30,7 +30,7 @@ int main(void) {
     // //     "00" "00" "00"
     // //     "10"
     // // , NULL, 2);
-    // long value = 167702;
+    // long value = 350550;
     // printf("%ld -> %i\n", value, get_implication(value));
     // exit(0);
     init_state();

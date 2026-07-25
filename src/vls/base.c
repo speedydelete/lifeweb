@@ -16,7 +16,9 @@
 #define SIZE (HEIGHT * WIDTH)
 #define TOTAL_SIZE (GENS * SIZE)
 
-#define UNKNOWN (2)
+#define UNKNOWN (0)
+#define OFF (1)
+#define ON (2)
 
 #if VARIABLES
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
@@ -140,7 +142,7 @@ static inline void init_state(void) {
                 #if TIME_WRAP
                 if (t == 0) {
                     if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
-                        cell->value = 0;
+                        cell->value = OFF;
                         #if VARIABLES
                         cell->var = 0;
                         #endif
@@ -153,7 +155,7 @@ static inline void init_state(void) {
                 }
                 if (t == GENS - 1) {
                     if (y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT || x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH) {
-                        cell->value = 0;
+                        cell->value = OFF;
                         #if VARIABLES
                         cell->var = 0;
                         #endif
@@ -255,12 +257,7 @@ static inline void pop_frame(void) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-#if STATES > 2
-static inline bool internal_set_cell(cell* cell, cell_value_t value)
-#else
-static inline bool set_cell(cell* cell, cell_value_t value)
-#endif
-{
+static inline bool set_cell(cell* cell, cell_value_t value) {
     if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
@@ -342,61 +339,8 @@ static inline bool set_cell(cell* cell, cell_value_t value)
     return true;
 }
 
-#if STATES > 2
-// set a cell to a value, taking care of edges and filters but not propagating implications
-// returns true if no contradiction, false if contradiction
-// also pushes an entry to the stack
-static inline bool set_cell(cell* cell, cell_value_t value) {
-    if (value == 0 && cell->prev != NULL && cell->prev->value == 1) {
-        if (!internal_set_cell(cell, DYING)) {
-            return false;
-        }
-        // #if !TIME_WRAP
-        // if (cell->t + STATES - 2 > GENS) {
-        //     return false;
-        // }
-        // #endif
-        for (int i = 0; i < STATES - 3; i++) {
-            cell = cell->next;
-            // #if !TIME_WRAP
-            // if (cell == NULL) {
-            //     return false;
-            // }
-            // #endif
-            if (!internal_set_cell(cell, DYING)) {
-                return false;
-            }
-        }
-        return true;
-    } else if (value == 1 && cell->next != NULL && cell->next->value == 0) {
-        if (!internal_set_cell(cell, 1)) {
-            return false;
-        }
-        // #if !TIME_WRAP
-        // if (cell->t + STATES - 2 > GENS) {
-        //     return false;
-        // }
-        // #endif
-        for (int i = 0; i < STATES - 2; i++) {
-            cell = cell->next;
-            // #if !TIME_WRAP
-            // if (cell == NULL) {
-            //     return false;
-            // }
-            // #endif
-            if (!internal_set_cell(cell, DYING)) {
-                return false;
-            }
-        }
-        return true;
-    } else {
-        return internal_set_cell(cell, value);
-    }
-}
-#endif
 
-
-static const char* letters = ".o*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
+static const char* letters = "*.oABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
 static inline void print_cell(FILE* stream, int value
     #if VARIABLES
@@ -404,25 +348,11 @@ static inline void print_cell(FILE* stream, int value
     #endif
 ) {
     #if VARIABLES
-    #if STATES > 2
-    if (value == 2) {
-        if (var > 0) {
-            value = 3 + var;
-        }
-    }
-    #else
     if (value == 2) {
         if (var > 0) {
             value = 2 + var;
         }
     }
-    #endif
-    #else
-    #if STATES > 2
-    if (value == 4) {
-        value = 3;
-    }
-    #endif
     #endif
     if (value < 64) {
         real_fprintf(stream, "%c", letters[value]);
@@ -502,9 +432,9 @@ int get_same_for_iv(cell* cell_to_use) {
 #endif
 
 #if INITIAL_VALUE == IV_0
-#define INITIAL_VALUE_LOOP for (int value = 0, i = 0; value < 2; value++, i++)
+#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; value <= 2; value++, i++)
 #elif INITIAL_VALUE == IV_1
-#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; value >= 0; value--, i++)
+#define INITIAL_VALUE_LOOP for (int value = 2, i = 0; value >= 1; value--, i++)
 #elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
 #define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
 #elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
