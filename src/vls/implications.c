@@ -207,10 +207,6 @@ static inline int32_t get_implication(uint32_t tr) {
             return CONTRADICTION;
         }
     }
-    // this makes it slower for some reason
-    // if ((out & 0b11111111001111111100) != 0) {
-    //     out |= (1 << 21);
-    // }
     IMPLICATIONDPRINTF("result: %i -> %i\n", tr, out);
     return out;
 }
@@ -300,25 +296,25 @@ static inline bool check_implication(cell* cell) {
         return false;
     }
     #endif
-    #define check(cell, value) \
-        if ((value) != UNKNOWN) { \
-            if (!set_cell_and_propagate((cell), (value))) { \
+    #define check(cell, place) \
+        if (value & (3 << place)) { \
+            if (!set_cell_and_propagate((cell), ((value >> (place)) & 3))) { \
                 return false; \
             } \
         }
-    check(cell->next, value & 3);
-    check(cell, (value >> 10) & 3);
-    // if ((value & (1 << 21)) == 0) {
-    //     return true;
-    // }
-    check(cell->se, (value >> 2) & 3);
-    check(cell->e, (value >> 4) & 3);
-    check(cell->ne, (value >> 6) & 3);
-    check(cell->s, (value >> 8) & 3);
-    check(cell->n, (value >> 12) & 3);
-    check(cell->sw, (value >> 14) & 3);
-    check(cell->w, (value >> 16) & 3);
-    check(cell->nw, (value >> 18) & 3);
+    check(cell, 10);
+    check(cell->next, 0);
+    if ((value & 0b11111111001111111100) == 0) {
+        return true;
+    }
+    check(cell->se, 2);
+    check(cell->e, 4);
+    check(cell->ne, 6);
+    check(cell->s, 8);
+    check(cell->n, 12);
+    check(cell->sw, 14);
+    check(cell->w, 16);
+    check(cell->nw, 18);
     #undef check
     return true;
 }
