@@ -330,7 +330,6 @@ static void run_depth(int depth) {
     print_progress(stdout);
     real_printf("\n");
     #endif
-    branches++;
     if (depth > max_depth) {
         fprintf(stderr, "Error: This error should not occur (infinite recursion detected)\nPlease report this error\n");
         exit(1);

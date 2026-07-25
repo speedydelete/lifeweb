@@ -8,7 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
-#if METHOD == METHOD_CELL && MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE
+#if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
 #include "implications.c"
 #endif
 
