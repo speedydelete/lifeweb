@@ -1462,6 +1462,14 @@ export class IdentityPattern extends DataPattern {
         return new IdentityPattern(height, width, data) as this;
     }
 
+    static loadApgcode(code: string): IdentityPattern {
+        return PLACEHOLDER_PATTERN.loadApgcode(code);
+    }
+
+    static loadRLE(rle: string): IdentityPattern {
+        return PLACEHOLDER_PATTERN.loadRLE(rle);
+    }
+
 }
 
 export const PLACEHOLDER_PATTERN = new IdentityPattern(0, 0, new Uint8Array(0));

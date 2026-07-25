@@ -1460,7 +1460,7 @@ export class RPFParser<T extends Pattern> {
         } else if (type === '#envelope') {
             let x = Number(this.eat(T_INTEGER)[0]);
             let y = Number(this.eat(T_INTEGER)[0]);
-            let p = PLACEHOLDER_PATTERN.loadApgcode(this.eat(T_APGCODE)[0]).shrinkToFit();
+            let p = IdentityPattern.loadApgcode(this.eat(T_APGCODE)[0]).shrinkToFit();
             out.setEnvelope(x, y, p);
         } else {
             while (!this.match(T_NEWLINE)) {
