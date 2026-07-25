@@ -66,52 +66,42 @@ cell_value_t big_trs[262144];
 #define TO_BIG_TRS_RULE_DEPENDANT(x) ((x) + 4)
 #define FROM_BIG_TRS_RULE_DEPENDANT(x) ((x) - 4)
 
-#if STATES > 2
-static cell_value_t internal_get_big_tr(int prev, uint32_t tr, int depth)
-#define get_big_tr internal_get_big_tr
-#else
-static cell_value_t get_big_tr(int prev, uint32_t tr, int depth)
-#endif
-{
+static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
     int state = tr & 3;
     tr >>= 2;
     int next = prev << 1;
-    #if STATES > 2
-    if (state == 3) {
-        // if the center cell is state 3, the output must be state 0
-        if (depth == 4) {
-            return 0;
-        }
-        // if it's not the center cell, just set it to state 0 and proceed
-        state = 0;
-    }
-    #else
     // shortcut (0 is a filler value)
     if (state == 3) {
         return 0;
     }
-    #endif
     if (depth == 8) {
         if (state != UNKNOWN) {
+            cell_value_t value = trs[next | (state == ON ? 1 : 0)];
             #if MULTI_RULE
-            cell_value_t value = trs[next | state];
-            return value == TRS_RULE_DEPENDANT ? TO_BIG_TRS_RULE_DEPENDANT(UNKNOWN) : value;
-            #else
-            return trs[next | state];
+            if (value == TRS_RULE_DEPENDANT) {
+                return TO_BIG_TRS_RULE_DEPENDANT(UNKNOWN);
+            }
             #endif
+            return value ? ON : OFF;
         } else {
             cell_value_t a = trs[next | 0];
             cell_value_t b = trs[next | 1];
             // unknown cell: if they disagree return unknown
-            #if MULTI_RULE
-            return a == b ? (a == TRS_RULE_DEPENDANT ? TO_BIG_TRS_RULE_DEPENDANT(UNKNOWN) : a) : UNKNOWN;
-            #else
-            return a == b ? a : UNKNOWN;
-            #endif
+            if (a == b) {
+                a = a ? ON : OFF;
+                #if MULTI_RULE
+                if (a == TRS_RULE_DEPENDANT) {
+                    return TO_BIG_TRS_RULE_DEPENDANT(UNKNOWN);
+                }
+                #endif
+                return a;
+            } else {
+                return UNKNOWN;
+            }
         }
     } else {
         if (state != UNKNOWN) {
-            return get_big_tr(next | state, tr, depth + 1);
+            return get_big_tr(next | (state == ON ? 1 : 0), tr, depth + 1);
         } else {
             cell_value_t a = get_big_tr(next | 0, tr, depth + 1);
             cell_value_t b = get_big_tr(next | 1, tr, depth + 1);
@@ -125,17 +115,6 @@ static cell_value_t get_big_tr(int prev, uint32_t tr, int depth)
     }
 }
 
-#if STATES > 2
-#undef get_big_tr
-static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
-    cell_value_t out = internal_get_big_tr(prev, tr, depth);
-    // if (out == 0 && (tr & (1 << 4))) {
-    //     out = 3;
-    // }
-    return out;
-}
-#endif
-
 // implication table
 // tells us what values of unknown cells we can set
 // index format: 0b_01_23_45_67_89_ab_cd_ef_gh_ij
@@ -143,13 +122,13 @@ static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
 // 23 89 ef -> ij
 // 45 ab gh
 // return value is a uint32_t of the same format as the index
-// do nothing = 2, set off = 0, set on = 1
-// but with an optional 21st bit that represents whether any neighbors are set or only the result is
-// and special CONTRADICTION, DO_NOTHING, and IMPLICATION_RULE_DEPENDANT values (DO_NOTHING means for all cells)
+// do nothing = 0 = UNKNOWN, set off = 1 = OFF, set on = 2 = ON
+// (this is disabled actually) but with an optional 21st bit that represents whether any neighbors are set or only the result is
+// and special CONTRADICTION and IMPLICATION_RULE_DEPENDANT values
 int32_t implications[1048576];
 
+#define DO_NOTHING 0
 #define CONTRADICTION -1
-#define DO_NOTHING -2
 #define IMPLICATION_RULE_DEPENDANT -3
 
 #if false
@@ -160,22 +139,15 @@ int32_t implications[1048576];
 #endif
 
 static inline int32_t get_implication(uint32_t tr) {
-    #if STATES == 2
     // invalid transition
     for (int i = 0; i < 20; i += 2) {
         if (((tr >> i) & 3) == 3) {
             return CONTRADICTION;
         }
     }
-    #endif
     cell_value_t next = tr & 3;
-    #if STATES > 2
-    cell_value_t next2 = next == 3 ? 0 : next;
-    #else
-    #define next2 next
-    #endif
     cell_value_t target = big_trs[tr >> 2];
-    IMPLICATIONDPRINTF("next = %i, next2 = %i, target = %i\n", next, next2, target);
+    IMPLICATIONDPRINTF("next = %i, target = %i\n", next, target);
     #if MULTI_RULE
     if (IS_BIG_TRS_RULE_DEPENDANT(target)) {
         // return IMPLICATION_RULE_DEPENDANT;
@@ -183,17 +155,16 @@ static inline int32_t get_implication(uint32_t tr) {
     }
     #endif
     // check for contradiction
-    if (target != UNKNOWN && next2 != UNKNOWN && target != next2) {
+    if (target != UNKNOWN && next != UNKNOWN && target != next) {
         IMPLICATIONDPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
         return CONTRADICTION;
     }
-    int32_t out = 699050;
-    if (next2 == UNKNOWN) {
+    int32_t out = DO_NOTHING;
+    if (next == UNKNOWN) {
         if (target != UNKNOWN) {
             out = (out & ~3) | target;
             tr = (tr & ~3) | target;
             next = target;
-            next2 = target;
         } else {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
             IMPLICATIONDPRINTF("tr = %i, no implication possible, target = %i, next = %i, returning DO_NOTHING\n", tr, target, next);
@@ -205,46 +176,41 @@ static inline int32_t get_implication(uint32_t tr) {
             continue;
         }
         uint32_t tr2 = tr & ~(3 << i);
-        cell_value_t forward_0 = big_trs[tr2 >> 2];
+        cell_value_t forward_0 = big_trs[(tr2 | (OFF << i)) >> 2];
         #if MULTI_RULE
         if (IS_BIG_TRS_RULE_DEPENDANT(forward_0)) {
             // return IMPLICATION_RULE_DEPENDANT;
             forward_0 = FROM_BIG_TRS_RULE_DEPENDANT(forward_0);
         }
         #endif
-        bool zero_possible = forward_0 == next2 || forward_0 == UNKNOWN;
-        // #if STATES > 2
-        // zero_possible = zero_possible || forward_0 == DYING;
-        // #endif
-        cell_value_t forward_1 = big_trs[(tr2 | (1 << i)) >> 2];
+        bool zero_possible = forward_0 == next || forward_0 == UNKNOWN;
+        cell_value_t forward_1 = big_trs[(tr2 | (ON << i)) >> 2];
         #if MULTI_RULE
         if (IS_BIG_TRS_RULE_DEPENDANT(forward_1)) {
             // return IMPLICATION_RULE_DEPENDANT;
             forward_1 = FROM_BIG_TRS_RULE_DEPENDANT(forward_1);
         }
         #endif
-        bool one_possible = forward_1 == next2 || forward_1 == UNKNOWN;
+        bool one_possible = forward_1 == next || forward_1 == UNKNOWN;
         IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
-            IMPLICATIONDPRINTF("must be 1\n");
-            // must be 1
-            out = (out & ~(3 << i)) | (1 << i);
+            // must be on
+            IMPLICATIONDPRINTF("must be on\n");
+            out = (out & ~(3 << i)) | (ON << i);
         } else if (zero_possible && !one_possible) {
-            IMPLICATIONDPRINTF("must be 0\n");
-            // must be 0
-            out = (out & ~(3 << i)) | (0 << i);
+            // must be off
+            IMPLICATIONDPRINTF("must be off\n");
+            out = (out & ~(3 << i)) | (OFF << i);
         } else if (!zero_possible && !one_possible) {
             // contradiction
             IMPLICATIONDPRINTF("contradiction detected, returning CONTRADICTION\n");
             return CONTRADICTION;
         }
     }
-    if (out == 699050) {
-        out = DO_NOTHING;
-    } else if ((out & 1048572) != 699048) {
-        // this makes it slower for some reason
-        // out |= (1 << 21);
-    }
+    // this makes it slower for some reason
+    // if ((out & 1048572) != 699048) {
+    //     out |= (1 << 21);
+    // }
     IMPLICATIONDPRINTF("result: %i -> %i\n", tr, out);
     return out;
 }
@@ -260,8 +226,8 @@ static inline void generate_big_trs(void) {
     for (uint32_t tr = 0; tr < 512; tr++) {
         if (trs[tr] == 3) {
             uint32_t tr2 = TR_TO_BIG_TR(tr) << 2;
-            implications[tr2] = IMPLICATION_RULE_DEPENDANT;
-            implications[tr2 | 1] = IMPLICATION_RULE_DEPENDANT;
+            implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDANT;
+            implications[tr2 | ON] = IMPLICATION_RULE_DEPENDANT;
         }
     }
     #endif
@@ -279,31 +245,124 @@ int32_t rule_dependent_tr = -1;
 // returns false if contradiction, true if no contradiction
 static inline bool check_implication(cell* cell) {
     if (cell == NULL) {
-        return true;
+        DPRINTF4("Contradiction (implication, cell == NULL)\n");
+        return false;
     }
     #if !TIME_WRAP
     if (cell->next == NULL) {
-        return true;
+        DPRINTF4("Contradiction (implication, cell->next == NULL)\n");
+        return false;
     }
     #endif
     // if (cell->last_update == cell_update_count) {
     //     return true;
     // }
     // cell->last_update = cell_update_count;
-    if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
-        return true;
+    uint32_t tr;
+    if (cell->x == 0) {
+        if (cell->y == 0) {
+            tr = (OFF << 18)
+               | (OFF << 16)
+               | (OFF << 14)
+               | (OFF << 12)
+               | (cell->value << 10)
+               | (cell->s->value << 8)
+               | (OFF << 6)
+               | (cell->e->value << 4)
+               | (cell->se->value << 2)
+               | (cell->next->value);
+        } else if (cell->y == HEIGHT - 1) {
+            tr = (OFF << 18)
+               | (OFF << 16)
+               | (OFF << 14)
+               | (cell->n->value << 12)
+               | (cell->value << 10)
+               | (OFF << 8)
+               | (cell->ne->value << 6)
+               | (cell->e->value << 4)
+               | (OFF << 2)
+               | (cell->next->value);
+        } else {
+            tr = (OFF << 18)
+               | (OFF << 16)
+               | (OFF << 14)
+               | (cell->n->value << 12)
+               | (cell->value << 10)
+               | (cell->s->value << 8)
+               | (cell->ne->value << 6)
+               | (cell->e->value << 4)
+               | (cell->se->value << 2)
+               | (cell->next->value);
+        }
+    } else if (cell->x == WIDTH - 1) {
+        if (cell->y == 0) {
+            tr = (OFF << 18)
+               | (cell->w->value << 16)
+               | (cell->sw->value << 14)
+               | (OFF << 12)
+               | (cell->value << 10)
+               | (cell->s->value << 8)
+               | (OFF << 6)
+               | (OFF << 4)
+               | (OFF << 2)
+               | (cell->next->value);
+        } else if (cell->y == HEIGHT - 1) {
+            tr = (cell->nw->value << 18)
+               | (cell->w->value << 16)
+               | (OFF << 14)
+               | (cell->n->value << 12)
+               | (cell->value << 10)
+               | (OFF << 8)
+               | (OFF << 6)
+               | (OFF << 4)
+               | (OFF << 2)
+               | (cell->next->value);
+        } else {
+            tr = (cell->nw->value << 18)
+               | (cell->w->value << 16)
+               | (cell->sw->value << 14)
+               | (cell->n->value << 12)
+               | (cell->value << 10)
+               | (cell->s->value << 8)
+               | (OFF << 6)
+               | (OFF << 4)
+               | (OFF << 2)
+               | (cell->next->value);
+        }
+    } else if (cell->y == 0) {
+        tr = (OFF << 18)
+           | (cell->w->value << 16)
+           | (cell->sw->value << 14)
+           | (OFF << 12)
+           | (cell->value << 10)
+           | (cell->s->value << 8)
+           | (OFF << 6)
+           | (cell->e->value << 4)
+           | (cell->se->value << 2)
+           | (cell->next->value);
+    } else if (cell->y == HEIGHT - 1) {
+        tr = (cell->nw->value << 18)
+           | (cell->w->value << 16)
+           | (OFF << 14)
+           | (cell->n->value << 12)
+           | (cell->value << 10)
+           | (OFF << 8)
+           | (cell->ne->value << 6)
+           | (cell->e->value << 4)
+           | (OFF << 2)
+           | (cell->next->value);
+    } else {
+        tr = (cell->nw->value << 18)
+           | (cell->w->value << 16)
+           | (cell->sw->value << 14)
+           | (cell->n->value << 12)
+           | (cell->value << 10)
+           | (cell->s->value << 8)
+           | (cell->ne->value << 6)
+           | (cell->e->value << 4)
+           | (cell->se->value << 2)
+           | (cell->next->value);
     }
-    uint32_t tr = 
-            (cell->nw->value << 18)
-          | (cell->w->value << 16)
-          | (cell->sw->value << 14)
-          | (cell->n->value << 12)
-          | (cell->value << 10)
-          | (cell->s->value << 8)
-          | (cell->ne->value << 6)
-          | (cell->e->value << 4)
-          | (cell->se->value << 2)
-          | (cell->next->value);
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
@@ -315,18 +374,6 @@ static inline bool check_implication(cell* cell) {
     }
     #if MULTI_RULE
     if (value == IMPLICATION_RULE_DEPENDANT) {
-        #if STATES > 2
-        rule_dependent_tr =
-                ((cell->nw->value & 1) << 8)
-              | ((cell->w->value & 1) << 7)
-              | ((cell->sw->value & 1) << 6)
-              | ((cell->n->value & 1) << 5)
-              | ((cell->value & 1) << 4)
-              | ((cell->s->value & 1) << 3)
-              | ((cell->ne->value & 1) << 2)
-              | ((cell->e->value & 1) << 1)
-              | ((cell->se->value & 1));
-        #else
         rule_dependent_tr =
                 (cell->nw->value << 8)
               | (cell->w->value << 7)
@@ -337,7 +384,6 @@ static inline bool check_implication(cell* cell) {
               | (cell->ne->value << 2)
               | (cell->e->value << 1)
               | (cell->se->value);
-        #endif
         return false;
     }
     #endif
