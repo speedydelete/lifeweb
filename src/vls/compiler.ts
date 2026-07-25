@@ -5,11 +5,6 @@ import {parse} from '@babel/parser';
 import {createPattern} from '../core/index.js';
 
 
-export const UNKNOWN = 0;
-export const OFF = 1;
-export const ON = 2;
-
-
 let base = createPattern('B3/S23');
 
 export class Grid {
@@ -174,7 +169,7 @@ export class Grid {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 if (p.get(x, y) === 0) {
-                    this.set(t, x, y, OFF);
+                    this.set(t, x, y, 0);
                 }
             }
         }
@@ -185,7 +180,7 @@ export class Grid {
         p.offsetBy(xOffset, yOffset);
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                this.set(t, x, y, p.get(x, y) ? ON : OFF);
+                this.set(t, x, y, p.get(x, y));
             }
         }
     }

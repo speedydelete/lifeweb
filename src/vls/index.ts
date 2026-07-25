@@ -2,8 +2,8 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {UNKNOWN, OFF, ON, Grid, runScript} from './compiler.js';
-import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
+import {Grid, runScript} from './compiler.js';
+import {DataPattern, IdentityPattern, MAPPattern, MAPGenPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
 function error(msg: string): never {
@@ -327,8 +327,8 @@ const MODES = ['periodic', 'parent', 'file', 'catalyst', 'custom-osc', 'script']
 
 let rule = posArgs[0];
 let base = createPattern(rule) as DataPattern;
-if (!(base instanceof MAPPattern)) {
-    error(`Rule must be a non-B0 INT rule`);
+if (!(base instanceof MAPPattern || base instanceof MAPGenPattern)) {
+    error(`Rule must be a non-B0 INT or INT Generations rule`);
 }
 let mode = posArgs[1];
 posArgs = posArgs.slice(2);
@@ -341,10 +341,13 @@ if (!MODES.includes(mode)) {
     mode = posArgs[0];
     posArgs = posArgs.slice(1);
     maxBase = createPattern(maxRule) as MAPPattern;
-    if (!(maxBase instanceof MAPPattern)) {
+    if (!(maxBase instanceof MAPPattern || maxBase instanceof MAPGenPattern)) {
         error(`Rule must be a non-B0 INT rule`);
     }
 }
+
+
+const UNKNOWN = 2;
 
 
 let grid: Grid;
@@ -453,7 +456,7 @@ if (mode === 'periodic') {
     grid.fill(0, UNKNOWN);
     for (let y = 0; y < p.height; y++) {
         for (let x = 0; x < p.width; x++) {
-            grid.set(1, x + xOffset, y + yOffset, p.get(x, y) ? ON : OFF);
+            grid.set(1, x + xOffset, y + yOffset, p.get(x, y));
         }
     }
 
@@ -468,7 +471,7 @@ if (mode === 'periodic') {
     let currentSection: (string | number)[][] = [];
     for (let line of file.split('\n')) {
         line = line.replaceAll(/\s+/g, '');
-        let parts = line.split(',').filter(x => x.length > 0).map(x => x === '0' ? OFF : (x === '1' ? ON : x));
+        let parts = line.split(',').filter(x => x.length > 0).map(x => x.match(/^\d+$/) ? Number(x) : x);
         if (parts.length === 0) {
             if (currentSection.length > 0) {
                 data.push(currentSection);
@@ -558,9 +561,9 @@ if (mode === 'periodic') {
             let start = startP.get(x, y);
             let genValues = genPs.map(p => p.get(x, y));
             if (start === 0 || start === 1) {
-                grid.set(0, x, y, start ? ON : OFF);
+                grid.set(0, x, y, start);
                 for (let i = 0; i < genValues.length; i++) {
-                    grid.set(i + 1, x, y, genValues[i] ? ON : OFF);
+                    grid.set(i + 1, x, y, genValues[i]);
                 }
             } else if (start === 2 || start === 8) {
                 let variables: number[] = [];
@@ -578,18 +581,18 @@ if (mode === 'periodic') {
                     }
                 }
             } else if (start === 3) {
-                grid.set(0, x, y, ON);
+                grid.set(0, x, y, 1);
                 for (let i = 0; i < genValues.length; i++) {
-                    grid.set(i + 1, x, y, genValues[i] ? ON : OFF);
+                    grid.set(i + 1, x, y, genValues[i]);
                 }
-                grid.set(gens, x, y, ON);
+                grid.set(gens, x, y, 1);
             } else if (start === 4) {
                 for (let t = 0; t < gens; t++) {
-                    grid.set(t, x, y, OFF);
+                    grid.set(t, x, y, 0);
                 }
             } else if (start === 5) {
                 for (let t = 0; t < gens; t++) {
-                    grid.set(t, x, y, ON);
+                    grid.set(t, x, y, 1);
                 }
             }
         }
@@ -644,12 +647,12 @@ if (mode === 'periodic') {
         for (let x = 0; x < grid.width; x++) {
             let value = p.get(x, y);
             if (value === 0 || value === 1) {
-                grid.set(0, x, y, value ? ON : OFF);
+                grid.set(0, x, y, value);
             } else if (value === 2 || value === 6) {
             } else if (value === 3 || value === 4) {
                 let cellValue = value % 2;
                 for (let t = 0; t < gens; t++) {
-                    grid.set(t, x, y, cellValue ? ON : OFF);
+                    grid.set(t, x, y, cellValue);
                 }
             } else {
                 if (value in meanings) {
@@ -671,7 +674,7 @@ if (mode === 'periodic') {
                             }
                         } else if (match = part.match(/^(\d+)=([01*])$/)) {
                             let t = Number(match[1]);
-                            let state = match[2] === '0' ? OFF : (match[2] === '1' ? ON : UNKNOWN);
+                            let state = match[2] === '*' ? UNKNOWN : Number(match[2]);
                             let prev = JSON.stringify(out[t]);
                             for (let i = 0; i < out.length; i++) {
                                 if (JSON.stringify(out[i]) === prev) {
@@ -828,7 +831,7 @@ function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): 
     for (let t = 0; t < grid.gens; t++) {
         for (let y = 0; y < grid.height; y++) {
             for (let x = 0; x < grid.width; x++) {
-                if (grid.get(t, x, y) == UNKNOWN) {
+                if (grid.get(t, x, y) > 1) {
                     cells.push([t, x, y]);
                 }
             }
@@ -943,9 +946,9 @@ if (options['filter']) {
             for (let x = 0; x < p.width; x++) {
                 let value = p.get(x, y);
                 if (value === 3) {
-                    grid.set(gen, x, y, ON);
+                    grid.set(gen, x, y, 1);
                 } else if (value === 4) {
-                    grid.set(gen, x, y, OFF);
+                    grid.set(gen, x, y, 0);
                 }
             }
         }
@@ -1033,12 +1036,12 @@ for (let t = 0; t < grid.gens; t++) {
     }
 }
 
-function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {
+function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {4
     let data = useVars ? grid.vars : grid.data;
     let emptyRow: number[] = [];
     let realWidth = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
     for (let x = 0; x < realWidth; x++) {
-        emptyRow.push(OFF);
+        emptyRow.push(0);
     }
     let out: number[][][] = [];
     for (let t = 0; t < grid.gens; t++) {
@@ -1046,7 +1049,7 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
         for (let y = 0; y < grid.height; y++) {
             let row: number[] = [];
             if (left === 'none') {
-                row.push(OFF, OFF);
+                row.push(0, 0);
             } else if (left === 'even') {
                 row.push(data[t][y][0]);
             } else if (left === 'odd') {
@@ -1058,7 +1061,7 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
                 row.push(data[t][y][x]);
             }
             if (right === 'none') {
-                row.push(OFF, OFF);
+                row.push(0, 0);
             } else if (right === 'even') {
                 row.push(data[t][y][grid.width - 1]);
             } else if (right === 'odd') {
@@ -1187,7 +1190,13 @@ for (let line of code.split('\n')) {
     } else if (name === 'VAR_COUNT') {
         value = grid.numVars + 1;
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
-        value = cellCounts[UNKNOWN];
+        value = 0;
+        for (let [key, count] of Object.entries(cellCounts)) {
+            if (key === '0' || key === '1') {
+                continue;
+            }
+            value += count;
+        }
     } else if (name === 'TIME_WRAP') {
         value = Boolean(timeWrap);
     } else if (name === 'TIME_WRAP_DX') {
@@ -1196,8 +1205,8 @@ for (let line of code.split('\n')) {
         value = timeWrap ? timeWrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
         value = multiRule;
-    // } else if (name === 'STATES') {
-    //     value = base.rule.states;
+    } else if (name === 'STATES') {
+        value = base.rule.states;
     } else if (name === 'BINDS') {
         value = `BINDS_${(options['rulespace'] ?? 'int').toUpperCase()}`;
     // } else if (name === 'MAX_RULE_CHANGES') {
