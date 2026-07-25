@@ -267,15 +267,15 @@ static inline bool check_implication(cell* cell) {
         }
     }
     uint32_t tr = (cell->nw->value << 18)
-        | (cell->w->value << 16)
-        | (cell->sw->value << 14)
-        | (cell->n->value << 12)
-        | (cell->value << 10)
-        | (cell->s->value << 8)
-        | (cell->ne->value << 6)
-        | (cell->e->value << 4)
-        | (cell->se->value << 2)
-        | (cell->next->value);
+                | (cell->w->value << 16)
+                | (cell->sw->value << 14)
+                | (cell->n->value << 12)
+                | (cell->value << 10)
+                | (cell->s->value << 8)
+                | (cell->ne->value << 6)
+                | (cell->e->value << 4)
+                | (cell->se->value << 2)
+                | (cell->next->value);
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
