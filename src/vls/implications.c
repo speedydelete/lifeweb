@@ -319,17 +319,18 @@ static inline bool check_implication(cell* cell) {
     return true;
 }
 
-#define check_implications(cell) \
-    (check_implication((cell)) \
-    && check_implication((cell)->prev) \
-    && check_implication((cell)->nw) \
-    && check_implication((cell)->n) \
-    && check_implication((cell)->ne) \
-    && check_implication((cell)->w) \
-    && check_implication((cell)->e) \
-    && check_implication((cell)->sw) \
-    && check_implication((cell)->s) \
-    && check_implication((cell)->se))
+static inline bool check_implications(cell* cell) {
+    return check_implication((cell))
+        && check_implication((cell)->prev)
+        && check_implication((cell)->nw)
+        && check_implication((cell)->n)
+        && check_implication((cell)->ne)
+        && check_implication((cell)->w)
+        && check_implication((cell)->e)
+        && check_implication((cell)->sw)
+        && check_implication((cell)->s)
+        && check_implication((cell)->se);
+}
 
 
 #if VARIABLES
