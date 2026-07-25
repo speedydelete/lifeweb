@@ -766,7 +766,6 @@ export class MAPPattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // i will explain how this function works, but not the ones in MAPB0Pattern, MAPGenPattern, and MAPGenB0Pattern
         // we first compute how it should expand, if at all
         // then we run the interior of the pattern
         let width = this.width;
@@ -1107,15 +1106,23 @@ export class MAPB0Pattern extends DataPattern {
     }
 
     runGeneration(): void {
-        // an explanation of how this function works is in the comments in MAPPattern.runGeneration
+        // we first compute how it should expand, if at all
+        // then we run the interior of the pattern
         let width = this.width;
         let height = this.height;
+        /** The width multiplied by the height. */
         let size = this.size;
+        /** The pattern data (before running the generation). */
         let data = this.data;
+        /** The 512-bit string that encodes the rule. */
         let trs = this.generation % 2 === 0 ? this.evenTrs : this.oddTrs;
+        /** The width multiplied by 2. */
         let width2 = width << 1;
+        /** The index in `data` of the last row of the original data. */
         let lastRow = size - width;
+        /** The index in `data` of the second-to-last row of the original data. */
         let secondLastRow = size - width2;
+        // we first compute how it should expand in the top and bottom
         let expandUp = 0;
         let expandDown = 0;
         let upExpands = new Uint8Array(width);
@@ -1124,6 +1131,7 @@ export class MAPB0Pattern extends DataPattern {
         let j = lastRow + 1;
         let tr1 = (data[0] << 3) | data[1];
         let tr2 = (data[lastRow] << 5) | (data[lastRow + 1] << 2);
+        // this part is only for B1c, B1e and B2a rules
         if (width > 1) {
             if (trs[tr1]) {
                 expandUp = 1;
@@ -1146,7 +1154,9 @@ export class MAPB0Pattern extends DataPattern {
         for (let loc = 1; loc < width - 1; loc++) {
             i++;
             j++;
+            // this is why we index the trs variables weirdly, so we can do this!
             tr1 = ((tr1 << 3) & 511) | data[i];
+            // we shift it by 2 because we are computing the bottom, we need to move it to the top of the transition because we are seeing if it should expand downwards
             tr2 = ((tr2 << 3) & 511) | (data[j] << 2);
             if (trs[tr1]) {
                 expandUp = 1;
@@ -1157,6 +1167,7 @@ export class MAPB0Pattern extends DataPattern {
                 downExpands[loc] = 1;
             }
         }
+        // this part is only for B1c, B1e and B2a rules
         if (width > 1) {
             if (trs[(tr1 << 3) & 511]) {
                 expandUp = 1;
@@ -1167,12 +1178,14 @@ export class MAPB0Pattern extends DataPattern {
                 downExpands[width - 1] = 1;
             }
         }
+        // we then compute how it should expand to the left and right
         let expandLeft = 0;
         let expandRight = 0;
         let leftExpands = new Uint8Array(height);
         let rightExpands = new Uint8Array(height);
         tr1 = (data[0] << 1) | data[width];
         tr2 = (data[width - 1] << 7) | (data[width2 - 1] << 6);
+        // this part is only for B1c, B1e and B2a rules
         if (height > 1) {
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -1195,7 +1208,9 @@ export class MAPB0Pattern extends DataPattern {
         let loc = 0;
         for (i = width2; i < size; i += width) {
             loc++;
+            // in this case, we are computing to the left, so the 3 bits to consider are all on the right
             tr1 = ((tr1 << 1) & 7) | data[i];
+            // in this case, we are computing to the right, so the 3 bits to consider are all on the right, so we shift by 6 bits
             tr2 = ((tr2 << 1) & 511) | (data[i + width - 1] << 6);
             if (trs[tr1]) {
                 expandLeft = 1;
@@ -1207,6 +1222,7 @@ export class MAPB0Pattern extends DataPattern {
             }
         }
         i -= width;
+        // this part is only for B1c, B1e, or B2a rules
         if (height > 1) {
             if (trs[(tr1 << 1) & 7]) {
                 expandLeft = 1;
@@ -1217,6 +1233,7 @@ export class MAPB0Pattern extends DataPattern {
                 rightExpands[height - 1] = 1;
             }
         }
+        // special B1c checks
         let b1cnw = (trs[1] && data[0]) ? 1 : 0;
         let b1cne = (trs[64] && data[width - 1]) ? 1 : 0;
         let b1csw = (trs[4] && data[lastRow]) ? 1 : 0;
@@ -1233,13 +1250,21 @@ export class MAPB0Pattern extends DataPattern {
         if (b1cne || b1cse) {
             expandRight = 1;
         }
+        /** The offset for each row, how many new elements are between each row. */
         let oX = expandLeft + expandRight;
+        /** The offset between the start of `data` and the start of `out`. */
         let oStart = (expandUp ? width + oX : 0) + expandLeft;
+        /** The offset between the end of `data` and the end of `out`. */
         let oSize = oStart + oX * height;
+        /** The width of each row of `out`. */
         let newWidth = width + oX;
+        /** The height of `out`. */
         let newHeight = height + expandUp + expandDown;
+        /** The length of `out`. */
         let newSize = newWidth * newHeight;
+        /** The output pattern data, after running the generation. */
         let out = new Uint8Array(newSize);
+        // putting the expansion data into the output
         out[0] = b1cnw;
         out[newWidth - 1] = b1cne;
         out[newSize - newWidth] = b1csw;
@@ -1264,21 +1289,25 @@ export class MAPB0Pattern extends DataPattern {
                 out[loc] = rightExpands[i];
             }
         }
+        // we need to do a special case for when width === 1, the basic method breaks in that case
         if (width <= 1) {
             if (width === 1) {
                 let tr = (data[0] << 4) | (data[1] << 3);
                 let loc = oStart;
+                // top
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
                 loc += oX + 1;
                 for (i = 2; i < height; i++) {
                     tr = ((tr << 1) & 63) | (data[i] << 3);
+                    // middle
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     loc += oX + 1;
                 }
+                // bottom
                 if (trs[(tr << 1) & 63]) {
                     out[loc] = 1;
                 }
@@ -1289,9 +1318,11 @@ export class MAPB0Pattern extends DataPattern {
             j = lastRow + 1;
             tr1 = (data[0] << 4) | (data[width] << 3) | (data[1] << 1) | data[width + 1];
             tr2 = (data[secondLastRow] << 5) | (data[lastRow] << 4) | (data[secondLastRow + 1] << 2) | (data[lastRow + 1] << 1);
+            // top-left
             if (trs[tr1]) {
                 out[loc1] = 1;
             }
+            // bottom-left
             if (trs[tr2]) {
                 out[loc2] = 1;
             }
@@ -1300,17 +1331,21 @@ export class MAPB0Pattern extends DataPattern {
                 loc1++;
                 loc2++;
                 tr1 = ((tr1 << 3) & 511) | (data[i] << 1) | data[i + width];
+                // top row
                 if (trs[tr1]) {
                     out[loc1] = 1;
                 }
+                // bottom row
                 tr2 = ((tr2 << 3) & 511) | (data[j - width] << 2) | (data[j] << 1);
                 if (trs[tr2]) {
                     out[loc2] = 1;
                 }
             }
+            // top-right
             if (trs[(tr1 << 3) & 511]) {
                 out[loc1 + 1] = 1;
             }
+            // bottom-right
             if (trs[(tr2 << 3) & 511]) {
                 out[loc2 + 1] = 1;
             }
@@ -1319,6 +1354,7 @@ export class MAPB0Pattern extends DataPattern {
             for (let y = 1; y < height - 1; y++) {
                 loc += oX;
                 let tr = (data[i - width - 1] << 5) | (data[i - 1] << 4) | (data[i + width - 1] << 3) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                // left column
                 if (trs[tr]) {
                     out[loc] = 1;
                 }
@@ -1326,12 +1362,14 @@ export class MAPB0Pattern extends DataPattern {
                 loc++;
                 for (let x = 1; x < width - 1; x++) {
                     tr = ((tr << 3) & 511) | (data[i - width] << 2) | (data[i] << 1) | data[i + width];
+                    // middle
                     if (trs[tr]) {
                         out[loc] = 1;
                     }
                     i++;
                     loc++;
                 }
+                // right column
                 if (trs[(tr << 3) & 511]) {
                     out[loc] = 1;
                 }
@@ -1586,8 +1624,14 @@ export class MAPGenPattern extends DataPattern {
                     }
                     loc += oX + 1;
                 }
-                if (trs[(tr << 1) & 63]) {
-                    out[loc] = 1;
+                if (data[height - 1] < 2) {
+                    if (trs[(tr << 1) & 63]) {
+                        out[loc] = 1;
+                    } else if (data[height - 1]) {
+                        out[loc] = 2;
+                    }
+                } else {
+                    out[loc] = (data[height - 1] + 1) % states;
                 }
             }
         } else {
