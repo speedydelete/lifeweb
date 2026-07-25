@@ -235,8 +235,6 @@ typedef struct cell {
     // the variable stored in the cell
     var_t var;
     #endif
-    // test thing
-    uint32_t implication_tr;
     #if METHOD == METHOD_CELL
     // the next cell in the search order
     struct cell* next_in_search_order;
