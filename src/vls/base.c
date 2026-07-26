@@ -30,20 +30,6 @@
 
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
 
-static inline uint32_t tr_to_big_tr(uint32_t tr) {
-    uint32_t out = 0;
-    out |= ((tr & 1) ? ON : OFF) << 0;
-    out |= ((tr & 2) ? ON : OFF) << 2;
-    out |= ((tr & 4) ? ON : OFF) << 4;
-    out |= ((tr & 8) ? ON : OFF) << 6;
-    out |= ((tr & 16) ? ON : OFF) << 8;
-    out |= ((tr & 32) ? ON : OFF) << 10;
-    out |= ((tr & 64) ? ON : OFF) << 12;
-    out |= ((tr & 128) ? ON : OFF) << 14;
-    out |= ((tr & 256) ? ON : OFF) << 16;
-    return out;
-}
-
 #else
 
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)

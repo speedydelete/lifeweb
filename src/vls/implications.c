@@ -55,66 +55,6 @@ static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", 
 #endif
 
 
-// the transition lookup table for the 3-state rule including unknown cells
-// the result is + 4 if it should be updated when changing the rule
-// index format: 0b_01_23_45_67_89_ab_cd_ef_gh
-// 01 67 cd
-// 23 89 ef
-// 45 ab gh
-cell_value_t big_trs[262144];
-#define IS_BIG_TRS_RULE_DEPENDENT(x) ((x) >= 4)
-#define TO_BIG_TRS_RULE_DEPENDENT(x) ((x) + 4)
-#define FROM_BIG_TRS_RULE_DEPENDENT(x) ((x) - 4)
-
-static cell_value_t get_big_tr(int prev, uint32_t tr, int depth) {
-    int state = tr & 3;
-    tr >>= 2;
-    int next = prev << 1;
-    // shortcut (0 is a filler value)
-    if (state == 3) {
-        return 0;
-    }
-    if (depth == 8) {
-        if (state != UNKNOWN) {
-            cell_value_t value = trs[next | (state == ON ? 1 : 0)];
-            #if MULTI_RULE
-            if (value == TRS_RULE_DEPENDENT) {
-                return TO_BIG_TRS_RULE_DEPENDENT(UNKNOWN);
-            }
-            #endif
-            return value ? ON : OFF;
-        } else {
-            cell_value_t a = trs[next | 0];
-            cell_value_t b = trs[next | 1];
-            // unknown cell: if they disagree return unknown
-            if (a == b) {
-                a = a ? ON : OFF;
-                #if MULTI_RULE
-                if (a == TRS_RULE_DEPENDENT) {
-                    return TO_BIG_TRS_RULE_DEPENDENT(UNKNOWN);
-                }
-                #endif
-                return a;
-            } else {
-                return UNKNOWN;
-            }
-        }
-    } else {
-        if (state != UNKNOWN) {
-            return get_big_tr(next | (state == ON ? 1 : 0), tr, depth + 1);
-        } else {
-            cell_value_t a = get_big_tr(next | 0, tr, depth + 1);
-            cell_value_t b = get_big_tr(next | 1, tr, depth + 1);
-            // unknown cell: if they disagree return unknown
-            #if MULTI_RULE
-            return a == b ? (a == TRS_RULE_DEPENDENT ? TO_BIG_TRS_RULE_DEPENDENT(UNKNOWN) : a) : UNKNOWN;
-            #else
-            return a == b ? a : UNKNOWN;
-            #endif
-        }
-    }
-}
-
 // implication table
 // tells us what values of unknown cells we can set
 // index format: 0b_01_23_45_67_89_ab_cd_ef_gh_ij
@@ -131,68 +71,71 @@ int32_t implications[1048576];
 #define CONTRADICTION -1
 #define IMPLICATION_RULE_DEPENDENT -3
 
+static inline uint32_t tr_to_implication_tr(uint32_t tr) {
+    uint32_t out = 0;
+    out |= ((tr & 1) ? ON : OFF) << 2;
+    out |= ((tr & 2) ? ON : OFF) << 4;
+    out |= ((tr & 4) ? ON : OFF) << 6;
+    out |= ((tr & 8) ? ON : OFF) << 8;
+    out |= ((tr & 16) ? ON : OFF) << 10;
+    out |= ((tr & 32) ? ON : OFF) << 12;
+    out |= ((tr & 64) ? ON : OFF) << 14;
+    out |= ((tr & 128) ? ON : OFF) << 16;
+    out |= ((tr & 256) ? ON : OFF) << 18;
+    return out;
+}
+
 #if false
 #include <stdio.h>
-#define IMPLICATIONDPRINTF printf
+#define IMPLICATIONSPECIALVALUE 349524
+#define IMPLICATIONDPRINTF(...) if (tr == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
+#define IMPLICATIONDPRINTF2(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #else
 #define IMPLICATIONDPRINTF(...)
+#define IMPLICATIONDPRINTF2(...)
 #endif
 
 static inline int32_t get_implication(uint32_t tr) {
-    // invalid transition
-    for (int i = 0; i < 20; i += 2) {
-        if (((tr >> i) & 3) == 3) {
-            return CONTRADICTION;
-        }
-    }
-    cell_value_t next = tr & 3;
-    cell_value_t target = big_trs[tr >> 2];
-    IMPLICATIONDPRINTF("next = %i, target = %i\n", next, target);
-    #if MULTI_RULE
-    if (IS_BIG_TRS_RULE_DEPENDENT(target)) {
-        // return IMPLICATION_RULE_DEPENDENT;
-        target = FROM_BIG_TRS_RULE_DEPENDENT(target);
-    }
-    #endif
-    // check for contradiction
-    if (target != UNKNOWN && next != UNKNOWN && target != next) {
-        IMPLICATIONDPRINTF("tr = %i, early contradiction detected, target = %i, next = %i, returning CONTRADICTION\n", tr, target, next);
-        return CONTRADICTION;
-    }
+    int next = tr & 3;
+    IMPLICATIONDPRINTF("tr = %i, next = %i\n", tr, next);
     int32_t out = DO_NOTHING;
+    // find the value for the next generation
     if (next == UNKNOWN) {
-        if (target != UNKNOWN) {
-            out = (out & ~3) | target;
-            tr = (tr & ~3) | target;
-            next = target;
-        } else {
+        bool zero_possible = implications[(tr & ~3) | OFF] != CONTRADICTION;
+        bool one_possible = implications[(tr & ~3) | ON] != CONTRADICTION;
+        IMPLICATIONDPRINTF("checking next, (zero: %i -> %i -> %s, one: %i -> %i -> %s\n", (tr & ~3) | OFF, implications[(tr & ~3) | OFF], zero_possible ? "true" : "false", (tr & ~3) | ON, implications[(tr & ~3) | ON], one_possible ? "true" : "false");
+        if (!zero_possible && !one_possible) {
+            // the cell cannot be any value in the next generation
+            IMPLICATIONDPRINTF("early contradiction, next cell cannot be any value, returning CONTRADICTION\n");
+        } else if (zero_possible && !one_possible) {
+            // must be off
+            IMPLICATIONDPRINTF("next cell must be off\n");
+            out = (out & ~3) | OFF;
+            tr = (tr & ~3) | OFF;
+            next = OFF;
+        } else if (!zero_possible && one_possible) {
+            // must be on
+            IMPLICATIONDPRINTF("next cell must be on\n");
+            out = (out & ~3) | ON;
+            tr = (tr & ~3) | ON;
+            next = ON;
+        } else if (zero_possible && one_possible) {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
-            IMPLICATIONDPRINTF("tr = %i, no implication possible, target = %i, next = %i, returning DO_NOTHING\n", tr, target, next);
+            IMPLICATIONDPRINTF("no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
     }
+    IMPLICATIONDPRINTF("resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
         if (((tr >> i) & 3) != UNKNOWN) {
             continue;
         }
         uint32_t tr2 = tr & ~(3 << i);
-        cell_value_t forward_0 = big_trs[(tr2 | (OFF << i)) >> 2];
-        #if MULTI_RULE
-        if (IS_BIG_TRS_RULE_DEPENDENT(forward_0)) {
-            // return IMPLICATION_RULE_DEPENDENT;
-            forward_0 = FROM_BIG_TRS_RULE_DEPENDENT(forward_0);
-        }
-        #endif
-        bool zero_possible = forward_0 == next || forward_0 == UNKNOWN;
-        cell_value_t forward_1 = big_trs[(tr2 | (ON << i)) >> 2];
-        #if MULTI_RULE
-        if (IS_BIG_TRS_RULE_DEPENDENT(forward_1)) {
-            // return IMPLICATION_RULE_DEPENDENT;
-            forward_1 = FROM_BIG_TRS_RULE_DEPENDENT(forward_1);
-        }
-        #endif
-        bool one_possible = forward_1 == next || forward_1 == UNKNOWN;
-        IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 >> 2, forward_0, zero_possible ? "true" : "false", (tr2 | (1 << i)) >> 2, forward_1, one_possible ? "true" : "false", tr & 3);
+        int32_t forward_0 = implications[tr2 | (OFF << i)];
+        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
+        int32_t forward_1 = implications[tr2 | (ON << i)];
+        bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN);
+        IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
             // must be on
             IMPLICATIONDPRINTF("must be on\n");
@@ -212,11 +155,39 @@ static inline int32_t get_implication(uint32_t tr) {
 }
 
 static inline void generate_big_trs(void) {
-    for (uint32_t tr = 0; tr < 262144; tr++) {
-        big_trs[tr] = get_big_tr(0, tr, 0);
+    // fill in the values with 0 unknown cells
+    for (int tr = 0; tr < 512; tr++) {
+        int value = trs[tr] ? ON : OFF;
+        int tr2 = tr_to_implication_tr(tr);
+        implications[tr2 | OFF] = value == OFF ? 0 : CONTRADICTION;
+        IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
+        implications[tr2 | ON] = value == ON ? 0 : CONTRADICTION;
+        IMPLICATIONDPRINTF2(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
     }
-    for (uint32_t tr = 0; tr < 1048576; tr++) {
-        implications[tr] = get_implication(tr);
+    // fill in the rest
+    for (int unknown = 1; unknown < 8; unknown++) {
+        for (uint32_t tr = 0; tr < 1048576; tr++) {
+            int tr_unknown = 0;
+            bool found = false;
+            for (int i = 0; i < 20; i += 2) {
+                int part = (tr >> i) & 3;
+                if (part == 3) {
+                    found = true;
+                    break;
+                } else if (part == UNKNOWN) {
+                    tr_unknown++;
+                    if (tr_unknown > unknown) {
+                        break;
+                    }
+                }
+            }
+            if (found) {
+                implications[tr] = CONTRADICTION;
+            } else if (tr_unknown != unknown) {
+                continue;
+            }
+            implications[tr] = get_implication(tr);
+        }
     }
     #if MULTI_RULE
     for (uint32_t tr = 0; tr < 512; tr++) {
