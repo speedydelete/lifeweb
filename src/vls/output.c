@@ -485,7 +485,8 @@ static inline void print_progress(FILE* stream) {
         if (progress[i].tr_is_set) {
             int tr = progress[i].tr;
             int value = progress[i].value;
-            real_fprintf(stream, "[%s=%i]", bound_trs_names[tr_to_bound_tr[tr]], value);
+            char first = bound_trs_names[tr_to_bound_tr[tr]][0];
+            real_fprintf(stream, "[%c%s]", (value == 1 ? first : (first == 'B' ? 'A' : 'D')), bound_trs_names[tr_to_bound_tr[tr]] + 1);
         } else {
             int value = progress[i].value;
             real_fprintf(stream, "%c", value == 0 ? '0' : '1');

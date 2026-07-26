@@ -84,7 +84,13 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 // the binding mode
 #define BINDS_INT 0
 #define BINDS_OT 1
-#define BINDS_CUSTOM 2
+#define BINDS_MAP 2
+#define BINDS_HEX_INT 3
+#define BINDS_HEX_OT 4
+#define BINDD_HEX_MAP 5
+#define BINDS_VN_INT 6
+#define BINDS_VN_OT 7
+#define BINDS_VN_MAP 8
 #define BINDS BINDS_INT
 
 #endif

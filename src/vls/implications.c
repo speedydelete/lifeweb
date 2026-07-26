@@ -17,7 +17,7 @@
 
 #define BOUND_TRANSITION_COUNT 102
 #define MAX_MAP_TRS_PER_BOUND_TR 8
-#define bound_trs int_transitions
+#define bound_trs (normal_int.trs)
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1c", "B1e", "B2a", "B2c", "B2e", "B2i", "B2k", "B2n", "B3a", "B3c", "B3e", "B3i", "B3j", "B3k", "B3n", "B3q", "B3r", "B3y", "B4a", "B4c", "B4e", "B4i", "B4j", "B4k", "B4n", "B4q", "B4r", "B4t", "B4w", "B4y", "B4z", "B5a", "B5c", "B5e", "B5i", "B5j", "B5k", "B5n", "B5q", "B5r", "B5y", "B6a", "B6c", "B6e", "B6i", "B6k", "B6n", "B7c", "B7e", "B8", "S0", "S1c", "S1e", "S2a", "S2c", "S2e", "S2i", "S2k", "S2n", "S3a", "S3c", "S3e", "S3i", "S3j", "S3k", "S3n", "S3q", "S3r", "S3y", "S4a", "S4c", "S4e", "S4i", "S4j", "S4k", "S4n", "S4q", "S4r", "S4t", "S4w", "S4y", "S4z", "S5a", "S5c", "S5e", "S5i", "S5j", "S5k", "S5n", "S5q", "S5r", "S5y", "S6a", "S6c", "S6e", "S6i", "S6k", "S6n", "S7c", "S7e", "S8"};
 
 #elif BINDS == BINDS_OT
@@ -69,7 +69,9 @@ int32_t implications[1048576];
 
 #define DO_NOTHING 0
 #define CONTRADICTION -1
+#if MULTI_RULE
 #define IMPLICATION_RULE_DEPENDENT -3
+#endif
 
 static inline uint32_t tr_to_implication_tr(uint32_t tr) {
     uint32_t out = 0;
@@ -87,7 +89,7 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
 
 #if false
 #include <stdio.h>
-#define IMPLICATIONSPECIALVALUE 349524
+#define IMPLICATIONSPECIALVALUE 398678
 #define IMPLICATIONDPRINTF(...) if (tr == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #define IMPLICATIONDPRINTF2(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #else
@@ -110,20 +112,17 @@ static inline int32_t get_implication(uint32_t tr) {
         } else if (zero_possible && !one_possible) {
             // must be off
             IMPLICATIONDPRINTF("next cell must be off\n");
-            out = (out & ~3) | OFF;
-            tr = (tr & ~3) | OFF;
-            next = OFF;
+            return implications[(tr & ~3) | OFF];
         } else if (!zero_possible && one_possible) {
             // must be on
             IMPLICATIONDPRINTF("next cell must be on\n");
-            out = (out & ~3) | ON;
-            tr = (tr & ~3) | ON;
-            next = ON;
+            return implications[(tr & ~3) | ON];
         } else if (zero_possible && one_possible) {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
             IMPLICATIONDPRINTF("no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
+        return implications[tr];
     }
     IMPLICATIONDPRINTF("resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
@@ -133,8 +132,14 @@ static inline int32_t get_implication(uint32_t tr) {
         uint32_t tr2 = tr & ~(3 << i);
         int32_t forward_0 = implications[tr2 | (OFF << i)];
         bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
+        #if MULTI_RULE
+        zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
+        #endif
         int32_t forward_1 = implications[tr2 | (ON << i)];
         bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN);
+        #if MULTI_RULE
+        one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
+        #endif
         IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
             // must be on
@@ -157,11 +162,20 @@ static inline int32_t get_implication(uint32_t tr) {
 static inline void generate_big_trs(void) {
     // fill in the values with 0 unknown cells
     for (int tr = 0; tr < 512; tr++) {
-        int value = trs[tr] ? ON : OFF;
+        int value = trs[tr] == RULE_DEPENDENT ? RULE_DEPENDENT : (trs[tr] ? ON : OFF);
         int tr2 = tr_to_implication_tr(tr);
+        #if MULTI_RULE
+        if (value == RULE_DEPENDENT) {
+            implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
+            implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
+            IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
+            IMPLICATIONDPRINTF2(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
+            continue;
+        }
+        #endif
         implications[tr2 | OFF] = value == OFF ? 0 : CONTRADICTION;
-        IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
         implications[tr2 | ON] = value == ON ? 0 : CONTRADICTION;
+        IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
         IMPLICATIONDPRINTF2(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
     }
     // fill in the rest
@@ -181,6 +195,7 @@ static inline void generate_big_trs(void) {
                     }
                 }
             }
+            IMPLICATIONDPRINTF2(tr, "tr_unknown = %i, found = %s\n", tr_unknown, found ? "true" : "false");
             if (found) {
                 implications[tr] = CONTRADICTION;
             } else if (tr_unknown != unknown) {
@@ -189,15 +204,6 @@ static inline void generate_big_trs(void) {
             implications[tr] = get_implication(tr);
         }
     }
-    #if MULTI_RULE
-    for (uint32_t tr = 0; tr < 512; tr++) {
-        if (trs[tr] == 3) {
-            uint32_t tr2 = tr_to_big_tr(tr) << 2;
-            implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
-            implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
-        }
-    }
-    #endif
 }
 
 
@@ -407,32 +413,16 @@ static inline void set_tr(int tr, int value) {
         if (tr & (1 << 4)) {
             tr2 |= (1 << 4);
         }
-        trs[tr2] = value;
-        big_trs[tr_to_big_tr(tr2)] = value;
-    }
-    // i'm not sure if you need to do this
-    // so i hope you don't
-    // for (int i = 0; i < 262144; i++) {
-    //     if (IS_BIG_TRS_RULE_DEPENDENT(big_trs[i])) {
-    //         big_trs[i] = get_big_tr(0, i, 0);
-    //     }
-    // }
-    for (int i = 0; i < MAX_MAP_TRS_PER_BOUND_TR + 1; i++) {
-        int tr2 = bound_trs[tr_to_bound_tr[tr]][i];
-        if (tr2 == -1) {
-            break;
-        }
-        if (tr & (1 << 4)) {
-            tr2 |= (1 << 4);
-        }
-        uint32_t tr3 = tr_to_big_tr((uint32_t)tr2) << 2;
-        if (value == 3) {
+        trs[tr2] = value == RULE_DEPENDENT ? RULE_DEPENDENT : (value == OFF ? 0 : 1);
+        uint32_t tr3 = tr_to_implication_tr(tr2);
+        if (value == RULE_DEPENDENT) {
             implications[tr3 | OFF] = IMPLICATION_RULE_DEPENDENT;
             implications[tr3 | ON] = IMPLICATION_RULE_DEPENDENT;
         } else {
-            implications[tr3 | OFF] = get_implication(tr3 | OFF);
-            implications[tr3 | ON] = get_implication(tr3 | ON);
+            implications[tr3 | OFF] = value == OFF ? 0 : CONTRADICTION;
+            implications[tr3 | ON] = value == ON ? 0 : CONTRADICTION;
         }
+
     }
 }
 

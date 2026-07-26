@@ -28,6 +28,8 @@
 
 #if MULTI_RULE
 
+#define RULE_DEPENDENT 3
+
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
 
 #else
