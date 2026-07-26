@@ -263,23 +263,23 @@ static inline int _get_rule(const int_spec* spec, char* out) {
 
 
 // format: (x, y)
-// const int neighborhood_indexing[9][2] = {
-//     {1, 1},
-//     {0, 1},
-//     {-1, 1},
-//     {1, 0},
-//     {0, 0},
-//     {-1, 0},
-//     {1, -1},
-//     {0, -1},
-//     {-1, -1},
-// };
+const int neighborhood_indexing[9][2] = {
+    {1, 1},
+    {0, 1},
+    {-1, 1},
+    {1, 0},
+    {0, 0},
+    {-1, 0},
+    {1, -1},
+    {0, -1},
+    {-1, -1},
+};
 
 static inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9]) {
     for (int i = 0; i < 9; i++) {
         bool found = false;
         for (int tr = 0; tr < 512; tr++) {
-            if (trs[(tr & (1 << i)) | 0] != trs[(tr & (1 << i)) | 1]) {
+            if (trs[(tr & ~(1 << i)) | (0 << i)] != trs[(tr & ~(1 << i)) | (1 << i)]) {
                 found = true;
                 break;
             }
@@ -340,7 +340,7 @@ static inline int unparse_map(char* out) {
         }
     }
     // pack the bytes into base64
-    #define break_early(used) if (unparsed_length <= i + used) {continue;}
+    #define break_early(used) if (unparsed_length <= i + used) {break;}
     for (int i = 0; i < 66; i += 3) {
         uint32_t value = (unparsed[i] << 16) | (unparsed[i + 1] << 8) | (unparsed[i + 2]);
         out[next_char++] = base64_table[(value >> 18) & 0x3f];
@@ -351,6 +351,7 @@ static inline int unparse_map(char* out) {
         out[next_char++] = base64_table[(value >> 0) & 0x3f];
         break_early(3);
     }
+    #undef break_early
     #undef trs
     return next_char;
 }
