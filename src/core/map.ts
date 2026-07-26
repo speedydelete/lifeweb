@@ -548,7 +548,7 @@ export function unparseMAP(trs: Uint8Array, states: number): string {
         // hexagonal
         typeTrs = new Uint8Array(128);
         for (let i = 0; i < 128; i++) {
-            typeTrs[i] = trs[((i & 0b1100_000) << 2) | ((i & 0b11100) << 1) | ((i & 0b11) << 0)];
+            typeTrs[i] = trs[((i & 0b1100000) << 2) | ((i & 0b11100) << 1) | ((i & 0b11) << 0)];
         }
     } else {
         // normal
