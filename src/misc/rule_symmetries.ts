@@ -390,7 +390,7 @@ export const SYMMETRY_FACTORIES: {[key: string]: (value: number) => (Symmetry | 
 export function normalizeSymmetryName(value: string): string {
     return value
         .trim().toLowerCase()
-        .replaceAll(/[_.]/g, '')
+        .replaceAll(/[ _.]/g, '')
         .replaceAll('reversal', 'reverse')
         .replaceAll('rotation', 'rotate')
         .replaceAll('reflect', 'flip').replaceAll('reflection', 'flip')
@@ -659,12 +659,16 @@ export class SymmetryParsingError extends LifewebError {
     [Symbol.toStringTag] = 'SymmetryParsingError';
 }
 
+const FIRST_10_LETTERS = 'abcdefghij';
+
 export function parseSymmetries(data: string): SymmetryList {
     let out: SymmetryList = [];
     for (let symmetry of data.split(',')) {
         symmetry = symmetry.trim();
         let key = normalizeSymmetryName(symmetry);
-        if (key in BASIC_SYMMETRIES) {
+        if (key === '') {
+            continue;
+        } else if (key in BASIC_SYMMETRIES) {
             let value = BASIC_SYMMETRIES[key];
             if (Array.isArray(value)) {
                 for (let symmetry of value) {
@@ -680,20 +684,38 @@ export function parseSymmetries(data: string): SymmetryList {
             symmetry = symmetry.slice(0, -1);
             let [funcName, argStr] = symmetry.split('(');
             let key = normalizeSymmetryName(funcName);
-            if (!(key in SYMMETRY_FACTORIES)) {
-                throw new SymmetryParsingError(`Function '${funcName}' does not exist`);
-            }
-            let args = parseTrs(argStr);
-            let func = SYMMETRY_FACTORIES[key];
-            for (let arg of args) {
-                let value = func(arg);
-                if (Array.isArray(value)) {
-                    for (let symmetry of value) {
-                        out.push(symmetry);
+            if (key in SYMMETRY_FACTORIES) {
+                let func = SYMMETRY_FACTORIES[key];
+                let args = parseTrs(argStr);
+                for (let arg of args) {
+                    let value = func(arg);
+                    if (Array.isArray(value)) {
+                        for (let symmetry of value) {
+                            out.push(symmetry);
+                        }
+                    } else {
+                        out.push(value);
                     }
-                } else {
-                    out.push(value);
                 }
+            } else if (key === 'perm') {
+                let arg = Array.from(argStr.replaceAll(/[ ._]/g, '').toLowerCase()).map(x => {
+                    let index = FIRST_10_LETTERS.indexOf(x);
+                    if (index !== -1) {
+                        return index;
+                    } else if ('0123456789'.includes(x)) {
+                        return Number(x);
+                    } else {
+                        throw new SymmetryParsingError(`Invalid character in permutation (expected A-J or 0-9)`);
+                    }
+                });
+                if (arg.length === 9) {
+                    arg.unshift(9);
+                } else if (arg.length !== 10) {
+                    throw new SymmetryParsingError(`Permutations must be 9 or 10 characters`);
+                }
+                out.push(createPermute(arg));
+            } else {
+                throw new SymmetryParsingError(`Function '${funcName}' does not exist`);
             }
         } else {
             throw new SymmetryParsingError(`Variable '${symmetry}' does not exist`);
