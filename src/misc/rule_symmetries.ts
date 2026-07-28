@@ -252,10 +252,12 @@ function rightShift(value: number, places: number): number {
 }
 
 export function createPermute(values: number[]): Symmetry {
+    console.log(values);
     let shifts: number[] = [];
     for (let i = 0; i < 10; i++) {
-        shifts.push(values.indexOf(i) - i);
+        shifts.push(i - values.indexOf(i));
     }
+    console.log(shifts);
     return tr => {
         return rightShift(tr & 0b100_000_000_0, shifts[0])
              | rightShift(tr & 0b010_000_000_0, shifts[1])
@@ -337,8 +339,10 @@ export const BASIC_SYMMETRIES: {[key: string]: Symmetry | SymmetryList} = {
     'lx': flipAntiDiagonal,
 
     'rotate8left': rotate8Left,
+    'rotateleft8': rotate8Left,
     'rotate8': rotate8Left,
     'rotate8right': rotate8Left,
+    'rotateright8': rotate8Left,
 
     'outertotalistic': OT_SYMMETRY,
     'ot': OT_SYMMETRY,
@@ -713,7 +717,6 @@ export function parseSymmetries(data: string): SymmetryList {
                 } else if (arg.length !== 10) {
                     throw new SymmetryParsingError(`Permutations must be 9 or 10 characters`);
                 }
-                console.log(arg);
                 out.push(createPermute(arg));
             } else {
                 throw new SymmetryParsingError(`Function '${funcName}' does not exist`);
