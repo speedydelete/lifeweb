@@ -701,7 +701,7 @@ export function parseSymmetries(data: string): SymmetryList {
                         out.push(value);
                     }
                 }
-            } else if (key === 'perm') {
+            } else if (key === 'perm' || key === 'change') {
                 let arg = Array.from(argStr.replaceAll(/[ ._]/g, '').toLowerCase()).map(x => {
                     let index = FIRST_10_LETTERS.indexOf(x);
                     if (index !== -1) {
