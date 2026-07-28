@@ -659,7 +659,7 @@ export class SymmetryParsingError extends LifewebError {
 export function parseSymmetries(data: string): SymmetryList {
     let out: SymmetryList = [];
     for (let symmetry of data.split(',')) {
-        symmetry = symmetry.trim().toLowerCase();
+        symmetry = symmetry.trim();
         let key = normalizeSymmetryName(symmetry);
         if (key in BASIC_SYMMETRIES) {
             let value = BASIC_SYMMETRIES[key];
