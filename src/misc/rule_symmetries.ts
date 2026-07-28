@@ -660,7 +660,7 @@ export function parseSymmetries(data: string): SymmetryList {
                 throw new SymmetryParsingError(`Invalid function call: '${symmetry}'`);
             }
             symmetry = symmetry.slice(0, -1);
-            let [funcName, argStr] = symmetry.split(' ');
+            let [funcName, argStr] = symmetry.split('(');
             let key = normalizeSymmetryName(funcName);
             if (!(key in SYMMETRY_FACTORIES)) {
                 throw new SymmetryParsingError(`Function '${funcName}' does not exist`);
