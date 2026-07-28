@@ -519,7 +519,7 @@ function attemptINTSpecReplace(value: number[], spec: INTSpec): [string[], Vecto
 function formatVector(vector: Vector, format: VectorFormat): string {
     vector = vector.slice();
     if (format === 'map') {
-        return vector.sort(vectorSorter).map(trToString).join(', ');
+        return vector.sort(vectorSorter).map(tr => classifyTr(tr) + trToString(tr).slice(0, -2)).join(', ');
     }
     let spec = BASIS_VECTOR_FORMAT_INT_SPECS[format];
     let value = attemptINTSpecReplace(vector, spec);
