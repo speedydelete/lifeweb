@@ -272,11 +272,14 @@ export function createPermute(values: number[]): Symmetry {
 
 
 export const NO_CENTER_NH = createRestrictNH(0b111_101_111);
+
+export const VON_NEUMANN_NH = createRestrictNH(0b010_111_010);
+export const VON_NEUMANN_INT_SYMMETRY: SymmetryList = [...VON_NEUMANN_NH, ...D8_SYMMETRY];
+
+
 export const HEX_NH = createRestrictNH(0b110_111_011);
 export const TRIPOD_NH = createRestrictNH(0b010_110_001);
-export const VON_NEUMANN_NH = createRestrictNH(0b010_111_010);
 
-export const VON_NEUMANN_INT_SYMMETRY: SymmetryList = [...VON_NEUMANN_NH, ...D8_SYMMETRY];
 
 export const BW_REVERSAL_SYMMETRY = createXOR(0b111_111_111);
 
@@ -363,6 +366,9 @@ export const BASIC_SYMMETRIES: {[key: string]: Symmetry | SymmetryList} = {
 
     'vn': VON_NEUMANN_NH,
     'vnint': VON_NEUMANN_INT_SYMMETRY,
+
+    'hex': HEX_NH,
+    'tripod': TRIPOD_NH,
 
     'bw': BW_REVERSAL_SYMMETRY,
 
