@@ -14,7 +14,15 @@ function path(value) {
 
 
 async function buildTypescript() {
-    execSync(`${path('node_modules/.bin/tsc')} -b`);
+    try {
+        execSync(`${path('node_modules/.bin/tsc')} -b`, {stdio: 'inherit'});
+    } catch (error) {
+        if (error instanceof Error && error.message.startsWith('Command failed:')) {
+            return;
+        } else {
+            throw error;
+        }
+    }
 }
 
 

@@ -18,8 +18,10 @@ export interface INTSpec {
     trs: {[key: string]: number[]};
     /** The list of valid transitions for each number, like ['c', 'ce', 'aceikn', ...]. */
     validTrs: string[];
-    /** Whether to prefer a minus sign when it would be the same speed, so whether to do B2om/SH or B2-p/SH */
+    /** Whether to prefer a minus sign when it would be the same speed, so whether to do B2om/SH or B2-p/SH. */
     preferMinus: boolean;
+    /** A string to place after the rule. */
+    after: string;
 }
 
 
@@ -90,6 +92,7 @@ export const INT: INTSpec = {
         'c'
     ],
     preferMinus: false,
+    after: '',
 };
 
 export const HEX_INT: INTSpec = {
@@ -119,6 +122,7 @@ export const HEX_INT: INTSpec = {
         'o',
     ],
     preferMinus: true,
+    after: 'H',
 };
 
 export const VON_NEUMANN_INT: INTSpec = {
@@ -196,6 +200,7 @@ export const VON_NEUMANN_INT: INTSpec = {
         'e',
     ],
     preferMinus: false,
+    after: 'V',
 };
 
 export const INT_SPECS = {
@@ -740,9 +745,7 @@ export function unparseMAPRuleFull(trs: Uint8Array, states: number): string {
         } else {
             out = `${s}/${b}/${states}`;
         }
-        if (nhLetter !== 'M') {
-            out += nhLetter;
-        }
+        out += spec.after;
         return out;
     }
     return unparseMAP(trs, states);

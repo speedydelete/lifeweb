@@ -16,6 +16,7 @@
         {"path": "./src/core"},
         {"path": "./src/editor"},
         {"path": "./src/identify"},
+        {"path": "./src/misc"},
         {"path": "./src/uc"},
         {"path": "./src/vls"},
     ]
