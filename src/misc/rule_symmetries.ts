@@ -608,6 +608,9 @@ export function basisToString(basis: Basis, formats: VectorFormat[] = DEFAULT_BA
 
 
 function parseTrsSection(value: string): number[] {
+    if (value.length === 0) {
+        return [];
+    }
     let or = 0;
     if (TRANSITION_CLASSES.has(value[0].toUpperCase())) {
         or = TRANSITION_CLASS_ORS[value[0].toUpperCase() as TransitionClass];
