@@ -447,7 +447,7 @@ export function normalizeBasis(basis: Basis): Basis {
     return out.sort(basisSorter);
 }
 
-export function findBasis(symmetries: SymmetryList): Basis {
+export function findBasis(symmetries: SymmetryList): Basis | 'contradiction' {
     symmetries = Array.from(new Set([identity].concat(symmetries)));
     let out: Basis = [];
     let done: {[key: number]: Vector} = {};
@@ -480,6 +480,9 @@ export function findBasis(symmetries: SymmetryList): Basis {
         let newVector = Array.from(foundTrs);
         for (let tr of foundTrs) {
             done[tr] = newVector;
+            if (foundTrs.has(tr ^ 1)) {
+                return 'contradiction';
+            }
         }
         out.push(newVector);
     }
