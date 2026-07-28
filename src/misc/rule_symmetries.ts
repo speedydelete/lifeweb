@@ -709,7 +709,7 @@ export function parseSymmetries(data: string): SymmetryList {
                     }
                 });
                 if (arg.length === 9) {
-                    arg.unshift(9);
+                    arg.push(9);
                 } else if (arg.length !== 10) {
                     throw new SymmetryParsingError(`Permutations must be 9 or 10 characters`);
                 }
