@@ -278,6 +278,8 @@ export const VON_NEUMANN_NH = createRestrictNH(0b010_111_010);
 
 export const VON_NEUMANN_INT_SYMMETRY: SymmetryList = [...VON_NEUMANN_NH, ...D8_SYMMETRY];
 
+export const BW_REVERSAL_SYMMETRY = createXOR(0b111_111_111);
+
 
 export const BASIC_SYMMETRIES: {[key: string]: Symmetry | SymmetryList} = {
 
@@ -362,6 +364,8 @@ export const BASIC_SYMMETRIES: {[key: string]: Symmetry | SymmetryList} = {
     'vn': VON_NEUMANN_NH,
     'vnint': VON_NEUMANN_INT_SYMMETRY,
 
+    'bw': BW_REVERSAL_SYMMETRY,
+
 };
 
 export const SYMMETRY_FACTORIES: {[key: string]: (value: number) => (Symmetry | SymmetryList)} = {
@@ -381,11 +385,13 @@ export function normalizeSymmetryName(value: string): string {
     return value
         .trim().toLowerCase()
         .replaceAll(/[_.]/g, '')
+        .replaceAll('reversal', 'reverse')
         .replaceAll('rotation', 'rotate')
         .replaceAll('reflect', 'flip').replaceAll('reflection', 'flip')
         .replaceAll('permute', 'perm').replaceAll('permutation', 'perm')
         .replaceAll('vonneumann', 'vn')
-        .replaceAll('neighborhood', 'nh');
+        .replaceAll('neighborhood', 'nh')
+        .replaceAll('blackwhitereverse', 'bw').replaceAll('blackwhite', 'bw');
 }
 
 
