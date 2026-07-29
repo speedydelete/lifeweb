@@ -1,7 +1,7 @@
 
 /** Implements an apgsearch-style soup searcher. */
 
-import {LifewebError, RuleError} from './util.js';
+import {LifewebError} from './util.js';
 import {RLE_CHARS} from './pattern.js';
 import {createPattern} from './index.js';
 

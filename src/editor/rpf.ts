@@ -15,14 +15,15 @@ let join: (typeof path)['join'];
     join = path.join;
 })();
 
-import {LifewebError, Rect, Rule, Pattern, IdentityPattern, PLACEHOLDER_PATTERN, speedToString, createPattern} from '../core/index.js';
+import {LifewebError, Matcher, T_EOF, BaseParser, Rect, Rule, Pattern, IdentityPattern, PLACEHOLDER_PATTERN, speedToString, createPattern} from '../core/index.js';
 
 
 export class RPFError extends LifewebError {
+
     name = 'RPFError';
     [Symbol.toStringTag] = 'RPFError';
-};
 
+};
 
 
 export type Rotation = 'F' | 'Fx' | 'L' | 'Lx' | 'B' | 'Bx' | 'R' | 'Rx';
@@ -1191,11 +1192,6 @@ export class RPFFile<T extends Pattern = Pattern> {
 }
 
 
-const EOF = '';
-
-type Matcher = [string | Set<string> | RegExp, string];
-
-const T_EOF: Matcher = [EOF, 'end of file'];
 const T_NEWLINE: Matcher = ['\n', 'newline'];
 const T_LEFT_BRACE: Matcher = ['{', 'left brace'];
 const T_RIGHT_BRACE: Matcher = ['}', 'right brace'];
@@ -1207,171 +1203,55 @@ const T_APGCODE: Matcher = [/^[a-z0-9]+$/, 'apgcode'];
 const T_STAR_THEN_APGCODE: Matcher = [/^\*[a-z0-9]+$/, '* then apgcode'];
 const T_KEY_INDICATOR: Matcher = [/^.*:$/, 'key indicator'];
 
-export class RPFParser<T extends Pattern> {
+export class RPFParser<T extends Pattern> extends BaseParser {
 
     base: T;
-    file: RPFFile<T>;
-    code: string;
-    tokens: string[];
-    tokenPositions: number[];
-    pos: number;
+    rpfFile: RPFFile<T>;
 
     constructor(base: T, file: string | RPFFile<T>, code: string) {
+        super(typeof file === 'string' ? undefined : file.path, code);
         this.base = base;
-        this.file = typeof file === 'string' ? new RPFFile(base, file) : file;
-        this.code = code;
-        this.tokens = [];
-        this.tokenPositions = [];
-        let currentValue = '';
-        let currentPos = 0;
-        for (let i = 0; i < code.length; i++) {
-            let char = code[i];
+        this.rpfFile = typeof file === 'string' ? new RPFFile(base, file) : file;
+    }
+
+    tokenize(code: string): void {
+        let current = '';
+        let startPos = 0;
+        for (let pos = 0; pos < code.length; pos++) {
+            let char = code[pos];
             if (char === ' ' || char === '\n') {
-                if (currentValue.length === 0) {
-                    currentPos++;
+                if (current.length === 0) {
+                    startPos++;
                     continue;
                 }
-                this.tokens.push(currentValue);
-                this.tokenPositions.push(currentPos);
+                this.addToken(current, startPos);
                 if (char === '\n') {
-                    this.tokens.push('\n');
-                    this.tokenPositions.push(i);
+                    this.addToken('\n', pos);
                 }
-                currentValue = '';
-                currentPos = i + 1;
-            } else if (char === '/' && code[i + 1] === '/') {
-                while (code[i] !== '\n') {
-                    i++;
+                current = '';
+                startPos = pos + 1;
+            } else if (char === '/' && code[pos + 1] === '/') {
+                while (code[pos] !== '\n') {
+                    pos++;
                 }
             } else {
-                currentValue += char;
+                current += char;
             }
         }
-        if (currentValue !== '') {
-            this.tokens.push(currentValue);
-            this.tokenPositions.push(currentPos);
+        if (current !== '') {
+            this.addToken(current, startPos);
         }
         if (this.tokens[this.tokens.length - 1] !== '\n') {
-            this.tokens.push('\n');
-            this.tokenPositions.push(code.length);
+            this.addToken('\n', code.length);
         }
-        this.pos = 0;
-    }
-
-    error(msg: string, increment: number = 0): never {
-        let pos = this.tokenPositions[this.pos + increment];
-        let line = 1;
-        let col = 0;
-        for (let i = 0; i < pos; i++) {
-            if (this.code[i] === '\n') {
-                col = 0;
-                line++;
-            } else {
-                col++;
-            }
-        }
-        throw new RPFError(`Syntax error (at ${this.file.path}:${line}:${col}): ${msg}`);
-    }
-
-    peek(): string | typeof EOF {
-        return this.tokens[this.pos] ?? EOF;
-    }
-
-    advance(): string {
-        let out = this.tokens[this.pos];
-        if (out === undefined) {
-            return EOF;
-        } else {
-            this.pos++;
-            return out;
-        }
-    }
-
-    match(...data: (Matcher | Matcher[0])[]): boolean {
-        for (let i = 0; i < data.length; i++) {
-            let matcher = data[i];
-            if (Array.isArray(matcher)) {
-                matcher = matcher[0];
-            }
-            let token = this.tokens[this.pos + i] ?? EOF;
-            if (matcher instanceof Set) {
-                let found = false;
-                for (let value of matcher) {
-                    if (value === token) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    return false;
-                }
-            } else if (typeof matcher === 'string') {
-                if (matcher !== token) {
-                    return false;
-                }
-            } else {
-                if (!token.match(matcher)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    expect(...data: Matcher[]): void {
-        for (let i = 0; i < data.length; i++) {
-            let [matcher, errorMsg] = data[i];
-            let token = this.tokens[this.pos + i] ?? EOF;
-            if (matcher instanceof Set) {
-                let found = false;
-                for (let value of matcher) {
-                    if (value === token) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            } else if (typeof matcher === 'string') {
-                if (matcher !== token) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            } else {
-                if (!token.match(matcher)) {
-                    if (token === EOF) {
-                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
-                    } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
-                    }
-                }
-            }
-        }
-    }
-
-    eat(...data: Matcher[]): string[] {
-        this.expect(...data);
-        let out: string[] = [];
-        for (let i = 0; i < data.length; i++) {
-            out.push(this.advance());
-        }
-        return out;
     }
 
     _literalOrIdentifier(): T | RPFPattern<T> {
         if (this.match(T_STAR_THEN_APGCODE)) {
-            return this.file.base.loadApgcode(this.advance().slice(1));
+            return this.rpfFile.base.loadApgcode(this.advance().slice(1));
         } else {
             let value = this.advance();
-            let out = this.file.lookupName(value);
+            let out = this.rpfFile.lookupName(value);
             if (!out) {
                 this.error(`Cannot resolve name '${value}'`, -1);
             }
@@ -1470,7 +1350,7 @@ export class RPFParser<T extends Pattern> {
     }
 
     pattern(key?: string): RPFPattern<T> {
-        let out = new RPFPattern<T>(this.file, key);
+        let out = new RPFPattern<T>(this.rpfFile, key);
         while (!(this.match(T_RIGHT_BRACE) || this.match(T_EOF) || this.match(T_KEY_INDICATOR))) {
             if (this.match(/^#/)) {
                 this.patternMetadata(out);
@@ -1494,6 +1374,8 @@ export class RPFParser<T extends Pattern> {
             }
             if (rename === '__proto__') {
                 this.error(`Import rename cannot be '__proto__'`, -1);
+            } else if (rename === 'constructor') {
+                this.error(`Import rename cannot be 'constructor'`, -1);
             }
         }
         this.eat(['from', `'from'`]);
@@ -1524,8 +1406,8 @@ export class RPFParser<T extends Pattern> {
         this.eat(T_NEWLINE);
         let base = createPattern(ruleTokens.join(' ')) as T;
         this.base = base;
-        let out = new RPFFile(base, this.file.path);
-        this.file = out;
+        let out = new RPFFile(base, this.rpfFile.path);
+        this.rpfFile = out;
         while (!this.match(T_KEY_INDICATOR, T_NEWLINE)) {
             this.eat(['import', 'import statement']);
             if (!fs) {

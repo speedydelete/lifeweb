@@ -4,14 +4,18 @@
 
 /** All errors raised by lifeweb. */
 export class LifewebError extends Error {
+
     name = 'LifewebError';
     [Symbol.toStringTag] = 'LifewebError';
+
 }
 
 /** This error is raised when a rulestring is invalid or the wrong rule is passed. */
 export class RuleError extends LifewebError {
+
     name = 'RuleError';
     [Symbol.toStringTag] = 'RuleError';
+
 }
 
 
@@ -211,3 +215,221 @@ export function stringMD5(data: string): string {
     return Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
+
+export type Matcher = [string | RegExp | typeof EOF | Set<string | RegExp | typeof EOF>, string];
+
+export const EOF = Symbol();
+
+export const T_EOF: Matcher = [EOF, 'end of file'];
+
+export interface ParserPosition {
+    file: string | undefined;
+    function: string | undefined;
+    line: number;
+    column: number;
+}
+
+export class ParserError extends LifewebError {
+
+    name = 'ParserError';
+    [Symbol.toStringTag] = 'ParserError';
+
+    stackPositions: ParserPosition[];
+    stack: string;
+
+    constructor(message: string, stackPositions: ParserPosition[]) {
+        super(message);
+        this.stackPositions = stackPositions;
+        let stack: string[] = [`${this.name}: ${message}`];
+        for (let pos of stackPositions) {
+            let str = '    at ';
+            if (pos.function) {
+                str += pos.function + ' ';
+            }
+            if (pos.file !== undefined) {
+                str += ` (${pos.file}:${pos.line}:${pos.column})`;
+            } else {
+                str += ` (${pos.line}:${pos.column})`;
+            }
+            stack.push(str);
+        }
+        this.stack = stack.join('\n');
+    }
+
+}
+
+export abstract class BaseParser {
+
+    static ParserError: new (message: string, stackPositions: ParserPosition[]) => ParserError;
+
+    file: string | undefined;
+    code: string;
+    tokens: string[];
+    tokenPositions: number[];
+    pos: number;
+    stack: ParserPosition[];
+    currentFunction: string | undefined;
+
+    constructor(file: string | undefined, code: string) {
+        this.file = file;
+        this.code = code;
+        this.tokens = [];
+        this.tokenPositions = [];
+        this.pos = 0;
+        this.stack = [];
+        this.currentFunction = undefined;
+        this.tokenize(code);
+    }
+
+    addToken(value: string, pos: number): void {
+        this.tokens.push(value);
+        this.tokenPositions.push(pos);
+    }
+
+    abstract tokenize(code: string): void;
+
+    getAbsolutePosition(pos: number): ParserPosition {
+        pos = this.tokenPositions[pos];
+        let line = 1;
+        let column = 0;
+        for (let i = 0; i < pos; i++) {
+            if (this.code[i] === '\n') {
+                column = 0;
+                line++;
+            } else {
+                column++;
+            }
+        }
+        return {file: this.file, function: this.currentFunction, line, column};
+    }
+
+    getRelativePosition(offset: number): ParserPosition {
+        return this.getAbsolutePosition(this.pos + offset);
+    }
+
+    getCurrentPosition(): ParserPosition {
+        return this.getAbsolutePosition(this.pos);
+    }
+
+    pushCall(): void {
+        this.stack.push(this.getCurrentPosition());
+    }
+
+    popCall(): void {
+        this.stack.pop();
+    }
+
+    error(message: string, offset: number = 0): never {
+        let pos = this.getRelativePosition(offset);
+        let stackPositions = this.stack.concat(pos);
+        throw new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
+    }
+
+    peek(): string | typeof EOF {
+        return this.tokens[this.pos] ?? EOF;
+    }
+
+    advance(): string {
+        let out = this.tokens[this.pos];
+        if (out === undefined) {
+            this.error(`Unexpected end of input`);
+        } else {
+            this.pos++;
+            return out;
+        }
+    }
+
+    match(...data: (Matcher | Matcher[0])[]): boolean {
+        for (let i = 0; i < data.length; i++) {
+            let matcher = data[i];
+            if (Array.isArray(matcher)) {
+                matcher = matcher[0];
+            }
+            let token = (this.tokens[this.pos + i] ?? EOF) as string | typeof EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (typeof value === 'string') {
+                        found = value === token;
+                    } else if (value instanceof RegExp) {
+                        found = token !== EOF && Boolean(token.match(value));
+                    } else {
+                        found = token === EOF;
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    return false;
+                }
+            } else if (matcher instanceof RegExp) {
+                if (token === EOF || !token.match(matcher)) {
+                    return false;
+                }
+            } else {
+                if (token !== EOF) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    expect(...data: Matcher[]): void {
+        for (let i = 0; i < data.length; i++) {
+            let [matcher, errorMsg] = data[i];
+            let token = (this.tokens[this.pos + i] ?? EOF) as string | typeof EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (value === token) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (matcher instanceof RegExp) {
+                if (token === EOF || !token.match(matcher)) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                    }
+                }
+            } else {
+                if (token !== EOF) {
+                    this.error(`Unexpected continuation of input (expected ${errorMsg})`, i);
+                }
+            }
+        }
+    }
+
+    eat(...data: Matcher[]): string[] {
+        this.expect(...data);
+        let out: string[] = [];
+        for (let i = 0; i < data.length; i++) {
+            out.push(this.advance());
+        }
+        return out;
+    }
+
+}

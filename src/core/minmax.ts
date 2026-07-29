@@ -11,8 +11,10 @@ import {TreePattern} from './ruleloader.js';
 
 
 export class MinmaxError extends LifewebError {
+
     name: 'MinmaxError' = 'MinmaxError';
     [Symbol.toStringTag]: 'MinmaxError' = 'MinmaxError';
+
 }
 
 
