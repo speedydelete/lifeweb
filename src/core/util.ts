@@ -387,8 +387,14 @@ export abstract class BaseParser {
             if (matcher instanceof Set) {
                 let found = false;
                 for (let value of matcher) {
-                    if (value === token) {
-                        found = true;
+                    if (typeof value === 'string') {
+                        found = value === token;
+                    } else if (value instanceof RegExp) {
+                        found = token !== EOF && Boolean(token.match(value));
+                    } else {
+                        found = token === EOF;
+                    }
+                    if (found) {
                         break;
                     }
                 }
