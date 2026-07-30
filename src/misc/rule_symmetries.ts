@@ -47,229 +47,6 @@ export function classifyTr(tr: number): TransitionClass {
     }
 }
 
-// /*
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0))
-//          | ((tr & 0b010_000_000_0))
-//          | ((tr & 0b001_000_000_0))
-//          | ((tr & 0b000_100_000_0))
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0))
-//          | ((tr & 0b000_000_100_0))
-//          | ((tr & 0b000_000_010_0))
-//          | ((tr & 0b000_000_001_0));
-// */
-
-// export function rotate180(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 8)
-//          | ((tr & 0b010_000_000_0) >> 6)
-//          | ((tr & 0b001_000_000_0) >> 4)
-//          | ((tr & 0b000_100_000_0) >> 2)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) << 2)
-//          | ((tr & 0b000_000_100_0) << 4)
-//          | ((tr & 0b000_000_010_0) << 6)
-//          | ((tr & 0b000_000_001_0) << 8);
-// }
-
-// export function rotateLeft(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 6)
-//          | ((tr & 0b010_000_000_0) >> 2)
-//          | ((tr & 0b001_000_000_0) << 2)
-//          | ((tr & 0b000_100_000_0) >> 4)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) << 4)
-//          | ((tr & 0b000_000_100_0) >> 2)
-//          | ((tr & 0b000_000_010_0) << 2)
-//          | ((tr & 0b000_000_001_0) << 6);
-// }
-
-// export function rotateRight(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 2)
-//          | ((tr & 0b010_000_000_0) >> 4)
-//          | ((tr & 0b001_000_000_0) >> 6)
-//          | ((tr & 0b000_100_000_0) << 2)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) >> 2)
-//          | ((tr & 0b000_000_100_0) << 6)
-//          | ((tr & 0b000_000_010_0) << 4)
-//          | ((tr & 0b000_000_001_0) << 2);
-// }
-
-export function flipVertical(tr: number): number {
-    return (tr & 1)
-         | ((tr & 0b111_000_000_0) >> 6)
-         | ((tr & 0b000_111_000_0))
-         | ((tr & 0b000_000_111_0) << 6);
-}
-
-// export function flipHorizontal(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_100_100_0) >> 2)
-//          | ((tr & 0b010_010_010_0))
-//          | ((tr & 0b001_001_001_0) << 2);
-// }
-
-// export function flipDiagonal(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0))
-//          | ((tr & 0b010_000_000_0) >> 2)
-//          | ((tr & 0b001_000_000_0) >> 4)
-//          | ((tr & 0b000_100_000_0) << 2)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) >> 2)
-//          | ((tr & 0b000_000_100_0) << 4)
-//          | ((tr & 0b000_000_010_0) << 2)
-//          | ((tr & 0b000_000_001_0));
-// }
-
-// export function flipAntiDiagonal(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 8)
-//          | ((tr & 0b010_000_000_0) >> 4)
-//          | ((tr & 0b001_000_000_0))
-//          | ((tr & 0b000_100_000_0) >> 4)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) << 4)
-//          | ((tr & 0b000_000_100_0))
-//          | ((tr & 0b000_000_010_0) << 4)
-//          | ((tr & 0b000_000_001_0) << 8);
-// }
-
-// export function rotate8Left(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 3)
-//          | ((tr & 0b010_000_000_0) << 1)
-//          | ((tr & 0b001_000_000_0) << 1)
-//          | ((tr & 0b000_100_000_0) >> 3)
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0) << 3)
-//          | ((tr & 0b000_000_100_0) >> 1)
-//          | ((tr & 0b000_000_010_0) >> 1)
-//          | ((tr & 0b000_000_001_0) << 3);
-// }
-
-// export function swapTopAndTopLeftCells(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0) >> 1)
-//          | ((tr & 0b010_000_000_0) << 1)
-//          | ((tr & 0b001_000_000_0))
-//          | ((tr & 0b000_100_000_0))
-//          | ((tr & 0b000_010_000_0))
-//          | ((tr & 0b000_001_000_0))
-//          | ((tr & 0b000_000_100_0))
-//          | ((tr & 0b000_000_010_0))
-//          | ((tr & 0b000_000_001_0));
-// }
-
-// export function swapCenterAndTopCells(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b100_000_000_0))
-//          | ((tr & 0b010_000_000_0) >> 3)
-//          | ((tr & 0b001_000_000_0))
-//          | ((tr & 0b000_100_000_0))
-//          | ((tr & 0b000_010_000_0) << 3)
-//          | ((tr & 0b000_001_000_0))
-//          | ((tr & 0b000_000_100_0))
-//          | ((tr & 0b000_000_010_0))
-//          | ((tr & 0b000_000_001_0));
-// }
-
-// export function createAND(value: number): Symmetry {
-//     return tr => tr & value;
-// }
-
-// export function createOR(value: number): Symmetry {
-//     return tr => tr | value;
-// }
-
-// export function createXOR(value: number): Symmetry {
-//     return tr => tr ^ value;
-// }
-
-// export function createNAND(value: number): Symmetry {
-//     return tr => ~(tr & value);
-// }
-
-// export function createNOR(value: number): Symmetry {
-//     return tr => ~(tr | value);
-// }
-
-// export function createXNOR(value: number): Symmetry {
-//     return tr => ~(tr ^ value);
-// }
-
-// export function createRestrictNH(nh: number): SymmetryList {
-//     let removed: number[] = [];
-//     for (let i = 0; i < 9; i++) {
-//         if (!(nh & (1 << i))) {
-//             removed.push(i);
-//         }
-//     }
-//     let and = (nh << 1) | 0b000_000_000_1;
-//     let out: SymmetryList = [];
-//     let done = new Set<number>();
-//     for (let i = 0; i < 2**removed.length; i++) {
-//         let or = 0;
-//         for (let j = 0; j < removed.length; j++) {
-//             if (i & (1 << j)) {
-//                 or |= (1 << (removed[j] + 1));
-//             }
-//         }
-//         if (done.has(or)) {
-//             continue;
-//         }
-//         done.add(or);
-//         out.push(tr => (tr & and) | or);
-//     }
-//     return out;
-// }
-
-// function rightShift(value: number, places: number): number {
-//     if (places >= 0) {
-//         return value >> places;
-//     } else {
-//         return value << places;
-//     }
-// }
-
-// export function createPermute(values: number[]): Symmetry {
-//     console.log(values);
-//     let shifts: number[] = [];
-//     for (let i = 0; i < 10; i++) {
-//         shifts.push(i - values.indexOf(i));
-//     }
-//     console.log(shifts);
-//     return tr => {
-//         return rightShift(tr & 0b100_000_000_0, shifts[0])
-//              | rightShift(tr & 0b010_000_000_0, shifts[1])
-//              | rightShift(tr & 0b001_000_000_0, shifts[2])
-//              | rightShift(tr & 0b000_100_000_0, shifts[3])
-//              | rightShift(tr & 0b000_010_000_0, shifts[4])
-//              | rightShift(tr & 0b000_001_000_0, shifts[5])
-//              | rightShift(tr & 0b000_000_100_0, shifts[6])
-//              | rightShift(tr & 0b000_000_010_0, shifts[7])
-//              | rightShift(tr & 0b000_000_001_0, shifts[8])
-//              | rightShift(tr & 0b000_000_000_1, shifts[9]);
-//     };
-// }
-
-
-// export const NO_CENTER_NH = createRestrictNH(0b111_101_111);
-
-// export const VON_NEUMANN_NH = createRestrictNH(0b010_111_010);
-// export const VON_NEUMANN_INT_SYMMETRY: SymmetryList = [...VON_NEUMANN_NH, ...D8_SYMMETRY];
-
-
-// export const HEX_NH = createRestrictNH(0b110_111_011);
-// export const TRIPOD_NH = createRestrictNH(0b010_110_001);
-
-
-// export const BW_REVERSAL_SYMMETRY = createXOR(0b111_111_111);
-
 
 export function swapVector(vector: Vector): Vector {
     return vector.map(x => x ^ 1);
@@ -489,111 +266,10 @@ export function findBasis(symmetry: Symmetry): Basis | string {
 }
 
 
-
-
-
-    // 'none': trs([]),
-    // 'c1': 'none',
-    // 'nothing': 'none',
-    // 'empty': 'none',
-    // 'null': 'none',
-    // 'undefined': 'none',
-    // 'nil': 'none',
-
-    // 'identity': func(TR_TYPE, TR_TYPE, identity, true),
-    // 'noop': 'identity',
-    // 'f': 'identity',
-
-    // 'rotate180': func(TR_TYPE, TR_TYPE, rotate180, true),
-    // '180rotate': 'rotate180',
-    // 'rotate2': 'rotate180',
-    // 'c2': 'rotate180',
-    // 'b': 'rotate180',
-
-    // 'rotateleft': func(TR_TYPE, TR_TYPE, rotateLeft, true),
-    // 'leftrotate': 'rotateleft',
-    // 'rotate': 'rotateleft',
-    // 'c4': 'rotateleft',
-    // 'l': 'rotateleft',
-
-    // 'rotateright': func(TR_TYPE, TR_TYPE, rotateRight, true),
-    // 'rightrotate': 'rotateright',
-    // 'r': 'rotateright',
-
-    // 'flipvertical': func(TR_TYPE, TR_TYPE, flipVertical, true),
-    // 'verticalflip': 'flipvertical',
-    // 'd2-': 'flipvertical',
-    // 'd2h': 'flipvertical',
-    // 'fx': 'flipvertical',
-
-    // 'fliphorizontal': func(TR_TYPE, TR_TYPE, flipHorizontal, true),
-    // 'horizontalflip': 'fliphorizontal',
-    // 'd2|': 'fliphorizontal',
-    // 'd2v': 'fliphorizontal',
-    // 'bx': 'fliphorizontal',
-
-    // 'flipdiagonal': func(TR_TYPE, TR_TYPE, flipDiagonal, true),
-    // 'd2\\': 'flipdiagonal',
-    // 'd2b': 'flipdiagonal',
-    // 'rx': 'flipdiagonal',
-
-    // 'flipantidiagonal': func(TR_TYPE, TR_TYPE, flipAntiDiagonal, true),
-    // 'd2/': 'flipantidiagonal',
-    // 'd2s': 'flipantidiagonal',
-    // 'lx': 'flipantidiagonal',
-
-    // 'rotate8left': func(TR_TYPE, TR_TYPE, rotate8Left, true),
-    // 'rotateleft8': 'rotate8left',
-    // 'rotate8': 'rotate8left',
-    // 'rotate8right': 'rotate8left',
-    // 'rotateright8': 'rotate8left',
-
-    // 'outertotalistic': {type: 'funcs', value: [
-    //     func(TR_TYPE, TR_TYPE, rotate8Left),
-    //     func(TR_TYPE, TR_TYPE, swapTopAndTopLeftCells),
-    // ]},
-    // 'ot': 'outertotalistic',
-    // 'permute': 'outertotalistic',
-    // 'totalpermute': 'outertotalistic',
-
-    // 'totalistic': {type: 'funcs', value: [
-    //     func(TR_TYPE, TR_TYPE, rotate8Left),
-    //     func(TR_TYPE, TR_TYPE, swapTopAndTopLeftCells),
-    //     func(TR_TYPE, TR_TYPE, swapCenterAndTopCells),
-    // ]},
-    // 't': 'totalistic',
-
-    // 'd4+': D4P_SYMMETRY,
-    // 'd4p': D4P_SYMMETRY,
-    // 'rotate2flip': D4P_SYMMETRY,
-    // 'fliprotate2': D4P_SYMMETRY,
-    // 'rotate180flip': D4P_SYMMETRY,
-    // 'fliprotate180': D4P_SYMMETRY,
-
-    // 'd4x': D4X_SYMMETRY,
-
-    // 'd8': D8_SYMMETRY,
-    // 'int': D8_SYMMETRY,
-
-    // 'rotate8flip': ROTATE_8_REFLECT_SYMMETRY,
-
-    // 'nocenter': NO_CENTER_NH,
-
-    // 'vn': VON_NEUMANN_NH,
-    // 'vnint': VON_NEUMANN_INT_SYMMETRY,
-
-    // 'hex': HEX_NH,
-    // 'tripod': TRIPOD_NH,
-
-    // 'bw': BW_REVERSAL_SYMMETRY,
-
-    // 'and': createAND,
-    // 'or': createOR,
-
 export class SymmetryError extends ParserError {
 
-    name = 'SymmetryError';
-    [Symbol.toStringTag] = 'SymmetryError';
+    name: string = 'SymmetryError';
+    [Symbol.toStringTag]: string = 'SymmetryError';
 
 }
 
@@ -611,7 +287,7 @@ export class SymmetryParser extends BaseParser {
 
     namespace: {[key: string]: Symmetry};
 
-    constructor(code: string, namespace: {[key: string]: Symmetry} = {}) {
+    constructor(code: string, namespace: {[key: string]: Symmetry} = Object.create(null)) {
         super(undefined, code);
         this.namespace = namespace;
     }
@@ -629,6 +305,10 @@ export class SymmetryParser extends BaseParser {
                     continue;
                 } else {
                     current += char;
+                }
+            } else if (char === '/' && code[pos + 1] === '/') {
+                while (pos < code.length && code[pos] !== '\n') {
+                    pos++;
                 }
             } else if (SymmetryParser.SPECIAL_CHARS.has(char)) {
                 if (current.length > 0) {
@@ -775,49 +455,52 @@ export class SymmetryParser extends BaseParser {
         's': 7,
         'se': 8,
         'r': 9,
-        'x': 10,
     };
+
+    static readonly T_PERMUTATION_CELL_POS: Matcher = [/^[ns][we]?|[wce]|r$/, 'cell position'];
 
     permutationLiteral(): Symmetry {
         this.eat(['[', 'left bracket']);
-        let startPos = this.pos;
-        let value = '';
-        while (!(this.match(']') || this.match(EOF))) {
-            value += this.advance();
-        }
-        this.eat([']', 'closing bracket']);
-        let posOffset = startPos - this.pos;
-        let perm: number[] = [];
         let mask = 0;
-        for (let i = 0; i < value.length; i++) {
-            let char = value[i];
-            if (' _.,'.includes(char)) {
-                continue;
-            }
-            if (char === '0' || char === '1') {
-                perm.push(-1);
-                if (Number(char) === 1) {
-                    mask |= (1 << (10 - i));
+        let perm: number[] = [];
+        for (let i = 0; i < 10; i++) {
+            perm.push(i);
+        }
+        let pos = 0;
+        while (true) {
+            if (this.match(SymmetryParser.T_PERMUTATION_CELL_POS)) {
+                let cell = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
+                if (this.match('=')) {
+                    this.advance();
+                    if (this.match(SymmetryParser.T_PERMUTATION_CELL_POS)) {
+                        let value = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
+                        perm[cell] = value;
+                    } else if (this.match('0') || this.match('1')) {
+                        let value = Number(this.advance());
+                        mask |= (value << (9 - cell));
+                    } else {
+                        this.error(`Invalid permutation, expected cell position or literal value after '='`);
+                    }
+                } else {
+                    perm[pos] = cell;
                 }
-            }
-            if (char === 'n' || char === 's') {
-                let next = value[i + 1];
-                if (next === 'w' || next === 'e') {
-                    char += next;
-                    i++;
-                }
-            }
-            if (!(char in SymmetryParser.PERMUTATION_POSITIONS)) {
-                this.error(`Invalid permutation cell position: '${char}'`, -posOffset);
+            } else if (this.match('0') || this.match('1')) {
+                let value = Number(this.advance());
+                perm[pos] = -1;
+                mask |= (value << (9 - pos));
+            } else if (this.match(']')) {
+                this.advance();
+                break;
             } else {
-                perm.push(SymmetryParser.PERMUTATION_POSITIONS[char]);
+                this.error(`Invalid permutation, expected cell position or literal value`);
             }
-        }
-        if (perm.length === 9) {
-            perm.push(9);
-        }
-        if (perm.length !== 10) {
-            this.error(`Invalid permutation (parsed length is not 9 or 10)`, -posOffset);
+            if (this.match(']')) {
+                this.advance();
+                break;
+            } else {
+                this.eat([',', 'comma']);
+                pos = (pos + 1) % 10;
+            }
         }
         let shifts: number[] = [];
         for (let i = 0; i < 10; i++) {
@@ -839,7 +522,7 @@ export class SymmetryParser extends BaseParser {
         }];
     }
 
-    static readonly T_IDENTIFIER: Matcher = [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'];
+    static readonly T_IDENTIFIER: Matcher = [/^[#$%&*+,\-./:;<=>?@A-Z\\^_a-z|~][#$%&*+,\-./0-9:;<=>?@A-Z\\^_a-z|~]*$/, 'identifier'];
 
     identifier(): string {
         let out = this.eat(SymmetryParser.T_IDENTIFIER)[0];
@@ -942,9 +625,71 @@ export class SymmetryParser extends BaseParser {
 
 
 const PREDEFINED_SYMMETRIES = `
-[sw,s,se,w,c,e,nw,n,ne]
+
+none = []
+
+identity = [nw,n,ne, w,c,e, sw,s,se]
+
+rotate180 = [se,s,sw, e,c,w, ne,n,nw]
+rotateLeft = [ne,e,se, n,c,s, nw,w,sw]
+rotateRight = [sw,w,nw, s,c,n, se,e,ne]
+flipVertical = [sw,s,se, w,c,e, nw,n,ne]
+flipHorizontal = [ne,n,nw, e,c,w, se,s,sw]
+flipDiagonal = [nw,w,sw, n,c,s, ne,e,se]
+flipAntiDiagonal = [se,e,ne, s,c,n, sw,w,nw]
+
+rotate8Left = [n,ne,e, nw,c,se, w,sw,s]
+rotate8Right = [w,nw,n, sw,c,ne, s,se,e]
+
+C1 = identity
+C2 = rotate180
+C4 = rotateLeft
+D2- = flipVertical
+D2| = flipHorizontal
+D2\\ = flipDiagonal
+D2/ = flipAntiDiagonal
+D4+ = D2-, D2|
+D4x = D2\\, D2/
+D8 = C4, D2-
+D2h = D2-
+D2v = D2|
+D2b = D2\\
+D2s = D2/
+D4p = D4+
+
+rotate2 = C2
+rotate4 = C4
+rotate8 = rotate8Left
+rotate2reflect = D4+
+rotate4reflect = D8
+rotate8reflect = rotate8, flipVertical
+
+INT = D8
+
+F = identity
+Fx = flipVertical
+L = rotateLeft
+Lx = flipAntiDiagonal
+B = rotate180
+Bx = flipHorizontal
+R = rotateRight
+Rx = flipDiagonal
+
+outerTotalistic = rotate8Left, [nw=n, n=nw]
+OT = outerTotalistic
+permute = outerTotalistic
+totalistic = outerTotalistic, [n=c, c=n]
+
+moore = []
+vonNeumann = [nw=0, ne=0, sw=0, se=0]
+VN = vonNeumann
+hexagonal = [ne=0, sw=0]
+hex = hexagonal
+tripod = [n=0, ne=0, w=0, sw=0, se=0]
+noCenter = [c=0]
+
 `;
 
-let parser = new SymmetryParser(PREDEFINED_SYMMETRIES);
+export const PREDEFINED_SYMMETRY_NAMESPACE: {[key: string]: Symmetry} = Object.create(null);
+let parser = new SymmetryParser(PREDEFINED_SYMMETRIES, PREDEFINED_SYMMETRY_NAMESPACE);
 parser.program();
-export const PREDEFINED_SYMMETRY_NAMESPACE = parser.namespace;

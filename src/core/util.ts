@@ -231,8 +231,8 @@ export interface ParserPosition {
 
 export class ParserError extends LifewebError {
 
-    name = 'ParserError';
-    [Symbol.toStringTag] = 'ParserError';
+    name: string = 'ParserError';
+    [Symbol.toStringTag]: string = 'ParserError';
 
     stackPositions: ParserPosition[];
     stack: string;
