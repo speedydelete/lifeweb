@@ -568,11 +568,12 @@ export class SymmetryParser extends BaseParser {
             } else if (this.match('(')) {
                 this.advance();
                 let args: Symmetry = [];
-                while (!this.match(')')) {
+                while (!(this.match(')') || this.match(EOF))) {
                     for (let func of this.expression()) {
                         args.push(func);
                     }
                 }
+                this.eat([')', 'right parenthesis']);
                 let newOut: Symmetry = [];
                 for (let func of out) {
                     for (let func2 of args) {
