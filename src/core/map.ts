@@ -466,10 +466,10 @@ export function parseMAP(data: string): [Uint8Array<ArrayBuffer>, number] {
             throw new RuleError(`Invalid MAP string (bad length and no /): '${original}'`);
         }
         let value = data.slice(index + 1);
-        if (!value.match(/^\d+$/)) {
+        if (!value.match(/^([0-9.e]+|0x[0-9a-fA-F.]+|0b[01.e]+|0o[0-7.e]+|-?NaN|-?Infinity)$/)) {
             throw new RuleError(`Invalid MAP string (bad length and invalid state count): '${original}'`);
         }
-        states = parseInt(value);
+        states = Number(value);
         data = data.slice(0, index);
     }
     if (data.length === 86) {
