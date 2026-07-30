@@ -99,12 +99,12 @@ export function classifyTr(tr: number): TransitionClass {
 //          | ((tr & 0b000_000_001_0) << 2);
 // }
 
-// export function flipVertical(tr: number): number {
-//     return (tr & 1)
-//          | ((tr & 0b111_000_000_0) >> 6)
-//          | ((tr & 0b000_111_000_0))
-//          | ((tr & 0b000_000_111_0) << 6);
-// }
+export function flipVertical(tr: number): number {
+    return (tr & 1)
+         | ((tr & 0b111_000_000_0) >> 6)
+         | ((tr & 0b000_111_000_0))
+         | ((tr & 0b000_000_111_0) << 6);
+}
 
 // export function flipHorizontal(tr: number): number {
 //     return (tr & 1)
@@ -597,9 +597,9 @@ export class SymmetryError extends ParserError {
 
 }
 
-function rightShift(value: number, places: number): number {
-    if (places >= 0) {
-        return value >> places;
+function leftShift(value: number, places: number) {
+    if (places < 0) {
+        return value >> -places;
     } else {
         return value << places;
     }
@@ -631,7 +631,9 @@ export class SymmetryParser extends BaseParser {
                     current += char;
                 }
             } else if (SymmetryParser.SPECIAL_CHARS.has(char)) {
-                this.addToken(current.trimEnd(), startPos);
+                if (current.length > 0) {
+                    this.addToken(current.trimEnd(), startPos);
+                }
                 this.addToken(char, pos);
                 current = '';
                 startPos = pos + 1;
@@ -674,6 +676,9 @@ export class SymmetryParser extends BaseParser {
             }
             return [Number(value) | or];
         } else {
+            if (!hasClass) {
+                this.error(`No transition class provided`, -1);
+            }
             value = value.toLowerCase();
             let out: number[] = [];
             for (let key of parseTransitions(value, spec)) {
@@ -759,43 +764,78 @@ export class SymmetryParser extends BaseParser {
         ));
     }
 
-    static readonly FIRST_10_LETTERS = 'abcdefghij';
+    static readonly PERMUTATION_POSITIONS: {[key: string]: number} = {
+        'nw': 0,
+        'n': 1,
+        'ne': 2,
+        'w': 3,
+        'c': 4,
+        'e': 5,
+        'sw': 6,
+        's': 7,
+        'se': 8,
+        'r': 9,
+        'x': 10,
+    };
 
     permutationLiteral(): Symmetry {
         this.eat(['[', 'left bracket']);
+        let startPos = this.pos;
         let value = '';
         while (!(this.match(']') || this.match(EOF))) {
             value += this.advance();
         }
         this.eat([']', 'closing bracket']);
+        let posOffset = startPos - this.pos;
         let perm: number[] = [];
-        for (let char of value) {
-            if ('0123456789'.includes(char)) {
-                perm.push(Number(char));
-            } else {
-                char = char.toLowerCase();
-                if (char === 'x') {
-                    perm.push(10);
-                } else {
-                    perm.push(SymmetryParser.FIRST_10_LETTERS.indexOf(char));
+        let mask = 0;
+        for (let i = 0; i < value.length; i++) {
+            let char = value[i];
+            if (' _.,'.includes(char)) {
+                continue;
+            }
+            if (char === '0' || char === '1') {
+                perm.push(-1);
+                if (Number(char) === 1) {
+                    mask |= (1 << (10 - i));
                 }
             }
+            if (char === 'n' || char === 's') {
+                let next = value[i + 1];
+                if (next === 'w' || next === 'e') {
+                    char += next;
+                    i++;
+                }
+            }
+            if (!(char in SymmetryParser.PERMUTATION_POSITIONS)) {
+                this.error(`Invalid permutation cell position: '${char}'`, -posOffset);
+            } else {
+                perm.push(SymmetryParser.PERMUTATION_POSITIONS[char]);
+            }
+        }
+        if (perm.length === 9) {
+            perm.push(9);
+        }
+        if (perm.length !== 10) {
+            this.error(`Invalid permutation (parsed length is not 9 or 10)`, -posOffset);
         }
         let shifts: number[] = [];
         for (let i = 0; i < 10; i++) {
             shifts.push(i - perm.indexOf(i));
         }
         return [tr => {
-            return rightShift(tr & 0b100_000_000_0, shifts[0])
-                 | rightShift(tr & 0b010_000_000_0, shifts[1])
-                 | rightShift(tr & 0b001_000_000_0, shifts[2])
-                 | rightShift(tr & 0b000_100_000_0, shifts[3])
-                 | rightShift(tr & 0b000_010_000_0, shifts[4])
-                 | rightShift(tr & 0b000_001_000_0, shifts[5])
-                 | rightShift(tr & 0b000_000_100_0, shifts[6])
-                 | rightShift(tr & 0b000_000_010_0, shifts[7])
-                 | rightShift(tr & 0b000_000_001_0, shifts[8])
-                 | rightShift(tr & 0b000_000_000_1, shifts[9]);
+            return mask
+                 | leftShift(tr & 0b100_000_000_0, shifts[0])
+                 | leftShift(tr & 0b010_000_000_0, shifts[1])
+                 | leftShift(tr & 0b001_000_000_0, shifts[2])
+                 | leftShift(tr & 0b000_100_000_0, shifts[3])
+                 | leftShift(tr & 0b000_010_000_0, shifts[4])
+                 | leftShift(tr & 0b000_001_000_0, shifts[5])
+                 | leftShift(tr & 0b000_000_100_0, shifts[6])
+                 | leftShift(tr & 0b000_000_010_0, shifts[7])
+                 | leftShift(tr & 0b000_000_001_0, shifts[8])
+                 | leftShift(tr & 0b000_000_000_1, shifts[9])
+            ;
         }];
     }
 
@@ -872,6 +912,10 @@ export class SymmetryParser extends BaseParser {
     static readonly T_LINE_END: Matcher = [new Set(['\n', ';', EOF]), 'line end'];
 
     statement(): Symmetry | undefined {
+        if (this.match(SymmetryParser.T_LINE_END)) {
+            this.advance();
+            return;
+        }
         let out: Symmetry | undefined;
         if (this.match(SymmetryParser.T_IDENTIFIER, '=')) {
             this.variableSet();
@@ -895,3 +939,12 @@ export class SymmetryParser extends BaseParser {
     }
 
 }
+
+
+const PREDEFINED_SYMMETRIES = `
+[sw,s,se,w,c,e,nw,n,ne]
+`;
+
+let parser = new SymmetryParser(PREDEFINED_SYMMETRIES);
+parser.program();
+export const PREDEFINED_SYMMETRY_NAMESPACE = parser.namespace;

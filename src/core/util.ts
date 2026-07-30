@@ -243,13 +243,13 @@ export class ParserError extends LifewebError {
         let stack: string[] = [`${this.name}: ${message}`];
         for (let pos of stackPositions) {
             let str = '    at ';
-            if (pos.function) {
+            if (pos.function !== undefined) {
                 str += pos.function + ' ';
             }
             if (pos.file !== undefined) {
-                str += ` (${pos.file}:${pos.line}:${pos.column})`;
+                str += `(${pos.file}:${pos.line}:${pos.column})`;
             } else {
-                str += ` (${pos.line}:${pos.column})`;
+                str += `(${pos.line}:${pos.column})`;
             }
             stack.push(str);
         }
