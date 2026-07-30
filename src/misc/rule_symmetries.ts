@@ -693,8 +693,11 @@ rotate120Right = [s,w,0, se,c,nw, 0,e,n]
 rotate60Left = [n,e,0, nw,c,se, 0,w,s]
 rotate60Right = [w,nw,0, s,c,n, 0,se,e]
 
+rotate120 = rotate120Left
+rotate60 = rotate60Left
+
 C3 = rotate120
-C6 = rotate60Left
+C6 = rotate60
 
 hexC3 = C3
 hexC6 = C6
