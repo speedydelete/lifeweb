@@ -478,6 +478,7 @@ export class SymmetryParser extends BaseParser {
                     } else if (this.match('0') || this.match('1')) {
                         let value = Number(this.advance());
                         mask |= (value << (9 - cell));
+                        perm[cell] = -1;
                     } else {
                         this.error(`Invalid permutation, expected cell position or literal value after '='`);
                     }
@@ -504,7 +505,12 @@ export class SymmetryParser extends BaseParser {
         }
         let shifts: number[] = [];
         for (let i = 0; i < 10; i++) {
-            shifts.push(i - perm.indexOf(i));
+            let index = perm.indexOf(i);
+            if (index === -1) {
+                shifts.push(-32);
+            } else {
+                shifts.push(i - perm.indexOf(i));
+            }
         }
         return [tr => {
             return mask
