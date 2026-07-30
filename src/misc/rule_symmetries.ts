@@ -273,7 +273,7 @@ export class SymmetryError extends ParserError {
 
 }
 
-function leftShift(value: number, places: number) {
+function runPerm(value: number, places: number) {
     if (places < 0) {
         return value >> -places;
     } else {
@@ -292,7 +292,7 @@ export class SymmetryParser extends BaseParser {
         this.namespace = namespace;
     }
 
-    static readonly SPECIAL_CHARS = new Set([',', '(', ')', '=', '[', ']', '\n', ';']);
+    static readonly SPECIAL_CHARS = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!']);
 
     tokenize(code: string): void {
         let current = '';
@@ -462,6 +462,7 @@ export class SymmetryParser extends BaseParser {
     permutationLiteral(): Symmetry {
         this.eat(['[', 'left bracket']);
         let mask = 0;
+        let xor = 0;
         let perm: number[] = [];
         for (let i = 0; i < 10; i++) {
             perm.push(i);
@@ -472,6 +473,10 @@ export class SymmetryParser extends BaseParser {
                 let cell = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
                 if (this.match('=')) {
                     this.advance();
+                    if (this.match('!')) {
+                        xor |= (1 << (9 - cell));
+                        this.advance();
+                    }
                     if (this.match(SymmetryParser.T_PERMUTATION_CELL_POS)) {
                         let value = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
                         perm[cell] = value;
@@ -513,18 +518,19 @@ export class SymmetryParser extends BaseParser {
             }
         }
         return [tr => {
-            return mask
-                 | leftShift(tr & 0b100_000_000_0, shifts[0])
-                 | leftShift(tr & 0b010_000_000_0, shifts[1])
-                 | leftShift(tr & 0b001_000_000_0, shifts[2])
-                 | leftShift(tr & 0b000_100_000_0, shifts[3])
-                 | leftShift(tr & 0b000_010_000_0, shifts[4])
-                 | leftShift(tr & 0b000_001_000_0, shifts[5])
-                 | leftShift(tr & 0b000_000_100_0, shifts[6])
-                 | leftShift(tr & 0b000_000_010_0, shifts[7])
-                 | leftShift(tr & 0b000_000_001_0, shifts[8])
-                 | leftShift(tr & 0b000_000_000_1, shifts[9])
-            ;
+            return (
+                mask
+              | runPerm(tr & 0b100_000_000_0, shifts[0])
+              | runPerm(tr & 0b010_000_000_0, shifts[1])
+              | runPerm(tr & 0b001_000_000_0, shifts[2])
+              | runPerm(tr & 0b000_100_000_0, shifts[3])
+              | runPerm(tr & 0b000_010_000_0, shifts[4])
+              | runPerm(tr & 0b000_001_000_0, shifts[5])
+              | runPerm(tr & 0b000_000_100_0, shifts[6])
+              | runPerm(tr & 0b000_000_010_0, shifts[7])
+              | runPerm(tr & 0b000_000_001_0, shifts[8])
+              | runPerm(tr & 0b000_000_000_1, shifts[9])
+            ) ^ xor;
         }];
     }
 
