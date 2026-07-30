@@ -542,7 +542,7 @@ export class SymmetryParser extends BaseParser {
         } else if (this.match(SymmetryParser.T_IDENTIFIER)) {
             let id = this.identifier();
             if (id in this.namespace) {
-                return this.namespace[id];
+                return this.namespace[id].slice();
             } else {
                 this.error(`Name ${id} is not defined`, -1);
             }
@@ -628,15 +628,27 @@ const PREDEFINED_SYMMETRIES = `
 
 none = []
 
+moore = []
+vonNeumann = [nw=0, ne=0, sw=0, se=0]
+hexagonal = [ne=0, sw=0]
+tripod = [n=0, ne=0, w=0, sw=0, se=0]
+noCenter = [c=0]
+
+VN = vonNeumann
+hex = hexagonal
+
 identity = [nw,n,ne, w,c,e, sw,s,se]
 
 rotate180 = [se,s,sw, e,c,w, ne,n,nw]
-rotateLeft = [ne,e,se, n,c,s, nw,w,sw]
-rotateRight = [sw,w,nw, s,c,n, se,e,ne]
+rotate90Left = [ne,e,se, n,c,s, nw,w,sw]
+rotate90Right = [sw,w,nw, s,c,n, se,e,ne]
 flipVertical = [sw,s,se, w,c,e, nw,n,ne]
 flipHorizontal = [ne,n,nw, e,c,w, se,s,sw]
 flipDiagonal = [nw,w,sw, n,c,s, ne,e,se]
 flipAntiDiagonal = [se,e,ne, s,c,n, sw,w,nw]
+
+rotateLeft = rotate90Left
+rotateRight = rotate90Right
 
 rotate8Left = [n,ne,e, nw,c,se, w,sw,s]
 rotate8Right = [w,nw,n, sw,c,ne, s,se,e]
@@ -644,6 +656,7 @@ rotate8Right = [w,nw,n, sw,c,ne, s,se,e]
 C1 = identity
 C2 = rotate180
 C4 = rotateLeft
+C8 = rotate8Left
 D2- = flipVertical
 D2| = flipHorizontal
 D2\\ = flipDiagonal
@@ -675,18 +688,25 @@ Bx = flipHorizontal
 R = rotateRight
 Rx = flipDiagonal
 
+rotate120Left = [e,se,0, n,c,s, 0,n,nw]
+rotate120Right = [s,w,0, se,c,nw, 0,e,n]
+rotate60Left = [n,e,0, nw,c,se, 0,w,s]
+rotate60Right = [w,nw,0, s,c,n, 0,se,e]
+
+C3 = rotate120
+C6 = rotate60Left
+
+hexC3 = C3
+hexC6 = C6
+
+rotate3 = C3
+rotate6 = C6
+// rotate6reflect = D12
+
 outerTotalistic = rotate8Left, [nw=n, n=nw]
 OT = outerTotalistic
 permute = outerTotalistic
 totalistic = outerTotalistic, [n=c, c=n]
-
-moore = []
-vonNeumann = [nw=0, ne=0, sw=0, se=0]
-VN = vonNeumann
-hexagonal = [ne=0, sw=0]
-hex = hexagonal
-tripod = [n=0, ne=0, w=0, sw=0, se=0]
-noCenter = [c=0]
 
 `;
 
