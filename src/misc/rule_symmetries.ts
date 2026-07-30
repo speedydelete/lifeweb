@@ -541,8 +541,9 @@ export class SymmetryParser extends BaseParser {
             return this.permutationLiteral();
         } else if (this.match(SymmetryParser.T_IDENTIFIER)) {
             let id = this.identifier();
-            if (id in this.namespace) {
-                return this.namespace[id].slice();
+            let lower = id.toLowerCase();
+            if (lower in this.namespace) {
+                return this.namespace[lower].slice();
             } else {
                 this.error(`Name ${id} is not defined`, -1);
             }
@@ -587,7 +588,8 @@ export class SymmetryParser extends BaseParser {
     }
 
     variableSet(): void {
-        let id = this.identifier();
+        let id = this.identifier()
+        id = id.toLowerCase();
         this.eat(['=', 'equals sign']);
         this.namespace[id] = this.expression();
     }
