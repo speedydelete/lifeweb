@@ -1376,13 +1376,15 @@ export abstract class DataPattern extends Pattern {
         for (let y = 0; y < height; y += times) {
             for (let x = 0; x < width; x += times) {
                 let value = this.data[i++];
-                for (let y2 = 0; y2 <= times; y2++) {
-                    for (let x2 = 0; x2 <= times; x2++) {
+                for (let y2 = 0; y2 < times; y2++) {
+                    for (let x2 = 0; x2 < times; x2++) {
                         out[(y + y2) * width + (x + x2)] = value;
                     }
                 }
             }
         }
+        this.height = height;
+        this.width = width;
         this.data = out;
         return this;
     }
