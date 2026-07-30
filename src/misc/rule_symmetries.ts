@@ -507,7 +507,7 @@ export class SymmetryParser extends BaseParser {
         for (let i = 0; i < 10; i++) {
             let index = perm.indexOf(i);
             if (index === -1) {
-                shifts.push(-32);
+                shifts.push(-31);
             } else {
                 shifts.push(i - perm.indexOf(i));
             }
