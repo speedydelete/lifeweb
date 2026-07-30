@@ -218,9 +218,19 @@ function parseTableLine(data: string, vars: TableVars): TableLine {
                             if (data.bind) {
                                 boundVars[value] = out.length;
                             }
-                            out.push(...data.value);
+                            for (let item of data.value) {
+                                out.push(item);
+                            }
                         } else {
-                            section.push(...data.value.flat());
+                            for (let item of data.value) {
+                                if (Array.isArray(item)) {
+                                    for (let item2 of item) {
+                                        section.push(item2);
+                                    }
+                                } else {
+                                    section.push(item);
+                                }
+                            }
                         }
                     }
                 }
@@ -265,9 +275,19 @@ function parseTableLine(data: string, vars: TableVars): TableLine {
                             if (data.bind) {
                                 boundVars[value] = out.length;
                             }
-                            out.push(...data.value);
+                            for (let item of data.value) {
+                                out.push(item);
+                            }
                         } else {
-                            section.push(...data.value.flat());
+                            for (let item of data.value) {
+                                if (Array.isArray(item)) {
+                                    for (let item2 of item) {
+                                        section.push(item2);
+                                    }
+                                } else {
+                                    section.push(item);
+                                }
+                            }
                         }
                     }
                 }
@@ -303,9 +323,19 @@ function parseTableLine(data: string, vars: TableVars): TableLine {
                     if (data.bind) {
                         boundVars[value] = out.length;
                     }
-                    out.push(...data.value);
+                    for (let item of data.value) {
+                        out.push(item);
+                    }
                 } else {
-                    section.push(...data.value.flat());
+                    for (let item of data.value) {
+                        if (Array.isArray(item)) {
+                            for (let item2 of item) {
+                                section.push(item2);
+                            }
+                        } else {
+                            section.push(item);
+                        }
+                    }
                 }
             }
         }

@@ -408,7 +408,9 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     let [newObjs, newOut] = data;
                     forInput[code] = newOut;
                     results[code] = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
-                    newQueue.push(...newObjs);
+                    for (let obj of newObjs) {
+                        newQueue.push(obj);
+                    }
                 }
             } else {
                 let period = parseInt(code.slice(2));
@@ -417,14 +419,20 @@ export async function searchSalvos(type: string, start: string, noCompile?: bool
                     let data = get1GSalvos(info, code, timing);
                     if (data) {
                         let [newObjs, newOut] = data;
-                        out.push(...newOut);
+                        for (let value of newOut) {
+                            out.push(value);
+                        }
                         let toAdd = newOut.filter(x => x[2]) as [number, number, CAObject[]][];
                         if (results[code]) {
-                            results[code].push(...toAdd);
+                            for (let value of toAdd) {
+                                results[code].push(value);
+                            }
                         } else {
                             results[code] = toAdd;
                         }
-                        newQueue.push(...newObjs);
+                        for (let obj of newObjs) {
+                            newQueue.push(obj);
+                        }
                     }
                 }
                 if (out.length > 0) {

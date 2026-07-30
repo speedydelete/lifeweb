@@ -583,7 +583,9 @@ function addComponent(program: Program, out: Pattern, actionLanes: number[], act
     }
     insert(out, component, pos);
     componentPos = componentPos.offset('SW', size);
-    actionLanes2.push(...newLanes);
+    for (let lane of newLanes) {
+        actionLanes2.push(lane);
+    }
     return [componentPos, pos];
 }
 

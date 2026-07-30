@@ -152,9 +152,13 @@ function parseTransitionsList(data: string): [string[], string[]] {
                 trs.push(num + letter);
             }
             if (tr[0] === 'B') {
-                b.push(...trs);
+                for (let tr of trs) {
+                    b.push(tr);
+                }
             } else {
-                s.push(...trs);
+                for (let tr of trs) {
+                    s.push(tr);
+                }
             }
         } else if (tr.length !== 3 || !INT.validTrs[num].includes(tr[2])) {
             error(`Invalid transition: ${tr}`);
@@ -251,8 +255,12 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
         }
         if (config.include_transitions) {
             let [b, s] = parseTransitionsList(config.include_transitions);
-            fromChangeB.push(...b);
-            fromChangeS.push(...s);
+            for (let tr of b) {
+                fromChangeB.push(tr);
+            }
+            for (let tr of s) {
+                fromChangeS.push(tr);
+            }
         }
         if (config.exclude_transitions) {
             let [b, s] = parseTransitionsList(config.exclude_transitions);
@@ -287,12 +295,16 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
             let bTrs: string[] = [];
             for (let num = 0; num <= 8; num++) {
                 if (otMinB.includes(num)) {
-                    bTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
+                    for (let tr of INT.validTrs[num]) {
+                        bTrs.push(num + tr);
+                    }
                 } else {
                     let index = changeB.indexOf(num);
                     if (index !== -1) {
                         if (bStr[index] === '1') {
-                            bTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
+                            for (let tr of INT.validTrs[num]) {
+                                bTrs.push(num + tr);
+                            }
                         }
                     }
                 }
@@ -309,12 +321,16 @@ function generateRules(min: string, max: string, config: Config): Set<string> {
                 let sTrs: string[] = [];
                 for (let num = 0; num <= 8; num++) {
                     if (otMinS.includes(num)) {
-                        sTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
+                        for (let tr of INT.validTrs[num]) {
+                            sTrs.push(num + tr);
+                        }
                     } else {
                         let index = changeS.indexOf(num);
                         if (index !== -1) {
                             if (sStr[index] === '1') {
-                                sTrs.push(...Array.from(INT.validTrs[num]).map(x => num + x));
+                                for (let tr of INT.validTrs[num]) {
+                                    sTrs.push(num + tr);
+                                }
                             }
                         }
                     }

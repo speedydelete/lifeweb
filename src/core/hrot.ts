@@ -86,9 +86,13 @@ function parseSections(rule: string): {range: number, states: number, middle: bo
             if (section[0] === 'B') {
                 bFound = true;
                 sFound = false;
-                b.push(...parseHROTRange(section.slice(1)));
+                for (let value of parseHROTRange(section.slice(1))) {
+                    b.push(value);
+                }
             } else {
-                s.push(...parseHROTRange(section));
+                for (let value of parseHROTRange(section)) {
+                    s.push(value);
+                }
             }
         } else if (bFound) {
             // if we've seen B we can only see N next
@@ -96,7 +100,9 @@ function parseSections(rule: string): {range: number, states: number, middle: bo
                 nh = section.slice(1);
                 break;
             } else {
-                b.push(...parseHROTRange(section));
+                for (let value of parseHROTRange(section)) {
+                    b.push(value);
+                }
             }
         } else if (section[0] === 'R') {
             range = Number(section.slice(1));
@@ -107,7 +113,9 @@ function parseSections(rule: string): {range: number, states: number, middle: bo
             }
         } else if (section[0] === 'S') {
             sFound = true;
-            s.push(...parseHROTRange(section.slice(1)));
+            for (let value of parseHROTRange(section.slice(1))) {
+                s.push(value);
+            }
         } else if (section[0] === 'M') {
             middle = Number(section.slice(1)) === 0 ? false : true;
         } else if (section[0] === 'W') {

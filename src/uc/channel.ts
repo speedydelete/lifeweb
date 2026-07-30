@@ -431,7 +431,9 @@ function addNewRecipes(info: ChannelInfo, data: {recipes: ChannelRecipe[], newEl
     for (let recipe of data.recipes) {
         if (recipe.end && data.newElbows.includes(recipe.end.str)) {
             let value = resolveElbow(info, out.elbows, recipe);
-            recipes.push(...value.recipes);
+            for (let recipe of value.recipes) {
+                recipes.push(recipe);
+            }
             possibleUseful += value.possibleUseful;
         } else {
             recipes.push(recipe);
@@ -545,10 +547,9 @@ export async function searchChannel(type: string, threads: number, elbow: Elbow,
                 startsChecked += data.startsChecked;
                 recipesChecked += data.recipesChecked;
                 let possibleUseful = data.possibleUseful.join('');
-                // if (depth < 4) {
-                //    newStarts.push(...data.states);
-                // }
-                newStarts.push(...data.states);
+                for (let state of data.states) {
+                    newStarts.push(state);
+                }
                 possibleUseful += addNewRecipes(info, data, out);
                 if (possibleUseful.length > 0) {
                     await fs.appendFile('possible_useful.txt', possibleUseful);

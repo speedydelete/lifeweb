@@ -298,7 +298,9 @@ for (let i = 2; i < argv.length; i++) {
         let data = getOption(originalArg, value, i);
         if (Array.isArray(value) && Array.isArray(options[option])) {
             if (Array.isArray(data[0])) {
-                (options[option] as any[]).push(...data[0]);
+                for (let item of data[0]) {
+                    (options[option] as any[]).push(item);
+                }
             } else {
                 (options[option] as any[]).push(data[0]);
             }

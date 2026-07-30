@@ -287,8 +287,8 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
             if (recipe.emit) {
                 for (let ship of recipe.emit) {
                     out.period = lcm(out.period, c.SPACESHIPS[ship.code].popPeriod);
+                    out.ships.push(ship);
                 }
-                out.ships.push(...recipe.emit);
             }
             period = lcm(period, out.period);
             data.push(out);
@@ -317,8 +317,8 @@ function getExpected(info: ChannelInfo, elbow: Elbow, recipe: ChannelRecipe, res
         if (recipe.emit) {
             for (let ship of recipe.emit) {
                 out.period = lcm(out.period, c.SPACESHIPS[ship.code].popPeriod);
+                out.ships.push(ship);
             }
-            out.ships.push(...recipe.emit);
         }
         period = lcm(period, out.period);
         data.push(out);
@@ -574,7 +574,9 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
                 if (elbow.emit.some(x => x.dir !== (recipe2.emit as Spaceship[])[0].dir)) {
                     continue;
                 }
-                recipe2.emit.push(...elbow.emit);
+                for (let ship of elbow.emit) {
+                    recipe2.emit.push(ship);
+                }
             } else {
                 recipe2.emit = elbow.emit;
             }
@@ -594,7 +596,9 @@ export function resolveElbow(info: ChannelInfo, elbows: ElbowData, recipe: Chann
                 recipe2.create.timing += elbow.timing;
             }
             let value = resolveElbow(info, elbows, recipe2, depth + 1);
-            out.push(...value.recipes);
+            for (let recipe of value.recipes) {
+                out.push(recipe);
+            }
             possibleUseful += value.possibleUseful;
         }
     }
@@ -825,7 +829,9 @@ function runStart(info: ChannelInfo, elbows: ElbowData, newElbows: string[], sta
                 recipesChecked++;
                 states.push(data.state);
                 if (data.recipes) {
-                    recipes.push(...data.recipes);
+                    for (let recipe of data.recipes) {
+                        recipes.push(recipe);
+                    }
                 }
                 if (data.possibleUseful) {
                     possibleUseful += data.possibleUseful;
@@ -970,13 +976,17 @@ if (import.meta.main || ('__wrecked_isWorker' in globalThis && globalThis.__wrec
             }
             startsChecked++;
             recipesChecked += value.recipesChecked;
-            states.push(...value.states.map(x => Object.assign(x, {
-                p: x.p.toApgcode(),
-                xOffset: x.p.xOffset,
-                yOffset: x.p.yOffset,
-                generation: x.p.generation,
-            })));
-            recipes.push(...value.recipes);
+            for (let state of value.states) {
+                states.push(Object.assign(state, {
+                    p: state.p.toApgcode(),
+                    xOffset: state.p.xOffset,
+                    yOffset: state.p.yOffset,
+                    generation: state.p.generation,
+                }));
+            }
+            for (let recipe of value.recipes) {
+                recipes.push(recipe);
+            }
             possibleUseful.push(value.possibleUseful);
             let now = performance.now();
             if (now - lastUpdate > c.UPDATE_INTERVAL) {
