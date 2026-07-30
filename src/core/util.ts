@@ -433,7 +433,14 @@ export abstract class BaseParser {
         this.expect(...data);
         let out: string[] = [];
         for (let i = 0; i < data.length; i++) {
-            out.push(this.advance());
+            let token = this.tokens[this.pos];
+            if (token === undefined) {
+                continue;
+            } else {
+                out.push(token);
+                this.pos++;
+                return out;
+            }
         }
         return out;
     }
