@@ -76,9 +76,9 @@ async function buildEditor() {
                 name: 'lifeweb-core-alias',
                 setup(build) {
                     build.onResolve({filter: /\/core\/index\.js$/}, () => ({path: '../lifeweb.js', external: true}));
-                }
-            }
-        ]
+                },
+            },
+        ],
     });
 }
 
@@ -110,10 +110,40 @@ async function buildIdentify() {
                 name: 'lifeweb-core-alias',
                 setup(build) {
                     build.onResolve({filter: /\/core\/index\.js$/}, () => ({path: '../lifeweb.js', external: true}));
-                }
-            }
-        ]
+                },
+            },
+        ],
     });
+}
+
+async function buildRuleSymmetries() {
+    let html = (await fs.readFile(path('src/rule_symmetries/website.html'))).toString();
+    await esbuild.build({
+        entryPoints: [path('src/rule_symmetries/website.ts')],
+        bundle: true,
+        outfile: path('.temp.js'),
+        format: 'esm',
+        sourcemap: 'inline',
+        target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
+        external: ['node:path'],
+        treeShaking: false,
+        minify: true,
+        plugins: [
+            {
+                name: 'lifeweb-core-alias',
+                setup(build) {
+                    build.onResolve({filter: /\/core\/index\.js$/}, () => ({path: './lifeweb.js', external: true}));
+                },
+            },
+        ],
+    });
+    let buildResult = (await fs.readFile(path('.temp.js'))).toString();
+    html = html.replace('<script type="module" src="website.ts"></script>', `<script type="module">${buildResult}</script>`);
+    await fs.writeFile(path('rule_symmetries.html'), await minify.minify(Buffer.from(html, 'utf-8'), {
+        keep_html_and_head_opening_tags: true,
+        minify_css: true,
+        minify_js: true,
+    }));
 }
 
 if (!process.argv.includes('no-ts')) {
@@ -123,3 +153,4 @@ if (!process.argv.includes('no-ts')) {
 buildLifewebJS();
 buildEditor();
 buildIdentify();
+buildRuleSymmetries();

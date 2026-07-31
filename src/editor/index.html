@@ -772,7 +772,7 @@ function formatError(error) {
 window.addEventListener('error', event => alert(formatError(event.error)));
 window.addEventListener('unhandledrejection', event => alert(formatError(event.reason)));
 
-var BUILD_NUMBER = 951;
+var BUILD_NUMBER = 995;
 
 
 // base.ts
@@ -785,7 +785,7 @@ function getElement(id, type) {
     if (type !== undefined) {
         let tag = out.tagName.toLowerCase();
         if (tag !== type) {
-            throw new Error(`Element '${id}' is required to be of type '${type}' but is type '${tag}'`);
+            throw new Error(`Element '${id}' is required to be of type '${type}' but is of type '${tag}'`);
         }
     }
     return out;

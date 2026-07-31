@@ -17,6 +17,7 @@
         {"path": "./src/editor"},
         {"path": "./src/identify"},
         {"path": "./src/misc"},
+        {"path": "./src/rule_symmetries"},
         {"path": "./src/uc"},
         {"path": "./src/vls"},
     ]

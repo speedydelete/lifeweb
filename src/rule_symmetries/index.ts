@@ -332,7 +332,7 @@ export class SymmetryParser extends BaseParser {
     }
 
     _transitionsSection(value: string, spec: INTSpec): number[] {
-        if (value.length === 0) {
+        if (value === '') {
             return [];
         }
         let hasClass = false;
@@ -372,10 +372,12 @@ export class SymmetryParser extends BaseParser {
 
     transitions(value: string): number[] {
         let spec = INT;
-        let lastChar = value[value.length - 1].toUpperCase();
-        if (lastChar in INT_SPECS) {
-            spec = INT_SPECS[lastChar as keyof typeof INT_SPECS];
-            value = value.slice(0, -1);
+        if (value.length > 0) {
+            let lastChar = value[value.length - 1].toUpperCase();
+            if (lastChar in INT_SPECS) {
+                spec = INT_SPECS[lastChar as keyof typeof INT_SPECS];
+                value = value.slice(0, -1);
+            }
         }
         let out: number[] = [];
         let current = '';
@@ -565,6 +567,9 @@ export class SymmetryParser extends BaseParser {
     }
 
     expression(): Symmetry {
+        if (this.match(SymmetryParser.T_LINE_END)) {
+            return [];
+        }
         if (this.match('(')) {
             let out = this.expression();
             this.eat([')', 'right parenthesis']);

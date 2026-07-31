@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Rule Symmetries</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+button, input:not([type=checkbox]) {
+    padding: 3px 6px;
+    font-size: inherit;
+    background-color: inherit;
+    color: inherit;
+    border: 1px solid black;
+}
+
+button {
+    font-family: inherit;
+}
+
+input {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+input:focus {
+    outline: none;
+}
+
+textarea {
+    resize: none;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1em;
+    overflow-wrap: anywhere;
+    overflow-y: auto;
+}
+
+textarea:focus {
+    outline: none;
+}
+
+select {
+    font-size: 0.875em;
+    padding: 5px;
+    appearance: none;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' viewBox='0 0 16 16'><line x1='1' y1='6' x2='6' y2='12' stroke='%23000000' stroke-width='0.85' /><line x1='11' y1='6' x2='6' y2='12' stroke='%23000000' stroke-width='0.85' /></svg>");
+    background-repeat: no-repeat;
+    background-position: right;
+    background-size: 16px;
+    color: #000000;
+    border: 1px solid #000000;
+}
+
+select:focus {
+    outline: none;
+}
+
+option {
+    background-color: #ffffff;
+}
+
+#top {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: stretch;
+    gap: 3ch;
+}
+
+#help-wrapper, #antihelp-wrapper {
+    flex: 1;
+}
+
+#help-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    align-items: center;
+}
+
+#symmetry {
+    margin-left: 1ch;
+    width: min(50vw, 67ch);
+}
+
+.main {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+
+#main {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+#main > * {
+    min-height: 0;
+    max-height: 100%;
+}
+
+#basis {
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+#help {
+    display: none;
+    min-width: max(70ch, 50%);
+}
+
+        </style>
+    </head>
+    <body spellcheck="false" autocapitalize="" autocorrect="off" writingsuggestions="false">
+        <div id="top">
+            <div id="help-wrapper"><button id="help-button">Help</button></div>
+            <div id="symmetry-wrapper">
+                Symmetry: <input type="text" id="symmetry" width="50" />
+            </div>
+            <div id="antihelp-wrapper"></div>
+        </div>
+        <div class="main" id="main">
+            <div id="basis"></div>
+        </div>
+        <div class="main" id="help">
+            <h1>Rule Symmetries</h1>
+        </div>
+        <script>'use strict';function printError(e,c='red'){let x=String(e instanceof Error?('stack' in e?e.stack:e):e);if(!x.includes('Error')){x=String(e)+'\n'+x}x=x.replaceAll('@',' at ');if(document.readyState!=='complete'){alert(x);return;}document.querySelectorAll('body > *').forEach(x=>x.remove());let t=document.createElement('pre');t.style.color=c;t.style.fontFamily='\'Courier New\',Courier,monospace';t.style.fontSize='14px';t.style.marginTop='0';t.style.marginBottom='0';t.style.overflowWrap='break-word';t.textContent=x.replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');document.body.appendChild(t);document.body.style.alignItems='start';let l=setInterval(()=>{},0);for(let j=1;j<=l;j++){clearInterval(j);}window.onkeydown=()=>{};}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
+        <script type="module" src="website.ts"></script>
+    </body>
+</html>
