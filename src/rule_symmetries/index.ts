@@ -1,5 +1,5 @@
 
-import {Matcher, EOF, ParserError, BaseParser, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions} from '../core/index.js';
+import {Matcher, EOF, ParserError, BaseParser, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, unparseMAPRuleFull} from '../core/index.js';
 
 
 // transition format:
@@ -106,25 +106,25 @@ export type VectorFormatSpec = (VectorFormat | VectorFormat[])[];
 const DEFAULT_BASIS_VECTOR_FORMAT_SPECS: VectorFormat[] = ['int', 'hex', 'map'];
 const BASIS_VECTOR_FORMAT_INT_SPECS: {[K in 'int' | 'hex' | 'vn']: INTSpec} = {'int': INT, 'hex': HEX_INT, 'vn': VON_NEUMANN_INT};
 
-function attemptINTSpecReplace(value: number[], spec: INTSpec): [string[], Vector] {
-    value = value.slice();
+function attemptINTSpecReplace(vector: Vector, spec: INTSpec): [string[], Vector] {
+    vector = vector.slice();
     let out: string[] = [];
     for (let key in spec.trs) {
         for (let [letter, or] of Object.entries(TRANSITION_CLASS_ORS)) {
-            if (spec.trs[key].every(tr => value.includes((tr << 1) | or))) {
+            if (spec.trs[key].every(tr => vector.includes((tr << 1) | or))) {
                 out.push(letter + key);
                 for (let tr of spec.trs[key]) {
                     tr = ((tr << 1) | or);
-                    let index = value.indexOf(tr);
+                    let index = vector.indexOf(tr);
                     if (index === -1) {
                         throw new Error(`This error should not occur, please report it (cannot find tr in vector)`);
                     }
-                    value.splice(index, 1);
+                    vector.splice(index, 1);
                 }
             }
         }
     }
-    return [out, value];
+    return [out, vector];
 }
 
 function formatVector(vector: Vector, format: VectorFormat): string {
@@ -172,7 +172,7 @@ function getFormatIndex(format: VectorFormatSpec, value: VectorFormat): number {
     return format.findIndex(x => x === value || (Array.isArray(x) && x.includes(value)));
 }
 
-export function vectorToString(vector: number[], formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
+export function vectorToString(vector: Vector, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
     if (vector.length === 0) {
         return '<empty vector>';
     }
@@ -216,6 +216,35 @@ export function transitionToString(tr: number, formats: VectorFormatSpec = DEFAU
 
 export function basisToString(basis: Basis, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
     return normalizeBasis(basis).map(vector => vectorToString(vector, formats)).join('\n');
+}
+
+function _vectorsToRule(trs: Uint8Array, vectors: Iterable<Vector>, xor: number): string | undefined {
+    for (let vector of vectors) {
+        for (let longTr of vector) {
+            longTr ^= xor;
+            let next = longTr & 1;
+            let tr = longTr >> 1;
+            let value = trs[tr];
+            if (value === 2) {
+                trs[tr] = next;
+            } else if (value !== next) {
+                return 'contradiction';
+            }
+        }
+    }
+}
+
+export function vectorsToRule(enabled: Iterable<Vector>, disabled: Iterable<Vector>): string {
+    let trs = new Uint8Array(512);
+    trs.fill(2);
+    _vectorsToRule(trs, enabled, 0);
+    _vectorsToRule(trs, disabled, 1);
+    for (let i = 0; i < trs.length; i++) {
+        if (trs[i] === 2) {
+            trs[i] = 0;
+        }
+    }
+    return unparseMAPRuleFull(trs, 2);
 }
 
 

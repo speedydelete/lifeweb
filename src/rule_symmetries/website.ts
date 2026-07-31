@@ -1,6 +1,6 @@
 
 import {LifewebError} from '../core/index.js';
-import {Symmetry, basisToString, findBasis, SymmetryParser, PREDEFINED_SYMMETRY_NAMESPACE} from './index.js';
+import {Symmetry, Vector, basisSorter, vectorToString, vectorsToRule, findBasis, SymmetryParser, PREDEFINED_SYMMETRY_NAMESPACE} from './index.js';
 
 
 function getElement(id: string): HTMLElement;
@@ -43,6 +43,34 @@ helpButton.addEventListener('click', () => {
 });
 
 
+function updateSizes() {
+    let rect = symmetryWrapperElt.getBoundingClientRect();
+    mainElt.style.width = rect.width + 'px';
+    mainElt.style.maxWidth = rect.width + 'px';
+}
+
+updateSizes();
+
+window.addEventListener('resize', updateSizes);
+
+
+let enabledVectors = new Set<Vector>();
+let disabledVectors = new Set<Vector>();
+let computedRuleElt = getElement('computed-rule');
+let computedRule = '';
+computedRuleElt.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(computedRule);
+});
+
+function recomputeRule() {
+    computedRule = vectorsToRule(enabledVectors, disabledVectors);
+    if (computedRule.includes('contradiction')) {
+        computedRuleElt.textContent = computedRule[0].toUpperCase() + computedRule.slice(1);
+    } else {
+        computedRuleElt.textContent = `Rule: ${computedRule}`;
+    }
+}
+
 let symmetryInput = getElement('symmetry', 'input');
 let basisElt = getElement('basis');
 
@@ -50,6 +78,8 @@ function updateBasis() {
     let symmetryText = symmetryInput.value;
     localStorage.ruleSymmetriesSymmetry = symmetryText;
     if (symmetryText === '') {
+        basisElt.replaceChildren();
+        computedRuleElt.textContent = '\u200b';
         return;
     }
     let symmetry: Symmetry;
@@ -60,19 +90,43 @@ function updateBasis() {
         if (error instanceof LifewebError) {
             basisElt.style.color = '#ff0000';
             basisElt.textContent = String(error);
+            computedRuleElt.textContent = '\u200b';
             return;
         } else {
             throw error;
         }
     }
+    basisElt.style.color = '#000000';
     let basis = findBasis(symmetry);
     if (typeof basis === 'string') {
-        basis = basis[0].toUpperCase() + basis.slice(1);
-    } else {
-        basis = basisToString(basis);
+        basisElt.textContent = basis[0].toUpperCase() + basis.slice(1);
+        computedRuleElt.textContent = '\u200b';
+        return;
     }
-    basisElt.style.color = '#000000';
-    basisElt.textContent = basis;
+    basis = basis.sort(basisSorter);
+    basisElt.replaceChildren();
+    enabledVectors.clear();
+    disabledVectors.clear();
+    for (let vector of basis) {
+        disabledVectors.add(vector);
+        let elt = document.createElement('div');
+        elt.className = 'basis-vector';
+        let checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                enabledVectors.add(vector);
+                disabledVectors.delete(vector);
+            } else {
+                enabledVectors.delete(vector);
+                disabledVectors.add(vector);
+            }
+            recomputeRule();
+        });
+        elt.append(checkbox, vectorToString(vector));
+        basisElt.append(elt);
+    }
+    recomputeRule();
 }
 
 symmetryInput.addEventListener('input', updateBasis);
@@ -81,14 +135,3 @@ if (localStorage.ruleSymmetriesSymmetry) {
     symmetryInput.value = localStorage.ruleSymmetriesSymmetry;
     updateBasis();
 }
-
-
-function updateSizes() {
-    let rect = symmetryWrapperElt.getBoundingClientRect();
-    basisElt.style.width = rect.width + 'px';
-    basisElt.style.maxWidth = rect.width + 'px';
-}
-
-updateSizes();
-
-window.addEventListener('resize', updateSizes);
