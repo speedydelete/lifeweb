@@ -1,5 +1,5 @@
 
-import {Matcher, EOF, ParserError, BaseParser, RuleSymmetry, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, findTransitionsSymmetry, findTransitionsNeighborhood, parseMAPRuleFull, unparseMAPRuleFull} from '../core/index.js';
+import {Matcher, EOF, ParserError, BaseParser, RuleSymmetry, Pattern, IdentityPattern, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, findTransitionsSymmetry, findTransitionsNeighborhood, parseMAPRuleFull, unparseMAPRuleFull} from '../core/index.js';
 
 
 // transition format:
@@ -26,12 +26,12 @@ export type Vector = number[];
 export type Basis = Vector[];
 
 
-export function trToMAPString(tr: number): string {
+export function transitionToMAPString(tr: number): string {
     let str = tr.toString(2).padStart(10, '0');
     return str.slice(0, 3) + '.' + str.slice(3, 6) + '.' + str.slice(6, 9) + '.' + str.slice(9);
 }
 
-export function classifyTr(tr: number): TransitionClass {
+export function classifyTransition(tr: number): TransitionClass {
     if (tr & 1) {
         if (tr & (1 << 5)) {
             return 'S';
@@ -76,8 +76,8 @@ export function swapVector(vector: Vector): Vector {
 }
 
 export function vectorSorter(x: number, y: number): number {
-    let xC = classifyTr(x);
-    let yC = classifyTr(y);
+    let xC = classifyTransition(x);
+    let yC = classifyTransition(y);
     if (xC === yC) {
         return x - y;
     } else if (xC === 'B') {
@@ -153,7 +153,7 @@ function attemptINTSpecReplace(vector: Vector, spec: INTSpec): [string[], Vector
 function formatVector(vector: Vector, format: VectorFormat): string {
     vector = vector.slice();
     if (format === 'map') {
-        return vector.sort(vectorSorter).map(tr => classifyTr(tr) + trToMAPString(tr).slice(0, -2)).join(', ');
+        return vector.sort(vectorSorter).map(tr => classifyTransition(tr) + transitionToMAPString(tr).slice(0, -2)).join(', ');
     }
     let spec = BASIS_VECTOR_FORMAT_INT_SPECS[format];
     let value = attemptINTSpecReplace(vector, spec);
@@ -163,8 +163,8 @@ function formatVector(vector: Vector, format: VectorFormat): string {
     }
     let extraClasses: {[K in TransitionClass]: string[]} = {'B': [], 'S': [], 'A': [], 'D': []};
     for (let tr of value[1]) {
-        let cls = classifyTr(tr);
-        extraClasses[cls].push(cls + trToMAPString(tr).slice(0, -2));
+        let cls = classifyTransition(tr);
+        extraClasses[cls].push(cls + transitionToMAPString(tr).slice(0, -2));
     }
     let out = '';
     if (classes['B'].length > 0 || classes['S'].length > 0 || extraClasses['B'].length > 0 || extraClasses['S'].length > 0) {
@@ -842,6 +842,34 @@ function tryReplaceWithPredefined(symmetryStr: string): string {
 }
 
 
+export function xorTrsToString(trs: Set<number>): string[] {
+    trs = new Set(trs);
+    let out: string[] = [];
+    for (let spec of [INT, HEX_INT]) {
+        for (let letter of TRANSITION_CLASSES) {
+            let or = TRANSITION_CLASS_ORS[letter];
+            for (let [trName, values] of Object.entries(spec.trs)) {
+                let found = false;
+                for (let tr of values) {
+                    tr = (tr << 1) | or;
+                    if (trs.has(tr)) {
+                        trs.delete(tr);
+                    } else {
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
+                }
+            }
+        }
+    }
+    for (let tr of trs) {
+        out.push(transitionToString(tr));
+    }
+    return out;
+}
+
 
 const NEIGHBORHOOD_CELLS: {[key: string]: string} = {
     '-1,-1': 'nw',
@@ -886,7 +914,7 @@ export function getSymmetriesOfRule(rule: string): string {
     // static symmetries
     out.push(tryReplaceWithPredefined(STATIC_SYMMETRIES[findTransitionsSymmetry(trs)]));
     // XOR symmetries
-    let xorSymmetries: {[K in TransitionClass]: Set<number>} = {'B': new Set(), 'S': new Set(), 'A': new Set(), 'D': new Set()};
+    let xorTrs = new Set<number>();
     for (let xorTr = 0; xorTr < 1024; xorTr++) {
         let mask = xorTr >> 1;
         let next = xorTr & 1;
@@ -898,32 +926,11 @@ export function getSymmetriesOfRule(rule: string): string {
             }
         }
         if (!found) {
-            xorSymmetries[classifyTr(xorTr)].add(xorTr);
+            xorTrs.add(xorTr);
         }
     }
-    console.log(xorSymmetries);
-    for (let spec of [INT, HEX_INT]) {
-        for (let letter of TRANSITION_CLASSES) {
-            let or = TRANSITION_CLASS_ORS[letter];
-            for (let [trName, values] of Object.entries(spec.trs)) {
-                // these ones are satisfied by every rule
-                // if (letter === 'A' && trName.startsWith('0')) {
-                //     continue;
-                // }
-                values = values.map(tr => (tr << 1) | or);
-                let found = false;
-                for (let tr of values) {
-                    if (xorSymmetries[letter].has(tr)) {
-                        xorSymmetries[letter].delete(tr);
-                    } else {
-                        found = true;
-                    }
-                }
-                if (!found) {
-                    out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
-                }
-            }
-        }
+    for (let str of xorTrsToString(xorTrs)) {
+        out.push(str);
     }
     return out.filter(x => x !== 'none').join(', ');
 }
