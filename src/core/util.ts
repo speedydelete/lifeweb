@@ -445,4 +445,8 @@ export abstract class BaseParser {
         return out;
     }
 
+    nextTokenToString(): string {
+        return this.tokens[this.pos] ?? 'EOF';
+    }
+
 }

@@ -1,6 +1,6 @@
 
 import {LifewebError} from '../core/index.js';
-import {Symmetry, Vector, basisSorter, vectorToString, vectorsToRule, findBasis, SymmetryParser, PREDEFINED_SYMMETRY_NAMESPACE} from './index.js';
+import {Symmetry, Vector, basisSorter, vectorToString, vectorsToRule, findBasis, parseSymmetry, getSymmetriesOfRule} from './index.js';
 
 
 function getElement(id: string): HTMLElement;
@@ -20,31 +20,14 @@ function getElement(id: string, type?: string): HTMLElement {
 }
 
 
-let helpButton = getElement('help-button');
-let helpShown = false;
-
 let mainElt = getElement('main');
-let helpElt = getElement('help');
-let symmetryWrapperElt = getElement('symmetry-wrapper');
-
-helpButton.addEventListener('click', () => {
-    helpShown = !helpShown;
-    if (helpShown) {
-        helpButton.textContent = 'Back';
-        mainElt.style.display = 'none';
-        symmetryWrapperElt.style.visibility = 'hidden';
-        helpElt.style.display = 'flex';
-    } else {
-        helpButton.textContent = 'Help';
-        mainElt.style.display = 'flex';
-        symmetryWrapperElt.style.visibility = 'visible';
-        helpElt.style.display = 'none';
-    }
-});
-
+let inputWrapperElt = getElement('input-wrapper');
+let inputElt = getElement('input', 'input');
+let textOutputElt = getElement('text-output');
+let listOutputElt = getElement('list-output');
 
 function updateSizes() {
-    let rect = symmetryWrapperElt.getBoundingClientRect();
+    let rect = inputWrapperElt.getBoundingClientRect();
     mainElt.style.width = rect.width + 'px';
     mainElt.style.maxWidth = rect.width + 'px';
 }
@@ -53,58 +36,39 @@ updateSizes();
 
 window.addEventListener('resize', updateSizes);
 
+let copyText = '';
+textOutputElt.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(copyText);
+});
+
+const MODES: {[key: string]: {
+    func: (input: string) => void;
+    inputText: string;
+}} = {};
+
+
 
 let enabledVectors = new Set<Vector>();
 let disabledVectors = new Set<Vector>();
-let computedRuleElt = getElement('computed-rule');
-let computedRule = '';
-computedRuleElt.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(computedRule);
-});
-
-function recomputeRule() {
-    computedRule = vectorsToRule(enabledVectors, disabledVectors);
-    if (computedRule.includes('contradiction')) {
-        computedRuleElt.textContent = computedRule[0].toUpperCase() + computedRule.slice(1);
+function recomputeRule(): void {
+    let rule = vectorsToRule(enabledVectors, disabledVectors);
+    copyText = rule;
+    if (rule.includes('contradiction')) {
+        textOutputElt.textContent = rule[0].toUpperCase() + rule.slice(1);
     } else {
-        computedRuleElt.textContent = `Rule: ${computedRule}`;
+        textOutputElt.textContent = `Rule: ${rule}`;
     }
 }
 
-let symmetryInput = getElement('symmetry', 'input');
-let basisElt = getElement('basis');
-
-function updateBasis() {
-    let symmetryText = symmetryInput.value;
-    localStorage.ruleSymmetriesSymmetry = symmetryText;
-    if (symmetryText === '') {
-        basisElt.replaceChildren();
-        computedRuleElt.textContent = '\u200b';
-        return;
-    }
-    let symmetry: Symmetry;
-    try {
-        let parser = new SymmetryParser(symmetryText, Object.create(PREDEFINED_SYMMETRY_NAMESPACE));
-        symmetry = parser.expression();
-    } catch (error) {
-        if (error instanceof LifewebError) {
-            basisElt.style.color = '#ff0000';
-            basisElt.textContent = String(error);
-            computedRuleElt.textContent = '\u200b';
-            return;
-        } else {
-            throw error;
-        }
-    }
-    basisElt.style.color = '#000000';
+function updateBasis(symmetryText: string): void {
+    let symmetry = parseSymmetry(symmetryText);
     let basis = findBasis(symmetry);
     if (typeof basis === 'string') {
-        basisElt.textContent = basis[0].toUpperCase() + basis.slice(1);
-        computedRuleElt.textContent = '\u200b';
+        textOutputElt.textContent = basis[0].toUpperCase() + basis.slice(1);
+        copyText = basis;
         return;
     }
     basis = basis.sort(basisSorter);
-    basisElt.replaceChildren();
     enabledVectors.clear();
     disabledVectors.clear();
     for (let vector of basis) {
@@ -124,14 +88,73 @@ function updateBasis() {
             recomputeRule();
         });
         elt.append(checkbox, vectorToString(vector));
-        basisElt.append(elt);
+        listOutputElt.append(elt);
     }
     recomputeRule();
 }
 
-symmetryInput.addEventListener('input', updateBasis);
+MODES['basis-of-symmetry'] = {
+    func: updateBasis,
+    inputText: 'Symmetry',
+};
 
-if (localStorage.ruleSymmetriesSymmetry) {
-    symmetryInput.value = localStorage.ruleSymmetriesSymmetry;
-    updateBasis();
+
+function updateSymmetriesOfRule(rule: string): void {
+    let symmetries = getSymmetriesOfRule(rule);
+    textOutputElt.textContent = symmetries;
+    copyText = symmetries;
 }
+
+MODES['symmetries-of-rule'] = {
+    func: updateSymmetriesOfRule,
+    inputText: 'Rule',
+};
+
+
+let modeSelect = getElement('mode', 'select');
+
+function update() {
+    let inputValue = inputElt.value;
+    localStorage.ruleSymmetriesInput = inputValue;
+    textOutputElt.style.color = '#000000';
+    textOutputElt.textContent = '';
+    copyText = '';
+    listOutputElt.replaceChildren();
+    if (inputValue === '') {
+        return;
+    }
+    try {
+        MODES[modeSelect.value].func(inputValue);
+    } catch (error) {
+        if (error instanceof LifewebError) {
+            console.error(error);
+            textOutputElt.style.color = '#ff0000';
+            textOutputElt.textContent = String(error);
+            copyText = String(error);
+        } else {
+            throw error;
+        }
+    }
+}
+
+inputElt.addEventListener('input', update);
+
+let inputTextElt = getElement('input-text');
+
+function updateMode() {
+    let modeStr = modeSelect.value;
+    localStorage.ruleSymmetryMode = modeStr;
+    let mode = MODES[modeStr];
+    inputTextElt.textContent = mode.inputText;
+    update();
+}
+
+modeSelect.addEventListener('change', updateMode);
+
+if (localStorage.ruleSymmetryMode !== undefined) {
+    modeSelect.value = localStorage.ruleSymmetryMode;
+}
+if (localStorage.ruleSymmetriesInput !== undefined) {
+    inputElt.value = localStorage.ruleSymmetriesInput;
+}
+updateMode();

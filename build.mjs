@@ -8,6 +8,8 @@ import * as esbuild from 'esbuild';
 import minify from '@minify-html/node';
 
 
+let devMode = process.argv.includes('dev');
+
 function path(value) {
     return join(import.meta.dirname, value);
 }
@@ -32,7 +34,8 @@ async function buildLifewebJS() {
         bundle: true,
         outfile: path('lifeweb.js'),
         format: 'esm',
-        sourcemap: true,
+        sourcemap: devMode ? 'inline' : false,
+        keepNames: devMode,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
         treeShaking: true,
@@ -63,7 +66,8 @@ async function buildEditor() {
         bundle: true,
         outfile: path('editor/index.js'),
         format: 'esm',
-        sourcemap: true,
+        sourcemap: devMode ? 'inline' : false,
+        keepNames: devMode,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
         treeShaking: false,
@@ -97,7 +101,8 @@ async function buildIdentify() {
         bundle: true,
         outfile: path('identify/index.js'),
         format: 'esm',
-        sourcemap: true,
+        sourcemap: devMode ? 'inline' : false,
+        keepNames: devMode,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
         treeShaking: false,
@@ -123,7 +128,8 @@ async function buildRuleSymmetries() {
         bundle: true,
         outfile: path('.temp.js'),
         format: 'esm',
-        sourcemap: 'inline',
+        sourcemap: devMode ? 'inline' : false,
+        keepNames: devMode,
         target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
         external: ['node:path'],
         treeShaking: false,
@@ -138,7 +144,7 @@ async function buildRuleSymmetries() {
         ],
     });
     let buildResult = (await fs.readFile(path('.temp.js'))).toString();
-    html = html.replace('<script type="module" src="website.ts"></script>', `<script type="module">${buildResult}</script>`);
+    html = html.replace('<script type="module" src="website.ts"></script>', () => `<script type="module">${buildResult}</script>`);
     await fs.writeFile(path('rule_symmetries.html'), await minify.minify(Buffer.from(html, 'utf-8'), {
         keep_html_and_head_opening_tags: true,
         minify_css: true,

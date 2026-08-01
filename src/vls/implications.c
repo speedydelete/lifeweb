@@ -119,7 +119,11 @@ static inline int32_t get_implication(uint32_t tr) {
 static inline void generate_big_trs(void) {
     // fill in the values with 0 unknown cells
     for (int tr = 0; tr < 512; tr++) {
+        #if MULTI_RULE
         int value = trs[tr] == RULE_DEPENDENT ? RULE_DEPENDENT : (trs[tr] ? ON : OFF);
+        #else
+        int value = trs[tr] ? ON : OFF;
+        #endif
         int tr2 = tr_to_implication_tr(tr);
         #if MULTI_RULE
         if (value == RULE_DEPENDENT) {

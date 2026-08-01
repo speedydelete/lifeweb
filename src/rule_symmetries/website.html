@@ -15,7 +15,7 @@ html, body {
     inset: 0;
     height: 100%;
     width: 100%;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
@@ -24,7 +24,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 30px;
+    gap: 20px;
 }
 
 button, input:not([type=checkbox]) {
@@ -89,23 +89,20 @@ option {
 #top {
     width: 100%;
     display: flex;
-    flex-direction: row;
-    justify-content: stretch;
-    gap: 3ch;
+    flex-direction: column;
+    justify-content: start;
+    align-items: center;
+    gap: 20px;
 }
 
-#help-wrapper, #antihelp-wrapper {
-    flex: 1;
-}
-
-#help-wrapper {
+#top > * {
     display: flex;
     flex-direction: row;
     justify-content: start;
     align-items: center;
 }
 
-#symmetry {
+#input {
     margin-left: 1ch;
     width: min(50vw, 67ch);
 }
@@ -119,7 +116,7 @@ option {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 1em;
 }
 
 #main > * {
@@ -128,7 +125,18 @@ option {
     max-height: 100%;
 }
 
-#basis {
+#mode {
+    margin-left: 1.5ch;
+    width: 24ch;
+}
+
+#text-output {
+    min-height: 1em;
+    cursor: copy;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#list-output {
     display: flex;
     flex-direction: column;
     justify-content: start;
@@ -136,10 +144,7 @@ option {
     overflow-y: auto;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-}
-
-#computed-rule {
-    cursor: copy;
+    font-family: 'Courier New', Courier, monospace;
 }
 
 .basis-vector {
@@ -150,27 +155,24 @@ option {
     gap: 1ch;
 }
 
-#help {
-    display: none;
-    min-width: max(70ch, 50%);
-}
-
         </style>
     </head>
     <body spellcheck="false" autocapitalize="" autocorrect="off" writingsuggestions="false">
         <div id="top">
-            <div id="help-wrapper"><button id="help-button">Help</button></div>
-            <div id="symmetry-wrapper">
-                Symmetry: <input type="text" id="symmetry" width="50" />
+            <div id="mode-wrapper">
+                <div>Mode:</div>
+                <select id="mode">
+                    <option value="basis-of-symmetry">Find basis of symmetry</option>
+                    <option value="symmetries-of-rule">Find symmetries of rule</option>
+                </select>
             </div>
-            <div id="antihelp-wrapper"></div>
+            <div id="input-wrapper">
+                <div id="input-text">Symmetry</div>: <input type="text" id="input" width="50" />
+            </div>
         </div>
         <div class="main" id="main">
-            <div id="computed-rule">&#x200b;</div>
-            <div id="basis"></div>
-        </div>
-        <div class="main" id="help">
-            <h1>Rule Symmetries</h1>
+            <div id="text-output"></div>
+            <div id="list-output"></div>
         </div>
         <script>'use strict';function printError(e,c='red'){let x=String(e instanceof Error?('stack' in e?e.stack:e):e);if(!x.includes('Error')){x=String(e)+'\n'+x}x=x.replaceAll('@',' at ');if(document.readyState!=='complete'){alert(x);return;}document.querySelectorAll('body > *').forEach(x=>x.remove());let t=document.createElement('pre');t.style.color=c;t.style.fontFamily='\'Courier New\',Courier,monospace';t.style.fontSize='14px';t.style.marginTop='0';t.style.marginBottom='0';t.style.overflowWrap='break-word';t.textContent=x.replaceAll(/file:\/\/\/media\/fuse\/drivefs-[0-9a-f]+\/root\/code\//g,'');document.body.appendChild(t);document.body.style.alignItems='start';let l=setInterval(()=>{},0);for(let j=1;j<=l;j++){clearInterval(j);}window.onkeydown=()=>{};}window.addEventListener('error',e=>{printError(e.error);return true;});window.addEventListener('unhandledrejection',e=>{e.preventDefault();printError(e.reason);});</script>
         <script type="module" src="website.ts"></script>

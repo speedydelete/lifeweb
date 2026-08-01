@@ -1,5 +1,5 @@
 
-import {Matcher, EOF, ParserError, BaseParser, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, unparseMAPRuleFull} from '../core/index.js';
+import {Matcher, EOF, ParserError, BaseParser, RuleSymmetry, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, findTransitionsSymmetry, findTransitionsNeighborhood, parseMAPRuleFull, unparseMAPRuleFull} from '../core/index.js';
 
 
 // transition format:
@@ -10,7 +10,7 @@ import {Matcher, EOF, ParserError, BaseParser, INTSpec, INT, HEX_INT, VON_NEUMAN
 
 export type TransitionClass = 'B' | 'S' | 'A' | 'D';
 
-export const TRANSITION_CLASSES = new Set(['B', 'S', 'A', 'D']);
+export const TRANSITION_CLASSES = new Set(['B', 'S', 'A', 'D'] as TransitionClass[]);
 
 export const TRANSITION_CLASS_ORS: {[K in TransitionClass]: number} = {
     'B': 0b000_000_000_1,
@@ -19,8 +19,8 @@ export const TRANSITION_CLASS_ORS: {[K in TransitionClass]: number} = {
     'D': 0b000_010_000_0,
 };
 
-export type SymmetryFunc = (tr: number) => number;
-export type Symmetry = SymmetryFunc[];
+export type SymmetryTable = Uint16Array;
+export type Symmetry = SymmetryTable[];
 
 export type Vector = number[];
 export type Basis = Vector[];
@@ -45,6 +45,29 @@ export function classifyTr(tr: number): TransitionClass {
             return 'A';
         }
     }
+}
+
+
+export function functionToSymmetry(func: (tr: number) => number): Symmetry {
+    let out = new Uint16Array(1024);
+    for (let tr = 0; tr < 1024; tr++) {
+        out[tr] = func(tr);
+    }
+    return [out];
+}
+
+export function optimizeSymmetry(symmetry: Symmetry): Symmetry {
+    let done = new Set<string>();
+    let out: Symmetry = [];
+    for (let table of symmetry) {
+        let key = table.join('');
+        if (done.has(key)) {
+            continue;
+        }
+        done.add(key);
+        out.push(table);
+    }
+    return out;
 }
 
 
@@ -145,7 +168,17 @@ function formatVector(vector: Vector, format: VectorFormat): string {
     }
     let out = '';
     if (classes['B'].length > 0 || classes['S'].length > 0 || extraClasses['B'].length > 0 || extraClasses['S'].length > 0) {
-        out += `B${unparseTransitions(classes['B'], spec)}/S${unparseTransitions(classes['S'], spec)}${spec.after}`;
+        if (classes['B'].length > 0) {
+            out += `B${unparseTransitions(classes['B'], spec)}`;
+            if (classes['S'].length > 0) {
+                out += '/';
+            } else {
+                out += spec.after;
+            }
+        }
+        if (classes['S'].length > 0) {
+            out += `S${unparseTransitions(classes['S'], spec)}${spec.after}`;
+        }
         if (extraClasses['B'].length > 0) {
             out += ' ' + extraClasses['B'].join(', ');
         }
@@ -157,7 +190,17 @@ function formatVector(vector: Vector, format: VectorFormat): string {
         if (out !== '') {
             out += ', ';
         }
-        out += `A${unparseTransitions(classes['A'], spec)}/D${unparseTransitions(classes['D'], spec)}${spec.after}`;
+        if (classes['A'].length > 0) {
+            out += `A${unparseTransitions(classes['A'], spec)}`;
+            if (classes['S'].length > 0) {
+                out += '/';
+            } else {
+                out += spec.after;
+            }
+        }
+        if (classes['D'].length > 0) {
+            out += `D${unparseTransitions(classes['D'], spec)}${spec.after}`;
+        }
         if (extraClasses['A'].length > 0) {
             out += ' ' + extraClasses['A'].join(', ');
         }
@@ -248,19 +291,17 @@ export function vectorsToRule(enabled: Iterable<Vector>, disabled: Iterable<Vect
 }
 
 
-export function identity(tr: number): number {
-    return tr;
-}
+export const IDENTITY = functionToSymmetry(tr => tr);
 
 export function findBasis(symmetry: Symmetry): Basis | string {
-    symmetry = Array.from(new Set([identity].concat(symmetry)));
+    symmetry = optimizeSymmetry(IDENTITY.concat(symmetry));
     let out: Basis = [];
     let done: {[key: number]: Vector} = {};
     for (let tr = 0; tr < 1024; tr++) {
         let foundTrs = new Set<number>();
         let foundVectors: Vector[] = [];
-        for (let func of symmetry) {
-            let tr2 = func(tr);
+        for (let table of symmetry) {
+            let tr2 = table[tr];
             if (tr2 in done) {
                 if (!foundVectors.includes(done[tr2])) {
                     foundVectors.push(done[tr2]);
@@ -302,13 +343,60 @@ export class SymmetryError extends ParserError {
 
 }
 
-function runPerm(value: number, places: number) {
-    if (places < 0) {
-        return value >> -places;
+
+// https://codegolf.stackexchange.com/questions/24983/build-a-2-way-universal-logic-processor-using-nand-logic-gates
+// format in left to right order: bit 0 = 00, bit 1 = 01, bit 2 = 10, bit 3 = 11
+const ULP_MASKS: {[key: string]: number} = {
+    '&': 0b0001,
+    '|': 0b0111,
+    '^': 0b0110,
+    '!&': 0b1110,
+    '!|': 0b1000,
+    '!^': 0b1001,
+    '->': 0b1101,
+    '<-': 0b1011,
+    '!->': 0b0010,
+    '!<-': 0b0100,
+};
+
+function evalULP(x: number, y: number, mask: number): number {
+    return 0
+        | ((~x & ~y) & ((mask & 0b1000) ? 0xffffffff : 0))
+        | ((~x & y) & ((mask & 0b0100) ? 0xffffffff : 0))
+        | ((x & ~y) & ((mask & 0b0010) ? 0xffffffff : 0))
+        | ((x & y) & ((mask & 0b0001) ? 0xffffffff : 0));
+}
+
+
+type Operation = {type: 'value', value: number} | {type: 'get', index: number} | {type: 'ulp', mask: number, x: Operation, y: Operation};
+
+const CELL_POSITIONS: {[key: string]: number} = {
+    'nw': 0,
+    'n': 1,
+    'ne': 2,
+    'w': 3,
+    'c': 4,
+    'e': 5,
+    'sw': 6,
+    's': 7,
+    'se': 8,
+    'r': 9,
+};
+
+const T_CELL_POSITION: Matcher = [/^[ns][we]?|[wce]|r$/, 'cell position'];
+
+function runOperation(op: Operation, tr: number): number {
+    if (op.type === 'value') {
+        return op.value;
+    } else if (op.type === 'get') {
+        return (tr & (1 << (9 - op.index))) ? 1 : 0;
+    } else if (op.type === 'ulp') {
+        return evalULP(runOperation(op.x, tr), runOperation(op.y, tr), op.mask);
     } else {
-        return value << places;
+        throw new Error(`Bad operation type: '${(op as any).type}'`);
     }
 }
+
 
 export class SymmetryParser extends BaseParser {
 
@@ -321,7 +409,7 @@ export class SymmetryParser extends BaseParser {
         this.namespace = namespace;
     }
 
-    static readonly SPECIAL_CHARS = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!']);
+    static readonly SPECIAL_VALUES = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!', '&', '|', '^', '!&', '!|', '!^', '->' ,'<-', '!->', '!<-']);
 
     tokenize(code: string): void {
         let current = '';
@@ -331,15 +419,32 @@ export class SymmetryParser extends BaseParser {
             if (char === ' ') {
                 if (current.length === 0) {
                     startPos++;
-                    continue;
                 } else {
                     current += char;
                 }
+                continue;
             } else if (char === '/' && code[pos + 1] === '/') {
                 while (pos < code.length && code[pos] !== '\n') {
                     pos++;
                 }
-            } else if (SymmetryParser.SPECIAL_CHARS.has(char)) {
+                continue;
+            } else if (pos < code.length - 2 && SymmetryParser.SPECIAL_VALUES.has(char + code[pos + 1] + code[pos + 2])) {
+                if (current.length > 0) {
+                    this.addToken(current.trimEnd(), startPos);
+                }
+                this.addToken(char + code[pos + 1] + code[pos + 2], pos);
+                current = '';
+                startPos = pos + 3;
+                pos += 2;
+            } else if (pos < code.length - 1 && SymmetryParser.SPECIAL_VALUES.has(char + code[pos + 1])) {
+                if (current.length > 0) {
+                    this.addToken(current.trimEnd(), startPos);
+                }
+                this.addToken(char + code[pos + 1], pos);
+                current = '';
+                startPos = pos + 2;
+                pos++;
+            } else if (SymmetryParser.SPECIAL_VALUES.has(char)) {
                 if (current.length > 0) {
                     this.addToken(current.trimEnd(), startPos);
                 }
@@ -356,8 +461,16 @@ export class SymmetryParser extends BaseParser {
         }
     }
 
-    normalizeName(name: string): string {
-        return name.trim().toLowerCase().replaceAll(/[ _.]/g, '');
+    static readonly T_IDENTIFIER: Matcher = [/^[a-zA-Z_][a-zA-Z0-9_]*$/, 'identifier'];
+
+    identifier(): string {
+        let out = this.eat(SymmetryParser.T_IDENTIFIER)[0];
+        if (out === '__proto__') {
+            this.error(`Identifier cannot be '__proto__'`, -1);
+        } else if (out === 'constructor') {
+            this.error(`Identifier cannot be 'constructor'`, -1);
+        }
+        return out;
     }
 
     _transitionsSection(value: string, spec: INTSpec): number[] {
@@ -366,9 +479,10 @@ export class SymmetryParser extends BaseParser {
         }
         let hasClass = false;
         let or = 0;
-        if (TRANSITION_CLASSES.has(value[0].toUpperCase())) {
+        let maybeClass = value[0].toUpperCase() as TransitionClass;
+        if (TRANSITION_CLASSES.has(maybeClass)) {
             hasClass = true;
-            or = TRANSITION_CLASS_ORS[value[0].toUpperCase() as TransitionClass];
+            or = TRANSITION_CLASS_ORS[maybeClass];
             value = value.slice(1);
         }
         if (value.match(/^[0-1._]+$/)) {
@@ -386,7 +500,7 @@ export class SymmetryParser extends BaseParser {
             return [Number(value) | or];
         } else {
             if (!hasClass) {
-                this.error(`No transition class provided`, -1);
+                this.error(`No transition class provided for transitions`, -1);
             }
             value = value.toLowerCase();
             let out: number[] = [];
@@ -431,105 +545,72 @@ export class SymmetryParser extends BaseParser {
         return out;
     }
 
-    static readonly T_BITWISE_LITERAL: Matcher = [/^!?([&|^]|->|<-)/, 'bitwise literal'];
-
-    // https://codegolf.stackexchange.com/questions/24983/build-a-2-way-universal-logic-processor-using-nand-logic-gates
-    // format in left to right order: bit 0 = 00, bit 1 = 01, bit 2 = 10, bit 3 = 11
-    static readonly ULP_MASKS: {[key: string]: number} = {
-        '&': 0b0001,
-        '|': 0b0111,
-        '^': 0b0110,
-        '!&': 0b1110,
-        '!|': 0b1000,
-        '!^': 0b1001,
-        '->': 0b1101,
-        '<-': 0b1011,
-        '!->': 0b0010,
-        '!<-': 0b0100,
-    };
+    static readonly T_BITWISE_OPERATOR: Matcher = [new Set(['&', '|', '^', '!&', '!|', '!^', '->', '<-', '!->', '!<-']), 'bitwise operator'];
 
     bitwiseLiteral(): Symmetry {
-        let value = this.eat(SymmetryParser.T_BITWISE_LITERAL)[0];
-        let operator = '';
-        if (value.startsWith('!')) {
-            operator += '!';
-            value = value.slice(1);
+        let operator = this.eat(SymmetryParser.T_BITWISE_OPERATOR)[0];
+        let value = this.advance();
+        let mask = ULP_MASKS[operator];
+        let out: Symmetry = [];
+        for (let tr of this.transitions(value)) {
+            let table = new Uint16Array(1024);
+            for (let i = 0; i < 1024; i++) {
+                table[i] = evalULP(tr, i, mask);
+            }
+            out.push(table);
         }
-        if (value.startsWith('->') || value.startsWith('<-')) {
-            operator += value.slice(0, 2);
-            value = value.slice(2);
-        } else {
-            operator += value[0];
-            value = value.slice(1);
-        }
-        let ulpMask = SymmetryParser.ULP_MASKS[operator];
-        let u00 = (ulpMask & 0b1000) ? 0xFFFFFFFF : 0;
-        let u01 = (ulpMask & 0b0100) ? 0xFFFFFFFF : 0;
-        let u10 = (ulpMask & 0b0010) ? 0xFFFFFFFF : 0;
-        let u11 = (ulpMask & 0b0001) ? 0xFFFFFFFF : 0;
-        return this.transitions(value).map(tr2 => (tr => 
-            ((~tr & ~tr2) & u00) |
-            ((~tr & tr2) & u01) |
-            ((tr & ~tr2) & u10) |
-            ((tr & tr2) & u11)
-        ));
+        return optimizeSymmetry(out);
     }
 
-    static readonly PERMUTATION_POSITIONS: {[key: string]: number} = {
-        'nw': 0,
-        'n': 1,
-        'ne': 2,
-        'w': 3,
-        'c': 4,
-        'e': 5,
-        'sw': 6,
-        's': 7,
-        'se': 8,
-        'r': 9,
-    };
+    operationLiteral(): Operation {
+        if (this.match('0') || this.match('1')) {
+            return {type: 'value', value: Number(this.advance())};
+        } else if (this.match(T_CELL_POSITION)) {
+            return {type: 'get', index: CELL_POSITIONS[this.advance()]};
+        } else {
+            this.error(`Expected 0, 1, or a cell position, got '${this.nextTokenToString()}'`);
+        }
+    }
 
-    static readonly T_PERMUTATION_CELL_POS: Matcher = [/^[ns][we]?|[wce]|r$/, 'cell position'];
+    operation(): Operation {
+        if (this.match('(')) {
+            this.advance();
+            let out = this.operation();
+            this.eat([')', 'right parenthesis']);
+            return out;
+        }
+        let literal = this.operationLiteral();
+        if (this.match(SymmetryParser.T_BITWISE_OPERATOR)) {
+            let op = this.advance();
+            let right = this.operationLiteral();
+            return {
+                type: 'ulp',
+                mask: ULP_MASKS[op],
+                x: literal,
+                y: right,
+            };
+        } else {
+            return literal;
+        }
+    }
 
     permutationLiteral(): Symmetry {
         this.eat(['[', 'left bracket']);
-        let mask = 0;
-        let xor = 0;
-        let perm: number[] = [];
+        let perm: Operation[] = [];
         for (let i = 0; i < 10; i++) {
-            perm.push(i);
+            perm.push({type: 'get', index: i});
         }
         let pos = 0;
         while (true) {
-            if (this.match(SymmetryParser.T_PERMUTATION_CELL_POS)) {
-                let cell = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
-                if (this.match('=')) {
-                    this.advance();
-                    if (this.match('!')) {
-                        xor |= (1 << (9 - cell));
-                        this.advance();
-                    }
-                    if (this.match(SymmetryParser.T_PERMUTATION_CELL_POS)) {
-                        let value = SymmetryParser.PERMUTATION_POSITIONS[this.advance()];
-                        perm[cell] = value;
-                    } else if (this.match('0') || this.match('1')) {
-                        let value = Number(this.advance());
-                        mask |= (value << (9 - cell));
-                        perm[cell] = -1;
-                    } else {
-                        this.error(`Invalid permutation, expected cell position or literal value after '='`);
-                    }
-                } else {
-                    perm[pos] = cell;
-                }
-            } else if (this.match('0') || this.match('1')) {
-                let value = Number(this.advance());
-                perm[pos] = -1;
-                mask |= (value << (9 - pos));
-            } else if (this.match(']')) {
+            if (this.match(']')) {
                 this.advance();
                 break;
+            } else if (this.match(T_CELL_POSITION, '=')) {
+                let cell = CELL_POSITIONS[this.advance()];
+                this.advance();
+                perm[cell] = this.operation();
             } else {
-                this.error(`Invalid permutation, expected cell position or literal value`);
+                perm[pos] = this.operationLiteral();
             }
             if (this.match(']')) {
                 this.advance();
@@ -539,59 +620,31 @@ export class SymmetryParser extends BaseParser {
                 pos = (pos + 1) % 10;
             }
         }
-        let shifts: number[] = [];
-        for (let i = 0; i < 10; i++) {
-            let index = perm.indexOf(i);
-            if (index === -1) {
-                shifts.push(-31);
-            } else {
-                shifts.push(i - perm.indexOf(i));
+        let out = new Uint16Array(1024);
+        for (let tr = 0; tr < 1024; tr++) {
+            let value = 0;
+            for (let bit = 0; bit < 10; bit++) {
+                value |= (runOperation(perm[bit], tr) << (9 - bit));
             }
+            out[tr] = value;
         }
-        return [tr => {
-            return (
-                mask
-              | runPerm(tr & 0b100_000_000_0, shifts[0])
-              | runPerm(tr & 0b010_000_000_0, shifts[1])
-              | runPerm(tr & 0b001_000_000_0, shifts[2])
-              | runPerm(tr & 0b000_100_000_0, shifts[3])
-              | runPerm(tr & 0b000_010_000_0, shifts[4])
-              | runPerm(tr & 0b000_001_000_0, shifts[5])
-              | runPerm(tr & 0b000_000_100_0, shifts[6])
-              | runPerm(tr & 0b000_000_010_0, shifts[7])
-              | runPerm(tr & 0b000_000_001_0, shifts[8])
-              | runPerm(tr & 0b000_000_000_1, shifts[9])
-            ) ^ xor;
-        }];
-    }
-
-    static readonly T_IDENTIFIER: Matcher = [/^[#$%&*+,\-./:;<=>?@A-Z\\^_a-z|~][#$%&*+,\-./0-9:;<=>?@A-Z\\^_a-z|~]*$/, 'identifier'];
-
-    identifier(): string {
-        let out = this.eat(SymmetryParser.T_IDENTIFIER)[0];
-        if (out === '__proto__') {
-            this.error(`Identifier cannot be '__proto__'`, -1);
-        } else if (out === 'constructor') {
-            this.error(`Identifier cannot be 'constructor'`, -1);
-        }
-        return out;
+        return [out];
     }
 
     literal(): Symmetry {
-        if (this.match(SymmetryParser.T_BITWISE_LITERAL)) {
+        if (this.match(SymmetryParser.T_BITWISE_OPERATOR)) {
             return this.bitwiseLiteral();
         } else if (this.match('[')) {
             return this.permutationLiteral();
         } else if (this.match(SymmetryParser.T_IDENTIFIER)) {
             let id = this.identifier();
-            let lower = id.toLowerCase();
-            if (lower in this.namespace) {
-                return this.namespace[lower].slice();
+            if (id in this.namespace) {
+                return this.namespace[id].slice();
             } else {
                 this.error(`Name ${id} is not defined`, -1);
             }
         } else {
-            this.error(`Invalid literal or identifier`);   
+            this.error(`Invalid literal or identifier: '${this.nextTokenToString()}'`);   
         }
     }
 
@@ -621,9 +674,13 @@ export class SymmetryParser extends BaseParser {
                 }
                 this.eat([')', 'right parenthesis']);
                 let newOut: Symmetry = [];
-                for (let func of out) {
-                    for (let func2 of args) {
-                        newOut.push(tr => func(func2(tr)));
+                for (let table1 of out) {
+                    for (let table2 of args) {
+                        let newTable = new Uint16Array(1024);
+                        for (let tr = 0; tr < 1024; tr++) {
+                            newTable[tr] = table1[table2[tr]];
+                        }
+                        newOut.push(newTable);
                     }
                 }
                 out = newOut;
@@ -635,8 +692,7 @@ export class SymmetryParser extends BaseParser {
     }
 
     variableSet(): void {
-        let id = this.identifier()
-        id = id.toLowerCase();
+        let id = this.identifier();
         this.eat(['=', 'equals sign']);
         this.namespace[id] = this.expression();
     }
@@ -672,6 +728,11 @@ export class SymmetryParser extends BaseParser {
 
 }
 
+export function parseSymmetry(data: string): Symmetry {
+    let parser = new SymmetryParser(data, PREDEFINED_SYMMETRY_NAMESPACE);
+    return parser.expression();
+}
+
 
 const PREDEFINED_SYMMETRIES = `
 
@@ -682,6 +743,7 @@ vonNeumann = [nw=0, ne=0, sw=0, se=0]
 hexagonal = [ne=0, sw=0]
 tripod = [n=0, ne=0, w=0, sw=0, se=0]
 noCenter = [c=0]
+onlyCenter = [nw=0, n=0, ne=0, w=0, e=0, sw=0, s=0, se=0]
 
 VN = vonNeumann
 hex = hexagonal
@@ -691,8 +753,8 @@ identity = [nw,n,ne, w,c,e, sw,s,se]
 rotate180 = [se,s,sw, e,c,w, ne,n,nw]
 rotate90Left = [ne,e,se, n,c,s, nw,w,sw]
 rotate90Right = [sw,w,nw, s,c,n, se,e,ne]
-flipVertical = [sw,s,se, w,c,e, nw,n,ne]
 flipHorizontal = [ne,n,nw, e,c,w, se,s,sw]
+flipVertical = [sw,s,se, w,c,e, nw,n,ne]
 flipDiagonal = [nw,w,sw, n,c,s, ne,e,se]
 flipAntiDiagonal = [se,e,ne, s,c,n, sw,w,nw]
 
@@ -706,23 +768,18 @@ C1 = identity
 C2 = rotate180
 C4 = rotateLeft
 C8 = rotate8Left
-D2- = flipVertical
-D2| = flipHorizontal
-D2\\ = flipDiagonal
-D2/ = flipAntiDiagonal
-D4+ = D2-, D2|
-D4x = D2\\, D2/
-D8 = C4, D2-
-D2h = D2-
-D2v = D2|
-D2b = D2\\
-D2s = D2/
-D4p = D4+
+D2h = flipHorizontal
+D2v = flipVertical
+D2b = flipDiagonal
+D2s = flipAntiDiagonal
+D4p = D2h, D2v
+D4x = D2b, D2h
+D8 = C4, D2h
 
 rotate2 = C2
 rotate4 = C4
 rotate8 = rotate8Left
-rotate2reflect = D4+
+rotate2reflect = D4p
 rotate4reflect = D8
 rotate8reflect = rotate8, flipVertical
 
@@ -765,3 +822,108 @@ totalistic = outerTotalistic, [n=c, c=n]
 export const PREDEFINED_SYMMETRY_NAMESPACE: {[key: string]: Symmetry} = Object.create(null);
 let parser = new SymmetryParser(PREDEFINED_SYMMETRIES, PREDEFINED_SYMMETRY_NAMESPACE);
 parser.program();
+
+export const REVERSE_PREDEFINED_SYMMETRIES: {[key: string]: string} = {};
+for (let [key, value] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
+    let textTables = value.map(table => table.join('')).sort().join(', ');
+    if (!(textTables in REVERSE_PREDEFINED_SYMMETRIES)) {
+        REVERSE_PREDEFINED_SYMMETRIES[textTables] = key;
+    }
+}
+
+function tryReplaceWithPredefined(symmetryStr: string): string {
+    let symmetry = parseSymmetry(symmetryStr);
+    let textTables = symmetry.map(table => table.join('')).sort().join(', ');
+    if (textTables in REVERSE_PREDEFINED_SYMMETRIES) {
+        return REVERSE_PREDEFINED_SYMMETRIES[textTables];
+    } else {
+        return symmetryStr;
+    }
+}
+
+
+
+const NEIGHBORHOOD_CELLS: {[key: string]: string} = {
+    '-1,-1': 'nw',
+    '-1,0': 'w',
+    '-1,1': 'sw',
+    '0,-1': 'n',
+    '0,0': 'c',
+    '0,1': 's',
+    '1,-1': 'ne',
+    '1,0': 'e',
+    '1,1': 'se',
+};
+
+const FULL_NEIGHBORHOOD = ['nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se'];
+
+const STATIC_SYMMETRIES: {[K in RuleSymmetry]: string} = {
+    'C1': 'C1',
+    'C2': 'C2',
+    'C4': 'C4',
+    'D2|': 'D2h',
+    'D2-': 'D2v',
+    'D2/': 'D2s',
+    'D2\\': 'D2b',
+    'D4+': 'D4p',
+    'D4x': 'D4x',
+    'D8': 'D8',
+};
+
+export function getSymmetriesOfRule(rule: string): string {
+    let out: string[] = [];
+    let trs = parseMAPRuleFull(rule).trs;
+    // neighborhood restriction
+    let nh = findTransitionsNeighborhood(trs).map(cell => NEIGHBORHOOD_CELLS[cell.join(',')]);
+    if (nh.length !== 9) {
+        let notNH = new Set(FULL_NEIGHBORHOOD);
+        for (let value of nh) {
+            notNH.delete(value);
+        }
+        let str = `[${Array.from(notNH).map(cell => `${cell}=0`).join(', ')}]`;
+        out.push(tryReplaceWithPredefined(str));
+    }
+    // static symmetries
+    out.push(tryReplaceWithPredefined(STATIC_SYMMETRIES[findTransitionsSymmetry(trs)]));
+    // XOR symmetries
+    let xorSymmetries: {[K in TransitionClass]: Set<number>} = {'B': new Set(), 'S': new Set(), 'A': new Set(), 'D': new Set()};
+    for (let xorTr = 0; xorTr < 1024; xorTr++) {
+        let mask = xorTr >> 1;
+        let next = xorTr & 1;
+        let found = false;
+        for (let tr = 0; tr < 512; tr++) {
+            if (trs[tr ^ mask] !== (trs[tr] ^ next)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            xorSymmetries[classifyTr(xorTr)].add(xorTr);
+        }
+    }
+    console.log(xorSymmetries);
+    for (let spec of [INT, HEX_INT]) {
+        for (let letter of TRANSITION_CLASSES) {
+            let or = TRANSITION_CLASS_ORS[letter];
+            for (let [trName, values] of Object.entries(spec.trs)) {
+                // these ones are satisfied by every rule
+                // if (letter === 'A' && trName.startsWith('0')) {
+                //     continue;
+                // }
+                values = values.map(tr => (tr << 1) | or);
+                let found = false;
+                for (let tr of values) {
+                    if (xorSymmetries[letter].has(tr)) {
+                        xorSymmetries[letter].delete(tr);
+                    } else {
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
+                }
+            }
+        }
+    }
+    return out.filter(x => x !== 'none').join(', ');
+}

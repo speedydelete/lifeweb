@@ -933,7 +933,7 @@ if (options['filter']) {
         let parts = value.split('=');
         let gen = Number(parts[0]);
         if (parts.length !== 2 || Number.isNaN(gen)) {
-            error(`Invalid value for restrict option: '${value}'`);
+            error(`Invalid value for filter option: '${value}'`);
         }
         if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
             error(`Invalid generation for filtering: '${gen}'`);
