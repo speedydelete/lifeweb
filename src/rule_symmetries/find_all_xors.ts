@@ -19,9 +19,9 @@ function resolveXORTransitions(trs: Set<number>): Set<number> {
 }
 
 let done = new Set<string>();
-let prevLevel: [Set<number>, string][] = [[new Set(), 'INT']];
+let prevLevel: Set<number>[] = [new Set()];
 let foundBasises = new Map<string, [Set<number>, string]>();
-let currentLevel: [Set<number>, string][] = [];
+let currentLevel: Set<number>[] = [];
 
 function checkTransitions(trs: Set<number>): Set<number> | undefined {
     trs = resolveXORTransitions(trs);
@@ -49,26 +49,18 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
         }
     } else {
         console.log(key);
-        foundBasises.set(basisText, [new Set(trs), key]);
-        currentLevel.push([trs, key]);
+        foundBasises.set(basisText, [trs, key]);
+        currentLevel.push(trs);
     }
-    // for (let [trs2, str] of prevLevel) {
-    //     if (trs.isSupersetOf(trs2)) {
-    //         console.log(`    "${str}" -> "${key}"`);
-    //     }
-    // }
 }
 
-// console.log('digraph G {\n\n    // level 0 (0 symmetries)\n    "INT"');
 let levelCount = 1;
 while (prevLevel.length > 0) {
-    // console.log(`\n    // level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
-    console.log(`// level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
+    console.log(`// level ${levelCount} (${prevLevel.length} symmetries) (${foundBasises.size} total found)`);
     currentLevel = [];
     let i = 0;
-    for (let [trs] of prevLevel) {
-        // console.log(`    // checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
-        console.log(`// checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
+    for (let trs of prevLevel) {
+        console.log(`// checking ${i}/${prevLevel.length} (${foundBasises.size} found in total, ${currentLevel.length} queued for next level)`);
         for (let or of Object.values(TRANSITION_CLASS_ORS)) {
             for (let toAdd of Object.values(INT.trs)) {
                 let trs2 = new Set(trs);
@@ -83,7 +75,6 @@ while (prevLevel.length > 0) {
     prevLevel = currentLevel;
     levelCount++;
 }
-// console.log('\n}');
 console.log('\nFull:');
 for (let [_, str] of foundBasises.values()) {
     console.log(str);
