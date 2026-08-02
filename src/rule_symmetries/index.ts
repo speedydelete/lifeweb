@@ -842,7 +842,7 @@ function tryReplaceWithPredefined(symmetryStr: string): string {
 }
 
 
-export function xorTrsToString(trs: Set<number>): string[] {
+export function xorTransitionsToString(trs: Set<number>): string[] {
     trs = new Set(trs);
     let out: string[] = [];
     for (let spec of [INT, HEX_INT]) {
@@ -864,10 +864,10 @@ export function xorTrsToString(trs: Set<number>): string[] {
             }
         }
     }
-    for (let tr of trs) {
+    for (let tr of Array.from(trs).sort(vectorSorter)) {
         out.push(transitionToString(tr));
     }
-    return out;
+    return out.filter(x => x !== 'none');
 }
 
 
@@ -929,7 +929,7 @@ export function getSymmetriesOfRule(rule: string): string {
             xorTrs.add(xorTr);
         }
     }
-    for (let str of xorTrsToString(xorTrs)) {
+    for (let str of xorTransitionsToString(xorTrs)) {
         out.push(str);
     }
     return out.filter(x => x !== 'none').join(', ');
