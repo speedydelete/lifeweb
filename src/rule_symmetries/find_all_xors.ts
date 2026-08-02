@@ -1,6 +1,6 @@
 
 import {INT} from '../core/index.js';
-import {TRANSITION_CLASS_ORS, TRANSITION_CLASSES, findBasis, basisToString, parseSymmetry, xorTransitionsToString} from './index.js';
+import {TRANSITION_CLASS_ORS, findBasis, basisToString, parseSymmetry, xorTransitionsToString} from './index.js';
 
 
 function resolveXORTransitions(trs: Set<number>): Set<number> {
