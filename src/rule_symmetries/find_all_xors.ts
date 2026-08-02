@@ -54,7 +54,7 @@ while (prevLevel.length > 0) {
     currentLevel = [];
     let i = 0;
     for (let [trs] of prevLevel) {
-        console.log(`    // checking ${i}/${prevLevel.length} (${done.size} total found, ${currentLevel.length} queued for next level)`);
+        console.log(`    // checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
         for (let or of Object.values(TRANSITION_CLASS_ORS)) {
             for (let toAdd of Object.values(INT.trs)) {
                 let trs2 = new Set(trs);
