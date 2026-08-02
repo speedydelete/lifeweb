@@ -38,8 +38,8 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
     if (typeof basis === 'string') {
         console.log(`    "${key}" [label="${key} (contradiction)"]`);
     } else {
-        basis = basisToString(basis);
-        if (basis.includes('\n')) {
+        let basisText = basisToString(basis);
+        if (basisText.includes('\n')) {
             console.log(`    "${key}"`);
             currentLevel.push([trs, key]);
         } else {

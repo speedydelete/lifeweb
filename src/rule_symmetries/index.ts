@@ -843,7 +843,7 @@ function tryReplaceWithPredefined(symmetryStr: string): string {
 
 
 export function xorTransitionsToString(trs: Set<number>): string[] {
-    trs = new Set(trs);
+    trs = new Set(Array.from(trs).sort(vectorSorter));
     let out: string[] = [];
     for (let spec of [INT, HEX_INT]) {
         for (let letter of TRANSITION_CLASSES) {
