@@ -44,12 +44,10 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
         if (value[0].size > oldSize) {
             console.log(`Update: ${value[1]} to ${key}`);
             value[1] = key;
-        } else {
-            console.log('duplicate removed');
         }
     } else {
         console.log(key);
-        foundBasises.set(key, [new Set(trs), key]);
+        foundBasises.set(basisText, [new Set(trs), key]);
         currentLevel.push([trs, key]);
     }
     // for (let [trs2, str] of prevLevel) {
@@ -83,4 +81,10 @@ while (prevLevel.length > 0) {
     prevLevel = currentLevel;
     levelCount++;
 }
-console.log('\n}');
+// console.log('\n}');
+
+
+console.log('\nFull:');
+for (let [_, str] of foundBasises.values()) {
+    console.log(str);
+}
