@@ -849,6 +849,9 @@ export function xorTransitionsToString(trs: Set<number>): string[] {
         for (let letter of TRANSITION_CLASSES) {
             let or = TRANSITION_CLASS_ORS[letter];
             for (let [trName, values] of Object.entries(spec.trs)) {
+                if (trName === '0c' || trName === '8c') {
+                    trName = trName[0];
+                }
                 let found = false;
                 for (let tr of values) {
                     tr = (tr << 1) | or;

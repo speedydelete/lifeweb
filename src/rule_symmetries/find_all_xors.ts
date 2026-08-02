@@ -29,11 +29,11 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
         return;
     }
     done.add(key);
-    for (let [trs2, str] of prevLevel) {
-        if (trs.isSupersetOf(trs2)) {
-            console.log(`    "${str}" -> "${key}"`);
-        }
-    }
+    // for (let [trs2, str] of prevLevel) {
+    //     if (trs.isSupersetOf(trs2)) {
+    //         console.log(`    "${str}" -> "${key}"`);
+    //     }
+    // }
     let basis = findBasis(parseSymmetry(`INT, ${key}`));
     if (typeof basis === 'string') {
         console.log(`    "${key}" [label="${key} (contradiction)"]`);
