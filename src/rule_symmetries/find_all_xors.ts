@@ -19,7 +19,8 @@ function resolveXORTransitions(trs: Set<number>): Set<number> {
 }
 
 let done = new Set<string>();
-let prevLevel: [Set<number>, string][] = [[new Set(), 'INT']]
+let prevLevel: [Set<number>, string][] = [[new Set(), 'INT']];
+let foundBasises = new Map<string, [Set<number>, string]>();
 let currentLevel: [Set<number>, string][] = [];
 
 function checkTransitions(trs: Set<number>): Set<number> | undefined {
@@ -29,33 +30,45 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
         return;
     }
     done.add(key);
+    let basis = findBasis(parseSymmetry(`INT, ${key}`));
+    if (typeof basis === 'string') {
+        return;
+    }
+    let basisText = basisToString(basis);
+    let value = foundBasises.get(basisText);
+    if (value !== undefined) {
+        let oldSize = value[0].size;
+        for (let tr of trs) {
+            value[0].add(tr);
+        }
+        if (value[0].size > oldSize) {
+            console.log(`Update: ${value[1]} to ${key}`);
+            value[1] = key;
+        } else {
+            console.log('duplicate removed');
+        }
+    } else {
+        console.log(key);
+        foundBasises.set(key, [new Set(trs), key]);
+        currentLevel.push([trs, key]);
+    }
     // for (let [trs2, str] of prevLevel) {
     //     if (trs.isSupersetOf(trs2)) {
     //         console.log(`    "${str}" -> "${key}"`);
     //     }
     // }
-    let basis = findBasis(parseSymmetry(`INT, ${key}`));
-    if (typeof basis === 'string') {
-        console.log(`    "${key}" [label="${key} (contradiction)"]`);
-    } else {
-        let basisText = basisToString(basis);
-        if (basisText.includes('\n')) {
-            console.log(`    "${key}"`);
-            currentLevel.push([trs, key]);
-        } else {
-            console.log(`    "${key}" [label="${basis}"]`);
-        }
-    }
 }
 
-console.log('digraph G {\n\n    // level 0 (0 symmetries)\n    "INT"');
+// console.log('digraph G {\n\n    // level 0 (0 symmetries)\n    "INT"');
 let levelCount = 1;
 while (prevLevel.length > 0) {
-    console.log(`\n    // level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
+    // console.log(`\n    // level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
+    console.log(`// level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
     currentLevel = [];
     let i = 0;
     for (let [trs] of prevLevel) {
-        console.log(`    // checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
+        // console.log(`    // checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
+        console.log(`// checking ${i}/${prevLevel.length} (${done.size} found in total, ${currentLevel.length} queued for next level)`);
         for (let or of Object.values(TRANSITION_CLASS_ORS)) {
             for (let toAdd of Object.values(INT.trs)) {
                 let trs2 = new Set(trs);
