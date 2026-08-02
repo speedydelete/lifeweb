@@ -40,6 +40,7 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
     } else {
         basis = basisToString(basis);
         if (basis.includes('\n')) {
+            console.log(`    "${key}"`);
             currentLevel.push([trs, key]);
         } else {
             console.log(`    "${key}" [label="${basis}"]`);
