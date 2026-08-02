@@ -37,12 +37,14 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
     let basisText = basisToString(basis);
     let value = foundBasises.get(basisText);
     if (value !== undefined) {
-        let oldSize = value[0].size;
+        let trs2 = value[0];
+        let oldSize = trs2.size;
         for (let tr of trs) {
-            value[0].add(tr);
+            trs2.add(tr);
         }
-        if (value[0].size > oldSize) {
-            console.log(`Update: ${value[1]} to ${key}`);
+        if (trs2.size > oldSize) {
+            trs2 = resolveXORTransitions(trs2);
+            console.log(`Update: ${value[1]} to ${xorTransitionsToString(trs2).join(', ')}`);
             value[1] = key;
         }
     } else {
@@ -82,8 +84,6 @@ while (prevLevel.length > 0) {
     levelCount++;
 }
 // console.log('\n}');
-
-
 console.log('\nFull:');
 for (let [_, str] of foundBasises.values()) {
     console.log(str);
