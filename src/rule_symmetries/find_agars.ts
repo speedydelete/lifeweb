@@ -4,8 +4,6 @@ import {classifyTransition, findBasis, basisToString, parseSymmetry} from './ind
 
 
 function modGet(p: Pattern, x: number, y: number) {
-    let x1 = x;
-    let y1 = y;
     x %= p.width;
     if (x < 0) {
         x += p.width;
@@ -54,6 +52,9 @@ for (let i = 0n; i < 2n**BigInt(size); i++) {
             ;
             let letter = classifyTransition(tr);
             let trName = Object.entries(INT.trs).filter(x => x[1].includes((tr >> 1) & ~(1 << 4)))[0][0];
+            if (trName === '0c' || trName === '8c') {
+                trName = trName[0];
+            }
             xorTrs.add(letter + trName);
         }
     }
