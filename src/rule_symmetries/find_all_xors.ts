@@ -25,7 +25,7 @@ let currentLevel: [Set<number>, string][] = [];
 function checkTransitions(trs: Set<number>): Set<number> | undefined {
     trs = resolveXORTransitions(trs);
     let key = xorTransitionsToString(trs).join(', ');
-    if (done.has(key)) {
+    if (key.length === 0 || done.has(key)) {
         return;
     }
     done.add(key);
