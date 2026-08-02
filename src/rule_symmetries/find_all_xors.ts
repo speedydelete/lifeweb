@@ -50,9 +50,11 @@ function checkTransitions(trs: Set<number>): Set<number> | undefined {
 console.log('digraph G {\n\n    // level 0 (0 symmetries)\n    "INT"');
 let levelCount = 1;
 while (prevLevel.length > 0) {
-    console.log(`\n    // level ${levelCount} (${prevLevel.length} symmetries)`);
+    console.log(`\n    // level ${levelCount} (${prevLevel.length} symmetries) (${done.size} total found)`);
     currentLevel = [];
+    let i = 0;
     for (let [trs] of prevLevel) {
+        console.log(`    // checking ${i}/${prevLevel.length} (${done.size} total found)`);
         for (let or of Object.values(TRANSITION_CLASS_ORS)) {
             for (let toAdd of Object.values(INT.trs)) {
                 let trs2 = new Set(trs);
@@ -62,6 +64,7 @@ while (prevLevel.length > 0) {
                 checkTransitions(trs2);
             }
         }
+        i++;
     }
     prevLevel = currentLevel;
     levelCount++;
