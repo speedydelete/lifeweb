@@ -1,5 +1,5 @@
 
-import {Matcher, EOF, ParserError, BaseParser, RuleSymmetry, Pattern, IdentityPattern, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, findTransitionsSymmetry, findTransitionsNeighborhood, parseMAPRuleFull, unparseMAPRuleFull} from '../core/index.js';
+import {Matcher, EOF, ParserPosition, ParserError, BaseParser, RuleError, RuleSymmetry, INTSpec, INT, HEX_INT, VON_NEUMANN_INT, INT_SPECS, parseTransitions, unparseTransitions, findTransitionsSymmetry, findTransitionsNeighborhood, parseMAPRuleFull, unparseMAPRuleFull} from '../core/index.js';
 
 
 // transition format:
@@ -8,15 +8,15 @@ import {Matcher, EOF, ParserError, BaseParser, RuleSymmetry, Pattern, IdentityPa
 // def -> j
 // ghi
 
-export type TransitionClass = 'B' | 'S' | 'A' | 'D';
+export type TransitionClass = 'A' | 'B' | 'S' | 'D';
 
-export const TRANSITION_CLASSES = new Set(['B', 'S', 'A', 'D'] as TransitionClass[]);
+export const TRANSITION_CLASSES = new Set(['A', 'B', 'S', 'D'] as TransitionClass[]);
 
 export const TRANSITION_CLASS_ORS: {[K in TransitionClass]: number} = {
-    'B': 0b000_000_000_1,
-    'S': 0b000_010_000_1,
     'A': 0b000_000_000_0,
+    'B': 0b000_000_000_1,
     'D': 0b000_010_000_0,
+    'S': 0b000_010_000_1,
 };
 
 export type SymmetryTable = Uint16Array;
@@ -97,7 +97,7 @@ export function vectorSorter(x: number, y: number): number {
     }
 }
 
-export function basisSorter(x: Vector, y: Vector): number {
+export function trNumBasisSorter(x: Vector, y: Vector): number {
     for (let i = 0; i < Math.min(x.length, y.length); i++) {
         let value = vectorSorter(x[i], y[i]);
         if (value !== 0) {
@@ -108,25 +108,25 @@ export function basisSorter(x: Vector, y: Vector): number {
 }
 
 export function normalizeBasis(basis: Basis): Basis {
-    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(basisSorter);
+    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(trNumBasisSorter);
     let out: Basis = [];
     let done = new Set<string>();
     for (let vector of basis) {
         vector = vector.slice().sort(vectorSorter);
-        let key = [vector, swapVector(vector).sort(vectorSorter)].sort(basisSorter).map(x => x.join(',')).join(' ');
+        let key = [vector, swapVector(vector).sort(vectorSorter)].sort(trNumBasisSorter).map(x => x.join(',')).join(' ');
         if (done.has(key)) {
             continue;
         }
         done.add(key);
         out.push(vector);
     }
-    return out.sort(basisSorter);
+    return out.sort(trNumBasisSorter);
 }
 
 
 export type VectorFormat = 'map' | 'int' | 'hex' | 'vn';
 export type VectorFormatSpec = (VectorFormat | VectorFormat[])[];
-const DEFAULT_BASIS_VECTOR_FORMAT_SPECS: VectorFormat[] = ['int', 'hex', 'map'];
+export const DEFAULT_BASIS_VECTOR_FORMAT_SPECS: VectorFormat[] = ['int', 'hex', 'map'];
 const BASIS_VECTOR_FORMAT_INT_SPECS: {[K in 'int' | 'hex' | 'vn']: INTSpec} = {'int': INT, 'hex': HEX_INT, 'vn': VON_NEUMANN_INT};
 
 function attemptINTSpecReplace(vector: Vector, spec: INTSpec): [string[], Vector] {
@@ -192,7 +192,7 @@ function formatVector(vector: Vector, format: VectorFormat): string {
         }
         if (classes['A'].length > 0) {
             out += `A${unparseTransitions(classes['A'], spec)}`;
-            if (classes['S'].length > 0) {
+            if (classes['D'].length > 0) {
                 out += '/';
             } else {
                 out += spec.after;
@@ -219,7 +219,7 @@ export function vectorToString(vector: Vector, formats: VectorFormatSpec = DEFAU
     if (vector.length === 0) {
         return '<empty vector>';
     }
-    let sorted = formats.flat().filter(format => format !== 'map').map(format => {
+    let sorted = formats.slice().flat().filter(format => format !== 'map').map(format => {
         let [found, extra] = attemptINTSpecReplace(vector, BASIS_VECTOR_FORMAT_INT_SPECS[format]);
         if (found.length === 0) {
             return false;
@@ -257,8 +257,20 @@ export function transitionToString(tr: number, formats: VectorFormatSpec = DEFAU
     return vectorToString([tr], formats);
 }
 
+export function stringBasisSorter(x: Vector, y: Vector, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): number {
+    let xStr = vectorToString(x, formats);
+    let yStr = vectorToString(y, formats);
+    if (xStr < yStr) {
+        return -1;
+    } else if (xStr > yStr) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 export function basisToString(basis: Basis, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
-    return normalizeBasis(basis).map(vector => vectorToString(vector, formats)).join('\n');
+    return normalizeBasis(basis).map(vector => vectorToString(vector, formats)).sort().join('\n');
 }
 
 function _vectorsToRule(trs: Uint8Array, vectors: Iterable<Vector>, xor: number): string | undefined {
@@ -341,6 +353,10 @@ export class SymmetryError extends ParserError {
     name: string = 'SymmetryError';
     [Symbol.toStringTag]: string = 'SymmetryError';
 
+    constructor(message: string, stackPositions: ParserPosition[], nameOverride?: string) {
+        super(message, stackPositions, nameOverride ?? 'SymmetryError');
+    }
+
 }
 
 
@@ -357,6 +373,8 @@ const ULP_MASKS: {[key: string]: number} = {
     '<-': 0b1011,
     '!->': 0b0010,
     '!<-': 0b0100,
+    '=': 0b1001,
+    '!=': 0b0110,
 };
 
 function evalULP(x: number, y: number, mask: number): number {
@@ -409,7 +427,7 @@ export class SymmetryParser extends BaseParser {
         this.namespace = namespace;
     }
 
-    static readonly SPECIAL_VALUES = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!', '&', '|', '^', '!&', '!|', '!^', '->' ,'<-', '!->', '!<-', '?', ':']);
+    static readonly SPECIAL_VALUES = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!', '&', '|', '^', '!&', '!|', '!^', '->' ,'<-', '!->', '!<-', '!=', '{', '}', '?', ':']);
 
     tokenize(code: string): void {
         let current = '';
@@ -504,9 +522,17 @@ export class SymmetryParser extends BaseParser {
             }
             value = value.toLowerCase();
             let out: number[] = [];
-            for (let key of parseTransitions(value, spec)) {
-                for (let tr of spec.trs[key]) {
-                    out.push((tr << 1) | or);
+            try {
+                for (let key of parseTransitions(value, spec)) {
+                    for (let tr of spec.trs[key]) {
+                        out.push((tr << 1) | or);
+                    }
+                }
+            } catch (error) {
+                if (error instanceof RuleError) {
+                    this.error(error.message);
+                } else {
+                    throw error;
                 }
             }
             return out;
@@ -573,25 +599,25 @@ export class SymmetryParser extends BaseParser {
     }
 
     operation(): Operation {
+        let out: Operation;
         if (this.match('(')) {
             this.advance();
-            let out = this.operation();
+            out = this.operation();
             this.eat([')', 'right parenthesis']);
-            return out;
+        } else {
+            out = this.operationLiteral();
         }
-        let literal = this.operationLiteral();
-        if (this.match(SymmetryParser.T_BITWISE_OPERATOR)) {
+        while (this.match(SymmetryParser.T_BITWISE_OPERATOR) || this.match('=') || this.match('!=')) {
             let op = this.advance();
-            let right = this.operationLiteral();
-            return {
+            let right = this.operation();
+            out = {
                 type: 'ulp',
                 mask: ULP_MASKS[op],
-                x: literal,
+                x: out,
                 y: right,
             };
-        } else {
-            return literal;
         }
+        return out;
     }
 
     permutationLiteral(): Symmetry {
@@ -652,22 +678,13 @@ export class SymmetryParser extends BaseParser {
         if (this.match(SymmetryParser.T_LINE_END)) {
             return [];
         }
-        if (this.match('(')) {
-            let out = this.expression();
-            this.eat([')', 'right parenthesis']);
-            return out;
-        }
-        let out: Symmetry;
-        try {
-            out = this.literal();
-        } catch (error) {
-            if (!(error instanceof SymmetryError)) {
-                throw error;
-            }
+        if (this.match('{')) {
+            this.advance();
             let cond = this.operation();
-            this.expect(['?', 'question mark']);
+            this.eat(['}', 'closing brace']);
+            this.eat(['?', 'question mark']);
             let ifTrue = this.expression();
-            this.expect([':', 'colon']);
+            this.eat([':', 'colon']);
             let ifFalse = this.expression();
             let tables = Math.max(ifTrue.length, ifFalse.length);
             let out: Symmetry = [];
@@ -676,11 +693,18 @@ export class SymmetryParser extends BaseParser {
             }
             for (let tr = 0; tr < 1024; tr++) {
                 for (let i = 0; i < tables; i++) {
-                    out[i][tr] = ((runOperation(cond, tr) ? ifTrue : ifFalse)[i] ?? IDENTITY)[tr];
+                    out[i][tr] = (((runOperation(cond, tr) & 1) ? ifTrue : ifFalse)[i] ?? IDENTITY)[tr];
                 }
             }
             return out;
         }
+        if (this.match('(')) {
+            this.advance();
+            let out = this.expression();
+            this.eat([')', 'right parenthesis']);
+            return out;
+        }
+        let out = this.literal();
         while (true) {
             if (this.match(',')) {
                 this.advance();
@@ -707,6 +731,30 @@ export class SymmetryParser extends BaseParser {
                     }
                 }
                 out = newOut;
+            } else if (this.match(SymmetryParser.T_BITWISE_OPERATOR)) {
+                let left = out;
+                let op = this.advance();
+                let right: Symmetry;
+                if (this.match('(')) {
+                    this.advance();
+                    right = this.expression();
+                    this.eat([')', 'right parenthesis']);
+                } else {
+                    right = this.literal();
+                }
+                let tables = Math.max(out.length, right.length);
+                let out2: Symmetry = [];
+                for (let tr = 0; tr < 1024; tr++) {
+                    for (let i = 0; i < tables; i++) {
+                        let x = left[i]?.[tr];
+                        let y = right[i]?.[tr];
+                        if (x !== undefined && y !== undefined) {
+                            out2[i][tr] = evalULP(x, y, ULP_MASKS[op]);
+                        } else {
+                            out2[i][tr] = x ?? y;
+                        }
+                    }
+                }
             } else {
                 break;
             }
@@ -753,7 +801,13 @@ export class SymmetryParser extends BaseParser {
 
 export function parseSymmetry(data: string): Symmetry {
     let parser = new SymmetryParser(data, PREDEFINED_SYMMETRY_NAMESPACE);
-    return parser.expression();
+    let out = parser.program();
+    if (out === undefined) {
+        parser.error('No return value found');
+        // TYPESCRIPT WTF THIS IS UNREACHABLE CODE
+        throw new Error('THIS ERROR SHOULD DEFINITELY NOT OCCUR, PLEASE REPORT IT');
+    }
+    return out;
 }
 
 

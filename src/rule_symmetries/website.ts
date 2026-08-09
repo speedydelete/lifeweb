@@ -1,6 +1,6 @@
 
-import {LifewebError} from '../core/index.js';
-import {Symmetry, Vector, basisSorter, vectorToString, vectorsToRule, findBasis, parseSymmetry, getSymmetriesOfRule} from './index.js';
+import {LifewebError, ParserError} from '../core/index.js';
+import {Vector, vectorToString, vectorsToRule, stringBasisSorter, findBasis, parseSymmetry, getSymmetriesOfRule} from './index.js';
 
 
 function getElement(id: string): HTMLElement;
@@ -68,7 +68,7 @@ function updateBasis(symmetryText: string): void {
         copyText = basis;
         return;
     }
-    basis = basis.sort(basisSorter);
+    basis = basis.sort(stringBasisSorter);
     enabledVectors.clear();
     disabledVectors.clear();
     for (let vector of basis) {
@@ -127,10 +127,14 @@ function update() {
         MODES[modeSelect.value].func(inputValue);
     } catch (error) {
         if (error instanceof LifewebError) {
-            console.error(error);
             textOutputElt.style.color = '#ff0000';
-            textOutputElt.textContent = String(error);
-            copyText = String(error);
+            if (error instanceof ParserError) {
+                textOutputElt.textContent = error.stack;
+            } else {
+                textOutputElt.textContent = String(error);
+                // ParserError already does a console.trace() so we don't need to spam the console more if it's a ParserError
+                console.error(error);
+            }
         } else {
             throw error;
         }

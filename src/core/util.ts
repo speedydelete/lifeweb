@@ -237,10 +237,10 @@ export class ParserError extends LifewebError {
     stackPositions: ParserPosition[];
     stack: string;
 
-    constructor(message: string, stackPositions: ParserPosition[]) {
+    constructor(message: string, stackPositions: ParserPosition[], nameOverride?: string) {
         super(message);
         this.stackPositions = stackPositions;
-        let stack: string[] = [`${this.name}: ${message}`];
+        let stack: string[] = [`${nameOverride ?? this.name}: ${message}`];
         for (let pos of stackPositions) {
             let str = '    at ';
             if (pos.function !== undefined) {
@@ -322,7 +322,9 @@ export abstract class BaseParser {
     error(message: string, offset: number = 0): never {
         let pos = this.getRelativePosition(offset);
         let stackPositions = this.stack.concat(pos);
-        throw new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
+        let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
+        console.trace(out.stack);
+        throw out;
     }
 
     peek(): string | typeof EOF {
@@ -402,7 +404,7 @@ export abstract class BaseParser {
                     if (token === EOF) {
                         this.error(`Unexpected end of input (expected ${errorMsg})`, i);
                     } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
                     }
                 }
             } else if (typeof matcher === 'string') {
@@ -410,7 +412,7 @@ export abstract class BaseParser {
                     if (token === EOF) {
                         this.error(`Unexpected end of input (expected ${errorMsg})`, i);
                     } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
                     }
                 }
             } else if (matcher instanceof RegExp) {
@@ -418,7 +420,7 @@ export abstract class BaseParser {
                     if (token === EOF) {
                         this.error(`Unexpected end of input (expected ${errorMsg})`, i);
                     } else {
-                        this.error(`Unexpected token: ${token} (expected ${errorMsg})`, i);
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
                     }
                 }
             } else {

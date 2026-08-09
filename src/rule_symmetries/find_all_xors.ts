@@ -1,6 +1,6 @@
 
 import {INT} from '../core/index.js';
-import {TRANSITION_CLASSES, TRANSITION_CLASS_ORS, basisSorter, findBasis, basisToString, parseSymmetry, xorTransitionsToString} from './index.js';
+import {TRANSITION_CLASSES, TRANSITION_CLASS_ORS, stringBasisSorter, findBasis, basisToString, parseSymmetry, xorTransitionsToString} from './index.js';
 
 
 // function resolveXORTransitions(trs: Set<number>): Set<number> {
@@ -77,7 +77,7 @@ import {TRANSITION_CLASSES, TRANSITION_CLASS_ORS, basisSorter, findBasis, basisT
 // }
 // console.log('\nFull:');
 // let symmetries = Array.from(foundBasises.values()).map(x => Array.from(x[0]));
-// for (let trs of symmetries.sort(basisSorter)) {
+// for (let trs of symmetries.sort(stringbasisSorter)) {
 //     console.log(xorTransitionsToString(new Set(trs)).join(', '));
 // }
 
@@ -92,7 +92,7 @@ for (let letter of TRANSITION_CLASSES) {
     }
 }
 
-console.log(`^B1e, ^B3e, ^A2e, ^A2i, ^A4e
+let str = `^B1e, ^B3e, ^A2e, ^A2i, ^A4e
 ^B1e, ^B2a, ^B2k, ^B3e, ^B3i, ^B3n, ^B3q, ^B3y, ^B4j, ^B4n, ^B4r, ^B4y, ^B5e, ^B5i, ^B5n, ^B5q, ^B5y, ^B6a, ^B6k, ^B7e, ^A1c, ^A2c, ^A2e, ^A2i, ^A2n, ^A3a, ^A3c, ^A3j, ^A3k, ^A3r, ^A4a, ^A4c, ^A4e, ^A4i, ^A4k, ^A4q, ^A4t, ^A4w, ^A4z, ^A5a, ^A5c, ^A5j, ^A5k, ^A5r, ^A6c, ^A6e, ^A6i, ^A6n, ^A7c, ^A8
 ^B1e, ^B2a, ^B2k, ^B3e, ^B3i, ^B3n, ^B3q, ^B3y, ^B4j, ^B4n, ^B4r, ^B4y, ^B5e, ^B5i, ^B5n, ^B5q, ^B5y, ^B6a, ^B6k, ^B7e, ^S0, ^S1c, ^S2c, ^S2e, ^S2i, ^S2n, ^S3a, ^S3c, ^S3j, ^S3k, ^S3r, ^S4a, ^S4c, ^S4e, ^S4i, ^S4k, ^S4q, ^S4t, ^S4w, ^S4z, ^S5a, ^S5c, ^S5j, ^S5k, ^S5r, ^S6c, ^S6e, ^S6i, ^S6n, ^S7c, ^S8, ^A1c, ^A2c, ^A2e, ^A2i, ^A2n, ^A3a, ^A3c, ^A3j, ^A3k, ^A3r, ^A4a, ^A4c, ^A4e, ^A4i, ^A4k, ^A4q, ^A4t, ^A4w, ^A4z, ^A5a, ^A5c, ^A5j, ^A5k, ^A5r, ^A6c, ^A6e, ^A6i, ^A6n, ^A7c, ^A8, ^D1e, ^D2a, ^D2k, ^D3e, ^D3i, ^D3n, ^D3q, ^D3y, ^D4j, ^D4n, ^D4r, ^D4y, ^D5e, ^D5i, ^D5n, ^D5q, ^D5y, ^D6a, ^D6k, ^D7e
 ^B1e, ^B2a, ^B2k, ^B3e, ^B3i, ^B3n, ^B3q, ^B3y, ^B4j, ^B4n, ^B4r, ^B4y, ^B5e, ^B5i, ^B5n, ^B5q, ^B5y, ^B6a, ^B6k, ^B7e, ^S1e, ^S2a, ^S2k, ^S3e, ^S3i, ^S3n, ^S3q, ^S3y, ^S4j, ^S4n, ^S4r, ^S4y, ^S5e, ^S5i, ^S5n, ^S5q, ^S5y, ^S6a, ^S6k, ^S7e, ^A1c, ^A2c, ^A2e, ^A2i, ^A2n, ^A3a, ^A3c, ^A3j, ^A3k, ^A3r, ^A4a, ^A4c, ^A4e, ^A4i, ^A4k, ^A4q, ^A4t, ^A4w, ^A4z, ^A5a, ^A5c, ^A5j, ^A5k, ^A5r, ^A6c, ^A6e, ^A6i, ^A6n, ^A7c, ^A8, ^D0, ^D1c, ^D2c, ^D2e, ^D2i, ^D2n, ^D3a, ^D3c, ^D3j, ^D3k, ^D3r, ^D4a, ^D4c, ^D4e, ^D4i, ^D4k, ^D4q, ^D4t, ^D4w, ^D4z, ^D5a, ^D5c, ^D5j, ^D5k, ^D5r, ^D6c, ^D6e, ^D6i, ^D6n, ^D7c, ^D8
@@ -565,15 +565,19 @@ console.log(`^B1e, ^B3e, ^A2e, ^A2i, ^A4e
 ^A2e, ^A2i, ^A4e, ^D5e, ^D7e
 ^A2i, ^A4e, ^D6e
 ^A2n, ^A4c, ^D6c
-^D8`.split('\n').map(str => str.split(', ').sort((x, y) => priority.indexOf(x) - priority.indexOf(y))).sort((x, y) => {
-    if (x.length !== y.length) {
-        return x.length - y.length;
-    }
-    for (let i = 0; i < x.length; i++) {
-        let value = priority.indexOf(x[i]) - priority.indexOf(y[i]);
-        if (value !== 0) {
-            return value;
-        }
-    }
-    return 0;
-}).map(x => x.join(', ')).join('\n'));
+^D8`;
+
+// console.log(str.split('\n').map(str => str.split(', ').sort((x, y) => priority.indexOf(x) - priority.indexOf(y))).sort((x, y) => {
+//     if (x.length !== y.length) {
+//         return x.length - y.length;
+//     }
+//     for (let i = 0; i < x.length; i++) {
+//         let value = priority.indexOf(x[i]) - priority.indexOf(y[i]);
+//         if (value !== 0) {
+//             return value;
+//         }
+//     }
+//     return 0;
+// }).map(x => x.join(', ')).join('\n'));
+
+console.log(str.split('\n').map<[string, number]>(x => [x, findBasis(parseSymmetry('INT, ' + x)).length]).sort((x, y) => y[1] - x[1]).map(x => `${x[1]}: ${x[0]}`).join('\n'));
