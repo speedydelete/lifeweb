@@ -799,17 +799,6 @@ export class SymmetryParser extends BaseParser {
 
 }
 
-export function parseSymmetry(data: string): Symmetry {
-    let parser = new SymmetryParser(data, PREDEFINED_SYMMETRY_NAMESPACE);
-    let out = parser.program();
-    if (out === undefined) {
-        parser.error('No return value found');
-        // TYPESCRIPT WTF THIS IS UNREACHABLE CODE
-        throw new Error('THIS ERROR SHOULD DEFINITELY NOT OCCUR, PLEASE REPORT IT');
-    }
-    return out;
-}
-
 
 const PREDEFINED_SYMMETRIES = `
 
@@ -899,6 +888,19 @@ totalistic = outerTotalistic, [n=c, c=n]
 export const PREDEFINED_SYMMETRY_NAMESPACE: {[key: string]: Symmetry} = Object.create(null);
 let parser = new SymmetryParser(PREDEFINED_SYMMETRIES, PREDEFINED_SYMMETRY_NAMESPACE);
 parser.program();
+
+
+export function parseSymmetry(data: string): Symmetry {
+    let parser = new SymmetryParser(data, PREDEFINED_SYMMETRY_NAMESPACE);
+    let out = parser.program();
+    if (out === undefined) {
+        parser.error('No return value found');
+        // TYPESCRIPT WTF THIS IS UNREACHABLE CODE
+        throw new Error('THIS ERROR SHOULD DEFINITELY NOT OCCUR, PLEASE REPORT IT');
+    }
+    return out;
+}
+
 
 export const REVERSE_PREDEFINED_SYMMETRIES: {[key: string]: string} = {};
 for (let [key, value] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
