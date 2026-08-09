@@ -883,6 +883,8 @@ OT = outerTotalistic
 permute = outerTotalistic
 totalistic = outerTotalistic, [n=c, c=n]
 
+D8_2 = {(nw = ne) & (w = e) & (sw = se)} ? [nw=n, w=c, sw=s] : identity
+
 `;
 
 export const PREDEFINED_SYMMETRY_NAMESPACE: {[key: string]: Symmetry} = Object.create(null);
