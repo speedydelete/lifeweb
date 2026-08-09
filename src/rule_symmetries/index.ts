@@ -409,7 +409,7 @@ export class SymmetryParser extends BaseParser {
         this.namespace = namespace;
     }
 
-    static readonly SPECIAL_VALUES = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!', '&', '|', '^', '!&', '!|', '!^', '->' ,'<-', '!->', '!<-']);
+    static readonly SPECIAL_VALUES = new Set(['\n', ';', '=', ',', '(', ')', '[', ']', '!', '&', '|', '^', '!&', '!|', '!^', '->' ,'<-', '!->', '!<-', '?', ':']);
 
     tokenize(code: string): void {
         let current = '';
@@ -657,7 +657,30 @@ export class SymmetryParser extends BaseParser {
             this.eat([')', 'right parenthesis']);
             return out;
         }
-        let out = this.literal();
+        let out: Symmetry;
+        try {
+            out = this.literal();
+        } catch (error) {
+            if (!(error instanceof SymmetryError)) {
+                throw error;
+            }
+            let cond = this.operation();
+            this.expect(['?', 'question mark']);
+            let ifTrue = this.expression();
+            this.expect([':', 'colon']);
+            let ifFalse = this.expression();
+            let tables = Math.max(ifTrue.length, ifFalse.length);
+            let out: Symmetry = [];
+            for (let i = 0; i < tables; i++) {
+                out.push(new Uint16Array(1024));
+            }
+            for (let tr = 0; tr < 1024; tr++) {
+                for (let i = 0; i < tables; i++) {
+                    out[i][tr] = ((runOperation(cond, tr) ? ifTrue : ifFalse)[i] ?? IDENTITY)[tr];
+                }
+            }
+            return out;
+        }
         while (true) {
             if (this.match(',')) {
                 this.advance();
