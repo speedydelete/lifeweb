@@ -3,7 +3,7 @@
 set -eu -o pipefail
 pushd $(dirname "$(realpath $0)") > /dev/null
 
-git stash push src/version.ts
+git stash push -- src/version.ts
 git pull
 npm install
 npx tsc -b
