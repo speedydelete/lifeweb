@@ -58,7 +58,6 @@ export function identifyPeriodic(p: Pattern, limit: number, acceptStabilized: bo
                     }
                 }
                 if (checkLinear) {
-                    console.log('checking linear');
                     for (let period = 1; period < Math.floor((i - j) / 16); period++) {
                         let diff = pop - pops[pops.length - period];
                         if (diff === 0) {
