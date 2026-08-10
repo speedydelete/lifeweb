@@ -198,6 +198,7 @@ type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]
     ) :
     T extends readonly [infer First extends 'string' | 'number' | Set<string>, ...(infer Rest extends readonly ('string' | 'number' | Set<string>)[])] ? [ValueOfOption<First>, ...ValueOfArrayOption<Rest>] :
     never
+;
 
 type ValueOfOption<T extends OptionValue> =
     T extends true ? true :
@@ -206,7 +207,8 @@ type ValueOfOption<T extends OptionValue> =
     T extends Set<infer T> ? T :
     T extends [true, infer T extends 'string' | 'number' | Set<string>] ? ValueOfOption<T>[] :
     T extends readonly ('string' | 'number' | Set<string>)[] ? ValueOfArrayOption<T> :
-    never;
+    never
+;
 
 export type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 
