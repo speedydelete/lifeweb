@@ -246,8 +246,8 @@ export function transitionToString(tr: number, formats: VectorFormatSpec = DEFAU
 
 export function stringBasisSorter(x: string, y: string): number {
     for (let i = 0; i < Math.min(x.length, y.length); i++) {
-        if ('BSAD'.includes(x[i]) && 'BSAD'.includes(y[i])) {
-            let num = 'BSAD'.indexOf(x[i]) - 'BSAD'.indexOf(y[i]);
+        if ('BASD'.includes(x[i]) && 'BASD'.includes(y[i])) {
+            let num = 'BASD'.indexOf(x[i]) - 'BASD'.indexOf(y[i]);
             if (num !== 0) {
                 return num;
             }
@@ -974,7 +974,7 @@ export function xorTransitionsToString(trs: Set<number>): string[] {
     let out: string[] = [];
     for (let spec of [INT, HEX_INT]) {
         let strs: string[] = [];
-        for (let letter of TRANSITION_CLASSES) {
+        for (let letter of ['B', 'A', 'S', 'D'] as const) {
             let or = TRANSITION_CLASS_ORS[letter];
             let foundTrs: string[] = [];
             for (let [trName, values] of Object.entries(spec.trs)) {
@@ -1067,10 +1067,10 @@ export function getSymmetriesOfRule(rule: string): string {
     for (let str of xorTransitionsToString(xorTrs)) {
         out.push(str);
     }
-    for (let [name, symmetry] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
-        if (satisfiesSymmetry(trs, symmetry)) {
-            out.push(name);
-        }
-    }
+    // for (let [name, symmetry] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
+    //     if (satisfiesSymmetry(trs, symmetry)) {
+    //         out.push(name);
+    //     }
+    // }
     return out.filter(x => x !== 'none').join(', ');
 }
