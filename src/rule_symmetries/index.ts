@@ -107,20 +107,22 @@ export function trNumBasisSorter(x: Vector, y: Vector): number {
     return x.length - y.length;
 }
 
-export function normalizeBasis(basis: Basis): Basis {
-    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(trNumBasisSorter);
+export function normalizeBasis(basis: Basis, formats?: VectorFormatSpec): Basis {
+    let basisSorter: Parameters<Basis['sort']>[0] = formats ? ((x, y) => stringBasisSorter(x, y, formats)) : trNumBasisSorter;
+    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(basisSorter);
     let out: Basis = [];
     let done = new Set<string>();
     for (let vector of basis) {
         vector = vector.slice().sort(vectorSorter);
-        let key = [vector, swapVector(vector).sort(vectorSorter)].sort(trNumBasisSorter).map(x => x.join(',')).join(' ');
+        vector = [vector, swapVector(vector).sort(vectorSorter)].sort()[0];
+        let key = vector.join(',');
         if (done.has(key)) {
             continue;
         }
         done.add(key);
         out.push(vector);
     }
-    return out.sort(trNumBasisSorter);
+    return out.sort(basisSorter);
 }
 
 
@@ -270,7 +272,7 @@ export function stringBasisSorter(x: Vector, y: Vector, formats: VectorFormatSpe
 }
 
 export function basisToString(basis: Basis, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
-    return normalizeBasis(basis).map(vector => vectorToString(vector, formats)).sort().join('\n');
+    return normalizeBasis(basis, formats).map(vector => vectorToString(vector, formats)).sort().join('\n');
 }
 
 function _vectorsToRule(trs: Uint8Array, vectors: Iterable<Vector>, xor: number): string | undefined {
