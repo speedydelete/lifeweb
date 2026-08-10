@@ -323,25 +323,38 @@ export const IDENTITY = functionToSymmetry(tr => tr);
 export function findBasis(symmetry: Symmetry): Basis | string {
     symmetry = optimizeSymmetry(IDENTITY.concat(symmetry));
     let out: Basis = [];
-    let done: {[key: number]: Vector} = {};
+    let done = new Map<number, Vector>();
+    let foundTrs = new Set<number>();
+    let foundVectors = new Set<Vector>();
     for (let tr = 0; tr < 1024; tr++) {
-        let foundTrs = new Set<number>();
-        let foundVectors: Vector[] = [];
+        foundTrs.clear();
+        foundVectors.clear();
         for (let table of symmetry) {
             let tr2 = table[tr];
-            if (tr2 in done) {
-                if (!foundVectors.includes(done[tr2])) {
-                    foundVectors.push(done[tr2]);
+            let value = done.get(tr2);
+            if (value) {
+                if (!foundVectors.has(value)) {
+                    foundVectors.add(value);
                 }
-                for (let value of done[tr2]) {
-                    foundTrs.add(value);
+                for (let tr3 of value) {
+                    foundTrs.add(tr3);
                 }
             } else {
                 foundTrs.add(tr2);
             }
         }
-        if (foundVectors.length === 1 && Array.from(foundTrs).every(tr => foundVectors[0].includes(tr))) {
-            continue;
+        if (foundVectors.size === 1) {
+            let first = Array.from(foundVectors)[0];
+            let found = false;
+            for (let tr of foundTrs) {
+                if (!first.includes(tr)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                continue;
+            }
         }
         for (let vector of foundVectors) {
             let index = out.indexOf(vector);
@@ -352,7 +365,7 @@ export function findBasis(symmetry: Symmetry): Basis | string {
         }
         let newVector = Array.from(foundTrs);
         for (let tr2 of foundTrs) {
-            done[tr2] = newVector;
+            done.set(tr2, newVector);
             if (foundTrs.has(tr2 ^ 1)) {
                 return `contradiction (has ${transitionToString(tr2)} and ${transitionToString(tr2 ^ 1)}, discovered while processing ${transitionToString(tr)})`;
             }
@@ -937,38 +950,6 @@ function tryReplaceWithPredefined(symmetryStr: string): string {
     }
 }
 
-
-// export function xorTransitionsToString(trs: Set<number>): string[] {
-//     trs = new Set(Array.from(trs).sort(vectorSorter));
-//     let out: string[] = [];
-//     for (let spec of [INT, HEX_INT]) {
-//         for (let letter of TRANSITION_CLASSES) {
-//             let or = TRANSITION_CLASS_ORS[letter];
-//             for (let [trName, values] of Object.entries(spec.trs)) {
-//                 if (trName === '0c' || trName === '8c') {
-//                     trName = trName[0];
-//                 }
-//                 let found = false;
-//                 for (let tr of values) {
-//                     tr = (tr << 1) | or;
-//                     if (trs.has(tr)) {
-//                         trs.delete(tr);
-//                     } else {
-//                         found = true;
-//                     }
-//                 }
-//                 if (!found) {
-//                     out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
-//                 }
-//             }
-//         }
-//     }
-//     for (let tr of Array.from(trs).sort(vectorSorter)) {
-//         out.push(transitionToString(tr));
-//     }
-//     return out.filter(x => x !== 'none');
-// }
-
 export function xorTransitionsToString(trs: Set<number>): string[] {
     trs = new Set(Array.from(trs).sort(vectorSorter));
     let out: string[] = [];
@@ -1002,7 +983,7 @@ export function xorTransitionsToString(trs: Set<number>): string[] {
     for (let tr of Array.from(trs).sort(vectorSorter)) {
         out.push('^' + transitionToString(tr));
     }
-    return out.map(tryReplaceWithPredefined).filter(x => x !== 'none').sort(stringBasisSorter);
+    return out.sort(stringBasisSorter);
 }
 
 
@@ -1046,8 +1027,17 @@ export function getSymmetriesOfRule(rule: string): string {
         let str = `[${Array.from(notNH).map(cell => `${cell}=0`).join(', ')}]`;
         out.push(tryReplaceWithPredefined(str));
     }
-    // static symmetries
-    out.push(tryReplaceWithPredefined(STATIC_SYMMETRIES[findTransitionsSymmetry(trs)]));
+    // basic symmetries
+    let done = new Set<Symmetry>();
+    for (let [name, symmetry] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
+        if (done.has(symmetry)) {
+            continue;
+        }
+        done.add(symmetry);
+        if (satisfiesSymmetry(trs, symmetry)) {
+            out.push(name);
+        }
+    }
     // XOR symmetries
     let xorTrs = new Set<number>();
     for (let xorTr = 0; xorTr < 1024; xorTr++) {
@@ -1067,10 +1057,8 @@ export function getSymmetriesOfRule(rule: string): string {
     for (let str of xorTransitionsToString(xorTrs)) {
         out.push(str);
     }
-    // for (let [name, symmetry] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
-    //     if (satisfiesSymmetry(trs, symmetry)) {
-    //         out.push(name);
-    //     }
-    // }
-    return out.filter(x => x !== 'none').join(', ');
+    out = out.map(tryReplaceWithPredefined);
+    out = out.filter(x => x !== 'none');
+    out = Array.from(new Set(out));
+    return out.join(', ');
 }
