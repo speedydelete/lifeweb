@@ -122,7 +122,6 @@ async function buildIdentify() {
         ...ESBUILD_OPTIONS,
         entryPoints: [path('src/identify/website.ts')],
         outfile: path('identify/index.js'),
-        treeShaking: false,
     });
 }
 
@@ -132,7 +131,6 @@ async function buildRuleSymmetries() {
         ...ESBUILD_OPTIONS,
         entryPoints: [path('src/rule_symmetries/website.ts')],
         outfile: path('.temp.js'),
-        treeShaking: false,
     });
     let buildResult = await read('.temp.js');
     html = html.replace('<script type="module" src="website.ts"></script>', () => `<script type="module">${buildResult}</script>`);
