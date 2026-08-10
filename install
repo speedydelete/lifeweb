@@ -21,3 +21,4 @@ fi
 
 npm install # if this line fails, reload your shell and run it again, it'll probably work trust
 npx tsc -b
+./build
