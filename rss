@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
+pushd $(dirname "$(realpath $0)") > /dev/null
 
 if ! [ -d "apgmera" ]; then
     git clone https://gitlab.com/apgoucher/apgmera
 fi
+node ./lib/misc/rss.js "$@"
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-node "$SCRIPT_DIR/lib/misc/rss.js" "$@"
+popd > /dev/null

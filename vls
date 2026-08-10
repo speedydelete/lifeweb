@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
+pushd $(dirname "$(realpath $0)") > /dev/null
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-node "$SCRIPT_DIR/lib/vls/index.js" "$@"
+node ./lib/vls/index.js "$@"
+
+popd > /dev/null

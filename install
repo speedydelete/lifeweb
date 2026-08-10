@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
+pushd $(dirname "$(realpath $0)") > /dev/null
 
 if ! command -v node >/dev/null 2>&1; then
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -22,3 +23,5 @@ fi
 npm install # if this line fails, reload your shell and run it again, it'll probably work trust
 npx tsc -b
 ./build
+
+popd > /dev/null

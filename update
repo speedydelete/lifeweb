@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
+pushd $(dirname "$(realpath $0)") > /dev/null
 
 git pull
 npm install
 npx tsc -b
 ./build
+
+popd > /dev/null
