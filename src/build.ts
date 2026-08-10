@@ -12,28 +12,28 @@ let devMode = process.argv.includes('dev');
 
 const BASE_PATH = join(import.meta.dirname, '..');
 
-function resolvePath(value: string): string {
+function path(value: string): string {
     return join(BASE_PATH, value);
 }
 
 function exists(file: string): boolean {
-    return fs.existsSync(resolvePath(file));
+    return fs.existsSync(path(file));
 }
 
 async function read(file: string): Promise<string> {
-    return (await fs.promises.readFile(resolvePath(file))).toString('utf-8');
+    return (await fs.promises.readFile(path(file))).toString('utf-8');
 }
 
 async function write(file: string, data: Parameters<(typeof fs)['promises']['writeFile']>[1]): Promise<void> {
-    await fs.promises.writeFile(resolvePath(file), data);
+    await fs.promises.writeFile(path(file), data);
 }
 
 async function copy(from: string, to: string): Promise<void> {
-    await fs.promises.copyFile(resolvePath(from), resolvePath(to));
+    await fs.promises.copyFile(path(from), path(to));
 }
 
 async function mkdir(file: string): Promise<void> {
-    await fs.promises.mkdir(resolvePath(file));
+    await fs.promises.mkdir(path(file));
 }
 
 
@@ -49,7 +49,7 @@ async function updateVersionNumber(): Promise<void> {
 
 async function buildTypescript(): Promise<void> {
     try {
-        execSync(`${resolvePath('node_modules/.bin/tsc')} -b`, {stdio: 'inherit'});
+        execSync(`${path('node_modules/.bin/tsc')} -b`, {stdio: 'inherit'});
     } catch (error) {
         if (error instanceof Error && error.message.startsWith('Command failed:')) {
             return;
@@ -93,8 +93,8 @@ const MINIFY_HTML_OPTIONS: Parameters<typeof minifyHTML>[1] = {
 async function buildLifewebJS() {
     await esbuild.build({
         ...ESBUILD_OPTIONS,
-        entryPoints: [resolvePath('src/index.ts')],
-        outfile: resolvePath('lifeweb.js'),
+        entryPoints: [path('src/index.ts')],
+        outfile: path('lifeweb.js'),
         plugins: [],
     });
 }
@@ -107,8 +107,8 @@ async function buildEditor() {
     await copy('src/editor/stdlib.rpf', 'editor/stdlib.rpf');
     await esbuild.build({
         ...ESBUILD_OPTIONS,
-        entryPoints: [resolvePath('src/editor/index.ts')],
-        outfile: resolvePath('editor/index.js'),
+        entryPoints: [path('src/editor/index.ts')],
+        outfile: path('editor/index.js'),
         treeShaking: false,
     });
 }
@@ -120,8 +120,8 @@ async function buildIdentify() {
     await write('identify/index.html', minifyHTML(Buffer.from(await read('src/identify/website.html'), 'utf-8'), MINIFY_HTML_OPTIONS));
     await esbuild.build({
         ...ESBUILD_OPTIONS,
-        entryPoints: [resolvePath('src/identify/website.ts')],
-        outfile: resolvePath('identify/index.js'),
+        entryPoints: [path('src/identify/website.ts')],
+        outfile: path('identify/index.js'),
         treeShaking: false,
     });
 }
@@ -130,8 +130,8 @@ async function buildRuleSymmetries() {
     let html = await read('src/rule_symmetries/website.html');
     await esbuild.build({
         ...ESBUILD_OPTIONS,
-        entryPoints: [resolvePath('src/rule_symmetries/website.ts')],
-        outfile: resolvePath('.temp.js'),
+        entryPoints: [path('src/rule_symmetries/website.ts')],
+        outfile: path('.temp.js'),
         treeShaking: false,
     });
     let buildResult = await read('.temp.js');
