@@ -4,4 +4,4 @@ set -eu -o pipefail
 
 git pull
 npm install
-npx tsc -b
+./build
