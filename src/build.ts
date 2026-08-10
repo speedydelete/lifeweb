@@ -1,5 +1,5 @@
 
-import {join} from 'node:path';
+import {isAbsolute, join} from 'node:path';
 import * as fs from 'node:fs';
 import {execSync} from 'node:child_process';
 
@@ -13,7 +13,7 @@ let devMode = process.argv.includes('dev');
 const BASE_PATH = join(import.meta.dirname, '..');
 
 function path(value: string): string {
-    return join(BASE_PATH, value);
+    return isAbsolute(value) ? value : join(BASE_PATH, value);
 }
 
 function exists(file: string): boolean {
