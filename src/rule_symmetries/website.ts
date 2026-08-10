@@ -1,6 +1,6 @@
 
 import {LifewebError, ParserError} from '../core/index.js';
-import {Vector, vectorToString, vectorsToRule, stringBasisSorter, findBasis, parseSymmetry, getSymmetriesOfRule} from './index.js';
+import {Vector, vectorToString, vectorsToRule, basisSorter, findBasis, parseSymmetry, getSymmetriesOfRule} from './index.js';
 
 
 function getElement(id: string): HTMLElement;
@@ -48,6 +48,7 @@ const MODES: {[key: string]: {
 
 
 
+let basisLength = -1;
 let enabledVectors = new Set<Vector>();
 let disabledVectors = new Set<Vector>();
 function recomputeRule(): void {
@@ -55,8 +56,10 @@ function recomputeRule(): void {
     copyText = rule;
     if (rule.includes('contradiction')) {
         textOutputElt.textContent = rule[0].toUpperCase() + rule.slice(1);
+        listOutputElt.style.maxHeight = `calc(100% - 1.5em)`;
     } else {
-        textOutputElt.textContent = `Rule: ${rule}`;
+        textOutputElt.textContent = `Rule: ${rule}\nContains 2^${basisLength} rules`;
+        listOutputElt.style.maxHeight = `calc(100% - 2.5em)`;
     }
 }
 
@@ -66,9 +69,11 @@ function updateBasis(symmetryText: string): void {
     if (typeof basis === 'string') {
         textOutputElt.textContent = basis[0].toUpperCase() + basis.slice(1);
         copyText = basis;
+        listOutputElt.style.maxHeight = `calc(100% - 1.5em)`;
         return;
     }
-    basis = basis.sort(stringBasisSorter);
+    basis = basis.sort((x, y) => basisSorter(x, y));
+    basisLength = basis.length;
     enabledVectors.clear();
     disabledVectors.clear();
     for (let vector of basis) {

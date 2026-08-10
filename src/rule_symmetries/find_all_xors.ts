@@ -1,6 +1,6 @@
 
 import {INT} from '../core/index.js';
-import {TRANSITION_CLASS_ORS, Vector, stringBasisSorter, basisToString, findBasis, parseSymmetry, xorTransitionsToString} from './index.js';
+import {TRANSITION_CLASS_ORS, Vector, basisSorter, basisToString, findBasis, parseSymmetry, xorTransitionsToString} from './index.js';
 
 
 function resolveXORTransitions(trs: Set<number>): Set<number> {
@@ -77,6 +77,13 @@ while (prevLevel.length > 0) {
 }
 console.log('\nFull:');
 let symmetries = Array.from(foundBasises.entries()).map<[Vector, string]>(x => [Array.from(x[1][0]), x[0]]);
-for (let [trs, basis] of symmetries.sort((x, y) => stringBasisSorter(x[0], y[0]))) {
+for (let [trs, basis] of symmetries.sort((x, y) => {
+    let xLength = x[1].split('\n').length;
+    let yLength = y[1].split('\n').length;
+    if (xLength !== yLength) {
+        return yLength - xLength;
+    }
+    return basisSorter(x[0], y[0]);
+})) {
     console.log(`${xorTransitionsToString(new Set(trs)).join(', ')}: 2^${basis.split('\n').length}\n${basis.split('\n').map(x => '    ' + x).join('\n')}`);
 }

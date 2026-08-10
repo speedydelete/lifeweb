@@ -102,6 +102,11 @@ option {
     align-items: center;
 }
 
+#mode {
+    margin-left: 1.5ch;
+    width: 24ch;
+}
+
 #input {
     margin-left: 1ch;
     width: min(50vw, 67ch);
@@ -115,29 +120,21 @@ option {
 #main {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 1em;
-}
-
-#main > * {
-    width: 100%;
-    min-height: 0;
-    max-height: 100%;
-}
-
-#mode {
-    margin-left: 1.5ch;
-    width: 24ch;
+    align-items: stretch;
+    gap: 0.5em;
 }
 
 #text-output {
-    min-height: 1em;
+    flex: 1 0 auto;
     cursor: copy;
     font-family: 'Courier New', Courier, monospace;
     white-space: pre-wrap;
 }
 
 #list-output {
+    min-height: 0;
+    max-height: calc(100% - 2.5em);
+    flex: 1 0 auto;
     display: flex;
     flex-direction: column;
     justify-content: start;

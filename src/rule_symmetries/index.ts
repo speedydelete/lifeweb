@@ -10,13 +10,13 @@ import {Matcher, EOF, ParserPosition, ParserError, BaseParser, RuleError, RuleSy
 
 export type TransitionClass = 'A' | 'B' | 'S' | 'D';
 
-export const TRANSITION_CLASSES = new Set(['A', 'B', 'S', 'D'] as TransitionClass[]);
+export const TRANSITION_CLASSES = new Set(['B', 'S', 'A', 'D'] as TransitionClass[]);
 
 export const TRANSITION_CLASS_ORS: {[K in TransitionClass]: number} = {
-    'A': 0b000_000_000_0,
     'B': 0b000_000_000_1,
-    'D': 0b000_010_000_0,
     'S': 0b000_010_000_1,
+    'A': 0b000_000_000_0,
+    'D': 0b000_010_000_0,
 };
 
 export type SymmetryTable = Uint16Array;
@@ -95,34 +95,6 @@ export function vectorSorter(x: number, y: number): number {
     } else {
         return -1;
     }
-}
-
-export function trNumBasisSorter(x: Vector, y: Vector): number {
-    for (let i = 0; i < Math.min(x.length, y.length); i++) {
-        let value = vectorSorter(x[i], y[i]);
-        if (value !== 0) {
-            return value;
-        }
-    }
-    return x.length - y.length;
-}
-
-export function normalizeBasis(basis: Basis, formats?: VectorFormatSpec): Basis {
-    let basisSorter: Parameters<Basis['sort']>[0] = formats ? ((x, y) => stringBasisSorter(x, y, formats)) : trNumBasisSorter;
-    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(basisSorter);
-    let out: Basis = [];
-    let done = new Set<string>();
-    for (let vector of basis) {
-        vector = vector.slice().sort(vectorSorter);
-        vector = [vector, swapVector(vector).sort(vectorSorter)].sort()[0];
-        let key = vector.join(',');
-        if (done.has(key)) {
-            continue;
-        }
-        done.add(key);
-        out.push(vector);
-    }
-    return out.sort(basisSorter);
 }
 
 
@@ -259,16 +231,44 @@ export function transitionToString(tr: number, formats: VectorFormatSpec = DEFAU
     return vectorToString([tr], formats);
 }
 
-export function stringBasisSorter(x: Vector, y: Vector, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): number {
-    let xStr = vectorToString(x, formats);
-    let yStr = vectorToString(y, formats);
-    if (xStr < yStr) {
-        return -1;
-    } else if (xStr > yStr) {
-        return 1;
-    } else {
-        return 0;
+export function stringBasisSorter(x: string, y: string): number {
+    for (let i = 0; i < Math.min(x.length, y.length); i++) {
+        if ('BSAD'.includes(x[i]) && 'BSAD'.includes(y[i])) {
+            let num = 'BSAD'.indexOf(x[i]) - 'BSAD'.indexOf(y[i]);
+            if (num !== 0) {
+                return num;
+            }
+        } else {
+            if (x[i] < y[i]) {
+                return -1;
+            } else if (x[i] > y[i]) {
+                return 1;
+            }
+        }
     }
+    return x.length - y.length;
+}
+
+export function basisSorter(x: Vector, y: Vector, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): number {
+    return stringBasisSorter(vectorToString(x, formats), vectorToString(y, formats));
+}
+
+export function normalizeBasis(basis: Basis, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): Basis {
+    let sorter: Parameters<Basis['sort']>[0] = (x, y) => basisSorter(x, y, formats);
+    basis = basis.map(vector => vector.slice().sort(vectorSorter)).sort(sorter);
+    let out: Basis = [];
+    let done = new Set<string>();
+    for (let vector of basis) {
+        vector = vector.slice().sort(vectorSorter);
+        vector = [vector, swapVector(vector).sort(vectorSorter)].sort(sorter)[0];
+        let key = vector.join(',');
+        if (done.has(key)) {
+            continue;
+        }
+        done.add(key);
+        out.push(vector);
+    }
+    return out.sort(sorter);
 }
 
 export function basisToString(basis: Basis, formats: VectorFormatSpec = DEFAULT_BASIS_VECTOR_FORMAT_SPECS): string {
@@ -925,16 +925,46 @@ function tryReplaceWithPredefined(symmetryStr: string): string {
 }
 
 
+// export function xorTransitionsToString(trs: Set<number>): string[] {
+//     trs = new Set(Array.from(trs).sort(vectorSorter));
+//     let out: string[] = [];
+//     for (let spec of [INT, HEX_INT]) {
+//         for (let letter of TRANSITION_CLASSES) {
+//             let or = TRANSITION_CLASS_ORS[letter];
+//             for (let [trName, values] of Object.entries(spec.trs)) {
+//                 if (trName === '0c' || trName === '8c') {
+//                     trName = trName[0];
+//                 }
+//                 let found = false;
+//                 for (let tr of values) {
+//                     tr = (tr << 1) | or;
+//                     if (trs.has(tr)) {
+//                         trs.delete(tr);
+//                     } else {
+//                         found = true;
+//                     }
+//                 }
+//                 if (!found) {
+//                     out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
+//                 }
+//             }
+//         }
+//     }
+//     for (let tr of Array.from(trs).sort(vectorSorter)) {
+//         out.push(transitionToString(tr));
+//     }
+//     return out.filter(x => x !== 'none');
+// }
+
 export function xorTransitionsToString(trs: Set<number>): string[] {
     trs = new Set(Array.from(trs).sort(vectorSorter));
     let out: string[] = [];
     for (let spec of [INT, HEX_INT]) {
+        let strs: string[] = [];
         for (let letter of TRANSITION_CLASSES) {
             let or = TRANSITION_CLASS_ORS[letter];
+            let foundTrs: string[] = [];
             for (let [trName, values] of Object.entries(spec.trs)) {
-                if (trName === '0c' || trName === '8c') {
-                    trName = trName[0];
-                }
                 let found = false;
                 for (let tr of values) {
                     tr = (tr << 1) | or;
@@ -945,15 +975,21 @@ export function xorTransitionsToString(trs: Set<number>): string[] {
                     }
                 }
                 if (!found) {
-                    out.push(tryReplaceWithPredefined(`^${letter}${trName}${spec.after}`));
+                    foundTrs.push(trName);
                 }
             }
+            if (foundTrs.length !== 0) {
+                strs.push(letter + unparseTransitions(foundTrs, spec));
+            }
+        }
+        if (strs.length !== 0) {
+            out.push('^' + strs.join('/') + spec.after);
         }
     }
     for (let tr of Array.from(trs).sort(vectorSorter)) {
-        out.push(transitionToString(tr));
+        out.push('^' + transitionToString(tr));
     }
-    return out.filter(x => x !== 'none');
+    return out.map(tryReplaceWithPredefined).filter(x => x !== 'none').sort(stringBasisSorter);
 }
 
 
