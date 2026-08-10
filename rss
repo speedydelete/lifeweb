@@ -1,11 +1,10 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-if ! [ -d "node_modules" ]; then
-    ./install
-fi
+set -eu -o pipefail
 
 if ! [ -d "apgmera" ]; then
     git clone https://gitlab.com/apgoucher/apgmera
 fi
 
-node ./lib/misc/rss.js $@
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+node "$SCRIPT_DIR/lib/misc/rss.js" "$@"
