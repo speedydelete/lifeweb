@@ -98,6 +98,19 @@ export function vectorSorter(x: number, y: number): number {
 }
 
 
+export function satisfiesSymmetry(trs: Uint8Array, symmetry: Symmetry): boolean {
+    for (let table of symmetry) {
+        for (let tr = 0; tr < 1024; tr++) {
+            let tr2 = table[tr];
+            if ((trs[tr >> 1] ^ (tr & 1)) !== (trs[tr2 >> 1] ^ (tr2 & 1))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
 export type VectorFormat = 'map' | 'int' | 'hex' | 'vn';
 export type VectorFormatSpec = (VectorFormat | VectorFormat[])[];
 export const DEFAULT_BASIS_VECTOR_FORMAT_SPECS: VectorFormat[] = ['int', 'hex', 'map'];
@@ -895,7 +908,7 @@ parser.program();
 
 
 export function parseSymmetry(data: string): Symmetry {
-    let parser = new SymmetryParser(data, PREDEFINED_SYMMETRY_NAMESPACE);
+    let parser = new SymmetryParser(data, Object.create(PREDEFINED_SYMMETRY_NAMESPACE));
     let out = parser.program();
     if (out === undefined) {
         parser.error('No return value found');
@@ -1053,6 +1066,11 @@ export function getSymmetriesOfRule(rule: string): string {
     }
     for (let str of xorTransitionsToString(xorTrs)) {
         out.push(str);
+    }
+    for (let [name, symmetry] of Object.entries(PREDEFINED_SYMMETRY_NAMESPACE)) {
+        if (satisfiesSymmetry(trs, symmetry)) {
+            out.push(name);
+        }
     }
     return out.filter(x => x !== 'none').join(', ');
 }
