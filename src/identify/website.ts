@@ -157,7 +157,7 @@ export class CAPatternElement extends HTMLElement {
             name = 'Output: ' + name;
         }
         (root.getElementById('name') as HTMLElement).textContent = name;
-        let basicText = data.minmax ? `Min: ${data.minmax[0]}\nMax: ${data.minmax[1]}\n` : '';
+        let basicText = data.minmax ? `Min: ${data.minmax.min}\nMax: ${data.minmax.max}\n2^${data.minmax.versatility} rules` : '';
         let text = basicText;
         if (data.power !== undefined) {
             text += `Power: ${data.power}\n`;
