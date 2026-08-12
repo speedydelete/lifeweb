@@ -3,7 +3,7 @@
 
 import {LifewebError, stringMD5} from './util.js';
 import {Pattern} from './pattern.js';
-import {MinmaxError, PhaseData, findMinmax} from './minmax.js';
+import {MinmaxError, PhaseData, Minmax, findMinmax} from './minmax.js';
 
 
 /** The output of `identifyPeriodic`, contains basic information about a possibly periodic pattern. */
@@ -761,7 +761,7 @@ export interface Identified extends PatternType {
     /** The number of cells whose period is the period of the oscillator (not a subperiod!) divided by the number of cells in the envelope, only for oscillators. */
     strictVolatility?: number;
     /** The minimum and maximum rule that the pattern evolves the same in. */
-    minmax?: [string, string];
+    minmax?: Minmax;
     /** The static/kinetic symmetry of the pattern. */
     symmetry: PatternSymmetry;
 }
@@ -774,7 +774,7 @@ export interface Identified extends PatternType {
 export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
     let type = identifyPeriodic(p, limit, acceptStabilized);
-    let minmax: [string, string] | undefined = undefined;
+    let minmax: Minmax | undefined = undefined;
     try {
         minmax = findMinmax(p, type.stabilizedAt + (type.period === -1 ? limit : type.period), type);
     } catch (error) {

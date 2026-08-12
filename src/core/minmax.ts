@@ -29,6 +29,17 @@ export interface PhaseData<T extends Pattern = Pattern> {
 }
 
 
+/** Stores information about the minimum and maximum rules of a pattern */
+export interface Minmax {
+    /** The minimum rule it works in. */
+    min: string;
+    /** The maximum rule it works in. */
+    max: string;
+    /** The size of the rulespace it works in */
+    versatility: bigint;
+}
+
+
 /** Verifies that a pattern is consistent with a given `PhaseData`. */
 function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): boolean {
     p = p.copy();
@@ -47,10 +58,19 @@ function verifyType(p: Pattern, data: PhaseData, gens: number, step: number): bo
     return true;
 }
 
+
+interface IsotropicMinmax {
+    minB: string[];
+    minS: string[];
+    maxB: string[];
+    maxS: string[];
+    versatility: bigint;
+}
+
 /** Finds minimum and maximum rules for patterns in non-B0 isotropic rules
  * @param allTrs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
  */
-function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | IsotropicMinmax {
     let value = arrayToTransitions(p.trs, spec);
     if (!value) {
         return false;
@@ -60,6 +80,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
     let minS = new Set(s);
     let maxB = new Set(b);
     let maxS = new Set(s);
+    let versatility = 0n;
     for (let tr in spec.trs) {
         let q = p.copy();
         q.trs = q.trs.slice();
@@ -70,6 +91,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
                 }
                 if (verifyType(q, data, gens, step)) {
                     minB.delete(tr);
+                    versatility++;
                 }
             } else {
                 for (let i of spec.trs[tr]) {
@@ -77,6 +99,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxB.add(tr);
+                    versatility++;
                 }
             }
             q = p.copy();
@@ -88,6 +111,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
             }
             if (verifyType(q, data, gens, step)) {
                 minS.delete(tr);
+                versatility++;
             }
         } else {
             for (let i of spec.trs[tr]) {
@@ -95,6 +119,7 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
             }
             if (verifyType(q, data, gens, step)) {
                 maxS.add(tr);
+                versatility++;
             }
         }
     }
@@ -103,13 +128,14 @@ function isotropicMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
         minS: Array.from(minS),
         maxB: Array.from(maxB),
         maxS: Array.from(maxS),
+        versatility,
     };
 }
 
 /** Finds minimum and maximum rules for patterns in B0 isotropic rules
  * @param allTrs Generally either `TRANSITIONS` or `HEX_TRANSITIONS`.
  */
-function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | {minB: string[], minS: string[], maxB: string[], maxS: string[]} {
+function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number, spec: INTSpec): false | IsotropicMinmax {
     let value = arrayToTransitions(p.evenTrs.map(x => 1 - x), spec);
     if (!value) {
         return false;
@@ -120,6 +146,7 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
     let minS = new Set(s);
     let maxB = new Set(b);
     let maxS = new Set(s);
+    let versatility = 0n;
     for (let tr in spec.trs) {
         if (tr !== '0c') {
             let q = p.copy();
@@ -132,6 +159,7 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
                 }
                 if (verifyType(q, data, gens, step)) {
                     minB.delete(tr);
+                    versatility++;
                 }
             } else {
                 for (let i of spec.trs[tr]) {
@@ -140,6 +168,7 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxB.add(tr);
+                    versatility++;
                 }
             }
         }
@@ -154,6 +183,7 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
                 }
                 if (verifyType(q, data, gens, step)) {
                     minS.delete(tr);
+                    versatility++;
                 }
             } else {
                 for (let i of spec.trs[tr]) {
@@ -162,6 +192,7 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxS.add(tr);
+                    versatility++;
                 }
             }
         }
@@ -171,13 +202,15 @@ function isotropicB0Minmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
         minS: Array.from(minS),
         maxB: Array.from(maxB),
         maxS: Array.from(maxS),
+        versatility,
     };
 }
 
 /** Finds minimum and maximum rules for MAP string rules (https://conwaylife.com/wiki/Non-isotropic_rule). */
-function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number): [string, string] {
+function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: number, step: number): Minmax {
     let min = p.trs.slice();
     let max = p.trs.slice();
+    let versatility = 0n;
     for (let i = 0; i < 512; i++) {
         let q = p.copy();
         q.trs[i] = 1 - q.trs[i];
@@ -187,16 +220,18 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
             } else {
                 max[i] = 1;
             }
+            versatility++;
         }
         q.trs[i] = 1 - q.trs[i];
     }
-    return [unparseMAP(min, p.rule.states), unparseMAP(max, p.rule.states)];
+    return {min: unparseMAP(min, p.rule.states), max: unparseMAP(max, p.rule.states), versatility};
 }
 
 /** Finds minimum and maximum rules for MAP string rules (https://conwaylife.com/wiki/Non-isotropic_rule) with B0. */
-function mapB0StringMinmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
+function mapB0StringMinmax(p: MAPB0Pattern, data: PhaseData, gens: number, step: number): Minmax {
     let min = p.evenTrs.map(x => 1 - x);
     let max = p.evenTrs.map(x => 1 - x);
+    let versatility = 0n;
     for (let i = 0; i < 512; i++) {
         let q = p.copy();
         q.evenTrs[i] = 1 - q.evenTrs[i];
@@ -207,28 +242,29 @@ function mapB0StringMinmax(p: MAPB0Pattern, data: PhaseData, gens: number, step:
             } else {
                 max[i] = 0;
             }
+            versatility++;
         }
         q.evenTrs[i] = 1 - q.evenTrs[i];
         q.oddTrs[511 - i] = 1 - q.oddTrs[511 - i];
     }
-    return [unparseMAP(min, p.rule.states), unparseMAP(max, p.rule.states)];
+    return {min: unparseMAP(min, p.rule.states), max: unparseMAP(max, p.rule.states), versatility};
 }
 
 /** Finds minimum and maximum rules for patterns in the 2**512 2-state range-1 Moore-neighborhood rules. */
-function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData, gens: number, step: number): [string, string] {
+function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData, gens: number, step: number): Minmax {
     p.shrinkToFit();
     if (p.rule.str.startsWith('MAP')) {
-        let min: string, max: string;
+        let out: Minmax;
         if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-            [min, max] = mapStringMinmax(p, data, gens, step);
+            out = mapStringMinmax(p, data, gens, step);
         } else {
-            [min, max] = mapB0StringMinmax(p, data, gens, step);
+            out = mapB0StringMinmax(p, data, gens, step);
         }
         if (p instanceof MAPGenPattern) {
-            min += '/' + p.rule.states;
-            max += '/' + p.rule.states;
+            out.min += '/' + p.rule.states;
+            out.max += '/' + p.rule.states;
         }
-        return [min, max];
+        return out;
     }
     let nhLetter: keyof typeof INT_SPECS;
     let spec: INTSpec;
@@ -240,29 +276,29 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData
         nhLetter = 'M';
         spec = INT;
     }
-    let out: ReturnType<typeof isotropicMinmax>;
+    let isotropic: ReturnType<typeof isotropicMinmax>;
     if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-        out = isotropicMinmax(p, data, gens, step, spec);
+        isotropic = isotropicMinmax(p, data, gens, step, spec);
     } else {
-        out = isotropicB0Minmax(p, data, gens, step, spec);
+        isotropic = isotropicB0Minmax(p, data, gens, step, spec);
     }
-    if (!out) {
-        let min: string, max: string;
+    if (!isotropic) {
+        let out: Minmax;
         if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-            [min, max] = mapStringMinmax(p, data, gens, step);
+            out = mapStringMinmax(p, data, gens, step);
         } else {
-            [min, max] = mapB0StringMinmax(p, data, gens, step);
+            out = mapB0StringMinmax(p, data, gens, step);
         }
         if (p instanceof MAPGenPattern) {
-            min += '/' + p.rule.states;
-            max += '/' + p.rule.states;
+            out.min += '/' + p.rule.states;
+            out.max += '/' + p.rule.states;
         }
-        return [min, max];
+        return out;
     }
-    let minB = unparseTransitions(out.minB, spec);
-    let minS = unparseTransitions(out.minS, spec);
-    let maxB = unparseTransitions(out.maxB, spec);
-    let maxS = unparseTransitions(out.maxS, spec);
+    let minB = unparseTransitions(isotropic.minB, spec);
+    let minS = unparseTransitions(isotropic.minS, spec);
+    let maxB = unparseTransitions(isotropic.maxB, spec);
+    let maxS = unparseTransitions(isotropic.maxS, spec);
     let min: string;
     let max: string;
     if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
@@ -276,13 +312,23 @@ function mapMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData
         min += nhLetter;
         max += nhLetter;
     }
-    return [min, max];
+    return {min, max, versatility: isotropic.versatility};
+}
+
+
+interface OTMinmax {
+    minB: number[];
+    minS: number[];
+    maxB: number[];
+    maxS: number[];
+    versatility: bigint;
 }
 
 /** Finds minimum and maximum rules for patterns in OT non-B0 rules. */
-function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, spec: INTSpec): [number[], number[], number[], number[]] {
+function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, spec: INTSpec): OTMinmax {
     let maxB = minB.slice();
     let maxS = minS.slice();
+    let versatility = 0n;
     for (let i = 0; i < spec.validTrs.length; i++) {
         let q = p.copy();
         q.trs = q.trs.slice();
@@ -295,6 +341,7 @@ function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[],
                 }
                 if (verifyType(q, data, gens, step)) {
                     minB.splice(minB.indexOf(i), 1);
+                    versatility++;
                 }
             } else {
                 for (let letter of spec.validTrs[i]) {
@@ -304,6 +351,7 @@ function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[],
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxB.push(i);
+                    versatility++;
                 }
             }
             q = p.copy();
@@ -317,6 +365,7 @@ function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[],
             }
             if (verifyType(q, data, gens, step)) {
                 minS.splice(minS.indexOf(i), 1);
+                versatility++;
             }
         } else {
             for (let letter of spec.validTrs[i]) {
@@ -326,16 +375,18 @@ function otMinmax(p: MAPPattern | MAPGenPattern, minB: number[], minS: number[],
             }
             if (verifyType(q, data, gens, step)) {
                 maxS.push(i);
+                versatility++;
             }
         }
     }
-    return [minB, minS, maxB, maxS];
+    return {minB, minS, maxB, maxS, versatility};
 }
 
 /** Finds minimum and maximum rules for patterns in OT B0 rules. */
-function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, spec: INTSpec): [number[], number[], number[], number[]] {
+function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: PhaseData, gens: number, step: number, spec: INTSpec): OTMinmax {
     let maxB = minB.slice();
     let maxS = minS.slice();
+    let versatility = 0n;
     for (let i = 0; i < spec.validTrs.length; i++) {
         if (i !== 0) {
             let q = p.copy();
@@ -350,6 +401,7 @@ function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: Phase
                 }
                 if (verifyType(q, data, gens, step)) {
                     minB.splice(minB.indexOf(i), 1);
+                    versatility++;
                 }
             } else {
                 for (let letter of spec.validTrs[i]) {
@@ -360,6 +412,7 @@ function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: Phase
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxB.push(i);
+                    versatility++;
                 }
             }
         }
@@ -376,6 +429,7 @@ function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: Phase
                 }
                 if (verifyType(q, data, gens, step)) {
                     minS.splice(minS.indexOf(i), 1);
+                    versatility++;
                 }
             } else {
                 for (let letter of spec.validTrs[i]) {
@@ -386,15 +440,20 @@ function otB0Minmax(p: MAPB0Pattern, minB: number[], minS: number[], data: Phase
                 }
                 if (verifyType(q, data, gens, step)) {
                     maxS.push(i);
+                    versatility++;
                 }
             }
         }
     }
-    return [minB, minS, maxB, maxS];
+    return {minB, minS, maxB, maxS, versatility};
+}
+
+function otToString(data: number[]): string {
+    return data.sort((x, y) => x - y).join('');
 }
 
 /** Finds minimum and maximum rules for patterns in OT rules. */
-function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData, gens: number, step: number): [string, string] {
+function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseData, gens: number, step: number): Minmax {
     let nhLetter: keyof typeof INT_SPECS;
     let spec: INTSpec;
     let last = p.rule.str[p.rule.str.length - 1];
@@ -426,38 +485,54 @@ function fullOTMinmax(p: MAPPattern | MAPB0Pattern | MAPGenPattern, data: PhaseD
             startS.push(i);
         }
     }
-    let outData: number[][] = [];
+    let out: OTMinmax;
     if (p instanceof MAPPattern || p instanceof MAPGenPattern) {
-        outData = otMinmax(p, startB, startS, data, gens, step, spec);
+        out = otMinmax(p, startB, startS, data, gens, step, spec);
     } else {
-        outData = otB0Minmax(p, startB, startS, data, gens, step, spec);
+        out = otB0Minmax(p, startB, startS, data, gens, step, spec);
     }
-    let [minB, minS, maxB, maxS] = outData.map(x => x.sort((x, y) => x - y).join(''));
+    let minB = otToString(out.minB);
+    let minS = otToString(out.minS);
+    let maxB = otToString(out.maxB);
+    let maxS = otToString(out.maxS);
+    let versatility = out.versatility;
     if (p instanceof MAPPattern || p instanceof MAPB0Pattern) {
-        return [`B${minB}/S${minS}`, `B${maxB}/S${maxS}`];
+        return {
+            min: `B${minB}/S${minS}`,
+            max: `B${maxB}/S${maxS}`,
+            versatility,
+        };
     } else {
-        return [`${minS}/${minB}/${p.rule.states}`, `${maxS}/${maxB}/${p.rule.states}`];
+        return {
+            min: `${minS}/${minB}/${p.rule.states}`,
+            max: `${maxS}/${maxB}/${p.rule.states}`,
+            versatility,
+        };
     }
 }
 
+
 /** Finds minimum and maximum rules for patterns in HROT rules without B0. */
-function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number): [string, string] {
+function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number): Minmax {
     let parts = p.rule.str.split(',');
     let min = `${parts[0]},${parts[1]},S`;
     let max = `${parts[0]},${parts[1]},S`;
     let minS = p.s.slice();
     let maxS = p.s.slice();
+    let versatility = 0n;
     for (let i = 0; i < minS.length; i++) {
         if (minS[i]) {
             p.s[i] = 0;
             if (verifyType(p, data, gens, step)) {
                 minS[i] = 0;
+                versatility++;
             }
             p.s[i] = 1;
         } else {
             p.s[i] = 1;
             if (verifyType(p, data, gens, step)) {
                 maxS[i] = 1;
+                versatility++;
             }
             p.s[i] = 0;
         }
@@ -471,12 +546,14 @@ function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number)
             p.b[i] = 0;
             if (verifyType(p, data, gens, step)) {
                 minB[i] = 0;
+                versatility++;
             }
             p.b[i] = 1;
         } else {
             p.b[i] = 1;
             if (verifyType(p, data, gens, step)) {
                 maxB[i] = 1;
+                versatility++;
             }
             p.b[i] = 0;
         }
@@ -488,22 +565,24 @@ function hrotMinmax(p: HROTPattern, data: PhaseData, gens: number, step: number)
         min += ',' + last;
         max += ',' + last;
     }
-    return [min, max];
+    return {min, max, versatility};
 }
 
 /** Finds minimum and maximum rules for patterns in HROT rules with B0. */
-function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: number): [string, string] {
+function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: number): Minmax {
     let parts = p.rule.str.split(',');
     let min = `${parts[0]},${parts[1]},S`;
     let max = `${parts[0]},${parts[1]},S`;
     let minS = p.evenS.map(x => 1 - x);
     let maxS = p.evenS.map(x => 1 - x);
+    let versatility = 0n;
     for (let i = 0; i < minS.length; i++) {
         if (minS[i]) {
             p.evenS[i] = 1;
             p.oddS[minS.length - 1 - i] = 0;
             if (verifyType(p, data, gens, step)) {
                 minS[i] = 0;
+                versatility++;
             }
             p.evenS[i] = 0;
             p.oddS[minS.length - 1 - i] = 1;
@@ -512,6 +591,7 @@ function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: num
             p.oddS[minS.length - 1 - i] = 1;
             if (verifyType(p, data, gens, step)) {
                 maxS[i] = 1;
+                versatility++;
             }
             p.evenS[i] = 1;
             p.oddS[minS.length - 1 - i] = 0;
@@ -527,6 +607,7 @@ function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: num
             p.oddB[minB.length - 1 - i] = 0;
             if (verifyType(p, data, gens, step)) {
                 minB[i] = 0;
+                versatility++;
             }
             p.evenB[i] = 0;
             p.oddB[minB.length - 1 - i] = 1;
@@ -535,6 +616,7 @@ function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: num
             p.oddB[minB.length - 1 - i] = 1;
             if (verifyType(p, data, gens, step)) {
                 maxB[i] = 1;
+                versatility++;
             }
             p.evenB[i] = 1;
             p.oddB[minB.length - 1 - i] = 0;
@@ -546,13 +628,15 @@ function hrotB0Minmax(p: HROTB0Pattern, data: PhaseData, gens: number, step: num
         min += ',' + parts[4];
         max += ',' + parts[4];
     }
-    return [min, max];
+    return {min, max, versatility};
 }
 
+
 /** Finds minimum and maximum rules for patterns in alternating-time rules. */
-function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number, step: number, ot?: boolean): [string, string] {
+function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number, step: number, ot?: boolean): Minmax {
     let min: string[] = [];
     let max: string[] = [];
+    let versatility = 0n;
     let count = p.patterns.length * step;
     for (let i = 0; i < count; i += step) {
         let q = p.patterns[i % p.patterns.length].copy();
@@ -567,19 +651,25 @@ function alternatingMinmax(p: AlternatingPattern, data: PhaseData, gens: number,
             newData.phases.push(data.phases[j]);
         }
         let newGens = Math.ceil((gens - i) / count) + 1;
-        let minmax = findMinmax(q, newGens, newData, count, ot);
-        min.push(minmax[0]);
-        max.push(minmax[1]);
+        let value = findMinmax(q, newGens, newData, count, ot);
+        min.push(value.min);
+        max.push(value.max);
+        versatility *= value.versatility;
     }
-    return [min.join('|'), max.join('|')];
+    return {
+        min: min.join('|'),
+        max: max.join('|'),
+        versatility,
+    };
 }
+
 
 /** Finds minimum and maximum rules for patterns for a given number of generations.
  * @param data An optional `PhaseData` to take place of the auto-generated one.
  * @param step The step used while running patterns, used internally.
  * @param ot Whether to use outer-totalistic minmax instead of isotropic minmax when available.
 */
-export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseData<T>, step: number = 1, ot?: boolean): [string, string] {
+export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseData<T>, step: number = 1, ot?: boolean): Minmax {
     p = p.copy().shrinkToFit();
     if (data === undefined) {
         let pops: number[] = [p.population];
@@ -615,15 +705,11 @@ export function findMinmax<T extends Pattern>(p: T, gens: number, data?: PhaseDa
     } else if (p instanceof AlternatingPattern) {
         return alternatingMinmax(p, data, gens, step, ot);
     } else if (p instanceof TreePattern) {
-        return [p.rule.str, p.rule.str];
+        throw new MinmaxError('Minmax is not supported for RuleLoader');
     } else if (p instanceof IdentityPattern) {
-        return ['Identity', 'Identity'];
+        throw new MinmaxError('Minmax is not supported for Identity');
     } else if (p instanceof FinitePattern || p instanceof TorusPattern) {
-        let q = p.pattern;
-        q.setData(p.height, p.width, p.data);
-        return findMinmax(q, gens, undefined, step, ot).map(rule => {
-            return `${rule}:${p instanceof FinitePattern ? 'P' : 'T'}${p.width},${p.height}`;
-        }) as [string, string];
+        throw new MinmaxError('Minmax is not supported for bounded grids');
     } else {
         throw new MinmaxError(`Unknown pattern: ${p.constructor.name}`);
     }

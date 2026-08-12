@@ -63,6 +63,9 @@ async function buildTypescript(): Promise<void> {
 const ESBUILD_OPTIONS: esbuild.BuildOptions = {
     bundle: true,
     format: 'esm',
+    // no idea where this comes from
+    // it maybe should be (according to caniuse.com saved features)
+    // target: ['chrome84', 'edge84', 'safari14.1', 'firefox68', 'opera70'],
     target: ['chrome85', 'edge85', 'safari14.1', 'firefox77', 'opera71'],
     sourcemap: devMode ? 'inline' : false,
     keepNames: devMode,
