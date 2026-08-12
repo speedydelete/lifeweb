@@ -771,9 +771,9 @@ export interface Identified extends PatternType {
  * @param acceptStabilized Whether to check for unstable patterns that stabilize into other patterns.
  * @param maxPeriodMul The maximum period multiplication for linear growth detection (for example, C4-symmetric RRG's can have a true period 4 times their given one).
  */
-export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, maxPeriodMul: number = 8): Identified {
+export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, checkLinear?: boolean, maxPeriodMul: number = 8): Identified {
     p = p.copy().shrinkToFit();
-    let type = identifyPeriodic(p, limit, acceptStabilized);
+    let type = identifyPeriodic(p, limit, acceptStabilized, checkLinear);
     let minmax: Minmax | undefined = undefined;
     try {
         minmax = findMinmax(p, type.stabilizedAt + (type.period === -1 ? limit : type.period), type);
@@ -795,7 +795,7 @@ export function identify(p: Pattern, limit: number, acceptStabilized?: boolean, 
         if (data) {
             type.period = data.period;
             type.disp = data.disp;
-            output = identify(data.ash, limit, acceptStabilized, maxPeriodMul);
+            output = identify(data.ash, limit, acceptStabilized, checkLinear, maxPeriodMul);
         }
     }
     let out = {...type, output, desc: '', ...oscInfo, minmax, symmetry: findPatternSymmetry(type)};
