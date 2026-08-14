@@ -1,0 +1,31 @@
+
+module lifeweb::core::pattern;
+
+
+@export string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
+@export string RLE_PREFIXES = "pqrstuvwxyz";
+@export fn string get_rle_char(uint64 state, uint64 state_count) {
+    if (state == 0) {
+        return state_count == 2 ? 'b' : '.';
+    } else if (state == 1) {
+        return state_count == 2 ? 'o' : 'A';
+    } else {
+
+    }
+}
+
+@export string APGCODE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+
+@export
+enum SquareRuleSymmetry {C1, C2, C4, D2h, D2v, D2s, D2b, D4p, D4x, D8}
+
+@export
+struct PatternMethods {
+    none run_generation(Pattern mut* this);
+    none get_data(Pattern mut )
+}
+
+@export struct Pattern {
+    PatternMethods* __proto__;
+}
