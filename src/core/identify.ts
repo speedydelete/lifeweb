@@ -194,7 +194,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
     } else if (speed.startsWith('p')) {
         return {dx: 0, dy: 0, period: Number(speed.slice(1))};
     } else {
-        throw new LifewebError(`Invalid speed: '${speed}'`);
+        throw new LifewebError(`Invalid speed: '${speed}' (no 'c', '/', or 'p' detected)`);
     }
     let p = Number(period.endsWith('o') || period.endsWith('d') ? period.slice(0, -1) : period);
     let x: number;
@@ -212,7 +212,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
         x = Number(parts[0]);
         y = Number(parts[1]);
         if (Number.isNaN(x) || Number.isNaN(y) || parts.length !== 2) {
-            throw new LifewebError(`Invalid speed: '${speed}'`);
+            throw new LifewebError(`Invalid speed: '${speed}' (invalid parenthesized displacement)`);
         }
     } else if (disp === '') {
         x = 1;
@@ -222,7 +222,7 @@ export function parseSpeed(speed: string): {dx: number, dy: number, period: numb
             y = 0;
         }
     } else {
-        throw new LifewebError(`Invalid speed: '${speed}'`);
+        throw new LifewebError(`Invalid speed: '${speed}' (invalid displacement)`);
     }
     return {dx: x, dy: y, period: p};
 }
