@@ -222,8 +222,11 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
                 max[i] = 1;
             }
             versatility++;
+            console.log(i, q.trs[i]);
         }
     }
+    console.log(min);
+    console.log(max);
     return {min: unparseMAP(min, p.rule.states), max: unparseMAP(max, p.rule.states), versatility};
 }
 
