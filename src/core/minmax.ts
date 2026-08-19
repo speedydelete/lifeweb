@@ -216,17 +216,14 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
         q.trs = q.trs.slice();
         q.trs[i] = 1 - q.trs[i];
         if (verifyType(q, data, gens, step)) {
-            if (q.trs[i]) {
+            if (p.trs[i]) {
                 min[i] = 0;
             } else {
                 max[i] = 1;
             }
             versatility++;
-            console.log(i, q.trs[i]);
         }
     }
-    console.log(min);
-    console.log(max);
     return {min: unparseMAP(min, p.rule.states), max: unparseMAP(max, p.rule.states), versatility};
 }
 
