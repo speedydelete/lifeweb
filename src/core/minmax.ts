@@ -213,6 +213,7 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
     let versatility = 0n;
     for (let i = 0; i < 512; i++) {
         let q = p.copy();
+        q.trs = q.trs.slice();
         q.trs[i] = 1 - q.trs[i];
         if (verifyType(q, data, gens, step)) {
             if (q.trs[i]) {
@@ -222,7 +223,6 @@ function mapStringMinmax(p: MAPPattern | MAPGenPattern, data: PhaseData, gens: n
             }
             versatility++;
         }
-        q.trs[i] = 1 - q.trs[i];
     }
     return {min: unparseMAP(min, p.rule.states), max: unparseMAP(max, p.rule.states), versatility};
 }
