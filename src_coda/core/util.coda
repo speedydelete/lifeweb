@@ -4,30 +4,36 @@ module lifeweb::core::util;
 include std;
 
 
-@export fn fatal_error(string name, string message) {
+@export
+fn fatal_error(string name, string message) {
     std::printf("Fatal error: %s\n", name);
     std::exit(std::EXIT_FALIURE);
 }
 
-@export type LifewebError = struct {
+@export
+type LifewebError = struct {
     string name;
     string message;
 };
 
-@export $fn LifewebError* create_lifeweb_error(string name, string message) {
+@export
+$fn LifewebError* create_lifeweb_error(string name, string message) {
     return &(LifewebError){name, message};
 }
 
-@export $fn LifewebError* create_general_error(string message) {
+@export
+$fn LifewebError* create_general_error(string message) {
     return create_lifeweb_error("LifewebError", message);
 }
 
-@export $fn LifewebError* create_rule_error(string message) {
+@export
+$fn LifewebError* create_rule_error(string message) {
     return create_lifeweb_error("RuleError", message);
 }
 
 
-@export $fn #code::type min_uint_type_that_fits(usize size) {
+@export
+$fn #code::type min_uint_type_that_fits(usize size) {
     if (size <= 8) {
         return #{uint8};
     } else if (size <= 16) {
@@ -40,37 +46,6 @@ include std;
         #error("Too big for int64");
     }
 }
-
-
-@export constraint AnyInt = int8 | int16 | int32 | int64;
-@export constraint AnyUint = uint8 | uint16 | uint32 | uint64;
-@export constraint AnyIntOrUint = AnyInt | AnyUint;
-
-@export $fn T ceil_div<T: AnyIntOrUint>(T a, T b) {
-    return (a + b - 1) / b;
-}
-
-@export fn T gcd<T: AnyIntOrUint>(T mut a, T mut b) {
-    while (b > 0) {
-        T temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
-
-@export fn T lcm<T: AnyIntOrUint>(T a, T b) {
-    return (T)((int64)a * (int64)b / gcd((int64)a, (int64)b));
-}
-
-@export fn usize round_up_to_nearest_power_of_two<T: AnyIntOrUint>(T value) {
-    T out = 0;
-    while (out < len) {
-        out *= 2;
-    }
-    return out;
-}
-
 
 
 uint32[64] MD5_CONSTANTS = [0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1, 0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391];
@@ -142,18 +117,4 @@ uint32[64] MD5_BLOCKS = [
         }
     }
     return actualOut;
-}
-
-fn (T | U) make_zaphod_president(bool value) {
-    (T | U)* out = malloc();
-    if (random() < 0.5) {
-        out = (T){};
-        T* t = out?;
-        t->field_name = value;
-    } else {
-        out = (U){};
-        U* u = out?;
-        u->field_name = value;
-    }
-    return out;
 }
