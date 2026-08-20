@@ -25,7 +25,8 @@ fn LifewebError.throw(LifewebError this) {
 }
 
 @export
-fn T try<T>(value: (T | LifewebError)) {
+@inline
+fn T lifeweb_try<T>(value: (T | LifewebError)) {
     match (value) {
         LifewebError {
             value.throw();
@@ -99,14 +100,8 @@ string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
 @export
 string RLE_PREFIXES = "pqrstuvwxyz";
 @export
-fn (char | string) get_rle_char(uint64 state, uint64 state_count) {
-    if (state == 0) {
-        return state_count == 2 ? 'b' : '.';
-    } else if (state == 1) {
-        return state_count == 2 ? 'o' : 'A';
-    } else if (staate < 24) {
-        return RLE_LETTERS[state - 1];
-    } else {
+fn string state_to_rle_str(uint64 state, uint64 state_count) {
+    if (state > 24) {
         String* str;
         str.init(1);
         str.ptr[0] = RLE_LETTERS[state - 1];
@@ -115,8 +110,18 @@ fn (char | string) get_rle_char(uint64 state, uint64 state_count) {
             str.unshift(RLE_PREFIXES[state % 11]);
             state /= 11;
         }
-        return str.items();
+        return str.to_array();
     }
+    char out;
+    if (state == 0) {
+        out = state_count == 2 ? 'b' : '.';
+    } else if (state == 1) {
+        out = state_count == 2 ? 'o' : 'A';
+    } else {
+        out = RLE_LETTERS[state - 1];
+    }
+    string out_str = {out};
+    return out_str.to_array();
 }
 
 @export
@@ -197,7 +202,7 @@ type Rule<T: Pattern, S: Unsigned> = struct {
     (fn none(T* this, mut T* out, int64 x, int64 y, uint64 width, uint64 height))* copy_part;
     (fn none(mut T* this, int64 x, int64 y, uint64 width, uint64 height))* clear_part;
     (fn S[]<U: Unsigned>(T* this, Allocator* allocator))* get_data;
-    (fn none(T* this, S[] data))* set_data;
+    (fn none(T* this, uint64 width, uint64 height, S[] data))* set_data;
     (fn none(mut T* this))* flip_horizontal;
     (fn none(mut T* this))* flip_vertical;
     (fn none(mut T* this))* rotate_right;
@@ -336,8 +341,8 @@ fn S[] Pattern<T, S>.get_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Allo
 
 @export
 @inline
-fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, S[] data) {
-    this.rule.set_data(this, data);
+fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 width, uint64 height, S[] data) {
+    this.rule.set_data(this, width, height, data);
 }
 
 @export
@@ -386,4 +391,89 @@ fn none Pattern<T, S>.flip_anti_diagonal<T: Pattern, S: Unsigned>(mut Pattern<T,
 @inline
 fn none Pattern<T, S>.inflate<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 times) {
     this.rule.inflate(this, times);
+}
+
+@export
+fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, mut String* out, bool header) {
+    uint64 height = this.height;
+    uint64 width = this.width;
+    T[] data = this.get_data(default_heap);
+    out.clear();
+    if (header) {
+        out.concat(std::fmt("x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
+    }
+    uint64 i = 0;
+    mut String* line;
+    line.init(out.allocator, 0);
+    uint64 dollar_count = 0;
+    bool is_start = true;
+    for (mut uint64 y = 0; y < height; y += 1) {
+        if (data.every_slice(i, i + width, fn bool(S value) {return value == 0;})) {
+            dollar_count++;
+            i += width;
+            continue;
+        }
+        if (!is_start) {
+            uint64 prev_line_len = line.len;
+            if (dollar_count > 0) {
+                line.concat(std::fmt("{}", dollar_count + 1));
+                dollar_count = 0;
+            }
+            line.push('$');
+            if (line.len > 69) {
+                out.concat(line.view(0, prev_line_len));
+                out.push('\n');
+                line.delete_slice(0, prev_line_len);
+            }
+        } else if (dollar_count > 0) {
+            uint64 prev_line_len = line.len;
+            line.concat(std::fmt("{}", dollar_count + 1));
+            line.push('$');
+            dollar_count = 0;
+            if (line.len > 69) {
+                out.concat(line.view(0, prev_line_len));
+                out.push('\n');
+                line.delete_slice(0, prev_line_len);
+            }
+        }
+        is_start = false;
+        uint64 prev_state = 0;
+        uint64 count = 0;
+        for (mut uint64 x = 0; x < width; x++) {
+            uint64 state = data[i];
+            if (state == prev_state && count != 0) {
+                count++;
+            } else {
+                uint64 prev_line_len = line.len;
+                if (count > 1) {
+                    line.concat(std::fmt("{}", count));
+                }
+                line.concat(state_to_rle_str(prev_state));
+                dollar_count = 0;
+                if (line.len > 69) {
+                    out.concat(line.view(0, prev_line_len));
+                    out.push('\n');
+                    line.delete_slice(0, prev_line_len);
+                }
+                prev_state = state;
+                count = 1;
+            }
+            i++;
+        }
+        if (count > 0 && prev_state != 0) {
+            if (count > 1) {
+                line.concat(std::fmt("{}", count));
+            }
+            line.concat(state_to_rle_str(prev_state));
+            dollar_count = 0;
+            if (line.len > 69) {
+                out.concat(line.view(0, prev_line_len));
+                out.push('\n');
+                line.delete_slice(0, prev_line_len);
+            }
+        }
+    }
+    out.concat(line);
+    out.push('!');
+    default_heap.free(data);
 }
