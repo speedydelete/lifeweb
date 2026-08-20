@@ -1,0 +1,35 @@
+
+module lifeweb::core::base;
+
+include std;
+
+
+@export
+fn fatal_error(string name, string message) {
+    std::printf("Fatal error: %s\n", name);
+    std::exit(std::EXIT_FALIURE);
+}
+
+@export
+type LifewebError = struct {
+    string name;
+    string message;
+};
+
+@export
+$fn LifewebError* create_lifeweb_error(string name, string message) {
+    return &(LifewebError){name, message};
+}
+
+@export
+$fn LifewebError* create_general_error(string message) {
+    return create_lifeweb_error("LifewebError", message);
+}
+
+@export
+@inline
+fn LifewebError* create_rule_error(string message) {
+    return create_lifeweb_error("RuleError", message);
+}
+
+@export

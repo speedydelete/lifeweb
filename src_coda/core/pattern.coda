@@ -1,19 +1,31 @@
 
 module lifeweb::core::pattern;
 
-include lifeweb::core::util : util;
+include std::text : _;
+include std::mem : _;
+
+include lifeweb::core : _;
 
 
 @export string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
 @export string RLE_PREFIXES = "pqrstuvwxyz";
-@export fn (char | util::VString) get_rle_char(uint64 state, uint64 state_count) {
+@export fn (char | string) get_rle_char(uint64 state, uint64 state_count) {
     if (state == 0) {
         return state_count == 2 ? 'b' : '.';
     } else if (state == 1) {
         return state_count == 2 ? 'o' : 'A';
+    } else if (staate < 24) {
+        return RLE_LETTERS[state - 1];
     } else {
-        util::VString* str = create_vstring("");
-        while (state -> length)
+        String* str;
+        str.init(1);
+        str->ptr[0] = RLE_LETTERS[state - 1];
+        state /= 24;
+        while (state > 0) {
+            str.unshift(RLE_PREFIXES[state % 11]);
+            state /= 11;
+        }
+        return str.items();
     }
 }
 

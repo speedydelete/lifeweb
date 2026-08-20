@@ -365,7 +365,7 @@ function flipTrVertical(i: number): number {
 }
 
 function flipTrHorizontal(i: number): number {
-    return ((i & 0b001_001_001) << 2) | (i & 0b010_010_010) | ((i & 0b100_100_100) >> 2)
+    return ((i & 0b001_001_001) << 2) | (i & 0b010_010_010) | ((i & 0b100_100_100) >> 2);
 }
 
 function rotateTrRight(i: number): number {
