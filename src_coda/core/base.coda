@@ -44,6 +44,14 @@ type Coord = struct {
 };
 
 @export
+fn Coord Coord.copy(Coord* this) {
+    return (Coord){
+        .x = this.x,
+        .y = this.y,
+    };
+}
+
+@export
 fn Coord Coord.add(Coord* this, Coord* other) {
     return (Coord){
         .x = this.x + other.x,
@@ -52,7 +60,7 @@ fn Coord Coord.add(Coord* this, Coord* other) {
 }
 
 @export
-fn none Coord.iadd(Coord* this, Coord* other) {
+fn none Coord.iadd(mut Coord* this, Coord* other) {
     this.x += other.x;
     this.y += other.y;
 }
@@ -66,7 +74,7 @@ fn Coord Coord.sub(Coord* this, Coord* other) {
 }
 
 @export
-fn none Coord.isub(Coord* this, Coord* other) {
+fn none Coord.isub(mut Coord* this, Coord* other) {
     this.x -= other.x;
     this.y -= other.y;
 }
@@ -80,7 +88,7 @@ fn Coord Coord.abs(Coord* this) {
 }
 
 @export
-fn Coord Coord.iabs(Coord* this) {
+fn Coord Coord.iabs(mut Coord* this) {
     this.x = this.x.abs();
     this.y = this.y.abs();
 }
@@ -178,13 +186,26 @@ type Rule<T: Pattern, S: Unsigned> = struct {
     (fn none(mut T* this))* run_generation;
     (fn none(T* this, mut T* out))* copy;
     (fn none(T* this, mut T* out))* copy_rule;
+    (fn bool(T* this, Pattern* other))* is_equal;
+    (fn bool(T* this, Pattern* other))* is_equal_with_translate;
+    (fn uint64(T* this))* hash64;
+    (fn none(mut T* this))* shrink_to_fit;
+    (fn none(mut T* this, uint64 top, uint64 bottom, uint64 left, uint64 right))* expand;
     (fn none(mut T* this, uint64 width, uint64 height))* ensure;
     (fn none(mut T* this, int64 x, int64 y))* offset_by;
-    (fn none(mut T* this, T* value, int64 x, int64 y, ULPMask mode))* insert;
+    (fn none(mut T* this, Pattern* value, int64 x, int64 y, ULPMask mode))* insert;
     (fn none(T* this, mut T* out, int64 x, int64 y, uint64 width, uint64 height))* copy_part;
     (fn none(mut T* this, int64 x, int64 y, uint64 width, uint64 height))* clear_part;
     (fn S[]<U: Unsigned>(T* this, Allocator* allocator))* get_data;
     (fn none(T* this, S[] data))* set_data;
+    (fn none(mut T* this))* flip_horizontal;
+    (fn none(mut T* this))* flip_vertical;
+    (fn none(mut T* this))* rotate_right;
+    (fn none(mut T* this))* rotate_left;
+    (fn none(mut T* this))* rotate_180;
+    (fn none(mut T* this))* flip_diagonal;
+    (fn none(mut T* this))* flip_anti_diagonal;
+    (fn none(mut T* this, uint64 times))* inflate;
 };
 
 @export
@@ -249,25 +270,55 @@ fn none Pattern<T, S>.copy_rule<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mu
 
 @export
 @inline
-fn none Pattern<T, S>.ensure<T: Pattern, S: Unsigned>(Pattern<T, S>* this, uint64 width, uint64 height) {
+fn bool Pattern<T, S>.is_equal<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Pattern* other) {
+    return this.rule.is_equal(this, other);
+}
+
+@export
+@inline
+fn bool Pattern<T, S>.is_equal_with_translate<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Pattern* other) {
+    return this.rule.is_equal_with_translate(this, other);
+}
+
+@export
+@inline
+fn uint64 Pattern<T, S>.hash64<T: Pattern, S: Unsigned>(Pattern<T, S>* this) {
+    return this.rule.hash64(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.shrink_to_fit<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.shrink_to_fit(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.expand<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 top, uint64 bottom, uint64 left, uint64 right) {
+    this.rule.expand(this, top, bottom, left, right);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.ensure<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 width, uint64 height) {
     this.rule.ensure(this, width, height);
 }
 
 @export
 @inline
-fn none Pattern<T, S>.offset_by<T: Pattern, S: Unsigned>(Pattern<T, S>* this, int64 x, int64 y) {
+fn none Pattern<T, S>.offset_by<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y) {
     this.rule.offset_by(this, x, y);
 }
 
 @export
 @inline
-fn none Pattern<T, S>.insert<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* value, int64 x, int64 y, ULPMask mode) {
+fn none Pattern<T, S>.insert<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, mut Pattern* value, int64 x, int64 y, ULPMask mode) {
     this.rule.insert(this, value, x, y, mode);
 }
 
 @export
 @inline
-fn none Pattern<T, S>.copy_part<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out, int64 x, int64 y, uint64 width, uint64 height) {
+fn none Pattern<T, S>.copy_part<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S> out, int64 x, int64 y, uint64 width, uint64 height) {
     this.rule.copy_part(this, out, x, y, width, height);
 }
 
@@ -285,6 +336,54 @@ fn S[] Pattern<T, S>.get_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Allo
 
 @export
 @inline
-fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, S[] data) {
+fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, S[] data) {
     this.rule.set_data(this, data);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.flip_horizontal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.flip_horizontal(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.flip_vertical<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.flip_vertical(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.rotate_left<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.rotate_left(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.rotate_right<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.rotate_right(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.rotate_180<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.rotate_180(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.flip_diagonal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.flip_diagonal(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.flip_anti_diagonal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.flip_anti_diagonal(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.inflate<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 times) {
+    this.rule.inflate(this, times);
 }
