@@ -2,34 +2,289 @@
 module lifeweb::core::base;
 
 include std;
+include std::types : _;
+include std::mem : _;
+include std::collections : _;
+include std::text : _;
 
 
 @export
-fn fatal_error(string name, string message) {
-    std::printf("Fatal error: %s\n", name);
-    std::exit(std::EXIT_FALIURE);
-}
-
-@export
-type LifewebError = struct {
-    string name;
-    string message;
+type LifewebError = enum: uint64 {
 };
 
 @export
-$fn LifewebError* create_lifeweb_error(string name, string message) {
-    return &(LifewebError){name, message};
+string[] LIFEWEB_ERROR_MEANINGS = {
+    .[LifewebError::x] = "y",
+};
+
+@export
+@noreturn
+fn LifewebError.throw(LifewebError this) {
+    std::print("LifewebError: {}", [LIFEWEB_ERROR_MEANINGS[this]]);
+    std::process::exit(std::process::EXIT_FALIURE);
 }
 
 @export
-$fn LifewebError* create_general_error(string message) {
-    return create_lifeweb_error("LifewebError", message);
+fn T try<T>(value: (T | LifewebError)) {
+    match (value) {
+        LifewebError {
+            value.throw();
+        }
+        T {
+            return value;
+        }
+    }
+}
+
+
+@export
+type Coord = struct {
+    int64 x;
+    int64 y;
+};
+
+@export
+fn Coord Coord.add(Coord* this, Coord* other) {
+    return (Coord){
+        .x = this.x + other.x,
+        .y = this.y + other.y,
+    };
+}
+
+@export
+fn none Coord.iadd(Coord* this, Coord* other) {
+    this.x += other.x;
+    this.y += other.y;
+}
+
+@export
+fn Coord Coord.sub(Coord* this, Coord* other) {
+    return (Coord){
+        .x = this.x - other.x,
+        .y = this.y - other.y,
+    };
+}
+
+@export
+fn none Coord.isub(Coord* this, Coord* other) {
+    this.x -= other.x;
+    this.y -= other.y;
+}
+
+@export
+fn Coord Coord.abs(Coord* this) {
+    return (Coord){
+        .x = this.x.abs(),
+        .y = this.y.abs(),
+    };
+}
+
+@export
+fn Coord Coord.iabs(Coord* this) {
+    this.x = this.x.abs();
+    this.y = this.y.abs();
+}
+
+
+@export
+string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
+@export
+string RLE_PREFIXES = "pqrstuvwxyz";
+@export
+fn (char | string) get_rle_char(uint64 state, uint64 state_count) {
+    if (state == 0) {
+        return state_count == 2 ? 'b' : '.';
+    } else if (state == 1) {
+        return state_count == 2 ? 'o' : 'A';
+    } else if (staate < 24) {
+        return RLE_LETTERS[state - 1];
+    } else {
+        String* str;
+        str.init(1);
+        str.ptr[0] = RLE_LETTERS[state - 1];
+        state /= 24;
+        while (state > 0) {
+            str.unshift(RLE_PREFIXES[state % 11]);
+            state /= 11;
+        }
+        return str.items();
+    }
+}
+
+@export
+string APGCODE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+
+@export
+type StaticRuleSymmetry = enum {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2s,
+    D2b,
+    D4p,
+    D4x,
+    D8
+};
+
+@export
+string[] RULE_SYMMETRY_NAMES = {
+    .[StaticRuleSymmetry::C1] = "C1",
+    .[StaticRuleSymmetry::C2] = "C2",
+    .[StaticRuleSymmetry::C4] = "C4",
+    .[StaticRuleSymmetry::D2h] = "D2|",
+    .[StaticRuleSymmetry::D2v] = "D2-",
+    .[StaticRuleSymmetry::D2s] = "D2/",
+    .[StaticRuleSymmetry::D2b] = "D2\\",
+    .[StaticRuleSymmetry::D4p] = "D4+",
+    .[StaticRuleSymmetry::D4x] = "D4x",
+    .[StaticRuleSymmetry::D8] = "D8"
+};
+
+
+@export
+type ULPMask = enum: uint8 {
+    clear = 0b0000,
+    set_to_1 = 0b1111,
+    copy = 0b0101,
+    invert_copy = 0b1010,
+    copy_to_0 = 0b1100,
+    copy_to_1 = 0b0011,
+    and = 0b0001,
+    or = 0b0111,
+    xor = 0b0110,
+    nand = 0b1110,
+    nor = 0b1000,
+    xnor = 0b1001,
+}
+
+@export
+type Rulespace = struct {
+};
+
+@export
+type Rule<T: Pattern, S: Unsigned> = struct {
+    string str;
+    uint64 states;
+    StaticRuleSymmetry static_symmetry;
+    Coord[] neighborhood;
+    Rulespace* space;
+    Allocator* allocator;
+    (fn S(T* this, int64 x, int64 y))* get;
+    (fn none(mut T* this, int64 x, int64 y, S value))* set;
+    (fn none(mut T* this))* clear;
+    (fn none(mut T* this))* run_generation;
+    (fn none(T* this, mut T* out))* copy;
+    (fn none(T* this, mut T* out))* copy_rule;
+    (fn none(mut T* this, uint64 width, uint64 height))* ensure;
+    (fn none(mut T* this, int64 x, int64 y))* offset_by;
+    (fn none(mut T* this, T* value, int64 x, int64 y, ULPMask mode))* insert;
+    (fn none(T* this, mut T* out, int64 x, int64 y, uint64 width, uint64 height))* copy_part;
+    (fn none(mut T* this, int64 x, int64 y, uint64 width, uint64 height))* clear_part;
+    (fn S[]<U: Unsigned>(T* this, Allocator* allocator))* get_data;
+    (fn none(T* this, S[] data))* set_data;
+};
+
+@export
+type Pattern<T: Pattern, S: Unsigned> = struct {
+    Rule<T, S>* rule;
+    uint64 width;
+    uint64 height;
+    int64 x_offset;
+    int64 y_offset;
+    uint64 generation;
+    uint64 population;
+};
+
+@export
+@inline
+fn S Pattern<T, S>.get<T: Pattern, S: Unsigned>(Pattern<T, S>* this, int64 x, int64 y) {
+    return this.rule.get(this, x, y);
 }
 
 @export
 @inline
-fn LifewebError* create_rule_error(string message) {
-    return create_lifeweb_error("RuleError", message);
+fn none Pattern<T, S>.set<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y, S value) {
+    this.rule.set(this, x, y, value);
 }
 
 @export
+@inline
+fn none Pattern<T, S>.clear<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.set(this);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.run_generation<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
+    this.rule.run_generation(this);
+}
+
+@export
+fn none Pattern<T, S>.run<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, usize gens) {
+    for (mut usize i = 0; i < gens; i += 1) {
+        this.run_generation();
+    }
+}
+
+@export
+@inline
+fn none Pattern<T, S>.is_empty<T: Pattern, S: Unsigned>(Pattern<T, S>* this) {
+    return this.population == 0;
+}
+
+@export
+@inline
+fn none Pattern<T, S>.copy<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out) {
+    this.rule.copy(this, out);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.copy_rule<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out) {
+    this.rule.copy_rule(this, out);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.ensure<T: Pattern, S: Unsigned>(Pattern<T, S>* this, uint64 width, uint64 height) {
+    this.rule.ensure(this, width, height);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.offset_by<T: Pattern, S: Unsigned>(Pattern<T, S>* this, int64 x, int64 y) {
+    this.rule.offset_by(this, x, y);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.insert<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* value, int64 x, int64 y, ULPMask mode) {
+    this.rule.insert(this, value, x, y, mode);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.copy_part<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out, int64 x, int64 y, uint64 width, uint64 height) {
+    this.rule.copy_part(this, out, x, y, width, height);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.clear_part<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y, uint64 width, uint64 height) {
+    this.rule.copy_part(this, x, y, width, height);
+}
+
+@export
+@inline
+fn S[] Pattern<T, S>.get_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Allocator* allocator) {
+    return this.rule.get_data(this, allocator);
+}
+
+@export
+@inline
+fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, S[] data) {
+    this.rule.set_data(this, data);
+}
