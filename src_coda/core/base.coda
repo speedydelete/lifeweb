@@ -166,7 +166,7 @@ type RuleParser = struct {
 @export
 type RuleUnparser = struct {
     Rulespace* space;
-    (fn (none | LifewebError)(mut String* out, Pattern p)) unparse;
+    (fn (String | LifewebError)(Pattern p)) unparse;
 }
 
 @export
@@ -414,7 +414,9 @@ fn none state_to_rle_str(uint64 state, uint64 state_count, String* str) {
 }
 
 @export
-fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool header) {
+fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
+    mut String* out;
+    out.init(default_heap, 0);
     uint64 height = this.height;
     uint64 width = this.width;
     T[] data = this.get_data(default_heap);
@@ -664,7 +666,9 @@ fn none layer_to_apgcode(Pattern* this, mut String* out, uint8[] layer) {
 }
 
 @export
-fn none Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this, mut String* out) {
+fn String Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this) {
+    mut String* out;
+    out.init(default_heap, 0);
     if (this.rule.states == 2 && T == uint8) {
         layer_to_apgcode(this, this.data, out);
         return;
@@ -687,4 +691,5 @@ fn none Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this, mut String* out) {
         default_heap.free(data2);
     }
     default_heap.free(layer_data);
+    return out;
 }
