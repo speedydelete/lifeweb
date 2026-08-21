@@ -7,6 +7,7 @@ include std::mem : _;
 include std::collections : _;
 include std::text : _;
 include std::fmt : _;
+include math;
 
 
 @export
@@ -15,25 +16,24 @@ type LifewebError = enum: uint64 {
 
 @export
 string[] LIFEWEB_ERROR_MEANINGS = {
-    .[LifewebError::x] = "y",
+    .[LifewebError::XY] = "z",
 };
 
 @export
 @noreturn
 fn LifewebError.throw(LifewebError this) {
-    std::print("LifewebError: {}", [LIFEWEB_ERROR_MEANINGS[this]]);
-    std::process::exit(std::process::EXIT_FALIURE);
+    std::error::fatal_error(format(default_heap, "LifewebError: {}", [LIFEWEB_ERROR_MEANINGS[this]]));
 }
 
 @export
 @inline
-fn T lifeweb_try<T>(value: (T | LifewebError)) {
-    match (value) {
+fn T (T | LifewebError).try((T | LifewebError) this) {
+    match (this) {
         LifewebError {
-            value.throw();
+            this.throw();
         }
         T {
-            return value;
+            return this;
         }
     }
 }
@@ -97,6 +97,272 @@ fn Coord Coord.iabs(mut Coord* this) {
 
 
 @export
+type StaticRuleSymmetry = enum {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2s,
+    D2b,
+    D4p,
+    D4x,
+    D8
+};
+
+@export
+string[] RULE_SYMMETRY_NAMES = {
+    .[StaticRuleSymmetry::C1] = "C1",
+    .[StaticRuleSymmetry::C2] = "C2",
+    .[StaticRuleSymmetry::C4] = "C4",
+    .[StaticRuleSymmetry::D2h] = "D2|",
+    .[StaticRuleSymmetry::D2v] = "D2-",
+    .[StaticRuleSymmetry::D2s] = "D2/",
+    .[StaticRuleSymmetry::D2b] = "D2\\",
+    .[StaticRuleSymmetry::D4p] = "D4+",
+    .[StaticRuleSymmetry::D4x] = "D4x",
+    .[StaticRuleSymmetry::D8] = "D8",
+};
+
+
+@export
+type ULPMask = enum: uint8 {
+    clear = 0b0000,
+    set_to_1 = 0b1111,
+    copy = 0b0101,
+    invert_copy = 0b1010,
+    copy_to_0 = 0b1100,
+    copy_to_1 = 0b0011,
+    and = 0b0001,
+    or = 0b0111,
+    xor = 0b0110,
+    nand = 0b1110,
+    nor = 0b1000,
+    xnor = 0b1001,
+}
+
+@export
+type Rulespace = struct {
+};
+
+@export
+type Rule<T: Unsigned> = struct {
+    string str;
+    uint64 states;
+    StaticRuleSymmetry static_symmetry;
+    Coord[] neighborhood;
+    Rulespace* space;
+    Allocator* allocator;
+    (fn T(Pattern* this, int64 x, int64 y))* get;
+    (fn none(mut Pattern* this, int64 x, int64 y, T value))* set;
+    (fn none(mut Pattern* this))* clear;
+    (fn none(mut Pattern* this))* run_generation;
+    (fn none(Pattern* this, mut Pattern* out))* copy;
+    (fn none(Pattern* this, mut Pattern* out))* copy_rule;
+    (fn bool(Pattern* this, Pattern* other))* is_equal;
+    (fn bool(Pattern* this, Pattern* other))* is_equal_with_translate;
+    (fn uint64(Pattern* this))* hash64;
+    (fn none(mut Pattern* this))* shrink_to_fit;
+    (fn none(mut Pattern* this, uint64 top, uint64 bottom, uint64 left, uint64 right))* expand;
+    (fn none(mut Pattern* this, uint64 width, uint64 height))* ensure;
+    (fn none(mut Pattern* this, int64 x, int64 y))* offset_by;
+    (fn none(mut Pattern* this, Pattern* value, int64 x, int64 y, ULPMask mode))* insert;
+    (fn none(Pattern* this, mut Pattern* out, int64 x, int64 y, uint64 width, uint64 height))* copy_part;
+    (fn none(mut Pattern* this, int64 x, int64 y, uint64 width, uint64 height))* clear_part;
+    (fn T[](Pattern* this, Allocator* allocator))* get_data;
+    (fn none(Pattern* this, uint64 width, uint64 height, T[] data))* set_data;
+    (fn none(mut Pattern* this))* flip_horizontal;
+    (fn none(mut Pattern* this))* flip_vertical;
+    (fn none(mut Pattern* this))* rotate_right;
+    (fn none(mut Pattern* this))* rotate_left;
+    (fn none(mut Pattern* this))* rotate_180;
+    (fn none(mut Pattern* this))* flip_diagonal;
+    (fn none(mut Pattern* this))* flip_anti_diagonal;
+    (fn none(mut Pattern* this, uint64 times))* inflate;
+};
+
+@export
+type Pattern<T: Unsigned> = struct {
+    Rule<T>* rule;
+    uint64 width;
+    uint64 height;
+    int64 x_offset;
+    int64 y_offset;
+    uint64 generation;
+    uint64 population;
+};
+
+
+@export
+@inline
+fn S Pattern<T>.get<T: Pattern>(Pattern<T>* this, int64 x, int64 y) {
+    return this.rule.get(this, x, y);
+}
+
+@export
+@inline
+fn none Pattern<T>.set<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y, S value) {
+    this.rule.set(this, x, y, value);
+}
+
+@export
+@inline
+fn none Pattern<T>.clear<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.set(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.run_generation<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.run_generation(this);
+}
+
+@export
+fn none Pattern<T>.run<T: Unsigned>(mut Pattern<T>* this, usize gens) {
+    for (mut usize i = 0; i < gens; i += 1) {
+        this.run_generation();
+    }
+}
+
+@export
+@inline
+fn none Pattern<T>.is_empty<T: Unsigned>(Pattern<T>* this) {
+    return this.population == 0;
+}
+
+@export
+@inline
+fn none Pattern<T>.copy<T: Unsigned>(Pattern<T>* this, mut Pattern<T>* out) {
+    this.rule.copy(this, out);
+}
+
+@export
+@inline
+fn none Pattern<T>.copy_rule<T: Unsigned>(Pattern<T>* this, mut Pattern<T>* out) {
+    this.rule.copy_rule(this, out);
+}
+
+@export
+@inline
+fn bool Pattern<T>.is_equal<T: Unsigned>(Pattern<T>* this, Pattern* other) {
+    return this.rule.is_equal(this, other);
+}
+
+@export
+@inline
+fn bool Pattern<T>.is_equal_with_translate<T: Unsigned>(Pattern<T>* this, Pattern* other) {
+    return this.rule.is_equal_with_translate(this, other);
+}
+
+@export
+@inline
+fn uint64 Pattern<T>.hash64<T: Unsigned>(Pattern<T>* this) {
+    return this.rule.hash64(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.shrink_to_fit<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.shrink_to_fit(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.expand<T: Unsigned>(mut Pattern<T>* this, uint64 top, uint64 bottom, uint64 left, uint64 right) {
+    this.rule.expand(this, top, bottom, left, right);
+}
+
+@export
+@inline
+fn none Pattern<T>.ensure<T: Unsigned>(mut Pattern<T>* this, uint64 width, uint64 height) {
+    this.rule.ensure(this, width, height);
+}
+
+@export
+@inline
+fn none Pattern<T>.offset_by<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y) {
+    this.rule.offset_by(this, x, y);
+}
+
+@export
+@inline
+fn none Pattern<T>.insert<T: Unsigned>(mut Pattern<T>* this, mut Pattern* value, int64 x, int64 y, ULPMask mode) {
+    this.rule.insert(this, value, x, y, mode);
+}
+
+@export
+@inline
+fn none Pattern<T>.copy_part<T: Unsigned>(Pattern<T>* this, mut Pattern<T> out, int64 x, int64 y, uint64 width, uint64 height) {
+    this.rule.copy_part(this, out, x, y, width, height);
+}
+
+@export
+@inline
+fn none Pattern<T>.clear_part<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y, uint64 width, uint64 height) {
+    this.rule.copy_part(this, x, y, width, height);
+}
+
+@export
+@inline
+fn S[] Pattern<T>.get_data<T: Unsigned>(Pattern<T>* this, Allocator* allocator) {
+    return this.rule.get_data(this, allocator);
+}
+
+@export
+@inline
+fn none Pattern<T>.set_data<T: Unsigned>(mut Pattern<T>* this, uint64 width, uint64 height, S[] data) {
+    this.rule.set_data(this, width, height, data);
+}
+
+@export
+@inline
+fn none Pattern<T>.flip_horizontal<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.flip_horizontal(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.flip_vertical<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.flip_vertical(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.rotate_left<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.rotate_left(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.rotate_right<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.rotate_right(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.rotate_180<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.rotate_180(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.flip_diagonal<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.flip_diagonal(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.flip_anti_diagonal<T: Unsigned>(mut Pattern<T>* this) {
+    this.rule.flip_anti_diagonal(this);
+}
+
+@export
+@inline
+fn none Pattern<T>.inflate<T: Unsigned>(mut Pattern<T>* this, uint64 times) {
+    this.rule.inflate(this, times);
+}
+
+@export
 string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
 @export
 string RLE_PREFIXES = "pqrstuvwxyz";
@@ -126,276 +392,7 @@ fn string state_to_rle_str(uint64 state, uint64 state_count) {
 }
 
 @export
-string APGCODE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
-
-
-@export
-type StaticRuleSymmetry = enum {
-    C1,
-    C2,
-    C4,
-    D2h,
-    D2v,
-    D2s,
-    D2b,
-    D4p,
-    D4x,
-    D8
-};
-
-@export
-string[] RULE_SYMMETRY_NAMES = {
-    .[StaticRuleSymmetry::C1] = "C1",
-    .[StaticRuleSymmetry::C2] = "C2",
-    .[StaticRuleSymmetry::C4] = "C4",
-    .[StaticRuleSymmetry::D2h] = "D2|",
-    .[StaticRuleSymmetry::D2v] = "D2-",
-    .[StaticRuleSymmetry::D2s] = "D2/",
-    .[StaticRuleSymmetry::D2b] = "D2\\",
-    .[StaticRuleSymmetry::D4p] = "D4+",
-    .[StaticRuleSymmetry::D4x] = "D4x",
-    .[StaticRuleSymmetry::D8] = "D8"
-};
-
-
-@export
-type ULPMask = enum: uint8 {
-    clear = 0b0000,
-    set_to_1 = 0b1111,
-    copy = 0b0101,
-    invert_copy = 0b1010,
-    copy_to_0 = 0b1100,
-    copy_to_1 = 0b0011,
-    and = 0b0001,
-    or = 0b0111,
-    xor = 0b0110,
-    nand = 0b1110,
-    nor = 0b1000,
-    xnor = 0b1001,
-}
-
-@export
-type Rulespace = struct {
-};
-
-@export
-type Rule<T: Pattern, S: Unsigned> = struct {
-    string str;
-    uint64 states;
-    StaticRuleSymmetry static_symmetry;
-    Coord[] neighborhood;
-    Rulespace* space;
-    Allocator* allocator;
-    (fn S(T* this, int64 x, int64 y))* get;
-    (fn none(mut T* this, int64 x, int64 y, S value))* set;
-    (fn none(mut T* this))* clear;
-    (fn none(mut T* this))* run_generation;
-    (fn none(T* this, mut T* out))* copy;
-    (fn none(T* this, mut T* out))* copy_rule;
-    (fn bool(T* this, Pattern* other))* is_equal;
-    (fn bool(T* this, Pattern* other))* is_equal_with_translate;
-    (fn uint64(T* this))* hash64;
-    (fn none(mut T* this))* shrink_to_fit;
-    (fn none(mut T* this, uint64 top, uint64 bottom, uint64 left, uint64 right))* expand;
-    (fn none(mut T* this, uint64 width, uint64 height))* ensure;
-    (fn none(mut T* this, int64 x, int64 y))* offset_by;
-    (fn none(mut T* this, Pattern* value, int64 x, int64 y, ULPMask mode))* insert;
-    (fn none(T* this, mut T* out, int64 x, int64 y, uint64 width, uint64 height))* copy_part;
-    (fn none(mut T* this, int64 x, int64 y, uint64 width, uint64 height))* clear_part;
-    (fn S[]<U: Unsigned>(T* this, Allocator* allocator))* get_data;
-    (fn none(T* this, uint64 width, uint64 height, S[] data))* set_data;
-    (fn none(mut T* this))* flip_horizontal;
-    (fn none(mut T* this))* flip_vertical;
-    (fn none(mut T* this))* rotate_right;
-    (fn none(mut T* this))* rotate_left;
-    (fn none(mut T* this))* rotate_180;
-    (fn none(mut T* this))* flip_diagonal;
-    (fn none(mut T* this))* flip_anti_diagonal;
-    (fn none(mut T* this, uint64 times))* inflate;
-};
-
-@export
-type Pattern<T: Pattern, S: Unsigned> = struct {
-    Rule<T, S>* rule;
-    uint64 width;
-    uint64 height;
-    int64 x_offset;
-    int64 y_offset;
-    uint64 generation;
-    uint64 population;
-};
-
-@export
-@inline
-fn S Pattern<T, S>.get<T: Pattern, S: Unsigned>(Pattern<T, S>* this, int64 x, int64 y) {
-    return this.rule.get(this, x, y);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.set<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y, S value) {
-    this.rule.set(this, x, y, value);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.clear<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.set(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.run_generation<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.run_generation(this);
-}
-
-@export
-fn none Pattern<T, S>.run<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, usize gens) {
-    for (mut usize i = 0; i < gens; i += 1) {
-        this.run_generation();
-    }
-}
-
-@export
-@inline
-fn none Pattern<T, S>.is_empty<T: Pattern, S: Unsigned>(Pattern<T, S>* this) {
-    return this.population == 0;
-}
-
-@export
-@inline
-fn none Pattern<T, S>.copy<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out) {
-    this.rule.copy(this, out);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.copy_rule<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S>* out) {
-    this.rule.copy_rule(this, out);
-}
-
-@export
-@inline
-fn bool Pattern<T, S>.is_equal<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Pattern* other) {
-    return this.rule.is_equal(this, other);
-}
-
-@export
-@inline
-fn bool Pattern<T, S>.is_equal_with_translate<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Pattern* other) {
-    return this.rule.is_equal_with_translate(this, other);
-}
-
-@export
-@inline
-fn uint64 Pattern<T, S>.hash64<T: Pattern, S: Unsigned>(Pattern<T, S>* this) {
-    return this.rule.hash64(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.shrink_to_fit<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.shrink_to_fit(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.expand<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 top, uint64 bottom, uint64 left, uint64 right) {
-    this.rule.expand(this, top, bottom, left, right);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.ensure<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 width, uint64 height) {
-    this.rule.ensure(this, width, height);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.offset_by<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y) {
-    this.rule.offset_by(this, x, y);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.insert<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, mut Pattern* value, int64 x, int64 y, ULPMask mode) {
-    this.rule.insert(this, value, x, y, mode);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.copy_part<T: Pattern, S: Unsigned>(Pattern<T, S>* this, mut Pattern<T, S> out, int64 x, int64 y, uint64 width, uint64 height) {
-    this.rule.copy_part(this, out, x, y, width, height);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.clear_part<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, int64 x, int64 y, uint64 width, uint64 height) {
-    this.rule.copy_part(this, x, y, width, height);
-}
-
-@export
-@inline
-fn S[] Pattern<T, S>.get_data<T: Pattern, S: Unsigned>(Pattern<T, S>* this, Allocator* allocator) {
-    return this.rule.get_data(this, allocator);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.set_data<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 width, uint64 height, S[] data) {
-    this.rule.set_data(this, width, height, data);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.flip_horizontal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.flip_horizontal(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.flip_vertical<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.flip_vertical(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.rotate_left<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.rotate_left(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.rotate_right<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.rotate_right(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.rotate_180<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.rotate_180(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.flip_diagonal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.flip_diagonal(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.flip_anti_diagonal<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this) {
-    this.rule.flip_anti_diagonal(this);
-}
-
-@export
-@inline
-fn none Pattern<T, S>.inflate<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, uint64 times) {
-    this.rule.inflate(this, times);
-}
-
-@export
-fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, mut String* out, bool header) {
+fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool header) {
     uint64 height = this.height;
     uint64 width = this.width;
     T[] data = this.get_data(default_heap);
@@ -477,4 +474,76 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
     out.concat(line);
     out.push('!');
     default_heap.free(data);
+}
+
+@export
+string APGCODE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+@export
+string APGCODE_ZEROS = {"0", "w", "x", "y0", "y1", "y2", "y3", "y4", "y5", "y6", "y7", "y8", "y9", "ya", "yb", "yc", "yd", "ye", "yf", "yg", "yh", "yi", "yj", "yk", "yl", "ym", "yn", "yo", "yp", "yq", "yr", "ys", "yt", "yu", "yv", "yw", "yx", "yy", "yz"};
+
+@inline
+fn none layer_to_apgcode(Pattern* this, uint8[] layer, mut String* out) {
+    uint64 height = this.height;
+    uint64 width = this.width;
+    uint64 strips = math::ceil_div(height, 5);
+    for (uint64 strip = 0; strip < strips; strip++) {
+        uint64 zeros = 0;
+        uint64 start = strip * width * 5;
+        uint64 strip_height;
+        if (strip == strips - 1) {
+            strip_height = height % 5 == 0 ? 5 : height % 5;
+        } else {
+            strip_height = 5;
+        }
+        for (uint64 x = 0; x < width; x++) {
+            char c;
+            if (strip_height == 5) {
+                c = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2*width + x] << 2) | (data[start + 3*width + x] << 3) | (data[start + 4*width + x] << 4)];
+            } else {
+                uint8 value = 0;
+                for (uint8 i = 0; i < strip_height; i++) {
+                    value |= data[start + i*width + x] << i;
+                }
+                c = APGCODE_CHARS[value];
+            }
+            if (c == '0') {
+                zeros++;
+            } else {
+                if (zeros > 0) {
+                    while (zeros > 39) {
+                        zeros -= 39;
+                        out.concat("yz");
+                    }
+                    out.concat(APGCODE_ZEROS[zeros]);
+                }
+            }
+        }
+    }
+}
+
+@export
+fn none Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this, mut String* out) {
+    if (this.rule.states == 2 && T == uint8) {
+        layer_to_apgcode(this, this.data, out);
+        return;
+    }
+    uint8[] layer_data = default_heap.alloc<T>(this.height * this.width);
+    this.data.map_to(layer_data, fn uint8(T value) {return value == 1 ? 1 : 0;});
+    layer_to_apgcode(this, layer_data, out);
+    this.data.map_to(layer_data, fn uint8(T value) {return value > 1 ? 1 : 0;});
+    out.push('_');
+    layer_to_apgcode(this, layer_data, out);
+    uint64 layers = math::ceil_log2(this.rule.states - 2);
+    if (layers > 0) {
+        uint8[] data2 = default_heap.alloc<T>(this.height * this.width);
+        this.data.map_to(data2, fn uint64(T value) {return (uint64)value < 2 ? 0 : (this.rule.states - (uint64)value) * 4 - 2;});
+        for (uint64 layer = 0; layer < layers; layer++) {
+            data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer)});
+            out.push('_');
+            layer_to_apgcode(this, layer_data, out);
+        }
+        default_heap.free(data2);
+    }
+    default_heap.free(layer_data);
 }
