@@ -12,11 +12,14 @@ include math;
 
 @export
 type LifewebError = enum: uint64 {
+    INVALID_RLE,
+    INVALID_STATE_FOR_RULE,
 };
 
 @export
 string[] LIFEWEB_ERROR_MEANINGS = {
-    .[LifewebError::XY] = "z",
+    .[LifewebError::INVALID_RLE] = "Invalid RLE",
+    .[LifewebError::INVALID_STATE_FOR_RULE] = "Invalid state for rule",
 };
 
 @export
@@ -367,10 +370,8 @@ string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
 @export
 string RLE_PREFIXES = "pqrstuvwxyz";
 @export
-fn string state_to_rle_str(uint64 state, uint64 state_count) {
+fn none state_to_rle_str(uint64 state, uint64 state_count, String* str) {
     if (state > 24) {
-        String* str;
-        str.init(1);
         str.ptr[0] = RLE_LETTERS[state - 1];
         state /= 24;
         while (state > 0) {
@@ -405,9 +406,11 @@ fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool h
     line.init(out.allocator, 0);
     uint64 dollar_count = 0;
     bool is_start = true;
+    mut String* state_str;
+    state_str.init(out.allocator, 1);
     for (mut uint64 y = 0; y < height; y += 1) {
         if (data.every_slice(i, i + width, fn bool(S value) {return value == 0;})) {
-            dollar_count++;
+            dollar_count += 1;
             i += width;
             continue;
         }
@@ -437,16 +440,18 @@ fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool h
         is_start = false;
         uint64 prev_state = 0;
         uint64 count = 0;
-        for (mut uint64 x = 0; x < width; x++) {
+        for (mut uint64 x = 0; x < width; x += 1) {
             uint64 state = data[i];
             if (state == prev_state && count != 0) {
-                count++;
+                count += 1;
             } else {
                 uint64 prev_line_len = line.len;
                 if (count > 1) {
                     line.concat(format(default_heap, "{}", count));
                 }
-                line.concat(state_to_rle_str(prev_state));
+                state_str.reset(default_heap, 1);
+                state_to_rle_str(prev_state, this.rule.states, state_str);
+                line.concat(state_str);
                 dollar_count = 0;
                 if (line.len > 69) {
                     out.concat(line.view(0, prev_line_len));
@@ -456,7 +461,7 @@ fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool h
                 prev_state = state;
                 count = 1;
             }
-            i++;
+            i += 1;
         }
         if (count > 0 && prev_state != 0) {
             if (count > 1) {
@@ -477,38 +482,153 @@ fn none Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, mut String* out, bool h
 }
 
 @export
+fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pattern<T>.load_rle<T: Unsigned>(Pattern<T>* this, GenericString* rle) {
+    // first determine the width and height
+    mut usize height = 0;
+    mut usize width = 0;
+    mut uint64 current_run = 1;
+    mut uint64 current_width = 0;
+    for (mut usize i = 0; i < rle.len; i += 1) {
+        char c = rle.ptr[i];
+        if (c.is_digit()) {
+            if (current_run == 1) {
+                current_run = c - '0';
+            } else {
+                current_run = (current_run * 10) + (c - '0');
+            }
+        } else if (c == '$') {
+            if (current_width > width) {
+                width = current_width;
+            }
+            height += current_run;
+            current_run = 1;
+        } else {
+            // get rid of prefixes
+            while (c.is_lower()) {
+                i++;
+                if (i == rle.len) {
+                    // unterminated prefix
+                    return LifewebError::INVALID_RLE;
+                }
+                c = rle.ptr[i];
+            }
+            width += current_run;
+            current_run = 1;
+        }
+    }
+    if (current_width > width) {
+        width = current_width;
+    }
+    T[] data = this.rule.allocator.alloc();
+    data.fill(0);
+    // now fill in the data
+    current_run = 1;
+    mut uint64 i = 0;
+    mut uint64 y = 0;
+    for (mut usize i = 0; i < rle.len; i += 1) {
+        char c = rle.ptr[i];
+        if (c.is_digit()) {
+            if (current_run == 1) {
+                current_run = c - '0';
+            } else {
+                current_run = (current_run * 10) + (c - '0');
+            }
+        } else if (c == '.' || c == 'b') {
+            i += current_run;
+            current_run = 1;
+        } else if (c == '$') {
+            if (current_width > width) {
+                width = current_width;
+            }
+            y += current_run;
+            current_run = 1;
+            i = y * width;
+        } else {
+            mut uint64 state = 1;
+            if (c == 'o') {
+                state = 1;
+            } else {
+                state = 0;
+                while (c.is_lower()) {
+                    usize index = RLE_PREFIXES.index_of(c);
+                    match (index) {
+                        none {
+                            // invalid prefix
+                            return LifewebError::INVALID_RLE;
+                        }
+                        usize {
+                            if (state == 0) {
+                                state = index + 1;
+                            } else {
+                                state = (state * 11) + index;
+                            }
+                        }
+                    }
+                    i++;
+                    if (i == rle.len) {
+                        // unterminated prefix
+                        return LifewebError::INVALID_RLE;
+                    }
+                    c = rle.ptr[i];
+                }
+                usize index = RLE_LETTERS.index_of(c);
+                match (index) {
+                    none {
+                        // invalid character
+                        return LifewebError::INVALID_RLE;
+                    }
+                    usize {
+                        state = (state * 24) + index + 1;
+                    }
+                }
+            }
+            if (state > this.rule.states) {
+                return LifewebError::INVALID_STATE_FOR_RULE;
+            }
+            for (mut usize j = 0; j < current_run; j++) {
+                data[i + j] = state;
+            }
+            i += current_run;
+            current_run = 1;
+        }
+    }
+    this.set_data(height, width, data);
+}
+
+@export
 string APGCODE_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 @export
 string APGCODE_ZEROS = {"0", "w", "x", "y0", "y1", "y2", "y3", "y4", "y5", "y6", "y7", "y8", "y9", "ya", "yb", "yc", "yd", "ye", "yf", "yg", "yh", "yi", "yj", "yk", "yl", "ym", "yn", "yo", "yp", "yq", "yr", "ys", "yt", "yu", "yv", "yw", "yx", "yy", "yz"};
 
 @inline
-fn none layer_to_apgcode(Pattern* this, uint8[] layer, mut String* out) {
+fn none layer_to_apgcode(Pattern* this, mut String* out, uint8[] layer) {
     uint64 height = this.height;
     uint64 width = this.width;
     uint64 strips = math::ceil_div(height, 5);
-    for (uint64 strip = 0; strip < strips; strip++) {
+    for (mut 
+    uint64 strip = 0; strip < strips; strip += 1) {
         uint64 zeros = 0;
         uint64 start = strip * width * 5;
-        uint64 strip_height;
+        mut uint64 strip_height;
         if (strip == strips - 1) {
             strip_height = height % 5 == 0 ? 5 : height % 5;
         } else {
             strip_height = 5;
         }
-        for (uint64 x = 0; x < width; x++) {
+        for (mut uint64 x = 0; x < width; x += 1) {
             char c;
             if (strip_height == 5) {
                 c = APGCODE_CHARS[data[start + x] | (data[start + width + x] << 1) | (data[start + 2*width + x] << 2) | (data[start + 3*width + x] << 3) | (data[start + 4*width + x] << 4)];
             } else {
                 uint8 value = 0;
-                for (uint8 i = 0; i < strip_height; i++) {
+                for (mut uint8 i = 0; i < strip_height; i += 1) {
                     value |= data[start + i*width + x] << i;
                 }
                 c = APGCODE_CHARS[value];
             }
             if (c == '0') {
-                zeros++;
+                zeros += 1;
             } else {
                 if (zeros > 0) {
                     while (zeros > 39) {
@@ -528,20 +648,20 @@ fn none Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this, mut String* out) {
         layer_to_apgcode(this, this.data, out);
         return;
     }
-    uint8[] layer_data = default_heap.alloc<T>(this.height * this.width);
+    mut uint8[] layer_data = default_heap.alloc<T>(this.height * this.width);
     this.data.map_to(layer_data, fn uint8(T value) {return value == 1 ? 1 : 0;});
-    layer_to_apgcode(this, layer_data, out);
+    layer_to_apgcode(this, out, layer_data);
     this.data.map_to(layer_data, fn uint8(T value) {return value > 1 ? 1 : 0;});
     out.push('_');
-    layer_to_apgcode(this, layer_data, out);
+    layer_to_apgcode(this, out, layer_data);
     uint64 layers = math::ceil_log2(this.rule.states - 2);
     if (layers > 0) {
         uint8[] data2 = default_heap.alloc<T>(this.height * this.width);
         this.data.map_to(data2, fn uint64(T value) {return (uint64)value < 2 ? 0 : (this.rule.states - (uint64)value) * 4 - 2;});
-        for (uint64 layer = 0; layer < layers; layer++) {
+        for (mut uint64 layer = 0; layer < layers; layer += 1) {
             data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer)});
             out.push('_');
-            layer_to_apgcode(this, layer_data, out);
+            layer_to_apgcode(this, out, layer_data);
         }
         default_heap.free(data2);
     }
