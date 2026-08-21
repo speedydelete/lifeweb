@@ -426,11 +426,11 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
     }
     uint64 i = 0;
     mut String* line;
-    line.init(out.allocator, 0);
+    line.init(default_heap, 0);
     uint64 dollar_count = 0;
     bool is_start = true;
     mut String* state_str;
-    state_str.init(out.allocator, 1);
+    state_str.init(default_heap, 1);
     for (mut uint64 y = 0; y < height; y += 1) {
         if (data.every_slice(i, i + width, fn bool(S value) {return value == 0;})) {
             dollar_count += 1;
