@@ -145,8 +145,29 @@ type ULPMask = enum: uint8 {
 }
 
 @export
-type Rulespace = struct {
+type Backend = struct {
+    uint64 transition_count;
+    // tbd
 };
+
+@export
+type Rulespace = struct {
+    uint64 size;
+    // tbd
+};
+
+@export
+type RuleParser = struct {
+    Backend* backend;
+    Rulespace* space;
+    (fn (Pattern | LifewebError)(string rule)) parse;
+};
+
+@export
+type RuleUnparser = struct {
+    Rulespace* space;
+    (fn (none | LifewebError)(mut String* out, Pattern p)) unparse;
+}
 
 @export
 type Rule<T: Unsigned> = struct {
