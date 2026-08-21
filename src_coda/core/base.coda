@@ -6,6 +6,7 @@ include std::types : _;
 include std::mem : _;
 include std::collections : _;
 include std::text : _;
+include std::fmt : _;
 
 
 @export
@@ -400,7 +401,7 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
     T[] data = this.get_data(default_heap);
     out.clear();
     if (header) {
-        out.concat(std::fmt("x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
+        out.concat(format(default_heap, "x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
     }
     uint64 i = 0;
     mut String* line;
@@ -416,7 +417,7 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
         if (!is_start) {
             uint64 prev_line_len = line.len;
             if (dollar_count > 0) {
-                line.concat(std::fmt("{}", dollar_count + 1));
+                line.concat(format(default_heap, "{}", dollar_count + 1));
                 dollar_count = 0;
             }
             line.push('$');
@@ -427,7 +428,7 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
             }
         } else if (dollar_count > 0) {
             uint64 prev_line_len = line.len;
-            line.concat(std::fmt("{}", dollar_count + 1));
+            line.concat(format(default_heap, "{}", dollar_count + 1));
             line.push('$');
             dollar_count = 0;
             if (line.len > 69) {
@@ -446,7 +447,7 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
             } else {
                 uint64 prev_line_len = line.len;
                 if (count > 1) {
-                    line.concat(std::fmt("{}", count));
+                    line.concat(format(default_heap, "{}", count));
                 }
                 line.concat(state_to_rle_str(prev_state));
                 dollar_count = 0;
@@ -462,7 +463,7 @@ fn none Pattern<T, S>.to_rle<T: Pattern, S: Unsigned>(mut Pattern<T, S>* this, m
         }
         if (count > 0 && prev_state != 0) {
             if (count > 1) {
-                line.concat(std::fmt("{}", count));
+                line.concat(format(default_heap, "{}", count));
             }
             line.concat(state_to_rle_str(prev_state));
             dollar_count = 0;
