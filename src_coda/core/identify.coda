@@ -23,21 +23,21 @@ uint32[64] MD5_BLOCKS = [
         block_count = 1;
     }
     if (data.len % 64 >= 56) {
-        block_count++;
+        block_count += 1;
     }
     mut uint8[] padded = malloc(block_count * 64);
     memcpy(padded, data, data.len);
     padded[data.len] = 0x80;
-    for (mut usize i = 0; i < 8; i++) {
+    for (mut usize i = 0; i < 8; i += 1) {
         padded[padded.len - 8 + i] = (data.len >> ((3 - i) * 8)) & 0xff;
     }
     mut uint32[4] state = {0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476};
-    for (mut usize block = 0; block < block_count; block++) {
+    for (mut usize block = 0; block < block_count; block += 1) {
         uint32 a = state[0];
         uint32 b = state[1];
         uint32 c = state[2];
         uint32 d = state[3];
-        for (mut uint32 i = 0; i < 64; i++) {
+        for (mut uint32 i = 0; i < 64; i += 1) {
             uint32 f;
             if (i < 16) {
                 f = (b & c) | (~b & d);
@@ -49,7 +49,7 @@ uint32[64] MD5_BLOCKS = [
                 f = c ^ (b | ~d);
             }
             uint32 block_value = 0;
-            for (mut uint32 i = 0; i < 4; i++) {
+            for (mut uint32 i = 0; i < 4; i += 1) {
                 block_value |= padded[((block * 4 + MD5_BLOCKS[i]) * 4 * 4) + i] << ((3 - i) * 8);
             }
             f = (f + a + MD5_CONSTANTS[i] + block_value) | 0;
@@ -64,8 +64,8 @@ uint32[64] MD5_BLOCKS = [
         state[3] += d;
     }
     free(padded);
-    for (mut uint32 i = 0; i < 4; i++) {
-        for (mut uint32 j = 0; j < 4; j++) {
+    for (mut uint32 i = 0; i < 4; i += 1) {
+        for (mut uint32 j = 0; j < 4; j += 1) {
             out[i * 4 + j] = (out[i] >> ((3 - j) * 8)) & 0xff;
         }
     }

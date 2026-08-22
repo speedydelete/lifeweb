@@ -472,7 +472,7 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
                 if (count > 1) {
                     line.concat(format(default_heap, "{}", count));
                 }
-                state_str.reset(default_heap, 1);
+                state_str.reset(default_heap, 1).try();
                 state_to_rle_str(prev_state, this.rule.states, state_str);
                 line.concat(state_str);
                 dollar_count = 0;
@@ -528,7 +528,7 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
         } else {
             // get rid of prefixes
             while (c.is_lower()) {
-                i++;
+                i += 1;
                 if (i == rle.len) {
                     // unterminated prefix
                     return LifewebError::INVALID_RLE;
@@ -587,7 +587,7 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
                             }
                         }
                     }
-                    i++;
+                    i += 1;
                     if (i == rle.len) {
                         // unterminated prefix
                         return LifewebError::INVALID_RLE;
@@ -608,7 +608,7 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
             if (state > this.rule.states) {
                 return LifewebError::INVALID_STATE_FOR_RULE;
             }
-            for (mut usize j = 0; j < current_run; j++) {
+            for (mut usize j = 0; j < current_run; j += 1) {
                 data[i + j] = state;
             }
             i += current_run;
