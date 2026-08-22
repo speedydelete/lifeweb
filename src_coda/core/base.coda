@@ -404,9 +404,17 @@ fn none state_to_rle_str(uint64 state, uint64 state_count, String* str) {
     }
     char out;
     if (state == 0) {
-        out = state_count == 2 ? 'b' : '.';
+        if (state_count == 2) {
+            out = 'b';
+        } else {
+            out = '.';
+        }
     } else if (state == 1) {
-        out = state_count == 2 ? 'o' : 'A';
+        if (state_count == 2) {
+            out = 'o';
+        } else {
+            out = 'A';
+        }
     } else {
         out = RLE_LETTERS[state - 1];
     }
@@ -627,7 +635,11 @@ fn none layer_to_apgcode(Pattern* this, mut String* out, uint8[] layer) {
         uint64 start = strip * width * 5;
         mut uint64 strip_height;
         if (strip == strips - 1) {
-            strip_height = height % 5 == 0 ? 5 : height % 5;
+            if (height % 5 == 0) {
+                strip_height = 5;
+            } else {
+                strip_height = height % 5;
+            }
         } else {
             strip_height = 5;
         }
@@ -666,15 +678,15 @@ fn String Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this) {
         return;
     }
     mut uint8[] layer_data = default_heap.alloc<T>(this.height * this.width);
-    this.data.map_to(layer_data, fn uint8(T value) {return value == 1 ? 1 : 0;});
+    this.data.map_to(layer_data, fn uint8(T value) {if (value == 1) {return 1;} else {return 0;}});
     layer_to_apgcode(this, out, layer_data);
-    this.data.map_to(layer_data, fn uint8(T value) {return value > 1 ? 1 : 0;});
+    this.data.map_to(layer_data, fn uint8(T value) {if (value > 1) {return 1;} else {return 0;}});
     out.push('_');
     layer_to_apgcode(this, out, layer_data);
     uint64 layers = math::ceil_log2(this.rule.states - 2);
     if (layers > 0) {
         uint8[] data2 = default_heap.alloc<T>(this.height * this.width);
-        this.data.map_to(data2, fn uint64(T value) {return (uint64)value < 2 ? 0 : (this.rule.states - (uint64)value) * 4 - 2;});
+        this.data.map_to(data2, fn uint64(T value) {if (value < 2) {return 0;} else {return (this.rule.states - (uint64)value) * 4 - 2;}});
         for (mut uint64 layer = 0; layer < layers; layer += 1) {
             data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer)});
             out.push('_');
