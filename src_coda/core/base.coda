@@ -25,7 +25,11 @@ string[] LIFEWEB_ERROR_MEANINGS = {
 @export
 @noreturn
 fn LifewebError.throw(LifewebError this) {
-    std::error::fatal_error(format(default_heap, "LifewebError: {}", [LIFEWEB_ERROR_MEANINGS[this]]));
+    String* msg;
+    msg.init(default_heap, 0);
+    msg.concat("LifewebError: ");
+    msg.concat(LIFEWEB_ERROR_MEANINGS[this]);
+    fatal_error(msg.to_array());
 }
 
 @export
