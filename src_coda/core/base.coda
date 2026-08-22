@@ -2,11 +2,11 @@
 module lifeweb::core::base;
 
 include std;
-include std::types : _;
-include std::mem : _;
-include std::collections : _;
-include std::text : _;
-include std::fmt : _;
+include std::types = _;
+include std::mem = _;
+include std::collections = _;
+include std::text = _;
+include std::fmt = _;
 include math;
 
 
