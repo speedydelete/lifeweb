@@ -31,13 +31,10 @@ fn LifewebError.throw(LifewebError this) {
 @export
 @inline
 fn T (T | LifewebError).try((T | LifewebError) this) {
-    match (this) {
-        LifewebError {
-            this.throw();
-        }
-        T {
-            return this;
-        }
+    if (#tag_check(this, LifewebError)) {
+        this.throw();
+    } else {
+        return this;
     }
 }
 
@@ -573,19 +570,14 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
             } else {
                 state = 0;
                 while (c.is_lower()) {
-                    usize index = RLE_PREFIXES.index_of(c);
-                    match (index) {
-                        none {
-                            // invalid prefix
-                            return LifewebError::INVALID_RLE;
-                        }
-                        usize {
-                            if (state == 0) {
-                                state = index + 1;
-                            } else {
-                                state = (state * 11) + index;
-                            }
-                        }
+                    (usize | none) index = RLE_PREFIXES.index_of(c);
+                    if (#tag_check(index, none)) {
+                        return LifewebError::INVALID_RLE;
+                    }
+                    if (state == 0) {
+                        state = index + 1;
+                    } else {
+                        state = (state * 11) + index;
                     }
                     i += 1;
                     if (i == rle.len) {
@@ -594,16 +586,12 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
                     }
                     c = rle.ptr[i];
                 }
-                usize index = RLE_LETTERS.index_of(c);
-                match (index) {
-                    none {
-                        // invalid character
-                        return LifewebError::INVALID_RLE;
-                    }
-                    usize {
-                        state = (state * 24) + index + 1;
-                    }
+                (usize | none) index2 = RLE_LETTERS.index_of(c);
+                if (#tag_check(index2, none)) {
+                    // invalid character
+                    return LifewebError::INVALID_RLE;
                 }
+                state = (state * 24) + index2 + 1;
             }
             if (state > this.rule.states) {
                 return LifewebError::INVALID_STATE_FOR_RULE;
