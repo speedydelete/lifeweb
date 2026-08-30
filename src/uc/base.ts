@@ -117,7 +117,6 @@ export function parseSlowSalvo(info: c.SalvoInfo, data: string): [number, number
 
 /** Turns a slow salvo into a string. */
 export function salvoToString(info: c.SalvoInfo, data: [number, number][]): string {
-    let out: string[] = [];
     let type: '1' | '2' | 'n' = '1';
     for (let value of data) {
         let timing = value[1];
@@ -1015,7 +1014,7 @@ export async function saveRecipes(recipeData: RecipeData): Promise<void> {
         out += `\n${type} search results:\n\n`;
         for (let [key, value] of Object.entries(data.searchResults)) {
             let maxTiming = Math.max(...value.map(x => x[1]));
-            out += `${key}:\n${value.map(([lane, timing, data]) => (maxTiming === 0 ? lane : (maxTiming === 1 ? (timing === 1 ? 'o' : 'e') : lane + ':' + timing)) + ': ' + (typeof data === 'object' ? objectsToString(data) : data)).join('\n')}\n\n`;
+            out += `${key}:\n${value.map(([lane, timing, data]) => (maxTiming === 0 ? lane : (maxTiming === 1 ? lane + (timing === 1 ? 'o' : 'e') : lane + ':' + timing)) + ': ' + (typeof data === 'object' ? objectsToString(data) : data)).join('\n')}\n\n`;
         }
         out += `\n${type} recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.recipes).map(x => [x[0], x[1][2]]));
         out += `\n${type} move recipes:\n\n` + salvoRecipesToString(info, Object.entries(data.moveRecipes).map(x => [x[0], x[1][2]]));
