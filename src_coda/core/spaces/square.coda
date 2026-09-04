@@ -1,0 +1,234 @@
+
+module lifeweb::core::spaces::square;
+
+include lifeweb::core::base : _;
+
+
+@export
+fn Transition flip_horizontal(Transition tr) {
+    return 0
+        | ((tr & 0b000_000_111_0) << 6)
+        | ((tr & 0b000_111_000_0))
+        | ((tr >> 6))
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition flip_vertical(Transition tr) {
+    return 0
+        | ((tr & 0b001_001_001_0) << 6)
+        | ((tr & 0b010_010_010_0))
+        | ((tr & 0b100_100_100_0) >> 2)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition rotate_left(Transition tr) {
+    return 0
+        | ((tr & 0b100_000_000_0) >> 6)
+        | ((tr & 0b010_000_000_0) >> 2)
+        | ((tr & 0b001_000_000_0) << 2)
+        | ((tr & 0b000_100_000_0) >> 4)
+        | ((tr & 0b000_010_000_0))
+        | ((tr & 0b000_001_000_0) << 4)
+        | ((tr & 0b000_000_100_0) >> 2)
+        | ((tr & 0b000_000_010_0) << 2)
+        | ((tr & 0b000_000_001_0) << 6)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition rotate_right(Transition tr) {
+    return 0
+        | ((tr & 0b100_000_000_0) >> 2)
+        | ((tr & 0b010_000_000_0) >> 4)
+        | ((tr & 0b001_000_000_0) >> 6)
+        | ((tr & 0b000_100_000_0) << 2)
+        | ((tr & 0b000_010_000_0))
+        | ((tr & 0b000_001_000_0) >> 2)
+        | ((tr & 0b000_000_100_0) << 6)
+        | ((tr & 0b000_000_010_0) << 4)
+        | ((tr & 0b000_000_001_0) << 2)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition rotate_180(Transition tr) {
+    return 0
+        | ((tr & 0b100_000_000_0) >> 8)
+        | ((tr & 0b010_000_000_0) >> 6)
+        | ((tr & 0b001_000_000_0) >> 4)
+        | ((tr & 0b000_100_000_0) >> 2)
+        | ((tr & 0b000_010_000_0))
+        | ((tr & 0b000_001_000_0) << 2)
+        | ((tr & 0b000_000_100_0) << 4)
+        | ((tr & 0b000_000_010_0) << 6)
+        | ((tr & 0b000_000_001_0) << 8)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition flip_diagonal(Transition tr) {
+    return 0
+        | ((tr & 0b100_010_001_0))
+        | ((tr & 0b010_000_000_0) >> 2)
+        | ((tr & 0b001_000_000_0) >> 4)
+        | ((tr & 0b000_100_000_0) << 2)
+        | ((tr & 0b000_001_000_0) >> 2)
+        | ((tr & 0b000_000_100_0) << 4)
+        | ((tr & 0b000_000_010_0) >> 2)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+@export
+fn Transition flip_anti_diagonal(Transition tr) {
+    return 0
+        | ((tr & 0b100_000_000_0) >> 8)
+        | ((tr & 0b010_000_000_0) >> 4)
+        | ((tr & 0b001_010_100_0))
+        | ((tr & 0b000_100_000_0) >> 4)
+        | ((tr & 0b000_001_000_0) << 4)
+        | ((tr & 0b000_000_010_0) << 4)
+        | ((tr & 0b000_000_001_0) << 8)
+        | ((tr & 0b000_000_000_1))
+    ;
+}
+
+
+@export
+type SquareStaticSymmetry = enum: StaticSymmetryID {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2b,
+    D2s,
+    D4p,
+    D4x,
+    D8,
+};
+
+uint64 C1 = SquareStaticSymmetry::C1;
+uint64 C2 = SquareStaticSymmetry::C2;
+uint64 C4 = SquareStaticSymmetry::C4;
+uint64 D2h = SquareStaticSymmetry::D2h;
+uint64 D2v = SquareStaticSymmetry::D2v;
+uint64 D2b = SquareStaticSymmetry::D2b;
+uint64 D2s = SquareStaticSymmetry::D2s;
+uint64 D4p = SquareStaticSymmetry::D4p;
+uint64 D4x = SquareStaticSymmetry::D4x;
+uint64 D8 = SquareStaticSymmetry::D8;
+
+StaticSymmetryInfo[] square_static_symmetries = {
+    [C1 ] = {.name = "C1", .data = {}},
+    [C2 ] = {.name = "C2", .data = {rotate_180}},
+    [C4 ] = {.name = "C4", .data = {rotate_left, rotate_right, rotate_180}},
+    [D2h] = {.name = "D2|", .data = {flip_horizontal}},
+    [D2v] = {.name = "D2-", .data = {flip_vertical}},
+    [D2b] = {.name = "D2\\", .data = {flip_diagonal}},
+    [D2s] = {.name = "D2/", .data = {flip_anti_diagonal}},
+    [D4p] = {.name = "D4+", .data = {flip_horizontal, flip_vertical, rotate_180}},
+    [D4x] = {.name = "D4x", .data = {flip_diagonal, flip_anti_diagonal, rotate_180}},
+    [D8 ] = {.name = "D8", .data = {flip_horizontal, flip_vertical, rotate_left, rotate_right, rotate_180, flip_diagonal, flip_anti_diagonal}},
+};
+
+//           C1 , C2 , C4 , D2|, D2-, D2\, D2/, D4+, D4x, D8
+
+@export
+SquareStaticSymmetry[][] square_static_symmetry_join = {
+    [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+    [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
+    [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+    [D2h] = {D2h, D4p, D8 , D2h, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D2v] = {D2v, D4p, D8 , D4p, D2v, D8 , D8 , D4p, D8 , D8 },
+    [D2b] = {D2b, D4x, D8 , D8 , D8 , D2b, D4x, D8 , D4x, D8 },
+    [D2s] = {D2s, D4x, D8 , D8 , D8 , D4x, D2s, D8 , D4x, D8 },
+    [D4p] = {D4p, D4p, D8 , D4p, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D4x] = {D4x, D4x, D8 , D8 , D8 , D4x, D4x, D8 , D4x, D8 },
+    [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+};
+
+@export
+SquareStaticSymmetry[][] square_static_symmetry_meet = {
+    [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
+    [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
+    [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
+    [D2h] = {C1 , C1 , C1 , D2h, C1 , C1 , C1 , D2h, C1 , D2h},
+    [D2v] = {C1 , C1 , C1 , C1 , D2v, C1 , C1 , D2v, C1 , D2v},
+    [D2b] = {C1 , C1 , C1 , C1 , C1 , D2b, C1 , C1 , D2b, D2b},
+    [D2s] = {C1 , C1 , C1 , C1 , C1 , C1 , D2s, C1 , D2s, D2s},
+    [D4p] = {C1 , C2 , C2 , D2h, D2v, C1 , C1 , D4p, C2 , D4p},
+    [D4x] = {C1 , C2 , C2 , C1 , C1 , D2b, D2s, C2 , D4x, D4x},
+    [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+};
+
+
+mut Rulespace _MAP = {
+    .super = null,
+    .name = "MAP",
+    .states = 2,
+    .neighborhood = {
+        {-1, -1},
+        {0, -1},
+        {1, -1},
+        {-1, 0},
+        {0, 0},
+        {1, 0},
+        {-1, 1},
+        {0, 1},
+        {1, 1},
+    },
+    .range = 1,
+    .tr_count = 512,
+    .tr_neighborhood = {
+        {-1, -1},
+        {0, -1},
+        {1, -1},
+        {-1, 0},
+        {0, 0},
+        {1, 0},
+        {-1, 1},
+        {0, 1},
+        {1, 1},
+    },
+    .create_tr = fn Transition(Cell[] cells, Cell next) {
+        return 0
+            | (cells[0] << 9)
+            | (cells[1] << 8)
+            | (cells[2] << 7)
+            | (cells[3] << 6)
+            | (cells[4] << 5)
+            | (cells[5] << 4)
+            | (cells[6] << 3)
+            | (cells[7] << 2)
+            | (cells[8] << 1)
+            | (next << 0)
+        ;
+    },
+    .get_tr_next = fn Cell(Transition tr) {
+        return tr & 1;
+    },
+    .trs_have_same_condition = fn bool(Transition x, Transition y) {
+        return (x & ~1) == (y & ~1);
+    }
+    .super_static_symmetry = none,
+    .static_symmetries = square_static_symmetries,
+    .static_symmetry_join = square_static_symmetry_join,
+    .static_symmetry_meet = square_static_symmetry_meet,
+};
+_MAP.init(lifeweb_heap);
+@export
+Rulespace MAP = _MAP;
+
+mut Rulespace _INT;
+MAP.get_subspace(_INT, lifeweb_heap);
+_INT.apply_symmetries(square_static_symmetries[D8].data);
+@export
+Rulespace INT = _INT;

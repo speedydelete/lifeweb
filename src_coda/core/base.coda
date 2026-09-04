@@ -25,8 +25,9 @@ string[] LIFEWEB_ERROR_MEANINGS = {
 @export
 @noreturn
 fn LifewebError.throw(LifewebError this) {
+    // TO IMPROVE WHEN BETTER IO API
     String* msg;
-    msg.init(default_heap, 0);
+    msg.init(lifeweb_heap, 0);
     msg.add("LifewebError: ");
     msg.add(LIFEWEB_ERROR_MEANINGS[this]);
     fatal_error(msg.to_array());
@@ -41,6 +42,35 @@ fn T (T | LifewebError).try((T | LifewebError) this) {
         return this;
     }
 }
+
+
+// global allocator
+// yes we ARE doing this
+Allocator* lifeweb_heap;
+
+
+@export
+type ULPMask = enum: uint8 {
+    clear = 0b0000,
+    set_to_1 = 0b1111,
+    copy = 0b0101,
+    invert_copy = 0b1010,
+    copy_to_0 = 0b1100,
+    copy_to_1 = 0b0011,
+    and = 0b0001,
+    or = 0b0111,
+    xor = 0b0110,
+    nand = 0b1110,
+    nor = 0b1000,
+    xnor = 0b1001,
+};
+
+
+@export
+constraint Vector2Like = {
+    Integer x;
+    Integer y;
+};
 
 
 @export
@@ -58,7 +88,7 @@ fn Coord Coord.copy(Coord* this) {
 }
 
 @export
-fn Coord Coord.add(Coord* this, Coord* other) {
+fn Coord Coord.add(Coord* this, Vector2Like* other) {
     return (Coord){
         .x = this.x + other.x,
         .y = this.y + other.y,
@@ -66,23 +96,11 @@ fn Coord Coord.add(Coord* this, Coord* other) {
 }
 
 @export
-fn none Coord.iadd(mut Coord* this, Coord* other) {
-    this.x += other.x;
-    this.y += other.y;
-}
-
-@export
-fn Coord Coord.sub(Coord* this, Coord* other) {
+fn Coord Coord.sub(Coord* this, Vector2Like* other) {
     return (Coord){
         .x = this.x - other.x,
         .y = this.y - other.y,
     };
-}
-
-@export
-fn none Coord.isub(mut Coord* this, Coord* other) {
-    this.x -= other.x;
-    this.y -= other.y;
 }
 
 @export
@@ -94,92 +112,421 @@ fn Coord Coord.abs(Coord* this) {
 }
 
 @export
-fn Coord Coord.iabs(mut Coord* this) {
+fn none Coord.copy_to(Coord* this, mut Coord* out) {
+    out.x = this.x;
+    out.y = this.y;
+}
+
+@export
+fn none Coord.iadd(mut Coord* this, Vector2Like* other) {
+    this.x += other.x;
+    this.y += other.y;
+}
+
+@export
+fn none Coord.isub(mut Coord* this, Vector2Like* other) {
+    this.x -= other.x;
+    this.y -= other.y;
+}
+
+@export
+fn none Coord.iabs(mut Coord* this) {
     this.x = this.x.abs();
     this.y = this.y.abs();
 }
 
 
 @export
-type StaticRuleSymmetry = enum {
-    C1,
-    C2,
-    C4,
-    D2h,
-    D2v,
-    D2s,
-    D2b,
-    D4p,
-    D4x,
-    D8
+type Size = struct {
+    uint64 width;
+    uint64 height;
 };
 
 @export
-string[] RULE_SYMMETRY_NAMES = {
-    .[StaticRuleSymmetry::C1] = "C1",
-    .[StaticRuleSymmetry::C2] = "C2",
-    .[StaticRuleSymmetry::C4] = "C4",
-    .[StaticRuleSymmetry::D2h] = "D2|",
-    .[StaticRuleSymmetry::D2v] = "D2-",
-    .[StaticRuleSymmetry::D2s] = "D2/",
-    .[StaticRuleSymmetry::D2b] = "D2\\",
-    .[StaticRuleSymmetry::D4p] = "D4+",
-    .[StaticRuleSymmetry::D4x] = "D4x",
-    .[StaticRuleSymmetry::D8] = "D8",
-};
-
-
-@export
-type ULPMask = enum: uint8 {
-    clear = 0b0000,
-    set_to_1 = 0b1111,
-    copy = 0b0101,
-    invert_copy = 0b1010,
-    copy_to_0 = 0b1100,
-    copy_to_1 = 0b0011,
-    and = 0b0001,
-    or = 0b0111,
-    xor = 0b0110,
-    nand = 0b1110,
-    nor = 0b1000,
-    xnor = 0b1001,
+fn Size Size.copy(Size* this) {
+    return (Size){
+        .x = this.x,
+        .y = this.y,
+    };
 }
 
 @export
-type Backend = struct {
-    uint64 transition_count;
-    // tbd
+fn Size Size.add(Size* this, Vector2Like* other) {
+    return (Size){
+        .x = this.x + other.x,
+        .y = this.y + other.y,
+    };
+}
+
+@export
+fn Size Size.sub(Size* this, Vector2Like* other) {
+    mut uint64 x;
+    if (other.x > this.x) {
+        x = 0;
+    } else {
+        x = this.x - other.x;
+    }
+    mut uint64 y;
+    if (other.y > this.y) {
+        y = 0;
+    } else {
+        y = this.y - other.y;
+    }
+    return (Box){
+        .x = x,
+        .y = y,
+    };
+}
+
+@export
+fn Size Size.abs(Size* this) {
+    return (Size){
+        .x = this.x.abs(),
+        .y = this.y.abs(),
+    };
+}
+
+@export
+fn none Size.copy_to(Size* this, mut Size* out) {
+    out.x = this.x;
+    out.y = this.y;
+}
+
+@export
+fn none Size.iadd(mut Size* this, Vector2Like* other) {
+    this.x += other.x;
+    this.y += other.y;
+}
+
+@export
+fn none Size.isub(mut Size* this, Vector2Like* other) {
+    if (other.x > this.x) {
+        this.x = 0;
+    } else {
+        this.x -= other.x;
+    }
+    if (other.y > this.y) {
+        this.y = 0;
+    } else {
+        this.y -= other.y;
+    }
+}
+
+@export
+fn none Size.iabs(mut Size* this) {
+    this.x = this.x.abs();
+    this.y = this.y.abs();
+}
+
+
+@export
+type Box = struct {
+    Coord pos;
+    Size size;
+};
+
+
+@export
+type Transformation = fn Coord(Coord value);
+
+
+@export
+type Cell = uint64;
+
+@export
+type Transition = uint64;
+
+@export
+type Symmetry = fn none(Transition tr, List<Transition>* on, List<Transition>* off);
+
+
+@export
+type StaticSymmetryID = usize;
+
+@export
+type StaticSymmetryInfo = struct {
+    string name;
+    Symmetry[] data;
 };
 
 @export
+// all of them have to be either on, off, or groups
+// because these are confocaloid transitions
+// 1 - on
+// -1 - off
+// >1 - group forces on
+// <1 - group forces off
+type Bind = int64;
+@export
+Bind OFF = -1;
+@export
+Bind ON = 1;
+@export
 type Rulespace = struct {
-    uint64 size;
-    // tbd
+    Rulespace*? super;
+    Allocator allocator;
+    string name;
+    Cell states;
+    Coord[] neighborhood;
+    uint64 range;
+    Transition tr_count;
+    Coord[] tr_neighborhood;
+    (fn Transition(Cell[] cells, Cell next)) create_tr;
+    (fn Cell(Transition tr)) get_tr_next;
+    (fn Transition(Transition tr, Cell next)) set_tr_next;
+    (fn bool(Transition x, Transition y)) trs_have_same_condition;
+    (StaticSymmetryID | none) super_static_symmetry;
+    StaticSymmetryInfo[] static_symmetries;
+    StaticSymmetryID[][] static_symmetry_join;
+    StaticSymmetryID[][] static_symmetry_meet;
+    Bind[] binds;
+    Bind next_bind_group;
 };
+
+@export
+fn none Rulespace.init(mut Rulespace* this, Allocator* allocator) {
+    this.allocator = allocator;
+    this.binds = allocator.alloc<Bind>(this.tr_count);
+    this.binds.fill(9);
+    this.next_bind_group = 2;
+    for (mut Transition tr = 0; tr < this.tr_count; tr += 1) {
+        if (this.binds[tr] == 0) {
+            Bind group = this.get_new_bind_group();
+            this.binds[tr] = group;
+            usize next = this.get_tr_next(tr);
+            for (mut Cell state = 0; state < this.states; state += 1) {
+                if (state == next) {
+                    continue;
+                }
+                this.binds[this.set_tr_next(tr, state)] = group;
+            }
+        }
+    }
+}
+
+@export
+fn none Rulespace.destroy(mut Rulespace* this) {
+    this.allocator.free(this.binds);
+}
+
+@export
+fn bool Rulespace.init_subspace(Rulespace* this, mut Rulespace* out, Allocator* allocator) {
+    out.super = this;
+    out.states = this.states;
+    out.neighborhood = this.neighborhood;
+    out.range = this.range;
+    out.tr_count = this.tr_count;
+    out.tr_neighborhood = this.tr_neighborhood;
+    out.create_tr = this.create_tr;
+    out.get_tr_next = this.get_tr_next;
+    out.set_tr_next = this.set_tr_next;
+    out.trs_have_same_condition = this.trs_have_same_condition;
+    out.init(allocator);
+}
+
+@export
+fn Bind Rulespace.get_new_bind_group(mut Rulespace* this, Allocator* allocator) {
+    Bind out = this.next_bind_group;
+    this.next_bind_group += 1;
+    return out;
+}
+
+// all of these return true if no contradiction, false if contradiction
+
+@export
+fn bool Rulespace.set_bind(mut Rulespace* this, Transition tr, Bind value) {
+    Bind old = this.binds[tr];
+    if (old == OFF || old == ON) {
+        if (value == OFF || value == ON) {
+            return old == value;
+        }
+        for (mut Transition tr2 = 0; tr2 < this.tr_count; tr2 += 1) {
+            if (this.binds[tr2] == old) {
+                this.binds[tr2] = value;
+            } else if (this.binds[tr2] == -old) {
+                this.binds[tr2] = -value;
+            }
+        }
+    } else {
+        for (mut Transition tr2 = 0; tr2 < this.tr_count; tr2 += 1) {
+            if (this.binds[tr2] == old) {
+                this.binds[tr2] = value;
+            } else if (this.binds[tr2] == -old) {
+                this.binds[tr2] =-value;
+            }
+        }
+    }
+    return true;
+}
+
+@export
+fn bool Rulespace.force_off(mut Rulespace* this, Transition tr) {
+    return #inline(this.set_bind(tr, OFF));
+}
+
+@export
+fn bool Rulespace.force_on(mut Rulespace* this, Transition tr) {
+    return #inline(this.set_bind(tr, ON));
+}
+
+@export
+fn bool Rulespace.bind(mut Rulespace* this, Transition x, Transition y) {
+    return #inline(this.set_bind(x, this.binds[y]));
+}
+
+@export
+fn bool Rulespace.not_bind(mut Rulespace* this, Transition x, Transition y) {
+    return #inline(this.set_bind(x, -this.binds[y]));
+}
+
+@export
+fn bool Rulespace.apply_symmetry(mut Rulespace* this, Symmetry symmetry) {
+    List<Transition> on;
+    on.init(lifeweb_heap, this.tr_count);
+    defer on.destroy();
+    List<Transition> off;
+    off.init(lifeweb_heap, this.tr_count);
+    defer off.destroy();
+    for (mut Transition tr = 0; tr < this.tr_count; tr += 1) {
+        on.clear();
+        off.clear();
+        symmetry(tr, &on, &off);
+        for (mut usize i = 0; i < on.len; i += 1) {
+            this.bind(tr, on.ptr[i]);
+        }
+        for (mut usize i = 0; i < off.len; i += 1) {
+            this.bind(tr, off.ptr[i]);
+        }
+    }
+}
+
+@export
+fn bool Rulespace.apply_symmetries(mut Rulespace* this, Symmetry[] symmetries) {
+    List<Transition> on;
+    on.init(lifeweb_heap, this.tr_count);
+    defer on.destroy();
+    List<Transition> off;
+    off.init(lifeweb_heap, this.tr_count);
+    defer off.destroy();
+    for (mut usize i = 0; i < this.tr_count; i += 1) {
+        for (mut Transition tr = 0; tr < this.tr_count; tr += 1) {
+            on.clear();
+            off.clear();
+            symmetries[i](tr, &on, &off);
+            for (mut usize i = 0; i < on.len; i += 1) {
+                this.bind(tr, on[i]);
+            }
+            for (mut usize i = 0; i < off.len; i += 1) {
+                this.bind(tr, off[i]);
+            }
+        }
+    }
+}
+
+
+@export
+type Rule = struct {
+    Rulespace* space;
+    bool[] data;
+};
+
+@export
+fn none Rule.set_to_min(Rule* this) {
+    for (mut Transition tr = 0; tr < this.space.tr_count; tr += 1) {
+        if (this.space.binds[tr] == ON) {
+            this.data[tr] = true;
+        } else {
+            this.data[tr] = false;
+        }
+    }
+}
+
+@export
+fn none Rule.set_to_max(Rule* this) {
+    for (mut Transition tr = 0; tr < this.space.tr_count; tr += 1) {
+        if (this.space.binds[tr] != OFF) {
+            this.data[tr] = true;
+        } else {
+            this.data[tr] = false;
+        }
+    }
+}
+
+@export
+fn bool Rule.set(Rule* this, Transition tr, bool value) {
+    Bind bind = this.space.binds[tr];
+    if (bind == ON) {
+        if (!value) {
+            return false;
+        }
+    } else if (bind == OFF) {
+        if (!value) {
+            return true;
+        }
+    } else {
+        for (mut Transition tr2 = 0; tr2 < this.space.tr_count; tr2 += 1) {
+            if (this.binds[tr2] == bind) {
+                this.data[tr2] = value;
+            } else if (this.binds[tr2] == -bind) {
+                this.data[tr2] = !value;
+            }
+        }
+    }
+}
+
+@export
+fn bool Rule.enable(Rule* this, Transition tr) {
+    return #inline(this.set(tr, true));
+}
+
+@export
+fn bool Rule.disable(Rule* this, Transition tr) {
+    return #inline(this.set(tr, false));
+}
+
 
 @export
 type RuleParser = struct {
-    Backend* backend;
+    string name;
     Rulespace* space;
-    (fn (Pattern | LifewebError)(string rule)) parse;
-};
-
-@export
-type RuleUnparser = struct {
-    Rulespace* space;
-    (fn (String | LifewebError)(Pattern p)) unparse;
+    fn (none | string | LifewebError)(string rule, Rule* out) parse;
 }
 
 @export
-type Rule<T: Unsigned> = struct {
-    string str;
-    uint64 states;
-    StaticRuleSymmetry static_symmetry;
-    Coord[] neighborhood;
+type RuleUnparser = struct {
+    string name;
     Rulespace* space;
+    (fn (none | LifewebError)(String* out, Rule* rule)) unparse;
+};
+
+
+@export
+type Backend = struct {
+    string name;
+    Rulespace* space;
+    // tbd
+};
+
+
+@export
+type PatternData = struct: Box {
     Allocator* allocator;
-    (fn T(Pattern* this, int64 x, int64 y)) get;
-    (fn none(mut Pattern* this, int64 x, int64 y, T value)) set;
+    Cell[] data;
+};
+
+@export
+fn none PatternData.destroy(PatternData* this) {
+    this.allocator.free(this.data);
+}
+
+
+@export
+type PatternRule = struct {
+    string str;
+    Rulespace* space;
+    usize static_symmetry;
+    (fn Cell(Pattern* this, Coord pos)) get;
+    (fn none(mut Pattern* this, Coord pos, Cell value)) set;
     (fn none(mut Pattern* this)) clear;
     (fn none(mut Pattern* this)) run_generation;
     (fn none(Pattern* this, mut Pattern* out)) copy;
@@ -188,62 +535,54 @@ type Rule<T: Unsigned> = struct {
     (fn bool(Pattern* this, Pattern* other)) is_equal_with_translate;
     (fn uint64(Pattern* this)) hash64;
     (fn none(mut Pattern* this)) shrink_to_fit;
-    (fn none(mut Pattern* this, uint64 top, uint64 bottom, uint64 left, uint64 right)) expand;
-    (fn none(mut Pattern* this, uint64 width, uint64 height)) ensure;
-    (fn none(mut Pattern* this, int64 x, int64 y)) offset_by;
-    (fn none(mut Pattern* this, Pattern* value, int64 x, int64 y, ULPMask mode)) insert;
-    (fn none(Pattern* this, mut Pattern* out, int64 x, int64 y, uint64 width, uint64 height)) copy_part;
-    (fn none(mut Pattern* this, int64 x, int64 y, uint64 width, uint64 height)) clear_part;
-    (fn T[](Pattern* this, Allocator* allocator)) get_data;
-    (fn none(Pattern* this, uint64 width, uint64 height, T[] data)) set_data;
-    (fn none(mut Pattern* this)) flip_horizontal;
-    (fn none(mut Pattern* this)) flip_vertical;
-    (fn none(mut Pattern* this)) rotate_right;
-    (fn none(mut Pattern* this)) rotate_left;
-    (fn none(mut Pattern* this)) rotate_180;
-    (fn none(mut Pattern* this)) flip_diagonal;
-    (fn none(mut Pattern* this)) flip_anti_diagonal;
-    (fn none(mut Pattern* this, uint64 times)) inflate;
+    (fn none(mut Pattern* this, Size size)) ensure;
+    (fn none(mut Pattern* this, Coord amount)) offset_by;
+    (fn none(mut Pattern* this, Pattern* value, Coord pos, ULPMask mode)) insert;
+    (fn none(Pattern* this, mut Pattern* out, Box box)) copy_part;
+    (fn none(mut Pattern* this, Box box)) clear_part;
+    (fn none(Pattern* this, PatternData* out)) get_data;
+    (fn none(Pattern* this, PatternData* data)) set_data;
+    (fn none(mut Pattern* this, Transformation value)) transform;
+    (fn none(mut Pattern* this, usize times)) inflate;
 };
 
 @export
-type Pattern<T: Unsigned> = struct {
-    Rule<T>* rule;
-    uint64 width;
-    uint64 height;
-    int64 x_offset;
-    int64 y_offset;
-    uint64 generation;
-    uint64 population;
+type Pattern = struct: Box {
+    PatternRule* rule;
+    Coord size;
+    Coord offset;
+    usize generation;
+    usize population;
+    Cell bg;
 };
 
 
 @export
 @inline
-fn S Pattern<T>.get<T: Pattern>(Pattern<T>* this, int64 x, int64 y) {
-    return this.rule.get(this, x, y);
+fn Cell Pattern.get(Pattern* this, pos) {
+    return this.rule.get(this, pos);
 }
 
 @export
 @inline
-fn none Pattern<T>.set<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y, S value) {
-    this.rule.set(this, x, y, value);
+fn none Pattern.set(mut Pattern* this, Coord pos, Cell value) {
+    this.rule.set(this, pos, value);
 }
 
 @export
 @inline
-fn none Pattern<T>.clear<T: Unsigned>(mut Pattern<T>* this) {
+fn none Pattern.clear(mut Pattern* this) {
     this.rule.set(this);
 }
 
 @export
 @inline
-fn none Pattern<T>.run_generation<T: Unsigned>(mut Pattern<T>* this) {
+fn none Pattern.run_generation(mut Pattern* this) {
     this.rule.run_generation(this);
 }
 
 @export
-fn none Pattern<T>.run<T: Unsigned>(mut Pattern<T>* this, usize gens) {
+fn none Pattern.run(mut Pattern* this, usize gens) {
     for (mut usize i = 0; i < gens; i += 1) {
         this.run_generation();
     }
@@ -251,139 +590,97 @@ fn none Pattern<T>.run<T: Unsigned>(mut Pattern<T>* this, usize gens) {
 
 @export
 @inline
-fn none Pattern<T>.is_empty<T: Unsigned>(Pattern<T>* this) {
+fn none Pattern.is_empty(Pattern* this) {
     return this.population == 0;
 }
 
 @export
 @inline
-fn none Pattern<T>.copy<T: Unsigned>(Pattern<T>* this, mut Pattern<T>* out) {
+fn none Pattern.copy(Pattern* this, mut Pattern* out) {
     this.rule.copy(this, out);
 }
 
 @export
 @inline
-fn none Pattern<T>.copy_rule<T: Unsigned>(Pattern<T>* this, mut Pattern<T>* out) {
+fn none Pattern.copy_rule(Pattern* this, mut Pattern* out) {
     this.rule.copy_rule(this, out);
 }
 
 @export
 @inline
-fn bool Pattern<T>.is_equal<T: Unsigned>(Pattern<T>* this, Pattern* other) {
+fn bool Pattern.is_equal(Pattern* this, Pattern* other) {
     return this.rule.is_equal(this, other);
 }
 
 @export
 @inline
-fn bool Pattern<T>.is_equal_with_translate<T: Unsigned>(Pattern<T>* this, Pattern* other) {
+fn bool Pattern.is_equal_with_translate(Pattern* this, Pattern* other) {
     return this.rule.is_equal_with_translate(this, other);
 }
 
 @export
 @inline
-fn uint64 Pattern<T>.hash64<T: Unsigned>(Pattern<T>* this) {
+fn uint64 Pattern.hash64(Pattern* this) {
     return this.rule.hash64(this);
 }
 
 @export
 @inline
-fn none Pattern<T>.shrink_to_fit<T: Unsigned>(mut Pattern<T>* this) {
+fn none Pattern.shrink_to_fit(mut Pattern* this) {
     this.rule.shrink_to_fit(this);
 }
 
 @export
 @inline
-fn none Pattern<T>.expand<T: Unsigned>(mut Pattern<T>* this, uint64 top, uint64 bottom, uint64 left, uint64 right) {
-    this.rule.expand(this, top, bottom, left, right);
+fn none Pattern.ensure(mut Pattern* this, Coord size) {
+    this.rule.ensure(this, size);
 }
 
 @export
 @inline
-fn none Pattern<T>.ensure<T: Unsigned>(mut Pattern<T>* this, uint64 width, uint64 height) {
-    this.rule.ensure(this, width, height);
+fn none Pattern.offset_by(mut Pattern* this, Coord amount) {
+    this.rule.offset_by(this, amount);
 }
 
 @export
 @inline
-fn none Pattern<T>.offset_by<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y) {
-    this.rule.offset_by(this, x, y);
+fn none Pattern.insert(mut Pattern* this, Pattern* value, Coord pos, ULPMask mode) {
+    this.rule.insert(this, value, pos, mode);
 }
 
 @export
 @inline
-fn none Pattern<T>.insert<T: Unsigned>(mut Pattern<T>* this, mut Pattern* value, int64 x, int64 y, ULPMask mode) {
-    this.rule.insert(this, value, x, y, mode);
+fn none Pattern.copy_part(Pattern* this, mut Pattern* out, Box box) {
+    this.rule.copy_part(this, out, box);
 }
 
 @export
 @inline
-fn none Pattern<T>.copy_part<T: Unsigned>(Pattern<T>* this, mut Pattern<T> out, int64 x, int64 y, uint64 width, uint64 height) {
-    this.rule.copy_part(this, out, x, y, width, height);
+fn none Pattern.clear_part(mut Pattern* this, Box box) {
+    this.rule.copy_part(this, box);
 }
 
 @export
 @inline
-fn none Pattern<T>.clear_part<T: Unsigned>(mut Pattern<T>* this, int64 x, int64 y, uint64 width, uint64 height) {
-    this.rule.copy_part(this, x, y, width, height);
+fn none Pattern.get_data(Pattern* this, PatternData* out) {
+    this.rule.get_data(this, out);
 }
 
 @export
 @inline
-fn S[] Pattern<T>.get_data<T: Unsigned>(Pattern<T>* this, Allocator* allocator) {
-    return this.rule.get_data(this, allocator);
+fn none Pattern.set_data(mut Pattern* this, PatternData* data) {
+    this.rule.set_data(this, data);
 }
 
 @export
 @inline
-fn none Pattern<T>.set_data<T: Unsigned>(mut Pattern<T>* this, uint64 width, uint64 height, S[] data) {
-    this.rule.set_data(this, width, height, data);
+fn none Pattern.transform(mut Pattern* this, Transformation value) {
+    this.rule.transform(this, value);
 }
 
 @export
 @inline
-fn none Pattern<T>.flip_horizontal<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.flip_horizontal(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.flip_vertical<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.flip_vertical(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.rotate_left<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.rotate_left(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.rotate_right<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.rotate_right(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.rotate_180<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.rotate_180(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.flip_diagonal<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.flip_diagonal(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.flip_anti_diagonal<T: Unsigned>(mut Pattern<T>* this) {
-    this.rule.flip_anti_diagonal(this);
-}
-
-@export
-@inline
-fn none Pattern<T>.inflate<T: Unsigned>(mut Pattern<T>* this, uint64 times) {
+fn none Pattern.inflate(mut Pattern* this, usize times) {
     this.rule.inflate(this, times);
 }
 
@@ -392,7 +689,7 @@ string RLE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWX";
 @export
 string RLE_PREFIXES = "pqrstuvwxyz";
 @export
-fn none state_to_rle_str(uint64 state, uint64 state_count, String* str) {
+fn none state_to_rle_str(Cell state, Cell state_count, String* str) {
     if (state > 24) {
         str.ptr[0] = RLE_LETTERS[state - 1];
         state /= 24;
@@ -423,23 +720,29 @@ fn none state_to_rle_str(uint64 state, uint64 state_count, String* str) {
 }
 
 @export
-fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
+fn String* Pattern.to_rle(Pattern* this, Allocator* allocator, bool header) {
     mut String* out;
-    out.init(default_heap, 0);
+    out.init(lifeweb_heap, 0);
+    defer out.destroy();
     uint64 height = this.height;
     uint64 width = this.width;
-    T[] data = this.get_data(default_heap);
+    PatternData data;
+    data.allocator = allocator;
+    defer data.destroy();
+    this.get_data(&data);
     out.clear();
     if (header) {
-        out.add(format(default_heap, "x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
+        out.add(format(lifeweb_heap, "x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
     }
     uint64 i = 0;
     mut String* line;
-    line.init(default_heap, 0);
+    line.init(lifeweb_heap, 0);
+    defer line.destroy();
     uint64 dollar_count = 0;
     bool is_start = true;
     mut String* state_str;
-    state_str.init(default_heap, 1);
+    state_str.init(lifeweb_heap, 1);
+    defer state_str.destroy()
     for (mut uint64 y = 0; y < height; y += 1) {
         if (data.every_slice(i, i + width, fn bool(S value) {return value == 0;})) {
             dollar_count += 1;
@@ -449,7 +752,7 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
         if (!is_start) {
             uint64 prev_line_len = line.len;
             if (dollar_count > 0) {
-                line.add(format(default_heap, "{}", dollar_count + 1));
+                line.add(format(lifeweb_heap, "{}", dollar_count + 1));
                 dollar_count = 0;
             }
             line.add("$");
@@ -460,7 +763,7 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
             }
         } else if (dollar_count > 0) {
             uint64 prev_line_len = line.len;
-            line.add(format(default_heap, "{}", dollar_count + 1));
+            line.add(format(lifeweb_heap, "{}", dollar_count + 1));
             line.add("$");
             dollar_count = 0;
             if (line.len > 69) {
@@ -470,18 +773,18 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
             }
         }
         is_start = false;
-        uint64 prev_state = 0;
+        Cell prev_state = 0;
         uint64 count = 0;
         for (mut uint64 x = 0; x < width; x += 1) {
-            uint64 state = data[i];
+            Cell state = data[i];
             if (state == prev_state && count != 0) {
                 count += 1;
             } else {
                 uint64 prev_line_len = line.len;
                 if (count > 1) {
-                    line.add(format(default_heap, "{}", count));
+                    line.add(format(lifeweb_heap, "{}", count));
                 }
-                state_str.reset(default_heap, 1).try();
+                state_str.reset(lifeweb_heap, 1).try();
                 state_to_rle_str(prev_state, this.rule.states, state_str);
                 line.add(state_str);
                 dollar_count = 0;
@@ -497,7 +800,7 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
         }
         if (count > 0 && prev_state != 0) {
             if (count > 1) {
-                line.add(format(default_heap, "{}", count));
+                line.add(format(lifeweb_heap, "{}", count));
             }
             line.add(state_to_rle_str(prev_state));
             dollar_count = 0;
@@ -510,11 +813,10 @@ fn String* Pattern<T>.to_rle<T: Unsigned>(Pattern<T>* this, bool header) {
     }
     out.add(line);
     out.add("!");
-    default_heap.free(data);
 }
 
 @export
-fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pattern<T>.load_rle<T: Unsigned>(Pattern<T>* this, GenericString* rle) {
+fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pattern.load_rle(Pattern* this, GenericString* rle) {
     // first determine the width and height
     mut usize height = 0;
     mut usize width = 0;
@@ -551,7 +853,7 @@ fn (none | LifewebError::INVALID_RLE | LifewebError::INVALID_STATE_FOR_RULE) Pat
     if (current_width > width) {
         width = current_width;
     }
-    T[] data = this.rule.allocator.alloc();
+    Cell[] data = this.rule.allocator.alloc<Cell>(height * width);
     data.fill(0);
     // now fill in the data
     current_run = 1;
@@ -671,14 +973,16 @@ fn none layer_to_apgcode(Pattern* this, mut String* out, uint8[] layer) {
 }
 
 @export
-fn String Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this) {
+fn String Pattern.to_apgcode(Pattern* this) {
     mut String* out;
-    out.init(default_heap, 0);
+    out.init(lifeweb_heap, 0);
+    defer out.destroy();
     if (this.rule.states == 2 && T == uint8) {
         layer_to_apgcode(this, this.data, out);
         return;
     }
-    mut uint8[] layer_data = default_heap.alloc<T>(this.height * this.width);
+    mut uint8[] layer_data = lifeweb_heap.alloc<uint8>(this.height * this.width);
+    defer lifeweb_heap.free(layer_data);
     this.data.map_to(layer_data, fn uint8(T value) {if (value == 1) {return 1;} else {return 0;}});
     layer_to_apgcode(this, out, layer_data);
     this.data.map_to(layer_data, fn uint8(T value) {if (value > 1) {return 1;} else {return 0;}});
@@ -686,15 +990,15 @@ fn String Pattern<T>.to_apgcode<T: Unsigned>(Pattern<T>* this) {
     layer_to_apgcode(this, out, layer_data);
     uint64 layers = math::ceil_log2(this.rule.states - 2);
     if (layers > 0) {
-        uint8[] data2 = default_heap.alloc<T>(this.height * this.width);
+        uint8[] data2 = lifeweb_heap.alloc<T>(this.height * this.width);
         this.data.map_to(data2, fn uint64(T value) {if (value < 2) {return 0;} else {return (this.rule.states - (uint64)value) * 4 - 2;}});
         for (mut uint64 layer = 0; layer < layers; layer += 1) {
             data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer)});
             out.add("_");
             layer_to_apgcode(this, out, layer_data);
         }
-        default_heap.free(data2);
+        lifeweb_heap.free(data2);
     }
-    default_heap.free(layer_data);
+    lifeweb_heap.free(layer_data);
     return out;
 }

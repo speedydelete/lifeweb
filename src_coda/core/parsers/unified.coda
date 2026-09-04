@@ -1,0 +1,232 @@
+
+module lifeweb::core::parsers::unified;
+
+include std::collections : _;
+include std::fmt : _;
+
+include lifeweb::core::base : _;
+include lifeweb::core::spaces::square : square;
+
+
+@export
+type INTSpecGroup = (struct {
+    char letter;
+    Transition tr;
+})[];
+
+@export
+type INTSpec = struct {
+    Rulespace* space;
+    usize center_index;
+    usize next_index;
+    Symmetry[] ops;
+    INTSpecGroup[] groups;
+};
+
+fn (none | string) INTSpec._group(INTSpec* this, Rule* out, string data, Cell center, Cell next) {
+    mut usize i;
+    for (i = 0; i < data.len; i += 1) {
+        if (!data[i].is_digit()) {
+            break;
+        }
+    }
+    if (i == 0) {
+        // no digit
+        fatal_error("Input to INTSpec._group() does not start with digit");
+    }
+    usize start = data.view(0, i).to_unsigned().try();
+    usize end = start;
+    data = data.view(i);
+    // range
+    if (data.len > 2 && data[0] == '-' && data.view(1, data.len).every(char.is_digit)) {
+        end = data.view(1, data.len).to_unsigned()?;
+    } else if (data.len > 2 && data[0] == '.' && data[1] == '.' && data.view(2, data.len).every(char.is_digit)) {
+        end = data.view(2, data.len).to_unsigned()?;
+    }
+    if (start > this.groups.len) {
+        return format(lifeweb_heap, "RuleError: No transitions with {} neighbors", [start]);
+    }
+    if (end > this.groups.len) {
+        return format(lifeweb_heap, "RuleError: No transitions with {} neighbors", [end]);
+    }
+    // parse something with no letters after it
+    if (data.len == 0) {
+        for (mut usize i = start; i <= end; i++) {
+            INTSpecGroup group = this.groups[i];
+            for (mut usize j = 0; j < group.len; j++) {
+                Transition tr = group[j].tr;
+                tr |= (center << this.center_index);
+                tr |= (next << this.next_index);
+                out.enable(tr);
+                for (mut usize k = 0; k < this.ops.len; k++) {
+                    (this.ops[k])(tr, out_on, out_off);
+                }
+            }
+        }
+    } else if (start != end) {
+        return "RuleError: Ranges cannot have letters after them";
+    }
+    // parse stuff with letters after it
+    INTSpecGroup group = this.groups[start];
+    bool[] found = lifeweb_heap.alloc<bool>(group.len);
+    defer lifeweb_heap.free(found);
+    found.fill(false);
+    bool in_minus = false;
+    for (mut usize i = 0; i < data.len; i++) {
+        char c = data[i];
+        if (c == '-') {
+            in_minus = true;
+            if (i == 0) {
+                found.fill(true);
+            }
+        } else if (c == '+') {
+            in_minus = false;
+        } else {
+            usize index;
+            for (index = 0; index < group.len; index++) {
+                if (c == group[index].letter) {
+                    break;
+                }
+            }
+            if (index == group.len) {
+                return format(lifeweb_heap, "RuleError: Invalid transition: {}{}", [start, c]);
+            }
+            found[index] = !in_minus;
+        }
+    }
+    for (mut usize i = 0; i < group.len; i++) {
+        if (found[i]) {
+            Transition tr = group[i].tr;
+            tr |= (center << this.center_index);
+            tr |= (next << this.next_index);
+            out.add(tr);
+            for (mut usize j = 0; j < this.ops.len; j++) {
+                (this.ops[j])(tr, out_on, out_off);
+            }
+        }
+    }
+}
+
+@export
+fn (none | string) INTSpec.parse(INTSpec* this, Rule* out, string data) {
+    String current;
+    current.init(lifeweb_heap, 0);
+    defer current.destroy();
+    for (mut usize i = 0; i < data.len; i += 1) {
+        char c = data[i];
+        if (this.space.neighborhood.len < 10) {
+            if (c.is_digit()) {
+                if (current.len > 0 && current[-1] != '-' && !current[-1].is_digit() && !(current.length >= 2 && current[-2] == '.' && current[-1] == '.')) {
+                    this._group(out, current.to_array())?;
+                    current.clear();
+                } else {
+                    current.add(c);
+                }
+            } else {
+                current.add(c);
+            }
+        } else {
+            if (c == ',') {
+                if (current.len > 0) {
+                    this._group(out, current.to_array())?;
+                    current.clear();
+                }
+            } else {
+                current.add(c);
+            }
+        }
+    }
+}
+
+@export
+fn none INTSpec.unparse(INTSpec* this, List<T>* data) {
+
+}
+
+
+@export
+INTSpec NORMAL_INT = {
+    .space = square::MAP,
+    .center_index = 5,
+    .next_index = 0,
+    .ops = {
+        square::flip_horizontal,
+        square::flip_vertical,
+        square::rotate_left,
+        square::rotate_right,
+        square::rotate_180,
+        square::flip_diagonal,
+        square::flip_anti_diagonal,
+    },
+    .groups = {
+        {
+            {'c', 0b000_000_000_0},
+        },
+        {
+            {'c', 0b100_000_000_0},
+            {'e', 0b010_000_000_0},
+        },
+        {
+            {'a', 0b110_000_000_0},
+            {'c', 0b101_000_000_0},
+            {'e', 0b010_100_000_0},
+            {'i', 0b010_000_010_0},
+            {'k', 0b010_000_001_0},
+            {'n', 0b100_000_001_0},
+        },
+        {
+            {'a', 0b110_100_000_0},
+            {'c', 0b101_000_100_0},
+            {'e', 0b010_101_000_0},
+            {'i', 0b111_000_000_0},
+            {'j', 0b110_001_000_0},
+            {'k', 0b010_100_001_0},
+            {'n', 0b101_100_000_0},
+            {'q', 0b110_000_001_0},
+            {'r', 0b100_101_000_0},
+            {'y', 0b101_000_010_0},
+        },
+        {
+            {'a', 0b111_100_000_0},
+            {'c', 0b101_000_101_0},
+            {'e', 0b010_101_010_0},
+            {'i', 0b101_101_000_0},
+            {'j', 0b010_101_100_0},
+            {'k', 0b010_001_110_0},
+            {'n', 0b111_000_100_0},
+            {'q', 0b110_100_001_0},
+            {'r', 0b110_101_000_0},
+            {'t', 0b111_000_010_0},
+            {'w', 0b001_001_110_0},
+            {'y', 0b101_000_110_0},
+            {'z', 0b110_000_011_0},
+        },
+        {
+            {'a', 0b001_001_111_0},
+            {'c', 0b010_101_011_0},
+            {'e', 0b101_000_111_0},
+            {'i', 0b000_101_111_0},
+            {'j', 0b100_001_111_0},
+            {'k', 0b101_001_110_0},
+            {'n', 0b010_001_111_0},
+            {'q', 0b001_101_110_0},
+            {'r', 0b011_000_111_0},
+            {'y', 0b010_101_101_0},
+        },
+        {
+            {'a', 0b001_101_111_0},
+            {'c', 0b010_101_111_0},
+            {'e', 0b101_001_111_0},
+            {'i', 0b101_101_101_0},
+            {'k', 0b101_101_110_0},
+            {'n', 0b011_101_110_0},
+        },
+        {
+            {'c', 0b011_101_111_0},
+            {'e', 0b101_101_111_0},
+        },
+        {
+            {'c', 0b111_111_111_0},
+        },
+    },
+};

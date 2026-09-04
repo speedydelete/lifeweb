@@ -1,2 +1,2 @@
 
-module lifeweb::core::pattern;
+module lifeweb::core::containers::data;
