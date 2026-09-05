@@ -2,11 +2,11 @@
 module lifeweb::core::base;
 
 include std;
-include std::types = _;
-include std::mem = _;
-include std::collections = _;
-include std::text = _;
-include std::fmt = _;
+include std::types : _;
+include std::mem : _;
+include std::collections : _;
+include std::text : _;
+include std::fmt : _;
 include math;
 
 
@@ -51,19 +51,21 @@ Allocator* lifeweb_heap;
 
 @export
 type ULPMask = enum: uint8 {
-    clear = 0b0000,
-    set_to_1 = 0b1111,
-    copy = 0b0101,
-    invert_copy = 0b1010,
-    copy_to_0 = 0b1100,
-    copy_to_1 = 0b0011,
-    and = 0b0001,
-    or = 0b0111,
-    xor = 0b0110,
-    nand = 0b1110,
-    nor = 0b1000,
-    xnor = 0b1001,
+    CLEAR = 0b0000,
+    SET_TO_0 = 0b0000,
+    SET_TO_1 = 0b1111,
+    COPY = 0b0101,
+    INVERT_COPY = 0b1010,
+    COPY_TO_0 = 0b1100,
+    COPY_TO_1 = 0b0011,
+    AND = 0b0001,
+    OR = 0b0111,
+    XOR = 0b0110,
+    NAND = 0b1110,
+    NOR = 0b1000,
+    XNOR = 0b1001,
 };
+
 
 
 @export
