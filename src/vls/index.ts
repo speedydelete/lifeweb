@@ -54,8 +54,7 @@ Options:
 
     -d, --debug <level>: set the debug level
 
-    -g: compile with debugging symbols
-    --gdb: compile with debugging symbols and run gdb
+    --gdb: run gdb
 
     -l, --lls <file>: instead of searching, run LLS on the given file
         must be a directory containing a file called "lls" or "lss.py"
@@ -144,7 +143,6 @@ type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string'
 const OPTIONS = {
     'help': true,
     'debug': 'number',
-    'g': true,
     'gdb': true,
     'lls': 'string',
     'benchmark': 'string',
@@ -178,7 +176,6 @@ type Option = keyof Options;
 const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
-    'g': 'g',
     'l': 'lls',
     'm': 'method',
     'i': 'initial-value',
@@ -1343,11 +1340,8 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `clang --std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas ${options['g'] || options['gdb'] ? '-g -O3' : '-O3'} -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        let command = `clang --std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         execSync(command, {stdio: 'inherit'});
-        if (options['g'] && !options['gdb']) {
-            return;
-        }
         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
     } catch (error) {
         process.exit(1);
