@@ -1329,7 +1329,7 @@ return [options, out.join('\n')];
 }
 
 
-const FLAGS = `--std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+const FLAGS = `--std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 const PROFILE_SECONDS = 5;
 
