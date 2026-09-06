@@ -123,7 +123,9 @@ static int run_depth(int depth, cell* cell
     }
     #endif
     DPRINTGRID3();
-    print_state_if_needed();
+    if (branches % 1000 == 0) {
+        print_state_if_needed();
+    }
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE
