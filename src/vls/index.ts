@@ -61,6 +61,9 @@ Options:
 
     --benchmark <iterations>: run benchmarking
 
+    --profile: enables profile based optimization,
+        recompiles and reruns after 5 seconds
+
     --interval <seconds>: set the progress reporting interval
 
     --partial-type <'none'|'cell'|'start'>:
@@ -146,6 +149,7 @@ const OPTIONS = {
     'gdb': true,
     'lls': 'string',
     'benchmark': 'string',
+    'profile': true,
     'interval': 'number',
     'partial-type': new Set(['none', 'cell', 'start'] as const),
     'partial-interval': 'number',
@@ -1325,13 +1329,17 @@ return [options, out.join('\n')];
 }
 
 
+const FLAGS = `--std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+
+const PROFILE_SECONDS = 5;
+
 export async function main() {
     let path = await import('node:path');
     function getPath(file: string): string {
         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
     }
     let fs = await import('node:fs/promises');
-    let execSync = (await import('node:child_process')).execSync;
+    let {execSync, spawnSync} = (await import('node:child_process'));
     let execPath = getPath('vls_compiled');
     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
         execPath = './' + execPath;
@@ -1340,8 +1348,14 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = `clang --std=c23 -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        execSync(command, {stdio: 'inherit'});
+        execSync(`clang ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DVLS_PROFILING ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        if (options['profile']) {
+            console.log(`Running for up to ${PROFILE_SECONDS} seconds to gather profiling data`);
+            spawnSync(`${execPath}`, {timeout: PROFILE_SECONDS * 1000, killSignal: 'SIGTERM'});
+            console.log(`Profiling data gathered, recompiling`);
+            execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
+            execSync(`clang ${FLAGS} -fprofile-instr-use=vls.profdata -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        }
         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
     } catch (error) {
         process.exit(1);

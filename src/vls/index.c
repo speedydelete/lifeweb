@@ -22,6 +22,16 @@
 #endif
 
 
+#ifdef VLS_PROFILING
+#include <signal.h>
+void handle_sigterm(int signum) {
+    (void)signum;
+    extern int __llvm_profile_write_file(void);
+    __llvm_profile_write_file(); 
+    exit(0);
+}
+#endif
+
 int main(void) {
     #ifdef IMPLICATIONSPECIALVALUE
     generate_implications();
@@ -29,6 +39,9 @@ int main(void) {
     exit(0);
     #endif
     calibrate_time();
+    #ifdef VLS_PROFILING
+    signal(SIGTERM, handle_sigterm);
+    #endif
     init_state();
     #if VARIABLES
     init_var_uses();

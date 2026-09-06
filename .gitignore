@@ -21,6 +21,8 @@
 /*.apg
 /*.html
 /*.svg
+/*.profraw
+/*.profdata
 /.temp.js
 /.temp.js.map
 /temp.mjs
