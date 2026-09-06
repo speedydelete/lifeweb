@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <time.h>
+extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
 #include "params2.h"
 #include "base.c"
@@ -345,8 +346,23 @@ static inline void init_known_solutions(void) {
 
 static inline void print_progress(FILE* stream);
 
-static inline double get_time() {
-    return (double)(clock()) / CLOCKS_PER_SEC;
+
+double cycles_per_second;
+
+static void calibrate_time(void) {
+    struct timespec request;
+    struct timespec remainder;
+    // 0.01 seconds
+    request.tv_sec = 0;
+    request.tv_nsec = 10000000L;
+    uint64_t start = __rdtsc();
+    nanosleep(&request, &remainder);
+    uint64_t end = __rdtsc();
+    cycles_per_second = (end - start) * 100;
+}
+
+static inline double get_time(void) {
+    return (double)(__rdtsc()) / cycles_per_second;
 }
 
 double start;

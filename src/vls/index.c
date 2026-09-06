@@ -1,6 +1,8 @@
 
 // defines main searching
 
+#define _POSIX_C_SOURCE 199309L
+
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -21,6 +23,7 @@
 
 
 int main(void) {
+    calibrate_time();
     #ifdef IMPLICATIONSPECIALVALUE
     generate_implications();
     printf("%i -> %i\n", IMPLICATIONSPECIALVALUE, implications[IMPLICATIONSPECIALVALUE]);
