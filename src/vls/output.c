@@ -347,6 +347,12 @@ static inline void init_known_solutions(void) {
 static inline void print_progress(FILE* stream);
 
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+#include <x86intrin.h>
+#else
+#define __rdtsc __builtin_readcyclecounter
+#endif
+
 double cycles_per_second;
 
 static void calibrate_time(void) {
