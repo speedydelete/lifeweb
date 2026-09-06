@@ -46,7 +46,7 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
 
 #if false
 #include <stdio.h>
-#define IMPLICATIONSPECIALVALUE 0b10101000010000000010
+#define IMPLICATIONSPECIALVALUE 283988
 #define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #else
 #define IMPLICATIONDPRINTF(...)
@@ -57,6 +57,8 @@ static inline int32_t get_implication(uint32_t tr) {
     IMPLICATIONDPRINTF(tr, "tr = %i, next = %i\n", tr, next);
     int32_t out = DO_NOTHING;
     // find the value for the next generation
+    // if it cannot be found then nothing can be concluded
+    // about the states of the current cells
     if (next == UNKNOWN) {
         bool zero_possible = implications[(tr & ~3) | OFF] != CONTRADICTION;
         bool one_possible = implications[(tr & ~3) | ON] != CONTRADICTION;
@@ -66,18 +68,19 @@ static inline int32_t get_implication(uint32_t tr) {
             IMPLICATIONDPRINTF(tr, "early contradiction, next cell cannot be any value, returning CONTRADICTION\n");
         } else if (zero_possible && !one_possible) {
             // must be off
-            IMPLICATIONDPRINTF(tr, "next cell must be off\n");
-            return implications[(tr & ~3) | OFF];
+            IMPLICATIONDPRINTF(tr, "next cell must be off");
+            out |= OFF;
+            next = OFF;
         } else if (!zero_possible && one_possible) {
             // must be on
-            IMPLICATIONDPRINTF(tr, "next cell must be on\n");
-            return implications[(tr & ~3) | ON];
-        } else if (zero_possible && one_possible) {
+            IMPLICATIONDPRINTF(tr, "next cell must be on");
+            out |= ON;
+            next = ON;
+        } else {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
             IMPLICATIONDPRINTF(tr, "no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
-        return implications[tr];
     }
     IMPLICATIONDPRINTF(tr, "resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
@@ -256,7 +259,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
     return true;
 }
 
-static inline bool check_implications(cell* cell) {
+static inline bool __attribute__((always_inline)) check_implications(cell* cell) {
     return check_implication((cell))
         && check_implication((cell)->prev)
         && check_implication((cell)->nw)
@@ -276,7 +279,7 @@ cell_value_t prev_values[MAX_VAR_USES];
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static bool set_cell_and_propagate(cell* cell, cell_value_t value) {
+static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     DPRINTF4("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     DPRINTGRID4();
     if (cell->value != UNKNOWN) {
