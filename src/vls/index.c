@@ -23,12 +23,12 @@
 
 
 int main(void) {
-    calibrate_time();
     #ifdef IMPLICATIONSPECIALVALUE
     generate_implications();
     printf("%i -> %i\n", IMPLICATIONSPECIALVALUE, implications[IMPLICATIONSPECIALVALUE]);
     exit(0);
     #endif
+    calibrate_time();
     init_state();
     #if VARIABLES
     init_var_uses();

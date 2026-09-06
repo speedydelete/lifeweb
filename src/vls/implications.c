@@ -132,8 +132,8 @@ static inline void generate_implications(void) {
             continue;
         }
         #endif
-        implications[tr2 | OFF] = value == OFF ? 0 : CONTRADICTION;
-        implications[tr2 | ON] = value == ON ? 0 : CONTRADICTION;
+        implications[tr2 | OFF] = value == OFF ? DO_NOTHING : CONTRADICTION;
+        implications[tr2 | ON] = value == ON ? DO_NOTHING : CONTRADICTION;
         IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
         IMPLICATIONDPRINTF(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
     }
