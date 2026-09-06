@@ -347,7 +347,7 @@ static inline void print_cell(FILE* stream, int value
     #endif
 ) {
     #if VARIABLES
-    if (value == 2) {
+    if (value == UNKNOWN) {
         if (var > 0) {
             value = 2 + var;
         }
@@ -383,7 +383,7 @@ static inline void print_grid(FILE* stream) {
         if (t == GENS - 1) {
             fprintf(stream, "!\n");
         } else {
-            fprintf(stream, "$\n");
+            fprintf(stream, "$%ib\n", t + 1);
         }
     }
 }

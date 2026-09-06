@@ -609,7 +609,7 @@ static inline void print_state_if_needed() {
             memcpy(temp_trs, trs, sizeof(trs));
             memcpy(trs, max_partial_trs, sizeof(trs));
             #endif
-            printf("New max partial (size: %i):\n", max_partial_size);
+            printf("New max partial (size = %i):\n", max_partial_size);
             print_grid_2(max_partial, false);
             #if MULTI_RULE
             memcpy(trs, temp_trs, sizeof(trs));

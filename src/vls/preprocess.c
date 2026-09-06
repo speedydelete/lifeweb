@@ -15,7 +15,12 @@
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
-    for (index_t t = 0; t < GENS; t++) {
+    #if TIME_WRAP
+    for (index_t t = 0; t < GENS; t++)
+    #else
+    for (index_t t = 0; t < GENS - 1; t++)
+    #endif
+    {
         for (index_t y = 0; y < HEIGHT; y++) {
             for (index_t x = 0; x < WIDTH; x++) {
                 push_frame();
@@ -28,7 +33,7 @@ static inline void preprocess_implications(void) {
                         continue;
                     }
                     #endif
-                    printf("Contradiction found in preprocessing (in implication step, cell at t = %i, x = %i, y = %i)\n", t, x - (LEFT == NONE ? 2 : 1), y - (TOP == NONE ? 2 : 1));
+                    printf("Contradiction found in preprocessing (in implication step, cell at t = %i, x = %i, y = %i)\n", t, x - LEFT_OFFSET, y - TOP_OFFSET);
                     exit(0);
                 }
             }
@@ -85,19 +90,27 @@ static inline void preprocess_cases(void) {
                 if (cell->value == UNKNOWN && cell->var == 0) {
                     continue;
                 }
-                case_cell_t cells[10];
+                case_t cells;
                 bool found = false;
+                bool found2 = false;
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
                         struct cell* cell2 = &grid[t][y + y2][x + x2];
                         cells[i].value = cell2->value;
+                        if (cell2->value == UNKNOWN) {
+                            found2 = true;
+                            break;
+                        }
                         cells[i].var = cell2->var;
                         i++;
                         if (cell2->var > 0) {
                             found = true;
                         }
                     }
+                }
+                if (found2) {
+                    continue;
                 }
                 struct cell* next_cell = &grid[t + 1][y][x];
                 cells[9].value = next_cell->value;
@@ -113,7 +126,7 @@ static inline void preprocess_cases(void) {
                     for (int j = 0; j < 4; j++) {
                         memcpy(cases[case_count], cells, sizeof(cells));
                         case_count++;
-                        case_cell_t temp[10] = {
+                        case_t temp = {
                             cells[6], cells[3], cells[0],
                             cells[7], cells[4], cells[1],
                             cells[8], cells[5], cells[2],
@@ -121,7 +134,7 @@ static inline void preprocess_cases(void) {
                         };
                         memcpy(cells, temp, sizeof(cells));
                     }
-                    case_cell_t temp[10] = {
+                    case_t temp = {
                         cells[2], cells[1], cells[0],
                         cells[5], cells[4], cells[3],
                         cells[8], cells[7], cells[6],
@@ -136,7 +149,7 @@ static inline void preprocess_cases(void) {
     for (index_t t = 0; t < GENS - 1; t++) {
         for (index_t y = 1; y < HEIGHT - 1; y++) {
             for (index_t x = 1; x < WIDTH - 1; x++) {
-                case_cell_t cells[10];
+                case_t cells;
                 bool found = false;
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
@@ -167,6 +180,7 @@ static inline void preprocess_cases(void) {
                                 // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - LEFT_OFFSET, y - TOP_OFFSET);
+                                    exit(0);
                                 }
                             } else {
                                 // no point setting a known cell to an unknown cell

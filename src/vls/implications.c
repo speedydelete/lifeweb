@@ -180,13 +180,11 @@ int32_t rule_dependent_tr = -1;
 // returns false if contradiction, true if no contradiction
 static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
     if (cell == NULL) {
-        DPRINTF4("Contradiction (implication, cell == NULL)\n");
-        return false;
+        return true;
     }
     #if !TIME_WRAP
     if (cell->next == NULL) {
-        DPRINTF4("Contradiction (implication, cell->next == NULL)\n");
-        return false;
+        return true;
     }
     #endif
     if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
@@ -363,6 +361,7 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     }
     var_t var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
+    DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
     for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
@@ -379,6 +378,7 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         }
     }
     DPRINTF4("Checking variable set implications\n");
+    DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
     for (index_t use = 0; use < num_var_uses[var]; use++) {
         struct cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
