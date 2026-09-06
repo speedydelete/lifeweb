@@ -21,23 +21,16 @@
 
 
 int main(void) {
-    // for (int tr = 0; tr < 262144; tr++) {
-    //     big_trs[tr] = get_big_tr(0, tr, 0);
-    // }
-    // // long value = strtol(
-    // //     "00" "10" "10"
-    // //     "00" "00" "00"
-    // //     "00" "00" "00"
-    // //     "10"
-    // // , NULL, 2);
-    // long value = 350550;
-    // printf("%ld -> %i\n", value, get_implication(value));
-    // exit(0);
+    #ifdef IMPLICATIONSPECIALVALUE
+    generate_implications();
+    printf("%i -> %i\n", IMPLICATIONSPECIALVALUE, implications[IMPLICATIONSPECIALVALUE]);
+    exit(0);
+    #endif
     init_state();
     #if VARIABLES
     init_var_uses();
     #endif
-    generate_big_trs();
+    generate_implications();
     #if MULTI_RULE
     init_tr_to_bound_tr();
     #endif

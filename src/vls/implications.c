@@ -46,7 +46,7 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
 
 #if false
 #include <stdio.h>
-#define IMPLICATIONSPECIALVALUE 398678
+#define IMPLICATIONSPECIALVALUE 0b10101000010000000010
 #define IMPLICATIONDPRINTF(...) if (tr == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #define IMPLICATIONDPRINTF2(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #else
@@ -116,7 +116,7 @@ static inline int32_t get_implication(uint32_t tr) {
     return out;
 }
 
-static inline void generate_big_trs(void) {
+static inline void generate_implications(void) {
     // fill in the values with 0 unknown cells
     for (int tr = 0; tr < 512; tr++) {
         #if MULTI_RULE
