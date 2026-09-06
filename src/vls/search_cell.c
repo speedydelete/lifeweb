@@ -143,7 +143,7 @@ static int run_depth(int depth, cell* cell
     #endif
         INITIAL_VALUE_LOOP {
             #if MULTI_RULE
-            progress[progress_pos].value = value;
+            progress[progress_pos].value = i;
             progress_pos++;
             actual_run_depth(depth, cell, value);
             progress_pos--;
