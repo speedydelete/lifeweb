@@ -16,11 +16,11 @@ static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
     for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 1; y < HEIGHT - 1; y++) {
-            for (index_t x = 1; x < WIDTH - 1; x++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
                 push_frame();
                 cell* cell = &grid[t][y][x];
-                if (!check_implication(cell)) {
+                if (!check_implication_for_preprocessing(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = -1;

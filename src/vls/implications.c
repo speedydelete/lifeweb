@@ -259,6 +259,70 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
     return true;
 }
 
+// returns false if contradiction, true if no contradiction
+static inline __attribute__((always_inline)) bool check_implication_for_preprocessing(cell* cell) {
+    if (cell == NULL) {
+        DPRINTF4("Contradiction (implication, cell == NULL)\n");
+        return false;
+    }
+    uint32_t tr = 
+            ((cell->nw ? cell->nw->value : OFF) << 18)
+          | ((cell->w ? cell->w->value : OFF) << 16)
+          | ((cell->sw ? cell->sw->value : OFF) << 14)
+          | ((cell->n ? cell->n->value : OFF) << 12)
+          | (cell->value << 10)
+          | ((cell->s ? cell->s->value : OFF) << 8)
+          | ((cell->ne ? cell->ne->value : OFF) << 6)
+          | ((cell->e ? cell->e->value : OFF) << 4)
+          | ((cell->se ? cell->se->value : OFF) << 2)
+          | ((cell->next ? cell->next->value : OFF) << 0);
+    int32_t value = implications[tr];
+    DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
+    if (value == DO_NOTHING) {
+        return true;
+    } else if (value == CONTRADICTION) {
+        DPRINTGRID4();
+        DPRINTF4("Contradiction (implication, value = CONTRADICTION, tr = %i, t = %i, x = %i, y = %i)\n", tr, cell->t, cell->x, cell->y);
+        return false;
+    }
+    #if MULTI_RULE
+    if (value == IMPLICATION_RULE_DEPENDENT) {
+        rule_dependent_tr =
+                ((cell->nw->value == ON ? 1 : 0) << 8)
+              | ((cell->w->value == ON ? 1 : 0) << 7)
+              | ((cell->sw->value == ON ? 1 : 0) << 6)
+              | ((cell->n->value == ON ? 1 : 0) << 5)
+              | ((cell->value == ON ? 1 : 0) << 4)
+              | ((cell->s->value == ON ? 1 : 0) << 3)
+              | ((cell->ne->value == ON ? 1 : 0) << 2)
+              | ((cell->e->value == ON ? 1 : 0) << 1)
+              | ((cell->se->value == ON ? 1 : 0) << 0);
+        return false;
+    }
+    #endif
+    #define check(cell, place) \
+        if (value & (3 << place)) { \
+            if (!set_cell_and_propagate((cell), ((value >> (place)) & 3))) { \
+                return false; \
+            } \
+        }
+    check(cell, 10);
+    check(cell->next, 0);
+    if ((value & 0b11111111001111111100) == 0) {
+        return true;
+    }
+    check(cell->se, 2);
+    check(cell->e, 4);
+    check(cell->ne, 6);
+    check(cell->s, 8);
+    check(cell->n, 12);
+    check(cell->sw, 14);
+    check(cell->w, 16);
+    check(cell->nw, 18);
+    #undef check
+    return true;
+}
+
 static inline bool __attribute__((always_inline)) check_implications(cell* cell) {
     return check_implication((cell))
         && check_implication((cell)->prev)
