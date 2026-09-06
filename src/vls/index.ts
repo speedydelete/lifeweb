@@ -373,19 +373,19 @@ if (mode === 'periodic') {
     }
 
     if (dx !== 0 || dy !== 0) {
-        defaultSearchOrder = 'gfind-f2b';
-        searchOrderAliases['f2b'] = `t, -(x*${dx} + y*${dy})`;
-        searchOrderAliases['b2f'] = `t, (x*${dx} + y*${dy})`;
-        searchOrderAliases['s2s'] = `t, (x*${dy} + y*${dx})`;
-        searchOrderAliases['reverse-f2b'] = `-t, -(x*${dx} + y*${dy})`;
-        searchOrderAliases['reverse-b2f'] = `-t, (x*${dx} + y*${dy})`;
-        searchOrderAliases['reverse-s2s'] = `-t, (x*${dy} + y*${dx})`;
-        searchOrderAliases['gfind-f2b'] = `-(x*${dx} + y*${dy}), -t`;
-        searchOrderAliases['gfind-b2f'] = `(x*${dx} + y*${dy}), -t`;
-        searchOrderAliases['gfind-s2s'] = `(x*${dy} + y*${dx}), -t`;
-        searchOrderAliases['reverse-gfind-f2b'] = `-(x*${dx} + y*${dy}), t`;
-        searchOrderAliases['reverse-gfind-b2f'] = `(x*${dx} + y*${dy}), t`;
-        searchOrderAliases['reverse-gfind-s2s'] = `(x*${dy} + y*${dx}), t`;
+        defaultSearchOrder = 'f2b';
+        searchOrderAliases['f2b'] = `-(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['b2f'] = `(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['s2s'] = `(x*${dy} + y*${dx}), t`;
+        searchOrderAliases['r-f2b'] = `-(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['r-b2f'] = `(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['r-s2s'] = `(x*${dy} + y*${dx}), -t`;
+        searchOrderAliases['i-f2b'] = `t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['i-b2f'] = `t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['i-s2s'] = `t, (x*${dy} + y*${dx})`;
+        searchOrderAliases['ir-f2b'] = `-t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['ir-b2f'] = `-t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['ir-s2s'] = `-t, (x*${dy} + y*${dx})`;
     }
 
     // grid = new Grid(height, width, period + 1);
@@ -505,7 +505,7 @@ if (mode === 'periodic') {
                     } else if (value in vars) {
                         variable = vars[value];
                     } else {
-                        let newVar = grid.getVar();
+                        let newVar = grid.getNewVar();
                         vars[value] = newVar;
                         variable = newVar;
                     }
@@ -568,7 +568,7 @@ if (mode === 'periodic') {
             } else if (start === 2 || start === 8) {
                 let variables: number[] = [];
                 for (let t = 0; t < period; t++) {
-                    let variable = grid.getVar();
+                    let variable = grid.getNewVar();
                     variables.push(variable);
                     grid.set(t, x, y, UNKNOWN, variable);
                 }
@@ -601,7 +601,7 @@ if (mode === 'periodic') {
     let toSet: [number, number][] = [];
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            if (!(grid.get(gens, x - 1, y - 1) || grid.get(gens, x - 1, y) || grid.get(gens, x - 1, y + 1) || grid.get(gens, x, y - 1) || grid.get(gens, x, y) || grid.get(gens, x, y + 1) || grid.get(gens, x + 1, y - 1) || grid.get(gens, x + 1, y) || grid.get(gens, x + 1, y + 1))) {
+            if (!(grid.getVar(gens, x, y) || grid.get(gens, x - 1, y - 1) || grid.get(gens, x - 1, y) || grid.get(gens, x - 1, y + 1) || grid.get(gens, x, y - 1) || grid.get(gens, x, y) || grid.get(gens, x, y + 1) || grid.get(gens, x + 1, y - 1) || grid.get(gens, x + 1, y) || grid.get(gens, x + 1, y + 1))) {
                 toSet.push([x, y]);
             }
         }
@@ -666,7 +666,7 @@ if (mode === 'periodic') {
                             period = Number(match[1]);
                             let vars: number[] = [];
                             for (let i = 0; i < period; i++) {
-                                vars.push(grid.getVar());
+                                vars.push(grid.getNewVar());
                             }
                             out = [];
                             for (let t = 0; t < gens; t++) {

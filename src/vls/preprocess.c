@@ -98,7 +98,7 @@ static inline void preprocess_cases(void) {
                     for (int x2 = -1; x2 <= 1; x2++) {
                         struct cell* cell2 = &grid[t][y + y2][x + x2];
                         cells[i].value = cell2->value;
-                        if (cell2->value == UNKNOWN) {
+                        if (cell2->value == UNKNOWN && cell2->var == 0) {
                             found2 = true;
                             break;
                         }

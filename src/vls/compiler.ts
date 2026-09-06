@@ -52,6 +52,13 @@ export class Grid {
         return this.data[t][y][x];
     }
 
+    getVar(t: number, x: number, y: number): number {
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+            return 0;
+        }
+        return this.vars[t][y][x];
+    }
+
     set(t: number, x: number, y: number, value: number, variable: number = 0): void {
         this.data[t][y][x] = value;
         this.vars[t][y][x] = variable;
@@ -95,7 +102,7 @@ export class Grid {
         }
     }
 
-    getVar(): number {
+    getNewVar(): number {
         this.numVars++;
         return this.numVars;
     }
@@ -111,7 +118,7 @@ export class Grid {
                         continue;
                     }
                     if (!(value in mapping)) {
-                        mapping[value] = this.getVar();
+                        mapping[value] = this.getNewVar();
                     }
                 }
             }
