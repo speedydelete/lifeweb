@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-pushd "$SCRIPT_DIR" > /dev/null
+pushd $(dirname "$(realpath $0)") > /dev/null
 
 if ! [ -d "apgmera" ]; then
     git clone https://gitlab.com/apgoucher/apgmera
