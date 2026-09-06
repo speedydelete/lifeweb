@@ -47,41 +47,39 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
 #if false
 #include <stdio.h>
 #define IMPLICATIONSPECIALVALUE 0b10101000010000000010
-#define IMPLICATIONDPRINTF(...) if (tr == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
-#define IMPLICATIONDPRINTF2(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
+#define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
 #else
 #define IMPLICATIONDPRINTF(...)
-#define IMPLICATIONDPRINTF2(...)
 #endif
 
 static inline int32_t get_implication(uint32_t tr) {
     int next = tr & 3;
-    IMPLICATIONDPRINTF("tr = %i, next = %i\n", tr, next);
+    IMPLICATIONDPRINTF(tr, "tr = %i, next = %i\n", tr, next);
     int32_t out = DO_NOTHING;
     // find the value for the next generation
     if (next == UNKNOWN) {
         bool zero_possible = implications[(tr & ~3) | OFF] != CONTRADICTION;
         bool one_possible = implications[(tr & ~3) | ON] != CONTRADICTION;
-        IMPLICATIONDPRINTF("checking next, (zero: %i -> %i -> %s, one: %i -> %i -> %s\n", (tr & ~3) | OFF, implications[(tr & ~3) | OFF], zero_possible ? "true" : "false", (tr & ~3) | ON, implications[(tr & ~3) | ON], one_possible ? "true" : "false");
+        IMPLICATIONDPRINTF(tr, "checking next, (zero: %i -> %i -> %s, one: %i -> %i -> %s\n", (tr & ~3) | OFF, implications[(tr & ~3) | OFF], zero_possible ? "true" : "false", (tr & ~3) | ON, implications[(tr & ~3) | ON], one_possible ? "true" : "false");
         if (!zero_possible && !one_possible) {
             // the cell cannot be any value in the next generation
-            IMPLICATIONDPRINTF("early contradiction, next cell cannot be any value, returning CONTRADICTION\n");
+            IMPLICATIONDPRINTF(tr, "early contradiction, next cell cannot be any value, returning CONTRADICTION\n");
         } else if (zero_possible && !one_possible) {
             // must be off
-            IMPLICATIONDPRINTF("next cell must be off\n");
+            IMPLICATIONDPRINTF(tr, "next cell must be off\n");
             return implications[(tr & ~3) | OFF];
         } else if (!zero_possible && one_possible) {
             // must be on
-            IMPLICATIONDPRINTF("next cell must be on\n");
+            IMPLICATIONDPRINTF(tr, "next cell must be on\n");
             return implications[(tr & ~3) | ON];
         } else if (zero_possible && one_possible) {
             // if we can't infer the correct cell value in the next generation, nothing can be implied
-            IMPLICATIONDPRINTF("no implication possible, next cell can be any value, returning DO_NOTHING\n");
+            IMPLICATIONDPRINTF(tr, "no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
         return implications[tr];
     }
-    IMPLICATIONDPRINTF("resolved next = %i\n", next);
+    IMPLICATIONDPRINTF(tr, "resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
         if (((tr >> i) & 3) != UNKNOWN) {
             continue;
@@ -97,22 +95,22 @@ static inline int32_t get_implication(uint32_t tr) {
         #if MULTI_RULE
         one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
         #endif
-        IMPLICATIONDPRINTF("i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
+        IMPLICATIONDPRINTF(tr, "i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
             // must be on
-            IMPLICATIONDPRINTF("must be on\n");
+            IMPLICATIONDPRINTF(tr, "must be on\n");
             out = (out & ~(3 << i)) | (ON << i);
         } else if (zero_possible && !one_possible) {
             // must be off
-            IMPLICATIONDPRINTF("must be off\n");
+            IMPLICATIONDPRINTF(tr, "must be off\n");
             out = (out & ~(3 << i)) | (OFF << i);
         } else if (!zero_possible && !one_possible) {
             // contradiction
-            IMPLICATIONDPRINTF("contradiction detected, returning CONTRADICTION\n");
+            IMPLICATIONDPRINTF(tr, "contradiction detected, returning CONTRADICTION\n");
             return CONTRADICTION;
         }
     }
-    IMPLICATIONDPRINTF("result: %i -> %i\n", tr, out);
+    IMPLICATIONDPRINTF(tr, "result: %i -> %i\n", tr, out);
     return out;
 }
 
@@ -129,15 +127,15 @@ static inline void generate_implications(void) {
         if (value == RULE_DEPENDENT) {
             implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
             implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
-            IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
-            IMPLICATIONDPRINTF2(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
+            IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
+            IMPLICATIONDPRINTF(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
             continue;
         }
         #endif
         implications[tr2 | OFF] = value == OFF ? 0 : CONTRADICTION;
         implications[tr2 | ON] = value == ON ? 0 : CONTRADICTION;
-        IMPLICATIONDPRINTF2(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
-        IMPLICATIONDPRINTF2(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
+        IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
+        IMPLICATIONDPRINTF(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
     }
     // fill in the rest
     for (int unknown = 1; unknown < 8; unknown++) {
@@ -156,7 +154,7 @@ static inline void generate_implications(void) {
                     }
                 }
             }
-            IMPLICATIONDPRINTF2(tr, "tr_unknown = %i, found = %s\n", tr_unknown, found ? "true" : "false");
+            IMPLICATIONDPRINTF(tr, "tr_unknown = %i, found = %s\n", tr_unknown, found ? "true" : "false");
             if (found) {
                 implications[tr] = CONTRADICTION;
             } else if (tr_unknown != unknown) {
