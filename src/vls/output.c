@@ -664,6 +664,7 @@ static inline void print_info_if_needed() {
             #endif
         }
     }
+    #endif
     if (branches % CHECK_TIME_EVERY == 0) {
         double time = get_time();
         if (time - last_progress_shown > REPORTING_INTERVAL) {
@@ -690,6 +691,5 @@ static inline void print_info_if_needed() {
         }
         #endif
     }
-    #endif
     #endif
 }
