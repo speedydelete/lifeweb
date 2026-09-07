@@ -278,7 +278,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     cell->value = value;
     // cell_update_count++;
     #ifdef SPECIAL_PHASE_0_POP
-    if (cell->t == 0 && value == 1) {
+    if (cell->t == 0 && value == ON) {
         phase_0_pop++;
         if (phase_0_pop > MAXPOP) {
             return false;
@@ -286,7 +286,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     }
     #endif
     #if TRACK_PHASE_POPS
-    if (value == 1) {
+    if (value == ON) {
         phase_pops[cell->t]++;
         #ifdef MAXPOP
         if (cell->t == 0 && phase_pops[0] > MAXPOP) {

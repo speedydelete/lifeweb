@@ -550,12 +550,14 @@ cell* initial_cell;
 
 static inline void print_state_if_needed() {
     #ifndef BENCHMARK
-    double time = get_time();
-    if (time - last_progress_shown > REPORTING_INTERVAL) {
-        last_progress_shown = time;
-        printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
-        print_progress(stdout);
-        real_printf("\n");
+    if (branches % 1000 == 0) {
+        double time = get_time();
+        if (time - last_progress_shown > REPORTING_INTERVAL) {
+            last_progress_shown = time;
+            printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
+            print_progress(stdout);
+            real_printf("\n");
+        }
     }
     #if MAX_PARTIALS
     if (solutions_found == 0) {
@@ -601,20 +603,23 @@ static inline void print_state_if_needed() {
             memcpy(max_partial_trs, trs, sizeof(trs));
             #endif
         }
-        if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
-            last_max_partial_shown = time;
-            last_printed_max_partial_size = max_partial_size;
-            #if MULTI_RULE
-            cell_value_t* temp_trs = malloc(sizeof(trs));
-            memcpy(temp_trs, trs, sizeof(trs));
-            memcpy(trs, max_partial_trs, sizeof(trs));
-            #endif
-            printf("New max partial (size = %i):\n", max_partial_size);
-            print_grid_2(max_partial, false);
-            #if MULTI_RULE
-            memcpy(trs, temp_trs, sizeof(trs));
-            free(temp_trs);
-            #endif
+        if (branches % 1000 == 0) {
+            double time = get_time();
+            if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
+                last_max_partial_shown = time;
+                last_printed_max_partial_size = max_partial_size;
+                #if MULTI_RULE
+                cell_value_t* temp_trs = malloc(sizeof(trs));
+                memcpy(temp_trs, trs, sizeof(trs));
+                memcpy(trs, max_partial_trs, sizeof(trs));
+                #endif
+                printf("New max partial (size = %i):\n", max_partial_size);
+                print_grid_2(max_partial, false);
+                #if MULTI_RULE
+                memcpy(trs, temp_trs, sizeof(trs));
+                free(temp_trs);
+                #endif
+            }
         }
     }
     #endif
