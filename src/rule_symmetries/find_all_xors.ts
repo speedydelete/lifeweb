@@ -117,6 +117,7 @@ while (prevLevel.length > 0) {
 
 console.log('\nFull:');
 let symmetries = Array.from(foundBasises.entries()).map<[Vector, string]>(x => [Array.from(x[1][0]), x[0]]);
+let i = 0;
 for (let [trs, basis] of symmetries.sort((x, y) => {
     let xLength = x[1].split('\n').length;
     let yLength = y[1].split('\n').length;
@@ -125,5 +126,6 @@ for (let [trs, basis] of symmetries.sort((x, y) => {
     }
     return basisSorter(x[0], y[0]);
 })) {
-    console.log(`${xorTransitionsToString(new Set(trs)).join(', ')}: 2^${basis.split('\n').length}\n${basis.split('\n').map(x => '    ' + x).join('\n')}`);
+    console.log(`${i - 1}: 2^${basis.split('\n').length}: ${xorTransitionsToString(new Set(trs)).join(', ')}`);
+    i++;
 }
