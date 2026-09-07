@@ -57,8 +57,6 @@ static inline int32_t get_implication(uint32_t tr) {
     IMPLICATIONDPRINTF(tr, "tr = %i, next = %i\n", tr, next);
     int32_t out = DO_NOTHING;
     // find the value for the next generation
-    // if it cannot be found then nothing can be concluded
-    // about the states of the current cells
     if (next == UNKNOWN) {
         bool zero_possible = implications[(tr & ~3) | OFF] != CONTRADICTION;
         bool one_possible = implications[(tr & ~3) | ON] != CONTRADICTION;
@@ -89,13 +87,11 @@ static inline int32_t get_implication(uint32_t tr) {
         }
         uint32_t tr2 = tr & ~(3 << i);
         int32_t forward_0 = implications[tr2 | (OFF << i)];
-        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
-        #if MULTI_RULE
-        zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
-        #endif
         int32_t forward_1 = implications[tr2 | (ON << i)];
+        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
         bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN);
         #if MULTI_RULE
+        zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
         one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
         #endif
         IMPLICATIONDPRINTF(tr, "i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
