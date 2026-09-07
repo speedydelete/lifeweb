@@ -71,8 +71,8 @@ static const var_t initial_vars[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0
 #define MULTI_RULE false
 
 // the transition lookup table for the rule
-// if multi-rule, rule-dependent ones are 3
-#define TRS_RULE_DEPENDENT 3
+// if multi-rule, rule-dependent ones are 4
+#define TRS_RULE_DEPENDENT 4
 static
 #if !MULTI_RULE
 const

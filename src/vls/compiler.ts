@@ -8,6 +8,7 @@ import {createPattern} from '../core/index.js';
 export const UNKNOWN = 0;
 export const OFF = 1;
 export const ON = 2;
+export const DONT_CARE = 3;
 
 
 let base = createPattern('B3/S23');

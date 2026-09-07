@@ -44,9 +44,10 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
     return out;
 }
 
-#if false
+// #define IMPLICATION_CHECK_TR 350549
+
+#ifdef IMPLICATION_CHECK_TR
 #include <stdio.h>
-#define IMPLICATION_CHECK_TR 283988
 #define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
 #else
 #define IMPLICATIONDPRINTF(...)
@@ -81,6 +82,10 @@ static inline int32_t get_implication(uint32_t tr) {
             IMPLICATIONDPRINTF(tr, "no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
+    } else if (next == DONT_CARE) {
+        // if the next generation can be anything, nothing can be implied
+        IMPLICATIONDPRINTF(tr, "no implication possible, next cell is DONT_CARE, returning DO_NOTHING\n");
+        return DO_NOTHING;
     }
     IMPLICATIONDPRINTF(tr, "resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
@@ -90,8 +95,8 @@ static inline int32_t get_implication(uint32_t tr) {
         uint32_t tr2 = tr & ~(3 << i);
         int32_t forward_0 = implications[tr2 | (OFF << i)];
         int32_t forward_1 = implications[tr2 | (ON << i)];
-        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
-        bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN);
+        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN || (forward_0 & 3) == DONT_CARE);
+        bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN || (forward_1 & 3) == DONT_CARE);
         #if MULTI_RULE
         zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
         one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
@@ -109,6 +114,8 @@ static inline int32_t get_implication(uint32_t tr) {
             // contradiction
             IMPLICATIONDPRINTF(tr, "contradiction detected, returning CONTRADICTION\n");
             return CONTRADICTION;
+        } else {
+            // can be on or off, do nothing
         }
     }
     IMPLICATIONDPRINTF(tr, "result: %i -> %i\n", tr, out);
@@ -119,13 +126,13 @@ static inline void generate_implications(void) {
     // fill in the values with 0 unknown cells
     for (int tr = 0; tr < 512; tr++) {
         #if MULTI_RULE
-        int value = trs[tr] == RULE_DEPENDENT ? RULE_DEPENDENT : (trs[tr] ? ON : OFF);
+        int value = trs[tr] == TRS_RULE_DEPENDENT ? TRS_RULE_DEPENDENT : (trs[tr] ? ON : OFF);
         #else
         int value = trs[tr] ? ON : OFF;
         #endif
         int tr2 = tr_to_implication_tr(tr);
         #if MULTI_RULE
-        if (value == RULE_DEPENDENT) {
+        if (value == TRS_RULE_DEPENDENT) {
             implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
             implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
             IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
@@ -145,10 +152,7 @@ static inline void generate_implications(void) {
             bool found = false;
             for (int i = 0; i < 20; i += 2) {
                 int part = (tr >> i) & 3;
-                if (part == 3) {
-                    found = true;
-                    break;
-                } else if (part == UNKNOWN) {
+                if (part == UNKNOWN) {
                     tr_unknown++;
                     if (tr_unknown > unknown) {
                         break;
@@ -437,9 +441,9 @@ static inline void set_tr(int tr, int value) {
         if (tr & (1 << 4)) {
             tr2 |= (1 << 4);
         }
-        trs[tr2] = value == RULE_DEPENDENT ? RULE_DEPENDENT : (value == OFF ? 0 : 1);
+        trs[tr2] = value == TRS_RULE_DEPENDENT ? TRS_RULE_DEPENDENT : (value == OFF ? 0 : 1);
         uint32_t tr3 = tr_to_implication_tr(tr2);
-        if (value == RULE_DEPENDENT) {
+        if (value == TRS_RULE_DEPENDENT) {
             implications[tr3 | OFF] = IMPLICATION_RULE_DEPENDENT;
             implications[tr3 | ON] = IMPLICATION_RULE_DEPENDENT;
         } else {

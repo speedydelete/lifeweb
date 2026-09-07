@@ -24,8 +24,6 @@
 
 #if MULTI_RULE
 
-#define RULE_DEPENDENT 3
-
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
 
 #else
@@ -335,7 +333,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
 }
 
 
-static const char* letters = "*.oABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
+static const char* letters = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
 static inline void print_cell(FILE* stream, int value
     #if VARIABLES
@@ -345,11 +343,11 @@ static inline void print_cell(FILE* stream, int value
     #if VARIABLES
     if (value == UNKNOWN) {
         if (var > 0) {
-            value = 2 + var;
+            value = 3 + var;
         }
     }
     #endif
-    if (value < 64) {
+    if (value < 65) {
         real_fprintf(stream, "%c", letters[value]);
     } else {
         real_fprintf(stream, "(%i)", value);
@@ -361,7 +359,7 @@ static inline void print_grid(FILE* stream) {
     for (int i = 0; i < 256; i++) {
         rule[i] = '\0';
     }
-    get_rule(rule);
+    get_rule(rule, false);
     fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, set_cells);
     for (index_t t = 0; t < GENS; t++) {
         for (index_t y = 0; y < HEIGHT; y++) {

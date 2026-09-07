@@ -174,7 +174,7 @@ const int_spec hex_int = {
 
 // attempt to unparse transitions
 // returns -1 if it fails, the proper (positive) next_char if it succeeds
-static inline int unparse_transitions(const int_spec* spec, char* out, int next_char, const bool s) {
+static inline int unparse_transitions(const int_spec* spec, char* out, int next_char, bool s, bool use_maxrule) {
     int or = s ? (1 << 4) : 0;
     // array to hold the letters that we've seen
     char seen_letters[spec->max_letters_per_num + 1];
@@ -204,7 +204,8 @@ static inline int unparse_transitions(const int_spec* spec, char* out, int next_
                 if (value == -1) {
                     break;
                 }
-                if (trs[value | or] == 1) {
+                uint8_t tr_value = trs[value | or];
+                if (tr_value == 1 || (use_maxrule && tr_value == TRS_RULE_DEPENDENT)) {
                     count++;
                 }
                 total++;
@@ -248,17 +249,17 @@ static inline int unparse_transitions(const int_spec* spec, char* out, int next_
 }
 
 // attempts to get the full rule using the given spec
-static inline int _get_rule(const int_spec* spec, char* out) {
+static inline int _get_rule(const int_spec* spec, char* out, bool use_maxrule) {
     int next_char = 0;
     out[next_char++] = 'B';
-    int value = unparse_transitions(spec, out, next_char, false);
+    int value = unparse_transitions(spec, out, next_char, false, use_maxrule);
     if (value == -1) {
         return -1;
     }
     next_char = value;
     out[next_char++] = '/';
     out[next_char++] = 'S';
-    return unparse_transitions(spec, out, next_char, true);
+    return unparse_transitions(spec, out, next_char, true, use_maxrule);
 }
 
 
@@ -291,7 +292,7 @@ static inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9]) {
 const char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 // unparse a general MAP rule
-static inline int unparse_map(char* out) {
+static inline int unparse_map(char* out, bool use_maxrule) {
     int next_char = 0;
     out[next_char++] = 'M';
     out[next_char++] = 'A';
@@ -299,8 +300,8 @@ static inline int unparse_map(char* out) {
     // unflip the rule diagonally
     cell_value_t trs2[512];
     for (int i = 0; i < 512; i++) {
-        // in multi-rule mode, select the minrule
-        int value = trs[i] == 3 ? 0 : trs[i];
+        // in multi-rule mode, select the minrule or maxrule
+        int value = trs[i] == TRS_RULE_DEPENDENT ? (use_maxrule ? 1 : 0) : trs[i];
         trs2[(i & 0b100010001) | ((i & 0b010001000) >> 2) | ((i & 0b001000000) >> 4) | ((i & 0b000100010) << 2) | ((i & 0b000000100) << 4)] = value;
     }
     #define trs trs2
@@ -359,20 +360,20 @@ static inline int unparse_map(char* out) {
 
 // unparse the rule
 // returns the number of characters printed
-static inline int get_rule(char* out) {
+static inline int get_rule(char* out, bool use_maxrule) {
     // normal
-    int value = _get_rule(&normal_int, out);
+    int value = _get_rule(&normal_int, out, use_maxrule);
     if (value != -1) {
         return value;
     }
     // hex
-    value = _get_rule(&hex_int, out);
+    value = _get_rule(&hex_int, out, use_maxrule);
     if (value != -1) {
         out[value++] = 'H';
         return value;
     }
     // MAP
-    return unparse_map(out);
+    return unparse_map(out, use_maxrule);
 }
 
 

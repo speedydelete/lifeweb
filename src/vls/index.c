@@ -22,9 +22,9 @@
 #endif
 
 
-#ifdef VLS_PROFILING
+#ifdef FOR_PROFILE
 #include <signal.h>
-void handle_sigterm(int signum) {
+static void handle_sigterm(int signum) {
     (void)signum;
     extern int __llvm_profile_write_file(void);
     __llvm_profile_write_file(); 
@@ -32,37 +32,11 @@ void handle_sigterm(int signum) {
 }
 #endif
 
-int main(void) {
-    #ifdef IMPLICATION_CHECK_TR
-    generate_implications();
-    printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
-    exit(0);
-    #endif
-    calibrate_time();
-    #ifdef VLS_PROFILING
-    signal(SIGTERM, handle_sigterm);
-    #endif
-    init_state();
-    #if VARIABLES
-    init_var_uses();
-    #endif
-    generate_implications();
-    #if MULTI_RULE
-    init_tr_to_bound_tr();
-    #endif
-    init_known_solutions();
-    preprocess();
-    #if CUSTOM_INIT
-    custom_init();
-    #endif
-    #if METHOD == CELL
-    add_search_orders();
-    #endif
-    DPRINTGRID1();
-    #ifdef LLS
+#ifdef LLS
+static inline void run_lls(void) {
     #ifndef RULE
     #error LLS mode is not supported with multi-rule searching yet
-    #else
+    #endif
     #if VARIABLES
     static const char* lls_letters = "abcdefghikjlmnopqrstuvwxyz0123456";
     #endif
@@ -127,9 +101,39 @@ int main(void) {
     ;
     printf("%s\n", command);
     return system(command);
+}
+#endif
+
+int main(void) {
+    #ifdef IMPLICATION_CHECK_TR
+    generate_implications();
+    printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
+    exit(0);
     #endif
+    calibrate_time();
+    #ifdef FOR_PROFILE
+    signal(SIGTERM, handle_sigterm);
     #endif
-    printf("Running search\n");
+    init_state();
+    #if VARIABLES
+    init_var_uses();
+    #endif
+    generate_implications();
+    #if MULTI_RULE
+    init_tr_to_bound_tr();
+    #endif
+    init_known_solutions();
+    preprocess();
+    #if CUSTOM_INIT
+    custom_init();
+    #endif
+    #if METHOD == CELL
+    add_search_orders();
+    #endif
+    DPRINTGRID1();
+    #ifdef LLS
+    return run_lls();
+    #endif
     #if DEBUG >= 2 && METHOD == METHOD_CELL
     printf("Search order:\n");
     for (index_t i = 0; i < unknown_cells; i++) {
@@ -146,6 +150,7 @@ int main(void) {
         printf("\n");
     }
     #endif
+    printf("Running search\n");
     start = get_time();
     last_progress_shown = start;
     #if MAX_PARTIALS
@@ -184,7 +189,7 @@ int main(void) {
         #endif
         #if MAX_PARTIALS
         printf("Max partial (size: %i):\n", max_partial_size);
-        print_grid_2(max_partial, false);
+        print_grid_pretty(max_partial, false);
         #endif
     }
     #endif

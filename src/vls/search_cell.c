@@ -15,7 +15,6 @@
 
 
 // sets the next_in_search_order fields in all the cells
-// returns the first cell in the search order
 static inline void add_search_orders(void) {
     index_t* coords = search_order[0];
     index_t t = coords[0];
@@ -78,7 +77,7 @@ static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
         progress_pos++;
         run_depth(depth + 1, cell, value);
         progress_pos--;
-        set_tr(tr, 3);
+        set_tr(tr, TRS_RULE_DEPENDENT);
         progress[progress_pos].tr_is_set = false;
         progress_pos--;
         return out;
@@ -99,6 +98,7 @@ static int run_depth(int depth, cell* cell
     printf("Running depth %i: ", depth);
     print_progress(stdout);
     real_printf("\n");
+    printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
     #endif
     branches++;
     if (depth > max_depth) {
@@ -124,9 +124,9 @@ static int run_depth(int depth, cell* cell
     #endif
     DPRINTGRID3();
     if (branches % 1000 == 0) {
-        print_state_if_needed();
+        print_info_if_needed();
     }
-    if (cell->value != UNKNOWN) {
+    if (cell->value != UNKNOWN || cell->value == DONT_CARE) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE
         int out = run_depth(depth + 1, cell->next_in_search_order, -1);

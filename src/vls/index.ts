@@ -2,7 +2,7 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {UNKNOWN, OFF, ON, Grid, runScript} from './compiler.js';
+import {UNKNOWN, OFF, ON, DONT_CARE, Grid, runScript} from './compiler.js';
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
@@ -56,9 +56,6 @@ Options:
 
     --gdb: run gdb
 
-    -l, --lls <file>: instead of searching, run LLS on the given file
-        must be a directory containing a file called "lls" or "lss.py"
-
     --benchmark <iterations>: run benchmarking
 
     --profile: enables profile based optimization,
@@ -73,10 +70,13 @@ Options:
         start: report by number of correct cells at start of search order
     --partial-interval <seconds>: set the minimum partial reporting interval
 
-    --file <file>: also write to that file
+    --file <file>: also write output to that file
 
     --rulespace <rulespace>: set the rulespace, options:
         int, ot
+
+    -l, --lls <file>: instead of searching, run LLS on the given file
+        must be a directory containing a file called "lls" or "lss.py"
 
     -m, --method <method>:
         Set the method used for searching
@@ -501,15 +501,20 @@ if (mode === 'periodic') {
                 let variable = 0;
                 if (typeof value === 'string') {
                     if (value === '*') {
-                        // do nothing
+                        // regular unknown
+                        value = UNKNOWN;
+                    } else if (value === `'`) {
+                        // don't care
+                        value = DONT_CARE;
                     } else if (value in vars) {
+                        value = UNKNOWN;
                         variable = vars[value];
                     } else {
+                        value = UNKNOWN;
                         let newVar = grid.getNewVar();
                         vars[value] = newVar;
                         variable = newVar;
                     }
-                    value = UNKNOWN;
                 }
                 grid.set(t, x, y, value, variable);
             }
@@ -1038,10 +1043,11 @@ for (let t = 0; t < grid.gens; t++) {
 
 function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {
     let data = useVars ? grid.vars : grid.data;
-    let emptyRow: number[] = [];
+    let off = useVars ? 0 : OFF;
     let realWidth = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
+    let emptyRow: number[] = [];
     for (let x = 0; x < realWidth; x++) {
-        emptyRow.push(OFF);
+        emptyRow.push(off);
     }
     let out: number[][][] = [];
     for (let t = 0; t < grid.gens; t++) {
@@ -1049,7 +1055,7 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
         for (let y = 0; y < grid.height; y++) {
             let row: number[] = [];
             if (left === 'none') {
-                row.push(OFF, OFF);
+                row.push(off, off);
             } else if (left === 'even') {
                 row.push(data[t][y][0]);
             } else if (left === 'odd') {
@@ -1061,7 +1067,7 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
                 row.push(data[t][y][x]);
             }
             if (right === 'none') {
-                row.push(OFF, OFF);
+                row.push(off, off);
             } else if (right === 'even') {
                 row.push(data[t][y][grid.width - 1]);
             } else if (right === 'odd') {
@@ -1111,6 +1117,10 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
         layer.unshift(...toInsertBefore);
         out.push(layer);
     }
+    // if (useVars) {
+    //     console.log(data);
+    //     console.log(`{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`);
+    // }
     return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
 }
 
@@ -1145,7 +1155,8 @@ for (let line of code.split('\n')) {
         if (multiRule) {
             for (let i = 0; i < 512; i++) {
                 if (trs[i] !== maxBase.trs[i]) {
-                    trs[i] = 3;
+                    // TRS_RULE_DEPENDANT
+                    trs[i] = 4;
                 }
             }
         }
@@ -1348,7 +1359,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        execSync(`clang ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DVLS_PROFILING ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        execSync(`clang ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
         if (options['profile']) {
             console.log(`Running for up to ${PROFILE_SECONDS} seconds to gather profiling data`);
             spawnSync(`${execPath}`, {timeout: PROFILE_SECONDS * 1000, killSignal: 'SIGTERM'});

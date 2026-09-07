@@ -4,6 +4,7 @@
 #pragma once
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
@@ -374,34 +375,99 @@ static inline double get_time(void) {
 double start;
 
 
-static inline void print_grid_2(cell grid[GENS][HEIGHT][WIDTH], bool is_solution) {
+static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_solution) {
     char rule[256];
-    for (int i = 0; i < 256; i++) {
-        rule[i] = 0;
+    memset(rule, '\0', 256);
+    get_rule(rule, false);
+    #if MULTI_RULE
+    char maxrule[256];
+    memset(maxrule, '\0', 256);
+    get_rule(maxrule, true);
+    printf("#C %s to %s\n", rule, maxrule);
+    #endif
+    printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE, rule);
+    // check for alternate printing method
+    if (is_solution) {
+        bool found = false;
+        for (int t = 0; t < GENS; t++) {
+            for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
+                for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+                    cell_value_t value = grid[t][y][x].value;
+                    if (value != OFF && value != ON) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        if (!found) {
+            // finish the RLE header
+            real_printf("\n");
+            for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
+                DPRINTLINEPADDING();
+                for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+                    cell_value_t value = grid[0][y][x].value;
+                    if (value == OFF) {
+                        real_printf(".");
+                    } else {
+                        real_printf("o");
+                    }
+                }
+                if (y == HEIGHT - BOTTOM_OFFSET - 1) {
+                    real_printf("!\n");
+                } else {
+                    real_printf("$\n");
+                }
+            }
+            return;
+        }
     }
-    get_rule(rule);
-    printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE"\n", rule);
-    int last_y = HEIGHT - (BOTTOM == NONE ? 2 : 1);
-    for (int y = TOP_OFFSET; y < last_y; y++) {
+    // finish the RLE header
+    real_printf("History\n");
+    for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
         DPRINTLINEPADDING();
-        for (int x = (LEFT == NONE ? 2 : 1); x < WIDTH - (RIGHT == NONE ? 2 : 1); x++) {
-            cell_value_t value = grid[0][y][x].value;
-            if (value == UNKNOWN) {
-                if (is_solution) {
+        for (int t = 0; t < GENS; t++) {
+            for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+                cell_value_t value = grid[t][y][x].value;
+                if (value == UNKNOWN) {
+                    if (is_solution) {
+                        real_printf("\n\n");
+                        fprintf(stderr, "\n");
+                        print_grid(stderr);
+                        fprintf(stderr, "\nStatus: ");
+                        print_progress(stderr);
+                        fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
+                        exit(1);
+                    } else {
+                        real_printf("B");
+                    }
+                } else if (value == OFF) {
+                    real_printf(".");
+                } else if (value == ON) {
+                    real_printf("o");
+                } else if (value == DONT_CARE) {
+                    real_printf("C");
+                } else {
+                    real_printf("\n\n");
                     fprintf(stderr, "\n");
                     print_grid(stderr);
                     fprintf(stderr, "\nStatus: ");
                     print_progress(stderr);
-                    fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
+                    fprintf(stderr, "\nError: This error should not occur (invalid grid state)\nPlease report this error along with the debug information printed above\n");
                     exit(1);
-                } else {
-                    real_printf(".");
                 }
-            } else {
-                real_printf("%c", value == ON ? 'o' : '.');
+            }
+            if (t != GENS - 1) {
+                real_printf(" | ");
             }
         }
-        if (y == last_y - 1) {
+        if (y == HEIGHT - BOTTOM_OFFSET - 1) {
             real_printf("!\n");
         } else {
             real_printf("$\n");
@@ -479,7 +545,7 @@ static inline void print_solution(bool preprocessing) {
     } else {
         printf("Solution found:\n");
     }
-    print_grid_2(grid, true);
+    print_grid_pretty(grid, true);
     #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found >= MAX_SOLUTIONS) {
@@ -529,6 +595,7 @@ static inline void print_progress(FILE* stream) {
 
 #endif
 
+#define CHECK_TIME_EVERY 1000
 
 double last_progress_shown;
 #if MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE
@@ -548,17 +615,8 @@ int last_printed_max_partial_size = 0;
 cell* initial_cell;
 #endif
 
-static inline void print_state_if_needed() {
+static inline void print_info_if_needed() {
     #ifndef BENCHMARK
-    if (branches % 1000 == 0) {
-        double time = get_time();
-        if (time - last_progress_shown > REPORTING_INTERVAL) {
-            last_progress_shown = time;
-            printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
-            print_progress(stdout);
-            real_printf("\n");
-        }
-    }
     #if MAX_PARTIALS
     if (solutions_found == 0) {
         int partial_size;
@@ -603,24 +661,32 @@ static inline void print_state_if_needed() {
             memcpy(max_partial_trs, trs, sizeof(trs));
             #endif
         }
-        if (branches % 1000 == 0) {
-            double time = get_time();
-            if (time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
-                last_max_partial_shown = time;
-                last_printed_max_partial_size = max_partial_size;
-                #if MULTI_RULE
-                cell_value_t* temp_trs = malloc(sizeof(trs));
-                memcpy(temp_trs, trs, sizeof(trs));
-                memcpy(trs, max_partial_trs, sizeof(trs));
-                #endif
-                printf("New max partial (size = %i):\n", max_partial_size);
-                print_grid_2(max_partial, false);
-                #if MULTI_RULE
-                memcpy(trs, temp_trs, sizeof(trs));
-                free(temp_trs);
-                #endif
-            }
+    }
+    if (branches % CHECK_TIME_EVERY == 0) {
+        double time = get_time();
+        if (time - last_progress_shown > REPORTING_INTERVAL) {
+            last_progress_shown = time;
+            printf("%i seconds, %"PRIu64" branches, %"PRIu64" solutions, progress: ", (int)(time - start), branches, solutions_found);
+            print_progress(stdout);
+            real_printf("\n");
         }
+        #if MAX_PARTIALS
+        if (solutions_found == 0 && time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
+            last_max_partial_shown = time;
+            last_printed_max_partial_size = max_partial_size;
+            #if MULTI_RULE
+            cell_value_t* temp_trs = malloc(sizeof(trs));
+            memcpy(temp_trs, trs, sizeof(trs));
+            memcpy(trs, max_partial_trs, sizeof(trs));
+            #endif
+            printf("New max partial (size = %i):\n", max_partial_size);
+            print_grid_pretty(max_partial, false);
+            #if MULTI_RULE
+            memcpy(trs, temp_trs, sizeof(trs));
+            free(temp_trs);
+            #endif
+        }
+        #endif
     }
     #endif
     #endif

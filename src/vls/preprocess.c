@@ -74,6 +74,15 @@ static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, s
     }
 }
 
+static inline void print_case(case_t* cells) {
+    for (int i = 0; i < 10; i++) {
+        print_cell(stdout, (*cells)[i].value, (*cells)[i].var);
+        if (i == 2 || i == 5 || i == 8) {
+            real_printf(" ");
+        }
+    }
+}
+
 // check for duplicates of cases including variables
 // and reassign those variables to be equal
 static inline void preprocess_cases(void) {
@@ -113,26 +122,49 @@ static inline void preprocess_cases(void) {
                     continue;
                 }
                 struct cell* next_cell = &grid[t + 1][y][x];
-                cells[9].value = next_cell->value;
-                cells[9].var = next_cell->var;
-                if (next_cell->var > 0) {
-                    found = true;
-                }
-                if (!found) {
+                if (!found && !(next_cell->var > 0)) {
                     continue;
                 }
+                cells[9].value = next_cell->value;
+                cells[9].var = next_cell->var;
+                // check for duplicate cases
+                found = false;
+                for (int i = 0; i < case_count; i++) {
+                    if (memcmp(cells, cases[i], sizeof(case_t)) == 0) {
+                        found = true;
+                        break;
+                    }
+                }
+                #if DEBUG >= 3
+                printf("New case (%i): ", case_count);
+                print_case(&cells);
+                real_printf("\n");
+                #endif
+                int start_case = case_count;
+                memcpy(cases[case_count], cells, sizeof(case_t));
+                case_count++;
                 // assign all rotations and reflections of the case too
                 for (int i = 0; i < 2; i++) {
                     for (int j = 0; j < 4; j++) {
-                        memcpy(cases[case_count], cells, sizeof(cells));
-                        case_count++;
                         case_t temp = {
                             cells[6], cells[3], cells[0],
                             cells[7], cells[4], cells[1],
                             cells[8], cells[5], cells[2],
                             cells[9],
                         };
-                        memcpy(cells, temp, sizeof(cells));
+                        memcpy(cells, temp, sizeof(case_t));
+                        // check for symmetric cases
+                        bool found = false;
+                        for (int i = start_case; i < case_count; i++) {
+                            if (memcmp(cells, cases[i], sizeof(case_t)) == 0) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            memcpy(cases[case_count], cells, sizeof(case_t));
+                            case_count++;
+                        }
                     }
                     case_t temp = {
                         cells[2], cells[1], cells[0],
@@ -140,7 +172,7 @@ static inline void preprocess_cases(void) {
                         cells[8], cells[7], cells[6],
                         cells[9],
                     };
-                    memcpy(cells, temp, sizeof(cells));
+                    memcpy(cells, temp, sizeof(case_t));
                 }
             }
         }
@@ -174,6 +206,11 @@ static inline void preprocess_cases(void) {
                 }
                 for (int i = 0; i < case_count; i++) {
                     if (memcmp(cases[i], &cells, sizeof(case_cell_t) * 9) == 0) {
+                        #if DEBUG >= 3
+                        printf("Cell at t = %i, x = %i, y = %i matches case %i: ", t, x, y, i);
+                        print_case(&cells);
+                        real_printf("\n");
+                        #endif
                         case_cell_t new_cell = cases[i][9];
                         if (next_cell->value != UNKNOWN) {
                             if (new_cell.value != UNKNOWN) {
@@ -244,8 +281,9 @@ static inline void preprocess(void) {
     // remove trivial cells
     #if METHOD == METHOD_CELL
     for (index_t i = 0; i < unknown_cells; i++) {
-        index_t* cell = search_order[i];
-        if (grid[cell[0]][cell[2]][cell[1]].value != UNKNOWN) {
+        index_t* coords = search_order[i];
+        cell* cell = &grid[coords[0]][coords[2]][coords[1]];
+        if (cell->value != UNKNOWN) {
             for (index_t j = i; j < unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(index_t) * 3);
             }
