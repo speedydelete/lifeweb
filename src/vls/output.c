@@ -383,7 +383,9 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
     char maxrule[256];
     memset(maxrule, '\0', 256);
     get_rule(maxrule, true);
-    printf("#C %s to %s\n", rule, maxrule);
+    if (strcmp(rule, maxrule) != 0) {
+        printf("#C %s to %s\n", rule, maxrule);
+    }
     #endif
     printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE, rule);
     // check for alternate printing method
