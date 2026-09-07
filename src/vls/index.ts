@@ -374,9 +374,9 @@ if (mode === 'periodic') {
 
     if (dx !== 0 || dy !== 0) {
         defaultSearchOrder = 'f2b';
-        searchOrderAliases['i-f2b'] = `t, -(x*${dx} + y*${dy})`;
-        searchOrderAliases['i-b2f'] = `t, (x*${dx} + y*${dy})`;
-        searchOrderAliases['i-s2s'] = `t, (x*${dy} + y*${dx})`;
+        searchOrderAliases['f2b'] = `t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['b2f'] = `t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['s2s'] = `t, (x*${dy} + y*${dx})`;
         searchOrderAliases['r-f2b'] = `-t, -(x*${dx} + y*${dy})`;
         searchOrderAliases['r-b2f'] = `-t, (x*${dx} + y*${dy})`;
         searchOrderAliases['r-s2s'] = `-t, (x*${dy} + y*${dx})`;
