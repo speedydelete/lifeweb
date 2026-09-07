@@ -222,10 +222,6 @@ const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 #define MAX_PARTIAL_REPORTING_INTERVAL 1
 
 
-
-// whether to keep track of various things
-#define TRACK_PHASE_POPS false
-
 // don't change this stuff
 
 typedef struct cell {
@@ -274,14 +270,7 @@ cell grid[GENS][HEIGHT][WIDTH];
 index_t set_cells;
 
 #ifdef MAXPOP
-#if !TRACK_PHASE_POPS
-#define SPECIAL_PHASE_0_POP
 index_t phase_0_pop;
-#endif
-#endif
-
-#if TRACK_PHASE_POPS
-index_t phase_pops[GENS];
 #endif
 
 

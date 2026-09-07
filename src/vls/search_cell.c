@@ -141,6 +141,19 @@ static int run_depth(int depth, cell* cell
     #if MULTI_RULE
     if (force_value == -1) {
     #endif
+        #ifdef MAXPOP
+        if (phase_0_pop == MAXPOP) {
+            int out = actual_run_depth(depth, cell, OFF);
+            #if DEBUG >= 3
+            debug_depth--;
+            #endif
+            if (out != 0) {
+                return out - 1;
+            } else {
+                return 0;
+            }
+        }
+        #endif
         INITIAL_VALUE_LOOP {
             #if MULTI_RULE
             progress[progress_pos].value = i;

@@ -175,13 +175,8 @@ static inline void init_state(void) {
         }
     }
     set_cells = 0;
-    #ifdef SPECIAL_PHASE_0_POP
+    #ifdef MAXPOP
     phase_0_pop = 0;
-    #endif
-    #if TRACK_PHASE_POPS
-    for (index_t i = 0; i < GENS; i++) {
-        phase_pops[i] = 0;
-    }
     #endif
 }
 
@@ -221,14 +216,9 @@ static inline void pop_frame(void) {
         #endif
         cell* cell = stack[sp - 1].cell;
         cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
-        #ifdef SPECIAL_PHASE_0_POP
+        #ifdef MAXPOP
         if (cell->t == 0 && cell->value == ON) {
             phase_0_pop--;
-        }
-        #endif
-        #if TRACK_PHASE_POPS
-        if (value == 1) {
-            phase_pops[cell->t]--;
         }
         #endif
         if (value == UNKNOWN) {
@@ -271,22 +261,12 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     set_cells++;
     cell->value = value;
     // cell_update_count++;
-    #ifdef SPECIAL_PHASE_0_POP
+    #ifdef MAXPOP
     if (cell->t == 0 && value == ON) {
         phase_0_pop++;
         if (phase_0_pop > MAXPOP) {
             return false;
         }
-    }
-    #endif
-    #if TRACK_PHASE_POPS
-    if (value == ON) {
-        phase_pops[cell->t]++;
-        #ifdef MAXPOP
-        if (cell->t == 0 && phase_pops[0] > MAXPOP) {
-            return false;
-        }
-        #endif
     }
     #endif
     #if TOP != NONE
