@@ -46,8 +46,8 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
 
 #if false
 #include <stdio.h>
-#define IMPLICATIONSPECIALVALUE 283988
-#define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATIONSPECIALVALUE) {printf(__VA_ARGS__);}
+#define IMPLICATION_CHECK_TR 283988
+#define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
 #else
 #define IMPLICATIONDPRINTF(...)
 #endif
@@ -58,8 +58,10 @@ static inline int32_t get_implication(uint32_t tr) {
     int32_t out = DO_NOTHING;
     // find the value for the next generation
     if (next == UNKNOWN) {
-        bool zero_possible = implications[(tr & ~3) | OFF] != CONTRADICTION;
-        bool one_possible = implications[(tr & ~3) | ON] != CONTRADICTION;
+        int32_t forward_0 = implications[(tr & ~3) | OFF];
+        int32_t forward_1 = implications[(tr & ~3) | ON];
+        bool zero_possible = forward_0 != CONTRADICTION;
+        bool one_possible = forward_1 != CONTRADICTION;
         IMPLICATIONDPRINTF(tr, "checking next, (zero: %i -> %i -> %s, one: %i -> %i -> %s\n", (tr & ~3) | OFF, implications[(tr & ~3) | OFF], zero_possible ? "true" : "false", (tr & ~3) | ON, implications[(tr & ~3) | ON], one_possible ? "true" : "false");
         if (!zero_possible && !one_possible) {
             // the cell cannot be any value in the next generation

@@ -33,9 +33,9 @@ void handle_sigterm(int signum) {
 #endif
 
 int main(void) {
-    #ifdef IMPLICATIONSPECIALVALUE
+    #ifdef IMPLICATION_CHECK_TR
     generate_implications();
-    printf("%i -> %i\n", IMPLICATIONSPECIALVALUE, implications[IMPLICATIONSPECIALVALUE]);
+    printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
     exit(0);
     #endif
     calibrate_time();

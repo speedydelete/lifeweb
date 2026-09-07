@@ -36,8 +36,10 @@
 #endif
 
 // the type of cells, don't change this
-// off = 0, on = 1, unknown = 2, dying = 3
-#define DYING 3
+#define UNKNOWN (0)
+#define OFF (1)
+#define ON (2)
+#define DONT_CARE (3)
 typedef uint8_t cell_value_t;
 
 // the smallest integer type that can store the size of the grid
