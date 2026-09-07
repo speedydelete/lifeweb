@@ -466,7 +466,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
                 }
             }
             if (t != GENS - 1) {
-                real_printf(" | ");
+                real_printf(" b|b ");
             }
         }
         if (y == HEIGHT - BOTTOM_OFFSET - 1) {
