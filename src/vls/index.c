@@ -183,6 +183,7 @@ int main(void) {
     run_depth(0);
     #endif
     printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+    #if MAX_PARTIALS
     if (solutions_found == 0) {
         #if MULTI_RULE
         memcpy(trs, max_partial_trs, sizeof(trs));
@@ -192,6 +193,7 @@ int main(void) {
         print_grid_pretty(max_partial, false);
         #endif
     }
+    #endif
     #endif
     return 0;
 }
