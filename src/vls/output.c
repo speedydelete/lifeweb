@@ -476,7 +476,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
         }
     }
 }
-
+ 
 static inline void print_solution(bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
