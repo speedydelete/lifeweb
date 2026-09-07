@@ -185,7 +185,7 @@ const index_t initial_path[INITIAL_PATH_LENGTH][3] = {};
 #define IV_SAME_1 3
 #define IV_DIFFERENT_0 4
 #define IV_DIFFERENT_1 5
-#define INITIAL_VALUE 0
+#define INITIAL_VALUE IV_1
 
 // whether to use LLS instead
 // #define LLS "path/to/lls"

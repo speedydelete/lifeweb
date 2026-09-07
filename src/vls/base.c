@@ -228,7 +228,7 @@ static inline void pop_frame(void) {
         cell* cell = stack[sp - 1].cell;
         cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
         #ifdef SPECIAL_PHASE_0_POP
-        if (cell->t == 0 && cell->value == 1) {
+        if (cell->t == 0 && cell->value == ON) {
             phase_0_pop--;
         }
         #endif
@@ -431,9 +431,9 @@ int get_same_for_iv(cell* cell_to_use) {
 #endif
 
 #if INITIAL_VALUE == IV_0
-#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; value <= 2; value++, i++)
+#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; i < 2; value++, i++)
 #elif INITIAL_VALUE == IV_1
-#define INITIAL_VALUE_LOOP for (int value = 2, i = 0; value >= 1; value--, i++)
+#define INITIAL_VALUE_LOOP for (int value = 2, i = 0; i < 2; value--, i++)
 #elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
 #define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
 #elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
