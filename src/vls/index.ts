@@ -2,7 +2,7 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {UNKNOWN, OFF, ON, DONT_CARE, Grid, runScript} from './compiler.js';
+import {UNKNOWN, OFF, ON, DONT_CARE, Grid, runFile} from './compiler.js';
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
 
 
@@ -28,6 +28,9 @@ Modes:
         find height x width parents of the given pattern
 
     file <path>
+        take in a VLS input file and try to find solutions
+
+    lls-file <path>
         take in a LLS input file and try to find solutions
 
     catalyst <start> <gens> [period] [phase-shift]
@@ -44,9 +47,6 @@ Modes:
             state 6 (gray) - alias for state 0
             state 8 (purple) - forced catalyst stator
         the catalyst can only start interacting at generation (period + 1)
-
-    script <file>
-        take in a script and run it
 
 Options:
 
@@ -326,7 +326,7 @@ if (posArgs.length < 2) {
     error(`Expected at least 2 positional arguments (got ${posArgs.length})`);
 }
 
-const MODES = ['periodic', 'parent', 'file', 'catalyst', 'custom-osc', 'script'];
+const MODES = ['periodic', 'parent', 'file', 'lls-file', 'catalyst'];
 
 let rule = posArgs[0];
 let base = createPattern(rule) as DataPattern;
@@ -461,6 +461,12 @@ if (mode === 'periodic') {
     }
 
 } else if (mode === 'file') {
+
+    let fs = await import('node:fs/promises');
+    let file = (await fs.readFile(posArgs[0])).toString();
+    grid = runFile(file);
+
+} else if (mode === 'lls-file') {
 
     if (posArgs.length !== 1) {
         error(`Expected 1 positional argument for file mode (got ${posArgs.length})`);
@@ -614,104 +620,6 @@ if (mode === 'periodic') {
     for (let [x, y] of toSet) {
         grid.set(gens, x, y, UNKNOWN);
     }
-
-} else if (mode === 'custom-osc') {
-
-    if (posArgs.length < 2) {
-        error(`Expected at least 2 positional arguments for custom-osc mode (got ${posArgs.length})`);
-    }
-    let gens = Number(posArgs[0]);
-    let p = IdentityPattern.loadRLE(posArgs[1]);
-    if (Number.isNaN(gens)) {
-        error(`Invalid generations value: '${gens}'`);
-    }
-
-    grid = new Grid(p.height, p.width, gens);
-    timeWrap = [0, 0];
-
-    let meanings: {[key: number]: [string, string[]]} = {};
-    let match: RegExpMatchArray | null;
-    for (let specifier of posArgs.slice(2)) {
-        let originalSpecifier = specifier;
-        specifier = specifier.replaceAll(/\s+/g, '');
-        if (!(match = specifier.match(/^(\d+):(.*)$/))) {
-            error(`Invalid meaning specifier: '${originalSpecifier}'`);
-        }
-        let state = Number(match[1]);
-        if (state < 7) {
-            error(`Cannot set meaning of state ${state} (specifier: '${originalSpecifier}')`);
-        }
-        meanings[state] = [originalSpecifier, match[2].split(',')];
-    }
-
-    for (let t = 1; t < grid.gens; t++) {
-        grid.fill(t, UNKNOWN);
-    }
-
-    for (let y = 0; y < grid.height; y++) {
-        for (let x = 0; x < grid.width; x++) {
-            let value = p.get(x, y);
-            if (value === 0 || value === 1) {
-                grid.set(0, x, y, value ? ON : OFF);
-            } else if (value === 2 || value === 6) {
-            } else if (value === 3 || value === 4) {
-                let cellValue = value % 2;
-                for (let t = 0; t < gens; t++) {
-                    grid.set(t, x, y, cellValue ? ON : OFF);
-                }
-            } else {
-                if (value in meanings) {
-                    let period = gens;
-                    let out: (number | [number, number])[] = [];
-                    for (let t = 0; t < gens; t++) {
-                        out.push(UNKNOWN);
-                    }
-                    for (let part of meanings[value][1]) {
-                        if (match = part.match(/^p(\d+)$/)) {
-                            period = Number(match[1]);
-                            let vars: number[] = [];
-                            for (let i = 0; i < period; i++) {
-                                vars.push(grid.getNewVar());
-                            }
-                            out = [];
-                            for (let t = 0; t < gens; t++) {
-                                out.push([UNKNOWN, vars[t % period]]);
-                            }
-                        } else if (match = part.match(/^(\d+)=([01*])$/)) {
-                            let t = Number(match[1]);
-                            let state = match[2] === '0' ? OFF : (match[2] === '1' ? ON : UNKNOWN);
-                            let prev = JSON.stringify(out[t]);
-                            for (let i = 0; i < out.length; i++) {
-                                if (JSON.stringify(out[i]) === prev) {
-                                    out[i] = state;
-                                }
-                            }
-                        } else {
-                            error(`Invalid meaning part: '${part}' (specifier: '${meanings[value][0]}')`);
-                        }
-                    }
-                    for (let t = 0; t < gens; t++) {
-                        let value = out[t];
-                        if (typeof value === 'number') {
-                            grid.set(t, x, y, value);
-                        } else {
-                            grid.set(t, x, y, ...value);
-                        }
-                    }
-                } else {
-                    error(`State ${value} is not defined (at x = ${x}, y = ${y})`);
-                }
-            }
-        }
-    }
-
-} else if (mode === 'script') {
-
-    if (posArgs.length !== 1) {
-        error(`Expected 1 positional argument for script mode (got ${posArgs.length})`);
-    }
-    let fs = await import('node:fs/promises');
-    grid = runScript((await fs.readFile(posArgs[0])).toString());
 
 } else {
 

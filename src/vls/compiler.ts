@@ -1,7 +1,4 @@
 
-import * as t from '@babel/types';
-import {parse} from '@babel/parser';
-
 import {createPattern} from '../core/index.js';
 
 
@@ -176,7 +173,7 @@ export class Grid {
         this.removeUnusedVars();
     }
 
-    restrict(t: number, rle: string, xOffset: number, yOffset: number) {
+    restrict(t: number, rle: string, xOffset: number, yOffset: number): void {
         let p = base.loadRLE(rle);
         p.offsetBy(xOffset, yOffset);
         for (let y = 0; y < this.height; y++) {
@@ -188,7 +185,7 @@ export class Grid {
         }
     }
 
-    setFrom(t: number, rle: string, xOffset: number, yOffset: number) {
+    setFrom(t: number, rle: string, xOffset: number, yOffset: number): void {
         let p = base.loadRLE(rle);
         p.offsetBy(xOffset, yOffset);
         for (let y = 0; y < this.height; y++) {
@@ -198,49 +195,14 @@ export class Grid {
         }
     }
 
-}
-
-
-
-class State {
-    
-    parent?: State;
-    vars: Map<string, unknown> = new Map();
-
-    constructor(parent?: State) {
-        this.parent = parent;
-    }
-
-    has(name: string): boolean {
-        return this.vars.has(name);
-    }
-
-    get(name: string, node: t.Node): unknown {
-        if (!this.has(name)) {
-            
-        }
-        return this
-    }
-
-    push(): State {
-        return new State(this);
-    }
-
-    pop(): State {
-        if (this.parent) {
-            return this.parent;
-        } else {
-            throw new Error('Cannot pop root state');
-        }
+    expand(top: number, bottom: number, left: number, right: number): void {
+        let newHeight = this.height + top + bottom;
+        let newWidth = this.width + left + right;
     }
 
 }
 
 
-function runExpression(state: State, node: t.Expression): void {
-
-}
-
-export function runScript(script: string): Grid {
-    throw new Error('no');
+export function runFile(file: string): Grid {
+    throw new Error('not yet');
 }

@@ -10,9 +10,6 @@
         "src",
         "lib"
     ],
-    "dependencies": {
-        "@babel/parser": "^8.0.4"
-    },
     "devDependencies": {
         "@types/node": "^26.1.1",
         "typescript": "^7.0.2"
@@ -22,7 +19,7 @@
         "esbuild": "^0.28.1"
     },
     "allowScripts": {
-        "esbuild@0.28.1": true
+        "esbuild@0.28.2": true
     },
     "homepage": "https://github.com/speedydelete/lifeweb",
     "wrecked_vls": {
@@ -53,5 +50,8 @@
             "./index.js": "src/vls/index.ts",
             "./index.c": "src/vls/index.c"
         }
+    },
+    "dependencies": {
+        "@babel/parser": "^8.0.4"
     }
 }
