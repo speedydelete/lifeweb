@@ -7,6 +7,10 @@ export const OFF = 1;
 export const ON = 2;
 export const DONT_CARE = 3;
 
+export const SETTABLE = 0;
+export const NO_SEARCHING = 1;
+export const NO_SETTING = 2;
+
 
 let base = createPattern('B3/S23');
 
@@ -18,6 +22,7 @@ export class Grid {
     size: number;
     data: number[][][];
     vars: number[][][];
+    setting: number[][][];
     numVars: number = 0;
 
     constructor(height: number, width: number, gens: number) {
@@ -27,19 +32,23 @@ export class Grid {
         this.size = height * width;
         this.data = [];
         this.vars = [];
+        this.setting = [];
         for (let t = 0; t < gens; t++) {
             let grid: number[][] = [];
             let varsGrid: number[][] = [];
+            let settingGrid: number[][] = [];
             for (let y = 0; y < height; y++) {
                 let row: number[] = [];
                 for (let x = 0; x < width; x++) {
                     row.push(0);
                 }
-                grid.push(row);
-                varsGrid.push(row.slice());
+                grid.push(structuredClone(row));
+                varsGrid.push(structuredClone(row));
+                settingGrid.push(structuredClone(row));
             }
             this.data.push(grid);
             this.vars.push(varsGrid);
+            this.setting.push(settingGrid);
         }
     }
 
@@ -57,9 +66,10 @@ export class Grid {
         return this.vars[t][y][x];
     }
 
-    set(t: number, x: number, y: number, value: number, variable: number = 0): void {
+    set(t: number, x: number, y: number, value: number, variable: number = 0, setting: number = SETTABLE): void {
         this.data[t][y][x] = value;
         this.vars[t][y][x] = variable;
+        this.setting[t][y][x] = setting;
     }
 
     fill(value: number): void;
@@ -195,9 +205,51 @@ export class Grid {
         }
     }
 
-    expand(top: number, bottom: number, left: number, right: number): void {
+    _expand(data: number[][][], top: number, bottom: number, left: number, right: number, before: number, after: number, emptyRow: number[], emptyGrid: number[][]) {
+        for (let t = 0; t < this.gens; t++) {
+            for (let grid of data) {
+                for (let row of grid) {
+                    for (let i = 0; i < left; i++) {
+                        row.unshift(0);
+                    }
+                    for (let i = 0; i < right; i++) {
+                        row.unshift(0);
+                    }
+                }
+                for (let i = 0; i < top; i++) {
+                    grid.unshift(structuredClone(emptyRow));
+                }
+                for (let i = 0; i < bottom; i++) {
+                    grid.push(structuredClone(emptyRow));
+                }
+            }
+        }
+        for (let i = 0; i < before; i++) {
+            data.unshift(structuredClone(emptyGrid));
+        }
+        for (let i = 0; i < after; i++) {
+            data.push(structuredClone(emptyGrid));
+        }
+    }
+
+    expand(top: number, bottom: number, left: number, right: number, before: number, after: number): void {
         let newHeight = this.height + top + bottom;
         let newWidth = this.width + left + right;
+        let newGens = this.gens + before + after;
+        let emptyRow: number[] = [];
+        for (let i = 0; i < newWidth; i++) {
+            emptyRow.push(0);
+        }
+        let emptyGrid: number[][] = [];
+        for (let i = 0; i < newHeight; i++) {
+            emptyGrid.push(structuredClone(emptyRow));
+        }
+        this._expand(this.data, top, bottom, left, right, before, after, emptyRow, emptyGrid);
+        this._expand(this.vars, top, bottom, left, right, before, after, emptyRow, emptyGrid);
+        this._expand(this.setting, top, bottom, left, right, before, after, emptyRow, emptyGrid);
+        this.height = newHeight;
+        this.width = newWidth;
+        this.gens = newGens;
     }
 
 }
