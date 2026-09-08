@@ -47,13 +47,13 @@ static inline void run_lls(void) {
     }
     for (index_t t = 0; t < GENS; t++) {
         fputs("0,", input_file);
-        for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+        for (index_t x = PADDING; x < WIDTH - PADDING; x++) {
             fputs("0,", input_file);
         }
         fputs("0\n", input_file);
-        for (index_t y = TOP == NONE ? 2 : 0; y < HEIGHT - (BOTTOM == NONE ? 2 : 0); y++) {
+        for (index_t y = PADDING; y < HEIGHT - PADDING; y++) {
             fputs("0,", input_file);
-            for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+            for (index_t x = PADDING; x < WIDTH - PADDING; x++) {
                 cell_value_t value = grid[t][y][x].value;
                 if (value == 0) {
                     putc('0', input_file);
@@ -80,7 +80,7 @@ static inline void run_lls(void) {
             fputs("0\n", input_file);
         }
         fputs("0,", input_file);
-        for (index_t x = LEFT == NONE ? 2 : 0; x < WIDTH - (RIGHT == NONE ? 2 : 0); x++) {
+        for (index_t x = PADDING; x < WIDTH - PADDING; x++) {
             fputs("0,", input_file);
         }
         fputs("0\n", input_file);

@@ -2,14 +2,9 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {UNKNOWN, OFF, ON, DONT_CARE, Grid, runFile} from './compiler.js';
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
+import {error, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
 
-
-function error(msg: string): never {
-    console.error(`Error: ${msg}\nUse ./vls --help for help`);
-    process.exit(1);
-}
 
 const HELP = `
 Usage: ./search <rule> <mode> <options>
@@ -32,6 +27,9 @@ Modes:
 
     lls-file <path>
         take in a LLS input file and try to find solutions
+
+    script <path>
+        run the file at the path as a ES module, must default export a Grid
 
     catalyst <start> <gens> [period] [phase-shift]
         find a stable (or periodic with the given period) catalyst
@@ -96,24 +94,6 @@ Options:
     -n, --max-solutions: set the maximum solution count, default infinity
     --no-show-solutions: Disable showing solutions at all.
 
-    -p, --pattern [[<gen>=]<rle>...]:
-        set generation n to the given RLE (variadic)
-        if no generation given, sets generation 0
-        (and if periodic mode, also set the last generation with translation)
-
-    -f, --filter [<gen>=<rle>...]:
-        filter generation n by the given RLE (variadic)
-        input is a LifeHistory RLE:
-            state 3 (white) - must be on
-            state 4 (red) - must be off
-            all other states - can be anything
-
-    -r, --restrict [[<gen>=]<rle>...]:
-        restricts generation n to the given RLE mask (variadic)
-        if no generation given, restricts generation 0
-        (and if periodic mode, also restrict the last generation
-        (with translation))
-
     --top <type>
     --bottom <type>
     --left <type>
@@ -121,27 +101,13 @@ Options:
         set edge behavior, can either be 'none', 'even', 'odd', or 'wrap'
 
     -s <symmetry>, --symmetry <symmetry>
-        set a symmetry to be applied to the pattern
-        alias for some combination of --top, --bottom, --left, and --right
-        valid values:
-
-            D2_-1, D2_-2, D2_|1, D2_|2, D4_+1, D4_-2, D4_|2, D4_+4:
-                D4_-2 is top/bottom even, left/right odd
-                D4_|2 is top/bottom odd, left/right even
-                also halves the width/height if it is reflected over that axis
-
-            wick_-1, wick_-2, wick_|1, wick_|2:
-            wave_-1, wave_-2, wave_|1, wave_|2:
-                like D2, but applied to both sides, so it will look for wicks
-                wave is just an alias for wick
-
-            agar:
-                wraps around all 4 sides, so it will look for agars
+        apply a symmetry to the pattern
+        this is different from the edge behaviors above!
 
     --maxpop <cells>: set the maximum population during the search
 `;
 
-type OptionValue = true | 'string' | 'number' | Set<string> | readonly ('string' | 'number' | Set<string>)[] | [true, 'string' | 'number' | Set<string>];
+type OptionValue = true | 'string' | 'number' | Set<string>;
 
 const OPTIONS = {
     'help': true,
@@ -159,16 +125,14 @@ const OPTIONS = {
     'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
     'max-solutions': 'number',
     'no-show-solutions': true,
-    'pattern': [true, 'string'],
-    'filter': [true, 'string'],
-    'restrict': [true, 'string'],
     'top': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'left': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'right': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'symmetry': new Set([
-        'D2_-1', 'D2_-2', 'D2_|1', 'D2_|2', 'D4_+1', 'D4_-2', 'D4_|2', 'D4_+4',
-        'wick_-1', 'wick_-2', 'wick_|1', 'wick_|2', 'wave_-1', 'wave_-2', 'wave_|1', 'wave_|2',
+        'D2-', 'D2_|', 'D2_\\', 'D2_/',
+        'D4+', 'D4x',
+        'wick-', 'wick|', 'wave-', 'wave|',
         'agar',
     ] as const),
     'maxpop': 'number',
@@ -184,9 +148,6 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'm': 'method',
     'i': 'initial-value',
     'n': 'max-solutions',
-    'p': 'pattern',
-    'f': 'filter',
-    'r': 'restrict',
     's': 'symmetry',
 };
 
@@ -239,7 +200,7 @@ function getOption(originalArg: string, value: OptionValue, i: number): [OptionD
             error(`Expected numeric argument for option '${originalArg}'`);
         }
         return [num, i];
-    } else if (value instanceof Set) {
+    } else {
         if (i === argv.length - 1) {
             error(`Expected argument for option '${originalArg}'`);
         }
@@ -254,31 +215,6 @@ function getOption(originalArg: string, value: OptionValue, i: number): [OptionD
             error(`Invalid option for argument '${originalArg}': '${arg}', expected ${expected}`);
         }
         return [arg, i];
-    } else if (value[0] === true) {
-        let out: (string | number)[] = [];
-        while (i < argv.length - 1) {
-            if (argv[i + 1].startsWith('-')) {
-                break;
-            }
-            let data = getOption(originalArg, value[1], i);
-            if (typeof data[0] !== 'string' && typeof data[0] !== 'number') {
-                throw new Error(`Invalid argument specification detected for argument '${originalArg}'`);
-            }
-            out.push(data[0]);
-            i = data[1];
-        }
-        return [out as OptionData[Option], i];
-    } else {
-        let out: (string | number)[] = [];
-        for (let j = 0; j < value.length; j++) {
-            let data = getOption(originalArg, value[j], i);
-            if (typeof data[0] !== 'string' && typeof data[0] !== 'number') {
-                throw new Error(`Invalid argument specification detected for argument '${originalArg}'`);
-            }
-            out.push(data[0]);
-            i = data[1];
-        }
-        return [out as OptionData[Option], i];
     }
 }
 
@@ -355,8 +291,6 @@ let grid: Grid;
 let defaultSearchOrder = 't, y, x';
 let searchOrderAliases: {[key: string]: string} = {};
 
-let timeWrap: false | [number, number] = false;
-
 if (mode === 'periodic') {
 
     if (posArgs.length !== 3) {
@@ -409,22 +343,7 @@ if (mode === 'periodic') {
     for (let t = 1; t < grid.gens; t++) {
         grid.fill(t, UNKNOWN);
     }
-    timeWrap = [dx, dy];
-
-    if (options['pattern']) {
-        for (let value of options['pattern']) {
-            if (!value.includes('=')) {
-                grid.setFrom(grid.gens - 1, value, dx, dy);
-            }
-        }
-    }
-    if (options['restrict']) {
-        for (let value of options['restrict']) {
-            if (!value.includes('=')) {
-                grid.restrict(grid.gens - 1, value, dx, dy);
-            }
-        }
-    }
+    grid.wrap = [dx, dy];
 
 } else if (mode === 'parent') {
 
@@ -462,22 +381,23 @@ if (mode === 'periodic') {
 
 } else if (mode === 'file') {
 
-    let fs = await import('node:fs/promises');
-    let file = (await fs.readFile(posArgs[0])).toString();
-    grid = runFile(file);
+    if (posArgs.length !== 1) {
+        error(`Expected 1 positional argument for file mode (got ${posArgs.length})`);
+    }
+    grid = await runFile(posArgs[0]);
 
 } else if (mode === 'lls-file') {
 
     if (posArgs.length !== 1) {
-        error(`Expected 1 positional argument for file mode (got ${posArgs.length})`);
+        error(`Expected 1 positional argument for lls-file mode (got ${posArgs.length})`);
     }
     let fs = await import('node:fs/promises');
     let file = (await fs.readFile(posArgs[0])).toString();
-    let data: (string | number)[][][] = [];
-    let currentSection: (string | number)[][] = [];
+    let data: string[][][] = [];
+    let currentSection: string[][] = [];
     for (let line of file.split('\n')) {
-        line = line.replaceAll(/\s+/g, '');
-        let parts = line.split(',').filter(x => x.length > 0).map(x => x === '0' ? OFF : (x === '1' ? ON : x));
+        line = line.replaceAll(/\s+/g, ',');
+        let parts = line.split(',').filter(x => x.length > 0);
         if (parts.length === 0) {
             if (currentSection.length > 0) {
                 data.push(currentSection);
@@ -504,28 +424,41 @@ if (mode === 'periodic') {
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let value = data[t][y][x];
-                let variable = 0;
-                if (typeof value === 'string') {
-                    if (value === '*') {
-                        // regular unknown
-                        value = UNKNOWN;
-                    } else if (value === `'`) {
-                        // don't care
-                        value = DONT_CARE;
-                    } else if (value in vars) {
-                        value = UNKNOWN;
+                let state: State;
+                let variable: Variable | undefined = undefined;
+                if (value === '0') {
+                    state = OFF;
+                } else if (value === '1') {
+                    state = ON;
+                } else if (value === '*') {
+                    state = UNKNOWN;
+                } else if (value === `'`) {
+                    state = DONT_CARE;
+                } else {
+                    state = UNKNOWN;
+                    if (value in vars) {
                         variable = vars[value];
                     } else {
-                        value = UNKNOWN;
                         let newVar = grid.getNewVar();
                         vars[value] = newVar;
                         variable = newVar;
                     }
                 }
-                grid.set(t, x, y, value, variable);
+                grid.set(t, x, y, state, variable);
             }
         }
     }
+
+} else if (mode === 'script') {
+
+    if (posArgs.length !== 1) {
+        error(`Expected 1 positional argument for script mode (got ${posArgs.length})`);
+    }
+    let value: unknown = (await import(posArgs[0])).default;
+    if (!(value instanceof Grid)) {
+        error(`Script does not default export a Grid`);
+    }
+    grid = value;
 
 } else if (mode === 'catalyst') {
 
@@ -612,7 +545,19 @@ if (mode === 'periodic') {
     let toSet: [number, number][] = [];
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            if (!(grid.getVar(gens, x, y) || grid.get(gens, x - 1, y - 1) || grid.get(gens, x - 1, y) || grid.get(gens, x - 1, y + 1) || grid.get(gens, x, y - 1) || grid.get(gens, x, y) || grid.get(gens, x, y + 1) || grid.get(gens, x + 1, y - 1) || grid.get(gens, x + 1, y) || grid.get(gens, x + 1, y + 1))) {
+            if (!(
+                    grid.get(gens, x, y).variable !== undefined
+                 || grid.get(gens, x - 1, y - 1).state !== OFF
+                 || grid.get(gens, x - 1, y).state !== OFF
+                 || grid.get(gens, x - 1, y + 1).state !== OFF
+                 || grid.get(gens, x, y - 1).state !== OFF
+                 || grid.get(gens, x, y).state !== OFF
+                 || grid.get(gens, x, y + 1).state !== OFF
+                 || grid.get(gens, x + 1, y - 1).state !== OFF
+                 || grid.get(gens, x + 1, y).state !== OFF
+                 || grid.get(gens, x + 1, y + 1).state !== OFF
+                )
+            ) {
                 toSet.push([x, y]);
             }
         }
@@ -628,110 +573,9 @@ if (mode === 'periodic') {
 }
 
 
-function runMetric(cell: [number, number, number], node: t.Expression | t.PrivateName): number | boolean {
-    if (node.type === 'Identifier') {
-        if (node.name === 't') {
-            return cell[0];
-        } else if (node.name === 'x') {
-            return cell[1];
-        } else if (node.name === 'y') {
-            return cell[2];
-        } else {
-            error(`Invalid variable: '${node.name}'`);
-        }
-    } else if (node.type === 'NumericLiteral') {
-        return node.value;
-    } else if (node.type === 'BooleanLiteral') {
-        return node.value;
-    } else if (node.type === 'UnaryExpression') {
-        let value = runMetric(cell, node.argument);
-        if (node.operator === '-') {
-            return -value;
-        } else if (node.operator === '+') {
-            return +value;
-        } else {
-            error(`Invalid unary operator: '${node.operator}'`);
-        }
-    } else if (node.type === 'BinaryExpression') {
-        let left = runMetric(cell, node.left);
-        let right = runMetric(cell, node.right);
-        if (node.operator === '==') {
-            return left === right;
-        } else if (node.operator === '!=') {
-            return left !== right;
-        } else if (node.operator === '<') {
-            return left < right;
-        } else if (node.operator === '<=') {
-            return left <= right;
-        } else if (node.operator === '>') {
-            return left > right;
-        } else if (node.operator === '>=') {
-            return left >= right;
-        } else if (node.operator === '<<') {
-            return Number(left) << Number(right);
-        } else if (node.operator === '>>') {
-            return Number(left) >> Number(right);
-        } else if (node.operator === '>>>') {
-            return Number(left) >>> Number(right);
-        } else if (node.operator === '+') {
-            return Number(left) + Number(right);
-        } else if (node.operator === '-') {
-            return Number(left) - Number(right);
-        } else if (node.operator === '*') {
-            return Number(left) * Number(right);
-        } else if (node.operator === '/') {
-            return Number(left) / Number(right);
-        } else if (node.operator === '%') {
-            return Number(left) % Number(right);
-        } else if (node.operator === '**') {
-            return Number(left) ** Number(right);
-        } else if (node.operator === '|') {
-            return Number(left) | Number(right);
-        } else if (node.operator === '^') {
-            return Number(left) ^ Number(right);
-        } else if (node.operator === '&') {
-            return Number(left) & Number(right);
-        } else {
-            error(`Invalid binary operator: '${node.operator}'`);
-        }
-    } else if (node.type === 'LogicalExpression') {
-        if (node.operator === '&&') {
-            return runMetric(cell, node.left) && runMetric(cell, node.right);
-        } else if (node.operator === '||') {
-            return runMetric(cell, node.left) || runMetric(cell, node.right);
-        } else {
-            error(`Invalid binary operator: '${node.operator}'`);
-        }
-    } else if (node.type === 'ConditionalExpression') {
-        return runMetric(cell, node.test) ? runMetric(cell, node.consequent) : runMetric(cell, node.alternate);
-    } else if (node.type === 'CallExpression') {
-        if (node.callee.type !== 'Identifier') {
-            error(`Cannot call non-constant function`);
-        }
-        let args: (number | boolean)[] = [];
-        for (let arg of node.arguments) {
-            if (arg.type === 'SpreadElement' || arg.type === 'ArgumentPlaceholder') {
-                error(`Invalid node: '${arg.type}'`);
-            } else {
-                args.push(runMetric(cell, arg));
-            }
-        }
-        if (node.callee.name === 'abs') {
-            if (node.arguments.length !== 1) {
-                error(`abs() function takes 1 argument`);
-            }
-            return Math.abs(Number(args[0]));
-        } else {
-            error(`Invalid function: '${node.callee.name}'`);
-        }
-    } else {
-        error(`Invalid node: '${node.type}'`);
-    }
-}
-
 function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
     for (let metric of order) {
-        let score = Number(runMetric(a, metric)) - Number(runMetric(b, metric));
+        let score = Number(runExpression(a, metric)) - Number(runExpression(b, metric));
         if (score !== 0) {
             return score;
         }
@@ -744,7 +588,8 @@ function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): 
     for (let t = 0; t < grid.gens; t++) {
         for (let y = 0; y < grid.height; y++) {
             for (let x = 0; x < grid.width; x++) {
-                if (grid.get(t, x, y) == UNKNOWN) {
+                let cell = grid.get(t, x, y);
+                if (cell.state == UNKNOWN && cell.settable == SEARCHABLE) {
                     cells.push([t, x, y]);
                 }
             }
@@ -829,200 +674,51 @@ if (methodArg === undefined) {
 }
 
 
-if (options['pattern']) {
-    for (let value of options['pattern']) {
-        let gen = 0;
-        if (value.includes('=')) {
-            let parts = value.split('=');
-            gen = Number(parts[0]);
-            if (parts.length !== 2 || Number.isNaN(gen)) {
-                error(`Invalid value for pattern option: '${value}'`);
-            }
-            value = value[1];
-        }
-        grid.setFrom(gen, value, 0, 0);
-    }
-}
-
-if (options['filter']) {
-    for (let value of options['filter']) {
-        let parts = value.split('=');
-        let gen = Number(parts[0]);
-        if (parts.length !== 2 || Number.isNaN(gen)) {
-            error(`Invalid value for filter option: '${value}'`);
-        }
-        if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
-            error(`Invalid generation for filtering: '${gen}'`);
-        }
-        let p = IdentityPattern.loadRLE(parts[1]);
-        for (let y = 0; y < p.height; y++) {
-            for (let x = 0; x < p.width; x++) {
-                let value = p.get(x, y);
-                if (value === 3) {
-                    grid.set(gen, x, y, ON);
-                } else if (value === 4) {
-                    grid.set(gen, x, y, OFF);
-                }
-            }
-        }
-    }
-}
-
-if (options['restrict']) {
-    for (let value of options['restrict']) {
-        let gen = 0;
-        if (value.includes('=')) {
-            let parts = value.split('=');
-            gen = Number(parts[0]);
-            if (parts.length !== 2 || Number.isNaN(gen)) {
-                error(`Invalid value for restrict option: '${value}'`);
-            }
-            if (gen < 0 || gen >= grid.gens || !Number.isInteger(gen)) {
-                error(`Invalid generation for restricting: '${gen}'`);
-            }
-            value = value[1];
-        }
-        grid.restrict(gen, value, 0, 0);
-    }
-}
-
-
-type Edge = 'none' | 'even' | 'odd' | 'wrap';
-
-const SYMEMTRIES: {[K in Exclude<typeof options['symmetry'], undefined>]: [top: Edge, bottom: Edge, left: Edge, right: Edge]} = {
-    'D2_-1': ['none', 'odd', 'none', 'none'],
-    'D2_-2': ['none', 'even', 'none', 'none'],
-    'D2_|1': ['none', 'none', 'none', 'odd'],
-    'D2_|2': ['none', 'none', 'none', 'even'],
-    'D4_+1': ['none', 'odd', 'none', 'odd'],
-    'D4_-2': ['none', 'even', 'none', 'odd'],
-    'D4_|2': ['none', 'odd', 'none', 'even'],
-    'D4_+4': ['none', 'even', 'even', 'none'],
-    'wick_-1': ['odd', 'odd', 'none', 'none'],
-    'wick_-2': ['even', 'even', 'none', 'none'],
-    'wick_|1': ['none', 'none', 'odd', 'odd'],
-    'wick_|2': ['none', 'none', 'even', 'even'],
-    'wave_-1': ['odd', 'odd', 'none', 'none'],
-    'wave_-2': ['even', 'even', 'none', 'none'],
-    'wave_|1': ['none', 'none', 'odd', 'odd'],
-    'wave_|2': ['none', 'none', 'even', 'even'],
-    'agar': ['wrap', 'wrap', 'wrap', 'wrap'],
-};
-
 if (options['symmetry']) {
-    let [top, bottom, left, right] = SYMEMTRIES[options['symmetry']];
-    options['top'] ??= top;
-    options['bottom'] ??= bottom;
-    options['left'] ??= left;
-    options['right'] ??= right;
-    if (top !== 'none' && bottom === 'none') {
-        grid.shrinkHeight(Math.ceil(grid.height / 2), 'before');
-    } else if (bottom !== 'none' && top === 'none') {
-        grid.shrinkHeight(Math.ceil(grid.height / 2), 'after');
-    }
-    if (left !== 'none' && right === 'none') {
-        grid.shrinkWidth(Math.ceil(grid.width / 2), 'before');
-    } else if (right !== 'none' && left === 'none') {
-        grid.shrinkWidth(Math.ceil(grid.width / 2), 'after');
-    }
+    throw new Error('Symmetry is not supported yet');
 }
 
-let top: Edge = options['top'] ?? 'none';
-let bottom: Edge = options['bottom'] ?? 'none';
-let left: Edge = options['left'] ?? 'none';
-let right: Edge = options['right'] ?? 'none';
 
+grid.normalize();
 
-grid.removeUnusedVars();
-
-let cellCounts: {[key: number]: number} = {};
+let stateCounts: number[] = [];
+for (let i = 0; i < 4; i++) {
+    stateCounts.push(0);
+}
 for (let t = 0; t < grid.gens; t++) {
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            let cell = grid.get(t, x, y);
-            if (cell in cellCounts) {
-                cellCounts[cell]++;
-            } else {
-                cellCounts[cell] = 1;
-            }
+            let state = grid.get(t, x, y).state;
+            stateCounts[state]++;
         }
     }
 }
 
-function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Edge, useVars: boolean): string {
-    let data = useVars ? grid.vars : grid.data;
-    let off = useVars ? 0 : OFF;
-    let realWidth = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
+function gridToString(grid: Grid, field: keyof Cell): string {
+    let off: number;
+    if (field === 'state') {
+        off = OFF;
+    } else if (field === 'variable') {
+        off = 0;
+    } else {
+        off = SEARCHABLE;
+    }
     let emptyRow: number[] = [];
-    for (let x = 0; x < realWidth; x++) {
+    for (let x = 0; x < grid.width + 4; x++) {
         emptyRow.push(off);
     }
     let out: number[][][] = [];
     for (let t = 0; t < grid.gens; t++) {
-        let layer: number[][] = [];
+        let layer: number[][] = [structuredClone(emptyRow), structuredClone(emptyRow)];
         for (let y = 0; y < grid.height; y++) {
-            let row: number[] = [];
-            if (left === 'none') {
-                row.push(off, off);
-            } else if (left === 'even') {
-                row.push(data[t][y][0]);
-            } else if (left === 'odd') {
-                row.push(data[t][y][1]);
-            } else {
-                row.push(data[t][y][grid.width - 1]);
-            }
+            let row: number[] = [off, off];
             for (let x = 0; x < grid.width; x++) {
-                row.push(data[t][y][x]);
+                row.push(grid.get(t, x, y)[field] ?? 0);
             }
-            if (right === 'none') {
-                row.push(off, off);
-            } else if (right === 'even') {
-                row.push(data[t][y][grid.width - 1]);
-            } else if (right === 'odd') {
-                row.push(data[t][y][grid.width - 2]);
-            } else {
-                row.push(data[t][y][0]);
-            }
+            row.push(off, off);
             layer.push(row);
         }
-        let toInsertBefore: number[][] = [];
-        if (top === 'none') {
-            toInsertBefore = [emptyRow, emptyRow];
-        } else if (top === 'wrap') {
-            toInsertBefore = [layer[layer.length - 1]];
-        } else {
-            let row = (top === 'even' ? layer[0] : layer[1]).slice();
-            if (left === 'even') {
-                row[0] = row[1];
-            } else if (left === 'odd') {
-                row[0] = row[2];
-            }
-            if (right === 'even') {
-                row[realWidth - 1] = row[realWidth - 2];
-            } else if (right === 'odd') {
-                row[realWidth - 1] = row[realWidth - 3];
-            }
-            toInsertBefore = [row];
-        }
-        if (bottom === 'none') {
-            layer.push(emptyRow, emptyRow);
-        } else if (bottom === 'wrap') {
-            layer.push(layer[0]);
-        } else {
-            let row = (bottom === 'even' ? layer[grid.height - 1] : layer[grid.height - 2]).slice();
-            if (left === 'even') {
-                row[0] = row[1];
-            } else if (left === 'odd') {
-                row[0] = row[2];
-            }
-            if (right === 'even') {
-                row[realWidth - 1] = row[realWidth - 2];
-            } else if (right === 'odd') {
-                row[realWidth - 1] = row[realWidth - 3];
-            }
-            layer.push(row);
-        }
-        layer.unshift(...toInsertBefore);
+        layer.push(structuredClone(emptyRow), structuredClone(emptyRow));
         out.push(layer);
     }
     // if (useVars) {
@@ -1035,7 +731,7 @@ function gridToString(grid: Grid, top: Edge, bottom: Edge, left: Edge, right: Ed
 let out: string[] = [];
 for (let line of code.split('\n')) {
     if (line.startsWith('typedef') && line.endsWith('index_t;')) {
-        let maxValue = (grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1)) * (grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1)) * grid.gens;
+        let maxValue = (grid.height + 4) * (grid.width + 4) * grid.gens;
         if (maxValue > 65535) {
             out.push(`typedef uint32_t index_t;`);
         } else if (maxValue > 255) {
@@ -1055,9 +751,11 @@ for (let line of code.split('\n')) {
         }
         continue;
     } else if (line.startsWith('static const cell_value_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + gridToString(grid, top, bottom, left, right, false) + ';';
+        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';
     } else if (line.startsWith('static const var_t initial_vars[GENS][HEIGHT][WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + gridToString(grid, top, bottom, left, right, true) + ';';
+        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
+    } else if (line.startsWith('static const uint8_t initial_settable[GENS][HEIGHT][WIDTH] = ')) {
+        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
@@ -1075,14 +773,14 @@ for (let line of code.split('\n')) {
                 throw new Error('This error should not occur (no search order but cell method is used), please report this error');
             }
             line = line.slice(0, line.indexOf('{'));
-            line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
+            line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
         } else {
             continue;
         }
     } else if (line.startsWith('const index_t initial_path[INITIAL_PATH_LENGTH][3] = ')) {
         if (method === 'path') {
             line = line.slice(0, line.indexOf('{'));
-            line += '{' + initialPath.map(x => `{${x[0]}, ${x[1] + (top === 'none' ? 2 : 1)}, ${x[2] + (left === 'none' ? 2 : 1)}}`).join(', ') + '};';
+            line += '{' + initialPath.map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
         } else {
             continue;
         }
@@ -1099,9 +797,9 @@ for (let line of code.split('\n')) {
     let value: string | number | boolean;
     let comment = false;
     if (name === 'HEIGHT') {
-        value = grid.height + (top === 'none' ? 2 : 1) + (bottom === 'none' ? 2 : 1);
+        value = grid.height + 4;
     } else if (name === 'WIDTH') {
-        value = grid.width + (left === 'none' ? 2 : 1) + (right === 'none' ? 2 : 1);
+        value = grid.width + 4;
     } else if (name === 'GENS') {
         value = grid.gens;
     } else if (name === 'VARIABLES') {
@@ -1109,13 +807,13 @@ for (let line of code.split('\n')) {
     } else if (name === 'VAR_COUNT') {
         value = grid.numVars + 1;
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
-        value = cellCounts[UNKNOWN];
+        value = stateCounts[UNKNOWN];
     } else if (name === 'TIME_WRAP') {
-        value = Boolean(timeWrap);
+        value = Boolean(grid.wrap);
     } else if (name === 'TIME_WRAP_DX') {
-        value = timeWrap ? timeWrap[0] : 67;
+        value = grid.wrap ? grid.wrap[0] : 67;
     } else if (name === 'TIME_WRAP_DY') {
-        value = timeWrap ? timeWrap[1] : 67;
+        value = grid.wrap ? grid.wrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
         value = multiRule;
     // } else if (name === 'STATES') {
@@ -1130,23 +828,11 @@ for (let line of code.split('\n')) {
     //         }
     //     }
     } else if (name === 'SPECIAL_AFTER_RULE') {
-        if (top === 'wrap' && bottom === 'wrap' && left === 'wrap' && right === 'wrap') {
-            value = `":T${grid.width},${grid.height}"`;
-        } else {
-            value = `""`;
-        }
+        value = `""`;
     } else if (name === 'WRAP_HEIGHT') {
         value = grid.height;
     } else if (name === 'WRAP_WIDTH') {
         value = grid.width;
-    } else if (name === 'TOP') {
-        value = top === 'wrap' ? 'WRAP_HEIGHT' : top.toUpperCase();
-    } else if (name === 'BOTTOM') {
-        value = bottom === 'wrap' ? 'WRAP_HEIGHT' : bottom.toUpperCase();
-    } else if (name === 'LEFT') {
-        value = left === 'wrap' ? 'WRAP_WIDTH' : left.toUpperCase();
-    } else if (name === 'RIGHT') {
-        value = right === 'wrap' ? 'WRAP_WIDTH' : right.toUpperCase();
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
     } else if (name === 'SEARCH_T') {
@@ -1158,13 +844,13 @@ for (let line of code.split('\n')) {
     } else if (name === 'INITIAL_VALUE') {
         value = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
     } else if (name === 'LLS') {
-        let path = await import('node:path');
-        let fs = await import('node:fs/promises');
         let file = options['lls'];
         if (file === undefined) {
             comment = true;
             value = '"path/to/lls"';
         } else {
+            let path = await import('node:path');
+            let fs = await import('node:fs/promises');
             if (!(await fs.stat(file)).isDirectory()) {
                 error(`Value for lls option must be a path to a directory`);
             }

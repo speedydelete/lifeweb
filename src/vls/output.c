@@ -392,8 +392,8 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
     if (is_solution) {
         bool found = false;
         for (int t = 0; t < GENS; t++) {
-            for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
-                for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+            for (int y = PADDING; y < HEIGHT - PADDING; y++) {
+                for (int x = PADDING; x < WIDTH - PADDING; x++) {
                     cell_value_t value = grid[t][y][x].value;
                     if (value != OFF && value != ON) {
                         found = true;
@@ -411,9 +411,9 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
         if (!found) {
             // finish the RLE header
             real_printf("\n");
-            for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
+            for (int y = PADDING; y < HEIGHT - PADDING; y++) {
                 DPRINTLINEPADDING();
-                for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+                for (int x = PADDING; x < WIDTH - PADDING; x++) {
                     cell_value_t value = grid[0][y][x].value;
                     if (value == OFF) {
                         real_printf(".");
@@ -421,7 +421,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
                         real_printf("o");
                     }
                 }
-                if (y == HEIGHT - BOTTOM_OFFSET - 1) {
+                if (y == HEIGHT - PADDING - 1) {
                     real_printf("!\n");
                 } else {
                     real_printf("$\n");
@@ -432,10 +432,10 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
     }
     // finish the RLE header
     real_printf("History\n");
-    for (int y = TOP_OFFSET; y < HEIGHT - BOTTOM_OFFSET; y++) {
+    for (int y = PADDING; y < HEIGHT - PADDING; y++) {
         DPRINTLINEPADDING();
         for (int t = 0; t < GENS; t++) {
-            for (int x = LEFT_OFFSET; x < WIDTH - RIGHT_OFFSET; x++) {
+            for (int x = PADDING; x < WIDTH - PADDING; x++) {
                 cell_value_t value = grid[t][y][x].value;
                 if (value == UNKNOWN) {
                     if (is_solution) {
@@ -469,7 +469,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
                 real_printf(" .|. ");
             }
         }
-        if (y == HEIGHT - BOTTOM_OFFSET - 1) {
+        if (y == HEIGHT - PADDING - 1) {
             real_printf("!\n");
         } else {
             real_printf("$\n");

@@ -244,12 +244,12 @@ export class ParserError extends LifewebError {
         for (let pos of stackPositions) {
             let str = '    at ';
             if (pos.function !== undefined) {
-                str += pos.function + ' ';
+                str += pos.function + ' at ';
             }
             if (pos.file !== undefined) {
-                str += `(${pos.file}:${pos.line}:${pos.column})`;
+                str += `${pos.file}:${pos.line}:${pos.column}`;
             } else {
-                str += `(${pos.line}:${pos.column})`;
+                str += `${pos.line}:${pos.column}`;
             }
             stack.push(str);
         }
@@ -323,7 +323,8 @@ export abstract class BaseParser {
         let pos = this.getRelativePosition(offset);
         let stackPositions = this.stack.concat(pos);
         let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
-        console.trace(out.stack);
+        console.error(out.stack + '\n');
+        console.trace();
         throw out;
     }
 
@@ -441,7 +442,6 @@ export abstract class BaseParser {
             } else {
                 out.push(token);
                 this.pos++;
-                return out;
             }
         }
         return out;

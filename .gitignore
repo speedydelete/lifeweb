@@ -12,6 +12,7 @@
 /*.log
 /*.rle
 /*.rule
+!/VLSFile.rule
 /*.json
 !/tsconfig.json
 /*.md
@@ -23,6 +24,7 @@
 /*.svg
 /*.profraw
 /*.profdata
+/*.py
 /.temp.js
 /.temp.js.map
 /temp.mjs

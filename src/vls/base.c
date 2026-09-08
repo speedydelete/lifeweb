@@ -131,6 +131,7 @@ static inline void init_state(void) {
                 #if VARIABLES
                 cell->var = initial_vars[t][y][x];
                 #endif
+                cell->settable = initial_settable[t][y][x];
                 // cell->last_update = 0;
                 #if TIME_WRAP
                 if (t == 0) {
@@ -241,15 +242,18 @@ static inline void pop_frame(void) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static inline bool set_cell(cell* cell, cell_value_t value) {
+    if (cell->settable == NOT_SETTABLE) {
+        return true;
+    }
     if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     } else if (cell->value == value) {
         return true;
-    } else if (cell->x < (LEFT == NONE ? 2 : 0)
-            || cell->x > (RIGHT == NONE ? WIDTH - 3 : WIDTH - 1)
-            || cell->y < (TOP == NONE ? 2 : 0)
-            || cell->y > (BOTTOM == NONE ? HEIGHT - 3 : HEIGHT - 1)) {
+    } else if (cell->x < PADDING
+            || cell->x > WIDTH - PADDING - 1
+            || cell->y < PADDING
+            || cell->y > WIDTH - PADDING - 1) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
@@ -267,46 +271,6 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         if (phase_0_pop > MAXPOP) {
             return false;
         }
-    }
-    #endif
-    #if TOP != NONE
-    if (y == TOP) {
-        grid[t][0][x] = value;
-        #if LEFT != NONE
-        if (x == LEFT) {
-            grid[t][0][0] = value;
-        }
-        #endif
-        #if RIGHT != NONE
-        if (x == WIDTH - 1 - RIGHT) {
-            grid[t][0][WIDTH - 1] = value;
-        }
-        #endif
-    }
-    #endif
-    #if BOTTOM != NONE
-    if (y == HEIGHT - 1 - LEFT) {
-        grid[t][HEIGHT - 1][x] = value;
-        #if LEFT != NONE
-        if (x == LEFT) {
-            grid[t][HEIGHT - 1][0] = value;
-        }
-        #endif
-        #if RIGHT != NONE
-        if (x == WIDTH - 1 - RIGHT) {
-            grid[t][HEIGHT - 1][WIDTH - 1] = value;
-        }
-        #endif
-    }
-    #endif
-    #if LEFT != NONE
-    if (x == LEFT) {
-        grid[t][y][0] = value;
-    }
-    #endif
-    #if RIGHT != NONE
-    if (x == WIDTH - 1 - RIGHT) {
-        grid[t][y][WIDTH - 1] = value;
     }
     #endif
     return true;
@@ -377,8 +341,8 @@ static inline void init_var_uses(void) {
         }
     }
     for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = (TOP == NONE ? 0 : 1); y < HEIGHT - (BOTTOM == NONE ? 0 : 1); y++) {
-            for (index_t x = (LEFT == NONE ? 0 : 1); x < WIDTH - (RIGHT == NONE ? 0 : 1); x++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
                 cell* cell = &grid[t][y][x];
                 if (cell->var > 0) {
                     var_uses[cell->var][num_var_uses[cell->var]++] = cell;

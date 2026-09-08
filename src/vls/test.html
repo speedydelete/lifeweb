@@ -85,7 +85,24 @@ body {
         <script type="module">
 
 import {transformCode} from './index.js';
-import source from './index.c';
+
+
+const ORDER = [
+    'params.h',
+    'bound_trs.c',
+    'rules.c',
+    'base.c',
+    'implications.c',
+    'output.c',
+    'search_cell.c',
+    'preprocess.c',
+    'index.c',
+];
+
+let source = '';
+for (let file of ORDER) {
+    source += (await import('./' + file)).default.replaceAll(/#include "[^\n]*/g, '');
+}
 
 
 let commandInput = document.getElementById('command');

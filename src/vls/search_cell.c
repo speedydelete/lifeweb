@@ -29,6 +29,9 @@ static inline void add_search_orders(void) {
         index_t y = coords[2];
         // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
         cell* cell = &grid[t][y][x];
+        if (cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
+            continue;
+        }
         prev->next_in_search_order = cell;
         prev = cell;
     }

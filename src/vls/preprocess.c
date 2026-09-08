@@ -33,7 +33,7 @@ static inline void preprocess_implications(void) {
                         continue;
                     }
                     #endif
-                    printf("Contradiction found in preprocessing (in implication step, cell at t = %i, x = %i, y = %i)\n", t, x - LEFT_OFFSET, y - TOP_OFFSET);
+                    printf("Contradiction found in preprocessing (in implication step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
                     exit(0);
                 }
             }
@@ -216,7 +216,7 @@ static inline void preprocess_cases(void) {
                             if (new_cell.value != UNKNOWN) {
                                 // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
-                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - LEFT_OFFSET, y - TOP_OFFSET);
+                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
                                     exit(0);
                                 }
                             } else {

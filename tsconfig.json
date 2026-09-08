@@ -19,6 +19,6 @@
         {"path": "./src/misc"},
         {"path": "./src/rule_symmetries"},
         {"path": "./src/uc"},
-        {"path": "./src/vls"},
+        {"path": "./src/vls"}
     ]
 }
