@@ -109,6 +109,10 @@ int main(void) {
     generate_implications();
     printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
     exit(0);
+    #elifdef OT_IMPLICATION_CHECK_TR
+    generate_implications();
+    printf("%i -> %i\n", OT_IMPLICATION_CHECK_TR, ot_implications[OT_IMPLICATION_CHECK_TR]);
+    exit(0);
     #endif
     calibrate_time();
     #ifdef FOR_PROFILE

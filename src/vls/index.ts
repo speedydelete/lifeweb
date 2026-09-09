@@ -19,8 +19,8 @@ Modes:
         search for a periodic object of a speed
         speed can be like "p2", "c/2o", or "(2, 1)c/6".
 
-    parent <pattern> <height> <width> [x-offset] [y-offset]
-        find height x width parents of the given pattern
+    parent <pattern>
+        find parents of the given pattern
 
     file <path>
         take in a VLS input file and try to find solutions
@@ -85,8 +85,8 @@ Options:
         later metrics are tiebreakers for earlier metrics
         metrics are normal mathematical expressions
         use variables "x", "y", and "t" for x, y, and time respectively
-        also you can use aliases like (reverse-)(gfind-)(f2b|b2f|s2s)a
-        the default value is gfind-f2b for spaceships and 't, y, x' otherwise
+        also you can use aliases like (r?g?-)(f2b|b2f|s2s)
+        the default value is g-f2b for spaceships and 't, y, x' otherwise
 
     -i, --initial-value <value>:
         set the initial tested value for cells, default 1
@@ -129,12 +129,7 @@ const OPTIONS = {
     'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'left': new Set(['none', 'even', 'odd', 'wrap'] as const),
     'right': new Set(['none', 'even', 'odd', 'wrap'] as const),
-    'symmetry': new Set([
-        'D2-', 'D2_|', 'D2_\\', 'D2_/',
-        'D4+', 'D4x',
-        'wick-', 'wick|', 'wave-', 'wave|',
-        'agar',
-    ] as const),
+    'symmetry': 'string',
     'maxpop': 'number',
 } as const satisfies {[key: string]: OptionValue};
 
@@ -297,13 +292,13 @@ if (mode === 'periodic') {
         error(`Expected 3 positional arguments for periodic mode (got ${posArgs.length})`);
     }
     let {dx, dy, period} = parseSpeed(posArgs[0]);
-    let height = parseInt(posArgs[1]);
-    let width = parseInt(posArgs[2]);
-    if (Number.isNaN(height)) {
-        error(`Invalid height: '${posArgs[1]}'`);
-    }
+    let width = parseInt(posArgs[1]);
+    let height = parseInt(posArgs[2]);
     if (Number.isNaN(width)) {
-        error(`Invalid width: '${posArgs[2]}'`);
+        error(`Invalid width: '${posArgs[1]}'`);
+    }
+    if (Number.isNaN(height)) {
+        error(`Invalid height: '${posArgs[2]}'`);
     }
 
     if (dx !== 0 || dy !== 0) {
@@ -322,7 +317,7 @@ if (mode === 'periodic') {
         searchOrderAliases['gr-s2s'] = `(x*${dy} + y*${dx}), -t`;
     }
 
-    // grid = new Grid(height, width, period + 1);
+    // grid = new Grid(width, height, period + 1);
     // for (let y = 0; y < height - dy; y++) {
     //     for (let x = 0; x < width - dx; x++) {
     //         let value = grid.getVar();
@@ -334,7 +329,7 @@ if (mode === 'periodic') {
     //     grid.fill(t, UNKNOWN);
     // }
 
-    grid = new Grid(height, width, period);
+    grid = new Grid(width, height, period);
     for (let y = 0; y < height - dy; y++) {
         for (let x = 0; x < width - dx; x++) {
             grid.set(0, x, y, UNKNOWN);
@@ -351,27 +346,11 @@ if (mode === 'periodic') {
         error(`Expected 1 positional argument for parent mode (got ${posArgs.length})`);
     }
     let p = base.loadRLE(posArgs[0]).shrinkToFit();
-    let height = p.height + 2;
     let width = p.width + 2;
+    let height = p.height + 2;
     let xOffset = 1;
     let yOffset = 1;
-    // let height = parseInt(posArgs[1]);
-    // let width = parseInt(posArgs[2]);
-    // if (Number.isNaN(height)) {
-    //     error(`Invalid height: '${posArgs[1]}'`);
-    // }
-    // if (Number.isNaN(width)) {
-    //     error(`Invalid width: '${posArgs[2]}'`);
-    // }
-    // let xOffset = parseInt(posArgs[3]);
-    // if (Number.isNaN(xOffset)) {
-    //     xOffset = 0;
-    // }
-    // let yOffset = parseInt(posArgs[4]);
-    // if (Number.isNaN(yOffset)) {
-    //     yOffset = 0;
-    // }
-    grid = new Grid(height, width, 2);
+    grid = new Grid(width, height, 2);
     grid.fill(0, UNKNOWN);
     for (let y = 0; y < p.height; y++) {
         for (let x = 0; x < p.width; x++) {
@@ -410,15 +389,15 @@ if (mode === 'periodic') {
     if (currentSection.length > 0) {
         data.push(currentSection);
     }
-    let height = data[0].length;
-    if (!data.every(x => x.length === height)) {
-        error(`Heights of all phases must match`);
-    }
     let width = data[0][0].length;
     if (!data.every(x => x.every(y => y.length === width))) {
         error(`Widths of all phases must match`);
     }
-    grid = new Grid(height, width, data.length);
+    let height = data[0].length;
+    if (!data.every(x => x.length === height)) {
+        error(`Heights of all phases must match`);
+    }
+    grid = new Grid(width, height, data.length);
     let vars: {[key: string]: number} = {};
     for (let t = 0; t < data.length; t++) {
         for (let y = 0; y < height; y++) {
@@ -675,11 +654,12 @@ if (methodArg === undefined) {
 
 
 if (options['symmetry']) {
-    throw new Error('Symmetry is not supported yet');
+    grid.applySymmetry(options['symmetry']);
 }
 
 
 grid.normalize();
+
 
 let stateCounts: number[] = [];
 for (let i = 0; i < 4; i++) {
@@ -693,6 +673,7 @@ for (let t = 0; t < grid.gens; t++) {
         }
     }
 }
+
 
 function gridToString(grid: Grid, field: keyof Cell): string {
     let off: number;
@@ -731,7 +712,7 @@ function gridToString(grid: Grid, field: keyof Cell): string {
 let out: string[] = [];
 for (let line of code.split('\n')) {
     if (line.startsWith('typedef') && line.endsWith('index_t;')) {
-        let maxValue = (grid.height + 4) * (grid.width + 4) * grid.gens;
+        let maxValue = (grid.width + 4) * (grid.height + 4) * grid.gens;
         if (maxValue > 65535) {
             out.push(`typedef uint32_t index_t;`);
         } else if (maxValue > 255) {
@@ -796,10 +777,10 @@ for (let line of code.split('\n')) {
     let name = data[1];
     let value: string | number | boolean;
     let comment = false;
-    if (name === 'HEIGHT') {
-        value = grid.height + 4;
-    } else if (name === 'WIDTH') {
+    if (name === 'WIDTH') {
         value = grid.width + 4;
+    } else if (name === 'HEIGHT') {
+        value = grid.height + 4;
     } else if (name === 'GENS') {
         value = grid.gens;
     } else if (name === 'VARIABLES') {
@@ -808,6 +789,8 @@ for (let line of code.split('\n')) {
         value = grid.numVars + 1;
     } else if (name === 'TOTAL_UNKNOWN_CELLS') {
         value = stateCounts[UNKNOWN];
+    } else if (name === 'HAS_DONT_CARES') {
+        value = stateCounts[DONT_CARE] > 0;
     } else if (name === 'TIME_WRAP') {
         value = Boolean(grid.wrap);
     } else if (name === 'TIME_WRAP_DX') {
@@ -816,6 +799,37 @@ for (let line of code.split('\n')) {
         value = grid.wrap ? grid.wrap[1] : 67;
     } else if (name === 'MULTI_RULE') {
         value = multiRule;
+    } else if (name === 'IS_OT') {
+        value = false;
+        // if (multiRule) {
+        //     value = false;
+        // } else {
+        //     let rule = base.rule.str;
+        //     let match = rule.match(/^B(\d+)\/S(\d+)$/);
+        //     if (!match) {
+        //         value = false;
+        //     } else {
+        //         let found = false;
+        //         for (let value of [match[1], match[2]]) {
+        //             let prevChar = value[0];
+        //             for (let char of value.slice(1)) {
+        //                 if (char !== String(Number(prevChar) + 1)) {
+        //                     found = true;
+        //                     break;
+        //                 }
+        //                 prevChar = char;
+        //             }
+        //             if (found) {
+        //                 break;
+        //             }
+        //         }
+        //         if (!found) {
+        //             value = true;
+        //         } else {
+        //             value = false;
+        //         }
+        //     }
+        // }
     // } else if (name === 'STATES') {
     //     value = base.rule.states;
     } else if (name === 'BINDS') {
@@ -829,10 +843,10 @@ for (let line of code.split('\n')) {
     //     }
     } else if (name === 'SPECIAL_AFTER_RULE') {
         value = `""`;
-    } else if (name === 'WRAP_HEIGHT') {
-        value = grid.height;
     } else if (name === 'WRAP_WIDTH') {
         value = grid.width;
+    } else if (name === 'WRAP_HEIGHT') {
+        value = grid.height;
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
     } else if (name === 'SEARCH_T') {

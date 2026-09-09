@@ -103,6 +103,7 @@ let source = '';
 for (let file of ORDER) {
     source += (await import('./' + file)).default.replaceAll(/#include "[^\n]*/g, '');
 }
+source = source.replaceAll('#pragma once', '');
 
 
 let commandInput = document.getElementById('command');

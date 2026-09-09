@@ -13,7 +13,7 @@
 #endif
 
 
-#define SIZE (HEIGHT * WIDTH)
+#define SIZE (WIDTH * HEIGHT)
 #define TOTAL_SIZE (GENS * SIZE)
 
 #if VARIABLES
@@ -135,7 +135,7 @@ static inline void init_state(void) {
                 // cell->last_update = 0;
                 #if TIME_WRAP
                 if (t == 0) {
-                    if (y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT || x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH) {
+                    if (x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH || y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT) {
                         cell->value = OFF;
                         #if VARIABLES
                         cell->var = 0;
@@ -148,7 +148,7 @@ static inline void init_state(void) {
                     cell->prev = &grid[t - 1][y][x];
                 }
                 if (t == GENS - 1) {
-                    if (y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT || x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH) {
+                    if (x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH || y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT) {
                         cell->value = OFF;
                         #if VARIABLES
                         cell->var = 0;
@@ -253,7 +253,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     } else if (cell->x < PADDING
             || cell->x > WIDTH - PADDING - 1
             || cell->y < PADDING
-            || cell->y > WIDTH - PADDING - 1) {
+            || cell->y > HEIGHT - PADDING - 1) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }

@@ -29,7 +29,7 @@ static inline void add_search_orders(void) {
         index_t y = coords[2];
         // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
         cell* cell = &grid[t][y][x];
-        if (cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
+        if (cell->value == DONT_CARE || cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
             continue;
         }
         prev->next_in_search_order = cell;
@@ -126,10 +126,8 @@ static int run_depth(int depth, cell* cell
     }
     #endif
     DPRINTGRID3();
-    if (branches % 1000 == 0) {
-        print_info_if_needed();
-    }
-    if (cell->value != UNKNOWN || cell->value == DONT_CARE) {
+    print_info_if_needed();
+    if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE
         int out = run_depth(depth + 1, cell->next_in_search_order, -1);

@@ -21,15 +21,15 @@ uint64_t branches;
 
 
 typedef struct bb_t {
-    index_t height;
     index_t width;
+    index_t height;
     index_t x_offset;
     index_t y_offset;
 } bb_t;
 
 static inline void get_true_bb(bb_t* bb, cell_value_t t) {
-    bb->height = HEIGHT;
     bb->width = WIDTH;
+    bb->height = HEIGHT;
     bb->x_offset = 0;
     bb->y_offset = 0;
     // top
@@ -52,7 +52,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->y_offset += shrink_top;
     // bottom
     index_t shrink_bottom = 0;
-    for (index_t y = HEIGHT - 1; y >= 0; y--) {
+    for (int y = HEIGHT - 1; y >= 0; y--) {
         bool found = false;
         for (index_t x = 0; x < WIDTH; x++) {
             if (grid[t][y][x].value != OFF) {
@@ -87,7 +87,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->x_offset += shrink_left;
     // right
     index_t shrink_right = 0;
-    for (index_t x = WIDTH - 1; x >= 0; x--) {
+    for (int x = WIDTH - 1; x >= 0; x--) {
         bool found = false;
         for (index_t y = 0; y < HEIGHT; y++) {
             if (grid[t][y][x].value != OFF) {
@@ -157,18 +157,18 @@ static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t 
     bb_t bb;
     get_true_bb(&bb, t);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
-    index_t height = bb.height;
     index_t width = bb.width;
-    HASHDPRINTF("height = %i, width = %i, x_offset = %i, y_offset = %i\n", height, width, bb.x_offset, bb.y_offset);
+    index_t height = bb.height;
+    HASHDPRINTF("width = %i, height = %i, x_offset = %i, y_offset = %i\n", width, height, bb.x_offset, bb.y_offset);
     if (transpose) {
-        index_t temp = height;
-        height = width;
-        width = temp;
+        index_t temp = width;
+        width = height;
+        height = temp;
     }
     hash_t out = HASH_OFFSET;
-    out ^= height;
-    out *= HASH_PRIME;
     out ^= width;
+    out *= HASH_PRIME;
+    out ^= height;
     out *= HASH_PRIME;
     for (index_t y = 0; y < height; y++) {
         for (index_t x = 0; x < width; x++) {
@@ -184,7 +184,7 @@ static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t 
 
 #if TIME_WRAP
 
-#define NO_OFFSET (HEIGHT + WIDTH + 1)
+#define NO_OFFSET (WIDTH + HEIGHT + 1)
 
 static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     HASHDPRINTF("    hashing with offset %i (x_trans = %i, y_trans = %i)\n", offset, x_trans, y_trans);
@@ -206,21 +206,21 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
         x_offset_0 = y_offset_0;
         y_offset_0 = temp;
     }
-    HASHDPRINTF("        offset = %i, height = %i, width = %i, x_offset_0 = %i, y_offset_0 = %i\n", offset, bb.height, bb.width, x_offset_0, y_offset_0);
+    HASHDPRINTF("        offset = %i, width = %i, height = %i, x_offset_0 = %i, y_offset_0 = %i\n", offset, bb.width, bb.height, x_offset_0, y_offset_0);
     // index_t x_offset_0 = NO_OFFSET;
     // index_t y_offset_0 = NO_OFFSET;
     for (index_t fake_t = 0; fake_t < GENS; fake_t++) {
         index_t t = (fake_t + offset) % GENS;
         get_true_bb(&bb, t);
-        HASHDPRINTF("        fake_t = %i, t = %i, height = %i, width = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.height, bb.width, bb.x_offset, bb.y_offset);
-        index_t height = bb.height;
+        HASHDPRINTF("        fake_t = %i, t = %i, width = %i, height = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.width, bb.height, bb.x_offset, bb.y_offset);
         index_t width = bb.width;
+        index_t height = bb.height;
         int x_offset = bb.x_offset;
         int y_offset = bb.y_offset;
         if (transpose) {
-            int temp = height;
-            height = width;
-            width = temp;
+            int temp = width;
+            width = height;
+            height = temp;
             temp = x_offset;
             x_offset = y_offset;
             y_offset = temp;
@@ -247,9 +247,9 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
             }
         }
         HASHDPRINTF("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
-        out ^= height;
-        out *= HASH_PRIME;
         out ^= width;
+        out *= HASH_PRIME;
+        out ^= height;
         out *= HASH_PRIME;
         // int dx = 0;
         // int dy = 0;
@@ -476,7 +476,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
         }
     }
 }
- 
+
 static inline void print_solution(bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();

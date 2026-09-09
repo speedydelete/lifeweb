@@ -25,7 +25,11 @@ static inline void preprocess_implications(void) {
             for (index_t x = 0; x < WIDTH; x++) {
                 push_frame();
                 cell* cell = &grid[t][y][x];
-                if (!check_implication_for_preprocessing(cell)) {
+                if (cell == NULL) {
+                    printf("WHY, t = %i, x = %i, y = %i\n", t, x, y);
+                    exit(1);
+                }
+                if (!check_implication(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = -1;
