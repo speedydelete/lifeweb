@@ -52,9 +52,9 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->y_offset += shrink_top;
     // bottom
     index_t shrink_bottom = 0;
-    for (int y = HEIGHT - 1; y >= 0; y--) {
+    for (index_t y = HEIGHT - 1; y >= 0; y--) {
         bool found = false;
-        for (int x = 0; x < WIDTH; x++) {
+        for (index_t x = 0; x < WIDTH; x++) {
             if (grid[t][y][x].value != OFF) {
                 found = true;
                 break;
@@ -87,9 +87,9 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->x_offset += shrink_left;
     // right
     index_t shrink_right = 0;
-    for (int x = WIDTH - 1; x >= 0; x--) {
+    for (index_t x = WIDTH - 1; x >= 0; x--) {
         bool found = false;
-        for (int y = 0; y < HEIGHT; y++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
             if (grid[t][y][x].value != OFF) {
                 found = true;
                 break;
