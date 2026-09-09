@@ -809,10 +809,10 @@ class VLSFileParser extends BaseParser {
             1: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(ON)}]]},
             2: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]},
             3: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]},
-            4: {absolute: [], all: {type: 'cell', cell: cell(OFF)}},
-            5: {absolute: [], all: {type: 'cell', cell: cell(ON)}},
-            6: {absolute: [], all: {type: 'cell', cell: cell(UNKNOWN)}},
-            7: {absolute: [], all: {type: 'cell', cell: cell(DONT_CARE)}},
+            4: {all: {type: 'cell', cell: cell(OFF)}, absolute: [], relative: []},
+            5: {all: {type: 'cell', cell: cell(ON)}, absolute: [], relative: []},
+            6: {all: {type: 'cell', cell: cell(UNKNOWN)}, absolute: [], relative: []},
+            7: {all: {type: 'cell', cell: cell(DONT_CARE)}, absolute: [], relative: []},
         };
         this.grids = [];
         this.grid = new Grid(0, 0, 0);
