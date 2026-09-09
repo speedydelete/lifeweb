@@ -187,7 +187,7 @@ typedef struct cell {
     index_t index;
     // the value of the cell
     cell_value_t value;
-    #if VARIABLE
+    #if VARIABLES
     // the variable stored in the cell
     var_t var;
     #endif
