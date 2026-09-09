@@ -275,4 +275,4 @@ symmetries: none
 4 always off
 5 always on
 6 always unknown
-7 p1 unknown
+7 always don't care
