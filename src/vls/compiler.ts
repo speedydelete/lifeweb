@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 
 import * as t from '@babel/types';
 
-import {Matcher, EOF, T_EOF, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
+import {Matcher, EOF, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
 
 
 export function error(msg: string): never {
@@ -560,14 +560,14 @@ const T_STATE: Matcher = [/^\d+$/, 'state'];
 const T_RLE: Matcher = [/^x\s*=\s*\d+\s*,\s*y\s*=\s*\d+.*!$/s, 'RLE'];
 
 type StateMeaning = 
-    | {type: 'cell', value: Cell}
-    | {type: 'period', value: Cell[]}
+    | {type: 'cell', cell: Cell}
+    | {type: 'periodic', cell: Cell, period: number}
 ;
 
 interface FullStateMeaning {
     all?: StateMeaning;
-    absolute?: {[key: number]: StateMeaning};
-    relative?: {[key: number]: StateMeaning};
+    absolute: [number[], StateMeaning][];
+    relative: [number[], StateMeaning][];
 }
 
 class VLSFileParser extends BaseParser {
@@ -581,10 +581,10 @@ class VLSFileParser extends BaseParser {
     constructor(file: string | undefined, code: string) {
         super(file, code);
         this.states = {
-            0: {relative: {0: {type: 'cell', value: cell(OFF)}}},
-            1: {relative: {0: {type: 'cell', value: cell(ON)}}},
-            2: {relative: {0: {type: 'cell', value: cell(UNKNOWN)}}},
-            3: {relative: {0: {type: 'cell', value: cell(DONT_CARE)}}},
+            0: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(OFF)}]]},
+            1: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(ON)}]]},
+            2: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]},
+            3: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]},
         };
         this.grids = [];
         this.grid = new Grid(0, 0, 0);
@@ -682,13 +682,9 @@ class VLSFileParser extends BaseParser {
             throw new Error(`This error should not occur, please report it (empty state meaning)`);
         }
         if (period !== undefined) {
-            let cells: Cell[] = [];
-            for (let i = 0; i < period; i++) {
-                cells.push(cell(state, this.grid.getNewVar(), settable));
-            }
-            return {type: 'period', value: cells};
+            return {type: 'periodic', cell: cell(state, variable, settable), period};
         } else {
-            return {type: 'cell', value: cell(state, variable, settable)};
+            return {type: 'cell', cell: cell(state, variable, settable)};
         }
     }
 
@@ -714,29 +710,22 @@ class VLSFileParser extends BaseParser {
             }
             this.eat([':', 'colon']);
             let value = this.stateMeaning();
+            let times: number[] = [];
             for (let i = start; i < end; i++) {
-                if (absolute) {
-                    if (!out.absolute) {
-                        out.absolute = {};
-                    }
-                    out.absolute[i] = structuredClone(value);
-                } else {
-                    if (!out.relative) {
-                        out.relative = {};
-                    }
-                    out.relative[i] = structuredClone(value);
-                }
+                times.push(i);
+            }
+            if (absolute) {
+                out.absolute.push([times, structuredClone(value)]);
+            } else {
+                out.relative.push([times, structuredClone(value)]);
             }
         } else {
-            if (!out.relative) {
-                out.relative = {};
-            }
-            out.relative[0] = this.stateMeaning();
+            out.relative.push([[0], this.stateMeaning()]);
         }
     }
 
     fullStateMeaning(): FullStateMeaning {
-        let out: FullStateMeaning = {};
+        let out: FullStateMeaning = {absolute: [], relative: []};
         while (!this.match(T_LINE_END)) {
             this.boundStateMeaning(out);
             if (this.match(T_LINE_END)) {
@@ -755,15 +744,22 @@ class VLSFileParser extends BaseParser {
         this.eat(T_LINE_END);
     }
 
-    setCell(t: number, x: number, y: number, value: StateMeaning): void {
+    setCells(ts: number[], x: number, y: number, value: StateMeaning, baseT: number): void {
         if (value.type === 'cell') {
-            this.grid.set(t, x, y, structuredClone(value.value));
-        // } else if (value.type === 'period') {
-        //     for (let t2 = 0; t2 < this.gens; t2++) {
-
-        //     }
+            for (let t of ts) {
+                this.grid.set(t, x, y, structuredClone(value.cell));
+            }
         } else {
-            throw new Error(`This error should not occur, please report it (invalid parsed state meaning)`);
+            let cells: Cell[] = [];
+            for (let i = 0; i < value.period; i++) {
+                let cell = structuredClone(value.cell);
+                cell.variable = this.grid.getNewVar();
+                cells.push(cell);
+            }
+            for (let t of ts) {
+                let cell = structuredClone(cells[(t + baseT) % cells.length]);
+                this.grid.set(t, x, y, cell);
+            }
         }
     }
 
@@ -784,8 +780,31 @@ class VLSFileParser extends BaseParser {
         if (index === -1) {
             this.error(`RLE header without data`, -1);
         }
-        rle = rle.slice(index + 1);
-        let p = IdentityPattern.loadRLE(rle);
+        let header = rle.slice(0, index);
+        let p = IdentityPattern.loadRLE(rle.slice(index + 1));
+        // expand the grid to fit
+        let match = header.match(/^x\s*=\s*(\d+)\s*,\s*y\s*=\s*(\d+)/);
+        if (!match) {
+            throw new Error(`This error should not occur, please report it (bad RLE header)`);
+        }
+        let width = Math.max(Number(match[1]), p.width);
+        let height = Math.max(Number(match[2]), p.height);
+        if (xOffset < 0) {
+            this.grid.expand({left: -xOffset});
+            xOffset = 0;
+        }
+        if (yOffset < 0) {
+            this.grid.expand({up: -xOffset});
+            yOffset = 0;
+        }
+        let maxX = width + xOffset;
+        let maxY = height + yOffset;
+        if (maxX > this.grid.width) {
+            this.grid.expand({right: maxX - this.grid.width});
+        }
+        if (maxY > this.grid.height) {
+            this.grid.expand({down: maxY - this.grid.height});
+        }
         for (let y = 0; y < p.height; y++) {
             for (let x = 0; x < p.width; x++) {
                 let state = p.get(x, y);
@@ -793,18 +812,16 @@ class VLSFileParser extends BaseParser {
                 let y2 = y + yOffset;
                 let data = this.states[state];
                 if (data.all) {
-                    for (let t = 0; t < this.grid.gens; t++) {
-                        this.setCell(t, x2, y2, data.all);
-                    }
+                    this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
                 }
                 if (data.absolute) {
-                    for (let [t, value] of Object.values(data)) {
-                        this.setCell(t, x2, y2, value);
+                    for (let [ts, value] of Object.values(data.absolute)) {
+                        this.setCells(ts, x2, y2, value, 0);
                     }
                 }
                 if (data.relative) {
-                    for (let [t, value] of Object.values(data)) {
-                        this.setCell(gen + t, x2, y2, value);
+                    for (let [ts, value] of Object.values(data.relative)) {
+                        this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
                     }
                 }
             }
