@@ -59,7 +59,7 @@ Options:
     --profile: enables profile based optimization,
         recompiles and reruns after 5 seconds
 
-    --file <file>: also write output to that file
+    -f, --file <file>: also write output to that file
 
     --rulespace <rulespace>: set the rulespace for multi-rule searching,
         options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
@@ -142,6 +142,7 @@ type Option = keyof Options;
 const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
+    'f': 'file',
     's': 'symmetry',
     'm': 'method',
     'i': 'initial-value',
