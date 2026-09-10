@@ -119,19 +119,19 @@ index_t unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
 #if CACHE_IMPLICATION_TRS
-static real_inline void actual_set_cell_value(cell* cell, cell_value_t value);
-static real_inline void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value);
+static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value);
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value);
 #else
-static real_inline void actual_set_cell_value(cell* cell, cell_value_t value) {
+static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
     cell->value = value;
 }
-static real_inline void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
     cell->value = value;
 }
 #endif
 
 
-static real_inline void init_state(void) {
+static inline void init_state(void) {
     index_t index = 0;
     for (index_t t = 0; t < GENS; t++) {
         for (index_t y = 0; y < HEIGHT; y++) {
@@ -222,23 +222,23 @@ stack_entry stack[MAX_STACK_DEPTH];
 
 int sp = 0;
 
-static real_inline void print_frame(int i) {
+static inline void print_frame(int i) {
     cell* cell = stack[i].cell;
     printf("x = %i, y = %i, t = %i, is_first = %s\n", cell->x, cell->y, cell->t, stack[i].is_first_in_frame ? "true" : "false");
 }
 
-static real_inline void print_stack(void) {
+static inline void print_stack(void) {
     printf("Stack:\n");
     for (int i = 0; i < sp; i++) {
         print_frame(i);
     }
 }
 
-static real_inline void push_frame(void) {
+static inline void push_frame(void) {
     next_stack_entry_is_first_in_frame = true;
 }
 
-static real_inline void pop_frame(void) {
+static inline void pop_frame(void) {
     DPRINTF4("Popping frame\n");
     while (sp > 0) {
         #if DEBUG >= 4
@@ -270,7 +270,7 @@ static real_inline void pop_frame(void) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static real_inline bool set_cell(cell* cell, cell_value_t value) {
+static inline bool set_cell(cell* cell, cell_value_t value) {
     if (cell->settable == NOT_SETTABLE) {
         return true;
     }
@@ -308,7 +308,7 @@ static real_inline bool set_cell(cell* cell, cell_value_t value) {
 
 static const char* letters = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static real_inline void print_cell(FILE* stream, int value
+static inline void print_cell(FILE* stream, int value
     #if VARIABLES
     , var_t var
     #endif
@@ -327,7 +327,7 @@ static real_inline void print_cell(FILE* stream, int value
     }
 }
 
-static real_inline void print_grid(FILE* stream) {
+static inline void print_grid(FILE* stream) {
     char rule[256];
     for (int i = 0; i < 256; i++) {
         rule[i] = '\0';
@@ -362,7 +362,7 @@ static real_inline void print_grid(FILE* stream) {
 cell* var_uses[VAR_COUNT][MAX_VAR_USES];
 index_t num_var_uses[VAR_COUNT];
 
-static real_inline void init_var_uses(void) {
+static inline void init_var_uses(void) {
     for (index_t i = 0; i < VAR_COUNT; i++) {
         num_var_uses[i] = 0;
         for (index_t j = 0; j < MAX_VAR_USES; j++) {

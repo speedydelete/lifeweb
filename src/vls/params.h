@@ -8,10 +8,6 @@
 #include <stdint.h>
 
 
-// clang WHY
-#define real_inline inline __attribute__((always_inline))
-
-
 // the default search will find the glider (i think)
 
 // for transition lookup tables the indexing is like

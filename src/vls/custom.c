@@ -11,7 +11,7 @@
 #define CUSTOM_PRUNING_ON_CELL_SET true
 
 
-static real_inline bool is_statorless(cell* cell) {
+static inline bool is_statorless(cell* cell) {
     if (cell->value != ON) {
         return true;
     }
@@ -27,7 +27,7 @@ static real_inline bool is_statorless(cell* cell) {
 }
 
 #if CUSTOM_SOLUTION_FILTERING
-static real_inline bool custom_solution_filter() {
+static inline bool custom_solution_filter() {
     for (index_t y = 0; y < HEIGHT; y++) {
         for (index_t x = 0; x < WIDTH; x++) {
             if (!is_statorless(&grid[0][x][y])) {
@@ -40,13 +40,13 @@ static real_inline bool custom_solution_filter() {
 #endif
 
 #if CUSTOM_PRUNING
-static real_inline bool custom_prune() {
+static inline bool custom_prune() {
     return true;
 }
 #endif
 
 #if CUSTOM_PRUNING_ON_CELL_SET
-static real_inline bool custom_prune_on_cell_set(cell* cell) {
+static inline bool custom_prune_on_cell_set(cell* cell) {
     return is_statorless(cell);
 }
 #endif

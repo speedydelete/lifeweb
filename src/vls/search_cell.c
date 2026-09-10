@@ -16,7 +16,7 @@
 
 
 // sets the next_in_search_order fields in all the cells
-static real_inline void add_search_orders(void) {
+static inline void add_search_orders(void) {
     index_t* coords = search_order[0];
     index_t t = coords[0];
     index_t x = coords[1];
@@ -49,7 +49,7 @@ static int run_depth(int depth, cell* cell
     );
 
 // returns number of iterations to backjump
-static real_inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
+static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 6

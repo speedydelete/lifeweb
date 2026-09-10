@@ -174,7 +174,7 @@ const int_spec hex_int = {
 
 // attempt to unparse transitions
 // returns -1 if it fails, the proper (positive) next_char if it succeeds
-static real_inline int unparse_transitions(const int_spec* spec, char* out, int next_char, bool s, bool use_maxrule) {
+static inline int unparse_transitions(const int_spec* spec, char* out, int next_char, bool s, bool use_maxrule) {
     int or = s ? (1 << 4) : 0;
     // array to hold the letters that we've seen
     char seen_letters[spec->max_letters_per_num + 1];
@@ -249,7 +249,7 @@ static real_inline int unparse_transitions(const int_spec* spec, char* out, int 
 }
 
 // attempts to get the full rule using the given spec
-static real_inline int _get_rule(const int_spec* spec, char* out, bool use_maxrule) {
+static inline int _get_rule(const int_spec* spec, char* out, bool use_maxrule) {
     int next_char = 0;
     out[next_char++] = 'B';
     int value = unparse_transitions(spec, out, next_char, false, use_maxrule);
@@ -276,7 +276,7 @@ const int neighborhood_indexing[9][2] = {
     {-1, -1},
 };
 
-static real_inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9]) {
+static inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9]) {
     for (int i = 0; i < 9; i++) {
         bool found = false;
         for (int tr = 0; tr < 512; tr++) {
@@ -292,7 +292,7 @@ static real_inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9])
 const char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 // unparse a general MAP rule
-static real_inline int unparse_map(char* out, bool use_maxrule) {
+static inline int unparse_map(char* out, bool use_maxrule) {
     int next_char = 0;
     out[next_char++] = 'M';
     out[next_char++] = 'A';
@@ -360,7 +360,7 @@ static real_inline int unparse_map(char* out, bool use_maxrule) {
 
 // unparse the rule
 // returns the number of characters printed
-static real_inline int get_rule(char* out, bool use_maxrule) {
+static inline int get_rule(char* out, bool use_maxrule) {
     // normal
     int value = _get_rule(&normal_int, out, use_maxrule);
     if (value != -1) {
@@ -387,7 +387,7 @@ struct {
     bool flip_anti_diagonal;
 } rule_symmetry;
 
-static real_inline void get_rule_symmetry(void) {
+static inline void get_rule_symmetry(void) {
     bool C2 = true;
     bool C4 = true;
     bool D2h = true;
