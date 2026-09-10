@@ -29,7 +29,7 @@ static inline void preprocess_implications(void) {
                     printf("WHY, t = %i, x = %i, y = %i\n", t, x, y);
                     exit(1);
                 }
-                if (!check_implication_for_preprocessing(cell)) {
+                if (!check_implication_handles_edges(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = -1;
@@ -230,7 +230,7 @@ static inline void preprocess_cases(void) {
                         } else {
                             if (new_cell.value != UNKNOWN) {
                                 // if we are setting it to a known cell, that's easy!
-                                next_cell->value = new_cell.value;
+                                actual_set_cell_value(next_cell, new_cell.value);
                             } else if (new_cell.var == 0) {
                                 // this seriously should not be happening
                                 continue;

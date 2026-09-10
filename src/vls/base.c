@@ -116,6 +116,18 @@ int debug_depth = 0;
 index_t unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
+#if CACHE_IMPLICATION_TRS
+static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value);
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value);
+#else
+static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
+    cell->value = value;
+}
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
+    cell->value = value;
+}
+#endif
+
 
 static inline void init_state(void) {
     index_t index = 0;
@@ -132,6 +144,9 @@ static inline void init_state(void) {
                 cell->var = initial_vars[t][y][x];
                 #endif
                 cell->settable = initial_settable[t][y][x];
+                #if CACHE_IMPLICATION_TRS
+                cell->tr = 0;
+                #endif
                 // cell->last_update = 0;
                 #if TIME_WRAP
                 if (t == 0) {
@@ -140,6 +155,7 @@ static inline void init_state(void) {
                         #if VARIABLES
                         cell->var = 0;
                         #endif
+                        // dummy cell
                         cell->prev = &grid[0][0][0];
                     } else {
                         cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
@@ -153,6 +169,7 @@ static inline void init_state(void) {
                         #if VARIABLES
                         cell->var = 0;
                         #endif
+                        // dummy cell
                         cell->next = &grid[0][0][0];
                     } else {
                         cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
@@ -172,6 +189,16 @@ static inline void init_state(void) {
                 cell->sw = x == 0 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x - 1];
                 cell->s = y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x];
                 cell->se = x == WIDTH - 1 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x + 1];
+            }
+        }
+    }
+    for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
+                cell* cell = &grid[t][y][x];
+                cell_value_t value = cell->value;
+                cell->value = UNKNOWN;
+                actual_set_cell_value_handles_edges(cell, value);
             }
         }
     }
@@ -227,7 +254,7 @@ static inline void pop_frame(void) {
         } else if (cell->value == UNKNOWN && value != UNKNOWN) {
             set_cells++;
         }
-        cell->value = value;
+        actual_set_cell_value(cell, value);
         sp--;
         if (stack[sp].is_first_in_frame) {
             break;
@@ -263,7 +290,7 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
     stack[sp].cell = cell;
     sp++;
     set_cells++;
-    cell->value = value;
+    actual_set_cell_value(cell, value);
     // cell_update_count++;
     #ifdef MAXPOP
     if (cell->t == 0 && value == ON) {

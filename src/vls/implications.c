@@ -6,6 +6,7 @@
 #include "params2.h"
 #include "base.c"
 #include "rulespaces.c"
+#include <sys/cdefs.h>
 
 #if MULTI_RULE
 #include <stdio.h>
@@ -273,7 +274,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_for_preprocessing(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
@@ -358,8 +359,12 @@ static inline __attribute__((always_inline)) bool check_implication_for_preproce
 // transition format: 0b_cc_nn_llll_dddd
 // c is the state of the current cell
 // n is the state of the cell in the next generation
-// l is the number of live cells
-// d is the number of dead cells
+// l is the number of live neighbors
+// d is the number of dead neighbors
+#define CURRENT_VALUE 0b110000000000
+#define NEXT_VALUE 0b001100000000
+#define LIVE_NEIGHBOR 16
+#define DEAD_NEIGHBOR 1
 
 // return value format: a bitstring of this format
 #define CURRENT_TO_0 1
@@ -372,7 +377,137 @@ static inline __attribute__((always_inline)) bool check_implication_for_preproce
 int8_t ot_implications[4096];
 
 
-static void generate_implications(void) {
+#if CACHE_IMPLICATION_TRS
+
+static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
+    cell_value_t prev = cell->value;
+    cell->value = value;
+    cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
+    #if !TIME_WRAP
+    if (cell->prev != NULL) {
+        cell->prev->tr = (cell->prev->tr & ~NEXT_VALUE) | (value << 8);
+    }
+    #else
+    cell->prev->tr = (cell->prev->tr & ~NEXT_VALUE) | (value << 8);
+    #endif
+    int change;
+    if (value == UNKNOWN) {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR;
+        } else if (prev == ON) {
+            change = -LIVE_NEIGHBOR;
+        } else {
+            change = 0;
+        }
+    } else if (value == OFF) {
+        if (prev == OFF) {
+            change = 0;
+        } else if (prev == ON) {
+            change = +DEAD_NEIGHBOR - LIVE_NEIGHBOR;
+        } else {
+            change = +DEAD_NEIGHBOR;
+        }
+    } else if (value == ON) {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR + LIVE_NEIGHBOR;
+        } else if (prev == ON) {
+            change = 0;
+        } else {
+            change = +LIVE_NEIGHBOR;
+        }
+    } else {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR;
+        } else if (prev == ON) {
+            change = -LIVE_NEIGHBOR;
+        } else {
+            change = 0;
+        }
+    }
+    DPRINTF4("t = %i, x = %i, y = %i, change = %i\n", cell->t, cell->x, cell->y, change);
+    if (change == 0) {
+        return;
+    }
+    cell->nw->tr += change;
+    cell->n->tr += change;
+    cell->ne->tr += change;
+    cell->w->tr += change;
+    cell->e->tr += change;
+    cell->sw->tr += change;
+    cell->s->tr += change;
+    cell->se->tr += change;
+}
+
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
+    cell_value_t prev = cell->value;
+    cell->value = value;
+    cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
+    if (cell->prev != NULL) {
+        cell->prev->tr = (cell->prev->tr & ~NEXT_VALUE) | (value << 8);
+    }
+    // if (cell->t == 0 && cell->x == 0 && cell->y == 0) {
+    //     printf("tr = %i\n", cell->tr);
+    // }
+    int change;
+    if (value == UNKNOWN) {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR;
+        } else if (prev == ON) {
+            change = -LIVE_NEIGHBOR;
+        } else {
+            change = 0;
+        }
+    } else if (value == OFF) {
+        if (prev == OFF) {
+            change = 0;
+        } else if (prev == ON) {
+            change = +DEAD_NEIGHBOR - LIVE_NEIGHBOR;
+        } else {
+            change = +DEAD_NEIGHBOR;
+        }
+    } else if (value == ON) {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR + LIVE_NEIGHBOR;
+        } else if (prev == ON) {
+            change = 0;
+        } else {
+            change = +LIVE_NEIGHBOR;
+        }
+    } else {
+        if (prev == OFF) {
+            change = -DEAD_NEIGHBOR;
+        } else if (prev == ON) {
+            change = -LIVE_NEIGHBOR;
+        } else {
+            change = 0;
+        }
+    }
+    DPRINTF4("t = %i, x = %i, y = %i, change = %i\n", cell->t, cell->x, cell->y, change);
+    if (change == 0) {
+        return;
+    }
+    #define add(cell) \
+        if ((cell) != NULL) { \
+            (cell)->tr += change; \
+        }
+            // if ((cell)->t == 0 && (cell)->x == 0 && (cell)->y == 0) {
+            //     printf("adding: %i, tr = %i\n", change, cell->tr);
+            // }
+    add(cell->nw);
+    add(cell->n);
+    add(cell->ne);
+    add(cell->w);
+    add(cell->e);
+    add(cell->sw);
+    add(cell->s);
+    add(cell->se);
+    #undef add
+}
+
+#endif
+
+
+static inline void generate_implications(void) {
     _generate_implications();
     for (int tr = 0; tr < 4096; tr++) {
         int current = (tr >> 10) & 3;
@@ -451,7 +586,6 @@ static void generate_implications(void) {
 }
 
 
-
 // returns false if contradiction, true if no contradiction
 static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
     if (cell == NULL) {
@@ -474,6 +608,9 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
             return false;
         }
     }
+    #if CACHE_IMPLICATION_TRS
+    uint32_t tr = cell->tr;
+    #else
     uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
     #define add(cell) \
         if ((cell)->value == ON) { \
@@ -489,6 +626,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
     add(cell->sw);
     add(cell->s);
     add(cell->se);
+    #endif
     #undef add
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);
@@ -542,19 +680,20 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_for_preprocessing(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
     }
+    #if CACHE_IMPLICATION_TRS
+    uint32_t tr = cell->tr;
+    #else
     uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
     #define add(cell) \
-        if ((cell) != NULL) { \
-            if ((cell)->value == ON) { \
-                tr += 16; \
-            } else if ((cell)->value == OFF) { \
-                tr += 1; \
-            } \
+        if ((cell)->value == ON) { \
+            tr += 16; \
+        } else if ((cell)->value == OFF) { \
+            tr += 1; \
         }
     add(cell->nw);
     add(cell->n);
@@ -564,6 +703,7 @@ static inline __attribute__((always_inline)) bool check_implication_for_preproce
     add(cell->sw);
     add(cell->s);
     add(cell->se);
+    #endif
     #undef add
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);

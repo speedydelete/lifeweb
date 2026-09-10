@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdint.h>
 
 
 // the default search will find the glider (i think)
@@ -182,6 +183,10 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // don't change this stuff
 
+// implication transition caching
+// only for OT rules for now
+#define CACHE_IMPLICATION_TRS IS_OT
+
 typedef struct cell {
     // the x coordinate
     index_t x;
@@ -202,6 +207,9 @@ typedef struct cell {
     #if METHOD == METHOD_CELL
     // the next cell in the search order
     struct cell* next_in_search_order;
+    #endif
+    #if CACHE_IMPLICATION_TRS
+    uint32_t tr;
     #endif
     // the previous cell (in time)
     struct cell* prev;
