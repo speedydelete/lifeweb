@@ -62,6 +62,7 @@ const rgb_color INITIAL_COLORS[] = {
 
 static inline void print_rgb(int i, rgb_color color) {
     printf("%i %i %i %i\n", i, red(color), green(color), blue(color));
+    fflush(stdout);
 }
 
 int main(void) {
