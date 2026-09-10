@@ -41,7 +41,7 @@ int32_t implications[1048576];
 #define IMPLICATION_RULE_DEPENDENT -3
 #endif
 
-static inline uint32_t tr_to_implication_tr(uint32_t tr) {
+static real_inline uint32_t tr_to_implication_tr(uint32_t tr) {
     uint32_t out = 0;
     out |= ((tr & 1) ? ON : OFF) << 2;
     out |= ((tr & 2) ? ON : OFF) << 4;
@@ -55,7 +55,7 @@ static inline uint32_t tr_to_implication_tr(uint32_t tr) {
     return out;
 }
 
-static inline int32_t get_implication(uint32_t tr) {
+static real_inline int32_t get_implication(uint32_t tr) {
     int next = tr & 3;
     IMPLICATIONDPRINTF(tr, "tr = %i, next = %i\n", tr, next);
     int32_t out = DO_NOTHING;
@@ -125,9 +125,9 @@ static inline int32_t get_implication(uint32_t tr) {
 }
 
 #if IS_OT
-static inline void _generate_implications(void)
+static real_inline void _generate_implications(void)
 #else
-static inline void generate_implications(void)
+static real_inline void generate_implications(void)
 #endif
 {
     // fill in the values with 0 unknown cells
@@ -194,7 +194,7 @@ int32_t rule_dependent_tr = -1;
 #endif
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
+static real_inline bool check_implication(cell* cell) {
     if (cell == NULL) {
         return true;
     }
@@ -274,7 +274,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
+static real_inline bool check_implication_handles_edges(cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
@@ -379,7 +379,7 @@ int8_t ot_implications[4096];
 
 #if CACHE_IMPLICATION_TRS
 
-static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
+static real_inline void actual_set_cell_value(cell* cell, cell_value_t value) {
     cell_value_t prev = cell->value;
     cell->value = value;
     cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
@@ -438,7 +438,7 @@ static inline __attribute__((always_inline)) void actual_set_cell_value(cell* ce
     cell->se->tr += change;
 }
 
-static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
+static real_inline void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
     cell_value_t prev = cell->value;
     cell->value = value;
     cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
@@ -507,7 +507,7 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
 #endif
 
 
-static inline void generate_implications(void) {
+static real_inline void generate_implications(void) {
     _generate_implications();
     for (int tr = 0; tr < 4096; tr++) {
         int current = (tr >> 10) & 3;
@@ -587,7 +587,7 @@ static inline void generate_implications(void) {
 
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
+static real_inline bool check_implication(cell* cell) {
     if (cell == NULL) {
         return true;
     }
@@ -680,7 +680,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
+static real_inline bool check_implication_handles_edges(cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
@@ -760,7 +760,7 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
 #endif
 
 
-static inline bool __attribute__((always_inline)) check_implications(cell* cell) {
+static real_inline bool check_implications(cell* cell) {
     return check_implication((cell))
         && check_implication((cell)->prev)
         && check_implication((cell)->nw)
@@ -780,7 +780,7 @@ cell_value_t prev_values[MAX_VAR_USES];
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
+static real_inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     DPRINTF4("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     if (cell->value != UNKNOWN) {
         #if DEBUG >= 4
@@ -853,7 +853,7 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
 
 int tr_to_bound_tr[512];
 
-static inline void init_tr_to_bound_tr() {
+static real_inline void init_tr_to_bound_tr() {
     for (int tr = 0; tr < 512; tr++) {
         bool found = false;
         for (int i = 0; i < BOUND_TRANSITION_COUNT; i++) {
@@ -878,7 +878,7 @@ static inline void init_tr_to_bound_tr() {
     }
 }
 
-static inline void set_tr(int tr, int value) {
+static real_inline void set_tr(int tr, int value) {
     DPRINTF3("Setting transition %i to %i\n", tr, value);
     for (int i = 0; i < MAX_MAP_TRS_PER_BOUND_TR + 1; i++) {
         int tr2 = bound_trs[tr_to_bound_tr[tr]][i];

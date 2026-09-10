@@ -12,7 +12,7 @@
 
 
 // runs implications
-static inline void preprocess_implications(void) {
+static real_inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
     #if TIME_WRAP
@@ -55,7 +55,7 @@ typedef struct case_cell_t {
 
 typedef case_cell_t case_t[10];
 
-static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, size_t cases_size) {
+static real_inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, size_t cases_size) {
     if (old == new) {
         return;
     }
@@ -78,7 +78,7 @@ static inline void reassign_variable(var_t old, var_t new, case_cell_t* cases, s
     }
 }
 
-static inline void print_case(case_t* cells) {
+static real_inline void print_case(case_t* cells) {
     for (int i = 0; i < 10; i++) {
         print_cell(stdout, (*cells)[i].value, (*cells)[i].var);
         if (i == 2 || i == 5 || i == 8) {
@@ -89,7 +89,7 @@ static inline void print_case(case_t* cells) {
 
 // check for duplicates of cases including variables
 // and reassign those variables to be equal
-static inline void preprocess_cases(void) {
+static real_inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
     case_t* cases = malloc(TOTAL_SIZE * 8 * sizeof(case_t));
@@ -255,7 +255,7 @@ static inline void preprocess_cases(void) {
 #endif
 
 
-static inline void preprocess(void) {
+static real_inline void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
     cell_value_t old_grid[TOTAL_SIZE];

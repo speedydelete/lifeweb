@@ -33,7 +33,7 @@ typedef struct bb_t {
 
 cell_value_t hash_grid[GENS][HEIGHT][WIDTH];
 
-static inline void get_true_bb(bb_t* bb, cell_value_t t) {
+static real_inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->width = WIDTH;
     bb->height = HEIGHT;
     bb->x_offset = 0;
@@ -115,7 +115,7 @@ typedef uint64_t hash_t;
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
 #define HASH_PRIME (0x00000100000001b3ULL)
 
-static inline hash_t min_hash(hash_t a, hash_t b) {
+static real_inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
 }
 
@@ -126,7 +126,7 @@ typedef enum axis_trans_t {
     NEG_Y,
 } axis_trans_t;
 
-static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
+static real_inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_trans_t x_trans, axis_trans_t y_trans, index_t* x_out, index_t* y_out) {
     if (x_trans == POS_X) {
         *x_out = x;
     } else if (x_trans == POS_Y) {
@@ -157,7 +157,7 @@ static inline void transform_coords(const bb_t* bb, index_t x, index_t y, axis_t
 #define HASHDPRINTF(...)
 #endif
 
-static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t y_trans) {
+static real_inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t y_trans) {
     bb_t bb;
     get_true_bb(&bb, t);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
@@ -190,7 +190,7 @@ static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t 
 
 #define NO_OFFSET (WIDTH + HEIGHT + 1)
 
-static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
+static real_inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis_trans_t y_trans) {
     HASHDPRINTF("    hashing with offset %i (x_trans = %i, y_trans = %i)\n", offset, x_trans, y_trans);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     hash_t out = HASH_OFFSET;
@@ -284,7 +284,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
     return out;
 }
 
-static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
+static real_inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     HASHDPRINTF("hashing: x_trans = %i, y_trans = %i, offset = %i:\n", x_trans, y_trans, 0);
     hash_t out = hash_with_offset(0, x_trans, y_trans);
     #if TIME_WRAP
@@ -298,13 +298,13 @@ static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
 
 #else
 
-static inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
+static real_inline hash_t hash(axis_trans_t x_trans, axis_trans_t y_trans) {
     return hash_at_time(0, x_trans, y_trans);
 }
 
 #endif
 
-static inline hash_t hash_full() {
+static real_inline hash_t hash_full() {
     #if MULTI_RULE
     get_rule_symmetry();
     #endif
@@ -338,7 +338,7 @@ static inline hash_t hash_full() {
 
 hash_t known_solutions[1048576];
 
-static inline void init_known_solutions(void) {
+static real_inline void init_known_solutions(void) {
     #if !MULTI_RULE
     get_rule_symmetry();
     #endif
@@ -351,7 +351,7 @@ static inline void init_known_solutions(void) {
 #endif
 
 
-static inline void print_progress(FILE* stream);
+static real_inline void print_progress(FILE* stream);
 
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
@@ -374,14 +374,14 @@ static void calibrate_time(void) {
     cycles_per_second = (end - start) * 100;
 }
 
-static inline double get_time(void) {
+static real_inline double get_time(void) {
     return (double)(__rdtsc()) / cycles_per_second;
 }
 
 double start;
 
 
-static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_solution) {
+static real_inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_solution) {
     char rule[256];
     memset(rule, '\0', 256);
     get_rule(rule, false);
@@ -487,7 +487,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
 const int cell_period_filter[] = CELL_PERIOD_FILTER;
 #endif
 
-static inline void print_solution(bool preprocessing) {
+static real_inline void print_solution(bool preprocessing) {
     #if SHOW_SOLUTIONS
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
@@ -591,7 +591,7 @@ typedef struct progress_entry {
 
 progress_entry progress[TOTAL_MAX_DEPTH];
 
-static inline void print_progress(FILE* stream) {
+static real_inline void print_progress(FILE* stream) {
     for (int i = 0; i < progress_pos; i++) {
         if (progress[i].tr_is_set) {
             int tr = progress[i].tr;
@@ -609,7 +609,7 @@ static inline void print_progress(FILE* stream) {
 
 int progress[TOTAL_MAX_DEPTH];
 
-static inline void print_progress(FILE* stream) {
+static real_inline void print_progress(FILE* stream) {
     for (int i = 0; i < progress_pos; i++) {
         int value = progress[i];
         real_fprintf(stream, "%c", value == 0 ? '0' : '1');
@@ -638,7 +638,7 @@ int last_printed_max_partial_size = 0;
 cell* initial_cell;
 #endif
 
-static inline void print_info_if_needed() {
+static real_inline void print_info_if_needed() {
     #ifndef BENCHMARK
     #if MAX_PARTIALS
     if (solutions_found == 0) {
