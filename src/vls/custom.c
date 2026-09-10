@@ -6,7 +6,7 @@
 
 
 #define CUSTOM_INIT false
-#define CUSTOM_SOLUTION_FILTERING fakse
+#define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
 #define CUSTOM_PRUNING_ON_CELL_SET false
 

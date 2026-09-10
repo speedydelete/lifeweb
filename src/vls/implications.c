@@ -798,7 +798,15 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
             return false;
         }
         DPRINTGRID4();
-        return check_implications(cell);
+        if (!check_implications(cell)) {
+            return false;
+        }
+        #if CUSTOM_PRUNING_ON_CELL_SET
+        if (!custom_prune_on_cell_set(cell)) {
+            return false;
+        }
+        #endif
+        return true;
     }
     var_t var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);

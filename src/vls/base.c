@@ -271,12 +271,11 @@ static inline void pop_frame(void) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static inline bool set_cell(cell* cell, cell_value_t value) {
-    if (cell->settable == NOT_SETTABLE) {
-        return true;
-    }
     if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
+    } else if (cell->settable == NOT_SETTABLE) {
+        return true;
     } else if (cell->value == value) {
         return true;
     } else if (cell->x < PADDING

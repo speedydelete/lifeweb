@@ -209,11 +209,10 @@ export class Grid {
         return this;
     }
 
-    combineWith(other: Grid): Grid {
+    combineWith(other: Grid): this {
         if (this.width !== other.width || this.height !== other.height || this.gens !== other.gens) {
             throw new Error(`This error should not occur, please report it (bounding box mismatch while attempting to combine grids)`);
         }
-        let out = new Grid(this.width, this.height, this.gens);
         for (let t = 0; t < this.gens; t++) {
             for (let yi = 0; yi < this.height; yi++) {
                 for (let xi = 0; xi < this.width; xi++) {
@@ -248,11 +247,11 @@ export class Grid {
                             }
                         }
                     }
-                    out.set(t, xi, yi, cell);
+                    this.set(t, xi, yi, cell);
                 }
             }
         }
-        return out;
+        return this;
     }
 
     transpose(): this {
@@ -469,89 +468,101 @@ export class Grid {
         return this;
     }
 
-    setTopEdge(type: EdgeType): this {
-        if (type === 'none') {
-            return this;
-        }
-        this.expand({up: 1});
-        let bindToY: number;
-        if (type === 'even') {
-            bindToY = 1;
-        } else if (type === 'odd') {
-            bindToY = 2;
-        } else {
-            bindToY = this.height - 1;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.bindCells([t, x, 0], [t, x, bindToY]);
-            }
-        }
-        return this;
-    }
+    // setTopEdge(type: EdgeType): this {
+    //     if (type === 'none') {
+    //         return this;
+    //     }
+    //     this.expand({up: 2});
+    //     for (let x = 0; x < this.width; x++) {
+    //         this.set(0, x, 0, cell(DONT_CARE));
+    //     }
+    //     let bindToY: number;
+    //     if (type === 'even') {
+    //         bindToY = 2;
+    //     } else if (type === 'odd') {
+    //         bindToY = 3;
+    //     } else {
+    //         bindToY = this.height - 1;
+    //     }
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let x = 0; x < this.width; x++) {
+    //             this.bindCells([t, x, 0], [t, x, bindToY]);
+    //         }
+    //     }
+    //     return this;
+    // }
 
-    setBottomEdge(type: EdgeType): this {
-        if (type === 'none') {
-            return this;
-        }
-        this.expand({down: 1});
-        let bindToY: number;
-        if (type === 'even') {
-            bindToY = this.height - 1;
-        } else if (type === 'odd') {
-            bindToY = this.height - 2;
-        } else {
-            bindToY = 0;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.bindCells([t, x, this.height - 1], [t, x, bindToY]);
-            }
-        }
-        return this;
-    }
+    // setBottomEdge(type: EdgeType): this {
+    //     if (type === 'none') {
+    //         return this;
+    //     }
+    //     this.expand({down: 2});
+    //     for (let x = 0; x < this.width; x++) {
+    //         this.set(0, x, this.height - 1, cell(DONT_CARE));
+    //     }
+    //     let bindToY: number;
+    //     if (type === 'even') {
+    //         bindToY = this.height - 3;
+    //     } else if (type === 'odd') {
+    //         bindToY = this.height - 4;
+    //     } else {
+    //         bindToY = 0;
+    //     }
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let x = 0; x < this.width; x++) {
+    //             this.bindCells([t, x, this.height - 1], [t, x, bindToY]);
+    //         }
+    //     }
+    //     return this;
+    // }
 
-    setLeftEdge(type: EdgeType): this {
-        if (type === 'none') {
-            return this;
-        }
-        this.expand({left: 1});
-        let bindToX: number;
-        if (type === 'even') {
-            bindToX = 1;
-        } else if (type === 'odd') {
-            bindToX = 2;
-        } else {
-            bindToX = this.width - 1;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.bindCells([t, 0, y], [t, bindToX, y]);
-            }
-        }
-        return this;
-    }
+    // setLeftEdge(type: EdgeType): this {
+    //     if (type === 'none') {
+    //         return this;
+    //     }
+    //     this.expand({left: 2});
+    //     for (let y = 0; y < this.height; y++) {
+    //         this.set(0, 0, y, cell(DONT_CARE));
+    //     }
+    //     let bindToX: number;
+    //     if (type === 'even') {
+    //         bindToX = 2;
+    //     } else if (type === 'odd') {
+    //         bindToX = 3;
+    //     } else {
+    //         bindToX = this.width - 1;
+    //     }
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let y = 0; y < this.height; y++) {
+    //             this.bindCells([t, 0, y], [t, bindToX, y]);
+    //         }
+    //     }
+    //     return this;
+    // }
 
-    setRightEdge(type: EdgeType): this {
-        if (type === 'none') {
-            return this;
-        }
-        this.expand({right: 1});
-        let bindToX: number;
-        if (type === 'even') {
-            bindToX = this.width - 1;
-        } else if (type === 'odd') {
-            bindToX = this.width - 2;
-        } else {
-            bindToX = 0;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.bindCells([t, this.width - 1, y], [t, bindToX, y]);
-            }
-        }
-        return this;
-    }
+    // setRightEdge(type: EdgeType): this {
+    //     if (type === 'none') {
+    //         return this;
+    //     }
+    //     this.expand({right: 2});
+    //     for (let y = 0; y < this.height; y++) {
+    //         this.set(0, this.width - 1, y, cell(DONT_CARE));
+    //     }
+    //     let bindToX: number;
+    //     if (type === 'even') {
+    //         bindToX = this.width - 3;
+    //     } else if (type === 'odd') {
+    //         bindToX = this.width - 4;
+    //     } else {
+    //         bindToX = 0;
+    //     }
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let y = 0; y < this.height; y++) {
+    //             this.bindCells([t, this.width - 1, y], [t, bindToX, y]);
+    //         }
+    //     }
+    //     return this;
+    // }
 
     applySymmetry(symmetry: string): this {
         if (!(symmetry in SYMMETRIES)) {
@@ -577,22 +588,44 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
     },
 
     D2h(grid: Grid): void {
-        let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
-        let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
-        grid = grid.shrink({right: Math.floor(grid.width / 2)});
-        grid.combineWith(right);
-        grid.setRightEdge(type);
+        for (let t = 0; t < grid.gens; t++) {
+            for (let y = 0; y < grid.height; y++) {
+                for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
+                    grid.bindCells([t, x, y], [t, grid.width - x - 1, y]);
+                }
+            }
+        }
     },
     'D2|': 'D2h',
 
     D2v(grid: Grid): void {
-        let type: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
-        let bottom = grid.copy().flipHorizontal().shrink({down: Math.floor(grid.height / 2)});
-        grid = grid.shrink({down: Math.floor(grid.height / 2)});
-        grid.combineWith(bottom);
-        grid.setBottomEdge(type);
+        for (let t = 0; t < grid.gens; t++) {
+            for (let y = 0; y < Math.ceil(grid.height / 2); y++) {
+                for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
+                    grid.bindCells([t, x, y], [t, x, grid.height - y - 1]);
+                }
+            }
+        }
     },
     'D2-': 'D2v',
+
+    // D2h(grid: Grid): void {
+    //     let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
+    //     let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
+    //     grid = grid.shrink({right: Math.floor(grid.width / 2)});
+    //     grid.combineWith(right);
+    //     grid.setRightEdge(type);
+    // },
+    // 'D2|': 'D2h',
+
+    // D2v(grid: Grid): void {
+    //     let type: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
+    //     let bottom = grid.copy().flipHorizontal().shrink({down: Math.floor(grid.height / 2)});
+    //     grid = grid.shrink({down: Math.floor(grid.height / 2)});
+    //     grid.combineWith(bottom);
+    //     grid.setBottomEdge(type);
+    // },
+    // 'D2-': 'D2v',
 
     // D2b(grid: Grid): void {
 
