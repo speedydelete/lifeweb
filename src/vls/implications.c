@@ -6,7 +6,7 @@
 #include "params2.h"
 #include "base.c"
 #include "rulespaces.c"
-#include <sys/cdefs.h>
+#include "custom.c"
 
 #if MULTI_RULE
 #include <stdio.h>
@@ -829,14 +829,21 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
             }
         }
     }
-    return true;
     #else
     if (!set_cell(cell, value)) {
         return false;
     }
     DPRINTGRID4();
-    return check_implications(cell);
+    if (!check_implications(cell)) {
+        return false;
+    }
     #endif
+    #if CUSTOM_PRUNING_ON_CELL_SET
+    if (!custom_prune_on_cell_set(cell)) {
+        return false;
+    }
+    #endif
+    return true;
 }
 
 

@@ -14,6 +14,7 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #if MULTI_RULE || MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
 #include "implications.c"
 #endif
+#include "custom.c"
 
 
 uint64_t branches;

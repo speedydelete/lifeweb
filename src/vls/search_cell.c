@@ -12,6 +12,7 @@
 #include "base.c"
 #include "implications.c"
 #include "output.c"
+#include "custom.c"
 
 
 // sets the next_in_search_order fields in all the cells
@@ -56,6 +57,14 @@ static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
     #endif
     int out = 0;
     if (set_cell_and_propagate(cell, value)) {
+        #if CUSTOM_PRUNING
+        if (!custom_prune(cell)) {
+            #if DEBUG >= 3
+            debug_depth--;
+            #endif
+            return 0;
+        }
+        #endif
         #if MULTI_RULE
         out = run_depth(depth + 1, cell->next_in_search_order, -1);
         #else
@@ -117,14 +126,6 @@ static int run_depth(int depth, cell* cell
         #endif
         return 0;
     }
-    #if CUSTOM_PRUNING
-    if (!custom_prune()) {
-        #if DEBUG >= 3
-        debug_depth--;
-        #endif
-        return 0;
-    }
-    #endif
     DPRINTGRID3();
     print_info_if_needed();
     if (cell->value != UNKNOWN) {

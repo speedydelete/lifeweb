@@ -16,6 +16,8 @@
 #define SIZE (WIDTH * HEIGHT)
 #define TOTAL_SIZE (GENS * SIZE)
 
+#define IS_KNOWN(x) (((x) == OFF) || ((x) == ON))
+
 #if VARIABLES
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
 #endif
