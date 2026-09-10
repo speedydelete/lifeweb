@@ -809,10 +809,7 @@ class VLSFileParser extends BaseParser {
             1: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(ON)}]]},
             2: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]},
             3: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]},
-            4: {all: {type: 'cell', cell: cell(OFF)}, absolute: [], relative: []},
-            5: {all: {type: 'cell', cell: cell(ON)}, absolute: [], relative: []},
-            6: {all: {type: 'cell', cell: cell(UNKNOWN)}, absolute: [], relative: []},
-            7: {all: {type: 'cell', cell: cell(DONT_CARE)}, absolute: [], relative: []},
+            4: {all: {type: 'periodic', period: 1, cell: cell(UNKNOWN)}, absolute: [], relative: []},
         };
         this.grids = [];
         this.grid = new Grid(0, 0, 0);
@@ -992,8 +989,14 @@ class VLSFileParser extends BaseParser {
     }
 
     rleStatement(): void {
-        this.eat(['gen', `the literal string 'gen'`]);
-        let gen = Number(this.eat(T_NATURAL_NUMBER)[0]);
+        let gen: number | 'all';
+        if (this.match('gen')) {
+            this.advance();
+            gen = Number(this.eat(T_NATURAL_NUMBER)[0]);
+        } else {
+            this.eat(['all', `'all'`], ['gens', `'gens'`]);
+            gen = 'all';
+        }
         let xOffset = 0;
         let yOffset = 0;
         if (this.match('offset')) {
@@ -1039,17 +1042,37 @@ class VLSFileParser extends BaseParser {
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
                 let data = this.states[state];
-                if (data.all) {
-                    this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
-                }
-                if (data.absolute) {
-                    for (let [ts, value] of Object.values(data.absolute)) {
-                        this.setCells(ts, x2, y2, value, 0);
+                if (gen === 'all') {
+                    if (data.all) {
+                        this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
+                    } else {
+                        let found = false;
+                        if (!data.relative) {
+                        }
+                        for (let value of data.relative) {
+                            if (value[0].includes(0)) {
+                                this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, value[1], 0);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            throw new Error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
+                        }
                     }
-                }
-                if (data.relative) {
-                    for (let [ts, value] of Object.values(data.relative)) {
-                        this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
+                } else {
+                    if (data.all) {
+                        this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
+                    }
+                    if (data.absolute) {
+                        for (let [ts, value] of Object.values(data.absolute)) {
+                            this.setCells(ts, x2, y2, value, 0);
+                        }
+                    }
+                    if (data.relative) {
+                        for (let [ts, value] of Object.values(data.relative)) {
+                            this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
+                        }
                     }
                 }
             }
@@ -1058,14 +1081,14 @@ class VLSFileParser extends BaseParser {
     }
 
     wrapStatement(): void {
-        this.eat(['wrap', `the literal string 'wrap'`]);
+        this.eat(['wrap', `'wrap'`]);
         let [dx, dy] = this.eat(T_INTEGER, T_INTEGER);
         this.grid.wrap = [Number(dx), Number(dy)];
         this.eat(T_LINE_END);
     }
 
     expandStatement(): void {
-        this.eat(['expand', `the literal string 'expand'`]);
+        this.eat(['expand', `'expand'`]);
         while (!this.match(T_LINE_END)) {
             let data = this.eat([new Set(['start', 'end', 'up', 'down', 'left', 'right']), 'direction'], T_NATURAL_NUMBER);
             this.grid.expand({[data[0] as any]: Number(data[1])});
@@ -1077,7 +1100,7 @@ class VLSFileParser extends BaseParser {
             this.advance();
         } else if (this.match(T_STATE, '=')) {
             this.stateSetStatement();
-        } else if (this.match('gen')) {
+        } else if (this.match('gen') || this.match('all', 'gens')) {
             this.rleStatement();
         } else if (this.match('wrap')) {
             this.wrapStatement();
@@ -1093,9 +1116,9 @@ class VLSFileParser extends BaseParser {
             this.advance();
         }
         let gens = Number(this.eat(
-            ['pattern', `the literal string 'pattern'`],
+            ['pattern', `'pattern'`],
             T_NATURAL_NUMBER,
-            ['gens', `the literal string 'gens'`],
+            ['gens', `'gens'`],
             T_LINE_END,
         )[1]);
         if (gens === 0) {
