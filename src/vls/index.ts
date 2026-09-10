@@ -59,78 +59,81 @@ Options:
     --profile: enables profile based optimization,
         recompiles and reruns after 5 seconds
 
-    --interval <seconds>: set the progress reporting interval
+    --file <file>: also write output to that file
+
+    --rulespace <rulespace>: set the rulespace for multi-rule searching,
+        options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
+
+    -s <symmetry>, --symmetry <symmetry>: apply a symmetry to the pattern
+
+    --maxpop <cells>: set the maximum population during the search
+
+    -m, --method <method>:
+        set the method used for searching, explained more below
+
+    -i, --initial-value <value>:
+        set the initial tested value for cells, default 1
+
+    --interval <seconds>: set the progress reporting interval, default 1
 
     --partial-type <'none'|'cell'|'start'>:
         type of max partials to report (default 'cell')
         none: report no max partials
         cell: report by number of set cells
         start: report by number of correct cells at start of search order
-    --partial-interval <seconds>: set the minimum partial reporting interval
-
-    --file <file>: also write output to that file
-
-    --rulespace <rulespace>: set the rulespace, options:
-        int, ot
-
-    -l, --lls <file>: instead of searching, run LLS on the given file
-        must be a directory containing a file called "lls" or "lss.py"
-
-    -m, --method <method>:
-        Set the method used for searching
-
-        Cell-by-cell method:
-        Syntax is "cell <search-order>"
-        the search order is defined as a comma-separated list of metrics
-        later metrics are tiebreakers for earlier metrics
-        metrics are normal mathematical expressions
-        use variables "x", "y", and "t" for x, y, and time respectively
-        also you can use aliases like (r?g?-)(f2b|b2f|s2s)
-        the default value is g-f2b for spaceships and 't, y, x' otherwise
-
-    -i, --initial-value <value>:
-        set the initial tested value for cells, default 1
+    --partial-interval <seconds>:
+        set the minimum partial reporting interval, default 1
 
     -n, --max-solutions: set the maximum solution count, default infinity
-    --no-show-solutions: Disable showing solutions at all.
+    --no-show-solutions: disable showing solutions at all
+    --allow-empty: allow the empty pattern as a solution
+    --allow-duplicates: allow duplicate solutions to be reported
+    --period-filter <periods>:
+        filter out cells of those periods when checking for duplicates
+        the argument is a comma- or space-separated list of integers
 
-    --top <type>
-    --bottom <type>
-    --left <type>
-    --right <type>
-        set edge behavior, can either be 'none', 'even', 'odd', or 'wrap'
+Methods:
 
-    -s <symmetry>, --symmetry <symmetry>
-        apply a symmetry to the pattern
-        this is different from the edge behaviors above!
+'cell':
 
-    --maxpop <cells>: set the maximum population during the search
+    The cell method works by setting cells one at a time like lifesrc. 
+    The method argument syntax is 'cell <search-order>'
+    
+    The search order is defined as a comma-separated list of metrics, later
+    metrics are tiebreakers for earlier metrics. Metrics are normal
+    mathematical expressions, use variables 'x', 'y', and 't' for x, y, and
+    time respectively.
+
+    Also, you can use aliases like (r?g?-)(f2b|b2f|s2s), g means find every
+    generation of the row before moving on, and r means reverse the order of
+    the search in time.
+
+    The default search order is f2b for spaceships and 't, y, x' otherwise.
+
 `;
 
-type OptionValue = true | 'string' | 'number' | Set<string>;
+type OptionValue = 'boolean' | 'string' | 'number' | Set<string>;
 
 const OPTIONS = {
-    'help': true,
+    'help': 'boolean',
     'debug': 'number',
-    'gdb': true,
-    'lls': 'string',
+    'gdb': 'boolean',
     'benchmark': 'string',
-    'profile': true,
+    'profile': 'boolean',
+    'file': 'string',
+    'rulespace': new Set(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
+    'symmetry': 'string',
+    'maxpop': 'number',
+    'method': 'string',
+    'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
     'interval': 'number',
     'partial-type': new Set(['none', 'cell', 'start'] as const),
     'partial-interval': 'number',
-    'file': 'string',
-    'rulespace': new Set(['int', 'ot'] as const),
-    'method': 'string',
-    'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
     'max-solutions': 'number',
-    'no-show-solutions': true,
-    'top': new Set(['none', 'even', 'odd', 'wrap'] as const),
-    'bottom': new Set(['none', 'even', 'odd', 'wrap'] as const),
-    'left': new Set(['none', 'even', 'odd', 'wrap'] as const),
-    'right': new Set(['none', 'even', 'odd', 'wrap'] as const),
-    'symmetry': 'string',
-    'maxpop': 'number',
+    'no-show-solutions': 'boolean',
+    'allow-empty': 'boolean',
+    'allow-duplicates': 'boolean',
+    'period-filter': 'string',
 } as const satisfies {[key: string]: OptionValue};
 
 type Options = typeof OPTIONS;
@@ -139,11 +142,10 @@ type Option = keyof Options;
 const OPTION_ALIASES: {[key: string]: Option} = {
     'h': 'help',
     'd': 'debug',
-    'l': 'lls',
+    's': 'symmetry',
     'm': 'method',
     'i': 'initial-value',
     'n': 'max-solutions',
-    's': 'symmetry',
 };
 
 type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]> =
@@ -158,7 +160,7 @@ type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]
 ;
 
 type ValueOfOption<T extends OptionValue> =
-    T extends true ? true :
+    T extends 'boolean' ? true :
     T extends 'string' ? string :
     T extends 'number' ? number :
     T extends Set<infer T> ? T :
@@ -177,7 +179,7 @@ let posArgs: string[] = [];
 let options: OptionData = {};
 
 function getOption(originalArg: string, value: OptionValue, i: number): [OptionData[Option], number] {
-    if (value === true) {
+    if (value === 'boolean') {
         return [true, i];
     } else if (value === 'string') {
         if (i === argv.length - 1) {
@@ -602,7 +604,7 @@ function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): 
     return out2;
 }
 
-let method: 'cell' | 'path';
+let method: 'cell';
 let searchOrder: string | undefined = undefined;
 let initialPath: [number, number, number][] = [];
 let methodArg = options['method'];
@@ -627,28 +629,8 @@ if (methodArg === undefined) {
         while (searchOrder in searchOrderAliases) {
             searchOrder = searchOrderAliases[searchOrder];
         }
-    } else if (method === 'path') {
-        if (defaultSearchOrder === 'gfind-f2b') {
-            defaultSearchOrder = 'f2b';
-        }
-        if (data.match(/^(\d+,* *,*)*\d+$/)) {
-            for (let cell of data.split(',')) {
-                cell = cell.trim();
-                let coords = cell.split(' ').map(Number);
-                if (coords.length !== 3 || coords.some(x => Number.isNaN(x))) {
-                    error(`Invalid cell: '${cell}'`);
-                }
-                initialPath.push(coords as [number, number, number]);
-            }
-        } else {
-            searchOrder = data === '' ? defaultSearchOrder : data;
-            while (searchOrder in searchOrderAliases) {
-                searchOrder = searchOrderAliases[searchOrder];
-            }
-            initialPath = getSearchOrder(grid, searchOrder, true);
-        }
     } else {
-        error(`Invalid value for method option (expected 'cell' or 'path', got '${method}'): '${methodArg}'`);
+        error(`Invalid value for method option (expected 'cel;', got '${method}'): '${methodArg}'`);
     }
 }
 
@@ -758,13 +740,6 @@ for (let line of code.split('\n')) {
         } else {
             continue;
         }
-    } else if (line.startsWith('const index_t initial_path[INITIAL_PATH_LENGTH][3] = ')) {
-        if (method === 'path') {
-            line = line.slice(0, line.indexOf('{'));
-            line += '{' + initialPath.map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
-        } else {
-            continue;
-        }
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -830,76 +805,14 @@ for (let line of code.split('\n')) {
         //         }
         //     }
         // }
-    // } else if (name === 'STATES') {
-    //     value = base.rule.states;
-    } else if (name === 'BINDS') {
-        value = `BINDS_${(options['rulespace'] ?? 'int').toUpperCase()}`;
-    // } else if (name === 'MAX_RULE_CHANGES') {
-    //     value = 0;
-    //     for (let i = 0; i < 512; i++) {
-    //         if (base.trs[i] !== maxBase.trs[i]) {
-    //             value++;
-    //         }
-    //     }
+    } else if (name === 'RULESPACE') {
+        value = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
     } else if (name === 'SPECIAL_AFTER_RULE') {
         value = `""`;
-    } else if (name === 'WRAP_WIDTH') {
-        value = grid.width;
-    } else if (name === 'WRAP_HEIGHT') {
-        value = grid.height;
     } else if (name === 'METHOD') {
         value = `METHOD_${method.toUpperCase()}`;
-    } else if (name === 'SEARCH_T') {
-        value = method === 'path' ? initialPath[0][0] : 67;
-    } else if (name === 'INITIAL_PATH_LENGTH') {
-        value = initialPath.length;
-    } else if (name === 'SKIP_STATOR_VARIANTS') {
-        value = mode === 'catalyst';
     } else if (name === 'INITIAL_VALUE') {
         value = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
-    } else if (name === 'LLS') {
-        let file = options['lls'];
-        if (file === undefined) {
-            comment = true;
-            value = '"path/to/lls"';
-        } else {
-            let path = await import('node:path');
-            let fs = await import('node:fs/promises');
-            if (!(await fs.stat(file)).isDirectory()) {
-                error(`Value for lls option must be a path to a directory`);
-            }
-            let found = false;
-
-            for (let filename of await fs.readdir(file)) {
-                let isLSS = false;
-                if (filename === 'lls') {
-                    try {
-                        await fs.access(path.join(file, filename), fs.constants.X_OK);
-                    } catch {
-                        continue;
-                    }
-                } else if (filename === 'lss.py') {
-                    isLSS = true;
-                } else {
-                    continue;
-                }
-                filename = path.join(file, filename);
-                if ((await fs.stat(filename)).isDirectory()) {
-                    continue;
-                }
-                if (isLSS) {
-                    file = path.join(file, 'venv/bin/python3') + ' ' + filename;
-                } else {
-                    file = filename;
-                }
-                found = true;
-                break;
-            }
-            if (!found) {
-                error(`Cannot find LLS/LSS`);
-            }
-            value = JSON.stringify(file);
-        }
     } else if (name === 'MAXPOP') {
         if (options['maxpop'] === undefined) {
             comment = true;

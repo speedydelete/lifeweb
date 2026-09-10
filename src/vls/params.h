@@ -99,17 +99,17 @@ uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 
 
 // special multi-rule parameters
 
-// the binding mode
-#define BINDS_INT 0
-#define BINDS_OT 1
-#define BINDS_MAP 2
-#define BINDS_HEX_INT 3
-#define BINDS_HEX_OT 4
-#define BINDD_HEX_MAP 5
-#define BINDS_VN_INT 6
-#define BINDS_VN_OT 7
-#define BINDS_VN_MAP 8
-#define BINDS BINDS_INT
+// the rulespace mode
+#define RULESPACE_INT 0
+#define RULESPACE_OT 1
+#define RULESPACE_MAP 2
+#define RULESPACE_HEX_INT 3
+#define RULESPACE_HEX_OT 4
+#define RULESPACE_HEX_MAP 5
+#define RULESPACE_VN_INT 6
+#define RULESPACE_VN_OT 7
+#define RULESPACE_VN_MAP 8
+#define RULESPACE RULESPACE_INT
 
 #endif
 
@@ -135,9 +135,6 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 #endif
 
-// whether to check for and skip stator variants
-#define SKIP_STATOR_VARIANTS false
-
 // initial value for unknown cells
 #define IV_0 0
 #define IV_1 1
@@ -147,14 +144,14 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 #define IV_DIFFERENT_1 5
 #define INITIAL_VALUE IV_1
 
-// whether to use LLS instead
-// #define LLS "path/to/lls"
+
+// other search parameters
 
 // maximum population
 // #define MAXPOP 67
 
 
-// solution parameters
+// solution and information readout parameters
 
 // whether to show solutions at all
 #define SHOW_SOLUTIONS true
@@ -167,6 +164,10 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 
 // whether to filter duplicates or not
 #define FILTER_DUPLICATES true
+
+// period filter for cells
+// either 'false' or an int[] initializer
+#define CELL_PERIOD_FILTER false
 
 // reporting interval
 #define REPORTING_INTERVAL 1
@@ -235,7 +236,6 @@ index_t phase_0_pop;
 
 
 // custom stuff
-// define special tracking above!
 
 #define CUSTOM_INIT false
 #define CUSTOM_SOLUTION_FILTERING false
@@ -416,8 +416,7 @@ static inline bool custom_prune() {
 #endif
 
 
-
-// misc options
+// misc parameters
 
 // benchmarking iterations
 // #define BENCHMARK 67

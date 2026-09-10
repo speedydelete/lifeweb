@@ -5,7 +5,7 @@
 
 #include "params2.h"
 #include "base.c"
-#include "bound_trs.c"
+#include "rulespaces.c"
 
 #if MULTI_RULE
 #include <stdio.h>

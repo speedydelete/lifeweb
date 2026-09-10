@@ -15,10 +15,12 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #endif
 
 
-uint64_t solutions_found;
-
 uint64_t branches;
 
+
+#if SHOW_SOLUTIONS
+
+uint64_t solutions_found;
 
 typedef struct bb_t {
     index_t width;
@@ -104,7 +106,6 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->width -= shrink_right;
 }
 
-
 typedef uint64_t hash_t;
 #define PRIhash PRIu64
 #define HASH_OFFSET (0xcbf29ce484222325ULL)
@@ -113,7 +114,6 @@ typedef uint64_t hash_t;
 static inline hash_t min_hash(hash_t a, hash_t b) {
     return a < b ? a : b;
 }
-
 
 typedef enum axis_trans_t {
     POS_X,
@@ -332,7 +332,6 @@ static inline hash_t hash_full() {
     return out;
 }
 
-
 hash_t known_solutions[1048576];
 
 static inline void init_known_solutions(void) {
@@ -343,6 +342,9 @@ static inline void init_known_solutions(void) {
         known_solutions[i] = 0;
     }
 }
+
+
+#endif
 
 
 static inline void print_progress(FILE* stream);
@@ -478,6 +480,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
 }
 
 static inline void print_solution(bool preprocessing) {
+    #if SHOW_SOLUTIONS
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
     // apply empty pattern filter
@@ -541,19 +544,18 @@ static inline void print_solution(bool preprocessing) {
     #endif
     // show the solution
     solutions_found++;
-    #if SHOW_SOLUTIONS
     if (preprocessing) {
         printf("Solved in preprocessing, 1 solution:\n");
     } else {
         printf("Solution found:\n");
     }
     print_grid_pretty(grid, true);
-    #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found >= MAX_SOLUTIONS) {
         printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches (exited early, max solution count reached)\n", solutions_found, get_time() - start, branches);
         exit(0);
     }
+    #endif
     #endif
 }
 

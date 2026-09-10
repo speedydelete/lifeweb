@@ -5,7 +5,7 @@
 #if MULTI_RULE
 
 
-#if BINDS == BINDS_INT
+#if RULESPACE == RULESPACE_INT
 
 #define BOUND_TRANSITION_COUNT 102
 #define MAX_MAP_TRS_PER_BOUND_TR 8
@@ -13,7 +13,7 @@
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1c", "B1e", "B2a", "B2c", "B2e", "B2i", "B2k", "B2n", "B3a", "B3c", "B3e", "B3i", "B3j", "B3k", "B3n", "B3q", "B3r", "B3y", "B4a", "B4c", "B4e", "B4i", "B4j", "B4k", "B4n", "B4q", "B4r", "B4t", "B4w", "B4y", "B4z", "B5a", "B5c", "B5e", "B5i", "B5j", "B5k", "B5n", "B5q", "B5r", "B5y", "B6a", "B6c", "B6e", "B6i", "B6k", "B6n", "B7c", "B7e", "B8", "S0", "S1c", "S1e", "S2a", "S2c", "S2e", "S2i", "S2k", "S2n", "S3a", "S3c", "S3e", "S3i", "S3j", "S3k", "S3n", "S3q", "S3r", "S3y", "S4a", "S4c", "S4e", "S4i", "S4j", "S4k", "S4n", "S4q", "S4r", "S4t", "S4w", "S4y", "S4z", "S5a", "S5c", "S5e", "S5i", "S5j", "S5k", "S5n", "S5q", "S5r", "S5y", "S6a", "S6c", "S6e", "S6i", "S6k", "S6n", "S7c", "S7e", "S8"};
 
 
-#elif BINDS == BINDS_OT
+#elif RULESPACE == RULESPACE_OT
 
 #define BOUND_TRANSITION_COUNT 18
 #define MAX_MAP_TRS_PER_BOUND_TR 70
@@ -40,7 +40,7 @@ static const int16_t bound_trs[BOUND_TRANSITION_COUNT][MAX_MAP_TRS_PER_BOUND_TR 
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "S0", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"};
 
 
-#elif BINDS == BINDS_MAP
+#elif RULESPACE == RULESPACE_MAP
 
 #define BOUND_TRANSITION_COUNT 512
 #define MAX_MAP_TRS_PER_BOUND_TR 1
@@ -48,7 +48,7 @@ static const int16_t bound_trs[BOUND_TRANSITION_COUNT][MAX_MAP_TRS_PER_BOUND_TR 
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12", "B13", "B14", "B15", "S16", "S17", "S18", "S19", "S20", "S21", "S22", "S23", "S24", "S25", "S26", "S27", "S28", "S29", "S30", "S31", "B32", "B33", "B34", "B35", "B36", "B37", "B38", "B39", "B40", "B41", "B42", "B43", "B44", "B45", "B46", "B47", "S48", "S49", "S50", "S51", "S52", "S53", "S54", "S55", "S56", "S57", "S58", "S59", "S60", "S61", "S62", "S63", "B64", "B65", "B66", "B67", "B68", "B69", "B70", "B71", "B72", "B73", "B74", "B75", "B76", "B77", "B78", "B79", "S80", "S81", "S82", "S83", "S84", "S85", "S86", "S87", "S88", "S89", "S90", "S91", "S92", "S93", "S94", "S95", "B96", "B97", "B98", "B99", "B100", "B101", "B102", "B103", "B104", "B105", "B106", "B107", "B108", "B109", "B110", "B111", "S112", "S113", "S114", "S115", "S116", "S117", "S118", "S119", "S120", "S121", "S122", "S123", "S124", "S125", "S126", "S127", "B128", "B129", "B130", "B131", "B132", "B133", "B134", "B135", "B136", "B137", "B138", "B139", "B140", "B141", "B142", "B143", "S144", "S145", "S146", "S147", "S148", "S149", "S150", "S151", "S152", "S153", "S154", "S155", "S156", "S157", "S158", "S159", "B160", "B161", "B162", "B163", "B164", "B165", "B166", "B167", "B168", "B169", "B170", "B171", "B172", "B173", "B174", "B175", "S176", "S177", "S178", "S179", "S180", "S181", "S182", "S183", "S184", "S185", "S186", "S187", "S188", "S189", "S190", "S191", "B192", "B193", "B194", "B195", "B196", "B197", "B198", "B199", "B200", "B201", "B202", "B203", "B204", "B205", "B206", "B207", "S208", "S209", "S210", "S211", "S212", "S213", "S214", "S215", "S216", "S217", "S218", "S219", "S220", "S221", "S222", "S223", "B224", "B225", "B226", "B227", "B228", "B229", "B230", "B231", "B232", "B233", "B234", "B235", "B236", "B237", "B238", "B239", "S240", "S241", "S242", "S243", "S244", "S245", "S246", "S247", "S248", "S249", "S250", "S251", "S252", "S253", "S254", "S255", "B256", "B257", "B258", "B259", "B260", "B261", "B262", "B263", "B264", "B265", "B266", "B267", "B268", "B269", "B270", "B271", "S272", "S273", "S274", "S275", "S276", "S277", "S278", "S279", "S280", "S281", "S282", "S283", "S284", "S285", "S286", "S287", "B288", "B289", "B290", "B291", "B292", "B293", "B294", "B295", "B296", "B297", "B298", "B299", "B300", "B301", "B302", "B303", "S304", "S305", "S306", "S307", "S308", "S309", "S310", "S311", "S312", "S313", "S314", "S315", "S316", "S317", "S318", "S319", "B320", "B321", "B322", "B323", "B324", "B325", "B326", "B327", "B328", "B329", "B330", "B331", "B332", "B333", "B334", "B335", "S336", "S337", "S338", "S339", "S340", "S341", "S342", "S343", "S344", "S345", "S346", "S347", "S348", "S349", "S350", "S351", "B352", "B353", "B354", "B355", "B356", "B357", "B358", "B359", "B360", "B361", "B362", "B363", "B364", "B365", "B366", "B367", "S368", "S369", "S370", "S371", "S372", "S373", "S374", "S375", "S376", "S377", "S378", "S379", "S380", "S381", "S382", "S383", "B384", "B385", "B386", "B387", "B388", "B389", "B390", "B391", "B392", "B393", "B394", "B395", "B396", "B397", "B398", "B399", "S400", "S401", "S402", "S403", "S404", "S405", "S406", "S407", "S408", "S409", "S410", "S411", "S412", "S413", "S414", "S415", "B416", "B417", "B418", "B419", "B420", "B421", "B422", "B423", "B424", "B425", "B426", "B427", "B428", "B429", "B430", "B431", "S432", "S433", "S434", "S435", "S436", "S437", "S438", "S439", "S440", "S441", "S442", "S443", "S444", "S445", "S446", "S447", "B448", "B449", "B450", "B451", "B452", "B453", "B454", "B455", "B456", "B457", "B458", "B459", "B460", "B461", "B462", "B463", "S464", "S465", "S466", "S467", "S468", "S469", "S470", "S471", "S472", "S473", "S474", "S475", "S476", "S477", "S478", "S479", "B480", "B481", "B482", "B483", "B484", "B485", "B486", "B487", "B488", "B489", "B490", "B491", "B492", "B493", "B494", "B495", "S496", "S497", "S498", "S499", "S500", "S501", "S502", "S503", "S504", "S505", "S506", "S507", "S508", "S509", "S510", "S511"};
 
 
-#elif BINDS == BINDS_HEX_INT
+#elif RULESPACE == RULESPACE_HEX_INT
 
 #define BOUND_TRANSITION_COUNT 26
 #define MAX_MAP_TRS_PER_BOUND_TR 48
@@ -56,7 +56,7 @@ static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", 
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2o", "B2m", "B2p", "B3o", "B3m", "B3p", "B4o", "B4m", "B4p", "B5", "B6", "S0", "S1", "S2o", "S2m", "S2p", "S3o", "S3m", "S3p", "S4o", "S4m", "S4p", "S5", "S6"};
 
 
-#elif BINDS == BINDS_HEX_OT
+#elif RULESPACE == RULESPACE_HEX_OT
 
 #define BOUND_TRANSITION_COUNT 14
 #define MAX_MAP_TRS_PER_BOUND_TR 80
@@ -72,7 +72,7 @@ static const int16_t bound_trs[BOUND_TRANSITION_COUNT][MAX_MAP_TRS_PER_BOUND_TR 
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", "B3", "B4", "B5", "B6", "S0", "S1", "S2", "S3", "S4", "S5", "S6"};
 
 
-#elif BINDS == BINDS_HEX_MAP
+#elif RULESPACE == RULESPACE_HEX_MAP
 
 #define BOUND_TRANSITION_COUNT 128
 #define MAX_MAP_TRS_PER_BOUND_TR 4
@@ -80,7 +80,7 @@ static const int16_t bound_trs[BOUND_TRANSITION_COUNT][MAX_MAP_TRS_PER_BOUND_TR 
 static const char* bound_trs_names[BOUND_TRANSITION_COUNT] = {"B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "B16", "B17", "B18", "B19", "B20", "B21", "B22", "B23", "S24", "S25", "S26", "S27", "S28", "S29", "S30", "S31", "B32", "B33", "B34", "B35", "B36", "B37", "B38", "B39", "S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "B48", "B49", "B50", "B51", "B52", "B53", "B54", "B55", "S56", "S57", "S58", "S59", "S60", "S61", "S62", "S63", "B64", "B65", "B66", "B67", "B68", "B69", "B70", "B71", "S72", "S73", "S74", "S75", "S76", "S77", "S78", "S79", "B80", "B81", "B82", "B83", "B84", "B85", "B86", "B87", "S88", "S89", "S90", "S91", "S92", "S93", "S94", "S95", "B96", "B97", "B98", "B99", "B100", "B101", "B102", "B103", "S104", "S105", "S106", "S107", "S108", "S109", "S110", "S111", "B112", "B113", "B114", "B115", "B116", "B117", "B118", "B119", "S120", "S121", "S122", "S123", "S124", "S125", "S126", "S127"};
 
 
-#elif BINDS == BINDS_VN_INT
+#elif RULESPACE == RULESPACE_VN_INT
 
 #define BOUND_TRANSITION_COUNT 26
 #define MAX_MAP_TRS_PER_BOUND_TR 48
