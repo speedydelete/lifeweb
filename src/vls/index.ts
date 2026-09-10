@@ -293,14 +293,17 @@ if (mode === 'periodic') {
     if (posArgs.length !== 3) {
         error(`Expected 3 positional arguments for periodic mode (got ${posArgs.length})`);
     }
-    let {dx, dy, period} = parseSpeed(posArgs[0]);
-    let height = parseInt(posArgs[1]);
-    if (Number.isNaN(height)) {
-        error(`Invalid height: '${posArgs[1]}'`);
-    }
-    let width = parseInt(posArgs[2]);
+    let data = parseSpeed(posArgs[0]);
+    let dx = -data.dy;
+    let dy = -data.dx;
+    let period = data.period;
+    let width = parseInt(posArgs[1]);
     if (Number.isNaN(width)) {
-        error(`Invalid width: '${posArgs[2]}'`);
+        error(`Invalid width: '${posArgs[1]}'`);
+    }
+    let height = parseInt(posArgs[2]);
+    if (Number.isNaN(height)) {
+        error(`Invalid height: '${posArgs[2]}'`);
     }
 
     if (dx !== 0 || dy !== 0) {
@@ -332,8 +335,8 @@ if (mode === 'periodic') {
     // }
 
     grid = new Grid(width, height, period);
-    for (let y = 0; y < height - dy; y++) {
-        for (let x = 0; x < width - dx; x++) {
+    for (let y = Math.max(0, -dy); y < height - Math.max(0, dy); y++) {
+        for (let x = Math.max(0, -dx); x < width - Math.max(0, dx); x++) {
             grid.set(0, x, y, UNKNOWN);
         }
     }

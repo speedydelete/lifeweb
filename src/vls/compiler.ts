@@ -19,6 +19,10 @@ export const DONT_CARE = 3;
 
 export type State = typeof UNKNOWN | typeof OFF | typeof ON | typeof DONT_CARE;
 
+function isKnown(state: State): state is typeof OFF | typeof ON {
+    return state === ON || state === OFF;
+}
+
 export type Variable = number;
 
 export const SEARCHABLE = 0;
@@ -129,6 +133,21 @@ export class Grid {
         return this;
     }
 
+    setVar(variable: Variable, state: State): this {
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    let cell = this.data[t][y][x];
+                    if (cell.variable === variable) {
+                        cell.state = state;
+                        cell.variable = 0;
+                    }
+                }
+            }
+        }
+        return this;
+    }
+
     copy(): Grid {
         let out = new Grid(this.width, this.height, this.gens, structuredClone(this.data));
         out.numVars = this.numVars;
@@ -209,45 +228,95 @@ export class Grid {
         return this;
     }
 
-    combineWith(other: Grid): this {
-        if (this.width !== other.width || this.height !== other.height || this.gens !== other.gens) {
-            throw new Error(`This error should not occur, please report it (bounding box mismatch while attempting to combine grids)`);
+    combineCells(x: Cell, y: Cell, coords?: [[t: number, x: number, y: number], [t: number, x: number, y: number]]): this {
+        let simple: undefined | 'x = y' | 'y = x' = undefined;
+        if (isKnown(x.state)) {
+            if (isKnown(y.state)) {
+                if (x.state !== y.state) {
+                    error(`Contradiction detected while binding together cells ${coords !== undefined ? ` at t = ${coords[0][0]}, x = ${coords[0][1]}, y = ${coords[0][2]} and t = ${coords[1][0]}, x = ${coords[1][1]}, y = ${coords[1][2]}` : ''}`);
+                }
+                simple = 'x = y';
+            } else if (y.state === DONT_CARE) {
+                simple = 'x = y';
+            } else {
+                simple = 'y = x';
+            }
+        } else if (x.state === DONT_CARE) {
+            if (isKnown(y.state)) {
+                simple = 'x = y';
+            } else if (y.state === DONT_CARE) {
+                simple = 'x = y';
+            } else {
+                // don't care propagates
+                simple = 'y = x';
+            }
+        } else {
+            if (isKnown(y.state)) {
+                simple = 'x = y';
+            } else if (y.state === DONT_CARE) {
+                // don't care propagates
+                simple = 'x = y';
+            }
         }
+        if (simple !== undefined) {
+            if (simple === 'y = x') {
+                let temp = x;
+                x = y;
+                y = temp;
+            }
+            x.state = y.state;
+            x.settable = y.settable;
+            if (x.variable !== undefined) {
+                if (y.variable !== undefined) {
+                    this.reassignVar(x.variable, y.variable);
+                } else {
+                    y.variable = x.variable;
+                }
+            } else {
+                if (y.variable !== undefined) {
+                    x.variable = y.variable;
+                } else {
+                    // do nothing
+                }
+            }
+        }
+        if (x.variable !== undefined) {
+            if (y.variable !== undefined) {
+                this.reassignVar(x.variable, y.variable);
+            } else {
+                y.variable = x.variable;
+            }
+        } else {
+            if (x.variable !== undefined) {
+                x.variable = y.variable;
+            } else {
+                let variable = this.getNewVar();
+                x.variable = variable;
+                y.variable = variable;
+            }
+        }
+        return this;
+    }
+
+    bindCells(cell1: [t: number, x: number, y: number], cell2: [t: number, x: number, y: number]): this {
+        let x = this.data[cell1[0]][cell1[2]][cell1[1]];
+        let y = this.data[cell2[0]][cell2[2]][cell2[1]];
+        return this.combineCells(x, y, [cell1, cell2]);
+    }
+
+    combineWith(otherGrid: Grid): this {
+        // if (this.width !== other.width || this.height !== other.height || this.gens !== other.gens) {
+        //     throw new Error(`This error should not occur, please report it (bounding box mismatch while attempting to combine grids)`);
+        // }
         for (let t = 0; t < this.gens; t++) {
             for (let yi = 0; yi < this.height; yi++) {
                 for (let xi = 0; xi < this.width; xi++) {
-                    let x = this.data[t][yi][xi];
-                    let y = other.data[t][yi][xi];
-                    let cell: Cell;
-                    if (x.settable !== y.settable) {
-                        error(`Contradiction detected while combining grids at t = ${t}, x = ${x}, y = ${y} (settable mismatch)`);
+                    let cell = this.data[t][yi][xi];
+                    let other = otherGrid.data[t]?.[yi]?.[xi];
+                    if (other === undefined) {
+                        continue;
                     }
-                    if (x.state === DONT_CARE) {
-                        cell = structuredClone(y);
-                    } else if (y.state === DONT_CARE) {
-                        cell = structuredClone(x);
-                    } else if (x.state === UNKNOWN) {
-                        if (y.state === UNKNOWN) {
-                            if (x.variable !== y.variable) {
-                                error(`Contradiction detected while combining grids at t = ${t}, x = ${x}, y = ${y} (variable mismatch)`);
-                            } else {
-                                cell = structuredClone(x);
-                            }
-                        } else {
-                            cell = structuredClone(y);
-                        }
-                    } else {
-                        if (y.state === UNKNOWN) {
-                            cell = structuredClone(x);
-                        } else {
-                            if (x.state !== y.state) {
-                                error(`Contradiction detected while combining grids at t = ${t}, x = ${x}, y = ${y} (state mismatch)`);
-                            } else {
-                                cell = structuredClone(x);
-                            }
-                        }
-                    }
-                    this.set(t, xi, yi, cell);
+                    this.combineCells(cell, other);
                 }
             }
         }
@@ -324,7 +393,7 @@ export class Grid {
                 for (let x = 0; x < this.width; x++) {
                     let cell = this.data[t][y][x];
                     if (cell.variable !== undefined && cell.state !== UNKNOWN) {
-                        cell.variable = undefined;
+                        this.setVar(cell.variable, cell.state);
                     }
                 }
             }
@@ -394,47 +463,6 @@ export class Grid {
         return this;
     }
 
-    bindCells(cell1: [t: number, x: number, y: number], cell2: [t: number, x: number, y: number]): this {
-        let x = this.data[cell1[0]][cell1[2]][cell1[1]];
-        let y = this.data[cell2[0]][cell2[2]][cell2[1]];
-        if (x.state !== UNKNOWN && x.state !== DONT_CARE) {
-            if (y.state !== UNKNOWN && y.state !== DONT_CARE) {
-                if (x.state !== y.state) {
-                    error(`Contradiction detected while binding together cells at t = ${cell1[0]}, x = ${cell1[1]}, y = ${cell2[2]} and t = ${cell2[0]}, x = ${cell2[1]}, y = ${cell2[2]}`);
-                }
-                return this;
-            } else {
-                y.state = x.state;
-                y.variable = x.variable;
-                y.settable = x.settable;
-                return this;
-            }
-        } else {
-            if (y.state !== UNKNOWN && y.state !== DONT_CARE) {
-                x.state = y.state;
-                x.variable = y.variable;
-                x.settable = y.settable;
-                return this;
-            }
-        }
-        if (x.variable !== undefined) {
-            if (y.variable !== undefined) {
-                this.reassignVar(x.variable, y.variable);
-            } else {
-                y.variable = x.variable;
-            }
-        } else {
-            if (x.variable !== undefined) {
-                x.variable = y.variable;
-            } else {
-                let variable = this.getNewVar();
-                x.variable = variable;
-                y.variable = variable;
-            }
-        }
-        return this;
-    }
-
     resolveWrap(): this {
         if (!this.wrap) {
             return this;
@@ -468,101 +496,117 @@ export class Grid {
         return this;
     }
 
-    // setTopEdge(type: EdgeType): this {
-    //     if (type === 'none') {
-    //         return this;
-    //     }
-    //     this.expand({up: 2});
-    //     for (let x = 0; x < this.width; x++) {
-    //         this.set(0, x, 0, cell(DONT_CARE));
-    //     }
-    //     let bindToY: number;
-    //     if (type === 'even') {
-    //         bindToY = 2;
-    //     } else if (type === 'odd') {
-    //         bindToY = 3;
-    //     } else {
-    //         bindToY = this.height - 1;
-    //     }
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let x = 0; x < this.width; x++) {
-    //             this.bindCells([t, x, 0], [t, x, bindToY]);
-    //         }
-    //     }
-    //     return this;
-    // }
+    setTopEdge(type: EdgeType, expand: boolean = true): this {
+        if (type === 'none') {
+            return this;
+        }
+        if (expand) {
+            this.expand({up: 2});
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let x = 0; x < this.width; x++) {
+                this.set(t, x, 0, cell(DONT_CARE));
+            }
+        }
+        let bindToY: number;
+        if (type === 'even') {
+            bindToY = 2;
+        } else if (type === 'odd') {
+            bindToY = 3;
+        } else {
+            bindToY = this.height - 1;
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let x = 0; x < this.width; x++) {
+                this.bindCells([t, x, 1], [t, x, bindToY]);
+            }
+        }
+        return this;
+    }
 
-    // setBottomEdge(type: EdgeType): this {
-    //     if (type === 'none') {
-    //         return this;
-    //     }
-    //     this.expand({down: 2});
-    //     for (let x = 0; x < this.width; x++) {
-    //         this.set(0, x, this.height - 1, cell(DONT_CARE));
-    //     }
-    //     let bindToY: number;
-    //     if (type === 'even') {
-    //         bindToY = this.height - 3;
-    //     } else if (type === 'odd') {
-    //         bindToY = this.height - 4;
-    //     } else {
-    //         bindToY = 0;
-    //     }
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let x = 0; x < this.width; x++) {
-    //             this.bindCells([t, x, this.height - 1], [t, x, bindToY]);
-    //         }
-    //     }
-    //     return this;
-    // }
+    setBottomEdge(type: EdgeType, expand: boolean = true): this {
+        if (type === 'none') {
+            return this;
+        }
+        if (expand) {
+            this.expand({down: 2});
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let x = 0; x < this.width; x++) {
+                this.set(t, x, this.height - 1, cell(DONT_CARE));
+            }
+        }
+        let bindToY: number;
+        if (type === 'even') {
+            bindToY = this.height - 3;
+        } else if (type === 'odd') {
+            bindToY = this.height - 4;
+        } else {
+            bindToY = 0;
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let x = 0; x < this.width; x++) {
+                this.bindCells([t, x, this.height - 2], [t, x, bindToY]);
+            }
+        }
+        return this;
+    }
 
-    // setLeftEdge(type: EdgeType): this {
-    //     if (type === 'none') {
-    //         return this;
-    //     }
-    //     this.expand({left: 2});
-    //     for (let y = 0; y < this.height; y++) {
-    //         this.set(0, 0, y, cell(DONT_CARE));
-    //     }
-    //     let bindToX: number;
-    //     if (type === 'even') {
-    //         bindToX = 2;
-    //     } else if (type === 'odd') {
-    //         bindToX = 3;
-    //     } else {
-    //         bindToX = this.width - 1;
-    //     }
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let y = 0; y < this.height; y++) {
-    //             this.bindCells([t, 0, y], [t, bindToX, y]);
-    //         }
-    //     }
-    //     return this;
-    // }
+    setLeftEdge(type: EdgeType, expand: boolean = true): this {
+        if (type === 'none') {
+            return this;
+        }
+        if (expand) {
+            this.expand({left: 2});
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                this.set(t, 0, y, cell(DONT_CARE));
+            }
+        }
+        let bindToX: number;
+        if (type === 'even') {
+            bindToX = 2;
+        } else if (type === 'odd') {
+            bindToX = 3;
+        } else {
+            bindToX = this.width - 1;
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                this.bindCells([t, 1, y], [t, bindToX, y]);
+            }
+        }
+        return this;
+    }
 
-    // setRightEdge(type: EdgeType): this {
-    //     if (type === 'none') {
-    //         return this;
-    //     }
-    //     this.expand({right: 2});
-    //     for (let y = 0; y < this.height; y++) {
-    //         this.set(0, this.width - 1, y, cell(DONT_CARE));
-    //     }
-    //     let bindToX: number;
-    //     if (type === 'even') {
-    //         bindToX = this.width - 3;
-    //     } else if (type === 'odd') {
-    //         bindToX = this.width - 4;
-    //     } else {
-    //         bindToX = 0;
-    //     }
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let y = 0; y < this.height; y++) {
-    //             this.bindCells([t, this.width - 1, y], [t, bindToX, y]);
-    //         }
-    //     }
-    //     return this;
-    // }
+    setRightEdge(type: EdgeType, expand: boolean = true): this {
+        if (type === 'none') {
+            return this;
+        }
+        if (expand) {
+            this.expand({right: 2});
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                this.set(t, this.width - 1, y, cell(DONT_CARE));
+            }
+        }
+        let bindToX: number;
+        if (type === 'even') {
+            bindToX = this.width - 3;
+        } else if (type === 'odd') {
+            bindToX = this.width - 4;
+        } else {
+            bindToX = 0;
+        }
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                this.bindCells([t, this.width - 2, y], [t, bindToX, y]);
+            }
+        }
+        return this;
+    }
 
     applySymmetry(symmetry: string): this {
         if (!(symmetry in SYMMETRIES)) {
@@ -587,45 +631,45 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         // do nothing
     },
 
-    D2h(grid: Grid): void {
-        for (let t = 0; t < grid.gens; t++) {
-            for (let y = 0; y < grid.height; y++) {
-                for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
-                    grid.bindCells([t, x, y], [t, grid.width - x - 1, y]);
-                }
-            }
-        }
-    },
-    'D2|': 'D2h',
-
-    D2v(grid: Grid): void {
-        for (let t = 0; t < grid.gens; t++) {
-            for (let y = 0; y < Math.ceil(grid.height / 2); y++) {
-                for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
-                    grid.bindCells([t, x, y], [t, x, grid.height - y - 1]);
-                }
-            }
-        }
-    },
-    'D2-': 'D2v',
-
     // D2h(grid: Grid): void {
-    //     let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
-    //     let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
-    //     grid = grid.shrink({right: Math.floor(grid.width / 2)});
-    //     grid.combineWith(right);
-    //     grid.setRightEdge(type);
+    //     for (let t = 0; t < grid.gens; t++) {
+    //         for (let y = 0; y < grid.height; y++) {
+    //             for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
+    //                 grid.bindCells([t, x, y], [t, grid.width - x - 1, y]);
+    //             }
+    //         }
+    //     }
     // },
     // 'D2|': 'D2h',
 
     // D2v(grid: Grid): void {
-    //     let type: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
-    //     let bottom = grid.copy().flipHorizontal().shrink({down: Math.floor(grid.height / 2)});
-    //     grid = grid.shrink({down: Math.floor(grid.height / 2)});
-    //     grid.combineWith(bottom);
-    //     grid.setBottomEdge(type);
+    //     for (let t = 0; t < grid.gens; t++) {
+    //         for (let y = 0; y < Math.ceil(grid.height / 2); y++) {
+    //             for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
+    //                 grid.bindCells([t, x, y], [t, x, grid.height - y - 1]);
+    //             }
+    //         }
+    //     }
     // },
     // 'D2-': 'D2v',
+
+    D2h(grid: Grid): void {
+        let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
+        let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
+        grid = grid.shrink({right: Math.floor(grid.width / 2) - 2});
+        grid.combineWith(right);
+        grid.setRightEdge(type, false);
+    },
+    'D2|': 'D2h',
+
+    D2v(grid: Grid): void {
+        let type: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
+        let bottom = grid.copy().flipVertical().shrink({down: Math.floor(grid.height / 2)});
+        grid = grid.shrink({down: Math.floor(grid.height / 2) - 2});
+        grid.combineWith(bottom);
+        grid.setBottomEdge(type, false);
+    },
+    'D2-': 'D2v',
 
     // D2b(grid: Grid): void {
 
@@ -640,6 +684,16 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
     D4p(grid: Grid): void {
         grid.applySymmetry('D2h');
         grid.applySymmetry('D2v');
+        // let type1: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
+        // let type2: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
+        // let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
+        // grid = grid.shrink({right: Math.floor(grid.width / 2) - 2});
+        // grid.combineWith(right);
+        // let bottom = grid.copy().flipHorizontal().shrink({down: Math.floor(grid.height / 2)});
+        // grid = grid.shrink({down: Math.floor(grid.height / 2) - 2});
+        // grid.combineWith(bottom);
+        // grid.setRightEdge(type1);
+        // grid.setBottomEdge(type2);
     },
     'D4+': 'D4p',
 

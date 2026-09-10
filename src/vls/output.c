@@ -401,7 +401,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
             for (int y = PADDING; y < HEIGHT - PADDING; y++) {
                 for (int x = PADDING; x < WIDTH - PADDING; x++) {
                     cell_value_t value = grid[t][y][x].value;
-                    if (value != OFF && value != ON) {
+                    if (value == UNKNOWN) {
                         found = true;
                         break;
                     }
@@ -421,10 +421,10 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
                 DPRINTLINEPADDING();
                 for (int x = PADDING; x < WIDTH - PADDING; x++) {
                     cell_value_t value = grid[0][y][x].value;
-                    if (value == OFF) {
-                        real_printf(".");
-                    } else {
+                    if (value == ON) {
                         real_printf("o");
+                    } else {
+                        real_printf(".");
                     }
                 }
                 if (y == HEIGHT - PADDING - 1) {
@@ -460,7 +460,7 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
                 } else if (value == ON) {
                     real_printf("o");
                 } else if (value == DONT_CARE) {
-                    real_printf("C");
+                    // real_printf("C");
                 } else {
                     real_printf("\n\n");
                     fprintf(stderr, "\n");
@@ -496,7 +496,8 @@ static inline void print_solution(bool preprocessing) {
     bool found = false;
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            if (grid[0][y][x].value != OFF) {
+            cell_value_t value = grid[0][y][x].value;
+            if (value == ON) {
                 found = true;
                 break;
             }
@@ -517,12 +518,16 @@ static inline void print_solution(bool preprocessing) {
    for (index_t t = 0; t < GENS; t++) {
         for (index_t y = 0; y < HEIGHT; y++) {
             for (index_t x = 0; x < WIDTH; x++) {
-                hash_grid[t][y][x] = grid[t][y][x].value;
+                cell_value_t value = grid[t][y][x].value;
+                if (value == DONT_CARE) {
+                    value = OFF;
+                }
+                hash_grid[t][y][x] = value;
             }
         }
     }
     #ifdef CELL_PERIOD_FILTER
-    for (int i = )
+    for (int i = 0; i < )
     #endif
     // apply subperiod filter
     #if TIME_WRAP && FILTER_SUBPERIOD
