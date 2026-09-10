@@ -166,8 +166,7 @@ index_t search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 8, 2}, {0, 8, 3}, {0, 8, 4},
 #define FILTER_DUPLICATES true
 
 // period filter for cells
-// either 'false' or an int[] initializer
-#define CELL_PERIOD_FILTER false
+// #define CELL_PERIOD_FILTER {67, 41}
 
 // reporting interval
 #define REPORTING_INTERVAL 1

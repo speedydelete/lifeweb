@@ -29,7 +29,7 @@ static inline void preprocess_implications(void) {
                     printf("WHY, t = %i, x = %i, y = %i\n", t, x, y);
                     exit(1);
                 }
-                if (!check_implication(cell)) {
+                if (!check_implication_for_preprocessing(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
                         rule_dependent_tr = -1;

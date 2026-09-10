@@ -29,6 +29,8 @@ typedef struct bb_t {
     index_t y_offset;
 } bb_t;
 
+cell_value_t hash_grid[GENS][HEIGHT][WIDTH];
+
 static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     bb->width = WIDTH;
     bb->height = HEIGHT;
@@ -39,7 +41,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     for (index_t y = 0; y < HEIGHT; y++) {
         bool found = false;
         for (index_t x = 0; x < WIDTH; x++) {
-            if (grid[t][y][x].value != OFF) {
+            if (hash_grid[t][y][x] != OFF) {
                 found = true;
                 break;
             }
@@ -57,7 +59,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     for (int y = HEIGHT - 1; y >= 0; y--) {
         bool found = false;
         for (index_t x = 0; x < WIDTH; x++) {
-            if (grid[t][y][x].value != OFF) {
+            if (hash_grid[t][y][x] != OFF) {
                 found = true;
                 break;
             }
@@ -74,7 +76,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     for (index_t x = 0; x < WIDTH; x++) {
         bool found = false;
         for (index_t y = 0; y < HEIGHT; y++) {
-            if (grid[t][y][x].value != OFF) {
+            if (hash_grid[t][y][x] != OFF) {
                 found = true;
                 break;
             }
@@ -92,7 +94,7 @@ static inline void get_true_bb(bb_t* bb, cell_value_t t) {
     for (int x = WIDTH - 1; x >= 0; x--) {
         bool found = false;
         for (index_t y = 0; y < HEIGHT; y++) {
-            if (grid[t][y][x].value != OFF) {
+            if (hash_grid[t][y][x] != OFF) {
                 found = true;
                 break;
             }
@@ -175,7 +177,7 @@ static inline hash_t hash_at_time(index_t t, axis_trans_t x_trans, axis_trans_t 
             index_t real_x = 0;
             index_t real_y = 0;
             transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
-            out ^= grid[t][real_y][real_x].value;
+            out ^= hash_grid[t][real_y][real_x];
             out *= HASH_PRIME;
         }
     }
@@ -270,7 +272,7 @@ static inline hash_t hash_with_offset(index_t offset, axis_trans_t x_trans, axis
                 index_t real_x = 0;
                 index_t real_y = 0;
                 transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
-                out ^= grid[t][real_y][real_x].value;
+                out ^= hash_grid[t][real_y][real_x];
                 out *= HASH_PRIME;
             }
         }
@@ -479,6 +481,10 @@ static inline void print_grid_pretty(cell grid[GENS][HEIGHT][WIDTH], bool is_sol
     }
 }
 
+#ifdef CELL_PERIOD_FILTER
+const int cell_period_filter[] = CELL_PERIOD_FILTER;
+#endif
+
 static inline void print_solution(bool preprocessing) {
     #if SHOW_SOLUTIONS
     DPRINTF2("Checking solution:\n");
@@ -504,6 +510,17 @@ static inline void print_solution(bool preprocessing) {
         }
         return;
     }
+    #endif
+    // put it into the hash grid
+   for (index_t t = 0; t < GENS; t++) {
+        for (index_t y = 0; y < HEIGHT; y++) {
+            for (index_t x = 0; x < WIDTH; x++) {
+                hash_grid[t][y][x] = grid[t][y][x].value;
+            }
+        }
+    }
+    #ifdef CELL_PERIOD_FILTER
+    for (int i = )
     #endif
     // apply subperiod filter
     #if TIME_WRAP && FILTER_SUBPERIOD

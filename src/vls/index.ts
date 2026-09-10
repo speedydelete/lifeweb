@@ -88,7 +88,7 @@ Options:
     --no-show-solutions: disable showing solutions at all
     --allow-empty: allow the empty pattern as a solution
     --allow-duplicates: allow duplicate solutions to be reported
-    --period-filter <periods>:
+    --cell-period-filter <periods>:
         filter out cells of those periods when checking for duplicates
         the argument is a comma- or space-separated list of integers
 
@@ -133,7 +133,7 @@ const OPTIONS = {
     'no-show-solutions': 'boolean',
     'allow-empty': 'boolean',
     'allow-duplicates': 'boolean',
-    'period-filter': 'string',
+    'cell-period-filter': 'string',
 } as const satisfies {[key: string]: OptionValue};
 
 type Options = typeof OPTIONS;
@@ -294,13 +294,13 @@ if (mode === 'periodic') {
         error(`Expected 3 positional arguments for periodic mode (got ${posArgs.length})`);
     }
     let {dx, dy, period} = parseSpeed(posArgs[0]);
-    let width = parseInt(posArgs[1]);
-    let height = parseInt(posArgs[2]);
-    if (Number.isNaN(width)) {
-        error(`Invalid width: '${posArgs[1]}'`);
-    }
+    let height = parseInt(posArgs[1]);
     if (Number.isNaN(height)) {
-        error(`Invalid height: '${posArgs[2]}'`);
+        error(`Invalid height: '${posArgs[1]}'`);
+    }
+    let width = parseInt(posArgs[2]);
+    if (Number.isNaN(width)) {
+        error(`Invalid width: '${posArgs[2]}'`);
     }
 
     if (dx !== 0 || dy !== 0) {
@@ -775,36 +775,35 @@ for (let line of code.split('\n')) {
     } else if (name === 'MULTI_RULE') {
         value = multiRule;
     } else if (name === 'IS_OT') {
-        value = false;
-        // if (multiRule) {
-        //     value = false;
-        // } else {
-        //     let rule = base.rule.str;
-        //     let match = rule.match(/^B(\d+)\/S(\d+)$/);
-        //     if (!match) {
-        //         value = false;
-        //     } else {
-        //         let found = false;
-        //         for (let value of [match[1], match[2]]) {
-        //             let prevChar = value[0];
-        //             for (let char of value.slice(1)) {
-        //                 if (char !== String(Number(prevChar) + 1)) {
-        //                     found = true;
-        //                     break;
-        //                 }
-        //                 prevChar = char;
-        //             }
-        //             if (found) {
-        //                 break;
-        //             }
-        //         }
-        //         if (!found) {
-        //             value = true;
-        //         } else {
-        //             value = false;
-        //         }
-        //     }
-        // }
+        if (multiRule) {
+            value = false;
+        } else {
+            let rule = base.rule.str;
+            let match = rule.match(/^B(\d+)\/S(\d+)$/);
+            if (!match) {
+                value = false;
+            } else {
+                let found = false;
+                for (let value of [match[1], match[2]]) {
+                    let prevChar = value[0];
+                    for (let char of value.slice(1)) {
+                        if (char !== String(Number(prevChar) + 1)) {
+                            found = true;
+                            break;
+                        }
+                        prevChar = char;
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+                if (!found) {
+                    value = true;
+                } else {
+                    value = false;
+                }
+            }
+        }
     } else if (name === 'RULESPACE') {
         value = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
     } else if (name === 'SPECIAL_AFTER_RULE') {
@@ -828,6 +827,17 @@ for (let line of code.split('\n')) {
             value = 67;
         } else {
             value = options['max-solutions'];
+        }
+    } else if (name === 'CHECK_EMPTY') {
+        value = !options['allow-empty'];
+    } else if (name === 'FILTER_DUPLICATES') {
+        value = !options['allow-duplicates'];
+    } else if (name === 'CELL_PERIOD_FILTER') {
+        if (options['cell-period-filter']) {
+            value = `{${options['cell-period-filter'].split(/[, ]+/).map(Number).join(', ')}}`;
+        } else {
+            comment = true;
+            value = `{67, 41}`;
         }
     } else if (name === 'REPORTING_INTERVAL') {
         value = options['interval'] ?? 1;

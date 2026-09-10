@@ -544,31 +544,17 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 // returns false if contradiction, true if no contradiction
 static inline __attribute__((always_inline)) bool check_implication_for_preprocessing(cell* cell) {
     if (cell == NULL) {
-        return true;
-    }
-    #if !TIME_WRAP
-    if (cell->next == NULL) {
-        return true;
-    }
-    #endif
-    if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
-        if (cell->next == NULL) {
-            return true;
-        }
-        if (cell->next->value == UNKNOWN) {
-            set_cell_and_propagate(cell->next, OFF);
-        } else if (cell->next->value == OFF) {
-            return true;
-        } else {
-            return false;
-        }
+        DPRINTF4("Contradiction (implication, cell == NULL)\n");
+        return false;
     }
     uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
     #define add(cell) \
-        if ((cell)->value == ON) { \
-            tr += 16; \
-        } else if ((cell)->value == OFF) { \
-            tr += 1; \
+        if ((cell) != NULL) { \
+            if ((cell)->value == ON) { \
+                tr += 16; \
+            } else if ((cell)->value == OFF) { \
+                tr += 1; \
+            } \
         }
     add(cell->nw);
     add(cell->n);
@@ -602,7 +588,6 @@ static inline __attribute__((always_inline)) bool check_implication_for_preproce
     } else if (value & NEXT_TO_1) {
         set(cell->next, ON);
     }
-    char* x = nullptr;
     #define check(cell, new_value) \
         if ((cell) != nullptr && (cell)->value == UNKNOWN) { \
             set((cell), (new_value)); \
