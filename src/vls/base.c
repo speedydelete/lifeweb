@@ -317,6 +317,7 @@ static inline void init_state(void) {
             }
         }
     }
+    #if CACHE_IMPLICATION_TRS
     for (Index t = 0; t < GENS; t++) {
         for (Index y = 0; y < HEIGHT; y++) {
             for (Index x = 0; x < WIDTH; x++) {
@@ -325,6 +326,7 @@ static inline void init_state(void) {
             }
         }
     }
+    #endif
     set_cells = 0;
     #ifdef MAXPOP
     phase_0_pop = 0;
