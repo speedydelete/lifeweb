@@ -88,13 +88,12 @@ import {transformCode} from './index.js';
 
 
 const ORDER = [
-    'params.h',
-    'bound_trs.c',
+    'rulespaces.c',
     'rules.c',
     'base.c',
     'implications.c',
     'output.c',
-    'search_cell.c',
+    'search.c',
     'preprocess.c',
     'index.c',
 ];
@@ -124,7 +123,9 @@ let outElt = document.getElementById('out');
 
 document.getElementById('compile').addEventListener('click', async () => {
     let argv = ['node'].concat(commandInput.value.split(' '));
-    outElt.textContent = (await transformCode(argv, source))[1];
+    let params2 = (await transformCode(argv, (await import('./params.h')).default))[1];
+    params2 = params2.replaceAll('#pragma once', '');
+    outElt.textContent = params2 + '\n' + source;
     let range = document.createRange();
     range.selectNodeContents(outElt);
     let sel = window.getSelection();

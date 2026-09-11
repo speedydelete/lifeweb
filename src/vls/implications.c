@@ -6,7 +6,9 @@
 #include "params2.h"
 #include "base.c"
 #include "rulespaces.c"
+#ifdef CUSTOM
 #include "custom.c"
+#endif
 
 #if MULTI_RULE
 #include <stdio.h>
@@ -178,13 +180,68 @@ static inline void generate_implications(void)
 }
 
 
-static bool set_cell_and_propagate(cell* cell, cell_value_t value);
+static bool set_cell_and_propagate(Cell* cell, CellValue value);
 
 
 #if !IS_OT
 
 
 // use normal method for noncontiguous OT rules
+
+
+#if CACHE_IMPLICATION_TRS
+
+static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
+    cell->value = value;
+    #if !TIME_WRAP
+    if (cell->prev != NULL) {
+        cell->prev->tr = (cell->prev->tr & ~3) | value;
+    }
+    #else
+    cell->prev->tr = (cell->prev->tr & ~3) | value;
+    #endif
+    #define add(cell, shift) \
+        (cell)->tr = ((cell)->tr & ~(3 << (shift))) | (value << (shift));
+    add(cell->nw, 2);
+    add(cell->w, 4);
+    add(cell->sw, 6);
+    add(cell->n, 8);
+    add(cell, 10);
+    add(cell->s, 12);
+    add(cell->ne, 14);
+    add(cell->e, 16);
+    add(cell->se, 18);
+    #undef add
+}
+
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
+    cell->value = value;
+    if (cell->prev != NULL) {
+        cell->prev->tr = (cell->prev->tr & ~3) | value;
+    }
+    #define add(cell, shift) \
+        if ((cell) != NULL) { \
+            (cell)->tr = ((cell)->tr & ~(3 << (shift))) | (value << (shift)); \
+        }
+    add(cell->nw, 2);
+    add(cell->w, 4);
+    add(cell->sw, 6);
+    add(cell->n, 8);
+    add(cell, 10);
+    add(cell->s, 12);
+    add(cell->ne, 14);
+    add(cell->e, 16);
+    add(cell->se, 18);
+    #undef add
+}
+
+#endif
 
 
 #if MULTI_RULE
@@ -194,7 +251,7 @@ int32_t rule_dependent_tr = -1;
 #endif
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication(Cell* cell) {
     if (cell == NULL) {
         return true;
     }
@@ -202,6 +259,12 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
     if (cell->next == NULL) {
         return true;
     }
+    #endif
+    #if KEEP_LAST_CHECKED_TIME
+    if (cell->last_checked_time == current_time) {
+        return true;
+    }
+    cell->last_checked_time = current_time;
     #endif
     if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
         if (cell->next == NULL) {
@@ -215,6 +278,9 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
             return false;
         }
     }
+    #if CACHE_IMPLICATION_TRS
+    uint32_t tr = cell->tr;
+    #else
     uint32_t tr = 
             (cell->nw->value << 18)
           | (cell->w->value << 16)
@@ -226,6 +292,7 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
           | (cell->e->value << 4)
           | (cell->se->value << 2)
           | (cell->next->value << 0);
+    #endif
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
@@ -274,11 +341,20 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication_handles_edges(Cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
     }
+    #if KEEP_LAST_CHECKED_TIME
+    if (cell->last_checked_time == current_time) {
+        return true;
+    }
+    cell->last_checked_time = current_time;
+    #endif
+    #if CACHE_IMPLICATION_TRS
+    uint32_t tr = cell->tr;
+    #else
     uint32_t tr = 
             ((cell->nw ? cell->nw->value : OFF) << 18)
           | ((cell->w ? cell->w->value : OFF) << 16)
@@ -290,6 +366,7 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
           | ((cell->e ? cell->e->value : OFF) << 4)
           | ((cell->se ? cell->se->value : OFF) << 2)
           | ((cell->next ? cell->next->value : OFF) << 0);
+    #endif
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
     if (value == DO_NOTHING) {
@@ -379,8 +456,11 @@ int8_t ot_implications[4096];
 
 #if CACHE_IMPLICATION_TRS
 
-static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
-    cell_value_t prev = cell->value;
+static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
+    CellValue prev = cell->value;
     cell->value = value;
     cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
     #if !TIME_WRAP
@@ -438,8 +518,11 @@ static inline __attribute__((always_inline)) void actual_set_cell_value(cell* ce
     cell->se->tr += change;
 }
 
-static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
-    cell_value_t prev = cell->value;
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
+    CellValue prev = cell->value;
     cell->value = value;
     cell->tr = (cell->tr & ~CURRENT_VALUE) | (value << 10);
     if (cell->prev != NULL) {
@@ -587,10 +670,16 @@ static inline void generate_implications(void) {
 
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication(Cell* cell) {
     if (cell == NULL) {
         return true;
     }
+    #if KEEP_LAST_CHECKED_TIME
+    if (cell->last_checked_time == current_time) {
+        return true;
+    }
+    cell->last_checked_time = current_time;
+    #endif
     #if !TIME_WRAP
     if (cell->next == NULL) {
         return true;
@@ -680,11 +769,17 @@ static inline __attribute__((always_inline)) bool check_implication(cell* cell) 
 }
 
 // returns false if contradiction, true if no contradiction
-static inline __attribute__((always_inline)) bool check_implication_handles_edges(cell* cell) {
+static inline __attribute__((always_inline)) bool check_implication_handles_edges(Cell* cell) {
     if (cell == NULL) {
         DPRINTF4("Contradiction (implication, cell == NULL)\n");
         return false;
     }
+    #if KEEP_LAST_CHECKED_TIME
+    if (cell->last_checked_time == current_time) {
+        return true;
+    }
+    cell->last_checked_time = current_time;
+    #endif
     #if CACHE_IMPLICATION_TRS
     uint32_t tr = cell->tr;
     #else
@@ -760,7 +855,7 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
 #endif
 
 
-static inline bool __attribute__((always_inline)) check_implications(cell* cell) {
+static inline bool __attribute__((always_inline)) check_implications(Cell* cell) {
     return check_implication((cell))
         && check_implication((cell)->prev)
         && check_implication((cell)->nw)
@@ -775,12 +870,12 @@ static inline bool __attribute__((always_inline)) check_implications(cell* cell)
 
 
 #if VARIABLES
-cell_value_t prev_values[MAX_VAR_USES];
+CellValue prev_values[MAX_VAR_USES];
 #endif
 
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
-static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
+static inline bool set_cell_and_propagate(Cell* cell, CellValue value) {
     DPRINTF4("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     if (cell->value != UNKNOWN) {
         #if DEBUG >= 4
@@ -808,11 +903,11 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
         #endif
         return true;
     }
-    var_t var = cell->var;
+    Variable var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
     DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
-    for (index_t use = 0; use < num_var_uses[var]; use++) {
-        struct cell* cell = var_uses[var][use];
+    for (Index use = 0; use < num_var_uses[var]; use++) {
+        Cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         prev_values[use] = cell->value;
         if (cell->value != UNKNOWN) {
@@ -828,8 +923,8 @@ static inline bool set_cell_and_propagate(cell* cell, cell_value_t value) {
     }
     DPRINTF4("Checking variable set implications\n");
     DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
-    for (index_t use = 0; use < num_var_uses[var]; use++) {
-        struct cell* cell = var_uses[var][use];
+    for (Index use = 0; use < num_var_uses[var]; use++) {
+        Cell* cell = var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         if (prev_values[use] == UNKNOWN) {
             if (!check_implications(cell)) {

@@ -12,13 +12,9 @@
 #include "base.c"
 #include "output.c"
 #include "preprocess.c"
-
-#if METHOD == METHOD_CELL
-#include "search_cell.c"
-#elif METHOD == METHOD_PATH
-#include "search_path.c"
-#else
-#error "Invalid method"
+#include "search.c"
+#ifdef CUSTOM
+#include CUSTOM
 #endif
 
 
@@ -55,21 +51,22 @@ int main(void) {
     init_tr_to_bound_tr();
     #endif
     init_known_solutions();
+    #if MAX_PARTIALS
+    init_max_partial();
+    #endif
     preprocess();
     #if CUSTOM_INIT
     custom_init();
     #endif
-    #if METHOD == CELL
     add_search_orders();
-    #endif
     DPRINTGRID1();
-    #if DEBUG >= 2 && METHOD == METHOD_CELL
+    #if DEBUG >= 2
     printf("Search order:\n");
-    for (index_t i = 0; i < unknown_cells; i++) {
+    for (Index i = 0; i < unknown_cells; i++) {
         int t = search_order[i][0];
         int x = search_order[i][1];
         int y = search_order[i][2];
-        cell* cell = &grid[t][y][x];
+        Cell* cell = &grid[t][y][x];
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
         #if VARIABLES
         print_cell(stdout, cell->value, cell->var);
@@ -88,30 +85,25 @@ int main(void) {
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
-        #if METHOD == METHOD_CELL
         #if MULTI_RULE
         run_depth(0, initial_cell, -1);
         #else
         run_depth(0, initial_cell);
         #endif
-        #else
-        run_depth(0);
-        #endif
         printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
     double time = get_time() - start;
     printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
+    #if MAX_PARTIALS
+    free_max_partial();
+    #endif
     #else
-    #if METHOD == METHOD_CELL
     #if MULTI_RULE
     run_depth(0, initial_cell, -1);
     #else
     run_depth(0, initial_cell);
     #endif
-    #else
-    run_depth(0);
-    #endif
-    printf("Search complete, found %"PRIu64" solutions in %.3f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+    printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #if MAX_PARTIALS
     if (solutions_found == 0) {
         #if MULTI_RULE
@@ -122,6 +114,7 @@ int main(void) {
         print_grid_pretty(max_partial, false);
         #endif
     }
+    free_max_partial();
     #endif
     #endif
     return 0;

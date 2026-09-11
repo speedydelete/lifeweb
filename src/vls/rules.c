@@ -9,16 +9,16 @@
 #include "params2.h"
 
 
-typedef struct int_spec {
+typedef struct INTSpec {
     const int trs_count;
     const int max_map_per_tr;
     const int number_count;
     const int max_letters_per_num;
     const signed char letters[9][14];
     const int16_t trs[102][49];
-} int_spec;
+} INTSpec;
 
-const int_spec normal_int = {
+const INTSpec normal_int = {
     .trs_count = 102,
     .max_map_per_tr = 8,
     .number_count = 9,
@@ -140,7 +140,7 @@ const int_spec normal_int = {
     },
 };
 
-const int_spec hex_int = {
+const INTSpec hex_int = {
     .trs_count = 13,
     .max_map_per_tr = 48,
     .number_count = 7,
@@ -174,7 +174,7 @@ const int_spec hex_int = {
 
 // attempt to unparse transitions
 // returns -1 if it fails, the proper (positive) next_char if it succeeds
-static inline int unparse_transitions(const int_spec* spec, char* out, int next_char, bool s, bool use_maxrule) {
+static inline int unparse_transitions(const INTSpec* spec, char* out, int next_char, bool s, bool use_maxrule) {
     int or = s ? (1 << 4) : 0;
     // array to hold the letters that we've seen
     char seen_letters[spec->max_letters_per_num + 1];
@@ -249,7 +249,7 @@ static inline int unparse_transitions(const int_spec* spec, char* out, int next_
 }
 
 // attempts to get the full rule using the given spec
-static inline int _get_rule(const int_spec* spec, char* out, bool use_maxrule) {
+static inline int _get_rule(const INTSpec* spec, char* out, bool use_maxrule) {
     int next_char = 0;
     out[next_char++] = 'B';
     int value = unparse_transitions(spec, out, next_char, false, use_maxrule);
@@ -276,7 +276,7 @@ const int neighborhood_indexing[9][2] = {
     {-1, -1},
 };
 
-static inline void get_trs_neighborhood(cell_value_t trs[512], bool out[9]) {
+static inline void get_trs_neighborhood(CellValue trs[512], bool out[9]) {
     for (int i = 0; i < 9; i++) {
         bool found = false;
         for (int tr = 0; tr < 512; tr++) {
@@ -298,7 +298,7 @@ static inline int unparse_map(char* out, bool use_maxrule) {
     out[next_char++] = 'A';
     out[next_char++] = 'P';
     // unflip the rule diagonally
-    cell_value_t trs2[512];
+    CellValue trs2[512];
     for (int i = 0; i < 512; i++) {
         // in multi-rule mode, select the minrule or maxrule
         int value = trs[i] == TRS_RULE_DEPENDENT ? (use_maxrule ? 1 : 0) : trs[i];
@@ -310,7 +310,7 @@ static inline int unparse_map(char* out, bool use_maxrule) {
     get_trs_neighborhood(trs, neighborhood);
     // figure out the compactified trs for the right neighborhood
     int type_trs_length;
-    cell_value_t type_trs[512];
+    CellValue type_trs[512];
     if (neighborhood[0] == false && neighborhood[2] == false && neighborhood[6] == false && neighborhood[8] == false) {
         // von neumann
         type_trs_length = 32;
@@ -326,12 +326,12 @@ static inline int unparse_map(char* out, bool use_maxrule) {
     } else {
         // normal
         type_trs_length = 512;
-        memcpy(type_trs, trs, sizeof(cell_value_t) * 512);
+        memcpy(type_trs, trs, sizeof(CellValue) * 512);
     }
     // pack the transitions into bytes
     // we use 66 because it evenly divides into 3
     int unparsed_length = (type_trs_length + 8 - 1) / 8;
-    cell_value_t unparsed[66];
+    CellValue unparsed[66];
     for (int i = 0; i < 66; i++) {
         unparsed[i] = 0;
     }

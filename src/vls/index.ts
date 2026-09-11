@@ -68,11 +68,29 @@ Options:
 
     --maxpop <cells>: set the maximum population during the search
 
-    -m, --method <method>:
-        set the method used for searching, explained more below
+    -c, --custom <file>: use additional search constraints given in
+        the provided C file, see lifeweb/src/vls/custom/ for examples
+
+    -o, --order <order>: set the search order
+
+        The search order is defined as a comma-separated list of metrics, later
+        metrics are tiebreakers for earlier metrics. Metrics are normal
+        mathematical expressions, use variables 'x', 'y', and 't' for x, y, and
+        time respectively.
+
+        Also, you can use aliases like (r?g?-)(f2b|b2f|s2s), g means find every
+        generation of the row before moving on, and r means reverse the order of
+        the search in time.
+
+        The default search order is f2b for spaceships and 't, y, x' otherwise.
 
     -i, --initial-value <value>:
         set the initial tested value for cells, default 1
+
+    --no-ot-optimization: disable optimization for OT rules
+    --no-cache-trs: disable implication transition caching
+    --check-times: keep track of when each cell's implications was last checked,
+        can make it faster can make it slower
 
     --interval <seconds>: set the progress reporting interval, default 1
 
@@ -88,28 +106,10 @@ Options:
     --no-show-solutions: disable showing solutions at all
     --allow-empty: allow the empty pattern as a solution
     --allow-duplicates: allow duplicate solutions to be reported
+    --allow-subperiod: allow subperiod solutions to be reported
     --cell-period-filter <periods>:
         filter out cells of those periods when checking for duplicates
         the argument is a comma- or space-separated list of integers
-
-Methods:
-
-'cell':
-
-    The cell method works by setting cells one at a time like lifesrc. 
-    The method argument syntax is 'cell <search-order>'
-    
-    The search order is defined as a comma-separated list of metrics, later
-    metrics are tiebreakers for earlier metrics. Metrics are normal
-    mathematical expressions, use variables 'x', 'y', and 't' for x, y, and
-    time respectively.
-
-    Also, you can use aliases like (r?g?-)(f2b|b2f|s2s), g means find every
-    generation of the row before moving on, and r means reverse the order of
-    the search in time.
-
-    The default search order is f2b for spaceships and 't, y, x' otherwise.
-
 `;
 
 type OptionValue = 'boolean' | 'string' | 'number' | Set<string>;
@@ -124,8 +124,12 @@ const OPTIONS = {
     'rulespace': new Set(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
     'symmetry': 'string',
     'maxpop': 'number',
-    'method': 'string',
+    'custom': 'string',
+    'order': 'string',
     'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
+    'no-ot-optimization': 'boolean',
+    'no-cache-trs': 'boolean',
+    'check-times': 'boolean',
     'interval': 'number',
     'partial-type': new Set(['none', 'cell', 'start'] as const),
     'partial-interval': 'number',
@@ -133,6 +137,7 @@ const OPTIONS = {
     'no-show-solutions': 'boolean',
     'allow-empty': 'boolean',
     'allow-duplicates': 'boolean',
+    'allow-subperiod': 'boolean',
     'cell-period-filter': 'string',
 } as const satisfies {[key: string]: OptionValue};
 
@@ -144,7 +149,8 @@ const OPTION_ALIASES: {[key: string]: Option} = {
     'd': 'debug',
     'f': 'file',
     's': 'symmetry',
-    'm': 'method',
+    'c': 'custom',
+    'o': 'order',
     'i': 'initial-value',
     'n': 'max-solutions',
 };
@@ -558,6 +564,86 @@ if (mode === 'periodic') {
 }
 
 
+if (options['symmetry']) {
+    grid.applySymmetry(options['symmetry']);
+}
+
+
+grid.normalize();
+
+
+let stateCounts: number[] = [];
+for (let i = 0; i < 4; i++) {
+    stateCounts.push(0);
+}
+for (let t = 0; t < grid.gens; t++) {
+    for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+            let state = grid.get(t, x, y).state;
+            stateCounts[state]++;
+        }
+    }
+}
+
+
+let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
+
+defines['WIDTH'] = grid.width + 4;
+defines['HEIGHT'] = grid.height + 4;
+defines['GENS'] = grid.gens;
+
+defines['VARIABLES'] = grid.numVars > 0;
+// add 1 because the C program treats 0 as 'no variable'
+// but it still 'counts' for VAR_COUNT purposes
+defines['VAR_COUNT'] = grid.numVars + 1;
+
+defines['TOTAL_UNKNOWN_CELLS'] = stateCounts[UNKNOWN];
+
+defines['HAS_DONT_CARES'] = stateCounts[DONT_CARE] > 0;
+
+defines['TIME_WRAP'] = Boolean(grid.wrap);
+defines['TIME_WRAP_DX'] = grid.wrap ? grid.wrap[0] : undefined;
+defines['TIME_WRAP_DY'] = grid.wrap ? grid.wrap[1] : undefined;
+
+defines['MULTI_RULE'] = multiRule;
+if (options['no-ot-optimization'] || multiRule) {
+    defines['IS_OT'] = false;
+} else {
+    defines['IS_OT'] = Boolean(base.rule.str.match(/^B(\d+)\/S(\d+)$/));
+}
+defines['RULESPACE'] = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
+defines['SPECIAL_AFTER_RULE'] = `""`;
+
+defines['INITIAL_VALUE'] = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
+
+defines['CACHE_IMPLICATION_TRS'] = !options['no-cache-trs'];
+
+defines['KEEP_LAST_CHECKED_TIME'] = options['check-times'];
+
+defines['MAXPOP'] = options['maxpop'];
+
+defines['CUSTOM'] = options['custom'] !== undefined ? `"${options['custom']}"` : undefined;
+
+defines['SHOW_SOLUTIONS'] = !options['no-show-solutions'];
+defines['MAX_SOLUTIONS'] = options['max-solutions'];
+defines['CHECK_EMPTY'] = !options['allow-empty'];;
+defines['FILTER_DUPLICATES'] = !options['allow-duplicates'];
+defines['FILTER_SUBPERIOD'] = !options['allow-subperiod'];
+if (options['cell-period-filter']) {
+    defines['CELL_PERIOD_FILTER'] = `{${options['cell-period-filter'].split(/[, ]+/).map(Number).join(', ')}}`;
+} else {
+    defines['CELL_PERIOD_FILTER'] = undefined;
+}
+
+defines['REPORTING_INTERVAL'] = options['interval'] ?? 1;
+defines['MAX_PARTIAL_TYPE'] = `MAX_PARTIAL_TYPE_${(options['partial-type'] ?? 'cell').toUpperCase()}`;
+defines['MAX_PARTIAL_REPORTING_INTERVAL'] = options['partial-interval'] ?? 1;
+
+defines['BENCHMARK'] = options['benchmark'];
+
+defines['DEBUG'] = options['debug'] ?? 0;
+
+
 function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
     for (let metric of order) {
         let score = Number(runExpression(a, metric)) - Number(runExpression(b, metric));
@@ -608,59 +694,6 @@ function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): 
     return out2;
 }
 
-let method: 'cell';
-let searchOrder: string | undefined = undefined;
-let initialPath: [number, number, number][] = [];
-let methodArg = options['method'];
-if (methodArg === undefined) {
-    method = 'cell';
-    searchOrder = defaultSearchOrder;
-    while (searchOrder in searchOrderAliases) {
-        searchOrder = searchOrderAliases[searchOrder];
-    }
-} else {
-    let data: string;
-    let index = methodArg.indexOf(' ');
-    if (index === -1) {
-        method = methodArg as typeof method;
-        data = '';
-    } else {
-        method = methodArg.slice(0, index) as typeof method;
-        data = methodArg.slice(index + 1);
-    }
-    if (method === 'cell') {
-        searchOrder = data === '' ? defaultSearchOrder : data;
-        while (searchOrder in searchOrderAliases) {
-            searchOrder = searchOrderAliases[searchOrder];
-        }
-    } else {
-        error(`Invalid value for method option (expected 'cel;', got '${method}'): '${methodArg}'`);
-    }
-}
-
-
-if (options['symmetry']) {
-    grid.applySymmetry(options['symmetry']);
-}
-
-
-grid.normalize();
-
-
-let stateCounts: number[] = [];
-for (let i = 0; i < 4; i++) {
-    stateCounts.push(0);
-}
-for (let t = 0; t < grid.gens; t++) {
-    for (let y = 0; y < grid.height; y++) {
-        for (let x = 0; x < grid.width; x++) {
-            let state = grid.get(t, x, y).state;
-            stateCounts[state]++;
-        }
-    }
-}
-
-
 function gridToString(grid: Grid, field: keyof Cell): string {
     let off: number;
     if (field === 'state') {
@@ -695,31 +728,40 @@ function gridToString(grid: Grid, field: keyof Cell): string {
     return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
 }
 
+function getMinUintType(maxValue: number): string {
+    // add 1 so you can loop on them
+    maxValue += 1;
+    if (maxValue > 2**32 - 1) {
+        return 'uint64_t';
+    } else if (maxValue > 65536) {
+        return 'uint32_t';
+    } else if (maxValue > 256) {
+        return 'uint16_t';
+    } else {
+        return 'uint8_t';
+    }
+}
+
+const CONSTANT_DEFINES = new Set([
+    'UNKNOWN', 'OFF', 'ON', 'DONT_CARE',
+    'PADDING',
+    'SEARCHABLE', 'NOT_SEARCHABLE', 'NOT_SETTABLE',
+    'TRS_RULE_DEPENDENT',
+    'RULESPACE_INT', 'RULESPACE_OT', 'RULESPACE_MAP', 'RULESPACE_HEX_INT', 'RULESPACE_HEX_OT', 'RULESPACE_HEX_MAP', 'RULESPACE_VN_INT', 'RULESPACE_VN_OT', 'RULESPACE_VN_MAP',
+    'IV_0', 'IV_1', 'IV_SAME_0', 'IV_SAME_1', 'IV_DIFFERENT_0', 'IV_DIFFERENT_1',
+    'MAX_PARTIAL_TYPE_NONE', 'MAX_PARTIAL_TYPE_CELL', 'MAX_PARTIAL_TYPE_START',
+]);
+
 let out: string[] = [];
+let foundDefines = new Set<string>();
 for (let line of code.split('\n')) {
-    if (line.startsWith('typedef') && line.endsWith('index_t;')) {
-        let maxValue = (grid.width + 4) * (grid.height + 4) * grid.gens;
-        if (maxValue > 65535) {
-            out.push(`typedef uint32_t index_t;`);
-        } else if (maxValue > 255) {
-            out.push(`typedef uint16_t index_t;`);
-        } else {
-            out.push(`typedef uint8_t index_t;`);
-        }
-        continue;
-    } else if (line.startsWith('typedef') && line.endsWith('var_t;')) {
-        let maxValue = grid.numVars + 1;
-        if (maxValue > 65535) {
-            out.push(`typedef uint32_t var_t;`);
-        } else if (maxValue > 255) {
-            out.push(`typedef uint16_t var_t;`);
-        } else {
-            out.push(`typedef uint8_t var_t;`);
-        }
-        continue;
-    } else if (line.startsWith('static const cell_value_t initial_grid[GENS][HEIGHT][WIDTH] = ')) {
+    if (line.startsWith('typedef') && line.endsWith('Index;')) {
+        line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
+    } else if (line.startsWith('typedef') && line.endsWith('Variable;')) {
+        line = `typedef ${getMinUintType(grid.numVars + 1)} Variable;`;
+    } else if (line.startsWith('static const CellValue initial_grid[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';
-    } else if (line.startsWith('static const var_t initial_vars[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const Variable initial_vars[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
     } else if (line.startsWith('static const uint8_t initial_settable[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
@@ -734,16 +776,13 @@ for (let line of code.split('\n')) {
             }
         }
         line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
-    } else if (line.startsWith('index_t search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
-        if (method === 'cell') {
-            if (searchOrder === undefined) {
-                throw new Error('This error should not occur (no search order but cell method is used), please report this error');
-            }
-            line = line.slice(0, line.indexOf('{'));
-            line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
-        } else {
-            continue;
+    } else if (line.startsWith('Index search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
+        let searchOrder = options['order'] ?? defaultSearchOrder;
+        while (searchOrder in searchOrderAliases) {
+            searchOrder = searchOrderAliases[searchOrder];
         }
+        line = line.slice(0, line.indexOf('{'));
+        line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -754,119 +793,30 @@ for (let line of code.split('\n')) {
         data = data.slice(1);
     }
     let name = data[1];
-    let value: string | number | boolean;
-    let comment = false;
-    if (name === 'WIDTH') {
-        value = grid.width + 4;
-    } else if (name === 'HEIGHT') {
-        value = grid.height + 4;
-    } else if (name === 'GENS') {
-        value = grid.gens;
-    } else if (name === 'VARIABLES') {
-        value = grid.numVars > 0;
-    } else if (name === 'VAR_COUNT') {
-        value = grid.numVars + 1;
-    } else if (name === 'TOTAL_UNKNOWN_CELLS') {
-        value = stateCounts[UNKNOWN];
-    } else if (name === 'HAS_DONT_CARES') {
-        value = stateCounts[DONT_CARE] > 0;
-    } else if (name === 'TIME_WRAP') {
-        value = Boolean(grid.wrap);
-    } else if (name === 'TIME_WRAP_DX') {
-        value = grid.wrap ? grid.wrap[0] : 67;
-    } else if (name === 'TIME_WRAP_DY') {
-        value = grid.wrap ? grid.wrap[1] : 67;
-    } else if (name === 'MULTI_RULE') {
-        value = multiRule;
-    } else if (name === 'IS_OT') {
-        if (multiRule) {
-            value = false;
+    if (!(name in defines)) {
+        if (CONSTANT_DEFINES.has(name)) {
+            out.push(line);
+            continue;
         } else {
-            let rule = base.rule.str;
-            let match = rule.match(/^B(\d+)\/S(\d+)$/);
-            if (!match) {
-                value = false;
-            } else {
-                let found = false;
-                for (let value of [match[1], match[2]]) {
-                    let prevChar = value[0];
-                    for (let char of value.slice(1)) {
-                        if (char !== String(Number(prevChar) + 1)) {
-                            found = true;
-                            break;
-                        }
-                        prevChar = char;
-                    }
-                    if (found) {
-                        break;
-                    }
-                }
-                if (!found) {
-                    value = true;
-                } else {
-                    value = false;
-                }
-            }
+            throw new Error(`This error should not occur, please report it (unrecognized #define: '${name}')`);
         }
-    } else if (name === 'RULESPACE') {
-        value = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
-    } else if (name === 'SPECIAL_AFTER_RULE') {
-        value = `""`;
-    } else if (name === 'METHOD') {
-        value = `METHOD_${method.toUpperCase()}`;
-    } else if (name === 'INITIAL_VALUE') {
-        value = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
-    } else if (name === 'MAXPOP') {
-        if (options['maxpop'] === undefined) {
-            comment = true;
-            value = 67;
-        } else {
-            value = options['maxpop'];
-        }
-    } else if (name === 'SHOW_SOLUTIONS') {
-        value = !options['no-show-solutions'];
-    } else if (name === 'MAX_SOLUTIONS') {
-        if (options['max-solutions'] === undefined) {
-            comment = true;
-            value = 67;
-        } else {
-            value = options['max-solutions'];
-        }
-    } else if (name === 'CHECK_EMPTY') {
-        value = !options['allow-empty'];
-    } else if (name === 'FILTER_DUPLICATES') {
-        value = !options['allow-duplicates'];
-    } else if (name === 'CELL_PERIOD_FILTER') {
-        if (options['cell-period-filter']) {
-            value = `{${options['cell-period-filter'].split(/[, ]+/).map(Number).join(', ')}}`;
-        } else {
-            comment = true;
-            value = `{67, 41}`;
-        }
-    } else if (name === 'REPORTING_INTERVAL') {
-        value = options['interval'] ?? 1;
-    } else if (name === 'MAX_PARTIAL_TYPE') {
-        value = `MAX_PARTIAL_TYPE_${(options['partial-type'] ?? 'cell').toUpperCase()}`;
-    } else if (name === 'MAX_PARTIAL_REPORTING_INTERVAL') {
-        value = options['partial-interval'] ?? 1;
-    } else if (name === 'BENCHMARK') {
-        if (options['benchmark'] == undefined) {
-            comment = true;
-            value = 67;
-        } else {
-            value = options['benchmark'];
-        }
-    } else if (name === 'DEBUG') {
-        value = options['debug'] ?? 0;
+    }
+    if (CONSTANT_DEFINES.has(name)) {
+        throw new Error(`This error should not occur, please report it (constant #define redefined: '${name}')`);
+    }
+    foundDefines.add(name);
+    let value = defines[name];
+    if (value === undefined) {
+        out.push('// ' + data.join(' '));
     } else {
-        out.push(line);
-        continue;
+        out.push(`#define ${name} ${value}`);
     }
-    let str = `#define ${name} ${value}`;
-    if (comment) {
-        str = '// ' + str;
+}
+
+for (let name of Object.keys(defines)) {
+    if (!foundDefines.has(name)) {
+        throw new Error(`This error should not occur, please report it (#define not found: '${name}')`);
     }
-    out.push(str);
 }
 
 return [options, out.join('\n')];
@@ -875,7 +825,7 @@ return [options, out.join('\n')];
 }
 
 
-const FLAGS = `--std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+const FLAGS = `--std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 const PROFILE_SECONDS = 5;
 

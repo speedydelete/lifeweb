@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <inttypes.h>
 #include <stdio.h>
 
 #include "params2.h"
@@ -16,7 +17,7 @@
 #define SIZE (WIDTH * HEIGHT)
 #define TOTAL_SIZE (GENS * SIZE)
 
-#define IS_KNOWN(x) (((x) == OFF) || ((x) == ON))
+#define is_known(x) (((x) == OFF) || ((x) == ON))
 
 #if VARIABLES
 #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
@@ -115,28 +116,122 @@ int debug_depth = 0;
 #define DFPRINTLINEPADDING(stream)
 #endif
 
-index_t unknown_cells = TOTAL_UNKNOWN_CELLS;
+
+typedef struct Cell {
+    // the x coordinate
+    Index x;
+    // the y coordinate
+    Index y;
+    // the generation
+    Index t;
+    // (t * SIZE) + (y * WIDTH) + x
+    Index index;
+    // the value of the cell
+    CellValue value;
+    #if VARIABLES
+    // the variable stored in the cell
+    Variable var;
+    #endif
+    // the settability
+    uint8_t settable;
+    // the next cell in the search order
+    struct Cell* next_in_search_order;
+    #if CACHE_IMPLICATION_TRS
+    // the cached transition
+    uint32_t tr;
+    #endif
+    #if KEEP_LAST_CHECKED_TIME
+    // the last time the implication was checked
+    uint32_t last_checked_time;
+    #endif
+    // the previous cell (in time)
+    struct Cell* prev;
+    // the next cell (in time)
+    struct Cell* next;
+    // the northwest neighbor
+    struct Cell* nw;
+    // the north neighbor
+    struct Cell* n;
+    // the northeast neighbor
+    struct Cell* ne;
+    // the west neighbor
+    struct Cell* w;
+    // the east neighbor
+    struct Cell* e;
+    // the southwest neighbor
+    struct Cell* sw;
+    // the south neighbor
+    struct Cell* s;
+    // the southeast neighbor
+    struct Cell* se;
+} Cell;
+
+typedef Cell Grid[GENS][HEIGHT][WIDTH];
+
+Grid grid;
+
+Index set_cells;
+
+#ifdef MAXPOP
+Index phase_0_pop;
+#endif
+
+#if KEEP_LAST_CHECKED_TIME
+uint32_t current_time;
+bool is_time_gt(uint32_t x, uint32_t y) {
+    return x > y || (x < y && x > INT32_MAX && y < INT32_MAX);
+}
+void inc_current_time(void) {
+    current_time++;
+    if (current_time > INT32_MAX) {
+        current_time = 0;
+    }
+}
+#endif
+
+Index unknown_cells = TOTAL_UNKNOWN_CELLS;
 int max_depth = TOTAL_MAX_DEPTH;
 
 #if CACHE_IMPLICATION_TRS
-static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value);
-static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value);
+static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value);
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(Cell* cell, CellValue value);
 #else
-static inline __attribute__((always_inline)) void actual_set_cell_value(cell* cell, cell_value_t value) {
+static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
     cell->value = value;
 }
-static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(cell* cell, cell_value_t value) {
+static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(Cell* cell, CellValue value) {
+    #if KEEP_LAST_CHECKED_TIME
+    inc_current_time();
+    #endif
     cell->value = value;
 }
 #endif
 
 
+typedef CellValue* DynamicGrid;
+#define DYNAMIC_GRID_SIZE (GENS * HEIGHT * WIDTH * sizeof(CellValue))
+#define dynamic_grid_index(grid, t, x, y) ((grid)[((t) * SIZE) + ((y) * HEIGHT) + (x)])
+
+static inline void copy_to_dynamic_grid(DynamicGrid out) {
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
+                dynamic_grid_index(out, t, x, y) = grid[t][y][x].value;
+            }
+        }
+    }
+}
+
+
 static inline void init_state(void) {
-    index_t index = 0;
-    for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 0; y < HEIGHT; y++) {
-            for (index_t x = 0; x < WIDTH; x++) {
-                cell* cell = &grid[t][y][x];
+    Index index = 0;
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
+                Cell* cell = &grid[t][y][x];
                 cell->x = x;
                 cell->y = y;
                 cell->t = t;
@@ -194,11 +289,11 @@ static inline void init_state(void) {
             }
         }
     }
-    for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 0; y < HEIGHT; y++) {
-            for (index_t x = 0; x < WIDTH; x++) {
-                cell* cell = &grid[t][y][x];
-                cell_value_t value = cell->value;
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
+                Cell* cell = &grid[t][y][x];
+                CellValue value = cell->value;
                 cell->value = UNKNOWN;
                 actual_set_cell_value_handles_edges(cell, value);
             }
@@ -211,19 +306,19 @@ static inline void init_state(void) {
 }
 
 
-bool next_stack_entry_is_first_in_frame = true;
+bool next_StackEntry_is_first_in_frame = true;
 
-typedef struct stack_entry {
+typedef struct StackEntry {
     bool is_first_in_frame;
-    cell* cell;
-} stack_entry;
+    Cell* cell;
+} StackEntry;
 
-stack_entry stack[MAX_STACK_DEPTH];
+StackEntry stack[MAX_STACK_DEPTH];
 
 int sp = 0;
 
 static inline void print_frame(int i) {
-    cell* cell = stack[i].cell;
+    Cell* cell = stack[i].cell;
     printf("x = %i, y = %i, t = %i, is_first = %s\n", cell->x, cell->y, cell->t, stack[i].is_first_in_frame ? "true" : "false");
 }
 
@@ -235,7 +330,7 @@ static inline void print_stack(void) {
 }
 
 static inline void push_frame(void) {
-    next_stack_entry_is_first_in_frame = true;
+    next_StackEntry_is_first_in_frame = true;
 }
 
 static inline void pop_frame(void) {
@@ -244,8 +339,8 @@ static inline void pop_frame(void) {
         #if DEBUG >= 4
         print_frame(sp - 1);
         #endif
-        cell* cell = stack[sp - 1].cell;
-        cell_value_t value = ((cell_value_t*)initial_grid)[cell->index];
+        Cell* cell = stack[sp - 1].cell;
+        CellValue value = ((CellValue*)initial_grid)[cell->index];
         #ifdef MAXPOP
         if (cell->t == 0 && cell->value == ON) {
             phase_0_pop--;
@@ -270,7 +365,7 @@ static inline void pop_frame(void) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static inline bool set_cell(cell* cell, cell_value_t value) {
+static inline bool set_cell(Cell* cell, CellValue value) {
     if (cell->value != UNKNOWN && cell->value != value) {
         DPRINTF4("Contradiction (previous value mismatch, both known and unequal, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
@@ -285,8 +380,8 @@ static inline bool set_cell(cell* cell, cell_value_t value) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
-    stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
-    next_stack_entry_is_first_in_frame = false;
+    stack[sp].is_first_in_frame = next_StackEntry_is_first_in_frame;
+    next_StackEntry_is_first_in_frame = false;
     DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
     stack[sp].cell = cell;
     sp++;
@@ -309,7 +404,7 @@ static const char* letters = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrst
 
 static inline void print_cell(FILE* stream, int value
     #if VARIABLES
-    , var_t var
+    , Variable var
     #endif
 ) {
     #if VARIABLES
@@ -333,11 +428,11 @@ static inline void print_grid(FILE* stream) {
     }
     get_rule(rule, false);
     fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, set_cells);
-    for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 0; y < HEIGHT; y++) {
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
             DFPRINTLINEPADDING(stream);
-            for (index_t x = 0; x < WIDTH; x++) {
-                cell* cell = &grid[t][y][x];
+            for (Index x = 0; x < WIDTH; x++) {
+                Cell* cell = &grid[t][y][x];
                 #if VARIABLES
                 print_cell(stream, cell->value, cell->var);
                 #else
@@ -358,20 +453,20 @@ static inline void print_grid(FILE* stream) {
 #if VARIABLES
 
 // a list of where variables are used in
-cell* var_uses[VAR_COUNT][MAX_VAR_USES];
-index_t num_var_uses[VAR_COUNT];
+Cell* var_uses[VAR_COUNT][MAX_VAR_USES];
+Index num_var_uses[VAR_COUNT];
 
 static inline void init_var_uses(void) {
-    for (index_t i = 0; i < VAR_COUNT; i++) {
+    for (Index i = 0; i < VAR_COUNT; i++) {
         num_var_uses[i] = 0;
-        for (index_t j = 0; j < MAX_VAR_USES; j++) {
+        for (Index j = 0; j < MAX_VAR_USES; j++) {
             var_uses[i][j] = NULL;
         }
     }
-    for (index_t t = 0; t < GENS; t++) {
-        for (index_t y = 0; y < HEIGHT; y++) {
-            for (index_t x = 0; x < WIDTH; x++) {
-                cell* cell = &grid[t][y][x];
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
+                Cell* cell = &grid[t][y][x];
                 if (cell->var > 0) {
                     var_uses[cell->var][num_var_uses[cell->var]++] = cell;
                 }
@@ -380,28 +475,4 @@ static inline void init_var_uses(void) {
     }
 }
 
-#endif
-
-
-#if INITIAL_VALUE != IV_0 && INITIAL_VALUE != IV_1
-int get_same_for_iv(cell* cell_to_use) {
-    cell* cell = &grid[0][cell_to_use->y][cell_to_use->x];
-    for (int i = 0; i < GENS; i++) {
-        if (cell->value != UNKNOWN) {
-            return cell->value;
-        }
-        cell = cell->next;
-    }
-    return (INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_DIFFERENT_1) ? 0 : 1;
-}
-#endif
-
-#if INITIAL_VALUE == IV_0
-#define INITIAL_VALUE_LOOP for (int value = 1, i = 0; i < 2; value++, i++)
-#elif INITIAL_VALUE == IV_1
-#define INITIAL_VALUE_LOOP for (int value = 2, i = 0; i < 2; value--, i++)
-#elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
-#define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
-#elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
-#define INITIAL_VALUE_LOOP int value = get_same_for_iv(cell) == 0 ? 1 : 0; for (int i = 0; i < 2; i++, value = (value + 1) % 2)
 #endif

@@ -1,10 +1,7 @@
 
-// cell-based search method
+// main search algorithm
 
 #pragma once
-
-#include "params2.h"
-#if METHOD == METHOD_CELL
 
 #include <inttypes.h>
 
@@ -12,24 +9,26 @@
 #include "base.c"
 #include "implications.c"
 #include "output.c"
-#include "custom.c"
+#ifdef CUSTOM
+#include CUSTOM
+#endif
 
 
 // sets the next_in_search_order fields in all the cells
 static inline void add_search_orders(void) {
-    index_t* coords = search_order[0];
-    index_t t = coords[0];
-    index_t x = coords[1];
-    index_t y = coords[2];
-    cell* prev = &grid[t][y][x];
-    cell* out = prev;
-    for (index_t i = 1; i < unknown_cells; i++) {
-        index_t* coords = search_order[i];
-        index_t t = coords[0];
-        index_t x = coords[1];
-        index_t y = coords[2];
+    Index* coords = search_order[0];
+    Index t = coords[0];
+    Index x = coords[1];
+    Index y = coords[2];
+    Cell* prev = &grid[t][y][x];
+    Cell* out = prev;
+    for (Index i = 1; i < unknown_cells; i++) {
+        Index* coords = search_order[i];
+        Index t = coords[0];
+        Index x = coords[1];
+        Index y = coords[2];
         // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
-        cell* cell = &grid[t][y][x];
+        Cell* cell = &grid[t][y][x];
         if (cell->value == DONT_CARE || cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
             continue;
         }
@@ -42,14 +41,14 @@ static inline void add_search_orders(void) {
 
 
 // returns number of iterations to backjump
-static int run_depth(int depth, cell* cell
+static int run_depth(int depth, Cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
     );
 
 // returns number of iterations to backjump
-static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
+static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 6
@@ -99,8 +98,22 @@ static inline int actual_run_depth(int depth, cell* cell, cell_value_t value) {
     return out;
 }
 
+
+#if INITIAL_VALUE != IV_0 && INITIAL_VALUE != IV_1
+int get_same_for_iv(Cell* cell_to_use) {
+    Cell* cell = &grid[0][cell_to_use->y][cell_to_use->x];
+    for (int i = 0; i < GENS; i++) {
+        if (cell->value != UNKNOWN) {
+            return cell->value;
+        }
+        cell = cell->next;
+    }
+    return (INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_DIFFERENT_1) ? 0 : 1;
+}
+#endif
+
 // returns number of iterations to backjump
-static int run_depth(int depth, cell* cell
+static int run_depth(int depth, Cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
@@ -158,7 +171,16 @@ static int run_depth(int depth, cell* cell
         //     }
         // }
         // #endif
-        INITIAL_VALUE_LOOP {
+        #if INITIAL_VALUE == IV_0
+        for (int value = 1, i = 0; i < 2; value++, i++)
+        #elif INITIAL_VALUE == IV_1
+        for (int value = 2, i = 0; i < 2; value--, i++)
+        #elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
+        int value = get_same_for_iv(cell); for (int i = 0; i < 2; i++, value = (value + 1) % 2)
+        #elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
+        int value = get_same_for_iv(cell) == 0 ? 1 : 0; for (int i = 0; i < 2; i++, value = (value + 1) % 2)
+        #endif
+        {
             #if MULTI_RULE
             progress[progress_pos].value = i;
             progress_pos++;
@@ -184,6 +206,3 @@ static int run_depth(int depth, cell* cell
     #endif
     return 0;
 }
-
-
-#endif
