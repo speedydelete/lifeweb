@@ -403,47 +403,47 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
     #endif
     printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE, rule);
     // check for alternate printing method
-    // if (is_solution) {
-    //     bool found = false;
-    //     for (int t = 0; t < GENS; t++) {
-    //         for (int y = PADDING; y < HEIGHT - PADDING; y++) {
-    //             for (int x = PADDING; x < WIDTH - PADDING; x++) {
-    //                 CellValue value = dynamic_grid_index(grid, t, x, y);
-    //                 if (value == UNKNOWN) {
-    //                     found = true;
-    //                     break;
-    //                 }
-    //             }
-    //             if (found) {
-    //                 break;
-    //             }
-    //         }
-    //         if (found) {
-    //             break;
-    //         }
-    //     }
-    //     if (!found) {
-    //         // finish the RLE header
-    //         real_printf("\n");
-    //         for (int y = PADDING; y < HEIGHT - PADDING; y++) {
-    //             DPRINTLINEPADDING();
-    //             for (int x = PADDING; x < WIDTH - PADDING; x++) {
-    //                 CellValue value = dynamic_grid_index(grid, 0, x, y);
-    //                 if (value == ON) {
-    //                     real_printf("o");
-    //                 } else {
-    //                     real_printf(".");
-    //                 }
-    //             }
-    //             if (y == HEIGHT - PADDING - 1) {
-    //                 real_printf("!\n");
-    //             } else {
-    //                 real_printf("$\n");
-    //             }
-    //         }
-    //         return;
-    //     }
-    // }
+    if (is_solution) {
+        bool found = false;
+        for (int t = 0; t < GENS; t++) {
+            for (int y = PADDING; y < HEIGHT - PADDING; y++) {
+                for (int x = PADDING; x < WIDTH - PADDING; x++) {
+                    CellValue value = dynamic_grid_index(grid, t, x, y);
+                    if (value == UNKNOWN) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        if (!found) {
+            // finish the RLE header
+            real_printf("\n");
+            for (int y = PADDING; y < HEIGHT - PADDING; y++) {
+                DPRINTLINEPADDING();
+                for (int x = PADDING; x < WIDTH - PADDING; x++) {
+                    CellValue value = dynamic_grid_index(grid, 0, x, y);
+                    if (value == ON) {
+                        real_printf("o");
+                    } else {
+                        real_printf(".");
+                    }
+                }
+                if (y == HEIGHT - PADDING - 1) {
+                    real_printf("!\n");
+                } else {
+                    real_printf("$\n");
+                }
+            }
+            return;
+        }
+    }
     // finish the RLE header
     real_printf("History\n");
     for (int y = PADDING; y < HEIGHT - PADDING; y++) {
