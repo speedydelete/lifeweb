@@ -14,6 +14,23 @@
 #endif
 
 
+static inline __attribute__((always_inline)) int min(int x, int y) {
+    if (x < y) {
+        return x;
+    } else {
+        return y;
+    }
+}
+
+static inline __attribute__((always_inline)) int max(int x, int y) {
+    if (x > y) {
+        return x;
+    } else {
+        return y;
+    }
+}
+
+
 #define SIZE (WIDTH * HEIGHT)
 #define TOTAL_SIZE (GENS * SIZE)
 
@@ -195,6 +212,7 @@ int max_depth = TOTAL_MAX_DEPTH;
 #if CACHE_IMPLICATION_TRS
 static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value);
 static inline __attribute__((always_inline)) void actual_set_cell_value_handles_edges(Cell* cell, CellValue value);
+static inline __attribute__((always_inline)) uint32_t safe_compute_implication_tr(Cell* cell);
 #else
 static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
@@ -296,6 +314,14 @@ static inline void init_state(void) {
                 CellValue value = cell->value;
                 cell->value = UNKNOWN;
                 actual_set_cell_value_handles_edges(cell, value);
+            }
+        }
+    }
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
+                Cell* cell = &grid[t][y][x];
+                cell->tr = safe_compute_implication_tr(cell);
             }
         }
     }

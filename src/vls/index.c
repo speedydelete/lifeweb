@@ -85,11 +85,7 @@ int main(void) {
     #ifdef BENCHMARK
     for (int i = 0; i < BENCHMARK; i++) {
         double start = get_time();
-        #if MULTI_RULE
-        run_depth(0, initial_cell, -1);
-        #else
-        run_depth(0, initial_cell);
-        #endif
+        run_search();
         printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
     double time = get_time() - start;
@@ -98,11 +94,7 @@ int main(void) {
     free_max_partial();
     #endif
     #else
-    #if MULTI_RULE
-    run_depth(0, initial_cell, -1);
-    #else
-    run_depth(0, initial_cell);
-    #endif
+    run_search();
     printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #if MAX_PARTIALS
     if (solutions_found == 0) {

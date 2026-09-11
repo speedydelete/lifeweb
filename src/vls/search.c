@@ -40,6 +40,10 @@ static inline void add_search_orders(void) {
 }
 
 
+#if CHECK_EARLY_EXHAUSTION
+bool all_zeros = true;
+#endif
+
 // returns number of iterations to backjump
 static int run_depth(int depth, Cell* cell
     #if MULTI_RULE
@@ -51,7 +55,7 @@ static int run_depth(int depth, Cell* cell
 static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
-    #if DEBUG >= 6
+    #if DEBUG >= 5
     print_stack();
     #endif
     int out = 0;
@@ -62,6 +66,43 @@ static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
             debug_depth--;
             #endif
             return 0;
+        }
+        #endif
+        // check for early exhaustion
+        #if CHECK_EARLY_EXHAUSTION
+        if (all_zeros) {
+            // check columns
+            for (Index x = PADDING + max(0, -TIME_WRAP_DX - 1); x < WIDTH - PADDING - max(0, TIME_WRAP_DX - 1); x++) {
+                bool found = false;
+                for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
+                    if (grid[0][y][x].value != OFF) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    DPRINTGRID3();
+                    DPRINTF3("All zeros at x = %i\n", x);
+                    pop_frame();
+                    return 0;
+                }
+            }
+            // check rows
+            for (Index y = PADDING + max(0, -TIME_WRAP_DY - 1); y < HEIGHT - PADDING - max(0, TIME_WRAP_DY - 1); y++) {
+                bool found = false;
+                for (Index x = PADDING; x < WIDTH - PADDING; x++) {
+                    if (grid[0][y][x].value != OFF) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    DPRINTGRID3();
+                    DPRINTF3("All zeros at y = %i\n", y);
+                    pop_frame();
+                    return 0;
+                }
+            }
         }
         #endif
         #if MULTI_RULE
@@ -181,6 +222,12 @@ static int run_depth(int depth, Cell* cell
         int value = get_same_for_iv(cell) == 0 ? 1 : 0; for (int i = 0; i < 2; i++, value = (value + 1) % 2)
         #endif
         {
+            #if CHECK_EARLY_EXHAUSTION
+            bool prev_all_zeros = all_zeros;
+            if (value == ON) {
+                all_zeros = false;
+            }
+            #endif
             #if MULTI_RULE
             progress[progress_pos].value = i;
             progress_pos++;
@@ -195,6 +242,9 @@ static int run_depth(int depth, Cell* cell
                 return out - 1;
             }
             #endif
+            #if CHECK_EARLY_EXHAUSTION
+            all_zeros = prev_all_zeros;
+            #endif
         }
     #if MULTI_RULE
     } else {
@@ -205,4 +255,14 @@ static int run_depth(int depth, Cell* cell
     debug_depth--;
     #endif
     return 0;
+}
+
+
+static inline void run_search(void) {
+    all_zeros = true;
+    #if MULTI_RULE
+    run_depth(0, initial_cell, -1);
+    #else
+    run_depth(0, initial_cell);
+    #endif
 }

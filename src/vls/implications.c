@@ -241,6 +241,21 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
     #undef add
 }
 
+static inline __attribute__((always_inline)) uint32_t safe_compute_implication_tr(Cell* cell) {
+    uint32_t tr = 
+            ((cell->nw ? cell->nw->value : OFF) << 18)
+          | ((cell->w ? cell->w->value : OFF) << 16)
+          | ((cell->sw ? cell->sw->value : OFF) << 14)
+          | ((cell->n ? cell->n->value : OFF) << 12)
+          | (cell->value << 10)
+          | ((cell->s ? cell->s->value : OFF) << 8)
+          | ((cell->ne ? cell->ne->value : OFF) << 6)
+          | ((cell->e ? cell->e->value : OFF) << 4)
+          | ((cell->se ? cell->se->value : OFF) << 2)
+          | ((cell->next ? cell->next->value : OFF) << 0);
+    return tr;
+}
+
 #endif
 
 
@@ -587,6 +602,30 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
     #undef add
 }
 
+static inline __attribute__((always_inline)) uint32_t safe_compute_implication_tr(Cell* cell) {
+    uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
+    #define add(cell) \
+        if ((cell) != NULL) { \
+            if ((cell)->value == ON) { \
+                tr += 16; \
+            } else if ((cell)->value == OFF) { \
+                tr += 1; \
+            } \
+        } else { \
+            tr += 1; \
+        }
+    add(cell->nw);
+    add(cell->n);
+    add(cell->ne);
+    add(cell->w);
+    add(cell->e);
+    add(cell->sw);
+    add(cell->s);
+    add(cell->se);
+    #undef add
+    return tr;
+}
+
 #endif
 
 
@@ -715,8 +754,8 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
     add(cell->sw);
     add(cell->s);
     add(cell->se);
-    #endif
     #undef add
+    #endif
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);
     if (value == 0) {
@@ -785,9 +824,13 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
     #else
     uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
     #define add(cell) \
-        if ((cell)->value == ON) { \
-            tr += 16; \
-        } else if ((cell)->value == OFF) { \
+        if ((cell) != NULL) { \
+            if ((cell)->value == ON) { \
+                tr += 16; \
+            } else if ((cell)->value == OFF) { \
+                tr += 1; \
+            } \
+        } else { \
             tr += 1; \
         }
     add(cell->nw);
@@ -798,8 +841,8 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
     add(cell->sw);
     add(cell->s);
     add(cell->se);
-    #endif
     #undef add
+    #endif
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);
     if (value == 0) {

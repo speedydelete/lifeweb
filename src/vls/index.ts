@@ -64,13 +64,6 @@ Options:
     --rulespace <rulespace>: set the rulespace for multi-rule searching,
         options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
 
-    -s <symmetry>, --symmetry <symmetry>: apply a symmetry to the pattern
-
-    --maxpop <cells>: set the maximum population during the search
-
-    -c, --custom <file>: use additional search constraints given in
-        the provided C file, see lifeweb/src/vls/custom/ for examples
-
     -o, --order <order>: set the search order
 
         The search order is defined as a comma-separated list of metrics, later
@@ -91,6 +84,18 @@ Options:
     --no-cache-trs: disable implication transition caching
     --check-times: keep track of when each cell's implications was last checked,
         can make it faster can make it slower
+
+    -s <symmetry>, --symmetry <symmetry>: apply a symmetry to the pattern
+
+    --maxpop <cells>: set the maximum population during the search
+
+    -c, --custom <file>: use additional search constraints given in
+        the provided C file, see lifeweb/src/vls/custom/ for examples
+
+    --check-early-exhaustion: check early exhaustion (a row/column is all 0),
+        this is enabled automatically in periodic mode, but not in other modes
+    --no-check-early-exhaustion: force not checking early exhaustion, can be
+        used in periodic mode to turn it off
 
     --interval <seconds>: set the progress reporting interval, default 1
 
@@ -122,14 +127,16 @@ const OPTIONS = {
     'profile': 'boolean',
     'file': 'string',
     'rulespace': new Set(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
-    'symmetry': 'string',
-    'maxpop': 'number',
-    'custom': 'string',
     'order': 'string',
     'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
     'no-ot-optimization': 'boolean',
     'no-cache-trs': 'boolean',
     'check-times': 'boolean',
+    'symmetry': 'string',
+    'maxpop': 'number',
+    'custom': 'string',
+    'check-early-exhaustion': 'boolean',
+    'no-check-early-exhaustion': 'boolean',
     'interval': 'number',
     'partial-type': new Set(['none', 'cell', 'start'] as const),
     'partial-interval': 'number',
@@ -295,6 +302,8 @@ let grid: Grid;
 let defaultSearchOrder = 't, y, x';
 let searchOrderAliases: {[key: string]: string} = {};
 
+let checkEarlyExhaustion = false;
+
 if (mode === 'periodic') {
 
     if (posArgs.length !== 3) {
@@ -351,6 +360,8 @@ if (mode === 'periodic') {
         grid.fill(t, UNKNOWN);
     }
     grid.wrap = [dx, dy];
+
+    checkEarlyExhaustion = true;
 
 } else if (mode === 'parent') {
 
@@ -586,6 +597,59 @@ for (let t = 0; t < grid.gens; t++) {
 }
 
 
+
+function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
+    for (let metric of order) {
+        let score = Number(runExpression(a, metric)) - Number(runExpression(b, metric));
+        if (score !== 0) {
+            return score;
+        }
+    }
+    return 0;
+}
+
+function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
+    let cells: [number, number, number][] = [];
+    for (let t = 0; t < grid.gens; t++) {
+        for (let y = 0; y < grid.height; y++) {
+            for (let x = 0; x < grid.width; x++) {
+                let cell = grid.get(t, x, y);
+                if (cell.state == UNKNOWN && cell.settable == SEARCHABLE) {
+                    cells.push([t, x, y]);
+                }
+            }
+        }
+    }
+    let parsedOrder: t.Expression[] = [];
+    for (let metric of order.split(',')) {
+        metric = metric.trim();
+        if (metric === '') {
+            continue;
+        }
+        try {
+            parsedOrder.push(parseExpression(metric));
+        } catch (e) {
+            error(`Syntax error while parsing metric '${metric}': ${e instanceof Error ? e.message : e}`);
+        }
+    }
+    let sorted = cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
+    let prevValue = sorted[0];
+    let out: [number, number, number][] = [prevValue];
+    for (let value of sorted.slice(1)) {
+        out.push(value);
+        prevValue = value;
+    }
+    return out;
+}
+
+let searchOrder = options['order'] ?? defaultSearchOrder;
+while (searchOrder in searchOrderAliases) {
+    searchOrder = searchOrderAliases[searchOrder];
+}
+
+let searchOrderData = getSearchOrder(grid, searchOrder);
+
+
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
 defines['WIDTH'] = grid.width + 4;
@@ -618,11 +682,13 @@ defines['INITIAL_VALUE'] = 'IV_' + (options['initial-value'] ?? '1').toUpperCase
 
 defines['CACHE_IMPLICATION_TRS'] = !options['no-cache-trs'];
 
-defines['KEEP_LAST_CHECKED_TIME'] = options['check-times'];
+defines['KEEP_LAST_CHECKED_TIME'] = Boolean(options['check-times']);
 
 defines['MAXPOP'] = options['maxpop'];
 
 defines['CUSTOM'] = options['custom'] !== undefined ? `"${options['custom']}"` : undefined;
+
+defines['CHECK_EARLY_EXHAUSTION'] = options['no-check-early-exhaustion'] ? false : (options['check-early-exhaustion'] || checkEarlyExhaustion);
 
 defines['SHOW_SOLUTIONS'] = !options['no-show-solutions'];
 defines['MAX_SOLUTIONS'] = options['max-solutions'];
@@ -643,56 +709,6 @@ defines['BENCHMARK'] = options['benchmark'];
 
 defines['DEBUG'] = options['debug'] ?? 0;
 
-
-function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
-    for (let metric of order) {
-        let score = Number(runExpression(a, metric)) - Number(runExpression(b, metric));
-        if (score !== 0) {
-            return score;
-        }
-    }
-    return 0;
-}
-
-function getSearchOrder(grid: Grid, order: string, returnOnlyHighest: boolean): [number, number, number][] {
-    let cells: [number, number, number][] = [];
-    for (let t = 0; t < grid.gens; t++) {
-        for (let y = 0; y < grid.height; y++) {
-            for (let x = 0; x < grid.width; x++) {
-                let cell = grid.get(t, x, y);
-                if (cell.state == UNKNOWN && cell.settable == SEARCHABLE) {
-                    cells.push([t, x, y]);
-                }
-            }
-        }
-    }
-    let parsedOrder: t.Expression[] = [];
-    for (let metric of order.split(',')) {
-        metric = metric.trim();
-        if (metric === '') {
-            continue;
-        }
-        try {
-            parsedOrder.push(parseExpression(metric));
-        } catch (e) {
-            error(`Syntax error while parsing metric '${metric}': ${e instanceof Error ? e.message : e}`);
-        }
-    }
-    let out = cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
-    if (!returnOnlyHighest) {
-        return out;
-    }
-    let prevValue = out[0];
-    let out2: [number, number, number][] = [prevValue];
-    for (let value of out.slice(1)) {
-        if (searchOrderSort(prevValue, value, parsedOrder) !== 0) {
-            break;
-        }
-        out2.push(value);
-        prevValue = value;
-    }
-    return out2;
-}
 
 function gridToString(grid: Grid, field: keyof Cell): string {
     let off: number;
@@ -777,12 +793,8 @@ for (let line of code.split('\n')) {
         }
         line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
     } else if (line.startsWith('Index search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
-        let searchOrder = options['order'] ?? defaultSearchOrder;
-        while (searchOrder in searchOrderAliases) {
-            searchOrder = searchOrderAliases[searchOrder];
-        }
         line = line.slice(0, line.indexOf('{'));
-        line += '{' + getSearchOrder(grid, searchOrder, false).map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line += '{' + searchOrderData.map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
