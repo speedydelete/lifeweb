@@ -71,6 +71,9 @@ static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
         // check for early exhaustion
         #if CHECK_EARLY_EXHAUSTION
         if (all_zeros) {
+            #if !TIME_WRAP
+            #error "This error should not occur, please report it (CHECK_EARLY_EXHAUSTION && !TIME_WRAP)"
+            #endif
             // check columns
             for (Index x = PADDING + max(0, -TIME_WRAP_DX - 1); x < WIDTH - PADDING - max(0, TIME_WRAP_DX - 1); x++) {
                 bool found = false;
@@ -259,7 +262,9 @@ static int run_depth(int depth, Cell* cell
 
 
 static inline void run_search(void) {
+    #if CHECK_EARLY_EXHAUSTION
     all_zeros = true;
+    #endif
     #if MULTI_RULE
     run_depth(0, initial_cell, -1);
     #else

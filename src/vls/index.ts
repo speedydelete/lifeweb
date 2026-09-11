@@ -86,6 +86,8 @@ Options:
         can make it faster can make it slower
 
     -s <symmetry>, --symmetry <symmetry>: apply a symmetry to the pattern
+        currently supported symmetries are D2|, D2-, and D4+, but more are
+        coming soon!
 
     --maxpop <cells>: set the maximum population during the search
 
@@ -361,7 +363,9 @@ if (mode === 'periodic') {
     }
     grid.wrap = [dx, dy];
 
-    checkEarlyExhaustion = true;
+    if (dx === 0 || dy === 0) {
+        checkEarlyExhaustion = true;
+    }
 
 } else if (mode === 'parent') {
 
@@ -688,7 +692,7 @@ defines['MAXPOP'] = options['maxpop'];
 
 defines['CUSTOM'] = options['custom'] !== undefined ? `"${options['custom']}"` : undefined;
 
-defines['CHECK_EARLY_EXHAUSTION'] = options['no-check-early-exhaustion'] ? false : (options['check-early-exhaustion'] || checkEarlyExhaustion);
+defines['CHECK_EARLY_EXHAUSTION'] = Boolean(options['no-check-early-exhaustion'] ? false : (options['check-early-exhaustion'] || checkEarlyExhaustion));
 
 defines['SHOW_SOLUTIONS'] = !options['no-show-solutions'];
 defines['MAX_SOLUTIONS'] = options['max-solutions'];
