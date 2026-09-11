@@ -7,7 +7,7 @@
 #include "base.c"
 #include "rulespaces.c"
 #ifdef CUSTOM
-#include "custom.c"
+#include CUSTOM
 #endif
 
 #if MULTI_RULE

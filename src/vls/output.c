@@ -622,7 +622,7 @@ static inline void print_solution(bool preprocessing) {
     #endif
     // apply custom solution filter
     #if CUSTOM_SOLUTION_FILTERING
-    if (!custom_solution_filter()) {
+    if (!custom_solution_filter(solution_grid)) {
         real_return("custom filtered");
     }
     #endif

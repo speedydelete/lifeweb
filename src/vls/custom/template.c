@@ -5,10 +5,10 @@
 #include "../base.c"
 
 
-#define CUSTOM_INIT false
-#define CUSTOM_SOLUTION_FILTERING true
+#define CUSTOM_INIT true
+#define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
-#define CUSTOM_PRUNING_ON_CELL_SET true
+#define CUSTOM_PRUNING_ON_CELL_SET false
 
 
 #if CUSTOM_INIT
@@ -18,13 +18,13 @@ static inline void custom_init(void) {
 #endif
 
 #if CUSTOM_SOLUTION_FILTERING
-static inline bool custom_solution_filter(CellValue*** grid) {
+static inline bool custom_solution_filter(DynamicGrid grid) {
     return true;
 }
 #endif
 
 #if CUSTOM_PRUNING
-static inline bool custom_prune(void) {
+static inline bool custom_prune(int depth, Cell* cell) {
     return true;
 }
 #endif

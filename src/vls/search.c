@@ -61,7 +61,7 @@ static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
     int out = 0;
     if (set_cell_and_propagate(cell, value)) {
         #if CUSTOM_PRUNING
-        if (!custom_prune(cell)) {
+        if (!custom_prune(depth, cell)) {
             #if DEBUG >= 3
             debug_depth--;
             #endif

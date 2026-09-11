@@ -1,4 +1,6 @@
 
+import * as path from 'node:path';
+
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
@@ -691,7 +693,7 @@ defines['KEEP_LAST_CHECKED_TIME'] = Boolean(options['check-times']);
 
 defines['MAXPOP'] = options['maxpop'];
 
-defines['CUSTOM'] = options['custom'] !== undefined ? `"${options['custom']}"` : undefined;
+defines['CUSTOM'] = options['custom'] !== undefined ? `"${path.resolve(options['custom'])}"` : undefined;
 
 defines['CHECK_EARLY_EXHAUSTION'] = Boolean(options['no-check-early-exhaustion'] ? false : (options['check-early-exhaustion'] || checkEarlyExhaustion));
 

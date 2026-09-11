@@ -31,7 +31,7 @@ static inline bool is_statorless(Cell* cell) {
 }
 
 #if CUSTOM_SOLUTION_FILTERING
-static inline bool custom_solution_filter(CellValue*** _) {
+static inline bool custom_solution_filter(DynamicGrid _) {
     for (Index y = 0; y < HEIGHT; y++) {
         for (Index x = 0; x < WIDTH; x++) {
             if (!is_statorless(&grid[0][x][y])) {
@@ -44,7 +44,7 @@ static inline bool custom_solution_filter(CellValue*** _) {
 #endif
 
 #if CUSTOM_PRUNING
-static inline bool custom_prune(void) {
+static inline bool custom_prune(int depth, Cell* cell) {
     return true;
 }
 #endif
