@@ -379,6 +379,7 @@ if (mode === 'periodic') {
     let yOffset = 1;
     grid = new Grid(width, height, 2);
     grid.fill(0, UNKNOWN);
+    grid.fill(1, OFF);
     for (let y = 0; y < p.height; y++) {
         for (let x = 0; x < p.width; x++) {
             grid.set(1, x + xOffset, y + yOffset, p.get(x, y) ? ON : OFF);

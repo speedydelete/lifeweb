@@ -603,7 +603,12 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
 }
 
 static inline __attribute__((always_inline)) uint32_t safe_compute_implication_tr(Cell* cell) {
-    uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
+    uint32_t tr = (cell->value << 10);
+    if (cell->next == NULL) {
+        tr |= (OFF << 8);
+    } else {
+        tr |= (cell->next->value << 8);
+    }
     #define add(cell) \
         if ((cell) != NULL) { \
             if ((cell)->value == ON) { \
