@@ -34,15 +34,15 @@ Modes:
     script <path>
         run the file at the path as a ES module, must default export a Grid
 
-    catalyst <rle-or-path-to-rle> <gens> [period] [phase-shift]
+    catalyst <rle-or-path-to-rle> <gens> <survive-gens> [period]
         find a stable (or periodic with the given period) catalyst
-        that completes the given partial and recovers
-        in or less than the given generations value
+        that completes the given partial and recovers in or less than the given
+        generations value, staying stable for survive-gens generations
         the RLE is a LifeHistory RLE:
             state 0 (black) - dead
             state 1 (green) - alive
             state 2 (blue) - catalyst goes here
-            state 3 (white) - can die but must be alive at the end
+            state 3 (white) - alive, can die, but must be alive at the end
             state 4 (red) - must stay dead the whole time
             state 5 (yellow) - must stay alive the whole time
             state 6 (gray) - alias for state 0
@@ -465,8 +465,8 @@ if (mode === 'periodic') {
 
 } else if (mode === 'catalyst') {
 
-    if (posArgs.length === 0 || posArgs.length > 4) {
-        error(`Expected 1 to 4 positional arguments for catalyst mode (got ${posArgs.length})`);
+    if (posArgs.length < 3 || posArgs.length > 4) {
+        error(`Expected 3 to 4 positional arguments for catalyst mode (got ${posArgs.length})`);
     }
     let startP: IdentityPattern;
     if (posArgs[0].endsWith('!')) {
@@ -481,27 +481,17 @@ if (mode === 'periodic') {
     if (Number.isNaN(gens)) {
         error(`Invalid generations value (expected integer): '${posArgs[1]}'`);
     }
+    let surviveGens = parseInt(posArgs[2]);
+    if (Number.isNaN(surviveGens)) {
+        error(`Invalid generations value (expected integer): '${posArgs[2]}'`);
+    }
+    gens += surviveGens;
     let period = 1;
-    if (posArgs[2] !== undefined) {
-        period = parseInt(posArgs[2]);
-        if (Number.isNaN(period)) {
-            error(`Invalid period value (expected integer): '${posArgs[1]}'`);
-        }
-    }
-    let phaseShift = 0;
     if (posArgs[3] !== undefined) {
-        phaseShift = parseInt(posArgs[3]);
-        if (Number.isNaN(phaseShift)) {
-            error(`Invalid phase shift value (expected integer): '${posArgs[1]}'`);
+        period = parseInt(posArgs[3]);
+        if (Number.isNaN(period)) {
+            error(`Invalid period value (expected integer): '${posArgs[3]}'`);
         }
-    }
-
-    let genPs: DataPattern[] = [];
-    let genPBase = base.copy();
-    genPBase.setData(startP.height, startP.width, startP.data.map(x => x % 2 === 1 ? 1 : 0));
-    for (let i = 0; i < period; i++) {
-        genPBase.runGeneration();
-        genPs.push(genPBase.copy());
     }
 
     grid = new Grid(startP.height, startP.width, gens + 1);
@@ -513,12 +503,8 @@ if (mode === 'periodic') {
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
             let start = startP.get(x, y);
-            let genValues = genPs.map(p => p.get(x, y));
             if (start === 0 || start === 1) {
                 grid.set(0, x, y, start ? ON : OFF);
-                for (let i = 0; i < genValues.length; i++) {
-                    grid.set(i + 1, x, y, genValues[i] ? ON : OFF);
-                }
             } else if (start === 2) {
                 let variables: number[] = [];
                 for (let t = 0; t < period; t++) {
@@ -526,20 +512,19 @@ if (mode === 'periodic') {
                     variables.push(variable);
                     grid.set(t, x, y, UNKNOWN, variable);
                 }
-                if (start === 2) {
-                    grid.set(period, x, y, UNKNOWN, variables[0]);
-                    grid.set(gens, x, y, UNKNOWN, variables[(gens + phaseShift) % period]);
-                } else {
-                    for (let t = period; t < grid.gens; t++) {
-                        grid.set(t, x, y, UNKNOWN, variables[t % period]);
-                    }
+                grid.set(period, x, y, UNKNOWN, variables[0]);
+                for (let t = gens - surviveGens; t <= gens; t++) {
+                    grid.set(t, x, y, UNKNOWN, variables[t % period]);
                 }
             } else if (start === 3) {
                 grid.set(0, x, y, ON);
-                for (let i = 0; i < genValues.length; i++) {
-                    grid.set(i + 1, x, y, genValues[i] ? ON : OFF);
+                grid.set(1, x, y, ON);
+                for (let i = 2; i < gens - surviveGens; i++) {
+                    grid.set(i, x, y, UNKNOWN);
                 }
-                grid.set(gens, x, y, ON);
+                for (let t = gens - surviveGens; t <= gens; t++) {
+                    grid.set(t, x, y, ON);
+                }
             } else if (start === 4) {
                 for (let t = 0; t < gens; t++) {
                     grid.set(t, x, y, OFF);
@@ -552,28 +537,33 @@ if (mode === 'periodic') {
         }
     }
 
-    let toSet: [number, number][] = [];
+    // fix catalyst edges
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
-            if (!(
-                    grid.getAllowOOB(gens, x, y).variable !== undefined
-                 || grid.getAllowOOB(gens, x - 1, y - 1).state !== OFF
-                 || grid.getAllowOOB(gens, x - 1, y).state !== OFF
-                 || grid.getAllowOOB(gens, x - 1, y + 1).state !== OFF
-                 || grid.getAllowOOB(gens, x, y - 1).state !== OFF
-                 || grid.getAllowOOB(gens, x, y).state !== OFF
-                 || grid.getAllowOOB(gens, x, y + 1).state !== OFF
-                 || grid.getAllowOOB(gens, x + 1, y - 1).state !== OFF
-                 || grid.getAllowOOB(gens, x + 1, y).state !== OFF
-                 || grid.getAllowOOB(gens, x + 1, y + 1).state !== OFF
-                )
-            ) {
-                toSet.push([x, y]);
+            let center = grid.get(1, x, y);
+            if (center.state != UNKNOWN || center.variable !== undefined) {
+                continue;
+            }
+            let found = false;
+            for (let y2 = -1; y2 <= 1; y2++) {
+                for (let x2 = -1; x2 <= 1; x2++) {
+                    if (y2 === 0 && x2 === 0) {
+                        continue;
+                    }
+                    let cell = grid.getAllowOOB(0, x + x2, y + y2);
+                    if (!(cell.state === OFF || (cell.state === UNKNOWN && cell.variable !== undefined))) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    break;
+                }
+            }
+            if (!found) {
+                grid.set(1, x, y, OFF);
             }
         }
-    }
-    for (let [x, y] of toSet) {
-        grid.set(gens, x, y, UNKNOWN);
     }
 
 } else {
@@ -678,11 +668,7 @@ defines['TIME_WRAP_DX'] = grid.wrap ? grid.wrap[0] : undefined;
 defines['TIME_WRAP_DY'] = grid.wrap ? grid.wrap[1] : undefined;
 
 defines['MULTI_RULE'] = multiRule;
-if (options['no-ot-optimization'] || multiRule) {
-    defines['IS_OT'] = false;
-} else {
-    defines['IS_OT'] = Boolean(base.rule.str.match(/^B(\d+)\/S(\d+)$/));
-}
+defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d+)\/S(\d+)$/) && (!multiRule || options['rulespace'] === 'ot')) && !options['no-ot-optimization']);
 defines['RULESPACE'] = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
 defines['SPECIAL_AFTER_RULE'] = `""`;
 
