@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
-pushd $(dirname "$(realpath $0)") > /dev/null
+pushd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" > /dev/null
 
 git stash push -- src/version.ts
 git pull
