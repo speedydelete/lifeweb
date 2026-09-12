@@ -446,10 +446,10 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
     }
     // finish the RLE header
     real_printf("History\n");
-    for (int y = PADDING; y < HEIGHT - PADDING; y++) {
+    for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
         DPRINTLINEPADDING();
-        for (int t = 0; t < GENS; t++) {
-            for (int x = PADDING; x < WIDTH - PADDING; x++) {
+        for (Index t = 0; t < GENS; t++) {
+            for (Index x = PADDING; x < WIDTH - PADDING; x++) {
                 CellValue value = dynamic_grid_index(grid, t, x, y);
                 if (value == UNKNOWN) {
                     if (is_solution) {
@@ -475,7 +475,7 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
                     print_grid(stderr);
                     fprintf(stderr, "\nStatus: ");
                     print_progress(stderr);
-                    fprintf(stderr, "\nError: This error should not occur, please report it plus the above debug information (invalid grid state)");
+                    fprintf(stderr, "\nError: This error should not occur, please report it plus the above debug information (invalid grid state %i at t = %i, x = %i, y = %i)\n", value, t, x, y);
                     exit(1);
                 }
             }

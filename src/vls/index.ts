@@ -668,7 +668,7 @@ defines['TIME_WRAP_DX'] = grid.wrap ? grid.wrap[0] : undefined;
 defines['TIME_WRAP_DY'] = grid.wrap ? grid.wrap[1] : undefined;
 
 defines['MULTI_RULE'] = multiRule;
-defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d+)\/S(\d+)$/) && (!multiRule || options['rulespace'] === 'ot')) && !options['no-ot-optimization']);
+defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d*)\/S(\d*)$/) && (!multiRule || options['rulespace'] === 'ot')) && !options['no-ot-optimization']);
 defines['RULESPACE'] = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
 defines['SPECIAL_AFTER_RULE'] = `""`;
 

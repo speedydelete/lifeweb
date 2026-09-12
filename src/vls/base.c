@@ -234,7 +234,7 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
 
 typedef CellValue* DynamicGrid;
 #define DYNAMIC_GRID_SIZE (TOTAL_SIZE * sizeof(CellValue))
-#define dynamic_grid_index(grid, t, x, y) ((grid)[((t) * SIZE) + ((y) * HEIGHT) + (x)])
+#define dynamic_grid_index(grid, t, x, y) ((grid)[((t) * SIZE) + ((y) * WIDTH) + (x)])
 
 static inline void copy_to_dynamic_grid(DynamicGrid out) {
     for (Index t = 0; t < GENS; t++) {
