@@ -434,32 +434,34 @@ export class Grid {
     }
 
     removeUnusedVars(): this {
-        this.numVars = 0;
-        let mapping: {[key: number]: number} = {0: 0};
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let value = this.data[t][y][x].variable;
-                    if (value === undefined) {
-                        continue;
-                    }
-                    if (!(value in mapping)) {
-                        mapping[value] = this.getNewVar();
-                    }
-                }
-            }
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let cell = this.data[t][y][x];
-                    if (cell.variable !== undefined) {
-                        cell.variable = mapping[cell.variable];
-                    }
-                }
-            }
-        }
+        // REMOVED BECAUSE THIS MAKES IT SLOWER
         return this;
+        // this.numVars = 0;
+        // let mapping: {[key: number]: number} = {0: 0};
+        // for (let t = 0; t < this.gens; t++) {
+        //     for (let y = 0; y < this.height; y++) {
+        //         for (let x = 0; x < this.width; x++) {
+        //             let value = this.data[t][y][x].variable;
+        //             if (value === undefined) {
+        //                 continue;
+        //             }
+        //             if (!(value in mapping)) {
+        //                 mapping[value] = this.getNewVar();
+        //             }
+        //         }
+        //     }
+        // }
+        // for (let t = 0; t < this.gens; t++) {
+        //     for (let y = 0; y < this.height; y++) {
+        //         for (let x = 0; x < this.width; x++) {
+        //             let cell = this.data[t][y][x];
+        //             if (cell.variable !== undefined) {
+        //                 cell.variable = mapping[cell.variable];
+        //             }
+        //         }
+        //     }
+        // }
+        // return this;
     }
 
     normalize(): this {
@@ -961,7 +963,7 @@ class VLSFileParser extends BaseParser {
 
     generation(): number {
         let out = Number(this.eat(T_INTEGER)[0]);
-        if (out > this.grid.gens) {
+        if (out >= this.grid.gens) {
             this.error(`Generation out of bounds: '${out}'`, -1);
         } else if (out < 0) {
             if (out < -this.grid.gens) {
