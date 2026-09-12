@@ -854,7 +854,7 @@ export async function runTests() {
     }
 }
 
-const GCC_INVOCATION = `gcc -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+const GCC_INVOCATION = `gcc -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 const CLANG_INVOCATION = `clang -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
