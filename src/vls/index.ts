@@ -4,13 +4,14 @@ import * as path from 'node:path';
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern} from '../core/index.js';
+import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
 import {error, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
-Usage: ./search <rule> <mode> <options>
-Or, for multi-rule searching: ./search <minrule> <maxrule> <mode> <options>
+Usage: ./vls <rule> <mode> <options>
+Or, for multi-rule searching: ./vls <minrule> <maxrule> <mode> <options>
+Or, to test it: ./vls test
 
 Run a search for something in a cellular automaton.
 If you don't know what this means, see https://conwaylife.com/.
@@ -33,11 +34,11 @@ Modes:
     script <path>
         run the file at the path as a ES module, must default export a Grid
 
-    catalyst <start> <gens> [period] [phase-shift]
+    catalyst <rle-or-path-to-rle> <gens> [period] [phase-shift]
         find a stable (or periodic with the given period) catalyst
         that completes the given partial and recovers
         in or less than the given generations value
-        the start is a LifeHistory RLE:
+        the RLE is a LifeHistory RLE:
             state 0 (black) - dead
             state 1 (green) - alive
             state 2 (blue) - catalyst goes here
@@ -57,8 +58,8 @@ Options:
 
     -benchmark=<iterations>: run benchmarking
 
-    -profile: enables profile based optimization,
-        recompiles and reruns after 5 seconds
+    -profile=<seconds>: enables profile based optimization, recompiles and
+        reruns after that many seconds
 
     -f, -file=<file>: also write output to that file
 
@@ -145,7 +146,7 @@ const OPTIONS = {
     'd': 'debug',
     'gdb': BOOLEAN,
     'benchmark': NUMBER,
-    'profile': BOOLEAN,
+    'profile': NUMBER,
     'file': STRING,
     'f': 'file',
     'rulespace': list(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
@@ -227,7 +228,7 @@ for (let i = 2; i < argv.length; i++) {
             }
             (options as any)[arg] = true;
         } else if (value === undefined) {
-            error(`No value provided for argument ${originalArg}`);
+            error(`No value provided for argument ${originalArg} (to provide it, do '${originalArg}=<value>', not '${originalArg} value')`);
         } else if (argData.type === 'string') {
             (options as any)[arg] = value;
         } else if (argData.type === 'number') {
@@ -467,7 +468,14 @@ if (mode === 'periodic') {
     if (posArgs.length === 0 || posArgs.length > 4) {
         error(`Expected 1 to 4 positional arguments for catalyst mode (got ${posArgs.length})`);
     }
-    let startP = IdentityPattern.loadRLE(posArgs[0]);
+    let startP: IdentityPattern;
+    if (posArgs[0].endsWith('!')) {
+        startP = IdentityPattern.loadRLE(posArgs[0]);
+    } else {
+        let {readFile} = await import('node:fs/promises');
+        let p = parse((await readFile(posArgs[0])).toString());
+        startP = new IdentityPattern(p.height, p.width, p.getData());
+    }
     startP.data = startP.data.map(x => x === 6 ? 0 : x);
     let gens = parseInt(posArgs[1]);
     if (Number.isNaN(gens)) {
@@ -548,16 +556,16 @@ if (mode === 'periodic') {
     for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
             if (!(
-                    grid.get(gens, x, y).variable !== undefined
-                 || grid.get(gens, x - 1, y - 1).state !== OFF
-                 || grid.get(gens, x - 1, y).state !== OFF
-                 || grid.get(gens, x - 1, y + 1).state !== OFF
-                 || grid.get(gens, x, y - 1).state !== OFF
-                 || grid.get(gens, x, y).state !== OFF
-                 || grid.get(gens, x, y + 1).state !== OFF
-                 || grid.get(gens, x + 1, y - 1).state !== OFF
-                 || grid.get(gens, x + 1, y).state !== OFF
-                 || grid.get(gens, x + 1, y + 1).state !== OFF
+                    grid.getAllowOOB(gens, x, y).variable !== undefined
+                 || grid.getAllowOOB(gens, x - 1, y - 1).state !== OFF
+                 || grid.getAllowOOB(gens, x - 1, y).state !== OFF
+                 || grid.getAllowOOB(gens, x - 1, y + 1).state !== OFF
+                 || grid.getAllowOOB(gens, x, y - 1).state !== OFF
+                 || grid.getAllowOOB(gens, x, y).state !== OFF
+                 || grid.getAllowOOB(gens, x, y + 1).state !== OFF
+                 || grid.getAllowOOB(gens, x + 1, y - 1).state !== OFF
+                 || grid.getAllowOOB(gens, x + 1, y).state !== OFF
+                 || grid.getAllowOOB(gens, x + 1, y + 1).state !== OFF
                 )
             ) {
                 toSet.push([x, y]);
@@ -837,11 +845,24 @@ return [options, out.join('\n')];
 }
 
 
-const FLAGS = `-std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+const TEST_SEARCHES: string[] = [];
 
-const PROFILE_SECONDS = 5;
+export async function runTests() {
+    let {execSync, spawnSync} = (await import('node:child_process'));
+    for (let search of TEST_SEARCHES) {
+
+    }
+}
+
+const GCC_INVOCATION = `gcc -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-unused-function -Wno-unknown-pragmas -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+
+const CLANG_INVOCATION = `clang -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 export async function main() {
+    if (process.argv[2] === 'test') {
+        runTests();
+        return;
+    }
     let path = await import('node:path');
     function getPath(file: string): string {
         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
@@ -856,13 +877,16 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        execSync(`${options['clang'] ? 'clang' : 'gcc'} ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        execSync(`${options['clang'] ? CLANG_INVOCATION : GCC_INVOCATION} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
         if (options['profile']) {
-            console.log(`Running for up to ${PROFILE_SECONDS} seconds to gather profiling data`);
-            spawnSync(`${execPath}`, {timeout: PROFILE_SECONDS * 1000, killSignal: 'SIGTERM'});
+            if (!options['clang']) {
+                error(`GCC profile-based optimization is not supported yet`);
+            }
+            console.log(`Running for up to ${options['profile']} seconds to gather profiling data`);
+            spawnSync(`${execPath}`, {timeout: options['profile'] * 1000, killSignal: 'SIGTERM'});
             console.log(`Profiling data gathered, recompiling`);
             execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
-            execSync(`clang ${FLAGS} -fprofile-instr-use=vls.profdata -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+            execSync(` -fprofile-instr-use=vls.profdata -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
         }
         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
     } catch (error) {

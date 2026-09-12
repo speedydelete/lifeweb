@@ -187,11 +187,10 @@ typedef Cell Grid[GENS][HEIGHT][WIDTH];
 
 Grid grid;
 
-Index set_cells;
+Index unknown_cells = TOTAL_UNKNOWN_CELLS;
+int max_depth = TOTAL_MAX_DEPTH;
 
-#ifdef MAXPOP
-Index phase_0_pop;
-#endif
+Index set_cells;
 
 #if KEEP_LAST_CHECKED_TIME
 uint32_t current_time;
@@ -206,8 +205,12 @@ void inc_current_time(void) {
 }
 #endif
 
-Index unknown_cells = TOTAL_UNKNOWN_CELLS;
-int max_depth = TOTAL_MAX_DEPTH;
+#ifdef MAXPOP
+Index phase_0_pop;
+#endif
+
+// the first searched cell
+Cell* initial_cell;
 
 #if CACHE_IMPLICATION_TRS
 static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value);

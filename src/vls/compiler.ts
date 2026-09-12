@@ -85,6 +85,13 @@ export class Grid {
         return this.data[t][y][x];
     }
 
+    getAllowOOB(t: number, x: number, y: number): Cell {
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+            return cell(OFF);
+        }
+        return this.data[t][y][x];
+    }
+
     set(t: number, x: number, y: number, value: Cell): this;
     set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, settable?: Settability): this;
     set(t: number, x: number, y: number, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {

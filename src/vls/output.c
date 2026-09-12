@@ -719,15 +719,14 @@ int last_printed_max_partial_size = 0;
 #define MAX_PARTIALS false
 #endif
 
-Cell* initial_cell;
-
+#if MAX_PARTIALS
 static inline void init_max_partial(void) {
     max_partial = malloc(DYNAMIC_GRID_SIZE);
 }
-
 static inline void free_max_partial(void) {
     free(max_partial);
 }
+#endif
 
 static inline void print_info_if_needed(void) {
     #ifndef BENCHMARK
