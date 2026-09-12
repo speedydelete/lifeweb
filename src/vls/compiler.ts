@@ -1138,6 +1138,7 @@ class VLSFileParser extends BaseParser {
         }
         let width = Math.max(Number(match[1]), p.width);
         let height = Math.max(Number(match[2]), p.height);
+        p.expand(0, height - p.height, 0, width - p.width);
         if (xOffset < 0) {
             this.grid.expand({left: -xOffset});
             xOffset = 0;
