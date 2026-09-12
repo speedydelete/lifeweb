@@ -150,7 +150,7 @@ Index search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 2, 3}, {
 // #define CUSTOM "path/to/custom.c"
 
 // check early exhaustion
-#define CHECK_EARLY_EXHAUSTION true
+#define CHECK_EARLY_EXHAUSTION false
 
 
 // solution and information readout parameters
