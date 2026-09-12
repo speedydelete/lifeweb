@@ -878,6 +878,7 @@ const T_STATE: Matcher = [/^\d+$/, 'state'];
 const T_RLE: Matcher = [/^x\s*=\s*\d+\s*,\s*y\s*=\s*\d+.*!$/s, 'RLE'];
 
 type StateSpecifier = 
+    | {type: 'nop'}
     | {type: 'cell', cell: Cell}
     | {type: 'periodic', cell: Cell, period: number}
 ;
@@ -956,7 +957,7 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['unchecked', 'unset', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'var', /^p\d+$/]), 'state specifier'];
+    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['nop', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var', /^p\d+$/]), 'state specifier'];
 
     generation(): number {
         let out = Number(this.eat(T_INTEGER)[0]);
@@ -996,12 +997,8 @@ class VLSFileParser extends BaseParser {
         let settable: Settability = SEARCHABLE;
         let period: number | undefined = undefined;
         for (let value of data) {
-            if (value === 'unchecked') {
-                state ??= UNKNOWN;
-                settable = NOT_SEARCHABLE;
-            } else if (value === 'unset') {
-                state ??= UNKNOWN;
-                settable = NOT_SETTABLE;
+            if (value === 'nop') {
+                return {type: 'nop'};
             } else if (value === '0' || value === 'off') {
                 state = OFF;
                 period = undefined;
@@ -1014,6 +1011,12 @@ class VLSFileParser extends BaseParser {
             } else if (value === `'` || value === 'dont_care') {
                 state = DONT_CARE;
                 period = undefined;
+            } else if (value === 'unchecked') {
+                state ??= UNKNOWN;
+                settable = NOT_SEARCHABLE;
+            } else if (value === 'unset') {
+                state ??= UNKNOWN;
+                settable = NOT_SETTABLE;
             } else if (value === 'var') {
                 state = UNKNOWN;
                 variable = this.grid.getNewVar();
@@ -1080,11 +1083,13 @@ class VLSFileParser extends BaseParser {
     }
 
     setCells(ts: number[], x: number, y: number, value: StateSpecifier, baseT: number): void {
-        if (value.type === 'cell') {
+        if (value.type === 'nop') {
+            // do nothing
+        } else if (value.type === 'cell') {
             for (let t of ts) {
                 this.grid.set(t, x, y, structuredClone(value.cell));
             }
-        } else {
+        } else if (value.type === 'periodic') {
             let cells: Cell[] = [];
             for (let i = 0; i < value.period; i++) {
                 let cell = structuredClone(value.cell);
@@ -1095,6 +1100,8 @@ class VLSFileParser extends BaseParser {
                 let cell = structuredClone(cells[(t + baseT) % cells.length]);
                 this.grid.set(t, x, y, cell);
             }
+        } else {
+            throw new Error(`This error should not occur, please report it (invalid state specifier type: '${(value as any).type}')`);
         }
     }
 
