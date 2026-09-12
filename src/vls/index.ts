@@ -844,6 +844,8 @@ return [options, out.join('\n')];
 }
 
 
+const CC = 'gcc';
+
 const FLAGS = `-std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 const PROFILE_SECONDS = 5;
@@ -863,7 +865,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        execSync(`clang ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        execSync(`gcc ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
         if (options['profile']) {
             console.log(`Running for up to ${PROFILE_SECONDS} seconds to gather profiling data`);
             spawnSync(`${execPath}`, {timeout: PROFILE_SECONDS * 1000, killSignal: 'SIGTERM'});
