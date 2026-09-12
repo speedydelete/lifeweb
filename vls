@@ -3,6 +3,6 @@
 set -eu -o pipefail
 pushd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" > /dev/null
 
-node ./lib/vls/index.js "$@"
+node --enable-source-maps ./lib/vls/index.js "$@"
 
 popd > /dev/null

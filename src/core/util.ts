@@ -222,6 +222,10 @@ export const EOF = Symbol();
 
 export const T_EOF: Matcher = [EOF, 'end of file'];
 
+export function literal(value: string): [string, string] {
+    return [value, `'${value}'`];
+}
+
 export interface ParserPosition {
     file: string | undefined;
     function: string | undefined;

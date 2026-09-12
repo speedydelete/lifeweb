@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 
 import * as t from '@babel/types';
 
-import {Matcher, EOF, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
+import {Matcher, EOF, literal, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
 
 
 export function error(msg: string): never {
@@ -956,7 +956,35 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['unchecked', 'unset', '0', '1', '*', '`', 'var', /^p\d+$/]), 'state meaning'];
+    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['unchecked', 'unset', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'var', /^p\d+$/]), 'state specifier'];
+
+    generation(): number {
+        let out = Number(this.eat(T_INTEGER)[0]);
+        if (out > this.grid.gens) {
+            this.error(`Generation out of bounds: '${out}'`, -1);
+        } else if (out < 0) {
+            if (out < -this.grid.gens) {
+                this.error(`Generation out of bounds: '${out}'`, -1);
+            }
+            out = (out + this.grid.gens) % this.grid.gens;
+        }
+        return out;
+    }
+
+    generationRange(): number[] {
+        let value = this.generation();
+        if (this.match('-') || this.match('to')) {
+            this.advance();
+            let end = this.generation();
+            let out: number[] = [];
+            for (let i = value; i <= end; i++) {
+                out.push(i);
+            }
+            return out;
+        } else {
+            return [value];
+        }
+    }
 
     stateSpecifier(): StateSpecifier {
         let data: string[] = [this.eat(VLSFileParser.T_STATE_SPECIFIER)[0]];
@@ -974,16 +1002,16 @@ class VLSFileParser extends BaseParser {
             } else if (value === 'unset') {
                 state ??= UNKNOWN;
                 settable = NOT_SETTABLE;
-            } else if (value === '0') {
+            } else if (value === '0' || value === 'off') {
                 state = OFF;
                 period = undefined;
-            } else if (value === '1') {
+            } else if (value === '1' || value === 'on') {
                 state = ON;
                 period = undefined;
-            } else if (value === '*') {
+            } else if (value === '*' || value === 'unknown') {
                 state = UNKNOWN;
                 period = undefined;
-            } else if (value === '`') {
+            } else if (value === `'` || value === 'dont_care') {
                 state = DONT_CARE;
                 period = undefined;
             } else if (value === 'var') {
@@ -994,11 +1022,11 @@ class VLSFileParser extends BaseParser {
                 state ??= UNKNOWN;
                 period = Number(value.slice(1));
             } else {
-                throw new Error(`This error should not occur, please report it (invalid state meaning)`);
+                throw new Error(`This error should not occur, please report it (invalid state specifier)`);
             }
         }
         if (state === undefined) {
-            throw new Error(`This error should not occur, please report it (empty state meaning)`);
+            throw new Error(`This error should not occur, please report it (empty state specifier)`);
         }
         if (period !== undefined) {
             return {type: 'periodic', cell: cell(state, variable, settable), period};
@@ -1018,25 +1046,13 @@ class VLSFileParser extends BaseParser {
                 this.advance();
                 absolute = true;
             }
-            let tNumber = absolute ? T_NATURAL_NUMBER : T_INTEGER;
-            let start = Number(this.eat(tNumber)[0]);
-            let end = start;
-            if (this.match('-')) {
-                this.advance();
-            }
-            if (this.match(tNumber)) {
-                end = Number(this.eat(tNumber)[0]);
-            }
+            let range = this.generationRange();
             this.eat([':', 'colon']);
             let value = this.stateSpecifier();
-            let times: number[] = [];
-            for (let i = start; i < end; i++) {
-                times.push(i);
-            }
             if (absolute) {
-                out.absolute.push([times, structuredClone(value)]);
+                out.absolute.push([range, structuredClone(value)]);
             } else {
-                out.relative.push([times, structuredClone(value)]);
+                out.relative.push([range, structuredClone(value)]);
             }
         } else {
             out.all = this.stateSpecifier();
@@ -1083,13 +1099,21 @@ class VLSFileParser extends BaseParser {
     }
 
     rleStatement(): void {
-        let gen: number | 'all';
-        if (this.match('gen')) {
+        let gens: number[] | 'all';
+        if (this.match('gen') || this.match('gens')) {
             this.advance();
-            gen = Number(this.eat(T_NATURAL_NUMBER)[0]);
+            gens = [];
+            while (!(this.match(':') || this.match('offset'))) {
+                for (let value of this.generationRange()) {
+                    gens.push(value);
+                }
+                while (this.match(',')) {
+                    this.advance();
+                }
+            }
         } else {
-            this.eat(['all', `'all'`], ['gens', `'gens'`]);
-            gen = 'all';
+            this.eat(literal('all'), literal('gens'));
+            gens = 'all';
         }
         let xOffset = 0;
         let yOffset = 0;
@@ -1136,7 +1160,7 @@ class VLSFileParser extends BaseParser {
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
                 let data = this.states[state];
-                if (gen === 'all') {
+                if (gens === 'all') {
                     if (data.all) {
                         this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
                     } else {
@@ -1164,8 +1188,10 @@ class VLSFileParser extends BaseParser {
                         }
                     }
                     if (data.relative) {
-                        for (let [ts, value] of Object.values(data.relative)) {
-                            this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
+                        for (let gen of gens) {
+                            for (let [ts, value] of Object.values(data.relative)) {
+                                this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
+                            }
                         }
                     }
                 }
@@ -1175,14 +1201,14 @@ class VLSFileParser extends BaseParser {
     }
 
     wrapStatement(): void {
-        this.eat(['wrap', `'wrap'`]);
+        this.eat(literal('wrap'));
         let [dx, dy] = this.eat(T_INTEGER, T_INTEGER);
         this.grid.wrap = [Number(dx), Number(dy)];
         this.eat(T_LINE_END);
     }
 
     expandStatement(): void {
-        this.eat(['expand', `'expand'`]);
+        this.eat(literal('expand'));
         while (!this.match(T_LINE_END)) {
             let data = this.eat([new Set(['start', 'end', 'up', 'down', 'left', 'right']), 'direction'], T_NATURAL_NUMBER);
             this.grid.expand({[data[0] as any]: Number(data[1])});
@@ -1194,7 +1220,7 @@ class VLSFileParser extends BaseParser {
             this.advance();
         } else if (this.match(T_STATE, '=')) {
             this.stateSetStatement();
-        } else if (this.match('gen') || this.match('all', 'gens')) {
+        } else if (this.match('gen') || this.match('all', 'gens') || this.match('gens')) {
             this.rleStatement();
         } else if (this.match('wrap')) {
             this.wrapStatement();
@@ -1209,16 +1235,19 @@ class VLSFileParser extends BaseParser {
         while (this.match(T_LINE_END)) {
             this.advance();
         }
-        let gens = Number(this.eat(
-            ['pattern', `'pattern'`],
-            T_NATURAL_NUMBER,
-            ['gens', `'gens'`],
-            T_LINE_END,
-        )[1]);
+        this.eat(literal('pattern'));
+        let width = 0;
+        let height = 0;
+        if (this.match(/^\d+x\d+$/)) {
+            let value = this.advance().split('x');
+            width = Number(value[0]);
+            height = Number(value[1]);
+        }
+        let gens = Number(this.eat(T_NATURAL_NUMBER, literal('gens'))[0]);
         if (gens === 0) {
             this.error(`Generations value cannot be 0`, -3);
         }
-        this.grid = new Grid(0, 0, gens);
+        this.grid = new Grid(width, height, gens);
         while (!(this.match(EOF) || this.match(T_NATURAL_NUMBER, 'gens', T_LINE_END))) {
             this.statement();
         }

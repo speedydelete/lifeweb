@@ -62,7 +62,7 @@ static inline bool is_strictly_volatile(Cell* cell) {
 }
 
 #if CUSTOM_SOLUTION_FILTERING
-static inline bool custom_solution_filter(DynamicGrid _) {
+static inline bool custom_solution_filter([[maybe_unused]] DynamicGrid _) {
     for (Index y = 0; y < HEIGHT; y++) {
         for (Index x = 0; x < WIDTH; x++) {
             if (!is_strictly_volatile(&grid[0][x][y])) {
