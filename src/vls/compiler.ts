@@ -1173,8 +1173,6 @@ class VLSFileParser extends BaseParser {
                         this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
                     } else {
                         let found = false;
-                        if (!data.relative) {
-                        }
                         for (let value of data.relative) {
                             if (value[0].includes(0)) {
                                 this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, value[1], 0);
