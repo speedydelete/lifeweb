@@ -365,35 +365,6 @@ export class Grid {
         return this.transpose().rotate180();
     }
 
-    shrinkToFit(): this {
-        let start = 0;
-        while (this.data[start].every(row => row.every(cell => cell.state === OFF))) {
-            start++;
-        }
-        let end = 0;
-        while (this.data[this.data.length - end - 1].every(row => row.every(cell => cell.state === OFF))) {
-            end++;
-        }
-        let up = 0;
-        while (this.data.every(grid => grid[up].every(cell => cell.state === OFF))) {
-            up++;
-        }
-        let down = 0;
-        while (this.data.every(grid => grid[grid.length - down - 1].every(cell => cell.state === OFF))) {
-            down++;
-        }
-        let left = 0;
-        while (this.data.every(grid => grid.every(row => row[left].state === OFF))) {
-            left++;
-        }
-        let right = 0;
-        while (this.data.every(grid => grid.every(row => row[this.width - right - 1].state === OFF))) {
-            right++;
-        }
-        this.shrink({start, end, up, down, left, right});
-        return this;
-    }
-
     removeKnownVars(): this {
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
@@ -465,7 +436,6 @@ export class Grid {
     }
 
     normalize(): this {
-        this.shrinkToFit();
         this.removeKnownVars();
         this.removeSingleUseVars();
         this.removeUnusedVars();
@@ -769,6 +739,8 @@ export function runExpression(cell: [number, number, number], node: t.Expression
             return cell[1];
         } else if (node.name === 'y') {
             return cell[2];
+        } else if (node.name === 'Infinity') {
+            return Infinity;
         } else {
             error(`Invalid variable: '${node.name}'`);
         }
@@ -941,6 +913,7 @@ class VLSFileParser extends BaseParser {
                     data += char;
                     pos++;
                 }
+                pos--;
                 this.addToken(data, startPos);
             } else if (WORD_CHARS.includes(char)) {
                 current += char;
@@ -1060,7 +1033,7 @@ class VLSFileParser extends BaseParser {
                 out.relative.push([range, structuredClone(value)]);
             }
         } else {
-            out.all = this.stateSpecifier();
+            out.relative.push([[0], this.stateSpecifier()]);
         }
     }
 
@@ -1078,7 +1051,7 @@ class VLSFileParser extends BaseParser {
     }
 
     stateSetStatement(): void {
-        let state = Number(this.eat(T_NATURAL_NUMBER)[0]);
+        let state = Number(this.eat(T_STATE)[0]);
         this.eat(['=', 'equals sign']);
         this.states[state] = this.fullStateSpecifier();
         this.eat(T_LINE_END);
@@ -1170,6 +1143,9 @@ class VLSFileParser extends BaseParser {
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
                 let data = this.states[state];
+                if (!data) {
+                    this.error(`State ${state} is not defined`);
+                }
                 if (gens === 'all') {
                     if (data.all) {
                         this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
@@ -1183,7 +1159,7 @@ class VLSFileParser extends BaseParser {
                             }
                         }
                         if (!found) {
-                            throw new Error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
+                            this.error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
                         }
                     }
                 } else {
@@ -1223,6 +1199,15 @@ class VLSFileParser extends BaseParser {
         }
     }
 
+    deleteStatement(): void {
+        this.eat(literal('delete'));
+        let state = Number(this.eat(T_STATE)[0]);
+        if (!(state in this.states)) {
+            this.error(`State ${state} is not defined`, -1);
+        }
+        delete this.states[state];
+    }
+
     statement(): void {
         if (this.match(T_LINE_END)) {
             this.advance();
@@ -1234,6 +1219,8 @@ class VLSFileParser extends BaseParser {
             this.wrapStatement();
         } else if (this.match('expand')) {
             this.expandStatement();
+        } else if (this.match('delete')) {
+            this.deleteStatement();
         } else {
             this.error(`Expected statement`);
         }
