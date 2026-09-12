@@ -1023,7 +1023,7 @@ static inline void init_tr_to_bound_tr() {
             }
         }
         if (!found) {
-            fprintf(stderr, "Error: This error should not occur (nonexistent transition in init_tr_to_bound_tr: %i)\nPlease report this error\n", tr);
+            fprintf(stderr, "Error: This error should not occur, please report it (nonexistent transition in init_tr_to_bound_tr: %i)", tr);
             exit(1);
         }
     }

@@ -52,21 +52,21 @@ Options:
 
     -h, --help: show this help message
 
-    -d, --debug <level>: set the debug level
+    -d, -debug=<level>: set the debug level
 
-    --gdb: run gdb
+    -gdb: run gdb
 
-    --benchmark <iterations>: run benchmarking
+    -benchmark=<iterations>: run benchmarking
 
-    --profile: enables profile based optimization,
+    -profile: enables profile based optimization,
         recompiles and reruns after 5 seconds
 
-    -f, --file <file>: also write output to that file
+    -f, -file=<file>: also write output to that file
 
-    --rulespace <rulespace>: set the rulespace for multi-rule searching,
+    -rulespace=<rulespace>: set the rulespace for multi-rule searching,
         options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
 
-    -o, --order <order>: set the search order
+    -o, --order=<order>: set the search order
 
         The search order is defined as a comma-separated list of metrics, later
         metrics are tiebreakers for earlier metrics. Metrics are normal
@@ -79,115 +79,115 @@ Options:
 
         The default search order is f2b for spaceships and 't, y, x' otherwise.
 
-    -i, --initial-value <value>:
+    -i, -initial-value=<value>:
         set the initial tested value for cells, default 1
 
-    --no-ot-optimization: disable optimization for OT rules
-    --no-cache-trs: disable implication transition caching
-    --check-times: keep track of when each cell's implications was last checked,
+    -no-ot-optimization: disable optimization for OT rules
+    -no-cache-trs: disable implication transition caching
+    -check-times: keep track of when each cell's implications was last checked,
         can make it faster can make it slower
+    -clang: use clang instead of gcc
 
-    -s <symmetry>, --symmetry <symmetry>: apply a symmetry to the pattern
-        currently supported symmetries are D2|, D2-, and D4+, but more are
-        coming soon!
+    -s, -symmetry=<symmetry>: apply a symmetry to the pattern, currently
+        supported symmetries are D2|, D2-, and D4+, but more are coming soon!
 
-    --maxpop <cells>: set the maximum population during the search
+    -maxpop=<cells>: set the maximum population during the search
 
-    -c, --custom <file>: use additional search constraints given in
-        the provided C file, see lifeweb/src/vls/custom/ for examples
+    -c, -custom =file>: use additional search constraints given in the
+        provided C file, see lifeweb/src/vls/custom/ for examples
 
-    --check-early-exhaustion: check early exhaustion (a row/column is all 0),
-        this is enabled automatically in periodic mode, but not in other modes
-    --no-check-early-exhaustion: force not checking early exhaustion, can be
-        used in periodic mode to turn it off
+    -check-early-exhaustion: check early exhaustion (a row/column is all 0),
+        this is enabled automatically in periodic mode when it is an oscillator
+        or orthogonal spaceship, but not in other cases
+    -no-check-early-exhaustion: force not checking early exhaustion, can be
+        used in periodic mode to turn it off if it's broken
 
-    --interval <seconds>: set the progress reporting interval, default 1
+    -interval=<seconds>: set the progress reporting interval, default 1, also
+        sets the max partial reporting interval if -partial-interval is not set
 
-    --partial-type <'none'|'cell'|'start'>:
+    -partials=<'none'|'cell'|'start'>:
         type of max partials to report (default 'cell')
         none: report no max partials
         cell: report by number of set cells
         start: report by number of correct cells at start of search order
-    --partial-interval <seconds>:
-        set the minimum partial reporting interval, default 1
+    -partial-interval=<seconds>:
+        set the minimum max partial reporting interval, default 1
 
-    -n, --max-solutions: set the maximum solution count, default infinity
-    --no-show-solutions: disable showing solutions at all
-    --allow-empty: allow the empty pattern as a solution
-    --allow-duplicates: allow duplicate solutions to be reported
-    --allow-subperiod: allow subperiod solutions to be reported
-    --cell-period-filter <periods>:
+    -n, -max-solutions=<count>: set the maximum solution count, by default
+        it finds all solutions
+    -no-show-solutions: disable showing solutions at all
+    -allow-empty: allow the empty pattern as a solution
+    -allow-duplicates: allow duplicate solutions to be reported
+    -allow-subperiod: allow subperiod solutions to be reported
+    -cell-period-filter <periods>:
         filter out cells of those periods when checking for duplicates
         the argument is a comma- or space-separated list of integers
 `;
 
-type OptionValue = 'boolean' | 'string' | 'number' | Set<string>;
+type OptionValue =
+    | {type: 'boolean'}
+    | {type: 'string'}
+    | {type: 'number'}
+    | {type: 'list', values: string[]}
+;
+
+const BOOLEAN = {type: 'boolean'} as const;
+const STRING = {type: 'string'} as const;
+const NUMBER = {type: 'number'} as const;
+
+function list<T extends string[]>(values: T): {type: 'list', values: T} {
+    return {type: 'list', values};
+}
 
 const OPTIONS = {
-    'help': 'boolean',
-    'debug': 'number',
-    'gdb': 'boolean',
-    'benchmark': 'string',
-    'profile': 'boolean',
-    'file': 'string',
-    'rulespace': new Set(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
-    'order': 'string',
-    'initial-value': new Set(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1']),
-    'no-ot-optimization': 'boolean',
-    'no-cache-trs': 'boolean',
-    'check-times': 'boolean',
-    'symmetry': 'string',
-    'maxpop': 'number',
-    'custom': 'string',
-    'check-early-exhaustion': 'boolean',
-    'no-check-early-exhaustion': 'boolean',
-    'interval': 'number',
-    'partial-type': new Set(['none', 'cell', 'start'] as const),
-    'partial-interval': 'number',
-    'max-solutions': 'number',
-    'no-show-solutions': 'boolean',
-    'allow-empty': 'boolean',
-    'allow-duplicates': 'boolean',
-    'allow-subperiod': 'boolean',
-    'cell-period-filter': 'string',
-} as const satisfies {[key: string]: OptionValue};
-
-type Options = typeof OPTIONS;
-type Option = keyof Options;
-
-const OPTION_ALIASES: {[key: string]: Option} = {
+    'help': BOOLEAN,
     'h': 'help',
+    'debug': NUMBER,
     'd': 'debug',
+    'gdb': BOOLEAN,
+    'benchmark': NUMBER,
+    'profile': BOOLEAN,
+    'file': STRING,
     'f': 'file',
-    's': 'symmetry',
-    'c': 'custom',
+    'rulespace': list(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
+    'order': STRING,
     'o': 'order',
+    'initial-value': list(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1'] as const),
     'i': 'initial-value',
+    'no-ot-optimization': BOOLEAN,
+    'no-cache-trs': BOOLEAN,
+    'check-times': BOOLEAN,
+    'clang': BOOLEAN,
+    'symmetry': STRING,
+    's': 'symmetry',
+    'maxpop': NUMBER,
+    'custom': STRING,
+    'c': 'custom',
+    'check-early-exhaustion': BOOLEAN,
+    'no-check-early-exhaustion': BOOLEAN,
+    'interval': NUMBER,
+    'partials': list(['none', 'cell', 'start'] as const),
+    'partial-interval': NUMBER,
+    'max-solutions': NUMBER,
     'n': 'max-solutions',
-};
-
-type ValueOfArrayOption<T extends readonly ('string' | 'number' | Set<string>)[]> =
-    T extends [infer U] ? (
-        U extends 'string' ? [string] :
-        U extends 'number' ? [number] :
-        U extends Set<infer T> ? [T] :
-        never
-    ) :
-    T extends readonly [infer First extends 'string' | 'number' | Set<string>, ...(infer Rest extends readonly ('string' | 'number' | Set<string>)[])] ? [ValueOfOption<First>, ...ValueOfArrayOption<Rest>] :
-    never
-;
+    'no-show-solutions': NUMBER,
+    'allow-empty': BOOLEAN,
+    'allow-duplicates': BOOLEAN,
+    'allow-subperiod': BOOLEAN,
+    'cell-period-filter': STRING,
+} satisfies {[key: string]: OptionValue | string};
 
 type ValueOfOption<T extends OptionValue> =
-    T extends 'boolean' ? true :
-    T extends 'string' ? string :
-    T extends 'number' ? number :
-    T extends Set<infer T> ? T :
-    T extends [true, infer T extends 'string' | 'number' | Set<string>] ? ValueOfOption<T>[] :
-    T extends readonly ('string' | 'number' | Set<string>)[] ? ValueOfArrayOption<T> :
+    T extends {type: 'boolean'} ? boolean :
+    T extends {type: 'string'} ? string :
+    T extends {type: 'number'} ? number :
+    T extends {type: 'list', values: (infer U)[]} ? U :
     never
 ;
 
-export type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
+type Options = typeof OPTIONS;
+type Option = {[K in keyof Options]: Options[K] extends string ? never : K}[keyof Options];
+type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 
 
 export async function transformCode(argv: string[], code: string): Promise<[OptionData, string]> {
@@ -196,72 +196,66 @@ export async function transformCode(argv: string[], code: string): Promise<[Opti
 let posArgs: string[] = [];
 let options: OptionData = {};
 
-function getOption(originalArg: string, value: OptionValue, i: number): [OptionData[Option], number] {
-    if (value === 'boolean') {
-        return [true, i];
-    } else if (value === 'string') {
-        if (i === argv.length - 1) {
-            error(`Expected argument for option '${originalArg}'`);
-        }
-        let arg = argv[++i];
-        return [arg, i];
-    } else if (value === 'number') {
-        if (i === argv.length - 1) {
-            error(`Expected argument for option '${originalArg}'`);
-        }
-        let arg = argv[++i];
-        let num = parseFloat(arg);
-        if (Number.isNaN(num)) {
-            error(`Expected numeric argument for option '${originalArg}'`);
-        }
-        return [num, i];
-    } else {
-        if (i === argv.length - 1) {
-            error(`Expected argument for option '${originalArg}'`);
-        }
-        let arg = argv[++i];
-        let valid = Array.from(value) as string[];
-        if (!valid.includes(arg)) {
-            let expected = '';
-            for (let i = 0; i < valid.length - 1; i++) {
-                expected += valid[i] + ', ';
-            }
-            expected += 'or ' + valid[valid.length - 1];
-            error(`Invalid option for argument '${originalArg}': '${arg}', expected ${expected}`);
-        }
-        return [arg, i];
-    }
-}
-
 for (let i = 2; i < argv.length; i++) {
     let arg = argv[i];
     if (arg.match(/^-[-a-zA-Z]/)) {
-        arg = arg.toLowerCase();
+        let value: string | undefined;
+        if (arg.includes('=')) {
+            let index = arg.indexOf('=');
+            value = arg.slice(index + 1);
+            arg = arg.slice(0, index);
+        } else {
+            value = undefined;
+        }
         let originalArg = arg;
+        arg = arg.toLowerCase();
         while (arg.startsWith('-')) {
             arg = arg.slice(1);
-        }
-        if (arg in OPTION_ALIASES) {
-            arg = OPTION_ALIASES[arg];
         }
         if (!(arg in OPTIONS)) {
             error(`Unrecognized option: '${arg}'`);
         }
-        let option = arg as Option;
-        let value = OPTIONS[option];
-        let data = getOption(originalArg, value, i);
-        if (Array.isArray(value) && Array.isArray(options[option])) {
-            if (Array.isArray(data[0])) {
-                for (let item of data[0]) {
-                    (options[option] as any[]).push(item);
-                }
-            } else {
-                (options[option] as any[]).push(data[0]);
-            }
-        } else {
-            (options[option] as any) = data[0];
+        if (typeof (OPTIONS as any)[arg] === 'string') {
+            arg = (OPTIONS as any)[arg];
         }
-        i = data[1];
+        let argData = (OPTIONS as any)[arg] as OptionValue;
+        if (typeof argData === 'string') {
+            error(`This error should not occur, please report it (double aliased argument)`);
+        }
+        if (argData.type === 'boolean') {
+            if (value !== undefined) {
+                error(`Cannot provide value for argument ${originalArg}, is a boolean argument`);
+            }
+            (options as any)[arg] = true;
+        } else if (value === undefined) {
+            error(`No value provided for argument ${originalArg}`);
+        } else if (argData.type === 'string') {
+            (options as any)[arg] = value;
+        } else if (argData.type === 'number') {
+            let num = Number(value);
+            if (Number.isNaN(num)) {
+                error(`Invalid numeric value for ${originalArg}: '${value}'`);
+            }
+            (options as any)[arg] = num;
+        } else if (argData.type === 'list') {
+            if (!argData.values.includes(value)) {
+                let expected = '';
+                for (let i = 0; i < argData.values.length; i++) {
+                    let value = argData.values[i];
+                    if (i === 0) {
+                        expected += `${value}`;
+                    } else if (i !== expected.length - 1) {
+                        expected += `, ${value}`;
+                    } else {
+                        expected += `, or ${value}`;
+                    }
+                }
+                error(`Invalid value for ${originalArg}: '${value}' (expected ${expected})`);
+            }
+            (options as any)[arg] = value;
+        } else {
+            error(`This error should not occur, please report it (invalid argument type)`);
+        }
     } else {
         posArgs.push(arg);
     }
@@ -709,7 +703,7 @@ if (options['cell-period-filter']) {
 }
 
 defines['REPORTING_INTERVAL'] = options['interval'] ?? 1;
-defines['MAX_PARTIAL_TYPE'] = `MAX_PARTIAL_TYPE_${(options['partial-type'] ?? 'cell').toUpperCase()}`;
+defines['MAX_PARTIAL_TYPE'] = `MAX_PARTIAL_TYPE_${(options['partials'] ?? 'cell').toUpperCase()}`;
 defines['MAX_PARTIAL_REPORTING_INTERVAL'] = options['partial-interval'] ?? 1;
 
 defines['BENCHMARK'] = options['benchmark'];
@@ -863,7 +857,7 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        execSync(`gcc ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        execSync(`${options['clang'] ? 'clang' : 'gcc'} ${FLAGS} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
         if (options['profile']) {
             console.log(`Running for up to ${PROFILE_SECONDS} seconds to gather profiling data`);
             spawnSync(`${execPath}`, {timeout: PROFILE_SECONDS * 1000, killSignal: 'SIGTERM'});

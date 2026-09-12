@@ -226,7 +226,7 @@ static inline Hash hash_with_offset(Index offset, AxisTransform x_trans, AxisTra
         }
         offset = (offset + 1) % GENS;
         if (i == GENS - 1) {
-            real_fprintf(stderr, "Error: This error should not occur (no non-blank offset for hashing found)\nPlease report this error\n");
+            real_fprintf(stderr, "Error: This error should not occur, please report it (no non-blank offset for hashing found)\n");
             exit(1);
         }
     }
@@ -458,7 +458,7 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
                         print_grid(stderr);
                         fprintf(stderr, "\nStatus: ");
                         print_progress(stderr);
-                        fprintf(stderr, "\nError: This error should not occur (unknown cell in solution)\nPlease report this error along with the debug information printed above\n");
+                        fprintf(stderr, "\nError: This error should not occur, please report it plus the above debug information (unknown cell in solution)\n");
                         exit(1);
                     } else {
                         real_printf("B");
@@ -475,7 +475,7 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
                     print_grid(stderr);
                     fprintf(stderr, "\nStatus: ");
                     print_progress(stderr);
-                    fprintf(stderr, "\nError: This error should not occur (invalid grid state)\nPlease report this error along with the debug information printed above\n");
+                    fprintf(stderr, "\nError: This error should not occur, please report it plus the above debug information (invalid grid state)");
                     exit(1);
                 }
             }
@@ -495,7 +495,7 @@ static inline void print_grid_pretty(DynamicGrid grid, bool is_solution) {
 const int cell_period_filter[] = CELL_PERIOD_FILTER;
 #endif
 
-static inline void print_solution(bool preprocessing) {
+static inline void check_solution(bool preprocessing) {
     #if SHOW_SOLUTIONS
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();

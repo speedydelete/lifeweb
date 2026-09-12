@@ -297,7 +297,7 @@ static inline void preprocess(void) {
     int trivial = set_cells;
     set_cells = 0;
     if (unknown_cells == 0) {
-        print_solution(true);
+        check_solution(true);
         exit(0);
     }
     sp = 0;
