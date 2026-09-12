@@ -24,7 +24,16 @@ uint64_t branches;
 
 #if SHOW_SOLUTIONS
 
+
 uint64_t solutions_found;
+
+
+typedef enum AxisTransform {
+    POS_X,
+    POS_Y,
+    NEG_X,
+    NEG_Y,
+} AxisTransform;
 
 typedef struct BoundingBox {
     Index width;
@@ -33,9 +42,32 @@ typedef struct BoundingBox {
     Index y_offset;
 } BoundingBox;
 
+static inline void transform_coords(Index* x_out, Index* y_out, BoundingBox* bb, Index x, Index y, AxisTransform x_trans, AxisTransform y_trans) {
+    if (x_trans == POS_X) {
+        *x_out = x;
+    } else if (x_trans == POS_Y) {
+        *x_out = y;
+    } else if (x_trans == NEG_X) {
+        *x_out = bb->width - x - 1;
+    } else if (x_trans == NEG_Y) {
+        *x_out = bb->width - y - 1;
+    }
+    if (y_trans == POS_X) {
+        *y_out = x;
+    } else if (y_trans == POS_Y) {
+        *y_out = y;
+    } else if (y_trans == NEG_X) {
+        *y_out = bb->height - x - 1;
+    } else if (y_trans == NEG_Y) {
+        *y_out = bb->height - y - 1;
+    }
+    *x_out += bb->x_offset;
+    *y_out += bb->y_offset;
+}
+
 DynamicGrid hash_grid;
 
-static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
+static inline bool get_true_bb(BoundingBox* bb, CellValue t, AxisTransform x_trans, AxisTransform y_trans) {
     // check for empty pattern
     // this breaks the rest of the function turns out
     bool found = false;
@@ -61,12 +93,15 @@ static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
     bb->height = HEIGHT;
     bb->x_offset = 0;
     bb->y_offset = 0;
+    Index x2;
+    Index y2;
     // top
     Index shrink_top = 0;
     for (Index y = 0; y < HEIGHT; y++) {
         bool found = false;
         for (Index x = 0; x < WIDTH; x++) {
-            if (dynamic_grid_index(hash_grid, t, x, y) != OFF) {
+            transform_coords(&x2, &y2, bb, x, y, x_trans, y_trans);
+            if (dynamic_grid_index(hash_grid, t, x2, y2) != OFF) {
                 found = true;
                 break;
             }
@@ -77,14 +112,13 @@ static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
             shrink_top++;
         }
     }
-    bb->height -= shrink_top;
-    bb->y_offset += shrink_top;
     // bottom
     Index shrink_bottom = 0;
     for (int y = HEIGHT - 1; y >= 0; y--) {
         bool found = false;
         for (Index x = 0; x < WIDTH; x++) {
-            if (dynamic_grid_index(hash_grid, t, x, y) != OFF) {
+            transform_coords(&x2, &y2, bb, x, y, x_trans, y_trans);
+            if (dynamic_grid_index(hash_grid, t, x2, y2) != OFF) {
                 found = true;
                 break;
             }
@@ -95,13 +129,13 @@ static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
             shrink_bottom++;
         }
     }
-    bb->height -= shrink_bottom;
     // left
     Index shrink_left = 0;
     for (Index x = 0; x < WIDTH; x++) {
         bool found = false;
         for (Index y = 0; y < HEIGHT; y++) {
-            if (dynamic_grid_index(hash_grid, t, x, y) != OFF) {
+            transform_coords(&x2, &y2, bb, x, y, x_trans, y_trans);
+            if (dynamic_grid_index(hash_grid, t, x2, y2) != OFF) {
                 found = true;
                 break;
             }
@@ -112,14 +146,13 @@ static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
             shrink_left++;
         }
     }
-    bb->width -= shrink_left;
-    bb->x_offset += shrink_left;
     // right
     Index shrink_right = 0;
     for (int x = WIDTH - 1; x >= 0; x--) {
         bool found = false;
         for (Index y = 0; y < HEIGHT; y++) {
-            if (dynamic_grid_index(hash_grid, t, x, y) != OFF) {
+            transform_coords(&x2, &y2, bb, x, y, x_trans, y_trans);
+            if (dynamic_grid_index(hash_grid, t, x2, y2) != OFF) {
                 found = true;
                 break;
             }
@@ -130,6 +163,12 @@ static inline bool get_true_bb(BoundingBox* bb, CellValue t) {
             shrink_right++;
         }
     }
+    // apply the changes
+    bb->height -= shrink_top;
+    bb->y_offset += shrink_top;
+    bb->height -= shrink_bottom;
+    bb->width -= shrink_left;
+    bb->x_offset += shrink_left;
     bb->width -= shrink_right;
     return true;
 }
@@ -143,38 +182,8 @@ static inline Hash min_hash(Hash a, Hash b) {
     return a < b ? a : b;
 }
 
-typedef enum AxisTransform {
-    POS_X,
-    POS_Y,
-    NEG_X,
-    NEG_Y,
-} AxisTransform;
 
-static inline void transform_coords(const BoundingBox* bb, Index x, Index y, AxisTransform x_trans, AxisTransform y_trans, Index* x_out, Index* y_out) {
-    if (x_trans == POS_X) {
-        *x_out = x;
-    } else if (x_trans == POS_Y) {
-        *x_out = y;
-    } else if (x_trans == NEG_X) {
-        *x_out = bb->width - x - 1;
-    } else if (x_trans == NEG_Y) {
-        *x_out = bb->width - y - 1;
-    }
-    if (y_trans == POS_X) {
-        *y_out = x;
-    } else if (y_trans == POS_Y) {
-        *y_out = y;
-    } else if (y_trans == NEG_X) {
-        *y_out = bb->height - x - 1;
-    } else if (y_trans == NEG_Y) {
-        *y_out = bb->height - y - 1;
-    }
-    *x_out += bb->x_offset;
-    *y_out += bb->y_offset;
-}
-
-
-#if false
+#if true
 #include <stdio.h>
 #define HASHDPRINTF printf
 #else
@@ -183,7 +192,7 @@ static inline void transform_coords(const BoundingBox* bb, Index x, Index y, Axi
 
 static inline Hash hash_at_time(Index t, AxisTransform x_trans, AxisTransform y_trans) {
     BoundingBox bb;
-    get_true_bb(&bb, t);
+    get_true_bb(&bb, t, POS_X, POS_Y);
     bool transpose = x_trans != POS_X && x_trans != NEG_X;
     Index width = bb.width;
     Index height = bb.height;
@@ -202,7 +211,7 @@ static inline Hash hash_at_time(Index t, AxisTransform x_trans, AxisTransform y_
         for (Index x = 0; x < width; x++) {
             Index real_x = 0;
             Index real_y = 0;
-            transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
+            transform_coords(&real_x, &real_y, &bb, x, y, x_trans, y_trans);
             out ^= dynamic_grid_index(hash_grid, t, real_x, real_y);
             out *= HASH_PRIME;
         }
@@ -221,7 +230,7 @@ static inline Hash hash_with_offset(Index offset, AxisTransform x_trans, AxisTra
     // determine x_offset_0 and y_offset_0
     BoundingBox bb;
     for (int i = 0; i < GENS; i++) {
-        if (get_true_bb(&bb, offset)) {
+        if (get_true_bb(&bb, offset, x_trans, y_trans)) {
             break;
         }
         offset = (offset + 1) % GENS;
@@ -233,28 +242,30 @@ static inline Hash hash_with_offset(Index offset, AxisTransform x_trans, AxisTra
     HASHDPRINTF("    resolved offset = %i\n", offset);
     Index x_offset_0 = bb.x_offset;
     Index y_offset_0 = bb.y_offset;
-    if (transpose) {
-        Index temp = x_offset_0;
-        x_offset_0 = y_offset_0;
-        y_offset_0 = temp;
-    }
+    // determine real bb
+    get_true_bb(&bb, offset, POS_X, POS_Y);
+    // if (transpose) {
+    //     Index temp = x_offset_0;
+    //     x_offset_0 = y_offset_0;
+    //     y_offset_0 = temp;
+    // }
     HASHDPRINTF("        offset = %i, width = %i, height = %i, x_offset_0 = %i, y_offset_0 = %i\n", offset, bb.width, bb.height, x_offset_0, y_offset_0);
     for (Index fake_t = 0; fake_t < GENS; fake_t++) {
         Index t = (fake_t + offset) % GENS;
-        bool is_not_empty = get_true_bb(&bb, t);
+        bool is_not_empty = get_true_bb(&bb, t, x_trans, y_trans);
         HASHDPRINTF("        fake_t = %i, t = %i, width = %i, height = %i, x_offset = %i, y_offset = %i\n", fake_t, t, bb.width, bb.height, bb.x_offset, bb.y_offset);
         Index width = bb.width;
         Index height = bb.height;
         int x_offset = bb.x_offset;
         int y_offset = bb.y_offset;
-        if (transpose) {
-            int temp = width;
-            width = height;
-            height = temp;
-            temp = x_offset;
-            x_offset = y_offset;
-            y_offset = temp;
-        }
+        // if (transpose) {
+        //     int temp = width;
+        //     width = height;
+        //     height = temp;
+        //     temp = x_offset;
+        //     x_offset = y_offset;
+        //     y_offset = temp;
+        // }
         x_offset -= x_offset_0;
         y_offset -= y_offset_0;
         HASHDPRINTF("        x_offset = %i, y_offset = %i\n", x_offset, y_offset);
@@ -282,7 +293,7 @@ static inline Hash hash_with_offset(Index offset, AxisTransform x_trans, AxisTra
             for (Index x = 0; x < width; x++) {
                 Index real_x = 0;
                 Index real_y = 0;
-                transform_coords(&bb, x, y, x_trans, y_trans, &real_x, &real_y);
+                transform_coords(&real_x, &real_y, &bb, x, y, x_trans, y_trans);
                 out ^= dynamic_grid_index(hash_grid, t, real_x, real_y);
                 out *= HASH_PRIME;
             }
