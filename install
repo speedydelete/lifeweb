@@ -15,12 +15,13 @@ if ! command -v node >/dev/null 2>&1; then
         wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
         ~/.nvm/nvm.sh install node
         ~/.nvm/nvm.sh use node
+        \. "$HOME/.nvm/nvm.sh"
     else
         exit 1
     fi
 fi
 
-npm install # if this line fails, reload your shell and run it again, it'll probably work trust
+npm install
 npx tsc -b
 ./build
 
