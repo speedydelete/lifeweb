@@ -45,14 +45,14 @@ bool all_zeros = true;
 #endif
 
 // returns number of iterations to backjump
-static int run_depth(int depth, Cell* cell
+static Depth run_depth(Depth depth, Cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
     );
 
 // returns number of iterations to backjump
-static inline int actual_run_depth(int depth, Cell* cell, CellValue value) {
+static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_frame();
     #if DEBUG >= 5
@@ -157,7 +157,7 @@ int get_same_for_iv(Cell* cell_to_use) {
 #endif
 
 // returns number of iterations to backjump
-static int run_depth(int depth, Cell* cell
+static Depth run_depth(Depth depth, Cell* cell
     #if MULTI_RULE
     , int force_value
     #endif
@@ -184,7 +184,7 @@ static int run_depth(int depth, Cell* cell
         return 0;
     }
     DPRINTGRID3();
-    print_info_if_needed();
+    print_info_if_needed(depth);
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
         #if MULTI_RULE

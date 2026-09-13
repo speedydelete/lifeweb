@@ -936,7 +936,7 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value) {
         return cell->value == value;
     }
     #if VARIABLES
-    else if (cell->var == 0) {
+    else if (cell->var == NO_VAR) {
         if (!set_cell(cell, value)) {
             return false;
         }

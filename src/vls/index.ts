@@ -6,6 +6,7 @@ import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
 import {error, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
+import {baseIdentify} from '../core/superidentify.js';
 
 
 const HELP = `
@@ -49,11 +50,13 @@ Modes:
 
 Options:
 
-    -h, --help: show this help message
+    -h, -help: show this help message
 
     -d, -debug=<level>: set the debug level
 
     -gdb: run gdb
+    -no-optimize: disable optimization flags
+    -address-sanitizer: enable address sanitizer
 
     -benchmark=<iterations>: run benchmarking
 
@@ -65,7 +68,7 @@ Options:
     -rulespace=<rulespace>: set the rulespace for multi-rule searching,
         options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
 
-    -o, --order=<order>: set the search order
+    -o, -order=<order>: set the search order
 
         The search order is defined as a comma-separated list of metrics, later
         metrics are tiebreakers for earlier metrics. Metrics are normal
@@ -104,11 +107,11 @@ Options:
     -interval=<seconds>: set the progress reporting interval, default 1, also
         sets the max partial reporting interval if -partial-interval is not set
 
-    -partials=<'none'|'cell'|'start'>:
+    -partials=<'none'|'cell'|'depth'>:
         type of max partials to report (default 'cell')
         none: report no max partials
         cell: report by number of set cells
-        start: report by number of correct cells at start of search order
+        depth: report by search depth
     -partial-interval=<seconds>:
         set the minimum max partial reporting interval, default 1
 
@@ -144,6 +147,8 @@ const OPTIONS = {
     'debug': NUMBER,
     'd': 'debug',
     'gdb': BOOLEAN,
+    'no-optimize': BOOLEAN,
+    'address-sanitizer': BOOLEAN,
     'benchmark': NUMBER,
     'profile': NUMBER,
     'file': STRING,
@@ -165,7 +170,7 @@ const OPTIONS = {
     'check-early-exhaustion': BOOLEAN,
     'no-check-early-exhaustion': BOOLEAN,
     'interval': NUMBER,
-    'partials': list(['none', 'cell', 'start'] as const),
+    'partials': list(['none', 'cell', 'depth'] as const),
     'partial-interval': NUMBER,
     'max-solutions': NUMBER,
     'n': 'max-solutions',
@@ -752,13 +757,14 @@ function getMinUintType(maxValue: number): string {
 }
 
 const CONSTANT_DEFINES = new Set([
+    'NO_VAR',
     'UNKNOWN', 'OFF', 'ON', 'DONT_CARE',
     'PADDING',
     'SEARCHABLE', 'NOT_SEARCHABLE', 'NOT_SETTABLE',
     'TRS_RULE_DEPENDENT',
     'RULESPACE_INT', 'RULESPACE_OT', 'RULESPACE_MAP', 'RULESPACE_HEX_INT', 'RULESPACE_HEX_OT', 'RULESPACE_HEX_MAP', 'RULESPACE_VN_INT', 'RULESPACE_VN_OT', 'RULESPACE_VN_MAP',
     'IV_0', 'IV_1', 'IV_SAME_0', 'IV_SAME_1', 'IV_DIFFERENT_0', 'IV_DIFFERENT_1',
-    'MAX_PARTIAL_TYPE_NONE', 'MAX_PARTIAL_TYPE_CELL', 'MAX_PARTIAL_TYPE_START',
+    'MAX_PARTIAL_TYPE_NONE', 'MAX_PARTIAL_TYPE_CELL', 'MAX_PARTIAL_TYPE_DEPTH',
 ]);
 
 let out: string[] = [];
@@ -830,10 +836,6 @@ return [options, out.join('\n')];
 }
 
 
-const GCC_INVOCATION = `gcc -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-
-const CLANG_INVOCATION = `clang -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-
 export async function main() {
     let path = await import('node:path');
     function getPath(file: string): string {
@@ -849,16 +851,44 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        execSync(`${options['clang'] ? CLANG_INVOCATION : GCC_INVOCATION} ${options['profile'] ? '-fprofile-instr-generate -DFOR_PROFILE ' : ''} -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+        // strict mode
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unused-pragmas`;
+        if (options['clang']) {
+            command += ` -Wno-gnu-binary-literal -Wno-gnu-zero-variadic-macro-arguments`;
+        }
+        // features
+        command += ` -g`;
+        if (!options['no-optimize']) {
+            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+        }
+        if (options['address-sanitizer']) {
+            command += ` -fsanitize=address`;
+        }
+        let baseCommand = command;
+        let commandEnd = ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
         if (options['profile']) {
-            if (!options['clang']) {
-                error(`GCC profile-based optimization is not supported yet`);
+            if (options['clang']) {
+                command += ` -fprofile-instr-generate -DFOR_PROFILE`;
+            } else {
+                command += ` -fprofile-generate`;
             }
+        }
+        command += commandEnd;
+        execSync(command, {stdio: 'inherit'});
+        if (options['profile']) {
             console.log(`Running for up to ${options['profile']} seconds to gather profiling data`);
             spawnSync(`${execPath}`, {timeout: options['profile'] * 1000, killSignal: 'SIGTERM'});
             console.log(`Profiling data gathered, recompiling`);
-            execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
-            execSync(` -fprofile-instr-use=vls.profdata -o '${execPath}' '${getPath('src/vls/index.c')}'`, {stdio: 'inherit'});
+            command = baseCommand;
+            if (options['clang']) {
+                execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
+                command += ` -fprofile-instr-use=vls.profdata`;
+            } else {
+                command += ` -fprofile-use`;
+            }
+            command += commandEnd;
+            execSync(command, {stdio: 'inherit'});
         }
         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
     } catch (error) {

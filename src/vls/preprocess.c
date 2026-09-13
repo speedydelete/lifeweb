@@ -25,10 +25,6 @@ static inline void preprocess_implications(void) {
             for (Index x = 0; x < WIDTH; x++) {
                 push_frame();
                 Cell* cell = &grid[t][y][x];
-                if (cell == NULL) {
-                    printf("WHY, t = %i, x = %i, y = %i\n", t, x, y);
-                    exit(1);
-                }
                 if (!check_implication_handles_edges(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
@@ -92,7 +88,7 @@ static inline void print_case(Case* cells) {
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
-    Case* cases = malloc(TOTAL_SIZE * 8 * sizeof(Case));
+    Case* cases = safe_malloc(TOTAL_SIZE * 8 * sizeof(Case));
     int case_count = 0;
     // first compute the cases
     for (Index t = 0; t < GENS - 1; t++) {
@@ -221,6 +217,7 @@ static inline void preprocess_cases(void) {
                                 // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
+                                    free(cases);
                                     exit(0);
                                 }
                             } else {

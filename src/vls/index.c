@@ -51,9 +51,7 @@ int main(void) {
     init_tr_to_bound_tr();
     #endif
     init_known_solutions();
-    #if MAX_PARTIALS
-    init_max_partial();
-    #endif
+    hash_init();
     preprocess();
     #if CUSTOM_INIT
     custom_init();
@@ -97,16 +95,7 @@ int main(void) {
     run_search();
     printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #if MAX_PARTIALS
-    if (solutions_found == 0) {
-        #if MULTI_RULE
-        memcpy(trs, max_partial_trs, sizeof(trs));
-        #endif
-        #if MAX_PARTIALS
-        printf("Max partial (size: %i):\n", max_partial_size);
-        print_grid_pretty(max_partial, false);
-        #endif
-    }
-    free_max_partial();
+    max_partials_end();
     #endif
     #endif
     return 0;

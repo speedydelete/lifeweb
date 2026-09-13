@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "params2.h"
+#include "base.c"
 
 
 typedef struct INTSpec {
@@ -377,23 +378,11 @@ static inline int get_rule(char* out, bool use_maxrule) {
 }
 
 
-struct {
-    bool flip_x;
-    bool flip_y;
-    bool rotate_left;
-    bool rotate_right;
-    bool rotate_180;
-    bool flip_diagonal;
-    bool flip_anti_diagonal;
-} rule_symmetry;
-
-static inline void get_rule_symmetry(void) {
+static inline Transformations get_rule_identity_transforms(void) {
+    Transformations out;
+    // rotation symmetries
     bool C2 = true;
     bool C4 = true;
-    bool D2h = true;
-    bool D2v = true;
-    bool D2s = true;
-    bool D2b = true;
     for (int i = 0; i < 512; i++) {
         int j = ((i << 6) & 448) | (i & 56) | (i >> 6);
         j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
@@ -411,25 +400,31 @@ static inline void get_rule_symmetry(void) {
             }
         }
     }
+    out.rotate_180 = C2;
+    out.rotate_left = C4;
+    out.rotate_right = C4;
+    // flip symmetries
+    out.flip_horizontal = true;
+    out.flip_vertical = true;
+    out.flip_diagonal = true;
+    out.flip_anti_diagonal = true;
     for (int i = 0; i < 512; i++) {
         if (trs[i] != trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
-            D2h = false;
+            out.flip_horizontal = false;
         }
         if (trs[i] != trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
-            D2v = false;
-        }
-        if (trs[i] != trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
-            D2s = false;
+            out.flip_vertical = false;
         }
         if (trs[i] != trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
-            D2b = false;
+            out.flip_diagonal = false;
+        }
+        if (trs[i] != trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
+            out.flip_anti_diagonal = false;
         }
     }
-    rule_symmetry.flip_x = D2h;
-    rule_symmetry.flip_y = D2v;
-    rule_symmetry.rotate_left = C4;
-    rule_symmetry.rotate_right = C4;
-    rule_symmetry.rotate_180 = C2;
-    rule_symmetry.flip_diagonal = D2b;
-    rule_symmetry.flip_anti_diagonal = D2s;
+    return out;
+}
+
+static inline StaticSymmetry get_rule_symmetry(void) {
+    return transforms_to_sts(get_rule_identity_transforms());
 }

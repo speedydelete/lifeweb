@@ -4,31 +4,17 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "params2.h"
-#include "rules.c"
 
 #if MULTI_RULE
 #include <string.h>
 #endif
 
 
-static inline __attribute__((always_inline)) int min(int x, int y) {
-    if (x < y) {
-        return x;
-    } else {
-        return y;
-    }
-}
-
-static inline __attribute__((always_inline)) int max(int x, int y) {
-    if (x > y) {
-        return x;
-    } else {
-        return y;
-    }
-}
+#define HASH_DEBUG true
 
 
 #define SIZE (WIDTH * HEIGHT)
@@ -42,15 +28,14 @@ static inline __attribute__((always_inline)) int max(int x, int y) {
 
 #define MAX_STACK_DEPTH TOTAL_SIZE
 
+typedef uint64_t Depth;
 #if MULTI_RULE
-
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
-
 #else
-
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
-
 #endif
+
+#define MAX_PARTIALS (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE)
 
 
 #if DEBUG >= 1
@@ -103,8 +88,8 @@ static inline __attribute__((always_inline)) int max(int x, int y) {
 
 #define real_printf (printf)
 #define real_fprintf (fprintf)
-#if DEBUG >= 3
-#define INDENT ("  ")
+#if DEBUG >= 3 || HASH_DEBUG
+#define INDENT "    "
 int debug_depth = 0;
 #define DPRINTLINEPADDING() { \
     for (int i = 0; i < debug_depth; i++) { \
@@ -188,9 +173,9 @@ typedef Cell Grid[GENS][HEIGHT][WIDTH];
 Grid grid;
 
 Index unknown_cells = TOTAL_UNKNOWN_CELLS;
-int max_depth = TOTAL_MAX_DEPTH;
-
 Index set_cells;
+
+Depth max_depth = TOTAL_MAX_DEPTH;
 
 #if KEEP_LAST_CHECKED_TIME
 uint32_t current_time;
@@ -230,21 +215,6 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
     cell->value = value;
 }
 #endif
-
-
-typedef CellValue* DynamicGrid;
-#define DYNAMIC_GRID_SIZE (TOTAL_SIZE * sizeof(CellValue))
-#define dynamic_grid_index(grid, t, x, y) ((grid)[((t) * SIZE) + ((y) * WIDTH) + (x)])
-
-static inline void copy_to_dynamic_grid(DynamicGrid out) {
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                dynamic_grid_index(out, t, x, y) = grid[t][y][x].value;
-            }
-        }
-    }
-}
 
 
 static inline void init_state(void) {
@@ -337,7 +307,25 @@ static inline void init_state(void) {
 }
 
 
-bool next_StackEntry_is_first_in_frame = true;
+static inline __attribute__((always_inline)) int min(int x, int y) {
+    return x < y ? x : y;
+}
+
+static inline __attribute__((always_inline)) int max(int x, int y) {
+    return x > y ? x : y;
+}
+
+static inline __attribute__((always_inline)) void* safe_malloc(size_t size) {
+    void* out = malloc(size);
+    if (out == NULL) {
+        perror("Error with malloc");
+        exit(1);
+    }
+    return out;
+}
+
+
+bool next_stack_entry_is_first_in_frame = true;
 
 typedef struct StackEntry {
     bool is_first_in_frame;
@@ -361,7 +349,7 @@ static inline void print_stack(void) {
 }
 
 static inline void push_frame(void) {
-    next_StackEntry_is_first_in_frame = true;
+    next_stack_entry_is_first_in_frame = true;
 }
 
 static inline void pop_frame(void) {
@@ -411,8 +399,8 @@ static inline bool set_cell(Cell* cell, CellValue value) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
-    stack[sp].is_first_in_frame = next_StackEntry_is_first_in_frame;
-    next_StackEntry_is_first_in_frame = false;
+    stack[sp].is_first_in_frame = next_stack_entry_is_first_in_frame;
+    next_stack_entry_is_first_in_frame = false;
     DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
     stack[sp].cell = cell;
     sp++;
@@ -451,6 +439,8 @@ static inline void print_cell(FILE* stream, int value
         real_fprintf(stream, "(%i)", value);
     }
 }
+
+static inline int get_rule(char* out, bool use_maxrule);
 
 static inline void print_grid(FILE* stream) {
     char rule[256];
@@ -507,3 +497,113 @@ static inline void init_var_uses(void) {
 }
 
 #endif
+
+
+typedef enum StaticSymmetry: uint8_t {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2b,
+    D2s,
+    D4p,
+    D4x,
+    D8,
+} StaticSymmetry;
+
+typedef struct Transformations {
+    bool flip_horizontal: 1;
+    bool flip_vertical: 1;
+    bool rotate_left: 1;
+    bool rotate_right: 1;
+    bool rotate_180: 1;
+    bool flip_diagonal: 1;
+    bool flip_anti_diagonal: 1;
+} Transformations;
+
+const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
+    [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+    [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
+    [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+    [D2h] = {D2h, D4p, D8 , D2h, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D2v] = {D2v, D4p, D8 , D4p, D2v, D8 , D8 , D4p, D8 , D8 },
+    [D2b] = {D2b, D4x, D8 , D8 , D8 , D2b, D4x, D8 , D4x, D8 },
+    [D2s] = {D2s, D4x, D8 , D8 , D8 , D4x, D2s, D8 , D4x, D8 },
+    [D4p] = {D4p, D4p, D8 , D4p, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D4x] = {D4x, D4x, D8 , D8 , D8 , D4x, D4x, D8 , D4x, D8 },
+    [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+};
+
+const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
+    [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
+    [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
+    [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
+    [D2h] = {C1 , C1 , C1 , D2h, C1 , C1 , C1 , D2h, C1 , D2h},
+    [D2v] = {C1 , C1 , C1 , C1 , D2v, C1 , C1 , D2v, C1 , D2v},
+    [D2b] = {C1 , C1 , C1 , C1 , C1 , D2b, C1 , C1 , D2b, D2b},
+    [D2s] = {C1 , C1 , C1 , C1 , C1 , C1 , D2s, C1 , D2s, D2s},
+    [D4p] = {C1 , C2 , C2 , D2h, D2v, C1 , C1 , D4p, C2 , D4p},
+    [D4x] = {C1 , C2 , C2 , C1 , C1 , D2b, D2s, C2 , D4x, D4x},
+    [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+};
+
+static inline bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
+    return STATIC_SYMMETRY_JOIN[container][value] == container;
+}
+
+static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
+    Transformations out;
+    out.flip_horizontal = sts_contains(symmetry, D2h);
+    out.flip_vertical = sts_contains(symmetry, D2v);
+    out.rotate_left = sts_contains(symmetry, C4);
+    out.rotate_right = sts_contains(symmetry, C4);
+    out.rotate_180 = sts_contains(symmetry, C2);
+    out.flip_diagonal = sts_contains(symmetry, D2b);
+    out.flip_anti_diagonal = sts_contains(symmetry, D2s);
+    return out;
+}
+
+static inline StaticSymmetry transforms_to_sts(Transformations t) {
+    bool iC2 = t.rotate_180;
+    bool iC4 = t.rotate_left || t.rotate_right;
+    bool iD2h = t.flip_horizontal;
+    bool iD2v = t.flip_vertical;
+    bool iD2b = t.flip_diagonal;
+    bool iD2s = t.flip_anti_diagonal;
+    if ((iD2h || iD2v) && (iD2b || iD2s)) {
+        return D8;
+    } else if (iC2) {
+        if (iC4) {
+            if (iD2h || iD2v || iD2s || iD2b) {
+                return D8;
+            } else {
+                return C4;
+            }
+        } else {
+            if (iD2h || iD2v) {
+                return D4p;
+            } else if (iD2b || iD2s) {
+                return D4x;
+            } else {
+                return C2;
+            }
+        }
+    } else {
+        if (iD2h && iD2v) {
+            return D4p;
+        } else if (iD2b && iD2s) {
+            return D4x;
+        } else if (iD2h) {
+            return D2h;
+        } else if (iD2v) {
+            return D2v;
+        } else if (iD2s) {
+            return D2s;
+        } else if (iD2b) {
+            return D2b;
+        } else {
+            return C1;
+        }
+    }
+}

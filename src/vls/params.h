@@ -3,9 +3,9 @@
 
 #pragma once
 
+// stdbool.h is for compatibility with old compilers
 #include <stdbool.h>
 #include <inttypes.h>
-#include <stdint.h>
 
 
 // the default search will find the glider (i think)
@@ -32,6 +32,7 @@
 #define VARIABLES false
 
 #if VARIABLES
+#define NO_VAR 0
 // the number of variables
 #define VAR_COUNT 1
 #endif
@@ -181,7 +182,7 @@ Index search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 2, 3}, {
 // type of max partials to report
 #define MAX_PARTIAL_TYPE_NONE 0
 #define MAX_PARTIAL_TYPE_CELL 1
-#define MAX_PARTIAL_TYPE_START 2
+#define MAX_PARTIAL_TYPE_DEPTH 2
 #define MAX_PARTIAL_TYPE MAX_PARTIAL_TYPE_CELL
 // max partial reporting interval
 #define MAX_PARTIAL_REPORTING_INTERVAL 1

@@ -5,6 +5,7 @@
 
 #include "../params2.h"
 #include "../base.c"
+#include "../dynamic_grid.c"
 
 
 #define CUSTOM_INIT true
@@ -75,7 +76,7 @@ static inline bool custom_solution_filter([[maybe_unused]] DynamicGrid _) {
 #endif
 
 #if CUSTOM_PRUNING
-static inline bool custom_prune(int depth, Cell* cell) {
+static inline bool custom_prune(Depth depth, Cell* cell) {
     return true;
 }
 #endif
