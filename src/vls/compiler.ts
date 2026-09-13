@@ -739,7 +739,7 @@ export function runExpression(cell: [number, number, number], node: t.Expression
             return cell[1];
         } else if (node.name === 'y') {
             return cell[2];
-        } else if (node.name === 'Infinity') {
+        } else if (node.name === 'infinity') {
             return Infinity;
         } else {
             error(`Invalid variable: '${node.name}'`);
