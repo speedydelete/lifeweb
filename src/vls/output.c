@@ -240,12 +240,12 @@ static inline Hash hash_at_time(DynamicGrid* grid, DIndex t) {
 
 #if TIME_WRAP
 
-static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset) {
+static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, intmax_t dx, intmax_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
     DynamicGrid full_t_grid = empty_dynamic_grid;
     DynamicGrid t_grid = empty_dynamic_grid;
-    dg_extract_gen(&full_t_grid, grid, 0);
+    dg_extract_gen(&full_t_grid, grid, offset);
     DGShrinkToFitOffset offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     DIndex x_offset_0 = offsets.x;
     DIndex y_offset_0 = offsets.y;
@@ -260,9 +260,14 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset) 
         DGShrinkToFitOffset offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
         intmax_t x_offset = (intmax_t)offsets.x - (intmax_t)x_offset_0;
         intmax_t y_offset = (intmax_t)offsets.y - (intmax_t)y_offset_0;
+        HASHDPRINTF(INDENT INDENT INDENT "x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
+        if (fake_t > real_t) {
+            x_offset += dx;
+            y_offset += dy;
+        }
         update_hash(out, x_offset);
         update_hash(out, y_offset);
-        HASHDPRINTF(INDENT INDENT INDENT "x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
+        HASHDPRINTF(INDENT INDENT INDENT "resolved: x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
         HASHDPRINTGRID(&t_grid, 3);
         for (DIndex y = 0; y < t_grid.height; y++) {
             for (DIndex x = 0; x < t_grid.width; x++) {
@@ -275,11 +280,11 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset) 
     return out;
 }
 
-static inline Hash hash_all_times(DynamicGrid* grid) {
+static inline Hash hash_all_times(DynamicGrid* grid, intmax_t dx, intmax_t dy) {
     Hash out = MAX_HASH;
     HASHDPRINTF(INDENT "Hashing all times\n");
     for (DIndex offset = 0; offset < grid->gens; offset++) {
-        out = min_hash(out, hash_all_times_with_offset(grid, offset));
+        out = min_hash(out, hash_all_times_with_offset(grid, offset, dx, dy));
     }
     HASHDPRINTF(INDENT "Final final hash: %"PRIhash"\n", out);
     return out;
@@ -311,21 +316,36 @@ static inline void hash_init(void) {
     dg_destroy(&grid);
 }
 
-static inline Hash hash_full(DynamicGrid* full_grid) {
+static inline Hash hash_full(DynamicGrid* grid) {
     StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[get_rule_symmetry()][problem_symmetry];
     Transformations transforms = sts_to_transforms(symmetry);
-    DynamicGrid grid = empty_dynamic_grid;
-    dg_shrink_to_fit(&grid, full_grid);
     HASHDPRINTF("\n\nFull hashing grid:\n");
-    HASHDPRINTGRID(&grid, 0);
+    HASHDPRINTGRID(grid, 0);
     HASHDPRINTF(INDENT "\nHashing (no transformation):\n");
-    Hash out = hash_all_times(&grid);
+    #if TIME_WRAP
+    Hash out = hash_all_times(grid, TIME_WRAP_DX, TIME_WRAP_DY);
+    DynamicGrid temp = empty_dynamic_grid;
+    #define add_hash(transform, dx, dy) \
+        HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
+        if (transforms.transform) { \
+            dg_##transform(&temp, grid); \
+            out = min_hash(out, hash_all_times(&temp, (dx), (dy))); \
+        }
+    add_hash(flip_horizontal, -TIME_WRAP_DX, TIME_WRAP_DY);
+    add_hash(flip_vertical, TIME_WRAP_DX, -TIME_WRAP_DY);
+    add_hash(rotate_left, -TIME_WRAP_DY, TIME_WRAP_DX);
+    add_hash(rotate_right, TIME_WRAP_DY, -TIME_WRAP_DX);
+    add_hash(rotate_180, -TIME_WRAP_DX, -TIME_WRAP_DY);
+    add_hash(flip_diagonal, TIME_WRAP_DY, TIME_WRAP_DX);
+    add_hash(flip_anti_diagonal, -TIME_WRAP_DY, -TIME_WRAP_DX);
+    #else
+    Hash out = hash_all_times(grid);
     DynamicGrid temp = empty_dynamic_grid;
     #define add_hash(transform) \
         HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
         if (transforms.transform) { \
-            dg_##transform(&temp, &grid); \
-            out = min_hash(out, hash_all_times(&temp)); \
+            dg_##transform(&temp, grid); \
+            out = min_hash(out, hash_all_times(&temp); \
         }
     add_hash(flip_horizontal);
     add_hash(flip_vertical);
@@ -334,8 +354,8 @@ static inline Hash hash_full(DynamicGrid* full_grid) {
     add_hash(rotate_180);
     add_hash(flip_diagonal);
     add_hash(flip_anti_diagonal);
+    #endif
     dg_destroy(&temp);
-    dg_destroy(&grid);
     HASHDPRINTF("\nFinal final final hash: %"PRIhash"\n\n\n", out);
     return out;
 }

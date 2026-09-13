@@ -14,7 +14,7 @@
 #endif
 
 
-#define HASH_DEBUG true
+#define HASH_DEBUG false
 
 
 #define SIZE (WIDTH * HEIGHT)
