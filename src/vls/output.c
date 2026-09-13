@@ -569,7 +569,7 @@ static inline void check_solution(bool preprocessing) {
             }
             bool found = false;
             for (size_t period_index = 0; period_index < (sizeof(cell_period_filter) / sizeof(int)); period_index++) {
-                int period = cell_period_filter[period_index];
+                Index period = cell_period_filter[period_index];
                 for (Index i = 0; i < period; i++) {
                     for (Index t = i; t < GENS; t += period) {
                         if (data[t] != data[(t + period) % GENS]) {
