@@ -480,7 +480,7 @@ static inline void check_solution(bool preprocessing) {
         dg_destroy(&solution_grid); \
         return;
     // before applying the cell period filter we need to copy it into the solution grid
-    DynamicGrid solution_grid =  = empty_dynamic_grid;
+    DynamicGrid solution_grid = empty_dynamic_grid;
     dg_copy(&solution_grid, &hash_grid);
     // apply cell period filter
     for (DIndex y = 0; y < hash_grid.height; y++) {
