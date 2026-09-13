@@ -29,13 +29,7 @@ uint64_t branches;
 uint64_t solutions_found;
 
 
-static inline void print_grid_pretty(DynamicGrid* full_grid, bool is_solution) {
-    DynamicGrid grid = empty_dynamic_grid;
-    #if HASH_DEBUG
-    dg_copy(&grid, full_grid);
-    #else
-    dg_shrink_to_fit(&grid, full_grid);
-    #endif
+static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
     char rule[256];
     memset(rule, '\0', 256);
     get_rule(rule, false);
@@ -51,10 +45,10 @@ static inline void print_grid_pretty(DynamicGrid* full_grid, bool is_solution) {
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
-        for (DIndex t = 0; t < grid.gens; t++) {
-            for (DIndex y = 0; y < grid.height; y++) {
-                for (DIndex x = 0; x < grid.width; x++) {
-                    CellValue value = dg_get(&grid, t, x, y);
+        for (DIndex t = 0; t < grid->gens - PADDING; t++) {
+            for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
+                for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+                    CellValue value = dg_get(grid, t, x, y);
                     if (value == UNKNOWN) {
                         found = true;
                         break;
@@ -71,33 +65,33 @@ static inline void print_grid_pretty(DynamicGrid* full_grid, bool is_solution) {
         if (!found) {
             // finish the RLE header
             real_printf("\n");
-            for (DIndex y = 0; y < grid.height; y++) {
+            for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
                 DPRINTLINEPADDING();
-                for (DIndex x = 0; x < grid.width; x++) {
-                    CellValue value = dg_get(&grid, 0, x, y);
+                for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+                    CellValue value = dg_get(grid, 0, x, y);
                     if (value == ON) {
                         real_printf("o");
                     } else {
                         real_printf(".");
                     }
                 }
-                if (y == grid.height - 1) {
+                if (y == grid->height - 1) {
                     real_printf("!\n");
                 } else {
                     real_printf("$\n");
                 }
             }
-            dg_destroy(&grid);
+            dg_destroy(grid);
             return;
         }
     }
     // finish the RLE header
     real_printf("History\n");
-    for (DIndex y = 0; y < grid.height; y++) {
+    for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
         DPRINTLINEPADDING();
-        for (DIndex t = 0; t < grid.gens; t++) {
-            for (DIndex x = 0; x < grid.width - 0; x++) {
-                CellValue value = dg_get(&grid, t, x, y);
+        for (DIndex t = 0; t < grid->gens; t++) {
+            for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+                CellValue value = dg_get(grid, t, x, y);
                 if (value == UNKNOWN) {
                     if (is_solution) {
                         fprintf(stderr, "\nError: This error should not occur, please report it (unknown cell in solution)\n");
@@ -110,23 +104,22 @@ static inline void print_grid_pretty(DynamicGrid* full_grid, bool is_solution) {
                 } else if (value == ON) {
                     real_printf("o");
                 } else if (value == DONT_CARE) {
-                    // real_printf("C");
+                    real_printf("C");
                 } else {
                     fprintf(stderr, "\nError: This error should not occur, please report (invalid grid state %i at t = %"PRIdindex", x = %"PRIdindex", y = %"PRIdindex")\n", value, t, x, y);
                     exit(1);
                 }
             }
-            if (t != grid.gens - 1) {
+            if (t != grid->gens - 1) {
                 real_printf(" .|. ");
             }
         }
-        if (y == grid.height - 1) {
+        if (y == grid->height - PADDING - 1) {
             real_printf(" !\n");
         } else {
             real_printf(" $\n");
         }
     }
-    dg_destroy(&grid);
 }
 
 
