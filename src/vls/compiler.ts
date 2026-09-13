@@ -738,23 +738,23 @@ const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cel
     },
 
     'x'(grid: Grid, cell: [number, number, number]) {
-        return cell[0];
+        return cell[1];
     },
 
     'y'(grid: Grid, cell: [number, number, number]) {
-        return cell[0];
+        return cell[2];
     },
 
     'height'(grid: Grid, cell: [number, number, number]) {
-        return cell[0];
+        return grid.height;
     },
 
     'width'(grid: Grid, cell: [number, number, number]) {
-        return cell[0];
+        return grid.width;
     },
 
     'gens'(grid: Grid, cell: [number, number, number]) {
-        return cell[0];
+        return grid.gens;
     },
 
     'infinity': Infinity,
