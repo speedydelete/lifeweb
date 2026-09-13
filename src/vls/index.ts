@@ -853,7 +853,7 @@ export async function main() {
     try {
         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
         // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unused-pragmas`;
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas`;
         if (options['clang']) {
             command += ` -Wno-gnu-binary-literal -Wno-gnu-zero-variadic-macro-arguments`;
         }

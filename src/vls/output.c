@@ -253,6 +253,8 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
     DGShrinkToFitOffset offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     DIndex x_offset_0 = offsets.x;
     DIndex y_offset_0 = offsets.y;
+    dg_destroy(&full_t_grid);
+    dg_destroy(&t_grid);
     HASHDPRINTF(INDENT "Hashing all times with offset %"PRIdindex"\n", offset);
     HASHDPRINTGRID(grid, 2);
     HASHDPRINTF(INDENT INDENT "x_offset_0 = %"PRIdindex", y_offset_0 = %"PRIdindex"\n", x_offset_0, y_offset_0);
@@ -279,6 +281,8 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
                 update_hash(out, value);
             }
         }
+        dg_destroy(&full_t_grid);
+        dg_destroy(&t_grid);
     }
     HASHDPRINTF(INDENT INDENT "Final hash: %"PRIhash"\n", out);
     return out;
@@ -301,7 +305,7 @@ static inline Hash hash_all_times(DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                CellValue value = di(grid, t, x, y);
+                CellValue value = dg_get(grid, t, x, y);
                 update_hash(out, value);
             }
         }
@@ -349,7 +353,7 @@ static inline Hash hash_full(DynamicGrid* grid) {
         HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
         if (transforms.transform) { \
             dg_##transform(&temp, grid); \
-            out = min_hash(out, hash_all_times(&temp); \
+            out = min_hash(out, hash_all_times(&temp)); \
         }
     add_hash(flip_horizontal);
     add_hash(flip_vertical);
@@ -649,7 +653,7 @@ static inline void max_partials_end(void) {
 
 #ifdef BENCHMARK
 
-static inline void print_info_if_needed(void) {}
+static inline void print_info_if_needed([[maybe_unused]] Depth depth) {}
 
 #else
 

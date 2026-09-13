@@ -88,7 +88,7 @@ int main(void) {
     }
     double time = get_time() - start;
     printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
-    #if MAX_PARTIALS
+    #if MAX_PARTIALS && !defined(BENCHMARK)
     free_max_partial();
     #endif
     #else
