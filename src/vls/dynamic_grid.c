@@ -15,7 +15,7 @@ typedef uint64_t DIndex;
 typedef struct DynamicCell {
     CellValue value;
     Variable var;
-}
+} DynamicCell;
 
 static inline __attribute__((always_inline)) bool dc_eq(DynamicCell x, DynamicCell y) {
     return x.value == y.value && x.var == y.var;
