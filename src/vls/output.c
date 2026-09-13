@@ -31,7 +31,11 @@ uint64_t solutions_found;
 
 static inline void print_grid_pretty(DynamicGrid* full_grid, bool is_solution) {
     DynamicGrid grid = empty_dynamic_grid;
+    #if HASH_DEBUG
+    dg_copy(&grid, full_grid);
+    #else
     dg_shrink_to_fit(&grid, full_grid);
+    #endif
     char rule[256];
     memset(rule, '\0', 256);
     get_rule(rule, false);
