@@ -75,10 +75,10 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                         real_printf(".");
                     }
                 }
-                if (y == grid->height - 1) {
-                    real_printf("!\n");
+                if (y == grid->height - PADDING - 1) {
+                    real_printf(" !\n");
                 } else {
-                    real_printf("$\n");
+                    real_printf(" $\n");
                 }
             }
             dg_destroy(grid);
