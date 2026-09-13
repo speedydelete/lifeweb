@@ -50,8 +50,9 @@ int main(void) {
     #if MULTI_RULE
     init_tr_to_bound_tr();
     #endif
-    init_known_solutions();
-    hash_init();
+    #if SHOW_SOLUTIONS
+    init_solutions();
+    #endif
     preprocess();
     #if CUSTOM_INIT
     custom_init();
@@ -97,6 +98,9 @@ int main(void) {
     #if MAX_PARTIALS
     max_partials_end();
     #endif
+    #endif
+    #if SHOW_SOLUTIONS
+    free_solutions();
     #endif
     return 0;
 }

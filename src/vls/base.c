@@ -35,7 +35,11 @@ typedef uint64_t Depth;
 #define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
 #endif
 
-#define MAX_PARTIALS (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE)
+#if (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE) && !defined(BENCHMARK)
+#define MAX_PARTIALS true
+#else
+#define MAX_PARTIALS false
+#endif
 
 
 #if DEBUG >= 1

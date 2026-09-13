@@ -16,7 +16,7 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #include "base.c"
 #include "dynamic_grid.c"
 #include "rules.c"
-#if MULTI_RULE || MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_START
+#if MULTI_RULE
 #include "implications.c"
 #endif
 #ifdef CUSTOM
@@ -310,11 +310,8 @@ static inline Hash hash_all_times(DynamicGrid* grid) {
 
 StaticSymmetry problem_symmetry;
 
-static inline void hash_init(void) {
-    DynamicGrid grid = empty_dynamic_grid;
-    dg_init_from_search_grid(&grid);
-    problem_symmetry = dg_get_symmetry(&grid);
-    dg_destroy(&grid);
+static inline void solutions_init(void) {
+
 }
 
 static inline Hash hash_full(DynamicGrid* grid) {
@@ -362,12 +359,23 @@ static inline Hash hash_full(DynamicGrid* grid) {
 }
 
 
-Hash known_solutions[1048576];
+#define MAX_SAVED_SOLUTION_HASHES 1048576
 
-static inline void init_known_solutions(void) {
-    for (size_t i = 0; i < sizeof(known_solutions) / sizeof(Hash); i++) {
+Hash* known_solutions;
+
+static inline void init_solutions(void) {
+    known_solutions = safe_malloc(MAX_SAVED_SOLUTION_HASHES * sizeof(Hash));
+    for (size_t i = 0; i < MAX_SAVED_SOLUTION_HASHES; i++) {
         known_solutions[i] = 0;
     }
+    DynamicGrid grid = empty_dynamic_grid;
+    dg_init_from_search_grid(&grid);
+    problem_symmetry = dg_get_symmetry(&grid);
+    dg_destroy(&grid);
+}
+
+static inline void free_solutions(void) {
+    free(known_solutions);
 }
 
 
@@ -547,7 +555,7 @@ static inline void check_solution(bool preprocessing) {
             drop_solution("equal to solution %zu", i);
         }
     }
-    if (solutions_found < sizeof(known_solutions) / sizeof(Hash)) {
+    if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {
         known_solutions[solutions_found] = hash;
     }
     #endif
