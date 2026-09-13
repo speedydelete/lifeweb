@@ -52,6 +52,7 @@
         }
     },
     "dependencies": {
-        "@babel/parser": "^8.0.4"
+        "@babel/parser": "^8.0.5",
+        "@babel/types": "^8.0.5"
     }
 }

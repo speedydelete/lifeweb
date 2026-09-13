@@ -11,7 +11,6 @@ import {error, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, G
 const HELP = `
 Usage: ./vls <rule> <mode> <options>
 Or, for multi-rule searching: ./vls <minrule> <maxrule> <mode> <options>
-Or, to test it: ./vls test
 
 Run a search for something in a cellular automaton.
 If you don't know what this means, see https://conwaylife.com/.
@@ -598,7 +597,7 @@ for (let t = 0; t < grid.gens; t++) {
 
 function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
     for (let metric of order) {
-        let score = Number(runExpression(a, metric)) - Number(runExpression(b, metric));
+        let score = Number(runExpression(grid, a, metric)) - Number(runExpression(grid, b, metric));
         if (score !== 0) {
             return score;
         }
@@ -619,8 +618,8 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
         }
     }
     let parsedOrder: t.Expression[] = [];
-    for (let metric of order.split(',')) {
-        metric = metric.trim();
+    for (let metric of order.split(/(?<!\\),/)) {
+        metric = metric.trim().replaceAll('\\,', ',');
         if (metric === '') {
             continue;
         }
@@ -831,24 +830,11 @@ return [options, out.join('\n')];
 }
 
 
-const TEST_SEARCHES: string[] = [];
-
-export async function runTests() {
-    let {execSync, spawnSync} = (await import('node:child_process'));
-    for (let search of TEST_SEARCHES) {
-
-    }
-}
-
 const GCC_INVOCATION = `gcc -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 const CLANG_INVOCATION = `clang -std=c2x -Wall -Wextra -Werror -Wpedantic -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -g -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
 
 export async function main() {
-    if (process.argv[2] === 'test') {
-        runTests();
-        return;
-    }
     let path = await import('node:path');
     function getPath(file: string): string {
         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));

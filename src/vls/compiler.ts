@@ -731,25 +731,70 @@ export function mergeGrids(grids: Grid[]): Grid {
 }
 
 
-export function runExpression(cell: [number, number, number], node: t.Expression | t.PrivateName): number | boolean {
+const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cell: [number, number, number]) => number | boolean)} = {
+
+    't'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'x'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'y'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'height'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'width'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'gens'(grid: Grid, cell: [number, number, number]) {
+        return cell[0];
+    },
+
+    'infinity': Infinity,
+    'pi': Math.PI,
+    'e': Math.E,
+
+};
+
+const EXPRESSION_FUNCTIONS: {[key: string]: (grid: Grid, cell: [number, number, number], ...args: (number | boolean)[]) => number | boolean} = {};
+
+function functionify(func: (...args: any[]) => any): (...args: any[]) => any {
+    return function(_: any, _2: any, ...args: any[]): any {
+        return func(...args);
+    }
+}
+
+for (let key of Reflect.ownKeys(Math)) {
+    if (typeof key === 'symbol') {
+        continue;
+    }
+    EXPRESSION_FUNCTIONS[key] = functionify((Math as any)[key]);
+}
+
+export function runExpression(grid: Grid, cell: [number, number, number], node: t.Expression | t.PrivateName): number | boolean {
     if (node.type === 'Identifier') {
-        if (node.name === 't') {
-            return cell[0];
-        } else if (node.name === 'x') {
-            return cell[1];
-        } else if (node.name === 'y') {
-            return cell[2];
-        } else if (node.name === 'infinity') {
-            return Infinity;
+        if (!(node.name in EXPRESSION_VARIABLES)) {
+            error(`Nonexistent variable: '${node.name}'`);
+        }
+        let out = EXPRESSION_VARIABLES[node.name];
+        if (typeof out === 'function') {
+            return out(grid, cell);
         } else {
-            error(`Invalid variable: '${node.name}'`);
+            return out;
         }
     } else if (node.type === 'NumericLiteral') {
         return node.value;
     } else if (node.type === 'BooleanLiteral') {
         return node.value;
     } else if (node.type === 'UnaryExpression') {
-        let value = runExpression(cell, node.argument);
+        let value = runExpression(grid, cell, node.argument);
         if (node.operator === '-') {
             return -value;
         } else if (node.operator === '+') {
@@ -758,8 +803,8 @@ export function runExpression(cell: [number, number, number], node: t.Expression
             error(`Invalid unary operator: '${node.operator}'`);
         }
     } else if (node.type === 'BinaryExpression') {
-        let left = runExpression(cell, node.left);
-        let right = runExpression(cell, node.right);
+        let left = runExpression(grid, cell, node.left);
+        let right = runExpression(grid, cell, node.right);
         if (node.operator === '==') {
             return left === right;
         } else if (node.operator === '!=') {
@@ -801,34 +846,30 @@ export function runExpression(cell: [number, number, number], node: t.Expression
         }
     } else if (node.type === 'LogicalExpression') {
         if (node.operator === '&&') {
-            return runExpression(cell, node.left) && runExpression(cell, node.right);
+            return runExpression(grid, cell, node.left) && runExpression(grid, cell, node.right);
         } else if (node.operator === '||') {
-            return runExpression(cell, node.left) || runExpression(cell, node.right);
+            return runExpression(grid, cell, node.left) || runExpression(grid, cell, node.right);
         } else {
             error(`Invalid binary operator: '${node.operator}'`);
         }
     } else if (node.type === 'ConditionalExpression') {
-        return runExpression(cell, node.test) ? runExpression(cell, node.consequent) : runExpression(cell, node.alternate);
+        return runExpression(grid, cell, node.test) ? runExpression(grid, cell, node.consequent) : runExpression(grid, cell, node.alternate);
     } else if (node.type === 'CallExpression') {
         if (node.callee.type !== 'Identifier') {
             error(`Cannot call non-constant function`);
+        }
+        if (!(node.callee.name in EXPRESSION_FUNCTIONS)) {
+            error(`Nonexistent function: '${node.callee.name}'`);
         }
         let args: (number | boolean)[] = [];
         for (let arg of node.arguments) {
             if (arg.type === 'SpreadElement' || arg.type === 'ArgumentPlaceholder') {
                 error(`Invalid node: '${arg.type}'`);
             } else {
-                args.push(runExpression(cell, arg));
+                args.push(runExpression(grid, cell, arg));
             }
         }
-        if (node.callee.name === 'abs') {
-            if (node.arguments.length !== 1) {
-                error(`abs() function takes 1 argument`);
-            }
-            return Math.abs(Number(args[0]));
-        } else {
-            error(`Invalid function: '${node.callee.name}'`);
-        }
+        return EXPRESSION_FUNCTIONS[node.callee.name](grid, cell, ...args);
     } else {
         error(`Invalid node: '${node.type}'`);
     }
