@@ -15,12 +15,7 @@
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
-    #if TIME_WRAP
-    for (Index t = 0; t < GENS; t++)
-    #else
-    for (Index t = 0; t < GENS - 1; t++)
-    #endif
-    {
+    for (Index t = 0; t < GENS; t++) {
         for (Index y = 0; y < HEIGHT; y++) {
             for (Index x = 0; x < WIDTH; x++) {
                 push_frame();

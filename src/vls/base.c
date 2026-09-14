@@ -239,40 +239,19 @@ static inline void init_state(void) {
                 #if CACHE_IMPLICATION_TRS
                 cell->tr = 0;
                 #endif
-                // cell->last_update = 0;
-                #if TIME_WRAP
-                if (t == 0) {
-                    if (x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH || y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT) {
-                        cell->value = OFF;
-                        #if VARIABLES
-                        cell->var = 0;
-                        #endif
-                        // dummy cell
-                        cell->prev = &grid[0][0][0];
-                    } else {
-                        cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
-                    }
-                } else {
-                    cell->prev = &grid[t - 1][y][x];
-                }
-                if (t == GENS - 1) {
-                    if (x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH || y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT) {
-                        cell->value = OFF;
-                        #if VARIABLES
-                        cell->var = 0;
-                        #endif
-                        // dummy cell
-                        cell->next = &grid[0][0][0];
-                    } else {
-                        cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
-                    }
-                } else {
-                    cell->next = &grid[t + 1][y][x];
-                }
-                #else
-                cell->prev = t == 0 ? NULL : &grid[t - 1][y][x];
-                cell->next = t == GENS - 1 ? NULL : &grid[t + 1][y][x];
+                #if CACHE_TIMES
+                cell->last_update = 0;
                 #endif
+                const int32_t* next_coords = initial_nexts[t][y][x];
+                int32_t next_t = next_coords[0];
+                int32_t next_x = next_coords[1];
+                int32_t next_y = next_coords[2];
+                if (next_t == -1 && next_x == -1 && next_y == -1) {
+                    cell->next = NULL;
+                } else {
+                    cell->next = &grid[next_t][next_y][next_x];
+                    cell->next->prev = cell;
+                }
                 cell->nw = x == 0 || y == 0 ? NULL : &grid[t][y - 1][x - 1];
                 cell->n = y == 0 ? NULL : &grid[t][y - 1][x];
                 cell->ne = x == WIDTH - 1 || y == 0 ? NULL : &grid[t][y - 1][x + 1];
