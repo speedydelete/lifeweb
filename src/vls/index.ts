@@ -855,7 +855,7 @@ export async function main() {
         // strict mode
         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas`;
         if (options['clang']) {
-            command += ` -Wno-gnu-binary-literal -Wno-gnu-zero-variadic-macro-arguments`;
+            command += ` -Wno-gnu-binary-literal`;
         }
         // features
         command += ` -g`;

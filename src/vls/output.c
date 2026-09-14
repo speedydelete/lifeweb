@@ -421,8 +421,8 @@ const int cell_period_filter[] = CELL_PERIOD_FILTER;
 static inline void check_solution(bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
-    #define drop_solution(msg, ...) \
-        DPRINTF2("Dropping solution ("msg")\n" __VA_OPT__(,) __VA_ARGS__); \
+    #define drop_solution(msg)\
+        DPRINTF2("Dropping solution (" msg ")\n"); \
         if (preprocessing) { \
             printf("Solved in preprocessing, 0 solutions\n"); \
         } \
@@ -471,8 +471,8 @@ static inline void check_solution(bool preprocessing) {
     #define solution_grid hash_grid
     #else
     #undef drop_solution
-    #define drop_solution(msg, ...) \
-        DPRINTF2("Dropping solution ("msg")\n" __VA_OPT__(,) __VA_ARGS__); \
+    #define drop_solution(msg)\
+        DPRINTF2("Dropping solution (" msg ")\n"); \
         if (preprocessing) { \
             printf("Solved in preprocessing, 0 solutions\n"); \
         } \
@@ -552,7 +552,7 @@ static inline void check_solution(bool preprocessing) {
             break;
         }
         if (hash == value) {
-            drop_solution("equal to solution %zu", i);
+            drop_solution("equal to previous solution");
         }
     }
     if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {

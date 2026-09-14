@@ -872,7 +872,7 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
         set(cell->next, ON);
     }
     #define check(cell, new_value) \
-        if ((cell) != nullptr && (cell)->value == UNKNOWN) { \
+        if ((cell) != NULL && (cell)->value == UNKNOWN) { \
             set((cell), (new_value)); \
         }
     if (value & UNKNOWN_NEIGHBORS_TO_0) {
