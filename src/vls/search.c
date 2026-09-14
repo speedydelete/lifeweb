@@ -71,8 +71,11 @@ static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
         // check for early exhaustion
         #if CHECK_EARLY_EXHAUSTION
         if (all_zeros) {
+            #if !TIME_WRAP
+            #error "This error should not occur, please report it (CHECK_EARLY_EXHAUSTION && !TIME_WRAP)"
+            #endif
             // check columns
-            for (Index x = PADDING + CHECK_EARLY_EXHAUSTION_START_X; x < CHECK_EARLY_EXHAUSTION_END_X; x++) {
+            for (Index x = PADDING + max(0, -TIME_WRAP_DX - 1); x < WIDTH - PADDING - max(0, TIME_WRAP_DX - 1); x++) {
                 bool found = false;
                 for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
                     if (grid[0][y][x].value != OFF) {
@@ -88,7 +91,7 @@ static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
                 }
             }
             // check rows
-            for (Index y = PADDING + CHECK_EARLY_EXHAUSTION_START_Y; y < CHECK_EARLY_EXHAUSTION_END_Y; y++) {
+            for (Index y = PADDING + max(0, -TIME_WRAP_DY - 1); y < HEIGHT - PADDING - max(0, TIME_WRAP_DY - 1); y++) {
                 bool found = false;
                 for (Index x = PADDING; x < WIDTH - PADDING; x++) {
                     if (grid[0][y][x].value != OFF) {
@@ -161,7 +164,7 @@ static Depth run_depth(Depth depth, Cell* cell
     ) {
     #if DEBUG >= 3
     debug_depth++;
-    printf("Running depth %"PRIu64": ", depth);
+    printf("Running depth %i: ", depth);
     print_progress(stdout);
     real_printf("\n");
     printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);

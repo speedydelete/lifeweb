@@ -455,7 +455,7 @@ static inline void check_solution(bool preprocessing) {
     }
     #endif
     // apply subperiod filter
-    #if FILTER_SUBPERIOD
+    #if TIME_WRAP && FILTER_SUBPERIOD
     Hash hashes[GENS];
     for (int i = 0; i < GENS; i++) {
         Hash hash = hash_at_time(&hash_grid, i);
