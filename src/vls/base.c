@@ -503,7 +503,7 @@ static inline void init_var_uses(void) {
 #endif
 
 
-typedef enum StaticSymmetry: uint8_t {
+typedef enum StaticSymmetry {
     C1,
     C2,
     C4,
