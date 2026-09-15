@@ -293,10 +293,13 @@ export class Grid {
         for (let i = 0; i < end; i++) {
             this.data.push(structuredClone(emptyLayer));
         }
+        this.width = newWidth;
+        this.height = newHeight;
+        this.gens = newGens;
         for (let t = 0; t < newGens; t++) {
             for (let y = 0; y < newHeight; y++) {
                 for (let x = 0; x < newWidth; x++) {
-                    let cell = this.get(t, x, y)
+                    let cell = this.get(t, x, y);
                     if (cell === undefined) {
                         cell = gridCell(coord(t, x, y), coord(t + 1, x, y), UNKNOWN);
                     } else {
@@ -313,9 +316,6 @@ export class Grid {
                 }
             }
         }
-        this.width = newWidth;
-        this.height = newHeight;
-        this.gens = newGens;
         return this;
     }
 
@@ -1052,8 +1052,9 @@ class Scope {
     deleteState(state: number, offset: number = 0): void {
         if (state in this.states) {
             delete this.states[state];
+        } else {
+            this.parser.error(`State ${state} is not defined or is defined in a higher scope`, offset);
         }
-        this.parser.error(`State ${state} is not defined or is defined in a higher block`, offset);
     }
 
 }
@@ -1405,9 +1406,6 @@ class VLSFileParser extends BaseParser {
     deleteStatement(): void {
         this.eat(literal('delete'));
         let state = Number(this.eat(T_STATE)[0]);
-        if (!this.scope.hasState(state)) {
-            this.error(`State ${state} is not defined`, -1);
-        }
         this.scope.deleteState(state, -1);
     }
 
