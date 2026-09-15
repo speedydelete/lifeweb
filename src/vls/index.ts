@@ -851,12 +851,9 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+        let command = options['clang'] ? `clang` : `gcc`;
         // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas`;
-        if (options['clang']) {
-            command += ` -Wno-gnu-binary-literal`;
-        }
+        command += ` -std=c2x -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-binary-literal`;
         // features
         command += ` -g`;
         if (!options['no-optimize']) {
