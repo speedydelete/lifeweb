@@ -88,9 +88,10 @@ import {transformCode} from './index.js';
 
 
 const ORDER = [
+    'base.c',
     'rulespaces.c',
     'rules.c',
-    'base.c',
+    'dynamic_grid.c',
     'implications.c',
     'output.c',
     'search.c',
@@ -100,6 +101,7 @@ const ORDER = [
 
 let source = '';
 for (let file of ORDER) {
+    source += `#line 1 "${file}"\n`;
     source += (await import('./' + file)).default.replaceAll(/#include "[^\n]*/g, '');
 }
 source = source.replaceAll('#pragma once', '');
@@ -124,7 +126,7 @@ let outElt = document.getElementById('out');
 document.getElementById('compile').addEventListener('click', async () => {
     let argv = ['node'].concat(commandInput.value.split(' '));
     let params2 = (await transformCode(argv, (await import('./params.h')).default))[1];
-    params2 = params2.replaceAll('#pragma once', '');
+    params2 = '#line 1 "params2.h"\n' + params2.replaceAll('#pragma once', '');
     outElt.textContent = params2 + '\n' + source;
     let range = document.createRange();
     range.selectNodeContents(outElt);

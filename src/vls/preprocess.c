@@ -15,12 +15,7 @@
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
-    #if TIME_WRAP
-    for (Index t = 0; t < GENS; t++)
-    #else
-    for (Index t = 0; t < GENS - 1; t++)
-    #endif
-    {
+    for (Index t = 0; t < GENS; t++) {
         for (Index y = 0; y < HEIGHT; y++) {
             for (Index x = 0; x < WIDTH; x++) {
                 push_frame();
@@ -91,10 +86,13 @@ static inline void preprocess_cases(void) {
     Case* cases = safe_malloc(TOTAL_SIZE * 8 * sizeof(Case));
     int case_count = 0;
     // first compute the cases
-    for (Index t = 0; t < GENS - 1; t++) {
+    for (Index t = 0; t < GENS; t++) {
         for (Index y = 1; y < HEIGHT - 1; y++) {
             for (Index x = 1; x < WIDTH - 1; x++) {
                 Cell* cell = &grid[t][y][x];
+                if (cell->next == NULL) {
+                    continue;
+                }
                 // filter out where the cell value is unknown
                 if (cell->value == UNKNOWN && cell->var == 0) {
                     continue;
@@ -121,12 +119,11 @@ static inline void preprocess_cases(void) {
                 if (found2) {
                     continue;
                 }
-                Cell* next_cell = &grid[t + 1][y][x];
-                if (!found && !(next_cell->var > 0)) {
+                if (!found && !(cell->next->var > 0)) {
                     continue;
                 }
-                cells[9].value = next_cell->value;
-                cells[9].var = next_cell->var;
+                cells[9].value = cell->next->value;
+                cells[9].var = cell->next->var;
                 // check for duplicate cases
                 found = false;
                 for (int i = 0; i < case_count; i++) {
@@ -178,9 +175,13 @@ static inline void preprocess_cases(void) {
         }
     }
     // now apply the cases
-    for (Index t = 0; t < GENS - 1; t++) {
+    for (Index t = 0; t < GENS; t++) {
         for (Index y = 1; y < HEIGHT - 1; y++) {
             for (Index x = 1; x < WIDTH - 1; x++) {
+                Cell* next_cell = grid[t][y][x].next;
+                if (next_cell == NULL) {
+                    continue;
+                }
                 Case cells;
                 bool found = false;
                 int i = 0;
@@ -195,7 +196,6 @@ static inline void preprocess_cases(void) {
                         }
                     }
                 }
-                Cell* next_cell = &grid[t + 1][y][x];
                 cells[9].value = next_cell->value;
                 cells[9].var = next_cell->var;
                 if (next_cell->var > 0) {

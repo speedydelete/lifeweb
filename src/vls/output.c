@@ -41,11 +41,17 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
         printf("#C %s to %s\n", rule, maxrule);
     }
     #endif
-    printf("x = 0, y = 0, rule = %s"SPECIAL_AFTER_RULE, rule);
+    DIndex real_width = grid->width < 2 * PADDING ? 0 : grid->width;
+    DIndex real_height = grid->height < 2 * PADDING ? 0 : grid->height;
+    printf("x = %"PRIdindex", y = %"PRIdindex", rule = %s"SPECIAL_AFTER_RULE, real_width, real_height, rule);
+    if (grid->width < 2 * PADDING || grid->height < 2 * PADDING) {
+        printf("\n!\n");
+        return;
+    }
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
-        for (DIndex t = 0; t < grid->gens - PADDING; t++) {
+        for (DIndex t = 0; t < grid->gens; t++) {
             for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
                 for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
                     CellValue value = dg_get(grid, t, x, y);
@@ -235,7 +241,7 @@ static inline Hash hash_at_time(DynamicGrid* grid, DIndex t) {
     return out;
 }
 
-#if TIME_WRAP
+#if PERIODIC
 
 static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, intmax_t dx, intmax_t dy) {
     Hash out = HASH_OFFSET;
@@ -310,18 +316,14 @@ static inline Hash hash_all_times(DynamicGrid* grid) {
 
 StaticSymmetry problem_symmetry;
 
-static inline void solutions_init(void) {
-
-}
-
 static inline Hash hash_full(DynamicGrid* grid) {
     StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[get_rule_symmetry()][problem_symmetry];
     Transformations transforms = sts_to_transforms(symmetry);
     HASHDPRINTF("\n\nFull hashing grid:\n");
     HASHDPRINTGRID(grid, 0);
     HASHDPRINTF(INDENT "\nHashing (no transformation):\n");
-    #if TIME_WRAP
-    Hash out = hash_all_times(grid, TIME_WRAP_DX, TIME_WRAP_DY);
+    #if PERIODIC
+    Hash out = hash_all_times(grid, PERIODIC_DX, PERIODIC_DY);
     DynamicGrid temp = empty_dynamic_grid;
     #define add_hash(transform, dx, dy) \
         HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
@@ -329,13 +331,13 @@ static inline Hash hash_full(DynamicGrid* grid) {
             dg_##transform(&temp, grid); \
             out = min_hash(out, hash_all_times(&temp, (dx), (dy))); \
         }
-    add_hash(flip_horizontal, -TIME_WRAP_DX, TIME_WRAP_DY);
-    add_hash(flip_vertical, TIME_WRAP_DX, -TIME_WRAP_DY);
-    add_hash(rotate_left, -TIME_WRAP_DY, TIME_WRAP_DX);
-    add_hash(rotate_right, TIME_WRAP_DY, -TIME_WRAP_DX);
-    add_hash(rotate_180, -TIME_WRAP_DX, -TIME_WRAP_DY);
-    add_hash(flip_diagonal, TIME_WRAP_DY, TIME_WRAP_DX);
-    add_hash(flip_anti_diagonal, -TIME_WRAP_DY, -TIME_WRAP_DX);
+    add_hash(flip_horizontal, -PERIODIC_DX, PERIODIC_DY);
+    add_hash(flip_vertical, PERIODIC_DX, -PERIODIC_DY);
+    add_hash(rotate_left, -PERIODIC_DY, PERIODIC_DX);
+    add_hash(rotate_right, PERIODIC_DY, -PERIODIC_DX);
+    add_hash(rotate_180, -PERIODIC_DX, -PERIODIC_DY);
+    add_hash(flip_diagonal, PERIODIC_DY, PERIODIC_DX);
+    add_hash(flip_anti_diagonal, -PERIODIC_DY, -PERIODIC_DX);
     #else
     Hash out = hash_all_times(grid);
     DynamicGrid temp = empty_dynamic_grid;
@@ -455,7 +457,7 @@ static inline void check_solution(bool preprocessing) {
     }
     #endif
     // apply subperiod filter
-    #if TIME_WRAP && FILTER_SUBPERIOD
+    #if FILTER_SUBPERIOD
     Hash hashes[GENS];
     for (int i = 0; i < GENS; i++) {
         Hash hash = hash_at_time(&hash_grid, i);

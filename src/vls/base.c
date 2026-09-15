@@ -124,12 +124,12 @@ int debug_depth = 0;
 
 
 typedef struct Cell {
+    // the generation
+    Index t;
     // the x coordinate
     Index x;
     // the y coordinate
     Index y;
-    // the generation
-    Index t;
     // (t * SIZE) + (y * WIDTH) + x
     Index index;
     // the value of the cell
@@ -139,7 +139,7 @@ typedef struct Cell {
     Variable var;
     #endif
     // the settability
-    uint8_t settable;
+    Settability settable;
     // the next cell in the search order
     struct Cell* next_in_search_order;
     #if CACHE_IMPLICATION_TRS
@@ -221,15 +221,51 @@ static inline __attribute__((always_inline)) void actual_set_cell_value_handles_
 #endif
 
 
+Cell forced_off_cell = {
+    .t = 0,
+    .x = 0,
+    .y = 0,
+    .index = 0,
+    .value = OFF,
+    #if VARIABLES
+    .var = 0,
+    #endif
+    .settable = NOT_SETTABLE,
+    .next_in_search_order = NULL,
+    #if CACHE_IMPLICATION_TRS
+    .tr = 0,
+    #endif
+    #if KEEP_LAST_CHECKED_TIME
+    .last_checked_time = 0,
+    #endif
+    .prev = NULL,
+    .next = NULL,
+    .nw = NULL,
+    .n = NULL,
+    .ne = NULL,
+    .w = NULL,
+    .e = NULL,
+    .sw = NULL,
+    .s = NULL,
+    .se = NULL,
+};
+
 static inline void init_state(void) {
     Index index = 0;
     for (Index t = 0; t < GENS; t++) {
         for (Index y = 0; y < HEIGHT; y++) {
             for (Index x = 0; x < WIDTH; x++) {
+                grid[t][y][x].prev = NULL;
+            }
+        }
+    }
+    for (Index t = 0; t < GENS; t++) {
+        for (Index y = 0; y < HEIGHT; y++) {
+            for (Index x = 0; x < WIDTH; x++) {
                 Cell* cell = &grid[t][y][x];
+                cell->t = t;
                 cell->x = x;
                 cell->y = y;
-                cell->t = t;
                 cell->index = index++;
                 cell->value = initial_grid[t][y][x];
                 #if VARIABLES
@@ -239,40 +275,21 @@ static inline void init_state(void) {
                 #if CACHE_IMPLICATION_TRS
                 cell->tr = 0;
                 #endif
-                // cell->last_update = 0;
-                #if TIME_WRAP
-                if (t == 0) {
-                    if (x + TIME_WRAP_DX < 0 || x + TIME_WRAP_DX >= WIDTH || y + TIME_WRAP_DY < 0 || y + TIME_WRAP_DY >= HEIGHT) {
-                        cell->value = OFF;
-                        #if VARIABLES
-                        cell->var = 0;
-                        #endif
-                        // dummy cell
-                        cell->prev = &grid[0][0][0];
-                    } else {
-                        cell->prev = &grid[GENS - 1][y + TIME_WRAP_DY][x + TIME_WRAP_DX];
-                    }
-                } else {
-                    cell->prev = &grid[t - 1][y][x];
-                }
-                if (t == GENS - 1) {
-                    if (x - TIME_WRAP_DX < 0 || x - TIME_WRAP_DX >= WIDTH || y - TIME_WRAP_DY < 0 || y - TIME_WRAP_DY >= HEIGHT) {
-                        cell->value = OFF;
-                        #if VARIABLES
-                        cell->var = 0;
-                        #endif
-                        // dummy cell
-                        cell->next = &grid[0][0][0];
-                    } else {
-                        cell->next = &grid[0][y - TIME_WRAP_DY][x - TIME_WRAP_DX];
-                    }
-                } else {
-                    cell->next = &grid[t + 1][y][x];
-                }
-                #else
-                cell->prev = t == 0 ? NULL : &grid[t - 1][y][x];
-                cell->next = t == GENS - 1 ? NULL : &grid[t + 1][y][x];
+                #if CACHE_TIMES
+                cell->last_update = 0;
                 #endif
+                const int32_t* next_coords = initial_nexts[t][y][x];
+                int32_t next_t = next_coords[0];
+                int32_t next_x = next_coords[1];
+                int32_t next_y = next_coords[2];
+                if (next_t == -1 && next_x == -1 && next_y == -1) {
+                    cell->next = NULL;
+                } else if (next_t == -2 && next_x == -2 && next_y == -2) {
+                    cell->next = &forced_off_cell;
+                } else {
+                    cell->next = &grid[next_t][next_y][next_x];
+                    cell->next->prev = cell;
+                }
                 cell->nw = x == 0 || y == 0 ? NULL : &grid[t][y - 1][x - 1];
                 cell->n = y == 0 ? NULL : &grid[t][y - 1][x];
                 cell->ne = x == WIDTH - 1 || y == 0 ? NULL : &grid[t][y - 1][x + 1];
@@ -464,12 +481,12 @@ static inline void print_grid(FILE* stream) {
                 print_cell(stream, cell->value);
                 #endif
             }
-            real_fprintf(stream, "$\n");
+            // real_fprintf(stream, "$\n");
         }
         if (t == GENS - 1) {
             fprintf(stream, "!\n");
         } else {
-            fprintf(stream, "$%ib\n", t + 1);
+            // fprintf(stream, "$%ib\n", t + 1);
         }
     }
 }

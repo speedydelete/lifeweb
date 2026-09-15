@@ -5,8 +5,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
-import {baseIdentify} from '../core/superidentify.js';
+import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
@@ -95,12 +94,12 @@ Options:
 
     -maxpop=<cells>: set the maximum population during the search
 
-    -c, -custom =file>: use additional search constraints given in the
+    -c, -custom=<file>: use additional search constraints given in the
         provided C file, see lifeweb/src/vls/custom/ for examples
 
-    -check-early-exhaustion: check early exhaustion (a row/column is all 0),
-        this is enabled automatically in periodic mode when it is an oscillator
-        or orthogonal spaceship, but not in other cases
+    -check-early-exhaustion=<boolean>: check early exhaustion (a row/column is
+        all 0), this is enabled automatically in periodic mode when it is an
+        oscillator or orthogonal spaceship, but not in other cases
     -no-check-early-exhaustion: force not checking early exhaustion, can be
         used in periodic mode to turn it off if it's broken
 
@@ -120,19 +119,27 @@ Options:
     -no-show-solutions: disable showing solutions at all
     -allow-empty: allow the empty pattern as a solution
     -allow-duplicates: allow duplicate solutions to be reported
-    -allow-subperiod: allow subperiod solutions to be reported
-    -cell-period-filter <periods>:
+    -periodic=<'none'|speed>: set the searcher's knowledge of the periodicity
+        of the pattern, this is used for duplicate solution filtering and
+        checking early exhaustion, periodic mode enables this automatically
+    -no-check-early-exhaustion: disable checking early exhaustion, only valid
+        in periodic mode or if the -periodic option is provided 
+    -allow-subperiod=<boolean>: allow subperiod solutions to be reported,
+        default false in periodic mode, true in all other modes
+    -cell-period-filter=<periods>:
         filter out cells of those periods when checking for duplicates
         the argument is a comma- or space-separated list of integers
 `;
 
 type OptionValue =
+    | {type: 'flag'}
     | {type: 'boolean'}
     | {type: 'string'}
     | {type: 'number'}
     | {type: 'list', values: string[]}
 ;
 
+const FLAG = {type: 'flag'} as const;
 const BOOLEAN = {type: 'boolean'} as const;
 const STRING = {type: 'string'} as const;
 const NUMBER = {type: 'number'} as const;
@@ -142,13 +149,13 @@ function list<T extends string[]>(values: T): {type: 'list', values: T} {
 }
 
 const OPTIONS = {
-    'help': BOOLEAN,
+    'help': FLAG,
     'h': 'help',
     'debug': NUMBER,
     'd': 'debug',
-    'gdb': BOOLEAN,
-    'no-optimize': BOOLEAN,
-    'address-sanitizer': BOOLEAN,
+    'gdb': FLAG,
+    'no-optimize': FLAG,
+    'address-sanitizer': FLAG,
     'benchmark': NUMBER,
     'profile': NUMBER,
     'file': STRING,
@@ -158,30 +165,31 @@ const OPTIONS = {
     'o': 'order',
     'initial-value': list(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1'] as const),
     'i': 'initial-value',
-    'no-ot-optimization': BOOLEAN,
-    'no-cache-trs': BOOLEAN,
-    'check-times': BOOLEAN,
-    'clang': BOOLEAN,
+    'no-ot-optimization': FLAG,
+    'no-cache-trs': FLAG,
+    'check-times': FLAG,
+    'clang': FLAG,
     'symmetry': STRING,
     's': 'symmetry',
     'maxpop': NUMBER,
     'custom': STRING,
     'c': 'custom',
-    'check-early-exhaustion': BOOLEAN,
-    'no-check-early-exhaustion': BOOLEAN,
     'interval': NUMBER,
     'partials': list(['none', 'cell', 'depth'] as const),
     'partial-interval': NUMBER,
     'max-solutions': NUMBER,
     'n': 'max-solutions',
     'no-show-solutions': NUMBER,
-    'allow-empty': BOOLEAN,
-    'allow-duplicates': BOOLEAN,
+    'allow-empty': FLAG,
+    'allow-duplicates': FLAG,
+    'periodic': STRING,
+    'no-check-early-exhaustion': FLAG,
     'allow-subperiod': BOOLEAN,
     'cell-period-filter': STRING,
 } satisfies {[key: string]: OptionValue | string};
 
 type ValueOfOption<T extends OptionValue> =
+    T extends {type: 'flag'} ? boolean :
     T extends {type: 'boolean'} ? boolean :
     T extends {type: 'string'} ? string :
     T extends {type: 'number'} ? number :
@@ -226,13 +234,18 @@ for (let i = 2; i < argv.length; i++) {
         if (typeof argData === 'string') {
             error(`This error should not occur, please report it (double aliased argument)`);
         }
-        if (argData.type === 'boolean') {
+        if (argData.type === 'flag') {
             if (value !== undefined) {
-                error(`Cannot provide value for argument ${originalArg}, is a boolean argument`);
+                error(`Cannot provide value for argument ${originalArg}, is a flag argument`);
             }
             (options as any)[arg] = true;
         } else if (value === undefined) {
             error(`No value provided for argument ${originalArg} (to provide it, do '${originalArg}=<value>', not '${originalArg} value')`);
+        } else if (argData.type === 'boolean') {
+            if (value !== 'true' && value !== 'false') {
+                error(`Invalid value for argument ${originalArg}, expected 'true' or 'false'`);
+            }
+            (options as any)[arg] = value === 'true';
         } else if (argData.type === 'string') {
             (options as any)[arg] = value;
         } else if (argData.type === 'number') {
@@ -304,7 +317,16 @@ let grid: Grid;
 let defaultSearchOrder = 't, y, x';
 let searchOrderAliases: {[key: string]: string} = {};
 
-let checkEarlyExhaustion = false;
+let periodic: false | {dx: number, dy: number, period: number} | undefined;
+if (options['periodic']) {
+    if (options['periodic'] === 'none') {
+        periodic = false;
+    } else {
+        periodic = parseSpeed(options['periodic']);
+    }
+} else {
+    periodic = undefined;
+}
 
 if (mode === 'periodic') {
 
@@ -358,14 +380,17 @@ if (mode === 'periodic') {
             grid.set(0, x, y, UNKNOWN);
         }
     }
+
+    // let value1 = (await import('util')).inspect(grid.data.map(layer => layer.map(row => row.map(cell => cell.next))), {depth: Infinity});
+
     for (let t = 1; t < grid.gens; t++) {
         grid.fill(t, UNKNOWN);
     }
-    grid.wrap = [dx, dy];
+    grid.applyWrap(dx, dy);
 
-    if (dx === 0 || dy === 0) {
-        checkEarlyExhaustion = true;
-    }
+    // return [{} as OptionData, value1 + '\n\n' + (await import('util')).inspect(grid.data.map(layer => layer.map(row => row.map(cell => cell.next))), {depth: Infinity})];
+
+    periodic ??= {dx, dy, period};
 
 } else if (mode === 'parent') {
 
@@ -577,6 +602,10 @@ if (mode === 'periodic') {
 }
 
 
+if (periodic === undefined) {
+
+}
+
 if (options['symmetry']) {
     grid.applySymmetry(options['symmetry']);
 }
@@ -599,8 +628,10 @@ for (let t = 0; t < grid.gens; t++) {
 }
 
 
+const PADDING = 2;
 
-function searchOrderSort(a: [number, number, number], b: [number, number, number], order: t.Expression[]): number {
+
+function searchOrderSort(a: Coord, b: Coord, order: t.Expression[]): number {
     for (let metric of order) {
         let score = Number(runExpression(grid, a, metric)) - Number(runExpression(grid, b, metric));
         if (score !== 0) {
@@ -610,8 +641,8 @@ function searchOrderSort(a: [number, number, number], b: [number, number, number
     return 0;
 }
 
-function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
-    let cells: [number, number, number][] = [];
+function getSearchOrder(grid: Grid, order: string): Coord[] {
+    let cells: Coord[] = [];
     for (let t = 0; t < grid.gens; t++) {
         for (let y = 0; y < grid.height; y++) {
             for (let x = 0; x < grid.width; x++) {
@@ -636,7 +667,7 @@ function getSearchOrder(grid: Grid, order: string): [number, number, number][] {
     }
     let sorted = cells.sort((a, b) => searchOrderSort(a, b, parsedOrder));
     let prevValue = sorted[0];
-    let out: [number, number, number][] = [prevValue];
+    let out: Coord[] = [prevValue];
     for (let value of sorted.slice(1)) {
         out.push(value);
         prevValue = value;
@@ -654,8 +685,8 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['WIDTH'] = grid.width + 4;
-defines['HEIGHT'] = grid.height + 4;
+defines['WIDTH'] = grid.width + PADDING * 2;
+defines['HEIGHT'] = grid.height + PADDING * 2;
 defines['GENS'] = grid.gens;
 
 defines['VARIABLES'] = grid.numVars > 0;
@@ -666,10 +697,6 @@ defines['VAR_COUNT'] = grid.numVars + 1;
 defines['TOTAL_UNKNOWN_CELLS'] = stateCounts[UNKNOWN];
 
 defines['HAS_DONT_CARES'] = stateCounts[DONT_CARE] > 0;
-
-defines['TIME_WRAP'] = Boolean(grid.wrap);
-defines['TIME_WRAP_DX'] = grid.wrap ? grid.wrap[0] : undefined;
-defines['TIME_WRAP_DY'] = grid.wrap ? grid.wrap[1] : undefined;
 
 defines['MULTI_RULE'] = multiRule;
 defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d*)\/S(\d*)$/) && (!multiRule || options['rulespace'] === 'ot')) && !options['no-ot-optimization']);
@@ -686,13 +713,26 @@ defines['MAXPOP'] = options['maxpop'];
 
 defines['CUSTOM'] = options['custom'] !== undefined ? `"${path.resolve(options['custom'])}"` : undefined;
 
-defines['CHECK_EARLY_EXHAUSTION'] = Boolean(options['no-check-early-exhaustion'] ? false : (options['check-early-exhaustion'] || checkEarlyExhaustion));
+if (periodic) {
+    defines['PERIODIC'] = true;
+    defines['PERIODIC_DX'] = periodic.dx;
+    defines['PERIODIC_DY'] = periodic.dy;
+    defines['PERIODIC_PERIOD'] = periodic.period;
+    defines['CHECK_EARLY_EXHAUSTION'] = !options['no-check-early-exhaustion'];
+} else {
+    defines['PERIODIC'] = false;
+    defines['PERIODIC_DX'] = 67;
+    defines['PERIODIC_DY'] = 67;
+    defines['PERIODIC_PERIOD'] = 67;
+    defines['CHECK_EARLY_EXHAUSTION'] = false;
+}
+
 
 defines['SHOW_SOLUTIONS'] = !options['no-show-solutions'];
 defines['MAX_SOLUTIONS'] = options['max-solutions'];
 defines['CHECK_EMPTY'] = !options['allow-empty'];;
 defines['FILTER_DUPLICATES'] = !options['allow-duplicates'];
-defines['FILTER_SUBPERIOD'] = !options['allow-subperiod'];
+defines['FILTER_SUBPERIOD'] = options['allow-subperiod'] === undefined ? mode === 'periodic' : options['allow-subperiod'];
 if (options['cell-period-filter']) {
     defines['CELL_PERIOD_FILTER'] = `{${options['cell-period-filter'].split(/[, ]+/).map(Number).join(', ')}}`;
 } else {
@@ -708,7 +748,7 @@ defines['BENCHMARK'] = options['benchmark'];
 defines['DEBUG'] = options['debug'] ?? 0;
 
 
-function gridToString(grid: Grid, field: keyof Cell): string {
+function gridToString(grid: Grid, field: 'state' | 'variable' | 'settable'): string {
     let off: number;
     if (field === 'state') {
         off = OFF;
@@ -718,7 +758,7 @@ function gridToString(grid: Grid, field: keyof Cell): string {
         off = SEARCHABLE;
     }
     let emptyRow: number[] = [];
-    for (let x = 0; x < grid.width + 4; x++) {
+    for (let x = 0; x < grid.width + PADDING * 2; x++) {
         emptyRow.push(off);
     }
     let out: number[][][] = [];
@@ -735,10 +775,6 @@ function gridToString(grid: Grid, field: keyof Cell): string {
         layer.push(structuredClone(emptyRow), structuredClone(emptyRow));
         out.push(layer);
     }
-    // if (useVars) {
-    //     console.log(data);
-    //     console.log(`{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`);
-    // }
     return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
 }
 
@@ -770,6 +806,7 @@ const CONSTANT_DEFINES = new Set([
 let out: string[] = [];
 let foundDefines = new Set<string>();
 for (let line of code.split('\n')) {
+    line = line.trimStart();
     if (line.startsWith('typedef') && line.endsWith('Index;')) {
         line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
     } else if (line.startsWith('typedef') && line.endsWith('Variable;')) {
@@ -778,8 +815,41 @@ for (let line of code.split('\n')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';
     } else if (line.startsWith('static const Variable initial_vars[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
-    } else if (line.startsWith('static const uint8_t initial_settable[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const Settability initial_settable[GENS][HEIGHT][WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
+    } else if (line.startsWith('static const int32_t initial_nexts[GENS][HEIGHT][WIDTH][3] = ')) {
+        line = line.slice(0, line.indexOf('{'));
+        let nullCell = `{-1, -1, -1}`;
+        let offCell = `{-2, -2, -2}`;
+        let offRowData: string[] = [];
+        for (let x = 0; x < grid.width + PADDING * 2; x++) {
+            offRowData.push(offCell);
+        }
+        let offRow = `{${offRowData.join(', ')}}`;
+        let data: string[] = [];
+        for (let layer of grid.data) {
+            let layerData: string[] = [offRow, offRow];
+            for (let row of layer) {
+                let rowData: string[] = [offCell, offCell];
+                for (let cell of row) {
+                    let pos = cell.next;
+                    if (pos === undefined) {
+                        rowData.push(offCell);
+                    } else if (grid.isCoordInBounds(pos)) {
+                        rowData.push(`{${pos[CT]}, ${pos[CX] + PADDING}, ${pos[CY] + PADDING}}`);
+                    } else if (pos[CT] < 0 || pos[CT] >= grid.gens) {
+                        rowData.push(nullCell);
+                    } else {
+                        rowData.push(offCell);
+                    }
+                }
+                rowData.push(offCell, offCell);
+                layerData.push(`{${rowData.join(', ')}}`);
+            }
+            layerData.push(offRow, offRow);
+            data.push(`{${layerData.join(', ')}}`);
+        }
+        line += '{' + data.join(', ') + '};';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
@@ -790,10 +860,10 @@ for (let line of code.split('\n')) {
                 }
             }
         }
-        line = line.slice(0, line.indexOf('{'))+ '{' + trs.join(', ') + '};';
+        line = line.slice(0, line.indexOf('{')) + '{' + trs.join(', ') + '};';
     } else if (line.startsWith('Index search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
         line = line.slice(0, line.indexOf('{'));
-        line += '{' + searchOrderData.map(x => `{${x[0]}, ${x[1] + 2}, ${x[2] + 2}}`).join(', ') + '};';
+        line += '{' + searchOrderData.map(x => `{${x[CT]}, ${x[CX] + PADDING}, ${x[CY] + PADDING}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(line);
@@ -851,9 +921,12 @@ export async function main() {
     let [options, code] = await transformCode(process.argv, source);
     await fs.writeFile(getPath('src/vls/params2.h'), code);
     try {
-        let command = options['clang'] ? `clang` : `gcc`;
+        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
         // strict mode
-        command += ` -std=c2x -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-binary-literal`;
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas`;
+        if (options['clang']) {
+            command += ` -Wno-gnu-binary-literal`;
+        }
         // features
         command += ` -g`;
         if (!options['no-optimize']) {

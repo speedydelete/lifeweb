@@ -21,7 +21,7 @@ static inline void add_search_orders(void) {
     Index x = coords[1];
     Index y = coords[2];
     Cell* prev = &grid[t][y][x];
-    Cell* out = prev;
+    initial_cell = prev;
     for (Index i = 1; i < unknown_cells; i++) {
         Index* coords = search_order[i];
         Index t = coords[0];
@@ -36,12 +36,100 @@ static inline void add_search_orders(void) {
         prev = cell;
     }
     prev->next_in_search_order = NULL;
-    initial_cell = out;
 }
 
 
 #if CHECK_EARLY_EXHAUSTION
+
 bool all_zeros = true;
+
+static inline bool check_early_exhaustion(void) {
+    #if PERIODIC_DX == 0 || PERIODIC_DY == 0
+    bool found;
+    #endif
+    // check columns
+    #if PERIODIC_DX < 0
+    for (Index x = PADDING; x < PADDING - PERIODIC_DX + 1; x++) {
+        for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
+            if (grid[0][y][x].value != OFF) {
+                return false;
+            }
+        }
+    }
+    #elif PERIODIC_DX > 0
+    for (Index x = WIDTH - PADDING - PERIODIC_DX - 1; x < WIDTH - PADDING; x++) {
+        for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
+            if (grid[0][y][x].value != OFF) {
+                return false;
+            }
+        }
+    }
+    #else
+    // check left column and right column
+    found = false;
+    for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
+        if (grid[0][y][PADDING].value != OFF) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return true;
+    }
+    found = false;
+    for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
+        if (grid[0][y][WIDTH - PADDING - 1].value != OFF) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return true;
+    }
+    #endif
+    // check rows
+    #if PERIODIC_DY < 0
+    for (Index y = PADDING; y < PADDING - PERIODIC_DY + 1; y++) {
+        for (Index x = PADDING; x < WIDTH - PADDING; x++) {
+            if (grid[0][y][x].value != OFF) {
+                return false;
+            }
+        }
+    }
+    return true;
+    #elif PERIODIC_DY > 0
+    for (Index y = HEIGHT - PADDING - PERIODIC_DY - 1; y < WIDTH - PADDING; y++) {
+        for (Index x = PADDING; x < WIDTH - PADDING; x++) {
+            if (grid[0][y][x].value != OFF) {
+                return false;
+            }
+        }
+    }
+    return true;
+    #else
+    // check top row and bottom row
+    found = false;
+    for (Index x = PADDING; x < WIDTH - PADDING; x++) {
+        if (grid[0][PADDING][x].value != OFF) {
+            return false;
+        }
+    }
+    if (!found) {
+        return true;
+    }
+    found = false;
+    for (Index x = PADDING; x < WIDTH - PADDING; x++) {
+        if (grid[0][HEIGHT - PADDING - 1][x].value != OFF) {
+            return false;
+        }
+    }
+    if (!found) {
+        return true;
+    }
+    return false;
+    #endif
+}
+
 #endif
 
 // returns number of iterations to backjump
@@ -71,40 +159,11 @@ static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
         // check for early exhaustion
         #if CHECK_EARLY_EXHAUSTION
         if (all_zeros) {
-            #if !TIME_WRAP
-            #error "This error should not occur, please report it (CHECK_EARLY_EXHAUSTION && !TIME_WRAP)"
-            #endif
-            // check columns
-            for (Index x = PADDING + max(0, -TIME_WRAP_DX - 1); x < WIDTH - PADDING - max(0, TIME_WRAP_DX - 1); x++) {
-                bool found = false;
-                for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
-                    if (grid[0][y][x].value != OFF) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    DPRINTGRID3();
-                    DPRINTF3("All zeros at x = %i\n", x);
-                    pop_frame();
-                    return 0;
-                }
-            }
-            // check rows
-            for (Index y = PADDING + max(0, -TIME_WRAP_DY - 1); y < HEIGHT - PADDING - max(0, TIME_WRAP_DY - 1); y++) {
-                bool found = false;
-                for (Index x = PADDING; x < WIDTH - PADDING; x++) {
-                    if (grid[0][y][x].value != OFF) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    DPRINTGRID3();
-                    DPRINTF3("All zeros at y = %i\n", y);
-                    pop_frame();
-                    return 0;
-                }
+            if (check_early_exhaustion()) {
+                DPRINTGRID3();
+                DPRINTF3("Early exhausted");
+                pop_frame();
+                return 0;
             }
         }
         #endif
@@ -164,7 +223,7 @@ static Depth run_depth(Depth depth, Cell* cell
     ) {
     #if DEBUG >= 3
     debug_depth++;
-    printf("Running depth %i: ", depth);
+    printf("Running depth %"PRIu64": ", depth);
     print_progress(stdout);
     real_printf("\n");
     printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);

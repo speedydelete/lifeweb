@@ -12,6 +12,16 @@ export function error(msg: string): never {
 }
 
 
+export type Coord = [t: number, x: number, y: number];
+
+export const CT = 0;
+export const CX = 1;
+export const CY = 2;
+
+export function coord(t: number, x: number, y: number): Coord {
+    return [t, x, y];
+}
+
 export const UNKNOWN = 0;
 export const OFF = 1;
 export const ON = 2;
@@ -19,7 +29,7 @@ export const DONT_CARE = 3;
 
 export type State = typeof UNKNOWN | typeof OFF | typeof ON | typeof DONT_CARE;
 
-function isKnown(state: State): state is typeof OFF | typeof ON {
+export function isKnown(state: State): state is typeof OFF | typeof ON {
     return state === ON || state === OFF;
 }
 
@@ -37,8 +47,19 @@ export interface Cell {
     settable: Settability;
 }
 
+export type PartialCell = Partial<Cell>;
+
 export function cell(state: State, variable: Variable | undefined = undefined, settable: Settability = SEARCHABLE): Cell {
     return {state, variable, settable};
+}
+
+export interface GridCell extends Cell {
+    pos: Coord;
+    next: Coord | undefined;
+}
+
+export function gridCell(pos: Coord, next: Coord, state: State, variable: Variable | undefined = undefined, settable: Settability = SEARCHABLE): GridCell {
+    return {state, variable, settable, pos, next};
 }
 
 
@@ -51,11 +72,10 @@ export class Grid {
     height: number;
     gens: number;
     size: number;
-    data: Cell[][][];
+    data: GridCell[][][];
     numVars: number = 0;
-    wrap: false | [number, number] = false;
 
-    constructor(width: number, height: number, gens: number, data?: Cell[][][]) {
+    constructor(width: number, height: number, gens: number, data?: GridCell[][][]) {
         this.width = width;
         this.height = height;
         this.gens = gens;
@@ -65,31 +85,56 @@ export class Grid {
         } else {
             this.data = [];
             for (let t = 0; t < gens; t++) {
-                let grid: Cell[][] = [];
+                let layer: GridCell[][] = [];
                 for (let y = 0; y < height; y++) {
-                    let row: Cell[] = [];
+                    let row: GridCell[] = [];
                     for (let x = 0; x < width; x++) {
-                        row.push(cell(UNKNOWN));
+                        row.push(Object.assign({}, cell(UNKNOWN), {
+                            pos: coord(t, x, y),
+                            next: coord(t + 1, x, y),
+                        }));
                     }
-                    grid.push(row);
+                    layer.push(row);
                 }
-                this.data.push(grid);
+                this.data.push(layer);
             }
         }
     }
 
-    get(t: number, x: number, y: number): Cell {
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+    isInBounds(t: number, x: number, y: number): boolean {
+        return t >= 0 && t < this.gens && x >= 0 && x < this.width && y >= 0 && y < this.height;
+    }
+
+    isCoordInBounds(pos: Coord): boolean {
+        return pos[CT] >= 0 && pos[CT] < this.gens && pos[CX] >= 0 && pos[CX] < this.width && pos[CY] >= 0 && pos[CY] < this.height;
+    }
+
+    get(t: number, x: number, y: number): GridCell {
+        if (!this.isInBounds(t, x, y)) {
             throw new Error(`Out of bounds get: t = ${t}, x = ${x}, y = ${y}`);
         }
         return this.data[t][y][x];
     }
 
-    getAllowOOB(t: number, x: number, y: number): Cell {
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+    getAllowOOB(t: number, x: number, y: number): Cell | GridCell {
+        if (!this.isInBounds(t, x, y)) {
             return cell(OFF);
         }
         return this.data[t][y][x];
+    }
+
+    getCoord(pos: Coord): GridCell {
+        if (!this.isCoordInBounds(pos)) {
+            throw new Error(`Out of bounds get: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
+        }
+        return this.data[pos[CT]][pos[CY]][pos[CX]];
+    }
+
+    getCoordAllowOOB(pos: Coord): Cell | GridCell {
+        if (!this.isCoordInBounds(pos)) {
+            return cell(OFF);
+        }
+        return this.data[pos[CT]][pos[CY]][pos[CX]];
     }
 
     set(t: number, x: number, y: number, value: Cell): this;
@@ -98,10 +143,61 @@ export class Grid {
         if (typeof value === 'number') {
             value = cell(value, variable, settable);
         }
-        if (t < 0 || t > this.gens || x < 0 || x > this.width || y < 0 || y > this.height) {
+        if (!this.isInBounds(t, x, y)) {
             throw new Error(`Out of bounds set: t = ${t}, x = ${x}, y = ${y}`);
         }
+        this.data[t][y][x] = Object.assign({}, value, {
+            pos: coord(t, x, y),
+            next: this.data[t][y][x].next,
+        });
+        return this;
+    }
+
+    setCoord(pos: Coord, value: Cell): this;
+    setCoord(pos: Coord, value: State, variable?: Variable | undefined, settable?: Settability): this;
+    setCoord(pos: Coord, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {
+        if (typeof value === 'number') {
+            value = cell(value, variable, settable);
+        }
+        if (!this.isCoordInBounds(pos)) {
+            throw new Error(`Out of bounds set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
+        }
+        this.data[pos[CT]][pos[CY]][pos[CX]] = Object.assign({}, value, {
+            pos,
+            next: this.data[pos[CT]][pos[CY]][pos[CX]].next,
+        });
+        return this;
+    }
+
+    setFull(t: number, x: number, y: number, value: GridCell): this {
+        if (!this.isInBounds(t, x, y)) {
+            throw new Error(`Out of bounds full set: t = ${t}, x = ${x}, y = ${y}`);
+        }
         this.data[t][y][x] = value;
+        return this;
+    }
+
+    setFullCoord(pos: Coord, value: GridCell): this {
+        if (!this.isCoordInBounds(pos)) {
+            throw new Error(`Out of bounds full set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
+        }
+        this.data[pos[CT]][pos[CY]][pos[CX]] = value;
+        return this;
+    }
+
+    setNext(t: number, x: number, y: number, value: Coord | undefined): this {
+        if (!this.isInBounds(t, x, y)) {
+            throw new Error(`Out of bounds next set: t = ${t}, x = ${x}, y = ${y}`);
+        }
+        this.data[t][y][x].next = value;
+        return this;
+    }
+
+    setCoordNext(pos: Coord, value: Coord | undefined): this {
+        if (!this.isCoordInBounds(pos)) {
+            throw new Error(`Out of bounds next set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
+        }
+        this.data[pos[CT]][pos[CY]][pos[CX]].next = value;
         return this;
     }
 
@@ -113,7 +209,7 @@ export class Grid {
         }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                this.data[t][y][x] = structuredClone(value);
+                this.set(t, x, y, value);
             }
         }
         return this;
@@ -130,7 +226,7 @@ export class Grid {
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
-                    let cell = this.data[t][y][x];
+                    let cell = this.get(t, x, y);
                     if (cell.variable === old) {
                         cell.variable = new_;
                     }
@@ -144,7 +240,7 @@ export class Grid {
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
-                    let cell = this.data[t][y][x];
+                    let cell = this.get(t, x, y);
                     if (cell.variable === variable) {
                         cell.state = state;
                         cell.variable = 0;
@@ -166,36 +262,56 @@ export class Grid {
         let newHeight = this.height + up + down;
         let newGens = this.gens + start + end;
         // first make empty placeholders
-        let emptyRow: Cell[] = [];
+        let emptyRow: GridCell[] = [];
         for (let i = 0; i < newWidth; i++) {
-            emptyRow.push(cell(UNKNOWN));
+            emptyRow.push(undefined as unknown as GridCell);
         }
-        let emptyGrid: Cell[][] = [];
+        let emptyLayer: GridCell[][] = [];
         for (let i = 0; i < newHeight; i++) {
-            emptyGrid.push(structuredClone(emptyRow));
+            emptyLayer.push(structuredClone(emptyRow));
         }
         // then paste them in
-        for (let grid of this.data) {
-            for (let row of grid) {
+        for (let layer of this.data) {
+            for (let row of layer) {
                 for (let i = 0; i < left; i++) {
-                    row.unshift(cell(UNKNOWN));
+                    row.unshift(undefined as unknown as GridCell);
                 }
                 for (let i = 0; i < right; i++) {
-                    row.push(cell(UNKNOWN));
+                    row.push(undefined as unknown as GridCell);
                 }
             }
             for (let i = 0; i < up; i++) {
-                grid.unshift(structuredClone(emptyRow));
+                layer.unshift(structuredClone(emptyRow));
             }
             for (let i = 0; i < down; i++) {
-                grid.push(structuredClone(emptyRow));
+                layer.push(structuredClone(emptyRow));
             }
         }
         for (let i = 0; i < start; i++) {
-            this.data.unshift(structuredClone(emptyGrid));
+            this.data.unshift(structuredClone(emptyLayer));
         }
         for (let i = 0; i < end; i++) {
-            this.data.push(structuredClone(emptyGrid));
+            this.data.push(structuredClone(emptyLayer));
+        }
+        for (let t = 0; t < newGens; t++) {
+            for (let y = 0; y < newHeight; y++) {
+                for (let x = 0; x < newWidth; x++) {
+                    let cell = this.get(t, x, y)
+                    if (cell === undefined) {
+                        cell = gridCell(coord(t, x, y), coord(t + 1, x, y), UNKNOWN);
+                    } else {
+                        cell.pos[CT] += start;
+                        cell.pos[CX] += left;
+                        cell.pos[CY] += up;
+                        if (cell.next) {
+                            cell.next[CT] += start;
+                            cell.next[CX] += left;
+                            cell.next[CY] += up;
+                        }
+                    }
+                    this.setFull(t, x, y, cell);
+                }
+            }
         }
         this.width = newWidth;
         this.height = newHeight;
@@ -207,8 +323,8 @@ export class Grid {
         let newWidth = this.width - left - right;
         let newHeight = this.height - up - down;
         let newGens = this.gens - start - end;
-        for (let grid of this.data) {
-            for (let row of grid) {
+        for (let layer of this.data) {
+            for (let row of layer) {
                 for (let i = 0; i < left; i++) {
                     row.shift();
                 }
@@ -217,10 +333,10 @@ export class Grid {
                 }
             }
             for (let i = 0; i < up; i++) {
-                grid.shift();
+                layer.shift();
             }
             for (let i = 0; i < down; i++) {
-                grid.pop();
+                layer.pop();
             }
         }
         for (let i = 0; i < start; i++) {
@@ -229,18 +345,34 @@ export class Grid {
         for (let i = 0; i < end; i++) {
             this.data.pop();
         }
+        for (let t = 0; t < newGens; t++) {
+            for (let y = 0; y < newHeight; y++) {
+                for (let x = 0; x < newWidth; x++) {
+                    let cell = this.get(t, x, y)
+                    cell.pos[CT] -= start;
+                    cell.pos[CX] -= left;
+                    cell.pos[CY] -= up;
+                    if (cell.next) {
+                        cell.next[CT] -= start;
+                        cell.next[CX] -= left;
+                        cell.next[CY] -= up;
+                    }
+                    this.setFull(t, x, y, cell);
+                }
+            }
+        }
         this.height = newHeight;
         this.width = newWidth;
         this.gens = newGens;
         return this;
     }
 
-    combineCells(x: Cell, y: Cell, coords?: [[t: number, x: number, y: number], [t: number, x: number, y: number]]): this {
+    combineCells(x: GridCell, y: GridCell): this {
         let simple: undefined | 'x = y' | 'y = x' = undefined;
         if (isKnown(x.state)) {
             if (isKnown(y.state)) {
                 if (x.state !== y.state) {
-                    error(`Contradiction detected while binding together cells ${coords !== undefined ? ` at t = ${coords[0][0]}, x = ${coords[0][1]}, y = ${coords[0][2]} and t = ${coords[1][0]}, x = ${coords[1][1]}, y = ${coords[1][2]}` : ''}`);
+                    error(`Contradiction detected while binding together cells at t = ${x.pos[CT]}, x = ${x.pos[CX]}, y = ${x.pos[CY]} and t = ${y.pos[CT]}, x = ${y.pos[CX]}, y = ${y.pos[CY]}`);
                 }
                 simple = 'x = y';
             } else if (y.state === DONT_CARE) {
@@ -305,10 +437,8 @@ export class Grid {
         return this;
     }
 
-    bindCells(cell1: [t: number, x: number, y: number], cell2: [t: number, x: number, y: number]): this {
-        let x = this.data[cell1[0]][cell1[2]][cell1[1]];
-        let y = this.data[cell2[0]][cell2[2]][cell2[1]];
-        return this.combineCells(x, y, [cell1, cell2]);
+    bindCells(x: Coord, y: Coord): this {
+        return this.combineCells(this.getCoord(x), this.getCoord(y));
     }
 
     combineWith(otherGrid: Grid): this {
@@ -379,99 +509,89 @@ export class Grid {
         return this;
     }
 
-    removeSingleUseVars(): this {
-        let uses: {[key: number]: [number, number, number] | 'multi'} = [];
+    // removed because this messes up case preprocessing
+    // removeSingleUseVars(): this {
+    //     let uses: {[key: number]: Coord | 'multi'} = [];
+    //     for (let t = 0; t < this.gens; t++) {
+    //         for (let y = 0; y < this.height; y++) {
+    //             for (let x = 0; x < this.width; x++) {
+    //                 let value = this.data[t][y][x].variable;
+    //                 if (value === undefined) {
+    //                     continue;
+    //                 } else if (value in uses) {
+    //                     uses[value] = 'multi';
+    //                 } else {
+    //                     uses[value] = [t, x, y];
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     for (let value of Object.values(uses)) {
+    //         if (Array.isArray(value)) {
+    //             let [t, x, y] = value;
+    //             this.data[t][y][x].variable = undefined;
+    //         }
+    //     }
+    //     return this;
+    // }
+
+    removeUnusedVars(): this {
+        this.numVars = 0;
+        let mapping: {[key: number]: number} = {0: 0};
         for (let t = 0; t < this.gens; t++) {
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
                     let value = this.data[t][y][x].variable;
                     if (value === undefined) {
                         continue;
-                    } else if (value in uses) {
-                        uses[value] = 'multi';
-                    } else {
-                        uses[value] = [t, x, y];
+                    }
+                    if (!(value in mapping)) {
+                        mapping[value] = this.getNewVar();
                     }
                 }
             }
         }
-        for (let value of Object.values(uses)) {
-            if (Array.isArray(value)) {
-                let [t, x, y] = value;
-                this.data[t][y][x].variable = undefined;
+        for (let t = 0; t < this.gens; t++) {
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    let cell = this.data[t][y][x];
+                    if (cell.variable !== undefined) {
+                        cell.variable = mapping[cell.variable];
+                    }
+                }
             }
         }
         return this;
-    }
-
-    removeUnusedVars(): this {
-        // REMOVED BECAUSE THIS MAKES IT SLOWER
-        return this;
-        // this.numVars = 0;
-        // let mapping: {[key: number]: number} = {0: 0};
-        // for (let t = 0; t < this.gens; t++) {
-        //     for (let y = 0; y < this.height; y++) {
-        //         for (let x = 0; x < this.width; x++) {
-        //             let value = this.data[t][y][x].variable;
-        //             if (value === undefined) {
-        //                 continue;
-        //             }
-        //             if (!(value in mapping)) {
-        //                 mapping[value] = this.getNewVar();
-        //             }
-        //         }
-        //     }
-        // }
-        // for (let t = 0; t < this.gens; t++) {
-        //     for (let y = 0; y < this.height; y++) {
-        //         for (let x = 0; x < this.width; x++) {
-        //             let cell = this.data[t][y][x];
-        //             if (cell.variable !== undefined) {
-        //                 cell.variable = mapping[cell.variable];
-        //             }
-        //         }
-        //     }
-        // }
-        // return this;
     }
 
     normalize(): this {
         this.removeKnownVars();
-        this.removeSingleUseVars();
+        // this.removeSingleUseVars();
         this.removeUnusedVars();
         return this;
     }
 
-    resolveWrap(): this {
-        if (!this.wrap) {
-            return this;
-        }
-        let [dx, dy] = this.wrap;
-        // we expand to the right and bottom to handle the implicit bounding box expansion
-        this.expand({end: 1, right: 1, down: 1});
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                let x2 = x + dx;
-                let y2 = y + dy;
-                if (x2 < 0 || x2 > this.width || y2 < 0 || y2 > this.height) {
-                    // the cell doesn't exist at the end, so it can't be set
-                    this.set(0, x, y, OFF);
+    applyWrap(dx: number, dy: number): this {
+        for (let endY = 0; endY < this.height; endY++) {
+            for (let endX = 0; endX < this.width; endX++) {
+                let startX = endX - dx;
+                let startY = endY - dy;
+                if (startX < 0 || startX >= this.width || startY < 0 || startY >= this.height) {
+                    this.setNext(this.gens - 1, endX, endY, undefined);
                 } else {
-                    this.bindCells([0, x, y], [this.gens - 1, x2, y2]);
+                    this.setNext(this.gens - 1, endX, endY, coord(0, startX, startY));
                 }
             }
         }
-        // and we also have to set the cells that must be 0 in the last generation
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-                let x2 = x - dx;
-                let y2 = y - dy;
-                if (x2 < 0 || x2 > this.width || y2 < 0 || y2 > this.height) {
-                    this.set(this.gens - 1, x, y, OFF);
+        for (let startY = 0; startY < this.height; startY++) {
+            for (let startX = 0; startX < this.width; startX++) {
+                let endX = startX + dx;
+                let endY = startY + dy;
+                if (endX < 0 || endX >= this.width || endY < 0 || endY >= this.height) {
+                    this.set(0, startX, startY, OFF);
                 }
             }
         }
-        this.wrap = false;
         return this;
     }
 
@@ -610,28 +730,6 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         // do nothing
     },
 
-    // D2h(grid: Grid): void {
-    //     for (let t = 0; t < grid.gens; t++) {
-    //         for (let y = 0; y < grid.height; y++) {
-    //             for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
-    //                 grid.bindCells([t, x, y], [t, grid.width - x - 1, y]);
-    //             }
-    //         }
-    //     }
-    // },
-    // 'D2|': 'D2h',
-
-    // D2v(grid: Grid): void {
-    //     for (let t = 0; t < grid.gens; t++) {
-    //         for (let y = 0; y < Math.ceil(grid.height / 2); y++) {
-    //             for (let x = 0; x < Math.ceil(grid.width / 2); x++) {
-    //                 grid.bindCells([t, x, y], [t, x, grid.height - y - 1]);
-    //             }
-    //         }
-    //     }
-    // },
-    // 'D2-': 'D2v',
-
     D2h(grid: Grid): void {
         let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
         let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
@@ -701,7 +799,6 @@ export function mergeGrids(grids: Grid[]): Grid {
     let locT = 0;
     for (let i = 0; i < grids.length; i++) {
         let grid = grids[i];
-        grid.resolveWrap();
         let vars: {[key: number]: number} = {};
         for (let t = 0; t < grid.gens; t++) {
             for (let y = 0; y < grid.height; y++) {
@@ -731,29 +828,29 @@ export function mergeGrids(grids: Grid[]): Grid {
 }
 
 
-const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cell: [number, number, number]) => number | boolean)} = {
+const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cell: Coord) => number | boolean)} = {
 
-    't'(grid: Grid, cell: [number, number, number]) {
+    't'(grid: Grid, cell: Coord) {
         return cell[0];
     },
 
-    'x'(grid: Grid, cell: [number, number, number]) {
+    'x'(grid: Grid, cell: Coord) {
         return cell[1];
     },
 
-    'y'(grid: Grid, cell: [number, number, number]) {
+    'y'(grid: Grid, cell: Coord) {
         return cell[2];
     },
 
-    'height'(grid: Grid, cell: [number, number, number]) {
+    'height'(grid: Grid, cell: Coord) {
         return grid.height;
     },
 
-    'width'(grid: Grid, cell: [number, number, number]) {
+    'width'(grid: Grid, cell: Coord) {
         return grid.width;
     },
 
-    'gens'(grid: Grid, cell: [number, number, number]) {
+    'gens'(grid: Grid, cell: Coord) {
         return grid.gens;
     },
 
@@ -763,7 +860,7 @@ const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cel
 
 };
 
-const EXPRESSION_FUNCTIONS: {[key: string]: (grid: Grid, cell: [number, number, number], ...args: (number | boolean)[]) => number | boolean} = {};
+const EXPRESSION_FUNCTIONS: {[key: string]: (grid: Grid, cell: Coord, ...args: (number | boolean)[]) => number | boolean} = {};
 
 function functionify(func: (...args: any[]) => any): (...args: any[]) => any {
     return function(_: any, _2: any, ...args: any[]): any {
@@ -778,7 +875,7 @@ for (let key of Reflect.ownKeys(Math)) {
     EXPRESSION_FUNCTIONS[key] = functionify((Math as any)[key]);
 }
 
-export function runExpression(grid: Grid, cell: [number, number, number], node: t.Expression | t.PrivateName): number | boolean {
+export function runExpression(grid: Grid, cell: Coord, node: t.Expression | t.PrivateName): number | boolean {
     if (node.type === 'Identifier') {
         if (!(node.name in EXPRESSION_VARIABLES)) {
             error(`Nonexistent variable: '${node.name}'`);
@@ -883,7 +980,11 @@ export class VLSFileError extends ParserError {
 
 }
 
+
 const WORD_CHARS = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-`;
+
+const RESERVED_WORDS = ['nop', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var'];
+
 
 const T_LINE_END: Matcher = [new Set(['\n', ';', EOF]), 'line end'];
 
@@ -898,31 +999,85 @@ type StateSpecifier =
     | {type: 'periodic', cell: Cell, period: number}
 ;
 
+type PartialStateSpecifier =
+    | {type: 'nop'}
+    | {type: 'cell', cell: PartialCell}
+    | {type: 'periodic', cell: PartialCell, period: number}
+;
+
 interface FullStateSpecifier {
     all?: StateSpecifier;
-    absolute: [number[], StateSpecifier][];
-    relative: [number[], StateSpecifier][];
+    absolute?: [number[], StateSpecifier][];
+    relative?: [number[], StateSpecifier][];
 }
+
+
+class Scope {
+
+    parser: VLSFileParser;
+    parent: Scope | undefined;
+    states: {[key: number]: FullStateSpecifier};
+
+    constructor(parser: VLSFileParser, parent: Scope | undefined) {
+        this.parser = parser;
+        this.parent = parent;
+        this.states = {};
+    }
+
+    getState(state: number, offset: number = 0): FullStateSpecifier {
+        if (state in this.states) {
+            return this.states[state];
+        }
+        if (this.parent) {
+            return this.parent.getState(state, offset);
+        } else {
+            this.parser.error(`State ${state} is not defined`, offset);
+        }
+    }
+
+    setState(state: number, value: FullStateSpecifier): void {
+        this.states[state] = value;
+    }
+
+    hasState(state: number): boolean {
+        if (state in this.states) {
+            return true;
+        } else if (this.parent) {
+            return this.parent.hasState(state);
+        } else {
+            return false;
+        }
+    }
+
+    deleteState(state: number, offset: number = 0): void {
+        if (state in this.states) {
+            delete this.states[state];
+        }
+        this.parser.error(`State ${state} is not defined or is defined in a higher block`, offset);
+    }
+
+}
+
 
 class VLSFileParser extends BaseParser {
 
     static ParserError = VLSFileError;
 
-    states: {[key: number]: FullStateSpecifier};
     grids: Grid[];
     grid: Grid;
 
+    scope: Scope;
+
     constructor(file: string | undefined, code: string) {
         super(file, code);
-        this.states = {
-            0: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(OFF)}]]},
-            1: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(ON)}]]},
-            2: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]},
-            3: {absolute: [], relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]},
-            4: {all: {type: 'periodic', period: 1, cell: cell(UNKNOWN)}, absolute: [], relative: []},
-        };
         this.grids = [];
-        this.grid = new Grid(0, 0, 0);
+        this.grid = undefined as unknown as Grid;
+        this.scope = new Scope(this, undefined);
+        this.scope.setState(0, {relative: [[[0], {type: 'cell', cell: cell(OFF)}]]});
+        this.scope.setState(1, {relative: [[[0], {type: 'cell', cell: cell(ON)}]]});
+        this.scope.setState(2, {relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]});
+        this.scope.setState(3, {relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]});
+        this.scope.setState(4, {all: {type: 'periodic', period: 1, cell: cell(UNKNOWN)}});
     }
 
     tokenize(code: string): void {
@@ -973,8 +1128,6 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['nop', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var', /^p\d+$/]), 'state specifier'];
-
     generation(): number {
         let out = Number(this.eat(T_INTEGER)[0]);
         if (out >= this.grid.gens) {
@@ -1003,6 +1156,8 @@ class VLSFileParser extends BaseParser {
         }
     }
 
+    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['nop', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var', /^p\d+$/]), 'state specifier'];
+
     stateSpecifier(): StateSpecifier {
         let data: string[] = [this.eat(VLSFileParser.T_STATE_SPECIFIER)[0]];
         while (this.match(VLSFileParser.T_STATE_SPECIFIER)) {
@@ -1028,10 +1183,8 @@ class VLSFileParser extends BaseParser {
                 state = DONT_CARE;
                 period = undefined;
             } else if (value === 'unchecked') {
-                state ??= UNKNOWN;
                 settable = NOT_SEARCHABLE;
             } else if (value === 'unset') {
-                state ??= UNKNOWN;
                 settable = NOT_SETTABLE;
             } else if (value === 'var') {
                 state = UNKNOWN;
@@ -1069,17 +1222,26 @@ class VLSFileParser extends BaseParser {
             this.eat([':', 'colon']);
             let value = this.stateSpecifier();
             if (absolute) {
+                if (!out.absolute) {
+                    out.absolute = [];
+                }
                 out.absolute.push([range, structuredClone(value)]);
             } else {
+                if (!out.relative) {
+                    out.relative = [];
+                }
                 out.relative.push([range, structuredClone(value)]);
             }
         } else {
+            if (!out.relative) {
+                out.relative = [];
+            }
             out.relative.push([[0], this.stateSpecifier()]);
         }
     }
 
     fullStateSpecifier(): FullStateSpecifier {
-        let out: FullStateSpecifier = {absolute: [], relative: []};
+        let out: FullStateSpecifier = {};
         while (!this.match(T_LINE_END)) {
             this.boundStateSpecifier(out);
             if (this.match(T_LINE_END)) {
@@ -1094,7 +1256,7 @@ class VLSFileParser extends BaseParser {
     stateSetStatement(): void {
         let state = Number(this.eat(T_STATE)[0]);
         this.eat(['=', 'equals sign']);
-        this.states[state] = this.fullStateSpecifier();
+        this.scope.setState(state, this.fullStateSpecifier());
         this.eat(T_LINE_END);
     }
 
@@ -1183,14 +1345,14 @@ class VLSFileParser extends BaseParser {
                 let state = p.get(x, y);
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
-                let data = this.states[state];
-                if (!data) {
-                    this.error(`State ${state} is not defined`);
-                }
+                let data = this.scope.getState(state);
                 if (gens === 'all') {
                     if (data.all) {
                         this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
                     } else {
+                        if (!data.relative) {
+                            this.error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
+                        }
                         let found = false;
                         for (let value of data.relative) {
                             if (value[0].includes(0)) {
@@ -1228,7 +1390,7 @@ class VLSFileParser extends BaseParser {
     wrapStatement(): void {
         this.eat(literal('wrap'));
         let [dx, dy] = this.eat(T_INTEGER, T_INTEGER);
-        this.grid.wrap = [Number(dx), Number(dy)];
+        this.grid.applyWrap(Number(dx), Number(dy));
         this.eat(T_LINE_END);
     }
 
@@ -1243,10 +1405,10 @@ class VLSFileParser extends BaseParser {
     deleteStatement(): void {
         this.eat(literal('delete'));
         let state = Number(this.eat(T_STATE)[0]);
-        if (!(state in this.states)) {
+        if (!this.scope.hasState(state)) {
             this.error(`State ${state} is not defined`, -1);
         }
-        delete this.states[state];
+        this.scope.deleteState(state, -1);
     }
 
     statement(): void {

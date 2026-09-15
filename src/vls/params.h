@@ -10,6 +10,7 @@
 
 // the default search will find the glider (i think)
 
+
 // for transition lookup tables the indexing is like
 // 8 5 2
 // 7 4 1
@@ -25,7 +26,7 @@
 #define WIDTH 7
 #define HEIGHT 8
 
-// number of generations of the object we are looking for, period + 1 for periodic objects..
+// number of generations of the object we are looking for
 #define GENS 4
 
 // whether variables are present
@@ -38,14 +39,15 @@
 #endif
 
 // the type of cells, don't change this
+typedef uint8_t CellValue;
 #define UNKNOWN 0
 #define OFF 1
 #define ON 2
 #define DONT_CARE 3
-typedef uint8_t CellValue;
 
 // the smallest integer type that can store the size of the grid
 typedef uint8_t Index;
+
 #if VARIABLES
 // the smallest integer type that can store the number of variables
 typedef uint8_t Variable;
@@ -69,18 +71,26 @@ static const Variable initial_vars[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0
 #endif
 
 // settability
+typedef uint8_t Settability;
 #define SEARCHABLE 0
 #define NOT_SEARCHABLE 1
 #define NOT_SETTABLE 2
-static const uint8_t initial_settable[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}};
+static const Settability initial_settable[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}}};
 
-// time wraparound
-#define TIME_WRAP true
-#if TIME_WRAP
-#define TIME_WRAP_DX -1
-#define TIME_WRAP_DY -1
-#endif
+// the values of the next generations
+// format is {t, x, y}
+// {-1, -1, -1} means NULL
+// {-2, -2, -2} means a special nonexistent cell that is forced to be empty
+static const int32_t initial_nexts[GENS][HEIGHT][WIDTH][3] = {};
+/*
+[ [ [ [ 1, 0, 0 ], [ 1, 1, 0 ], [ 1, 2, 0 ], [ 1, 3, 0 ], [ 1, 4, 0 ] ],
+    [ [ 1, 0, 1 ], [ 1, 1, 1 ], [ 1, 2, 1 ], [ 1, 3, 1 ], [ 1, 4, 1 ] ],
+    [ [ 1, 0, 2 ], [ 1, 1, 2 ], [ 1, 2, 2 ], [ 1, 3, 2 ], [ 1, 4, 2 ] ] ] ]
 
+[ [ [ undefined, undefined, undefined, undefined, undefined ],
+    [ [ 0, 0, 0 ], [ 0, 1, 0 ], [ 0, 2, 0 ], [ 0, 3, 0 ], [ 0, 4, 0 ] ],
+    [ [ 1, 0, 2 ], [ 1, 1, 2 ], [ 1, 2, 2 ], [ 1, 3, 2 ], [ 1, 4, 2 ] ] ] ]
+*/
 // whether to do multi-rule searching
 #define MULTI_RULE false
 
@@ -90,9 +100,8 @@ static const uint8_t initial_settable[GENS][HEIGHT][WIDTH] = {{{0, 0, 0, 0, 0, 0
 // the transition lookup table for the rule
 // if multi-rule, rule-dependent ones are 4
 #define TRS_RULE_DEPENDENT 4
-static
 #if !MULTI_RULE
-const
+static const
 #endif
 uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -150,8 +159,15 @@ Index search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 2, 3}, {
 // custom solution file
 // #define CUSTOM "path/to/custom.c"
 
-// check early exhaustion
-#define CHECK_EARLY_EXHAUSTION false
+// searching for periodic patterns
+#define PERIODIC false
+#if PERIODIC
+#define PERIODIC_DX 67
+#define PERIODIC_DY 67
+#define PERIODIC_PERIOD 67
+// whether to check early exhaustion
+#define CHECK_EARLY_EXHAUSTION true
+#endif
 
 
 // solution and information readout parameters
@@ -169,9 +185,7 @@ Index search_order[TOTAL_UNKNOWN_CELLS][3] = {{0, 2, 2}, {0, 3, 2}, {0, 2, 3}, {
 #define FILTER_DUPLICATES true
 
 // whether to filter subperiod or not
-#if TIME_WRAP
 #define FILTER_SUBPERIOD true
-#endif
 
 // period filter for cells
 // #define CELL_PERIOD_FILTER {67, 41}
