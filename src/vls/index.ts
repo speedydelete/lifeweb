@@ -5,7 +5,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
+import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, NOT_SEARCHABLE, NOT_SETTABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
@@ -755,7 +755,7 @@ function gridToString(grid: Grid, field: 'state' | 'variable' | 'settable'): str
     } else if (field === 'variable') {
         off = 0;
     } else {
-        off = SEARCHABLE;
+        off = NOT_SETTABLE;
     }
     let emptyRow: number[] = [];
     for (let x = 0; x < grid.width + PADDING * 2; x++) {
