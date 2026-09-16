@@ -43,9 +43,6 @@ int main(void) {
     signal(SIGTERM, handle_sigterm);
     #endif
     init_state();
-    #if VARIABLES
-    init_var_uses();
-    #endif
     generate_implications();
     #if MULTI_RULE
     init_tr_to_bound_tr();
@@ -61,11 +58,11 @@ int main(void) {
     DPRINTGRID1();
     #if DEBUG >= 2
     printf("Search order:\n");
-    for (Index i = 0; i < unknown_cells; i++) {
-        int t = search_order[i][0];
-        int x = search_order[i][1];
-        int y = search_order[i][2];
-        Cell* cell = &grid[t][y][x];
+    for (Index i = 0; i < state.start_unknown_cells; i++) {
+        Index t = search_order[i][0];
+        Index x = search_order[i][1];
+        Index y = search_order[i][2];
+        Cell* cell = get(t, x, y);
         printf("t = %i, x = %i, y = %i, value = ", t, x, y);
         #if VARIABLES
         print_cell(stdout, cell->value, cell->var);
@@ -89,9 +86,6 @@ int main(void) {
     }
     double time = get_time() - start;
     printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, time, time / BENCHMARK);
-    #if MAX_PARTIALS && !defined(BENCHMARK)
-    free_max_partial();
-    #endif
     #else
     run_search();
     printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
@@ -100,7 +94,8 @@ int main(void) {
     #endif
     #endif
     #if SHOW_SOLUTIONS
-    free_solutions();
+    destroy_solutions();
     #endif
+    destroy_state();
     return 0;
 }

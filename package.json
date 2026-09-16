@@ -27,7 +27,16 @@
         "showErrors": true,
         "imports": {
             "./index.js": "src/vls/index.ts",
-            "./index.c": "src/vls/index.c"
+            "./base.c": "src/vls/base.c",
+            "./dynamic_grid.c": "src/vls/dynamic_grid.c",
+            "./implications.c": "src/vls/implications.c",
+            "./index.c": "src/vls/index.c",
+            "./output.c": "src/vls/output.c",
+            "./params.h": "src/vls/params.h",
+            "./preprocess.c": "src/vls/preprocess.c",
+            "./rules.c": "src/vls/rules.c",
+            "./rulespaces.c": "src/vls/rulespaces.c",
+            "./search.c": "src/vls/search.c"
         }
     },
     "wrecked_identify": {
@@ -48,11 +57,19 @@
         "showErrors": true,
         "imports": {
             "./index.js": "src/vls/index.ts",
-            "./index.c": "src/vls/index.c"
+            "./base.c": "src/vls/base.c",
+            "./dynamic_grid.c": "src/vls/dynamic_grid.c",
+            "./implications.c": "src/vls/implications.c",
+            "./index.c": "src/vls/index.c",
+            "./output.c": "src/vls/output.c",
+            "./params.h": "src/vls/params.h",
+            "./preprocess.c": "src/vls/preprocess.c",
+            "./rules.c": "src/vls/rules.c",
+            "./rulespaces.c": "src/vls/rulespaces.c",
+            "./search.c": "src/vls/search.c"
         }
     },
     "dependencies": {
-        "@babel/parser": "^8.0.5",
-        "@babel/types": "^8.0.5"
+        "@babel/parser": "^8.0.4"
     }
 }

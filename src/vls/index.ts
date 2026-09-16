@@ -5,7 +5,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, NOT_SEARCHABLE, NOT_SETTABLE, Cell, Grid, runExpression, runFile} from './compiler.js';
+import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile, NOT_SETTABLE} from './compiler.js';
 
 
 const HELP = `
@@ -685,9 +685,9 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['WIDTH'] = grid.width + PADDING * 2;
-defines['HEIGHT'] = grid.height + PADDING * 2;
-defines['GENS'] = grid.gens;
+defines['INITIAL_WIDTH'] = grid.width + PADDING * 2;
+defines['INITIAL_HEIGHT'] = grid.height + PADDING * 2;
+defines['INITIAL_GENS'] = grid.gens;
 
 defines['VARIABLES'] = grid.numVars > 0;
 // add 1 because the C program treats 0 as 'no variable'
@@ -811,13 +811,13 @@ for (let line of code.split('\n')) {
         line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
     } else if (line.startsWith('typedef') && line.endsWith('Variable;')) {
         line = `typedef ${getMinUintType(grid.numVars + 1)} Variable;`;
-    } else if (line.startsWith('static const CellValue initial_grid[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const CellValue INITIAL_STATES[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';
-    } else if (line.startsWith('static const Variable initial_vars[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const Variable INITIAL_VARS[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
-    } else if (line.startsWith('static const Settability initial_settable[GENS][HEIGHT][WIDTH] = ')) {
+    } else if (line.startsWith('static const Settability INITIAL_SETTABLE[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
-    } else if (line.startsWith('static const int32_t initial_nexts[GENS][HEIGHT][WIDTH][3] = ')) {
+    } else if (line.startsWith('static const int32_t INITIAL_NEXTS[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH][3] = ')) {
         line = line.slice(0, line.indexOf('{'));
         let nullCell = `{-1, -1, -1}`;
         let offCell = `{-2, -2, -2}`;

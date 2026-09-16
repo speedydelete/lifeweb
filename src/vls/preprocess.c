@@ -15,11 +15,11 @@
 static inline void preprocess_implications(void) {
     DPRINTF3("Running implications\n");
     DPRINTGRID3();
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
+            for (Index x = 0; x < state.width; x++) {
                 push_frame();
-                Cell* cell = &grid[t][y][x];
+                Cell* cell = get(t, x, y);
                 if (!check_implication_handles_edges(cell)) {
                     #if MULTI_RULE
                     if (rule_dependent_tr != -1) {
@@ -51,10 +51,10 @@ static inline void reassign_variable(Variable old, Variable new, CaseCell* cases
         return;
     }
     DPRINTF2("Reassigning %i to %i\n", old, new);
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                Cell* cell = get(t, x, y);
                 if (cell->var == old) {
                     cell->var = new;
                     var_uses[new][num_var_uses[new]++] = cell;
@@ -83,13 +83,13 @@ static inline void print_case(Case* cells) {
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
-    Case* cases = safe_malloc(TOTAL_SIZE * 8 * sizeof(Case));
+    Case* cases = safe_malloc(state.total_size * 8 * sizeof(Case));
     int case_count = 0;
     // first compute the cases
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 1; y < HEIGHT - 1; y++) {
-            for (Index x = 1; x < WIDTH - 1; x++) {
-                Cell* cell = &grid[t][y][x];
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 1; y < state.height - 1; y++) {
+            for (Index x = 1; x < state.width - 1; x++) {
+                Cell* cell = get(t, x, y);
                 if (cell->next == NULL) {
                     continue;
                 }
@@ -103,7 +103,7 @@ static inline void preprocess_cases(void) {
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
-                        Cell* cell2 = &grid[t][y + y2][x + x2];
+                        Cell* cell2 = get(t, x + x2, y + y2);
                         cells[i].value = cell2->value;
                         if (cell2->value == UNKNOWN && cell2->var == 0) {
                             found2 = true;
@@ -175,10 +175,10 @@ static inline void preprocess_cases(void) {
         }
     }
     // now apply the cases
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 1; y < HEIGHT - 1; y++) {
-            for (Index x = 1; x < WIDTH - 1; x++) {
-                Cell* next_cell = grid[t][y][x].next;
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 1; y < state.height - 1; y++) {
+            for (Index x = 1; x < state.width - 1; x++) {
+                Cell* next_cell = get(t, x, y)->next;
                 if (next_cell == NULL) {
                     continue;
                 }
@@ -187,7 +187,7 @@ static inline void preprocess_cases(void) {
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
-                        Cell* cell2 = &grid[t][y + y2][x + x2];
+                        Cell* cell2 = cell(t, x + x2, y + y2);
                         cells[i].value = cell2->value;
                         cells[i].var = cell2->var;
                         i++;
@@ -255,10 +255,10 @@ static inline void preprocess_cases(void) {
 static inline void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
-    CellValue old_grid[TOTAL_SIZE];
-    CellValue new_grid[TOTAL_SIZE];
-    for (Index i = 0; i < TOTAL_SIZE; i++) {
-        old_grid[i] = ((Cell*)grid)[i].value;
+    CellValue old_grid[state.total_size];
+    CellValue new_grid[state.total_size];
+    for (Index i = 0; i < state.total_size; i++) {
+        old_grid[i] = ((Cell*)(state.grid))[i].value;
     }
     bool found = false;
     for (int i = 0; i < 4096; i++) {
@@ -266,8 +266,8 @@ static inline void preprocess(void) {
         #if VARIABLES
         preprocess_cases();
         #endif
-        for (Index i = 0; i < TOTAL_SIZE; i++) {
-            new_grid[i] = ((Cell*)grid)[i].value;
+        for (Index i = 0; i < state.total_size; i++) {
+            new_grid[i] = ((Cell*)(state.grid))[i].value;
         }
         if (memcmp(old_grid, new_grid, sizeof(old_grid)) == 0) {
             found = true;
@@ -280,23 +280,23 @@ static inline void preprocess(void) {
         exit(1);
     }
     // remove trivial cells
-    for (Index i = 0; i < unknown_cells; i++) {
+    for (Index i = 0; i < state.start_unknown_cells; i++) {
         Index* coords = search_order[i];
-        Cell* cell = &grid[coords[0]][coords[2]][coords[1]];
+        Cell* cell = get(coords[0], coords[1], coords[2]);
         if (cell->value != UNKNOWN) {
-            for (Index j = i; j < unknown_cells - 1; j++) {
+            for (Index j = i; j < state.start_unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(Index) * 3);
             }
             i--;
-            unknown_cells--;
+            state.start_unknown_cells--;
         }
     }
-    int trivial = set_cells;
-    set_cells = 0;
-    if (unknown_cells == 0) {
+    Index trivial = state.set_cells;
+    state.set_cells = 0;
+    if (state.start_unknown_cells == 0) {
         check_solution(true);
         exit(0);
     }
     sp = 0;
-    printf("%i unknown cells (%i total, %i trivial cells found)\n", unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
+    printf("%i unknown cells (%i total, %i trivial cells found)\n", state.start_unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
 }

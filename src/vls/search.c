@@ -20,15 +20,15 @@ static inline void add_search_orders(void) {
     Index t = coords[0];
     Index x = coords[1];
     Index y = coords[2];
-    Cell* prev = &grid[t][y][x];
-    initial_cell = prev;
-    for (Index i = 1; i < unknown_cells; i++) {
+    Cell* prev = get(t, x, y);
+    state.initial_cell = prev;
+    for (Index i = 1; i < state.start_unknown_cells; i++) {
         Index* coords = search_order[i];
         Index t = coords[0];
         Index x = coords[1];
         Index y = coords[2];
         // printf("i = %i, t = %i, x = %i, y = %i\n", i, t, x, y);
-        Cell* cell = &grid[t][y][x];
+        Cell* cell = get(t, x, y);
         if (cell->value == DONT_CARE || cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
             continue;
         }
@@ -50,16 +50,16 @@ static inline bool check_early_exhaustion(void) {
     // check columns
     #if PERIODIC_DX < 0
     for (Index x = PADDING; x < PADDING - PERIODIC_DX + 1; x++) {
-        for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
-            if (grid[0][y][x].value != OFF) {
+        for (Index y = PADDING; y < state.height - PADDING; y++) {
+            if (get(0, x, y)->value != OFF) {
                 return false;
             }
         }
     }
     #elif PERIODIC_DX > 0
-    for (Index x = WIDTH - PADDING - PERIODIC_DX - 1; x < WIDTH - PADDING; x++) {
-        for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
-            if (grid[0][y][x].value != OFF) {
+    for (Index x = state.width - PADDING - PERIODIC_DX - 1; x < state.width - PADDING; x++) {
+        for (Index y = PADDING; y < state.height - PADDING; y++) {
+            if (get(0, x, y)->value != OFF) {
                 return false;
             }
         }
@@ -67,8 +67,8 @@ static inline bool check_early_exhaustion(void) {
     #else
     // check left column and right column
     found = false;
-    for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
-        if (grid[0][y][PADDING].value != OFF) {
+    for (Index y = PADDING; y < state.height - PADDING; y++) {
+        if (get(0, PADDING, y)->value != OFF) {
             found = true;
             break;
         }
@@ -77,8 +77,8 @@ static inline bool check_early_exhaustion(void) {
         return true;
     }
     found = false;
-    for (Index y = PADDING; y < HEIGHT - PADDING; y++) {
-        if (grid[0][y][WIDTH - PADDING - 1].value != OFF) {
+    for (Index y = PADDING; y < state.height - PADDING; y++) {
+        if (get(0, state.width - PADDING - 1, y)->value != OFF) {
             found = true;
             break;
         }
@@ -90,17 +90,17 @@ static inline bool check_early_exhaustion(void) {
     // check rows
     #if PERIODIC_DY < 0
     for (Index y = PADDING; y < PADDING - PERIODIC_DY + 1; y++) {
-        for (Index x = PADDING; x < WIDTH - PADDING; x++) {
-            if (grid[0][y][x].value != OFF) {
+        for (Index x = PADDING; x < state.width - PADDING; x++) {
+            if (get(0, x, y)->value != OFF) {
                 return false;
             }
         }
     }
     return true;
     #elif PERIODIC_DY > 0
-    for (Index y = HEIGHT - PADDING - PERIODIC_DY - 1; y < WIDTH - PADDING; y++) {
-        for (Index x = PADDING; x < WIDTH - PADDING; x++) {
-            if (grid[0][y][x].value != OFF) {
+    for (Index y = state.height - PADDING - PERIODIC_DY - 1; y < state.width - PADDING; y++) {
+        for (Index x = PADDING; x < state.width - PADDING; x++) {
+            if (get(0, x, y)->value != OFF) {
                 return false;
             }
         }
@@ -109,8 +109,8 @@ static inline bool check_early_exhaustion(void) {
     #else
     // check top row and bottom row
     found = false;
-    for (Index x = PADDING; x < WIDTH - PADDING; x++) {
-        if (grid[0][PADDING][x].value != OFF) {
+    for (Index x = PADDING; x < state.width - PADDING; x++) {
+        if (get(0, x, PADDING)->value != OFF) {
             return false;
         }
     }
@@ -118,8 +118,8 @@ static inline bool check_early_exhaustion(void) {
         return true;
     }
     found = false;
-    for (Index x = PADDING; x < WIDTH - PADDING; x++) {
-        if (grid[0][HEIGHT - PADDING - 1][x].value != OFF) {
+    for (Index x = PADDING; x < state.width - PADDING; x++) {
+        if (get(0, x, state.height - PADDING - 1)->value != OFF) {
             return false;
         }
     }
@@ -204,8 +204,8 @@ static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
 
 #if INITIAL_VALUE != IV_0 && INITIAL_VALUE != IV_1
 int get_same_for_iv(Cell* cell_to_use) {
-    Cell* cell = &grid[0][cell_to_use->y][cell_to_use->x];
-    for (int i = 0; i < GENS; i++) {
+    Cell* cell = &get(0, cell_to_use->x, cell_to_use->y);
+    for (int i = 0; i < state.gens; i++) {
         if (cell->value != UNKNOWN) {
             return cell->value;
         }
@@ -229,11 +229,11 @@ static Depth run_depth(Depth depth, Cell* cell
     printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
     #endif
     branches++;
-    if (depth > max_depth) {
+    if (depth > MAX_DEPTH) {
         real_fprintf(stderr, "Error: This error should not occur, please report it (infinite recursion detected)\n");
         exit(1);
     }
-    if (set_cells >= unknown_cells) {
+    if (state.set_cells >= state.start_unknown_cells) {
         #ifndef BENCHMARK
         check_solution(false);
         #endif
@@ -325,8 +325,8 @@ static inline void run_search(void) {
     all_zeros = true;
     #endif
     #if MULTI_RULE
-    run_depth(0, initial_cell, -1);
+    run_depth(0, state.initial_cell, -1);
     #else
-    run_depth(0, initial_cell);
+    run_depth(0, state.initial_cell);
     #endif
 }

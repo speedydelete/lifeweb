@@ -17,31 +17,6 @@
 #define HASH_DEBUG false
 
 
-#define SIZE (WIDTH * HEIGHT)
-#define TOTAL_SIZE (GENS * SIZE)
-
-#define is_known(x) (((x) == OFF) || ((x) == ON))
-
-#if VARIABLES
-#define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
-#endif
-
-#define MAX_STACK_DEPTH TOTAL_SIZE
-
-typedef uint64_t Depth;
-#if MULTI_RULE
-#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
-#else
-#define TOTAL_MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
-#endif
-
-#if (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE) && !defined(BENCHMARK)
-#define MAX_PARTIALS true
-#else
-#define MAX_PARTIALS false
-#endif
-
-
 #if DEBUG >= 1
 #define DPRINTF1 printf
 #define DPRINTGRID1() print_grid(stdout)
@@ -123,6 +98,59 @@ int debug_depth = 0;
 #endif
 
 
+
+#define MAX_STACK_DEPTH (INITIAL_WIDTH * INITIAL_HEIGHT * INITIAL_GENS)
+
+typedef uint64_t Depth;
+#if MULTI_RULE
+#define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
+#else
+#define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
+#endif
+
+#if (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE) && !defined(BENCHMARK)
+#define MAX_PARTIALS true
+#else
+#define MAX_PARTIALS false
+#endif
+
+#if IS_OT
+#define EMPTY_TRANSITION 0
+typedef uint16_t Transition;
+typedef int16_t SignedTransition;
+#else
+#define EMPTY_TRANSITION 0
+typedef uint32_t Transition;
+typedef int32_t SignedTransition;
+#endif
+
+static inline __attribute__((always_inline)) bool is_known(CellValue value) {
+    return value == OFF || value == ON;
+}
+
+#if VARIABLES
+#define NO_VAR 0
+#define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
+#endif
+
+static inline __attribute__((always_inline)) int min(int x, int y) {
+    return x < y ? x : y;
+}
+
+static inline __attribute__((always_inline)) int max(int x, int y) {
+    return x > y ? x : y;
+}
+
+static inline __attribute__((always_inline)) void* safe_malloc(size_t size) {
+    void* out = malloc(size);
+    if (out == NULL) {
+        perror("Error with malloc");
+        exit(1);
+    }
+    return out;
+}
+
+
 typedef struct Cell {
     // the generation
     Index t;
@@ -130,7 +158,7 @@ typedef struct Cell {
     Index x;
     // the y coordinate
     Index y;
-    // (t * SIZE) + (y * WIDTH) + x
+    // (t * state.layer_size) + (y * state.width) + x
     Index index;
     // the value of the cell
     CellValue value;
@@ -144,7 +172,7 @@ typedef struct Cell {
     struct Cell* next_in_search_order;
     #if CACHE_IMPLICATION_TRS
     // the cached transition
-    uint32_t tr;
+    Transition tr;
     #endif
     #if KEEP_LAST_CHECKED_TIME
     // the last time the implication was checked
@@ -172,34 +200,74 @@ typedef struct Cell {
     struct Cell* se;
 } Cell;
 
-typedef Cell Grid[GENS][HEIGHT][WIDTH];
+struct {
+    // the width of the grid
+    const Index width;
+    // the height of the grid
+    const Index height;
+    // the number of generations of the grid
+    const Index gens;
+    // the size of each layer, aka width * height
+    const Index layer_size;
+    // the total number of cells in the grid
+    const Index total_size;
+    // the actual cell data
+    Cell* grid;
+    // the number of unknown cells at the start of the search
+    Index start_unknown_cells;
+    // the current number of set cells
+    Index set_cells;
+    // the last time a cell was set
+    #if KEEP_LAST_CHECKED_TIME
+    uint32_t current_time;
+    #endif
+    // the first cell to be searched
+    Cell* initial_cell;
+    #ifdef MAXPOP
+    // the number of alive cells in phase 0
+    Index phase_0_pop;
+    #endif
+} state = {
+    .width = INITIAL_WIDTH,
+    .height = INITIAL_HEIGHT,
+    .gens = INITIAL_GENS,
+    .layer_size = INITIAL_WIDTH * INITIAL_HEIGHT,
+    .total_size = INITIAL_WIDTH * INITIAL_HEIGHT * INITIAL_GENS,
+    .start_unknown_cells = TOTAL_UNKNOWN_CELLS,
+    .set_cells = 0,
+    #if KEEP_LAST_CHECKED_TIME
+    .current_time = 0,
+    #endif
+    .initial_cell = NULL,
+    #if VARIABLES
+    // a list of where variables are used in
+    Cell* var_uses[VAR_COUNT][MAX_VAR_USES],
+    Index num_var_uses[VAR_COUNT],
+    #endif
+    #ifdef MAXPOP
+    .phase_0_pop = 0,
+    #endif
+};
 
-Grid grid;
+static inline __attribute__((always_inline)) Cell* get(Index t, Index x, Index y) {
+    return &state.grid[(((t * state.height) + y) * state.width) + x];
+}
 
-Index unknown_cells = TOTAL_UNKNOWN_CELLS;
-Index set_cells;
-
-Depth max_depth = TOTAL_MAX_DEPTH;
-
+    
 #if KEEP_LAST_CHECKED_TIME
-uint32_t current_time;
+
 bool is_time_gt(uint32_t x, uint32_t y) {
     return x > y || (x < y && x > INT32_MAX && y < INT32_MAX);
 }
+
 void inc_current_time(void) {
-    current_time++;
-    if (current_time > INT32_MAX) {
-        current_time = 0;
+    state.current_time++;
+    if (state.current_time > INT32_MAX) {
+        state.current_time = 0;
     }
 }
-#endif
 
-#ifdef MAXPOP
-Index phase_0_pop;
 #endif
-
-// the first searched cell
-Cell* initial_cell;
 
 #if CACHE_IMPLICATION_TRS
 static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* cell, CellValue value);
@@ -251,34 +319,48 @@ Cell forced_off_cell = {
 };
 
 static inline void init_state(void) {
-    Index index = 0;
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                grid[t][y][x].prev = NULL;
+    state.grid = safe_malloc(state.total_size * sizeof(Cell));
+    // clear set the prev pointers
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                get(t, x, y)->prev = NULL;
             }
         }
     }
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
+    // initialize the variable uses
+    #if VARIABLES
+    for (Index i = 0; i < VAR_COUNT; i++) {
+        state.num_var_uses[i] = 0;
+        for (Index j = 0; j < MAX_VAR_USES; j++) {
+            state.var_uses[i][j] = NULL;
+        }
+    }
+    #endif
+    // main initialization
+    Index index = 0;
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                Cell* cell = get(t, x, y);
                 cell->t = t;
                 cell->x = x;
                 cell->y = y;
                 cell->index = index++;
-                cell->value = initial_grid[t][y][x];
                 #if VARIABLES
-                cell->var = initial_vars[t][y][x];
+                cell->var = INITIAL_VARS[t][y][x];
+                if (cell->var > 0) {
+                    state.var_uses[cell->var][state.num_var_uses[cell->var]++] = cell;
+                }
                 #endif
-                cell->settable = initial_settable[t][y][x];
+                cell->settable = INITIAL_SETTABLE[t][y][x];
                 #if CACHE_IMPLICATION_TRS
-                cell->tr = 0;
+                cell->tr = EMPTY_TRANSITION;
                 #endif
                 #if CACHE_TIMES
                 cell->last_update = 0;
                 #endif
-                const int32_t* next_coords = initial_nexts[t][y][x];
+                const int32_t* next_coords = INITIAL_NEXTS[t][y][x];
                 int32_t next_t = next_coords[0];
                 int32_t next_x = next_coords[1];
                 int32_t next_y = next_coords[2];
@@ -287,62 +369,37 @@ static inline void init_state(void) {
                 } else if (next_t == -2 && next_x == -2 && next_y == -2) {
                     cell->next = &forced_off_cell;
                 } else {
-                    cell->next = &grid[next_t][next_y][next_x];
+                    cell->next = get(next_t, next_x, next_y);
                     cell->next->prev = cell;
                 }
-                cell->nw = x == 0 || y == 0 ? NULL : &grid[t][y - 1][x - 1];
-                cell->n = y == 0 ? NULL : &grid[t][y - 1][x];
-                cell->ne = x == WIDTH - 1 || y == 0 ? NULL : &grid[t][y - 1][x + 1];
-                cell->w = x == 0 ? NULL : &grid[t][y][x - 1];
-                cell->e = x == WIDTH - 1 ? NULL : &grid[t][y][x + 1];
-                cell->sw = x == 0 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x - 1];
-                cell->s = y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x];
-                cell->se = x == WIDTH - 1 || y == HEIGHT - 1 ? NULL : &grid[t][y + 1][x + 1];
+                cell->nw = x == 0 || y == 0 ? NULL : get(t, x - 1, y - 1);
+                cell->n = y == 0 ? NULL : get(t, x, y - 1);
+                cell->ne = x == state.width - 1 || y == 0 ? NULL : get(t, x + 1, y - 1);
+                cell->w = x == 0 ? NULL : get(t, x - 1, y);
+                cell->e = x == state.width - 1 ? NULL : get(t, x + 1, y);
+                cell->sw = x == 0 || y == state.height - 1 ? NULL : get(t, x - 1, y + 1);
+                cell->s = y == state.height - 1 ? NULL : get(t, x, y + 1);
+                cell->se = x == state.width - 1 || y == state.height - 1 ? NULL : get(t, x + 1, y + 1);
+                // finally set the value AFTER the pointers are set
+                cell->value = INITIAL_STATES[t][y][x];
             }
         }
     }
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
-                CellValue value = cell->value;
-                cell->value = UNKNOWN;
-                actual_set_cell_value_handles_edges(cell, value);
-            }
-        }
-    }
+    // set the transitions
     #if CACHE_IMPLICATION_TRS
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                Cell* cell = get(t, x, y);
                 cell->tr = safe_compute_implication_tr(cell);
             }
         }
     }
     #endif
-    set_cells = 0;
-    #ifdef MAXPOP
-    phase_0_pop = 0;
-    #endif
 }
 
-
-static inline __attribute__((always_inline)) int min(int x, int y) {
-    return x < y ? x : y;
-}
-
-static inline __attribute__((always_inline)) int max(int x, int y) {
-    return x > y ? x : y;
-}
-
-static inline __attribute__((always_inline)) void* safe_malloc(size_t size) {
-    void* out = malloc(size);
-    if (out == NULL) {
-        perror("Error with malloc");
-        exit(1);
-    }
-    return out;
+static inline void destroy_state(void) {
+    free(state.grid);
 }
 
 
@@ -380,16 +437,16 @@ static inline void pop_frame(void) {
         print_frame(sp - 1);
         #endif
         Cell* cell = stack[sp - 1].cell;
-        CellValue value = ((CellValue*)initial_grid)[cell->index];
+        CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
         #ifdef MAXPOP
         if (cell->t == 0 && cell->value == ON) {
             phase_0_pop--;
         }
         #endif
         if (value == UNKNOWN) {
-            set_cells--;
+            state.set_cells--;
         } else if (cell->value == UNKNOWN && value != UNKNOWN) {
-            set_cells++;
+            state.set_cells++;
         }
         actual_set_cell_value(cell, value);
         sp--;
@@ -414,9 +471,9 @@ static inline bool set_cell(Cell* cell, CellValue value) {
     } else if (cell->value == value) {
         return true;
     } else if (cell->x < PADDING
-            || cell->x > WIDTH - PADDING - 1
+            || cell->x > state.width - PADDING - 1
             || cell->y < PADDING
-            || cell->y > HEIGHT - PADDING - 1) {
+            || cell->y > state.height - PADDING - 1) {
         DPRINTF4("Contradiction (out of bounds, t = %i, x = %i, y = %i, value = %i, prev_value = %i)\n", cell->t, cell->x, cell->y, value, cell->value);
         return false;
     }
@@ -425,7 +482,7 @@ static inline bool set_cell(Cell* cell, CellValue value) {
     DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
     stack[sp].cell = cell;
     sp++;
-    set_cells++;
+    state.set_cells++;
     actual_set_cell_value(cell, value);
     // cell_update_count++;
     #ifdef MAXPOP
@@ -469,12 +526,12 @@ static inline void print_grid(FILE* stream) {
         rule[i] = '\0';
     }
     get_rule(rule, false);
-    fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, set_cells);
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
+    fprintf(stream, "Grid (rule = %s, set_cells = %i):\n", rule, state.set_cells);
+    for (Index t = 0; t < state.gens; t++) {
+        for (Index y = 0; y < state.height; y++) {
             DFPRINTLINEPADDING(stream);
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
+            for (Index x = 0; x < state.width; x++) {
+                Cell* cell = get(t, x, y);
                 #if VARIABLES
                 print_cell(stream, cell->value, cell->var);
                 #else
@@ -483,41 +540,13 @@ static inline void print_grid(FILE* stream) {
             }
             // real_fprintf(stream, "$\n");
         }
-        if (t == GENS - 1) {
+        if (t == state.gens - 1) {
             fprintf(stream, "!\n");
         } else {
             // fprintf(stream, "$%ib\n", t + 1);
         }
     }
 }
-
-
-#if VARIABLES
-
-// a list of where variables are used in
-Cell* var_uses[VAR_COUNT][MAX_VAR_USES];
-Index num_var_uses[VAR_COUNT];
-
-static inline void init_var_uses(void) {
-    for (Index i = 0; i < VAR_COUNT; i++) {
-        num_var_uses[i] = 0;
-        for (Index j = 0; j < MAX_VAR_USES; j++) {
-            var_uses[i][j] = NULL;
-        }
-    }
-    for (Index t = 0; t < GENS; t++) {
-        for (Index y = 0; y < HEIGHT; y++) {
-            for (Index x = 0; x < WIDTH; x++) {
-                Cell* cell = &grid[t][y][x];
-                if (cell->var > 0) {
-                    var_uses[cell->var][num_var_uses[cell->var]++] = cell;
-                }
-            }
-        }
-    }
-}
-
-#endif
 
 
 typedef enum StaticSymmetry {

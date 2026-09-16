@@ -49,8 +49,8 @@ const DynamicGrid empty_dynamic_grid = {
     .data = NULL,
 };
 
-#define di(grid, t, x, y) (((grid)->data)[((((t) * (grid)->height) + (y)) * (grid)->width) + (x)])
-#define ddi(grid, t, x, y) (((grid).data)[((((t) * (grid).height) + (y)) * (grid).width) + (x)])
+#define dg_index(grid, t, x, y) (((grid)->data)[((((t) * (grid)->height) + (y)) * (grid)->width) + (x)])
+#define direct_dg_index(grid, t, x, y) (((grid).data)[((((t) * (grid).height) + (y)) * (grid).width) + (x)])
 
 static inline void dg_destroy(DynamicGrid* grid) {
     if (grid->used) {
@@ -72,42 +72,42 @@ static inline void dg_init(DynamicGrid* grid, DIndex width, DIndex height, DInde
 }
 
 static inline __attribute__((always_inline)) CellValue dg_get(DynamicGrid* grid, DIndex t, DIndex x, DIndex y) {
-    return di(grid, t, x, y).value;
+    return dg_index(grid, t, x, y).value;
 }
 
 static inline __attribute__((always_inline)) void dg_set(DynamicGrid* grid, DIndex t, DIndex x, DIndex y, CellValue value) {
-    di(grid, t, x, y).value = value;
+    dg_index(grid, t, x, y).value = value;
     #if VARIABLES
-    di(grid, t, x, y).var = NO_VAR;
+    dg_index(grid, t, x, y).var = NO_VAR;
     #endif
 }
 
 static inline __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, DIndex t, DIndex x, DIndex y, Cell* cell) {
-    di(grid, t, x, y).value = cell->value;
+    dg_index(grid, t, x, y).value = cell->value;
     #if VARIABLES
-    di(grid, t, x, y).var = cell->var;
+    dg_index(grid, t, x, y).var = cell->var;
     #endif
 }
 
 #if VARIABLES
 
 static inline __attribute__((always_inline)) CellValue dg_get_var(DynamicGrid* grid, DIndex t, DIndex x, DIndex y) {
-    return di(grid, t, x, y).var;
+    return dg_index(grid, t, x, y).var;
 }
 
 static inline __attribute__((always_inline)) void dg_set_var(DynamicGrid* grid, DIndex t, DIndex x, DIndex y, CellValue value, Variable var) {
-    di(grid, t, x, y).value = value;
-    di(grid, t, x, y).var = var;
+    dg_index(grid, t, x, y).value = value;
+    dg_index(grid, t, x, y).var = var;
 }
 
 #endif
 
 static inline void dg_init_from_search_grid(DynamicGrid* out) {
-    dg_init(out, WIDTH, HEIGHT, GENS);
-    for (DIndex t = 0; t < GENS; t++) {
-        for (DIndex y = 0; y < HEIGHT; y++) {
-            for (DIndex x = 0; x < WIDTH; x++) {
-                dg_set_from_cell(out, t, x, y, &grid[t][y][x]);
+    dg_init(out, state.width, state.height, state.gens);
+    for (DIndex t = 0; t < state.gens; t++) {
+        for (DIndex y = 0; y < state.height; y++) {
+            for (DIndex x = 0; x < state.width; x++) {
+                dg_set_from_cell(out, t, x, y, get(t, x, y));
             }
         }
     }
@@ -121,7 +121,7 @@ static inline bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
     for (DIndex t = 0; t < x->gens; t++) {
         for (DIndex yi = 0; yi < x->height; yi++) {
             for (DIndex xi = 0; xi < x->width; xi++) {
-                if (!dc_eq(di(x, t, xi, yi), di(y, t, xi, yi))) {
+                if (!dc_eq(dg_index(x, t, xi, yi), dg_index(y, t, xi, yi))) {
                     return false;
                 }
             }
@@ -135,7 +135,7 @@ static inline void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, x, y) = di(grid, t, x, y);
+                dg_index(out, t, x, y) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -146,7 +146,7 @@ static inline void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, grid->width - x - 1, y) = di(grid, t, x, y);
+                dg_index(out, t, grid->width - x - 1, y) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -157,7 +157,7 @@ static inline void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, x, grid->height - y - 1) = di(grid, t, x, y);
+                dg_index(out, t, x, grid->height - y - 1) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -168,7 +168,7 @@ static inline void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, grid->height - y - 1, x) = di(grid, t, x, y);
+                dg_index(out, t, grid->height - y - 1, x) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -180,7 +180,7 @@ static inline void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, y, grid->width - x - 1) = di(grid, t, x, y);
+                dg_index(out, t, y, grid->width - x - 1) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -192,7 +192,7 @@ static inline void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, grid->width - x - 1, grid->height - y - 1) = di(grid, t, x, y);
+                dg_index(out, t, grid->width - x - 1, grid->height - y - 1) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -204,7 +204,7 @@ static inline void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, y, x) = di(grid, t, x, y);
+                dg_index(out, t, y, x) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -215,7 +215,7 @@ static inline void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     for (DIndex t = 0; t < grid->gens; t++) {
         for (DIndex y = 0; y < grid->height; y++) {
             for (DIndex x = 0; x < grid->width; x++) {
-                di(out, t, grid->height - y - 1, grid->width - x - 1) = di(grid, t, x, y);
+                dg_index(out, t, grid->height - y - 1, grid->width - x - 1) = dg_index(grid, t, x, y);
             }
         }
     }
@@ -225,7 +225,7 @@ static inline void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, DIndex t)
     dg_init(out, grid->width, grid->height, 1);
     for (DIndex y = 0; y < grid->height; y++) {
         for (DIndex x = 0; x < grid->width; x++) {
-            di(out, 0, x, y) = di(grid, t, x, y);
+            dg_index(out, 0, x, y) = dg_index(grid, t, x, y);
         }
     }
 }
@@ -363,7 +363,7 @@ static inline DGShrinkToFitOffset dg_shrink_to_fit(DynamicGrid* out, DynamicGrid
     for (DIndex t = 0; t < out->gens; t++) {
         for (DIndex y = 0; y < out->height; y++) {
             for (DIndex x = 0; x < out->width; x++) {
-                di(out, t, x, y) = di(grid, t, x + x_offset, y + y_offset);
+                dg_index(out, t, x, y) = dg_index(grid, t, x + x_offset, y + y_offset);
             }
         }
     }

@@ -272,7 +272,7 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
     }
     cell->last_checked_time = current_time;
     #endif
-    if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
+    if (cell->x == 0 || cell->y == 0 || cell->x == state.width - 1 || cell->y == state.height - 1) {
         if (cell->next == NULL) {
             return true;
         }
@@ -473,7 +473,7 @@ static inline __attribute__((always_inline)) void actual_set_cell_value(Cell* ce
     if (cell->prev != NULL) {
         cell->prev->tr = (cell->prev->tr & ~NEXT_VALUE) | (value << 8);
     }
-    int change;
+    SignedTransition change;
     if (value == UNKNOWN) {
         if (prev == OFF) {
             change = -DEAD_NEIGHBOR;
@@ -712,7 +712,7 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
     }
     cell->last_checked_time = current_time;
     #endif
-    if (cell->x == 0 || cell->y == 0 || cell->x == WIDTH - 1 || cell->y == HEIGHT - 1) {
+    if (cell->x == 0 || cell->y == 0 || cell->x == state.width - 1 || cell->y == state.height - 1) {
         if (cell->next == NULL) {
             return true;
         }

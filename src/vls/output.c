@@ -376,7 +376,7 @@ static inline void init_solutions(void) {
     dg_destroy(&grid);
 }
 
-static inline void free_solutions(void) {
+static inline void destroy_solutions(void) {
     free(known_solutions);
 }
 
@@ -458,8 +458,8 @@ static inline void check_solution(bool preprocessing) {
     #endif
     // apply subperiod filter
     #if FILTER_SUBPERIOD
-    Hash hashes[GENS];
-    for (int i = 0; i < GENS; i++) {
+    Hash hashes[state.gens];
+    for (int i = 0; i < state.gens; i++) {
         Hash hash = hash_at_time(&hash_grid, i);
         for (int j = 0; j < i; j++) {
             if (hash == hashes[j]) {
@@ -487,7 +487,7 @@ static inline void check_solution(bool preprocessing) {
     // apply cell period filter
     for (DIndex y = 0; y < hash_grid.height; y++) {
         for (DIndex x = 0; x < hash_grid.width; x++) {
-            CellValue data[GENS];
+            CellValue data[state.gens];
             for (DIndex t = 0; t < hash_grid.gens; t++) {
                 data[t] = dg_get(&hash_grid, t, x, y);
             }
@@ -496,7 +496,7 @@ static inline void check_solution(bool preprocessing) {
                 DIndex period = cell_period_filter[period_index];
                 for (DIndex i = 0; i < period; i++) {
                     for (DIndex t = i; t < hash_grid.gens; t += period) {
-                        if (data[t] != data[(t + period) % GENS]) {
+                        if (data[t] != data[(t + period) % state.gens]) {
                             found = true;
                             break;
                         }
@@ -599,7 +599,7 @@ typedef struct ProgressEntry {
     uint8_t value;
 } ProgressEntry;
 
-ProgressEntry progress[TOTAL_MAX_DEPTH];
+ProgressEntry progress[MAX_DEPTH];
 
 static inline void print_progress(FILE* stream) {
     for (int i = 0; i < progress_pos; i++) {
@@ -617,7 +617,7 @@ static inline void print_progress(FILE* stream) {
 
 #else
 
-CellValue progress[TOTAL_MAX_DEPTH];
+CellValue progress[MAX_DEPTH];
 
 static inline void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
@@ -665,7 +665,7 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
     if (solutions_found == 0) {
         int partial_size;
         #if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_CELL
-        partial_size = set_cells;
+        partial_size = state.set_cells;
         #elif MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_DEPTH
         partial_size = depth;
         #endif
