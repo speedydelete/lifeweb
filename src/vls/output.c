@@ -488,7 +488,7 @@ static inline void check_solution(bool preprocessing) {
     // apply cell period filter
     for (DIndex y = 0; y < hash_grid.height; y++) {
         for (DIndex x = 0; x < hash_grid.width; x++) {
-            CellValue data = safe_malloc(state.gens * sizeof(CellValue));
+            CellValue* data = safe_malloc(state.gens * sizeof(CellValue));
             for (DIndex t = 0; t < hash_grid.gens; t++) {
                 data[t] = dg_get(&hash_grid, t, x, y);
             }
