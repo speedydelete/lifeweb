@@ -941,9 +941,9 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value) {
     }
     Variable var = cell->var;
     DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
-    DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
-    for (Index use = 0; use < num_var_uses[var]; use++) {
-        Cell* cell = var_uses[var][use];
+    DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
+    for (Index use = 0; use < state.num_var_uses[var]; use++) {
+        Cell* cell = state.var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         prev_values[use] = cell->value;
         if (cell->value != UNKNOWN) {
@@ -958,9 +958,9 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value) {
         }
     }
     DPRINTF4("Checking variable set implications\n");
-    DPRINTF4("Reading %i variable datas\n", num_var_uses[var]);
-    for (Index use = 0; use < num_var_uses[var]; use++) {
-        Cell* cell = var_uses[var][use];
+    DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
+    for (Index use = 0; use < state.num_var_uses[var]; use++) {
+        Cell* cell = state.var_uses[var][use];
         DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
         if (prev_values[use] == UNKNOWN) {
             if (!check_implications(cell)) {

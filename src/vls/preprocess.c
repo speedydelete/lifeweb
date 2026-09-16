@@ -57,7 +57,7 @@ static inline void reassign_variable(Variable old, Variable new, CaseCell* cases
                 Cell* cell = get(t, x, y);
                 if (cell->var == old) {
                     cell->var = new;
-                    var_uses[new][num_var_uses[new]++] = cell;
+                    state.var_uses[new][state.num_var_uses[new]++] = cell;
                 }
             }
         }
@@ -235,7 +235,7 @@ static inline void preprocess_cases(void) {
                                 // it was unknown, now we know it must be a certain variable
                                 Variable var = new_cell.var;
                                 next_cell->var = var;
-                                var_uses[var][num_var_uses[var]++] = next_cell;
+                                state.var_uses[var][state.num_var_uses[var]++] = next_cell;
                             } else {
                                 // we reassign all uses of the variable
                                 reassign_variable(next_cell->var, new_cell.var, (CaseCell*)cases, case_count * 10);
