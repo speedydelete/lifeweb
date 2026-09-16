@@ -1,5 +1,6 @@
 
 #include "params2.h"
+#include "rules.c" // IWYU pragma: keep
 
 
 #if MULTI_RULE

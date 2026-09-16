@@ -377,7 +377,7 @@ static inline void init_solutions(void) {
 }
 
 static inline void destroy_solutions(void) {
-    free(known_solutions);
+    safe_free(known_solutions);
 }
 
 
@@ -458,7 +458,7 @@ static inline void check_solution(bool preprocessing) {
     #endif
     // apply subperiod filter
     #if FILTER_SUBPERIOD
-    Hash hashes[state.gens];
+    Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
     for (int i = 0; i < state.gens; i++) {
         Hash hash = hash_at_time(&hash_grid, i);
         for (int j = 0; j < i; j++) {
@@ -468,6 +468,7 @@ static inline void check_solution(bool preprocessing) {
         }
         hashes[i] = hash;
     }
+    safe_free(hashes);
     #endif
     #ifndef CELL_PERIOD_FILTER
     #define solution_grid hash_grid
@@ -487,7 +488,7 @@ static inline void check_solution(bool preprocessing) {
     // apply cell period filter
     for (DIndex y = 0; y < hash_grid.height; y++) {
         for (DIndex x = 0; x < hash_grid.width; x++) {
-            CellValue data[state.gens];
+            CellValue data = safe_malloc(state.gens * sizeof(CellValue));
             for (DIndex t = 0; t < hash_grid.gens; t++) {
                 data[t] = dg_get(&hash_grid, t, x, y);
             }
@@ -514,6 +515,7 @@ static inline void check_solution(bool preprocessing) {
                     dg_set(&hash_grid, t, x, y, OFF);
                 }
             }
+            safe_free(data);
         }
     }
     // here we also need to apply an empty pattern filter to the hash grid
@@ -602,7 +604,7 @@ typedef struct ProgressEntry {
 ProgressEntry progress[MAX_DEPTH];
 
 static inline void print_progress(FILE* stream) {
-    for (int i = 0; i < progress_pos; i++) {
+    for (size_t i = 0; i < progress_pos; i++) {
         if (progress[i].tr_is_set) {
             int tr = progress[i].tr;
             int value = progress[i].value;
@@ -699,7 +701,7 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
             print_grid_pretty(&max_partial, false);
             #if MULTI_RULE
             memcpy(trs, temp_trs, sizeof(trs));
-            free(temp_trs);
+            safe_free(temp_trs);
             #endif
         }
         #endif

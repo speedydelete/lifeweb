@@ -1,6 +1,5 @@
 
 #include <inttypes.h>
-#include <stdlib.h>
 
 #include "params2.h"
 #include "base.c"
@@ -54,7 +53,7 @@ const DynamicGrid empty_dynamic_grid = {
 
 static inline void dg_destroy(DynamicGrid* grid) {
     if (grid->used) {
-        free(grid->data);
+        safe_free(grid->data);
         grid->used = false;
     }
 }

@@ -141,13 +141,17 @@ static inline __attribute__((always_inline)) int max(int x, int y) {
     return x > y ? x : y;
 }
 
-static inline __attribute__((always_inline)) void* safe_malloc(size_t size) {
+static inline void* safe_malloc(size_t size) {
     void* out = malloc(size);
     if (out == NULL) {
         perror("Error with malloc");
         exit(1);
     }
     return out;
+}
+
+static inline void safe_free(void* ptr) {
+    free(ptr);
 }
 
 
@@ -440,7 +444,7 @@ static inline void pop_frame(void) {
         CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
         #ifdef MAXPOP
         if (cell->t == 0 && cell->value == ON) {
-            phase_0_pop--;
+            state.phase_0_pop--;
         }
         #endif
         if (value == UNKNOWN) {
@@ -487,8 +491,8 @@ static inline bool set_cell(Cell* cell, CellValue value) {
     // cell_update_count++;
     #ifdef MAXPOP
     if (cell->t == 0 && value == ON) {
-        phase_0_pop++;
-        if (phase_0_pop > MAXPOP) {
+        state.phase_0_pop++;
+        if (state.phase_0_pop > MAXPOP) {
             return false;
         }
     }

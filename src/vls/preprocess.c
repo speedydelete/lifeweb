@@ -217,7 +217,7 @@ static inline void preprocess_cases(void) {
                                 // if both are unknown, check for contradiction
                                 if (next_cell->value != new_cell.value) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
-                                    free(cases);
+                                    safe_free(cases);
                                     exit(0);
                                 }
                             } else {
@@ -246,7 +246,7 @@ static inline void preprocess_cases(void) {
             }
         }
     }
-    free(cases);
+    safe_free(cases);
 }
 
 #endif
