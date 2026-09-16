@@ -227,6 +227,11 @@ struct {
     #endif
     // the first cell to be searched
     Cell* initial_cell;
+    #if VARIABLES
+    // a list of where variables are used in
+    Cell* var_uses[VAR_COUNT][MAX_VAR_USES],
+    Index num_var_uses[VAR_COUNT],
+    #endif
     #ifdef MAXPOP
     // the number of alive cells in phase 0
     Index phase_0_pop;
@@ -243,11 +248,6 @@ struct {
     .current_time = 0,
     #endif
     .initial_cell = NULL,
-    #if VARIABLES
-    // a list of where variables are used in
-    Cell* var_uses[VAR_COUNT][MAX_VAR_USES],
-    Index num_var_uses[VAR_COUNT],
-    #endif
     #ifdef MAXPOP
     .phase_0_pop = 0,
     #endif
