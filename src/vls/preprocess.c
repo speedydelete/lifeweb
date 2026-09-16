@@ -187,7 +187,7 @@ static inline void preprocess_cases(void) {
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
-                        Cell* cell2 = cell(t, x + x2, y + y2);
+                        Cell* cell2 = get(t, x + x2, y + y2);
                         cells[i].value = cell2->value;
                         cells[i].var = cell2->var;
                         i++;
