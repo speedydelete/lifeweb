@@ -699,7 +699,7 @@ defines['TOTAL_UNKNOWN_CELLS'] = stateCounts[UNKNOWN];
 defines['HAS_DONT_CARES'] = stateCounts[DONT_CARE] > 0;
 
 defines['MULTI_RULE'] = multiRule;
-defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d*)\/S(\d*)$/) && (!multiRule || options['rulespace'] === 'ot')) && !options['no-ot-optimization']);
+defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d*)\/S(\d*)$/) && (!multiRule/* || options['rulespace'] === 'ot'*/)) && !options['no-ot-optimization']);
 defines['RULESPACE'] = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
 defines['SPECIAL_AFTER_RULE'] = `""`;
 
