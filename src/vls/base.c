@@ -542,12 +542,12 @@ static inline void print_grid(FILE* stream) {
                 print_cell(stream, cell->value);
                 #endif
             }
-            real_fprintf(stream, "$\n");
+            real_fprintf(stream, " $\n");
         }
         if (t == state.gens - 1) {
-            fprintf(stream, "!\n");
+            fprintf(stream, " !\n");
         } else {
-            fprintf(stream, "$%ib\n", t + 1);
+            fprintf(stream, "$ %ib\n", t + 1);
         }
     }
 }
