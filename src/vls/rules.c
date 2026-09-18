@@ -8,6 +8,7 @@
 
 #include "params2.h"
 #include "base.c"
+#include "symmetries.c"
 
 
 typedef struct INTSpec {
@@ -171,6 +172,47 @@ const INTSpec hex_int = {
         {427, 431, 491, 495, -1},
     },
 };
+
+
+#if MULTI_RULE
+
+size_t tr_to_bound_tr[512];
+
+static inline void init_tr_to_bound_tr() {
+    for (Transition tr = 0; tr < 512; tr++) {
+        bool found = false;
+        for (size_t i = 0; i < BOUND_TRANSITION_COUNT; i++) {
+            for (size_t j = 0; j < MAX_MAP_TRS_PER_BOUND_TR; j++) {
+                SignedTransition value = bound_trs[i][j];
+                if (value == -1) {
+                    break;
+                } else if (value == tr) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                tr_to_bound_tr[tr] = i;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "Error: This error should not occur, please report it (nonexistent transition in init_tr_to_bound_tr: %i)", tr);
+            exit(1);
+        }
+    }
+}
+
+static inline void set_tr(BoundTransition bound_tr, CellValue value, bool is_explicit) {
+    CellValue old_value = trs[bound_trs[bound_tr][0]];
+    DPRINTF3("Setting transition %i (aka %s) to %i (old = %i)\n", bound_tr, bound_trs_names[bound_tr], value, old_value);
+    StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
+    entry->type = STACKENTRY_TYPE_RULE_CHANGE;
+    entry->data.rule_change = (bound_tr << 4) | (old_value << 2) | value;
+    unsafe_set_tr(bound_tr, value);
+}
+
+#endif
 
 
 // attempt to unparse transitions

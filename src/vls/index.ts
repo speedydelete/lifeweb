@@ -807,9 +807,15 @@ let out: string[] = [];
 let foundDefines = new Set<string>();
 for (let line of code.split('\n')) {
     line = line.trimStart();
-    if (line.startsWith('typedef') && line.endsWith('Index;')) {
+    if (line.startsWith('typedef') && line.endsWith(' Index;')) {
         line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
-    } else if (line.startsWith('typedef') && line.endsWith('Variable;')) {
+    } else if (line.startsWith('typedef') && line.endsWith(' PrefixIndex;')) {
+        let value = (grid.width + 4) * (grid.height + 4) * grid.gens;
+        if (multiRule) {
+            value += 512;
+        }
+        line = `typedef ${getMinUintType(value)} PrefixIndex;`;
+    } else if (line.startsWith('typedef') && line.endsWith(' Variable;')) {
         line = `typedef ${getMinUintType(grid.numVars + 1)} Variable;`;
     } else if (line.startsWith('static const CellValue INITIAL_STATES[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';

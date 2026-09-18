@@ -18,13 +18,13 @@ static inline void preprocess_implications(void) {
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             for (Index x = 0; x < state.width; x++) {
-                push_frame();
-                Cell* cell = get(t, x, y);
+                push_stack_frame(current_stack);
+                Cell* cell = get_cell(t, x, y);
                 if (!check_implication_handles_edges(cell)) {
                     #if MULTI_RULE
-                    if (rule_dependent_tr != -1) {
-                        rule_dependent_tr = -1;
-                        pop_frame();
+                    if (state.rule_dependent_tr != -1) {
+                        state.rule_dependent_tr = -1;
+                        pop_stack_frame(current_stack);
                         continue;
                     }
                     #endif
@@ -54,7 +54,7 @@ static inline void reassign_variable(Variable old, Variable new, CaseCell* cases
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             for (Index x = 0; x < state.width; x++) {
-                Cell* cell = get(t, x, y);
+                Cell* cell = get_cell(t, x, y);
                 if (cell->var == old) {
                     cell->var = new;
                     state.var_uses[new][state.num_var_uses[new]++] = cell;
@@ -84,12 +84,12 @@ static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
     Case* cases = safe_malloc(state.total_size * 8 * sizeof(Case));
-    int case_count = 0;
+    size_t case_count = 0;
     // first compute the cases
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 1; y < state.height - 1; y++) {
             for (Index x = 1; x < state.width - 1; x++) {
-                Cell* cell = get(t, x, y);
+                Cell* cell = get_cell(t, x, y);
                 if (cell->next == NULL) {
                     continue;
                 }
@@ -103,7 +103,7 @@ static inline void preprocess_cases(void) {
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
-                        Cell* cell2 = get(t, x + x2, y + y2);
+                        Cell* cell2 = get_cell(t, x + x2, y + y2);
                         cells[i].value = cell2->value;
                         if (cell2->value == UNKNOWN && cell2->var == 0) {
                             found2 = true;
@@ -126,7 +126,7 @@ static inline void preprocess_cases(void) {
                 cells[9].var = cell->next->var;
                 // check for duplicate cases
                 found = false;
-                for (int i = 0; i < case_count; i++) {
+                for (size_t i = 0; i < case_count; i++) {
                     if (memcmp(cells, cases[i], sizeof(Case)) == 0) {
                         found = true;
                         break;
@@ -137,7 +137,7 @@ static inline void preprocess_cases(void) {
                 print_case(&cells);
                 real_printf("\n");
                 #endif
-                int start_case = case_count;
+                size_t start_case = case_count;
                 memcpy(cases[case_count], cells, sizeof(Case));
                 case_count++;
                 // assign all rotations and reflections of the case too
@@ -152,7 +152,7 @@ static inline void preprocess_cases(void) {
                         memcpy(cells, temp, sizeof(Case));
                         // check for symmetric cases
                         bool found = false;
-                        for (int i = start_case; i < case_count; i++) {
+                        for (size_t i = start_case; i < case_count; i++) {
                             if (memcmp(cells, cases[i], sizeof(Case)) == 0) {
                                 found = true;
                                 break;
@@ -178,7 +178,7 @@ static inline void preprocess_cases(void) {
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 1; y < state.height - 1; y++) {
             for (Index x = 1; x < state.width - 1; x++) {
-                Cell* next_cell = get(t, x, y)->next;
+                Cell* next_cell = get_cell(t, x, y)->next;
                 if (next_cell == NULL) {
                     continue;
                 }
@@ -187,7 +187,7 @@ static inline void preprocess_cases(void) {
                 int i = 0;
                 for (int y2 = -1; y2 <= 1; y2++) {
                     for (int x2 = -1; x2 <= 1; x2++) {
-                        Cell* cell2 = get(t, x + x2, y + y2);
+                        Cell* cell2 = get_cell(t, x + x2, y + y2);
                         cells[i].value = cell2->value;
                         cells[i].var = cell2->var;
                         i++;
@@ -204,7 +204,7 @@ static inline void preprocess_cases(void) {
                 if (!found) {
                     continue;
                 }
-                for (int i = 0; i < case_count; i++) {
+                for (size_t i = 0; i < case_count; i++) {
                     if (memcmp(cases[i], &cells, sizeof(CaseCell) * 9) == 0) {
                         #if DEBUG >= 3
                         printf("Cell at t = %i, x = %i, y = %i matches case %i: ", t, x, y, i);
@@ -252,6 +252,8 @@ static inline void preprocess_cases(void) {
 #endif
 
 
+#define MAX_PREPROCESSING_ITERATIONS 4096
+
 static inline void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
@@ -261,7 +263,7 @@ static inline void preprocess(void) {
         old_grid[i] = ((Cell*)(state.grid))[i].value;
     }
     bool found = false;
-    for (int i = 0; i < 4096; i++) {
+    for (size_t i = 0; i < MAX_PREPROCESSING_ITERATIONS; i++) {
         preprocess_implications();
         #if VARIABLES
         preprocess_cases();
@@ -282,7 +284,7 @@ static inline void preprocess(void) {
     // remove trivial cells
     for (Index i = 0; i < state.start_unknown_cells; i++) {
         Index* coords = search_order[i];
-        Cell* cell = get(coords[0], coords[1], coords[2]);
+        Cell* cell = get_cell(coords[0], coords[1], coords[2]);
         if (cell->value != UNKNOWN) {
             for (Index j = i; j < state.start_unknown_cells - 1; j++) {
                 memcpy(search_order[j], search_order[j + 1], sizeof(Index) * 3);
@@ -291,12 +293,13 @@ static inline void preprocess(void) {
             state.start_unknown_cells--;
         }
     }
-    Index trivial = state.set_cells;
-    state.set_cells = 0;
+    Index trivial = state.set_unknown_cells;
+    state.set_unknown_cells = 0;
     if (state.start_unknown_cells == 0) {
         check_solution(true);
         exit(0);
     }
-    sp = 0;
+    // free up space
+    current_stack->len = 0;
     printf("%i unknown cells (%i total, %i trivial cells found)\n", state.start_unknown_cells, TOTAL_UNKNOWN_CELLS, trivial);
 }

@@ -47,6 +47,9 @@ typedef uint8_t CellValue;
 // the smallest integer type that can store the size of the grid
 typedef uint8_t Index;
 
+// the smallest integer type that can store the sizes of prefixes
+typedef uint8_t PrefixIndex;
+
 #if VARIABLES
 // the smallest integer type that can store the number of variables
 typedef uint8_t Variable;

@@ -16,9 +16,6 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #include "base.c"
 #include "dynamic_grid.c"
 #include "rules.c"
-#if MULTI_RULE
-#include "implications.c"
-#endif
 #ifdef CUSTOM
 #include CUSTOM
 #endif
@@ -30,19 +27,19 @@ uint64_t solutions_found;
 
 
 static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
-    char rule[256];
+    char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256);
     get_rule(rule, false);
     #if MULTI_RULE
-    char maxrule[256];
+    char maxrule[MAX_UNPARSED_RULE_LENGTH];
     memset(maxrule, '\0', 256);
     get_rule(maxrule, true);
     if (strcmp(rule, maxrule) != 0) {
         printf("#C %s to %s\n", rule, maxrule);
     }
     #endif
-    DIndex real_width = grid->width < 2 * PADDING ? 0 : grid->width;
-    DIndex real_height = grid->height < 2 * PADDING ? 0 : grid->height;
+    DIndex real_width = grid->width < 2 * PADDING ? 0 : grid->width - 2 * PADDING;
+    DIndex real_height = grid->height < 2 * PADDING ? 0 : grid->height - 2 * PADDING;
     printf("x = %"PRIdindex", y = %"PRIdindex", rule = %s"SPECIAL_AFTER_RULE, real_width, real_height, rule);
     if (grid->width < 2 * PADDING || grid->height < 2 * PADDING) {
         printf("\n!\n");
@@ -55,7 +52,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
                 for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
                     CellValue value = dg_get(grid, t, x, y);
-                    if (value == UNKNOWN) {
+                    if (!is_known(value)) {
                         found = true;
                         break;
                     }
@@ -141,14 +138,14 @@ typedef uint64_t Hash;
 #define update_hash(hash, value) \
     do { \
         (hash) = _Generic((value), \
-            int8_t: update_hash_int8((hash), (int8_t)(intptr_t)(value)), \
-            uint8_t: update_hash_uint8((hash), (uint8_t)(uintptr_t)(value)), \
-            int16_t: update_hash_int8((hash), (int16_t)(intptr_t)(value)), \
-            uint16_t: update_hash_uint16((hash), (uint16_t)(uintptr_t)(value)), \
-            int32_t: update_hash_int8((hash), (int32_t)(intptr_t)(value)), \
-            uint32_t: update_hash_uint32((hash), (uint32_t)(uintptr_t)(value)), \
-            int64_t: update_hash_int8((hash), (int64_t)(intptr_t)(value)), \
-            uint64_t: update_hash_uint64((hash), (uint64_t)(uintptr_t)(value)), \
+            int8_t: update_hash_int8((hash), (int8_t)(value)), \
+            uint8_t: update_hash_uint8((hash), (uint8_t)(value)), \
+            int16_t: update_hash_int8((hash), (int16_t)(value)), \
+            uint16_t: update_hash_uint16((hash), (uint16_t)(value)), \
+            int32_t: update_hash_int8((hash), (int32_t)(value)), \
+            uint32_t: update_hash_uint32((hash), (uint32_t)(value)), \
+            int64_t: update_hash_int8((hash), (int64_t)(value)), \
+            uint64_t: update_hash_uint64((hash), (uint64_t)(value)), \
             char*: update_hash_string((hash), (char*)(uintptr_t)(value)), \
             const char*: update_hash_string((hash), (const char*)(uintptr_t)(value)) \
         ); \
@@ -230,7 +227,6 @@ static inline Hash min_hash(Hash x, Hash y) {
 
 static inline Hash hash_at_time(DynamicGrid* grid, DIndex t) {
     Hash out = HASH_OFFSET;
-    update_hash(out, "at time");
     update_hash(out, grid->width);
     update_hash(out, grid->height);
     for (DIndex y = 0; y < grid->height; y++) {
@@ -249,20 +245,16 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
     DynamicGrid full_t_grid = empty_dynamic_grid;
     DynamicGrid t_grid = empty_dynamic_grid;
     dg_extract_gen(&full_t_grid, grid, offset);
-    DGShrinkToFitOffset offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
+    DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     DIndex x_offset_0 = offsets.x;
     DIndex y_offset_0 = offsets.y;
-    dg_destroy(&full_t_grid);
-    dg_destroy(&t_grid);
     HASHDPRINTF(INDENT "Hashing all times with offset %"PRIdindex"\n", offset);
     HASHDPRINTGRID(grid, 2);
     HASHDPRINTF(INDENT INDENT "x_offset_0 = %"PRIdindex", y_offset_0 = %"PRIdindex"\n", x_offset_0, y_offset_0);
     for (DIndex fake_t = 0; fake_t < grid->gens; fake_t++) {
         DIndex real_t = (fake_t + offset) % grid->gens;
-        DynamicGrid full_t_grid = empty_dynamic_grid;
-        DynamicGrid t_grid = empty_dynamic_grid;
         dg_extract_gen(&full_t_grid, grid, real_t);
-        DGShrinkToFitOffset offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
+        DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
         intmax_t x_offset = (intmax_t)offsets.x - (intmax_t)x_offset_0;
         intmax_t y_offset = (intmax_t)offsets.y - (intmax_t)y_offset_0;
         HASHDPRINTF(INDENT INDENT INDENT "x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
@@ -280,9 +272,9 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
                 update_hash(out, value);
             }
         }
-        dg_destroy(&full_t_grid);
-        dg_destroy(&t_grid);
     }
+    dg_destroy(&full_t_grid);
+    dg_destroy(&t_grid);
     HASHDPRINTF(INDENT INDENT "Final hash: %"PRIhash"\n", out);
     return out;
 }
@@ -459,15 +451,24 @@ static inline void check_solution(bool preprocessing) {
     // apply subperiod filter
     #if FILTER_SUBPERIOD
     Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
-    for (int i = 0; i < state.gens; i++) {
-        Hash hash = hash_at_time(&hash_grid, i);
-        for (int j = 0; j < i; j++) {
+    DynamicGrid hash_grid_2 = empty_dynamic_grid;
+    DynamicGrid hash_grid_3 = empty_dynamic_grid;
+    for (Index i = 0; i < state.gens; i++) {
+        dg_extract_gen(&hash_grid_2, &hash_grid, i);
+        dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
+        Hash hash = hash_at_time(&hash_grid_3, 0);
+        for (Index j = 0; j < i; j++) {
             if (hash == hashes[j]) {
+                safe_free(hashes);
+                dg_destroy(&hash_grid_2);
+                dg_destroy(&hash_grid_3);
                 drop_solution("subperiod");
             }
         }
         hashes[i] = hash;
     }
+    dg_destroy(&hash_grid_2);
+    dg_destroy(&hash_grid_3);
     safe_free(hashes);
     #endif
     #ifndef CELL_PERIOD_FILTER
@@ -597,19 +598,19 @@ size_t progress_pos = 0;
 
 typedef struct ProgressEntry {
     bool tr_is_set;
-    uint8_t tr;
-    uint8_t value;
+    BoundTransition tr;
+    CellValue value;
 } ProgressEntry;
 
-ProgressEntry progress[MAX_DEPTH];
+ProgressEntry progress[MAX_DEPTH * 2];
 
 static inline void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
         if (progress[i].tr_is_set) {
-            int tr = progress[i].tr;
-            int value = progress[i].value;
-            char first = bound_trs_names[tr_to_bound_tr[tr]][0];
-            real_fprintf(stream, "[%c%s]", (value == 1 ? first : (first == 'B' ? 'A' : 'D')), bound_trs_names[tr_to_bound_tr[tr]] + 1);
+            BoundTransition tr = progress[i].tr;
+            CellValue value = progress[i].value;
+            char first = bound_trs_names[tr][0];
+            real_fprintf(stream, "[%c%s]", (value == 1 ? first : (first == 'B' ? 'A' : 'D')), bound_trs_names[tr] + 1);
         } else {
             int value = progress[i].value;
             real_fprintf(stream, "%c", value == 0 ? '0' : '1');
@@ -635,11 +636,11 @@ static inline void print_progress(FILE* stream) {
 
 double last_max_partial_shown;
 DynamicGrid max_partial = empty_dynamic_grid;
-int max_partial_size = 0;
+uint64_t max_partial_size = 0;
 #if MULTI_RULE
 uint8_t max_partial_trs[512];
 #endif
-int last_printed_max_partial_size = 0;
+uint64_t last_printed_max_partial_size = 0;
 
 static inline void max_partials_end(void) {
     if (solutions_found == 0) {
@@ -647,7 +648,7 @@ static inline void max_partials_end(void) {
         memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
         #if MAX_PARTIALS
-        printf("Max partial (size: %i):\n", max_partial_size);
+        printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
         print_grid_pretty(&max_partial, false);
         #endif
     }
@@ -665,9 +666,9 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {}
 static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
     #if MAX_PARTIALS
     if (solutions_found == 0) {
-        int partial_size;
+        uint64_t partial_size;
         #if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_CELL
-        partial_size = state.set_cells;
+        partial_size = state.set_unknown_cells;
         #elif MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_DEPTH
         partial_size = depth;
         #endif
@@ -697,7 +698,7 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
             memcpy(temp_trs, trs, sizeof(trs));
             memcpy(trs, max_partial_trs, sizeof(trs));
             #endif
-            printf("New max partial (size = %i):\n", max_partial_size);
+            printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
             print_grid_pretty(&max_partial, false);
             #if MULTI_RULE
             memcpy(trs, temp_trs, sizeof(trs));
