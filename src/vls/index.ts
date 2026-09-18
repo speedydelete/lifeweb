@@ -348,18 +348,19 @@ if (mode === 'periodic') {
 
     if (dx !== 0 || dy !== 0) {
         defaultSearchOrder = 'f2b';
-        searchOrderAliases['f2b'] = `t, -(x*${dx} + y*${dy})`;
-        searchOrderAliases['b2f'] = `t, (x*${dx} + y*${dy})`;
-        searchOrderAliases['s2s'] = `t, (x*${dy} + y*${dx})`;
-        searchOrderAliases['r-f2b'] = `-t, -(x*${dx} + y*${dy})`;
-        searchOrderAliases['r-b2f'] = `-t, (x*${dx} + y*${dy})`;
-        searchOrderAliases['r-s2s'] = `-t, (x*${dy} + y*${dx})`;
-        searchOrderAliases['g-f2b'] = `-(x*${dx} + y*${dy}), t`;
-        searchOrderAliases['g-b2f'] = `(x*${dx} + y*${dy}), t`;
-        searchOrderAliases['g-s2s'] = `(x*${dy} + y*${dx}), t`;
-        searchOrderAliases['gr-f2b'] = `-(x*${dx} + y*${dy}), -t`;
-        searchOrderAliases['gr-b2f'] = `(x*${dx} + y*${dy}), -t`;
-        searchOrderAliases['gr-s2s'] = `(x*${dy} + y*${dx}), -t`;
+        searchOrderAliases['f2b'] = `-(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['b2f'] = `(x*${dx} + y*${dy}), t`;
+        searchOrderAliases['s2s'] = `(x*${dy} + y*${dx}), t`;
+        searchOrderAliases['r-f2b'] = `-(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['r-b2f'] = `(x*${dx} + y*${dy}), -t`;
+        searchOrderAliases['r-s2s'] = `(x*${dy} + y*${dx}), -t`;
+        searchOrderAliases['b-f2b'] = `t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['b-b2f'] = `t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['b-s2s'] = `t, (x*${dy} + y*${dx})`;
+        searchOrderAliases['br-f2b'] = `-t, -(x*${dx} + y*${dy})`;
+        searchOrderAliases['br-b2f'] = `-t, (x*${dx} + y*${dy})`;
+        searchOrderAliases['br-s2s'] = `-t, (x*${dy} + y*${dx})`;
+
     }
 
     // grid = new Grid(width, height, period + 1);
