@@ -856,9 +856,11 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_e
             if (!set_cell(cell, value, is_explicit)) {
                 return false;
             }
+            #if CUSTOM_PRUNING_ON_CELL_SET
             if (!custom_prune_on_cell_set(cell)) {
                 return false;
             }
+            #endif
         }
     }
     DPRINTF4("Checking variable set implications\n");
