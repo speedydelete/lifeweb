@@ -227,10 +227,14 @@ static inline void preprocess_cases(void) {
                         } else {
                             if (new_cell.value != UNKNOWN) {
                                 // if we are setting it to a known cell, that's easy!
-                                actual_set_cell_value(next_cell, new_cell.value);
+                                if (!set_cell(next_cell, new_cell.value)) {
+                                    printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
+                                    safe_free(cases);
+                                    exit(0);
+                                }
                             } else if (new_cell.var == 0) {
-                                // this seriously should not be happening
-                                continue;
+                                real_fprintf(stderr, "Error: This error should not occur, please report it (new_cell.var == 0)\n");
+                                exit(1);
                             } else if (next_cell->var == 0) {
                                 // it was unknown, now we know it must be a certain variable
                                 Variable var = new_cell.var;
