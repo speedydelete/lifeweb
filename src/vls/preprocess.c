@@ -227,7 +227,7 @@ static inline void preprocess_cases(void) {
                         } else {
                             if (new_cell.value != UNKNOWN) {
                                 // if we are setting it to a known cell, that's easy!
-                                if (!set_cell(next_cell, new_cell.value)) {
+                                if (!set_cell(next_cell, new_cell.value, true)) {
                                     printf("Contradiction found in preprocessing (in case step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
                                     safe_free(cases);
                                     exit(0);
