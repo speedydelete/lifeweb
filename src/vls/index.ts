@@ -743,7 +743,7 @@ defines['REPORTING_INTERVAL'] = options['interval'] ?? 1;
 defines['MAX_PARTIAL_TYPE'] = `MAX_PARTIAL_TYPE_${(options['partials'] ?? 'cell').toUpperCase()}`;
 defines['MAX_PARTIAL_REPORTING_INTERVAL'] = options['partial-interval'] ?? options['interval'] ?? 1;
 
-defines['BENCHMARK'] = options['benchmark'];
+defines['BENCHMARK'] = options['benchmark'] ? `((uintmax_t)${options['benchmark']}ULL)` : undefined;
 
 defines['DEBUG'] = options['debug'] ?? 0;
 

@@ -4,7 +4,9 @@
 #pragma once
 
 #include "params2.h"
+#if MULTI_RULE
 #include "base.c"
+#endif
 
 
 #if MULTI_RULE

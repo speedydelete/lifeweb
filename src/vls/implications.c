@@ -3,13 +3,14 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdio.h>
+#include <inttypes.h>
 
 #include "params2.h"
 #include "base.c"
+#if MULTI_RULE
 #include "rulespaces.c"
 #include "rules.c" // IWYU pragma: keep
+#endif
 #ifdef CUSTOM
 #include CUSTOM
 #endif

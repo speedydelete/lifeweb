@@ -10,7 +10,9 @@
 #include <stdio.h>
 
 #include "params2.h"
+#if MULTI_RULE
 #include "rulespaces.c"
+#endif
 
 
 #define HASH_DEBUG false

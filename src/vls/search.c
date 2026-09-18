@@ -371,9 +371,9 @@ static inline void run_search(void) {
     for (uintmax_t i = 0; i < BENCHMARK; i++) {
         double start = get_time();
         actual_run_search();
-        printf("Iteration %i/%i complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
+        printf("Iteration %ju/%ju complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
     }
     double seconds = get_time() - full_start;
-    printf("%i iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, seconds, seconds / BENCHMARK);
+    printf("%ju iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, seconds, seconds / BENCHMARK);
     #endif
 }
