@@ -329,13 +329,13 @@ void inc_current_time(void) {
 
 #if CACHE_IMPLICATION_TRS
 
-static inline __attribute__((always_inline)) void very_unsafe_set_cell_value(Cell* cell, CellValue value);
+static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value);
 
 static inline uint32_t safe_compute_implication_tr(Cell* cell);
 
 #else
 
-static inline __attribute__((always_inline)) void very_unsafe_set_cell_value(Cell* cell, CellValue value) {
+static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
     inc_current_time();
     #endif
@@ -343,28 +343,6 @@ static inline __attribute__((always_inline)) void very_unsafe_set_cell_value(Cel
 }
 
 #endif
-
-static inline __attribute__((always_inline)) bool unsafe_set_cell_value(Cell* cell, CellValue value) {
-    if (!is_known(value) && is_known(cell->value)) {
-        state.set_unknown_cells--;
-    } else if (is_known(value) && !is_known(cell->value)) {
-        state.set_unknown_cells++;
-    }
-    very_unsafe_set_cell_value(cell, value);
-    #ifdef MAXPOP
-    if (cell->t == 0) {
-        if (value == ON && cell->value != ON) {
-            state.phase_0_pop++;
-            if (state.phase_0_pop > MAXPOP) {
-                return false;
-            }
-        } else if (value != ON && cell->value == ON) {
-            state.phase_0_pop--;
-        }
-    }
-    #endif
-    return true;
-}
 
 #if MULTI_RULE
 static inline void unsafe_set_tr(BoundTransition bound_tr, CellValue value);
@@ -569,9 +547,20 @@ static inline bool apply_stack_entry(StackEntry* entry) {
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         Cell* cell = &(state.grid[entry->data.cell_set]);
         CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
-        if (!unsafe_set_cell_value(cell, value)) {
-            return false;
+        unsafe_set_cell_value(cell, value);
+        state.set_unknown_cells++;
+        #ifdef MAXPOP
+        if (cell->t == 0) {
+            if (value == ON && cell->value != ON) {
+                state.phase_0_pop++;
+                if (state.phase_0_pop > MAXPOP) {
+                    return false;
+                }
+            } else if (value != ON && cell->value == ON) {
+                state.phase_0_pop--;
+            }
         }
+        #endif
     #if MULTI_RULE
     } else if (entry->type == STACKENTRY_TYPE_RULE_CHANGE) {
         BoundTransition value = entry->data.rule_change;
@@ -593,9 +582,20 @@ static inline bool undo_stack_entry(StackEntry* entry) {
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         Cell* cell = &(state.grid[entry->data.cell_set]);
         CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
-        if (!unsafe_set_cell_value(cell, value)) {
-            return false;
+        unsafe_set_cell_value(cell, value);
+        state.set_unknown_cells--;
+        #ifdef MAXPOP
+        if (cell->t == 0) {
+            if (value == ON && cell->value != ON) {
+                state.phase_0_pop++;
+                if (state.phase_0_pop > MAXPOP) {
+                    return false;
+                }
+            } else if (value != ON && cell->value == ON) {
+                state.phase_0_pop--;
+            }
         }
+        #endif
     #if MULTI_RULE
     } else if (entry->type == STACKENTRY_TYPE_RULE_CHANGE) {
         BoundTransition value = entry->data.rule_change;
@@ -772,9 +772,20 @@ static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
         return false;
     }
     DPRINTF4("Setting cell: t = %i, x = %i, y = %i, index = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, cell->index, value, cell->value);
-    if (!unsafe_set_cell_value(cell, value)) {
-        return false;
+    unsafe_set_cell_value(cell, value);
+    state.set_unknown_cells++;
+    #ifdef MAXPOP
+    if (cell->t == 0) {
+        if (value == ON && cell->value != ON) {
+            state.phase_0_pop++;
+            if (state.phase_0_pop > MAXPOP) {
+                return false;
+            }
+        } else if (value != ON && cell->value == ON) {
+            state.phase_0_pop--;
+        }
     }
+    #endif
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_CELL_SET;
     entry->data.cell_set = cell->index;

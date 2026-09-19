@@ -191,7 +191,7 @@ static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit
 
 #if CACHE_IMPLICATION_TRS
 
-static inline __attribute__((always_inline)) void very_unsafe_set_cell_value(Cell* cell, CellValue value) {
+static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
     inc_current_time();
     #endif
@@ -433,7 +433,7 @@ int8_t ot_implications[4096];
 
 #if CACHE_IMPLICATION_TRS
 
-static inline __attribute__((always_inline)) void very_unsafe_set_cell_value(Cell* cell, CellValue value) {
+static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
     inc_current_time();
     #endif
