@@ -544,7 +544,9 @@ static inline bool apply_stack_entry(StackEntry* entry) {
     printf("Applying stack entry: ");
     print_stack_entry(entry);
     #endif
+    #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
+    #endif
         Cell* cell = &(state.grid[entry->data.cell_set]);
         CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
         unsafe_set_cell_value(cell, value);
@@ -562,14 +564,11 @@ static inline bool apply_stack_entry(StackEntry* entry) {
         }
         #endif
     #if MULTI_RULE
-    } else if (entry->type == STACKENTRY_TYPE_RULE_CHANGE) {
+    } else {
         BoundTransition value = entry->data.rule_change;
         unsafe_set_tr(value >> 4, value & 3);
-    #endif
-    } else {
-        fprintf(stderr, "This error should not occur, please report it (invalid stack entry)\n");
-        exit(1);
     }
+    #endif
     return true;
 }
 
@@ -579,7 +578,9 @@ static inline bool undo_stack_entry(StackEntry* entry) {
     printf("Popping stack entry: ");
     print_stack_entry(entry);
     #endif
+    #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
+    #endif
         Cell* cell = &(state.grid[entry->data.cell_set]);
         CellValue value = ((CellValue*)INITIAL_STATES)[cell->index];
         unsafe_set_cell_value(cell, value);
@@ -597,14 +598,11 @@ static inline bool undo_stack_entry(StackEntry* entry) {
         }
         #endif
     #if MULTI_RULE
-    } else if (entry->type == STACKENTRY_TYPE_RULE_CHANGE) {
+    } else {
         BoundTransition value = entry->data.rule_change;
         unsafe_set_tr(value >> 4, (value >> 2) & 3);
-    #endif
-    } else {
-        fprintf(stderr, "This error should not occur, please report it (invalid stack entry)\n");
-        exit(1);
     }
+    #endif
     return true;
 }
 
