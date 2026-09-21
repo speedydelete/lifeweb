@@ -51,6 +51,7 @@ const rgb_color INITIAL_COLORS[] = {
     get_color(0, 0, 255),
     get_color(0, 255, 0),
     get_color(255, 0, 255),
+    get_color(96, 96, 96),
 };
 
 #define TOTAL_COLORS 256
