@@ -489,10 +489,9 @@ static inline void destroy_state(void) {
 #if MULTI_RULE
     #define STACKENTRY_TYPE_RULE_CHANGE 1
 #endif
-// todo: test performance of the packing
-typedef struct /*__attribute__((packed))*/ StackEntry {
+typedef struct StackEntry {
     bool is_first_in_frame : 1;
-    bool is_explicit : 1;
+    // bool is_explicit : 1;
     unsigned int type : 1;
     union {
         Index cell_set;
@@ -527,11 +526,11 @@ static inline void print_stack_entry(StackEntry* entry) {
         real_printf("<invalid stack entry>\n");
         return;
     }
-    if (entry->is_explicit) {
-        real_printf(", explicit");
-    } else {
-        real_printf(", not explicit");
-    }
+    // if (entry->is_explicit) {
+    //     real_printf(", explicit");
+    // } else {
+    //     real_printf(", not explicit");
+    // }
     if (entry->is_first_in_frame) {
         real_printf(", first in frame");
     }
@@ -667,7 +666,7 @@ static inline __attribute__((used)) void print_stack(Stack* stack) {
 // no dedicated "push" function because that functionality
 // is provided by set_cell and set_tr
 
-static inline StackEntry* create_new_stack_entry(Stack* stack, bool is_explicit) {
+static inline StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] bool is_explicit) {
     StackEntry* out;
     if (stack->is_big) {
         BigStackData* big_data = &(stack->big_data);
@@ -701,7 +700,7 @@ static inline StackEntry* create_new_stack_entry(Stack* stack, bool is_explicit)
     } else {
         out->is_first_in_frame = false;
     }
-    out->is_explicit = is_explicit;
+    // out->is_explicit = is_explicit;
     return out;
 }
 
