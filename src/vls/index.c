@@ -14,7 +14,7 @@
 #include "preprocess.c"
 #include "search.c"
 #ifdef CUSTOM
-#include CUSTOM
+    #include CUSTOM
 #endif
 
 
@@ -30,28 +30,28 @@ static void handle_sigterm(int signum) {
 
 int main(void) {
     #ifdef IMPLICATION_CHECK_TR
-    generate_implications();
-    printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
-    exit(0);
+        generate_implications();
+        printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
+        exit(0);
     #elifdef OT_IMPLICATION_CHECK_TR
-    generate_implications();
-    printf("%i -> %i\n", OT_IMPLICATION_CHECK_TR, ot_implications[OT_IMPLICATION_CHECK_TR]);
-    exit(0);
+        generate_implications();
+        printf("%i -> %i\n", OT_IMPLICATION_CHECK_TR, ot_implications[OT_IMPLICATION_CHECK_TR]);
+        exit(0);
     #endif
     calibrate_time();
     #ifdef FOR_PROFILE
-    signal(SIGTERM, handle_sigterm);
+        signal(SIGTERM, handle_sigterm);
     #endif
     current_stack = create_stack();
     generate_implications();
     init_state();
     #if MULTI_RULE
-    init_tr_to_bound_tr();
+        init_tr_to_bound_tr();
     #endif
     init_solutions();
     preprocess();
     #if CUSTOM_INIT
-    custom_init();
+        custom_init();
     #endif
     run_search();
     destroy_solutions();

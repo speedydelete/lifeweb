@@ -22,11 +22,11 @@ static inline void preprocess_implications(void) {
                 Cell* cell = get_cell(t, x, y);
                 if (!check_implication_handles_edges(cell)) {
                     #if MULTI_RULE
-                    if (state.rule_dependent_tr != -1) {
-                        state.rule_dependent_tr = -1;
-                        pop_stack_frame(current_stack);
-                        continue;
-                    }
+                        if (state.rule_dependent_tr != -1) {
+                            state.rule_dependent_tr = -1;
+                            pop_stack_frame(current_stack);
+                            continue;
+                        }
                     #endif
                     printf("Contradiction found in preprocessing (in implication step, cell at t = %i, x = %i, y = %i)\n", t, x - PADDING, y - PADDING);
                     exit(0);
@@ -133,9 +133,9 @@ static inline void preprocess_cases(void) {
                     }
                 }
                 #if DEBUG >= 3
-                printf("New case (%i): ", case_count);
-                print_case(&cells);
-                real_printf("\n");
+                    printf("New case (%i): ", case_count);
+                    print_case(&cells);
+                    real_printf("\n");
                 #endif
                 size_t start_case = case_count;
                 memcpy(cases[case_count], cells, sizeof(Case));
@@ -207,9 +207,9 @@ static inline void preprocess_cases(void) {
                 for (size_t i = 0; i < case_count; i++) {
                     if (memcmp(cases[i], &cells, sizeof(CaseCell) * 9) == 0) {
                         #if DEBUG >= 3
-                        printf("Cell at t = %i, x = %i, y = %i matches case %i: ", t, x, y, i);
-                        print_case(&cells);
-                        real_printf("\n");
+                            printf("Cell at t = %i, x = %i, y = %i matches case %i: ", t, x, y, i);
+                            print_case(&cells);
+                            real_printf("\n");
                         #endif
                         CaseCell new_cell = cases[i][9];
                         if (next_cell->value != UNKNOWN) {
@@ -270,7 +270,7 @@ static inline void preprocess(void) {
     for (size_t i = 0; i < MAX_PREPROCESSING_ITERATIONS; i++) {
         preprocess_implications();
         #if VARIABLES
-        preprocess_cases();
+            preprocess_cases();
         #endif
         for (Index i = 0; i < state.total_size; i++) {
             new_grid[i] = ((Cell*)(state.grid))[i].value;
