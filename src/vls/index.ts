@@ -807,7 +807,11 @@ const CONSTANT_DEFINES = new Set([
 let out: string[] = [];
 let foundDefines = new Set<string>();
 for (let line of code.split('\n')) {
-    line = line.trimStart();
+    let indent = '';
+    while (line.startsWith(' ')) {
+        indent += line[0];
+        line = line.slice(1);
+    }
     if (line.startsWith('typedef') && line.endsWith(' Index;')) {
         line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
     } else if (line.startsWith('typedef') && line.endsWith(' PrefixIndex;')) {
@@ -873,7 +877,7 @@ for (let line of code.split('\n')) {
         line += '{' + searchOrderData.map(x => `{${x[CT]}, ${x[CX] + PADDING}, ${x[CY] + PADDING}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
-        out.push(line);
+        out.push(indent + line);
         continue;
     }
     let data = line.split(' ');
@@ -883,7 +887,7 @@ for (let line of code.split('\n')) {
     let name = data[1];
     if (!(name in defines)) {
         if (CONSTANT_DEFINES.has(name)) {
-            out.push(line);
+            out.push(indent + line);
             continue;
         } else {
             throw new Error(`This error should not occur, please report it (unrecognized #define: '${name}')`);
@@ -895,9 +899,9 @@ for (let line of code.split('\n')) {
     foundDefines.add(name);
     let value = defines[name];
     if (value === undefined) {
-        out.push('// ' + data.join(' '));
+        out.push(indent + '// ' + data.join(' '));
     } else {
-        out.push(`#define ${name} ${value}`);
+        out.push(indent + `#define ${name} ${value}`);
     }
 }
 
