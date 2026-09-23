@@ -1079,6 +1079,7 @@ class VLSFileParser extends BaseParser {
         this.scope.setState(2, {relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]});
         this.scope.setState(3, {relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]});
         this.scope.setState(4, {all: {type: 'periodic', period: 1, cell: cell(UNKNOWN)}});
+        this.scope.setState(5, {relative: [[[0], {type: 'cell', cell: cell(OFF)}]]});
     }
 
     tokenize(code: string): void {
