@@ -83,6 +83,10 @@ static inline void print_case(Case* cells) {
 static inline void preprocess_cases(void) {
     DPRINTF3("Running cases\n");
     DPRINTGRID3();
+    if (state.total_size == 0 || state.total_size > SIZE_MAX / 8 / sizeof(Case)) {
+        real_fprintf(stderr, "Error: total_size too large, allocation would overflow\n");
+        exit(1);
+    }
     Case* cases = safe_malloc(state.total_size * 8 * sizeof(Case));
     size_t case_count = 0;
     // first compute the cases
