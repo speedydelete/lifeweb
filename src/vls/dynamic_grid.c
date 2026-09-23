@@ -81,14 +81,14 @@ static inline __attribute__((always_inline)) CellValue dg_get(DynamicGrid* grid,
 static inline __attribute__((always_inline)) void dg_set(DynamicGrid* grid, DIndex t, DIndex x, DIndex y, CellValue value) {
     dg_index(grid, t, x, y).value = value;
     #if VARIABLES
-    dg_index(grid, t, x, y).var = NO_VAR;
+        dg_index(grid, t, x, y).var = NO_VAR;
     #endif
 }
 
 static inline __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, DIndex t, DIndex x, DIndex y, Cell* cell) {
     dg_index(grid, t, x, y).value = cell->value;
     #if VARIABLES
-    dg_index(grid, t, x, y).var = cell->var;
+        dg_index(grid, t, x, y).var = cell->var;
     #endif
 }
 

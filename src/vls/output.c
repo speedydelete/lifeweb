@@ -17,7 +17,7 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #include "dynamic_grid.c"
 #include "rules.c"
 #ifdef CUSTOM
-#include CUSTOM
+    #include CUSTOM
 #endif
 
 
@@ -31,12 +31,12 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
     memset(rule, '\0', 256);
     get_rule(rule, false);
     #if MULTI_RULE
-    char maxrule[MAX_UNPARSED_RULE_LENGTH];
-    memset(maxrule, '\0', 256);
-    get_rule(maxrule, true);
-    if (strcmp(rule, maxrule) != 0) {
-        printf("#C %s to %s\n", rule, maxrule);
-    }
+        char maxrule[MAX_UNPARSED_RULE_LENGTH];
+        memset(maxrule, '\0', 256);
+        get_rule(maxrule, true);
+        if (strcmp(rule, maxrule) != 0) {
+            printf("#C %s to %s\n", rule, maxrule);
+        }
     #endif
     DIndex real_width = grid->width < 2 * PADDING ? 0 : grid->width - 2 * PADDING;
     DIndex real_height = grid->height < 2 * PADDING ? 0 : grid->height - 2 * PADDING;
@@ -208,18 +208,18 @@ static inline Hash min_hash(Hash x, Hash y) {
 }
 
 #if HASH_DEBUG
-#include <stdio.h>
-#define HASHDPRINTF(...) printf(__VA_ARGS__)
-#define HASHDPRINTGRID(grid, depth) \
-    do { \
-        int prev = debug_depth; \
-        debug_depth = (depth); \
-        print_grid_pretty((grid), false); \
-        debug_depth = prev; \
-    } while (0)
+    #include <stdio.h>
+    #define HASHDPRINTF(...) printf(__VA_ARGS__)
+    #define HASHDPRINTGRID(grid, depth) \
+        do { \
+            int prev = debug_depth; \
+            debug_depth = (depth); \
+            print_grid_pretty((grid), false); \
+            debug_depth = prev; \
+        } while (0)
 #else
-#define HASHDPRINTF(...)
-#define HASHDPRINTGRID(grid, depth)
+    #define HASHDPRINTF(...)
+    #define HASHDPRINTGRID(grid, depth)
 #endif
 
 static inline Hash hash_at_time(DynamicGrid* grid, DIndex t) {
@@ -312,37 +312,37 @@ static inline Hash hash_full(DynamicGrid* grid) {
     HASHDPRINTGRID(grid, 0);
     HASHDPRINTF(INDENT "\nHashing (no transformation):\n");
     #if PERIODIC
-    Hash out = hash_all_times(grid, PERIODIC_DX, PERIODIC_DY);
-    DynamicGrid temp = empty_dynamic_grid;
-    #define add_hash(transform, dx, dy) \
-        HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
-        if (transforms.transform) { \
-            dg_##transform(&temp, grid); \
-            out = min_hash(out, hash_all_times(&temp, (dx), (dy))); \
-        }
-    add_hash(flip_horizontal, -PERIODIC_DX, PERIODIC_DY);
-    add_hash(flip_vertical, PERIODIC_DX, -PERIODIC_DY);
-    add_hash(rotate_left, -PERIODIC_DY, PERIODIC_DX);
-    add_hash(rotate_right, PERIODIC_DY, -PERIODIC_DX);
-    add_hash(rotate_180, -PERIODIC_DX, -PERIODIC_DY);
-    add_hash(flip_diagonal, PERIODIC_DY, PERIODIC_DX);
-    add_hash(flip_anti_diagonal, -PERIODIC_DY, -PERIODIC_DX);
+        Hash out = hash_all_times(grid, PERIODIC_DX, PERIODIC_DY);
+        DynamicGrid temp = empty_dynamic_grid;
+        #define add_hash(transform, dx, dy) \
+            HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
+            if (transforms.transform) { \
+                dg_##transform(&temp, grid); \
+                out = min_hash(out, hash_all_times(&temp, (dx), (dy))); \
+            }
+        add_hash(flip_horizontal, -PERIODIC_DX, PERIODIC_DY);
+        add_hash(flip_vertical, PERIODIC_DX, -PERIODIC_DY);
+        add_hash(rotate_left, -PERIODIC_DY, PERIODIC_DX);
+        add_hash(rotate_right, PERIODIC_DY, -PERIODIC_DX);
+        add_hash(rotate_180, -PERIODIC_DX, -PERIODIC_DY);
+        add_hash(flip_diagonal, PERIODIC_DY, PERIODIC_DX);
+        add_hash(flip_anti_diagonal, -PERIODIC_DY, -PERIODIC_DX);
     #else
-    Hash out = hash_all_times(grid);
-    DynamicGrid temp = empty_dynamic_grid;
-    #define add_hash(transform) \
-        HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
-        if (transforms.transform) { \
-            dg_##transform(&temp, grid); \
-            out = min_hash(out, hash_all_times(&temp)); \
-        }
-    add_hash(flip_horizontal);
-    add_hash(flip_vertical);
-    add_hash(rotate_left);
-    add_hash(rotate_right);
-    add_hash(rotate_180);
-    add_hash(flip_diagonal);
-    add_hash(flip_anti_diagonal);
+        Hash out = hash_all_times(grid);
+        DynamicGrid temp = empty_dynamic_grid;
+        #define add_hash(transform) \
+            HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
+            if (transforms.transform) { \
+                dg_##transform(&temp, grid); \
+                out = min_hash(out, hash_all_times(&temp)); \
+            }
+        add_hash(flip_horizontal);
+        add_hash(flip_vertical);
+        add_hash(rotate_left);
+        add_hash(rotate_right);
+        add_hash(rotate_180);
+        add_hash(flip_diagonal);
+        add_hash(flip_anti_diagonal);
     #endif
     dg_destroy(&temp);
     HASHDPRINTF("\nFinal final final hash: %"PRIhash"\n\n\n", out);
@@ -421,7 +421,7 @@ static void calibrate_time(void) {
 }
 
 static inline double get_time(void) {
-    return (double)(__rdtsc()) / cycles_per_second;
+    return (double)(read_counter()) / cycles_per_second;
 }
 
 double start;
@@ -446,83 +446,12 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
     dg_init_from_search_grid(&hash_grid);
     // apply empty pattern filter
     #if CHECK_EMPTY
-    bool found = false;
-    for (Index t = 0; t < hash_grid.gens; t++) {
-        for (Index y = 0; y < hash_grid.height; y++) {
-            for (Index x = 0; x < hash_grid.width; x++) {
-                if (dg_get(&hash_grid, t, x, y) != OFF) {
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        if (found) {
-            break;
-        }
-    }
-    if (!found) {
-        drop_solution("empty");
-    }
-    #endif
-    // apply subperiod filter
-    #if FILTER_SUBPERIOD
-    Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
-    DynamicGrid hash_grid_2 = empty_dynamic_grid;
-    DynamicGrid hash_grid_3 = empty_dynamic_grid;
-    for (Index i = 0; i < state.gens; i++) {
-        dg_extract_gen(&hash_grid_2, &hash_grid, i);
-        dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
-        Hash hash = hash_at_time(&hash_grid_3, 0);
-        for (Index j = 0; j < i; j++) {
-            if (hash == hashes[j]) {
-                safe_free(hashes);
-                dg_destroy(&hash_grid_2);
-                dg_destroy(&hash_grid_3);
-                drop_solution("subperiod");
-            }
-        }
-        hashes[i] = hash;
-    }
-    dg_destroy(&hash_grid_2);
-    dg_destroy(&hash_grid_3);
-    safe_free(hashes);
-    #endif
-    #ifndef CELL_PERIOD_FILTER
-    #define solution_grid hash_grid
-    #else
-    #undef drop_solution
-    #define drop_solution(msg)\
-        DPRINTF2("Dropping solution (" msg ")\n"); \
-        if (preprocessing) { \
-            printf("Solved in preprocessing, 0 solutions\n"); \
-        } \
-        dg_destroy(&hash_grid); \
-        dg_destroy(&solution_grid); \
-        return;
-    // before applying the cell period filter we need to copy it into the solution grid
-    DynamicGrid solution_grid = empty_dynamic_grid;
-    dg_copy(&solution_grid, &hash_grid);
-    // apply cell period filter
-    for (DIndex y = 0; y < hash_grid.height; y++) {
-        for (DIndex x = 0; x < hash_grid.width; x++) {
-            CellValue* data = safe_malloc(state.gens * sizeof(CellValue));
-            for (DIndex t = 0; t < hash_grid.gens; t++) {
-                data[t] = dg_get(&hash_grid, t, x, y);
-            }
-            bool found = false;
-            for (size_t period_index = 0; period_index < (sizeof(cell_period_filter) / sizeof(int)); period_index++) {
-                DIndex period = cell_period_filter[period_index];
-                for (DIndex i = 0; i < period; i++) {
-                    for (DIndex t = i; t < hash_grid.gens; t += period) {
-                        if (data[t] != data[(t + period) % state.gens]) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found) {
+        bool found = false;
+        for (Index t = 0; t < hash_grid.gens; t++) {
+            for (Index y = 0; y < hash_grid.height; y++) {
+                for (Index x = 0; x < hash_grid.width; x++) {
+                    if (dg_get(&hash_grid, t, x, y) != OFF) {
+                        found = true;
                         break;
                     }
                 }
@@ -530,22 +459,97 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
                     break;
                 }
             }
-            if (!found) {
-                for (DIndex t = 0; t < hash_grid.gens; t++) {
-                    dg_set(&hash_grid, t, x, y, OFF);
+            if (found) {
+                break;
+            }
+        }
+        if (!found) {
+            drop_solution("empty");
+        }
+    #endif
+    // apply subperiod filter
+    #if FILTER_SUBPERIOD
+        Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
+        DynamicGrid hash_grid_2 = empty_dynamic_grid;
+        DynamicGrid hash_grid_3 = empty_dynamic_grid;
+        for (Index i = 0; i < state.gens; i++) {
+            dg_extract_gen(&hash_grid_2, &hash_grid, i);
+            dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
+            Hash hash = hash_at_time(&hash_grid_3, 0);
+            for (Index j = 0; j < i; j++) {
+                if (hash == hashes[j]) {
+                    safe_free(hashes);
+                    dg_destroy(&hash_grid_2);
+                    dg_destroy(&hash_grid_3);
+                    drop_solution("subperiod");
                 }
             }
-            safe_free(data);
+            hashes[i] = hash;
         }
-    }
-    // here we also need to apply an empty pattern filter to the hash grid
-    // to remove solutions which are all subperiod
-    found = false;
-    for (DIndex t = 0; t < hash_grid.gens; t++) {
+        dg_destroy(&hash_grid_2);
+        dg_destroy(&hash_grid_3);
+        safe_free(hashes);
+    #endif
+    #ifndef CELL_PERIOD_FILTER
+        #define solution_grid hash_grid
+    #else
+        #undef drop_solution
+        #define drop_solution(msg)\
+            DPRINTF2("Dropping solution (" msg ")\n"); \
+            if (preprocessing) { \
+                printf("Solved in preprocessing, 0 solutions\n"); \
+            } \
+            dg_destroy(&hash_grid); \
+            dg_destroy(&solution_grid); \
+            return;
+        // before applying the cell period filter we need to copy it into the solution grid
+        DynamicGrid solution_grid = empty_dynamic_grid;
+        dg_copy(&solution_grid, &hash_grid);
+        // apply cell period filter
         for (DIndex y = 0; y < hash_grid.height; y++) {
             for (DIndex x = 0; x < hash_grid.width; x++) {
-                if (dg_get(&hash_grid, t, x, y) != OFF) {
-                    found = true;
+                CellValue* data = safe_malloc(state.gens * sizeof(CellValue));
+                for (DIndex t = 0; t < hash_grid.gens; t++) {
+                    data[t] = dg_get(&hash_grid, t, x, y);
+                }
+                bool found = false;
+                for (size_t period_index = 0; period_index < (sizeof(cell_period_filter) / sizeof(int)); period_index++) {
+                    DIndex period = cell_period_filter[period_index];
+                    for (DIndex i = 0; i < period; i++) {
+                        for (DIndex t = i; t < hash_grid.gens; t += period) {
+                            if (data[t] != data[(t + period) % state.gens]) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) {
+                            break;
+                        }
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+                if (!found) {
+                    for (DIndex t = 0; t < hash_grid.gens; t++) {
+                        dg_set(&hash_grid, t, x, y, OFF);
+                    }
+                }
+                safe_free(data);
+            }
+        }
+        // here we also need to apply an empty pattern filter to the hash grid
+        // to remove solutions which are all subperiod
+        found = false;
+        for (DIndex t = 0; t < hash_grid.gens; t++) {
+            for (DIndex y = 0; y < hash_grid.height; y++) {
+                for (DIndex x = 0; x < hash_grid.width; x++) {
+                    if (dg_get(&hash_grid, t, x, y) != OFF) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
                     break;
                 }
             }
@@ -553,55 +557,51 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
                 break;
             }
         }
-        if (found) {
-            break;
+        if (!found) {
+            drop_solution("all subperiod");
         }
-    }
-    if (!found) {
-        drop_solution("all subperiod");
-    }
     #endif
     // apply custom solution filter
     #if CUSTOM_SOLUTION_FILTERING
-    if (!custom_solution_filter(solution_grid)) {
-        drop_solution("custom filtered");
-    }
+        if (!custom_solution_filter(solution_grid)) {
+            drop_solution("custom filtered");
+        }
     #endif
     // apply duplicate filter
     #if FILTER_DUPLICATES
-    Hash hash = hash_full(&hash_grid);
-    for (size_t i = 0; i < solutions_found; i++) {
-        Hash value = known_solutions[i];
-        if (value == 0) {
-            break;
+        Hash hash = hash_full(&hash_grid);
+        for (size_t i = 0; i < solutions_found; i++) {
+            Hash value = known_solutions[i];
+            if (value == 0) {
+                break;
+            }
+            if (hash == value) {
+                drop_solution("equal to previous solution");
+            }
         }
-        if (hash == value) {
-            drop_solution("equal to previous solution");
+        if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {
+            known_solutions[solutions_found] = hash;
         }
-    }
-    if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {
-        known_solutions[solutions_found] = hash;
-    }
     #endif
     // show the solution
     solutions_found++;
     #if SHOW_SOLUTIONS
-    if (preprocessing) {
-        printf("Solved in preprocessing, 1 solution:\n");
-    } else {
-        printf("Solution found:\n");
-    }
-    print_grid_pretty(&solution_grid, true);
+        if (preprocessing) {
+            printf("Solved in preprocessing, 1 solution:\n");
+        } else {
+            printf("Solution found:\n");
+        }
+        print_grid_pretty(&solution_grid, true);
     #endif
     #ifdef MAX_SOLUTIONS
-    if (solutions_found >= MAX_SOLUTIONS) {
-        printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
-        exit(0);
-    }
+        if (solutions_found >= MAX_SOLUTIONS) {
+            printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
+            exit(0);
+        }
     #endif
     dg_destroy(&hash_grid);
     #ifndef solution_grid
-    dg_destroy(&solution_grid);
+        dg_destroy(&solution_grid);
     #endif
 }
 
@@ -664,11 +664,11 @@ uint64_t last_printed_max_partial_size = 0;
 static inline void max_partials_end(void) {
     if (solutions_found == 0) {
         #if MULTI_RULE
-        memcpy(trs, max_partial_trs, sizeof(trs));
+            memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
         #if MAX_PARTIALS
-        printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
-        print_grid_pretty(&max_partial, false);
+            printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
+            print_grid_pretty(&max_partial, false);
         #endif
     }
     dg_destroy(&max_partial);
@@ -687,15 +687,15 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
     if (solutions_found == 0) {
         uint64_t partial_size;
         #if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_CELL
-        partial_size = state.set_unknown_cells;
+            partial_size = state.set_unknown_cells;
         #elif MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_DEPTH
-        partial_size = depth;
+            partial_size = depth;
         #endif
         if (partial_size > max_partial_size) {
             dg_init_from_search_grid(&max_partial);
             max_partial_size = partial_size;
             #if MULTI_RULE
-            memcpy(max_partial_trs, trs, sizeof(trs));
+                memcpy(max_partial_trs, trs, sizeof(trs));
             #endif
         }
     }
@@ -709,21 +709,22 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
             real_printf("\n");
         }
         #if MAX_PARTIALS
-        if (solutions_found == 0 && time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
-            last_max_partial_shown = time;
-            last_printed_max_partial_size = max_partial_size;
-            #if MULTI_RULE
-            CellValue* temp_trs = safe_malloc(sizeof(trs));
-            memcpy(temp_trs, trs, sizeof(trs));
-            memcpy(trs, max_partial_trs, sizeof(trs));
-            #endif
-            printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
-            print_grid_pretty(&max_partial, false);
-            #if MULTI_RULE
-            memcpy(trs, temp_trs, sizeof(trs));
-            safe_free(temp_trs);
-            #endif
-        }
+            if (solutions_found == 0 && time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
+                last_max_partial_shown = time;
+                last_printed_max_partial_size = max_partial_size;
+                #if MULTI_RULE
+                    CellValue* temp_trs = safe_malloc(sizeof(trs));
+                    memcpy(temp_trs, trs, sizeof(trs));
+                    memcpy(trs, max_partial_trs, sizeof(trs));
+                    printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
+                    print_grid_pretty(&max_partial, false);
+                    memcpy(trs, temp_trs, sizeof(trs));
+                    safe_free(temp_trs);
+                #else
+                    printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
+                    print_grid_pretty(&max_partial, false);
+                #endif
+            }
         #endif
     }
 }

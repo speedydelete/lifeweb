@@ -8,21 +8,21 @@
 #include "params2.h"
 #include "base.c"
 #if MULTI_RULE
-#include "rulespaces.c"
-#include "rules.c" // IWYU pragma: keep
+    #include "rulespaces.c"
+    #include "rules.c" // IWYU pragma: keep
 #endif
 #ifdef CUSTOM
-#include CUSTOM
+    #include CUSTOM
 #endif
 
 
 // #define IMPLICATION_CHECK_TR 350549
 
 #ifdef IMPLICATION_CHECK_TR
-#include <stdio.h>
-#define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
+    #include <stdio.h>
+    #define IMPLICATIONDPRINTF(value, ...) if ((value) == IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
 #else
-#define IMPLICATIONDPRINTF(...)
+    #define IMPLICATIONDPRINTF(...)
 #endif
 
 
@@ -40,7 +40,7 @@ int32_t implications[1048576];
 
 #define CONTRADICTION -1
 #if MULTI_RULE
-#define IMPLICATION_RULE_DEPENDENT -3
+    #define IMPLICATION_RULE_DEPENDENT -3
 #endif
 
 static inline uint32_t tr_to_implication_tr(Transition tr) {
@@ -102,8 +102,8 @@ static inline int32_t get_implication(uint32_t tr) {
         bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN || (forward_0 & 3) == DONT_CARE);
         bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN || (forward_1 & 3) == DONT_CARE);
         #if MULTI_RULE
-        zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
-        one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
+            zero_possible |= (forward_0 == IMPLICATION_RULE_DEPENDENT);
+            one_possible |= (forward_1 == IMPLICATION_RULE_DEPENDENT);
         #endif
         IMPLICATIONDPRINTF(tr, "i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
@@ -135,19 +135,19 @@ static inline void generate_implications(void)
     // fill in the values with 0 unknown cells
     for (Transition tr = 0; tr < 512; tr++) {
         #if MULTI_RULE
-        CellValue value = trs[tr] == TRS_RULE_DEPENDENT ? TRS_RULE_DEPENDENT : (trs[tr] ? ON : OFF);
+            CellValue value = trs[tr] == TRS_RULE_DEPENDENT ? TRS_RULE_DEPENDENT : (trs[tr] ? ON : OFF);
         #else
-        CellValue value = trs[tr] ? ON : OFF;
+            CellValue value = trs[tr] ? ON : OFF;
         #endif
         uint32_t tr2 = tr_to_implication_tr(tr);
         #if MULTI_RULE
-        if (value == TRS_RULE_DEPENDENT) {
-            implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
-            implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
-            IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
-            IMPLICATIONDPRINTF(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
-            continue;
-        }
+            if (value == TRS_RULE_DEPENDENT) {
+                implications[tr2 | OFF] = IMPLICATION_RULE_DEPENDENT;
+                implications[tr2 | ON] = IMPLICATION_RULE_DEPENDENT;
+                IMPLICATIONDPRINTF(tr2 | OFF, "tr = %i, value = %i, result = %i\n", tr2 | OFF, value, implications[tr2 | OFF]);
+                IMPLICATIONDPRINTF(tr2 | ON, "tr = %i, value = %i, result = %i\n", tr2 | ON, value, implications[tr2 | ON]);
+                continue;
+            }
         #endif
         implications[tr2 | OFF] = value == OFF ? DO_NOTHING : CONTRADICTION;
         implications[tr2 | ON] = value == ON ? DO_NOTHING : CONTRADICTION;
@@ -193,7 +193,7 @@ static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit
 
 static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
-    inc_current_time();
+        inc_current_time();
     #endif
     cell->value = value;
     if (cell->prev != NULL) {
@@ -237,9 +237,9 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
         return true;
     }
     #if KEEP_LAST_CHECKED_TIME
-    if (cell->last_checked_time == current_time) {
-        return true;
-    }
+        if (cell->last_checked_time == current_time) {
+            return true;
+        }
     cell->last_checked_time = current_time;
     #endif
     if (cell->x == 0 || cell->y == 0 || cell->x == state.width - 1 || cell->y == state.height - 1) {
@@ -255,19 +255,19 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
         }
     }
     #if CACHE_IMPLICATION_TRS
-    uint32_t tr = cell->tr;
+        uint32_t tr = cell->tr;
     #else
-    uint32_t tr = 
-            (cell->nw->value << 18)
-          | (cell->w->value << 16)
-          | (cell->sw->value << 14)
-          | (cell->n->value << 12)
-          | (cell->value << 10)
-          | (cell->s->value << 8)
-          | (cell->ne->value << 6)
-          | (cell->e->value << 4)
-          | (cell->se->value << 2)
-          | (cell->next->value << 0);
+        uint32_t tr = 
+                (cell->nw->value << 18)
+            | (cell->w->value << 16)
+            | (cell->sw->value << 14)
+            | (cell->n->value << 12)
+            | (cell->value << 10)
+            | (cell->s->value << 8)
+            | (cell->ne->value << 6)
+            | (cell->e->value << 4)
+            | (cell->se->value << 2)
+            | (cell->next->value << 0);
     #endif
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
@@ -279,19 +279,19 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
         return false;
     }
     #if MULTI_RULE
-    if (value == IMPLICATION_RULE_DEPENDENT) {
-        state.rule_dependent_tr =
-                ((cell->nw->value == ON ? 1 : 0) << 8)
-              | ((cell->w->value == ON ? 1 : 0) << 7)
-              | ((cell->sw->value == ON ? 1 : 0) << 6)
-              | ((cell->n->value == ON ? 1 : 0) << 5)
-              | ((cell->value == ON ? 1 : 0) << 4)
-              | ((cell->s->value == ON ? 1 : 0) << 3)
-              | ((cell->ne->value == ON ? 1 : 0) << 2)
-              | ((cell->e->value == ON ? 1 : 0) << 1)
-              | ((cell->se->value == ON ? 1 : 0) << 0);
-        return false;
-    }
+        if (value == IMPLICATION_RULE_DEPENDENT) {
+            state.rule_dependent_tr =
+                    ((cell->nw->value == ON ? 1 : 0) << 8)
+                | ((cell->w->value == ON ? 1 : 0) << 7)
+                | ((cell->sw->value == ON ? 1 : 0) << 6)
+                | ((cell->n->value == ON ? 1 : 0) << 5)
+                | ((cell->value == ON ? 1 : 0) << 4)
+                | ((cell->s->value == ON ? 1 : 0) << 3)
+                | ((cell->ne->value == ON ? 1 : 0) << 2)
+                | ((cell->e->value == ON ? 1 : 0) << 1)
+                | ((cell->se->value == ON ? 1 : 0) << 0);
+            return false;
+        }
     #endif
     #define check(cell, place) \
         if (value & (3 << place)) { \
@@ -324,25 +324,25 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
         // return false;
     }
     #if KEEP_LAST_CHECKED_TIME
-    if (cell->last_checked_time == current_time) {
-        return true;
-    }
-    cell->last_checked_time = current_time;
+        if (cell->last_checked_time == current_time) {
+            return true;
+        }
+        cell->last_checked_time = current_time;
     #endif
     #if CACHE_IMPLICATION_TRS
-    uint32_t tr = cell->tr;
+        uint32_t tr = cell->tr;
     #else
-    uint32_t tr = 
-            ((cell->nw ? cell->nw->value : OFF) << 18)
-          | ((cell->w ? cell->w->value : OFF) << 16)
-          | ((cell->sw ? cell->sw->value : OFF) << 14)
-          | ((cell->n ? cell->n->value : OFF) << 12)
-          | (cell->value << 10)
-          | ((cell->s ? cell->s->value : OFF) << 8)
-          | ((cell->ne ? cell->ne->value : OFF) << 6)
-          | ((cell->e ? cell->e->value : OFF) << 4)
-          | ((cell->se ? cell->se->value : OFF) << 2)
-          | (cell->next->value << 0);
+        uint32_t tr = 
+                ((cell->nw ? cell->nw->value : OFF) << 18)
+            | ((cell->w ? cell->w->value : OFF) << 16)
+            | ((cell->sw ? cell->sw->value : OFF) << 14)
+            | ((cell->n ? cell->n->value : OFF) << 12)
+            | (cell->value << 10)
+            | ((cell->s ? cell->s->value : OFF) << 8)
+            | ((cell->ne ? cell->ne->value : OFF) << 6)
+            | ((cell->e ? cell->e->value : OFF) << 4)
+            | ((cell->se ? cell->se->value : OFF) << 2)
+            | (cell->next->value << 0);
     #endif
     int32_t value = implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, (int)value);
@@ -354,19 +354,19 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
         return false;
     }
     #if MULTI_RULE
-    if (value == IMPLICATION_RULE_DEPENDENT) {
-        state.rule_dependent_tr =
-                ((cell->nw->value == ON ? 1 : 0) << 8)
-              | ((cell->w->value == ON ? 1 : 0) << 7)
-              | ((cell->sw->value == ON ? 1 : 0) << 6)
-              | ((cell->n->value == ON ? 1 : 0) << 5)
-              | ((cell->value == ON ? 1 : 0) << 4)
-              | ((cell->s->value == ON ? 1 : 0) << 3)
-              | ((cell->ne->value == ON ? 1 : 0) << 2)
-              | ((cell->e->value == ON ? 1 : 0) << 1)
-              | ((cell->se->value == ON ? 1 : 0) << 0);
-        return false;
-    }
+        if (value == IMPLICATION_RULE_DEPENDENT) {
+            state.rule_dependent_tr =
+                    ((cell->nw->value == ON ? 1 : 0) << 8)
+                | ((cell->w->value == ON ? 1 : 0) << 7)
+                | ((cell->sw->value == ON ? 1 : 0) << 6)
+                | ((cell->n->value == ON ? 1 : 0) << 5)
+                | ((cell->value == ON ? 1 : 0) << 4)
+                | ((cell->s->value == ON ? 1 : 0) << 3)
+                | ((cell->ne->value == ON ? 1 : 0) << 2)
+                | ((cell->e->value == ON ? 1 : 0) << 1)
+                | ((cell->se->value == ON ? 1 : 0) << 0);
+            return false;
+        }
     #endif
     #define check(cell, place) \
         if (value & (3 << place)) { \
@@ -398,10 +398,10 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
 // #define OT_IMPLICATION_CHECK_TR 1541
 
 #ifdef OT_IMPLICATION_CHECK_TR
-#include <stdio.h>
-#define OTIMPLICATIONDPRINTF(value, ...) if ((value) == OT_IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
+    #include <stdio.h>
+    #define OTIMPLICATIONDPRINTF(value, ...) if ((value) == OT_IMPLICATION_CHECK_TR) {printf(__VA_ARGS__);}
 #else
-#define OTIMPLICATIONDPRINTF(...)
+    #define OTIMPLICATIONDPRINTF(...)
 #endif
 
 
@@ -435,7 +435,7 @@ int8_t ot_implications[4096];
 
 static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
     #if KEEP_LAST_CHECKED_TIME
-    inc_current_time();
+        inc_current_time();
     #endif
     CellValue prev = cell->value;
     cell->value = value;
@@ -608,10 +608,10 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
         return true;
     }
     #if KEEP_LAST_CHECKED_TIME
-    if (cell->last_checked_time == current_time) {
-        return true;
-    }
-    cell->last_checked_time = current_time;
+        if (cell->last_checked_time == current_time) {
+            return true;
+        }
+        cell->last_checked_time = current_time;
     #endif
     if (cell->x == 0 || cell->y == 0 || cell->x == state.width - 1 || cell->y == state.height - 1) {
         if (cell->next == NULL) {
@@ -626,24 +626,24 @@ static inline __attribute__((always_inline)) bool check_implication(Cell* cell) 
         }
     }
     #if CACHE_IMPLICATION_TRS
-    uint32_t tr = cell->tr;
+        uint32_t tr = cell->tr;
     #else
-    uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
-    #define add(cell) \
-        if ((cell)->value == ON) { \
-            tr += 16; \
-        } else if ((cell)->value == OFF) { \
-            tr += 1; \
-        }
-    add(cell->nw);
-    add(cell->n);
-    add(cell->ne);
-    add(cell->w);
-    add(cell->e);
-    add(cell->sw);
-    add(cell->s);
-    add(cell->se);
-    #undef add
+        uint32_t tr = (cell->value << 10) | (cell->next->value << 8);
+        #define add(cell) \
+            if ((cell)->value == ON) { \
+                tr += 16; \
+            } else if ((cell)->value == OFF) { \
+                tr += 1; \
+            }
+        add(cell->nw);
+        add(cell->n);
+        add(cell->ne);
+        add(cell->w);
+        add(cell->e);
+        add(cell->sw);
+        add(cell->s);
+        add(cell->se);
+        #undef add
     #endif
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);
@@ -707,35 +707,35 @@ static inline __attribute__((always_inline)) bool check_implication_handles_edge
         return true;
     }
     #if KEEP_LAST_CHECKED_TIME
-    if (cell->last_checked_time == current_time) {
-        return true;
-    }
-    cell->last_checked_time = current_time;
+        if (cell->last_checked_time == current_time) {
+            return true;
+        }
+        cell->last_checked_time = current_time;
     #endif
     #if CACHE_IMPLICATION_TRS
-    uint32_t tr = cell->tr;
+        uint32_t tr = cell->tr;
     #else
-    uint32_t tr = (cell->value << 10);
-    tr |= (cell->next->value << 8);
-    #define add(cell) \
-        if ((cell) != NULL) { \
-            if ((cell)->value == ON) { \
-                tr += 16; \
-            } else if ((cell)->value == OFF) { \
+        uint32_t tr = (cell->value << 10);
+        tr |= (cell->next->value << 8);
+        #define add(cell) \
+            if ((cell) != NULL) { \
+                if ((cell)->value == ON) { \
+                    tr += 16; \
+                } else if ((cell)->value == OFF) { \
+                    tr += 1; \
+                } \
+            } else { \
                 tr += 1; \
-            } \
-        } else { \
-            tr += 1; \
-        }
-    add(cell->nw);
-    add(cell->n);
-    add(cell->ne);
-    add(cell->w);
-    add(cell->e);
-    add(cell->sw);
-    add(cell->s);
-    add(cell->se);
-    #undef add
+            }
+        add(cell->nw);
+        add(cell->n);
+        add(cell->ne);
+        add(cell->w);
+        add(cell->e);
+        add(cell->sw);
+        add(cell->s);
+        add(cell->se);
+        #undef add
     #endif
     int8_t value = ot_implications[tr];
     DPRINTF4("Implication: t = %i, x = %i, y = %i, tr = %i, value = %i\n", cell->t, cell->x, cell->y, tr, value);
@@ -807,7 +807,7 @@ static inline bool __attribute__((always_inline)) check_implications(Cell* cell)
 
 
 #if VARIABLES
-CellValue prev_values[MAX_VAR_USES];
+    CellValue prev_values[MAX_VAR_USES];
 #endif
 
 // set a cell in the search state, propagating checks
@@ -816,44 +816,21 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_e
     DPRINTF4("Setting cell and propagating: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     if (cell->value != UNKNOWN) {
         #if DEBUG >= 4
-        if (cell->value != value) {
-            DPRINTF4("Contradiction (previous value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
-        } else {
-            DPRINTF4("No action neccessary to set cell\n");
-        }
+            if (cell->value != value) {
+                DPRINTF4("Contradiction (previous value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
+            } else {
+                DPRINTF4("No action neccessary to set cell\n");
+            }
         #endif
         return cell->value == value;
     }
     #if VARIABLES
-    else if (cell->var == NO_VAR) {
-        if (!set_cell(cell, value, is_explicit)) {
-            return false;
-        }
-        DPRINTGRID4();
-        if (!check_implications(cell)) {
-            return false;
-        }
-        #if CUSTOM_PRUNING_ON_CELL_SET
-        if (!custom_prune_on_cell_set(cell)) {
-            return false;
-        }
-        #endif
-        return true;
-    }
-    Variable var = cell->var;
-    DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
-    DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
-    for (Index use = 0; use < state.num_var_uses[var]; use++) {
-        Cell* cell = state.var_uses[var][use];
-        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
-        prev_values[use] = cell->value;
-        if (cell->value != UNKNOWN) {
-            if (cell->value != value) {
-                DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
+        if (cell->var == NO_VAR) {
+            if (!set_cell(cell, value, is_explicit)) {
                 return false;
             }
-        } else {
-            if (!set_cell(cell, value, is_explicit)) {
+            DPRINTGRID4();
+            if (!check_implications(cell)) {
                 return false;
             }
             #if CUSTOM_PRUNING_ON_CELL_SET
@@ -861,32 +838,55 @@ static inline bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_e
                 return false;
             }
             #endif
+            return true;
         }
-    }
-    DPRINTF4("Checking variable set implications\n");
-    DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
-    for (Index use = 0; use < state.num_var_uses[var]; use++) {
-        Cell* cell = state.var_uses[var][use];
-        DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
-        if (prev_values[use] == UNKNOWN) {
-            if (!check_implications(cell)) {
-                return false;
+        Variable var = cell->var;
+        DPRINTF3("Setting variable %i to %i (t = %i, x = %i, y = %i)\n", var, value, cell->t, cell->x, cell->y);
+        DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
+        for (Index use = 0; use < state.num_var_uses[var]; use++) {
+            Cell* cell = state.var_uses[var][use];
+            DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
+            prev_values[use] = cell->value;
+            if (cell->value != UNKNOWN) {
+                if (cell->value != value) {
+                    DPRINTF4("Contradiction (previous variable value mismatch, value = %i, prev_value = %i)\n", value, cell->value);
+                    return false;
+                }
+            } else {
+                if (!set_cell(cell, value, is_explicit)) {
+                    return false;
+                }
+                #if CUSTOM_PRUNING_ON_CELL_SET
+                if (!custom_prune_on_cell_set(cell)) {
+                    return false;
+                }
+                #endif
             }
         }
-    }
+        DPRINTF4("Checking variable set implications\n");
+        DPRINTF4("Reading %i variable datas\n", state.num_var_uses[var]);
+        for (Index use = 0; use < state.num_var_uses[var]; use++) {
+            Cell* cell = state.var_uses[var][use];
+            DPRINTF4("Read variable data: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
+            if (prev_values[use] == UNKNOWN) {
+                if (!check_implications(cell)) {
+                    return false;
+                }
+            }
+        }
     #else
-    if (!set_cell(cell, value, is_explicit)) {
-        return false;
-    }
-    DPRINTGRID4();
-    if (!check_implications(cell)) {
-        return false;
-    }
+        if (!set_cell(cell, value, is_explicit)) {
+            return false;
+        }
+        DPRINTGRID4();
+        if (!check_implications(cell)) {
+            return false;
+        }
     #endif
     #if CUSTOM_PRUNING_ON_CELL_SET
-    if (!custom_prune_on_cell_set(cell)) {
-        return false;
-    }
+        if (!custom_prune_on_cell_set(cell)) {
+            return false;
+        }
     #endif
     return true;
 }

@@ -11,7 +11,7 @@
 
 #include "params2.h"
 #if MULTI_RULE
-#include "rulespaces.c"
+    #include "rulespaces.c"
 #endif
 
 
@@ -19,51 +19,51 @@
 
 
 #if DEBUG >= 1
-#define DPRINTF1 printf
-#define DPRINTGRID1() print_grid(stdout)
+    #define DPRINTF1 printf
+    #define DPRINTGRID1() print_grid(stdout)
 #else
-#define DPRINTF1(...)
-#define DPRINTGRID1()
+    #define DPRINTF1(...)
+    #define DPRINTGRID1()
 #endif
 
 #if DEBUG >= 2
-#define DPRINTF2 printf
-#define DPRINTGRID2() print_grid(stdout)
+    #define DPRINTF2 printf
+    #define DPRINTGRID2() print_grid(stdout)
 #else
-#define DPRINTF2(...)
-#define DPRINTGRID2()
+    #define DPRINTF2(...)
+    #define DPRINTGRID2()
 #endif
 
 #if DEBUG >= 3
-#define DPRINTF3 printf
-#define DPRINTGRID3() print_grid(stdout)
+    #define DPRINTF3 printf
+    #define DPRINTGRID3() print_grid(stdout)
 #else
-#define DPRINTF3(...)
-#define DPRINTGRID3()
+    #define DPRINTF3(...)
+    #define DPRINTGRID3()
 #endif
 
 #if DEBUG >= 4
-#define DPRINTF4 printf
-#define DPRINTGRID4() print_grid(stdout)
+    #define DPRINTF4 printf
+    #define DPRINTGRID4() print_grid(stdout)
 #else
-#define DPRINTF4(...)
-#define DPRINTGRID4()
+    #define DPRINTF4(...)
+    #define DPRINTGRID4()
 #endif
 
 #if DEBUG >= 5
-#define DPRINTF5 printf
-#define DPRINTGRID5() print_grid(stdout)
+    #define DPRINTF5 printf
+    #define DPRINTGRID5() print_grid(stdout)
 #else
-#define DPRINTF5(...)
-#define DPRINTGRID5()
+    #define DPRINTF5(...)
+    #define DPRINTGRID5()
 #endif
 
 #if DEBUG >= 6
-#define DPRINTF6 printf
-#define DPRINTGRID6() print_grid(stdout)
+    #define DPRINTF6 printf
+    #define DPRINTGRID6() print_grid(stdout)
 #else
-#define DPRINTF6(...)
-#define DPRINTGRID6()
+    #define DPRINTF6(...)
+    #define DPRINTGRID6()
 #endif
 
 #define INDENT "    "
@@ -71,32 +71,32 @@
 #define real_printf (printf)
 #define real_fprintf (fprintf)
 #if DEBUG >= 3 || HASH_DEBUG
-int debug_depth = 0;
-#define DPRINTLINEPADDING() { \
-    for (int i = 0; i < debug_depth; i++) { \
-        real_printf(INDENT); \
-    } \
-}
-#define DFPRINTLINEPADDING(stream) { \
-    for (int i = 0; i < debug_depth; i++) { \
-        real_fprintf(stream, INDENT); \
-    } \
-}
-#define printf(...) { \
-    for (int i = 0; i < debug_depth; i++) { \
-        real_printf(INDENT); \
-    } \
-    real_printf(__VA_ARGS__); \
-}
-#define fprintf(stream, ...) { \
-    for (int i = 0; i < debug_depth; i++) { \
-        real_fprintf(stream, INDENT); \
-    } \
-    real_fprintf(stream, __VA_ARGS__); \
-}
+    int debug_depth = 0;
+    #define DPRINTLINEPADDING() { \
+        for (int i = 0; i < debug_depth; i++) { \
+            real_printf(INDENT); \
+        } \
+    }
+    #define DFPRINTLINEPADDING(stream) { \
+        for (int i = 0; i < debug_depth; i++) { \
+            real_fprintf(stream, INDENT); \
+        } \
+    }
+    #define printf(...) { \
+        for (int i = 0; i < debug_depth; i++) { \
+            real_printf(INDENT); \
+        } \
+        real_printf(__VA_ARGS__); \
+    }
+    #define fprintf(stream, ...) { \
+        for (int i = 0; i < debug_depth; i++) { \
+            real_fprintf(stream, INDENT); \
+        } \
+        real_fprintf(stream, __VA_ARGS__); \
+    }
 #else
-#define DPRINTLINEPADDING()
-#define DFPRINTLINEPADDING(stream)
+    #define DPRINTLINEPADDING()
+    #define DFPRINTLINEPADDING(stream)
 #endif
 
 
@@ -109,9 +109,9 @@ typedef uint16_t BoundTransition;
 typedef uint64_t Depth;
 #define PRIdepth PRIu64
 #if MULTI_RULE
-#define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
+    #define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
 #else
-#define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
+    #define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
 #endif
 
 static inline __attribute__((always_inline)) bool is_known(CellValue value) {
@@ -119,26 +119,26 @@ static inline __attribute__((always_inline)) bool is_known(CellValue value) {
 }
 
 #if VARIABLES
-#define NO_VAR 0
-#define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
+    #define NO_VAR 0
+    #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
 #endif
 
 #define MAX_UNPARSED_RULE_LENGTH 256
 
 #if IS_OT
-#define DO_NOTHING 0
-typedef uint16_t ImplicationTransition;
-typedef int16_t SignedImplicationTransition;
+    #define DO_NOTHING 0
+    typedef uint16_t ImplicationTransition;
+    typedef int16_t SignedImplicationTransition;
 #else
-#define DO_NOTHING 0
-typedef uint32_t ImplicationTransition;
-typedef int32_t SignedImplicationTransition;
+    #define DO_NOTHING 0
+    typedef uint32_t ImplicationTransition;
+    typedef int32_t SignedImplicationTransition;
 #endif
 
 #if (MAX_PARTIAL_TYPE != MAX_PARTIAL_TYPE_NONE) && !defined(BENCHMARK)
-#define MAX_PARTIALS true
+    #define MAX_PARTIALS true
 #else
-#define MAX_PARTIALS false
+    #define MAX_PARTIALS false
 #endif
 
 static inline __attribute__((always_inline)) int min(int x, int y) {
@@ -184,20 +184,20 @@ typedef struct Cell {
     // the value of the cell
     CellValue value;
     #if VARIABLES
-    // the variable stored in the cell
-    Variable var;
+        // the variable stored in the cell
+        Variable var;
     #endif
     // the settability
     Settability settable;
     // the next cell in the search order
     struct Cell* next_in_search_order;
     #if CACHE_IMPLICATION_TRS
-    // the cached transition
-    ImplicationTransition tr;
+        // the cached transition
+        ImplicationTransition tr;
     #endif
     #if KEEP_LAST_CHECKED_TIME
-    // the last time the implication was checked
-    uint32_t last_checked_time;
+        // the last time the implication was checked
+        uint32_t last_checked_time;
     #endif
     // the previous cell (in time)
     struct Cell* prev;
@@ -240,23 +240,23 @@ struct {
     Index set_unknown_cells;
     // the last time a cell was set
     #if KEEP_LAST_CHECKED_TIME
-    uint32_t current_time;
+        uint32_t current_time;
     #endif
     // the first cell to be searched
     Cell* initial_cell;
     #if VARIABLES
-    // a list of where variables are used in
-    Cell* var_uses[VAR_COUNT][MAX_VAR_USES];
-    Index num_var_uses[VAR_COUNT];
+        // a list of where variables are used in
+        Cell* var_uses[VAR_COUNT][MAX_VAR_USES];
+        Index num_var_uses[VAR_COUNT];
     #endif
     #ifdef MAXPOP
-    // the number of alive cells in phase 0
-    Index phase_0_pop;
+        // the number of alive cells in phase 0
+        Index phase_0_pop;
     #endif
     #if MULTI_RULE
-    // the transition that caused the most recent rule-dependent "contradiction"
-    // or -1 if it wasn't rule-dependent
-    SignedTransition rule_dependent_tr;
+        // the transition that caused the most recent rule-dependent "contradiction"
+        // or -1 if it wasn't rule-dependent
+        SignedTransition rule_dependent_tr;
     #endif
 } state = {
     .width = INITIAL_WIDTH,
@@ -267,14 +267,14 @@ struct {
     .start_unknown_cells = TOTAL_UNKNOWN_CELLS,
     .set_unknown_cells = 0,
     #if KEEP_LAST_CHECKED_TIME
-    .current_time = 0,
+        .current_time = 0,
     #endif
     .initial_cell = NULL,
     #ifdef MAXPOP
-    .phase_0_pop = 0,
+        .phase_0_pop = 0,
     #endif
     #if MULTI_RULE
-    .rule_dependent_tr = DO_NOTHING,
+        .rule_dependent_tr = DO_NOTHING,
     #endif
 };
 
@@ -289,15 +289,15 @@ Cell forced_off_cell = {
     .index = 0,
     .value = OFF,
     #if VARIABLES
-    .var = 0,
+        .var = 0,
     #endif
     .settable = NOT_SETTABLE,
     .next_in_search_order = NULL,
     #if CACHE_IMPLICATION_TRS
-    .tr = 0,
+        .tr = 0,
     #endif
     #if KEEP_LAST_CHECKED_TIME
-    .last_checked_time = 0,
+        .last_checked_time = 0,
     #endif
     .prev = NULL,
     .next = NULL,
@@ -345,7 +345,7 @@ static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* ce
 #endif
 
 #if MULTI_RULE
-static inline void unsafe_set_tr(BoundTransition bound_tr, CellValue value);
+    static inline void unsafe_set_tr(BoundTransition bound_tr, CellValue value);
 #endif
 
 
@@ -353,15 +353,15 @@ static const char* CELL_LETTERS = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmno
 
 static inline void print_cell(FILE* stream, CellValue value
     #if VARIABLES
-    , Variable var
+        , Variable var
     #endif
 ) {
     #if VARIABLES
-    if (value == UNKNOWN) {
-        if (var > 0) {
-            value = 3 + var;
+        if (value == UNKNOWN) {
+            if (var > 0) {
+                value = 3 + var;
+            }
         }
-    }
     #endif
     if (value < 65) {
         real_fprintf(stream, "%c", CELL_LETTERS[value]);
@@ -383,9 +383,9 @@ static inline void print_grid(FILE* stream) {
             for (Index x = 0; x < state.width; x++) {
                 Cell* cell = get_cell(t, x, y);
                 #if VARIABLES
-                print_cell(stream, cell->value, cell->var);
+                    print_cell(stream, cell->value, cell->var);
                 #else
-                print_cell(stream, cell->value);
+                    print_cell(stream, cell->value);
                 #endif
             }
             real_fprintf(stream, " $\n");
@@ -411,12 +411,12 @@ static inline void init_state(void) {
     }
     // initialize the variable uses
     #if VARIABLES
-    for (Index i = 0; i < VAR_COUNT; i++) {
-        state.num_var_uses[i] = 0;
-        for (Index j = 0; j < MAX_VAR_USES; j++) {
-            state.var_uses[i][j] = NULL;
+        for (Index i = 0; i < VAR_COUNT; i++) {
+            state.num_var_uses[i] = 0;
+            for (Index j = 0; j < MAX_VAR_USES; j++) {
+                state.var_uses[i][j] = NULL;
+            }
         }
-    }
     #endif
     // main initialization
     Index index = 0;
@@ -429,17 +429,17 @@ static inline void init_state(void) {
                 cell->y = y;
                 cell->index = index++;
                 #if VARIABLES
-                cell->var = INITIAL_VARS[t][y][x];
-                if (cell->var > 0) {
-                    state.var_uses[cell->var][state.num_var_uses[cell->var]++] = cell;
-                }
+                    cell->var = INITIAL_VARS[t][y][x];
+                    if (cell->var > 0) {
+                        state.var_uses[cell->var][state.num_var_uses[cell->var]++] = cell;
+                    }
                 #endif
                 cell->settable = INITIAL_SETTABLE[t][y][x];
                 #if CACHE_IMPLICATION_TRS
-                cell->tr = DO_NOTHING;
+                    cell->tr = DO_NOTHING;
                 #endif
                 #if CACHE_TIMES
-                cell->last_update = 0;
+                    cell->last_update = 0;
                 #endif
                 const int32_t* next_coords = INITIAL_NEXTS[t][y][x];
                 int32_t next_t = next_coords[0];
@@ -468,14 +468,14 @@ static inline void init_state(void) {
     }
     // set the transitions
     #if CACHE_IMPLICATION_TRS
-    for (Index t = 0; t < state.gens; t++) {
-        for (Index y = 0; y < state.height; y++) {
-            for (Index x = 0; x < state.width; x++) {
-                Cell* cell = get_cell(t, x, y);
-                cell->tr = safe_compute_implication_tr(cell);
+        for (Index t = 0; t < state.gens; t++) {
+            for (Index y = 0; y < state.height; y++) {
+                for (Index x = 0; x < state.width; x++) {
+                    Cell* cell = get_cell(t, x, y);
+                    cell->tr = safe_compute_implication_tr(cell);
+                }
             }
         }
-    }
     #endif
 }
 
@@ -487,7 +487,7 @@ static inline void destroy_state(void) {
 
 #define STACKENTRY_TYPE_CELL_SET 0
 #if MULTI_RULE
-#define STACKENTRY_TYPE_RULE_CHANGE 1
+    #define STACKENTRY_TYPE_RULE_CHANGE 1
 #endif
 // todo: test performance of the packing
 typedef struct /*__attribute__((packed))*/ StackEntry {
@@ -497,15 +497,15 @@ typedef struct /*__attribute__((packed))*/ StackEntry {
     union {
         Index cell_set;
         #if MULTI_RULE
-        // left shifted by 4 bits, then it's the old cell value, then it's the new cell value
-        BoundTransition rule_change;
+            // left shifted by 4 bits, then it's the old cell value, then it's the new cell value
+            BoundTransition rule_change;
         #endif
     } data;
 } StackEntry;
 
 #if MULTI_RULE
-static const char* bound_trs_names[512];
-size_t tr_to_bound_tr[512];
+    static const char* bound_trs_names[512];
+    size_t tr_to_bound_tr[512];
 #endif
 
 static inline void print_stack_entry(StackEntry* entry) {
@@ -541,8 +541,8 @@ static inline void print_stack_entry(StackEntry* entry) {
 // returns false if contradiction, true if no contradiction
 static inline bool apply_stack_entry(StackEntry* entry) {
     #if DEBUG >= 4
-    printf("Applying stack entry: ");
-    print_stack_entry(entry);
+        printf("Applying stack entry: ");
+        print_stack_entry(entry);
     #endif
     #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
@@ -575,8 +575,8 @@ static inline bool apply_stack_entry(StackEntry* entry) {
 // returns false if contradiction, true if no contradiction
 static inline bool undo_stack_entry(StackEntry* entry) {
     #if DEBUG >= 4
-    printf("Popping stack entry: ");
-    print_stack_entry(entry);
+        printf("Popping stack entry: ");
+        print_stack_entry(entry);
     #endif
     #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
@@ -773,22 +773,22 @@ static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
     unsafe_set_cell_value(cell, value);
     state.set_unknown_cells++;
     #ifdef MAXPOP
-    if (cell->t == 0) {
-        if (value == ON && cell->value != ON) {
-            state.phase_0_pop++;
-            if (state.phase_0_pop > MAXPOP) {
-                return false;
+        if (cell->t == 0) {
+            if (value == ON && cell->value != ON) {
+                state.phase_0_pop++;
+                if (state.phase_0_pop > MAXPOP) {
+                    return false;
+                }
+            } else if (value != ON && cell->value == ON) {
+                state.phase_0_pop--;
             }
-        } else if (value != ON && cell->value == ON) {
-            state.phase_0_pop--;
         }
-    }
     #endif
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_CELL_SET;
     entry->data.cell_set = cell->index;
     #if DEBUG >= 4
-    print_stack(current_stack);
+        print_stack(current_stack);
     #endif
     return true;
 }

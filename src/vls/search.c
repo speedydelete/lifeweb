@@ -10,7 +10,7 @@
 #include "implications.c"
 #include "output.c"
 #ifdef CUSTOM
-#include CUSTOM
+    #include CUSTOM
 #endif
 
 
