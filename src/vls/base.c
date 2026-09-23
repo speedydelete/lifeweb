@@ -114,9 +114,7 @@ typedef uint64_t Depth;
     #define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
 #endif
 
-static inline __attribute__((always_inline)) bool is_known(CellValue value) {
-    return value == OFF || value == ON;
-}
+#define is_known(value) ((value) == OFF || (value) == ON)
 
 #if VARIABLES
     #define NO_VAR 0
