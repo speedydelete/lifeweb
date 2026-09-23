@@ -427,7 +427,7 @@ static inline double get_time(void) {
 double start;
 
 
-#if CELL_PERIOD_FILTER
+#ifdef CELL_PERIOD_FILTER
 const int cell_period_filter[] = CELL_PERIOD_FILTER;
 #endif
 
