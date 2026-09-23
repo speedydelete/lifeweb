@@ -94,7 +94,7 @@ static inline void preprocess_cases(void) {
                     continue;
                 }
                 // filter out where the cell value is unknown
-                if (cell->value == UNKNOWN && cell->var == 0) {
+                if (cell->next->value == UNKNOWN && cell->next->var == NO_VAR) {
                     continue;
                 }
                 Case cells;
@@ -119,7 +119,7 @@ static inline void preprocess_cases(void) {
                 if (found2) {
                     continue;
                 }
-                if (!found && !(cell->next->var > 0)) {
+                if (!found && !(cell->next->var != NO_VAR)) {
                     continue;
                 }
                 cells[9].value = cell->next->value;
@@ -133,7 +133,7 @@ static inline void preprocess_cases(void) {
                     }
                 }
                 #if DEBUG >= 3
-                    printf("New case (%i): ", case_count);
+                    printf("New case (%zu): ", case_count);
                     print_case(&cells);
                     real_printf("\n");
                 #endif
@@ -207,7 +207,7 @@ static inline void preprocess_cases(void) {
                 for (size_t i = 0; i < case_count; i++) {
                     if (memcmp(cases[i], &cells, sizeof(CaseCell) * 9) == 0) {
                         #if DEBUG >= 3
-                            printf("Cell at t = %i, x = %i, y = %i matches case %i: ", t, x, y, i);
+                            printf("Cell at t = %i, x = %i, y = %i matches case %zu: ", t, x, y, i);
                             print_case(&cells);
                             real_printf("\n");
                         #endif
@@ -232,8 +232,8 @@ static inline void preprocess_cases(void) {
                                     safe_free(cases);
                                     exit(0);
                                 }
-                            } else if (new_cell.var == 0) {
-                                real_fprintf(stderr, "Error: This error should not occur, please report it (new_cell.var == 0)\n");
+                            } else if (new_cell.var == NO_VAR) {
+                                real_fprintf(stderr, "Error: This error should not occur, please report it (new_cell.var == NO_VAR)\n");
                                 exit(1);
                             } else if (next_cell->var == 0) {
                                 // it was unknown, now we know it must be a certain variable

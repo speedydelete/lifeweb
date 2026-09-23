@@ -655,8 +655,26 @@ function getSearchOrder(grid: Grid, order: string): Coord[] {
         }
     }
     let parsedOrder: t.Expression[] = [];
-    for (let metric of order.split(/(?<!\\),/)) {
-        metric = metric.trim().replaceAll('\\,', ',');
+    let metrics: string[] = [];
+    let currentMetric = '';
+    let parenLevel = 0;
+    for (let char of order) {
+        if (char === ',' && parenLevel === 0) {
+            metrics.push(currentMetric);
+            currentMetric = '';
+        } else {
+            if (char === '(' || char === '[' || char === '{') {
+                parenLevel++;
+            }
+            if (char === ')' || char === ']' || char === '}') {
+                parenLevel--;
+            }
+            currentMetric += char;
+        }
+    }
+    metrics.push(currentMetric);
+    for (let metric of metrics) {
+        metric = metric.trim();
         if (metric === '') {
             continue;
         }
