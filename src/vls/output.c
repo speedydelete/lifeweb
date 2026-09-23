@@ -373,10 +373,37 @@ static inline void destroy_solutions(void) {
 static inline void print_progress(FILE* stream);
 
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-#include <x86intrin.h>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+    #ifdef _MSC_VER
+        #include <intrin.h>
+    #else
+        #include <x86intrin.h>
+    #endif
+    static inline uint64_t read_counter(void) {
+        return __rdtsc();
+    }
+#elif defined(__aarch64__)
+    static inline uint64_t read_counter(void) {
+        uint64_t val;
+        __asm__ volatile("mrs %0, cntvct_el0" : "=r" (val));
+        return val;
+    }
+#elif defined(__riscv) && __riscv_xlen == 64
+    static inline uint64_t read_counter(void) {
+        uint64_t cycles;
+        __asm__ volatile("rdcycle %0" : "=r"(cycles));
+        return cycles;
+    }
+#elif defined(__powerpc__) || defined(__ppc__)
+    static inline uint64_t read_counter(void) {
+        uint64_t tb;
+        __asm__ volatile("mfspr %0, 268" : "=r"(tb));
+        return tb;
+    }
 #else
-#define __rdtsc __builtin_readcyclecounter
+    static inline uint64_t read_counter(void) {
+        return __builtin_readcyclecounter();
+    }
 #endif
 
 double cycles_per_second;
@@ -387,9 +414,9 @@ static void calibrate_time(void) {
     // 0.01 seconds
     request.tv_sec = 0;
     request.tv_nsec = 10000000L;
-    uint64_t start = __rdtsc();
+    uint64_t start = read_counter();
     nanosleep(&request, &remainder);
-    uint64_t end = __rdtsc();
+    uint64_t end = read_counter();
     cycles_per_second = (end - start) * 100;
 }
 
