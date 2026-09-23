@@ -48,17 +48,13 @@ int main(void) {
     #if MULTI_RULE
     init_tr_to_bound_tr();
     #endif
-    #if SHOW_SOLUTIONS
     init_solutions();
-    #endif
     preprocess();
     #if CUSTOM_INIT
     custom_init();
     #endif
     run_search();
-    #if SHOW_SOLUTIONS
     destroy_solutions();
-    #endif
     destroy_stack(current_stack);
     destroy_state();
     return 0;

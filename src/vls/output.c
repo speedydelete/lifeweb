@@ -126,9 +126,6 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
 }
 
 
-#if SHOW_SOLUTIONS
-
-
 typedef uint64_t Hash;
 #define PRIhash PRIu64
 #define HASH_OFFSET UINT64_C(0xcbf29ce484222325)
@@ -373,9 +370,6 @@ static inline void destroy_solutions(void) {
 }
 
 
-#endif
-
-
 static inline void print_progress(FILE* stream);
 
 
@@ -406,13 +400,11 @@ static inline double get_time(void) {
 double start;
 
 
-#if SHOW_SOLUTIONS
-
-#ifdef CELL_PERIOD_FILTER
+#if CELL_PERIOD_FILTER
 const int cell_period_filter[] = CELL_PERIOD_FILTER;
 #endif
 
-static inline void check_solution(bool preprocessing) {
+static inline void check_solution([[maybe_unused]] bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
     #define drop_solution(msg)\
@@ -566,12 +558,14 @@ static inline void check_solution(bool preprocessing) {
     #endif
     // show the solution
     solutions_found++;
+    #if SHOW_SOLUTIONS
     if (preprocessing) {
         printf("Solved in preprocessing, 1 solution:\n");
     } else {
         printf("Solution found:\n");
     }
     print_grid_pretty(&solution_grid, true);
+    #endif
     #ifdef MAX_SOLUTIONS
     if (solutions_found >= MAX_SOLUTIONS) {
         printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
@@ -583,8 +577,6 @@ static inline void check_solution(bool preprocessing) {
     dg_destroy(&solution_grid);
     #endif
 }
-
-#endif
 
 
 

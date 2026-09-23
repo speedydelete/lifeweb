@@ -7,7 +7,7 @@ import {Matcher, EOF, literal, ParserError, BaseParser, IdentityPattern} from '.
 
 
 export function error(msg: string): never {
-    console.error(`Error: ${msg}\nUse ./vls --help for help`);
+    console.error(`Error: ${msg}\nUse ./vls -h for help`);
     process.exit(1);
 }
 
@@ -1470,7 +1470,7 @@ export async function runFile(filename: string): Promise<Grid> {
         return await parser.program();
     } catch (e) {
         if (e instanceof VLSFileError) {
-            console.error(`Use ./vls --help for help`);
+            console.error(`Use ./vls -h for help`);
             process.exit(1);
         } else {
             throw e;

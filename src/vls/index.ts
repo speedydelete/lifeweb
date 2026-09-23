@@ -179,7 +179,7 @@ const OPTIONS = {
     'partial-interval': NUMBER,
     'max-solutions': NUMBER,
     'n': 'max-solutions',
-    'no-show-solutions': NUMBER,
+    'no-show-solutions': FLAG,
     'allow-empty': FLAG,
     'allow-duplicates': FLAG,
     'periodic': STRING,
