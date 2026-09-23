@@ -1143,11 +1143,30 @@ class VLSFileParser extends BaseParser {
         return out;
     }
 
-    generationRange(): number[] {
+    generationOrRange(): number[] {
         let value = this.generation();
-        if (this.match('-') || this.match('to')) {
+        if (this.match('to')) {
             this.advance();
             let end = this.generation();
+            let out: number[] = [];
+            for (let i = value; i <= end; i++) {
+                out.push(i);
+            }
+            return out;
+        } else {
+            return [value];
+        }
+    }
+
+    state(): number {
+        return Number(this.eat(T_STATE)[0]);
+    }
+
+    stateOrRange(): number[] {
+        let value = this.state();
+        if (this.match('to')) {
+            this.advance();
+            let end = this.state();
             let out: number[] = [];
             for (let i = value; i <= end; i++) {
                 out.push(i);
@@ -1220,7 +1239,7 @@ class VLSFileParser extends BaseParser {
                 this.advance();
                 absolute = true;
             }
-            let range = this.generationRange();
+            let range = this.generationOrRange();
             this.eat([':', 'colon']);
             let value = this.stateSpecifier();
             if (absolute) {
@@ -1256,9 +1275,13 @@ class VLSFileParser extends BaseParser {
     }
 
     stateSetStatement(): void {
-        let state = Number(this.eat(T_STATE)[0]);
+        let states = this.stateOrRange();
         this.eat(['=', 'equals sign']);
-        this.scope.setState(state, this.fullStateSpecifier());
+        let start = this.pos;
+        for (let state of states) {
+            this.pos = start;
+            this.scope.setState(state, this.fullStateSpecifier());
+        }
         this.eat(T_LINE_END);
     }
 
@@ -1291,7 +1314,7 @@ class VLSFileParser extends BaseParser {
             this.advance();
             gens = [];
             while (!(this.match(':') || this.match('offset'))) {
-                for (let value of this.generationRange()) {
+                for (let value of this.generationOrRange()) {
                     gens.push(value);
                 }
                 while (this.match(',')) {
@@ -1406,14 +1429,17 @@ class VLSFileParser extends BaseParser {
 
     deleteStatement(): void {
         this.eat(literal('delete'));
-        let state = Number(this.eat(T_STATE)[0]);
-        this.scope.deleteState(state, -1);
+        let to = this.pos - 1;
+        let states = this.stateOrRange();
+        for (let state of states) {
+            this.scope.deleteState(state, this.pos - to);
+        }
     }
 
     statement(): void {
         if (this.match(T_LINE_END)) {
             this.advance();
-        } else if (this.match(T_STATE, '=')) {
+        } else if (this.match(T_STATE)) {
             this.stateSetStatement();
         } else if (this.match('gen') || this.match('all', 'gens') || this.match('gens')) {
             this.rleStatement();
