@@ -8,6 +8,8 @@
 
 const Index drifter_cells[][2] = {
     {7, 7},
+    {8, 8},
+    {9, 9},
 };
 
 
