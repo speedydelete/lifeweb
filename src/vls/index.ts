@@ -1,11 +1,13 @@
 
+import '../globals.d.ts';
+
 import * as path from 'node:path';
 
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, CT, CX, CY, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile, NOT_SETTABLE} from './compiler.js';
+import {error, Coord, coord, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile, NOT_SETTABLE} from './compiler.js';
 
 
 const HELP = `
@@ -603,10 +605,6 @@ if (mode === 'periodic') {
 }
 
 
-if (periodic === undefined) {
-
-}
-
 if (options['symmetry']) {
     grid.applySymmetry(options['symmetry']);
 }
@@ -649,7 +647,7 @@ function getSearchOrder(grid: Grid, order: string): Coord[] {
             for (let x = 0; x < grid.width; x++) {
                 let cell = grid.get(t, x, y);
                 if (cell.state == UNKNOWN && cell.settable == SEARCHABLE) {
-                    cells.push([t, x, y]);
+                    cells.push(coord(t, x, y));
                 }
             }
         }
@@ -846,39 +844,6 @@ for (let line of code.split('\n')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
     } else if (line.startsWith('static const Settability INITIAL_SETTABLE[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
         line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
-    } else if (line.startsWith('static const int32_t INITIAL_NEXTS[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH][3] = ')) {
-        line = line.slice(0, line.indexOf('{'));
-        let nullCell = `{-1, -1, -1}`;
-        let offCell = `{-2, -2, -2}`;
-        let offRowData: string[] = [];
-        for (let x = 0; x < grid.width + PADDING * 2; x++) {
-            offRowData.push(offCell);
-        }
-        let offRow = `{${offRowData.join(', ')}}`;
-        let data: string[] = [];
-        for (let layer of grid.data) {
-            let layerData: string[] = [offRow, offRow];
-            for (let row of layer) {
-                let rowData: string[] = [offCell, offCell];
-                for (let cell of row) {
-                    let pos = cell.next;
-                    if (pos === undefined) {
-                        rowData.push(offCell);
-                    } else if (grid.isCoordInBounds(pos)) {
-                        rowData.push(`{${pos[CT]}, ${pos[CX] + PADDING}, ${pos[CY] + PADDING}}`);
-                    } else if (pos[CT] < 0 || pos[CT] >= grid.gens) {
-                        rowData.push(nullCell);
-                    } else {
-                        rowData.push(offCell);
-                    }
-                }
-                rowData.push(offCell, offCell);
-                layerData.push(`{${rowData.join(', ')}}`);
-            }
-            layerData.push(offRow, offRow);
-            data.push(`{${layerData.join(', ')}}`);
-        }
-        line += '{' + data.join(', ') + '};';
     } else if (line.startsWith(`uint8_t trs[512] = `)) {
         let trs = base.trs.slice();
         if (multiRule) {
@@ -892,7 +857,7 @@ for (let line of code.split('\n')) {
         line = line.slice(0, line.indexOf('{')) + '{' + trs.join(', ') + '};';
     } else if (line.startsWith('Index search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
         line = line.slice(0, line.indexOf('{'));
-        line += '{' + searchOrderData.map(x => `{${x[CT]}, ${x[CX] + PADDING}, ${x[CY] + PADDING}}`).join(', ') + '};';
+        line += '{' + searchOrderData.map(pos => `{${pos.t}, ${pos.x + PADDING}, ${pos.y + PADDING}}`).join(', ') + '};';
     }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
         out.push(indent + line);
@@ -935,63 +900,63 @@ return [options, out.join('\n')];
 }
 
 
-export async function main() {
-    let path = await import('node:path');
-    function getPath(file: string): string {
-        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
-    }
-    let fs = await import('node:fs/promises');
-    let {execSync, spawnSync} = (await import('node:child_process'));
-    let execPath = getPath('vls_compiled');
-    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-        execPath = './' + execPath;
-    }
-    let source = (await fs.readFile(getPath('src/vls/params.h'))).toString();
-    let [options, code] = await transformCode(process.argv, source);
-    await fs.writeFile(getPath('src/vls/params2.h'), code);
-    try {
-        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
-        // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
-        // features
-        command += ` -g`;
-        if (!options['no-optimize']) {
-            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-        }
-        if (options['address-sanitizer']) {
-            command += ` -fsanitize=address`;
-        }
-        let baseCommand = command;
-        let commandEnd = ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        if (options['profile']) {
-            if (options['clang']) {
-                command += ` -fprofile-instr-generate -DFOR_PROFILE`;
-            } else {
-                command += ` -fprofile-generate`;
-            }
-        }
-        command += commandEnd;
-        execSync(command, {stdio: 'inherit'});
-        if (options['profile']) {
-            console.log(`Running for up to ${options['profile']} seconds to gather profiling data`);
-            spawnSync(`${execPath}`, {timeout: options['profile'] * 1000, killSignal: 'SIGTERM'});
-            console.log(`Profiling data gathered, recompiling`);
-            command = baseCommand;
-            if (options['clang']) {
-                execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
-                command += ` -fprofile-instr-use=vls.profdata`;
-            } else {
-                command += ` -fprofile-use`;
-            }
-            command += commandEnd;
-            execSync(command, {stdio: 'inherit'});
-        }
-        execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
-    } catch (error) {
-        process.exit(1);
-    }
-}
+// export async function main() {
+//     let path = await import('node:path');
+//     function getPath(file: string): string {
+//         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+//     }
+//     let fs = await import('node:fs/promises');
+//     let {execSync, spawnSync} = (await import('node:child_process'));
+//     let execPath = getPath('vls_compiled');
+//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+//         execPath = './' + execPath;
+//     }
+//     let source = (await fs.readFile(getPath('src/vls/params.h'))).toString();
+//     let [options, code] = await transformCode(process.argv, source);
+//     await fs.writeFile(getPath('src/vls/params2.h'), code);
+//     try {
+//         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+//         // strict mode
+//         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
+//         // features
+//         command += ` -g`;
+//         if (!options['no-optimize']) {
+//             command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+//         }
+//         if (options['address-sanitizer']) {
+//             command += ` -fsanitize=address`;
+//         }
+//         let baseCommand = command;
+//         let commandEnd = ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+//         if (options['profile']) {
+//             if (options['clang']) {
+//                 command += ` -fprofile-instr-generate -DFOR_PROFILE`;
+//             } else {
+//                 command += ` -fprofile-generate`;
+//             }
+//         }
+//         command += commandEnd;
+//         execSync(command, {stdio: 'inherit'});
+//         if (options['profile']) {
+//             console.log(`Running for up to ${options['profile']} seconds to gather profiling data`);
+//             spawnSync(`${execPath}`, {timeout: options['profile'] * 1000, killSignal: 'SIGTERM'});
+//             console.log(`Profiling data gathered, recompiling`);
+//             command = baseCommand;
+//             if (options['clang']) {
+//                 execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
+//                 command += ` -fprofile-instr-use=vls.profdata`;
+//             } else {
+//                 command += ` -fprofile-use`;
+//             }
+//             command += commandEnd;
+//             execSync(command, {stdio: 'inherit'});
+//         }
+//         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
+//     } catch (error) {
+//         process.exit(1);
+//     }
+// }
 
-if (import.meta.main) {
-    main();
-}
+// if (import.meta.main) {
+//     main();
+// }

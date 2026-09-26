@@ -100,28 +100,18 @@
 #endif
 
 
-typedef uint16_t Transition;
-typedef int16_t SignedTransition;
-
-typedef uint16_t BoundTransition;
+#define PADDING 2
 
 
 typedef uint64_t Depth;
 #define PRIdepth PRIu64
+// add 2 because off-by-1 errors
 #if MULTI_RULE
-    #define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 512 + 2)
+    #define MAX_DEPTH (VAR_COUNT + 512 + 2)
 #else
-    #define MAX_DEPTH (TOTAL_UNKNOWN_CELLS + 2)
+    #define MAX_DEPTH (VAR_COUNT + 2)
 #endif
 
-#define is_known(value) ((value) == OFF || (value) == ON)
-
-#if VARIABLES
-    #define NO_VAR 0
-    #define MAX_VAR_USES TOTAL_UNKNOWN_CELLS
-#endif
-
-#define MAX_UNPARSED_RULE_LENGTH 256
 
 #if IS_OT
     #define DO_NOTHING 0
@@ -139,6 +129,13 @@ typedef uint64_t Depth;
     #define MAX_PARTIALS false
 #endif
 
+typedef uint16_t Transition;
+typedef int16_t SignedTransition;
+typedef uint16_t BoundTransition;
+
+#define MAX_UNPARSED_RULE_LENGTH 256
+
+
 static inline __attribute__((always_inline)) int min(int x, int y) {
     return x < y ? x : y;
 }
@@ -146,6 +143,7 @@ static inline __attribute__((always_inline)) int min(int x, int y) {
 static inline __attribute__((always_inline)) int max(int x, int y) {
     return x > y ? x : y;
 }
+
 
 static inline void* safe_malloc(size_t size) {
     void* out = malloc(size);
@@ -170,54 +168,72 @@ static inline void safe_free(void* ptr) {
 }
 
 
-typedef struct Cell {
-    // the generation
-    Index t;
-    // the x coordinate
-    Index x;
-    // the y coordinate
-    Index y;
-    // (t * state.layer_size) + (y * state.width) + x
-    Index index;
-    // the value of the cell
+typedef struct Cell Cell;
+typedef struct CAClause CAClause;
+
+struct CAClause {
+    ImplicationTransition tr;
+    bool invert_prev : 1;
+    bool invert_next : 1;
+    bool invert_nw : 1;
+    bool invert_n : 1;
+    bool invert_ne : 1;
+    bool invert_w : 1;
+    bool invert_e : 1;
+    bool invert_sw : 1;
+    bool invert_s : 1;
+    bool invert_se : 1;
+    Cell* prev;
+    Cell* next;
+    Cell* nw;
+    Cell* n;
+    Cell* ne;
+    Cell* w;
+    Cell* e;
+    Cell* sw;
+    Cell* s;
+    Cell* se;
+};
+
+typedef struct CAClauseList {
+    CAClause* prev;
+    CAClause* next;
+    CAClause* nw;
+    CAClause* n;
+    CAClause* ne;
+    CAClause* w;
+    CAClause* e;
+    CAClause* sw;
+    CAClause* s;
+    CAClause* se;
+} CAClauseList;
+
+struct Cell {
+    // the actual value of the cell
     CellValue value;
-    #if VARIABLES
-        // the variable stored in the cell
-        Variable var;
-    #endif
-    // the settability
+    // the settability value
     Settability settable;
-    // the next cell in the search order
-    struct Cell* next_in_search_order;
-    #if CACHE_IMPLICATION_TRS
-        // the cached transition
-        ImplicationTransition tr;
-    #endif
-    #if KEEP_LAST_CHECKED_TIME
-        // the last time the implication was checked
-        uint32_t last_checked_time;
-    #endif
-    // the previous cell (in time)
-    struct Cell* prev;
-    // the next cell (in time)
-    struct Cell* next;
-    // the northwest neighbor
-    struct Cell* nw;
-    // the north neighbor
-    struct Cell* n;
-    // the northeast neighbor
-    struct Cell* ne;
-    // the west neighbor
-    struct Cell* w;
-    // the east neighbor
-    struct Cell* e;
-    // the southwest neighbor
-    struct Cell* sw;
-    // the south neighbor
-    struct Cell* s;
-    // the southeast neighbor
-    struct Cell* se;
-} Cell;
+    // the variable number from INITIAL_VARS
+    uint64_t variable_number;
+    // the length of the used_in flexible array member
+    size_t uses;
+    // the clauses it is used in
+    CAClauseList used_in[];
+};
+
+Cell off_cell = {
+    .value = OFF,
+    .settable = NOT_SEARCHABLE,
+    .uses = 0,
+    // no need to initialize the flexible array member
+};
+
+Cell on_cell = {
+    .value = ON,
+    .settable = NOT_SEARCHABLE,
+    .uses = 0,
+    // no need to initialize the flexible array member
+};
 
 struct {
     // the width of the grid
@@ -230,8 +246,12 @@ struct {
     const Index layer_size;
     // the total number of cells in the grid
     const Index total_size;
-    // the actual cell data
-    Cell* grid;
+    // `total_size`-long array of pointers to cells
+    Cell** grid;
+    // the number of CA clauses
+    size_t ca_clause_count;
+    // the CA clauses that encode the problem
+    CAClause* ca_clauses;
     // the number of unknown cells at the start of the search
     Index start_unknown_cells;
     // the current number of set unknown cells
@@ -242,11 +262,6 @@ struct {
     #endif
     // the first cell to be searched
     Cell* initial_cell;
-    #if VARIABLES
-        // a list of where variables are used in
-        Cell* var_uses[VAR_COUNT][MAX_VAR_USES];
-        Index num_var_uses[VAR_COUNT];
-    #endif
     #ifdef MAXPOP
         // the number of alive cells in phase 0
         Index phase_0_pop;
@@ -262,7 +277,9 @@ struct {
     .gens = INITIAL_GENS,
     .layer_size = INITIAL_WIDTH * INITIAL_HEIGHT,
     .total_size = INITIAL_WIDTH * INITIAL_HEIGHT * INITIAL_GENS,
-    .start_unknown_cells = TOTAL_UNKNOWN_CELLS,
+    .grid = NULL,
+    .
+    .start_unknown_cells = VAR_COUNT,
     .set_unknown_cells = 0,
     #if KEEP_LAST_CHECKED_TIME
         .current_time = 0,
@@ -277,69 +294,31 @@ struct {
 };
 
 static inline __attribute__((always_inline)) Cell* get_cell(Index t, Index x, Index y) {
-    return &(state.grid[(((t * state.height) + y) * state.width) + x]);
+    return state.grid[(((t * state.height) + y) * state.width) + x];
 }
-
-Cell forced_off_cell = {
-    .t = 0,
-    .x = 0,
-    .y = 0,
-    .index = 0,
-    .value = OFF,
-    #if VARIABLES
-        .var = 0,
-    #endif
-    .settable = NOT_SETTABLE,
-    .next_in_search_order = NULL,
-    #if CACHE_IMPLICATION_TRS
-        .tr = 0,
-    #endif
-    #if KEEP_LAST_CHECKED_TIME
-        .last_checked_time = 0,
-    #endif
-    .prev = NULL,
-    .next = NULL,
-    .nw = NULL,
-    .n = NULL,
-    .ne = NULL,
-    .w = NULL,
-    .e = NULL,
-    .sw = NULL,
-    .s = NULL,
-    .se = NULL,
-};
-
 
 #if KEEP_LAST_CHECKED_TIME
-
-bool is_time_gt(uint32_t x, uint32_t y) {
-    return x > y || (x < y && x > INT32_MAX && y < INT32_MAX);
-}
-
-void inc_current_time(void) {
-    state.current_time++;
-    if (state.current_time > INT32_MAX) {
-        state.current_time = 0;
+    bool is_time_gt(uint32_t x, uint32_t y) {
+        return x > y || (x < y && x > INT32_MAX && y < INT32_MAX);
     }
-}
-
+    void inc_current_time(void) {
+        state.current_time++;
+        if (state.current_time > INT32_MAX) {
+            state.current_time = 0;
+        }
+    }
 #endif
 
 #if CACHE_IMPLICATION_TRS
-
-static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value);
-
-static inline uint32_t safe_compute_implication_tr(Cell* cell);
-
+    static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value);
+    static inline uint32_t safe_compute_implication_tr(Cell* cell);
 #else
-
-static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
-    #if KEEP_LAST_CHECKED_TIME
-    inc_current_time();
-    #endif
-    cell->value = value;
-}
-
+    static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* cell, CellValue value) {
+        #if KEEP_LAST_CHECKED_TIME
+        inc_current_time();
+        #endif
+        cell->value = value;
+    }
 #endif
 
 #if MULTI_RULE
@@ -349,15 +328,12 @@ static inline __attribute__((always_inline)) void unsafe_set_cell_value(Cell* ce
 
 static const char* CELL_LETTERS = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
-static inline void print_cell(FILE* stream, CellValue value
-    #if VARIABLES
-        , Variable var
-    #endif
-) {
+static inline void print_cell(FILE* stream, Cell* cell) {
+    CellValue value = cell->value;
     #if VARIABLES
         if (value == UNKNOWN) {
-            if (var > 0) {
-                value = 3 + var;
+            if (cell->var > 0) {
+                value = 3 + cell->var;
             }
         }
     #endif
@@ -381,9 +357,9 @@ static inline void print_grid(FILE* stream) {
             for (Index x = 0; x < state.width; x++) {
                 Cell* cell = get_cell(t, x, y);
                 #if VARIABLES
-                    print_cell(stream, cell->value, cell->var);
+                    print_cell(stream, cell);
                 #else
-                    print_cell(stream, cell->value);
+                    print_cell(stream, cell);
                 #endif
             }
             real_fprintf(stream, " $\n");
@@ -398,69 +374,72 @@ static inline void print_grid(FILE* stream) {
 
 
 static inline void init_state(void) {
-    state.grid = safe_malloc(state.total_size * sizeof(Cell));
-    // clear set the prev pointers
+    state.grid = safe_malloc(state.total_size * sizeof(Cell*));
+    state.ca_clause_count = (state.height - 2) * (state.width - 2) * state.gens;
+    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
+    // first we have to determine how many times each variable is used
+    Index* var_uses = safe_malloc(VAR_COUNT * sizeof(Index));
+    memset(var_uses, 0, VAR_COUNT * sizeof(Index));
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             for (Index x = 0; x < state.width; x++) {
-                get_cell(t, x, y)->prev = NULL;
+                Variable var = initial_vars[t][y][x];
+                if (var != NO_VAR) {
+                    var_uses[var]++;
+                }
             }
         }
     }
-    // initialize the variable uses
-    #if VARIABLES
-        for (Index i = 0; i < VAR_COUNT; i++) {
-            state.num_var_uses[i] = 0;
-            for (Index j = 0; j < MAX_VAR_USES; j++) {
-                state.var_uses[i][j] = NULL;
-            }
-        }
-    #endif
-    // main initialization
-    Index index = 0;
+    for (Index i = 0; i < VAR_COUNT; i++) {
+        Cell* cell = malloc(sizeof(Cell) + sizeof(CAClauseList) * var_uses[i]);
+        cell.value = initial_states[i];
+        cell.settable = initial_settable[i];
+        cell.variable_number = i;
+    }
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             for (Index x = 0; x < state.width; x++) {
-                Cell* cell = get_cell(t, x, y);
-                cell->t = t;
-                cell->x = x;
-                cell->y = y;
-                cell->index = index++;
-                #if VARIABLES
-                    cell->var = INITIAL_VARS[t][y][x];
-                    if (cell->var > 0) {
-                        state.var_uses[cell->var][state.num_var_uses[cell->var]++] = cell;
-                    }
-                #endif
-                cell->settable = INITIAL_SETTABLE[t][y][x];
-                #if CACHE_IMPLICATION_TRS
-                    cell->tr = DO_NOTHING;
-                #endif
-                #if CACHE_TIMES
-                    cell->last_update = 0;
-                #endif
-                const int32_t* next_coords = INITIAL_NEXTS[t][y][x];
-                int32_t next_t = next_coords[0];
-                int32_t next_x = next_coords[1];
-                int32_t next_y = next_coords[2];
-                if (next_t == -1 && next_x == -1 && next_y == -1) {
-                    cell->next = NULL;
-                } else if (next_t == -2 && next_x == -2 && next_y == -2) {
-                    cell->next = &forced_off_cell;
-                } else {
-                    cell->next = get_cell(next_t, next_x, next_y);
-                    cell->next->prev = cell;
-                }
-                cell->nw = x == 0 || y == 0 ? NULL : get_cell(t, x - 1, y - 1);
-                cell->n = y == 0 ? NULL : get_cell(t, x, y - 1);
-                cell->ne = x == state.width - 1 || y == 0 ? NULL : get_cell(t, x + 1, y - 1);
-                cell->w = x == 0 ? NULL : get_cell(t, x - 1, y);
-                cell->e = x == state.width - 1 ? NULL : get_cell(t, x + 1, y);
-                cell->sw = x == 0 || y == state.height - 1 ? NULL : get_cell(t, x - 1, y + 1);
-                cell->s = y == state.height - 1 ? NULL : get_cell(t, x, y + 1);
-                cell->se = x == state.width - 1 || y == state.height - 1 ? NULL : get_cell(t, x + 1, y + 1);
-                // finally set the value AFTER the pointers are set
-                cell->value = INITIAL_STATES[t][y][x];
+                Cell* cell = 
+                // Cell* cell = get_cell(t, x, y);
+                // cell->t = t;
+                // cell->x = x;
+                // cell->y = y;
+                // cell->index = index++;
+                // #if VARIABLES
+                //     cell->var = INITIAL_VARS[t][y][x];
+                //     if (cell->var > 0) {
+                //         state.var_uses[cell->var][state.num_var_uses[cell->var]++] = cell;
+                //     }
+                // #endif
+                // cell->settable = INITIAL_SETTABLE[t][y][x];
+                // #if CACHE_IMPLICATION_TRS
+                //     cell->tr = DO_NOTHING;
+                // #endif
+                // #if CACHE_TIMES
+                //     cell->last_update = 0;
+                // #endif
+                // const int32_t* next_coords = INITIAL_NEXTS[t][y][x];
+                // int32_t next_t = next_coords[0];
+                // int32_t next_x = next_coords[1];
+                // int32_t next_y = next_coords[2];
+                // if (next_t == -1 && next_x == -1 && next_y == -1) {
+                //     cell->next = NULL;
+                // } else if (next_t == -2 && next_x == -2 && next_y == -2) {
+                //     cell->next = &forced_off_cell;
+                // } else {
+                //     cell->next = get_cell(next_t, next_x, next_y);
+                //     cell->next->prev = cell;
+                // }
+                // cell->nw = x == 0 || y == 0 ? NULL : get_cell(t, x - 1, y - 1);
+                // cell->n = y == 0 ? NULL : get_cell(t, x, y - 1);
+                // cell->ne = x == state.width - 1 || y == 0 ? NULL : get_cell(t, x + 1, y - 1);
+                // cell->w = x == 0 ? NULL : get_cell(t, x - 1, y);
+                // cell->e = x == state.width - 1 ? NULL : get_cell(t, x + 1, y);
+                // cell->sw = x == 0 || y == state.height - 1 ? NULL : get_cell(t, x - 1, y + 1);
+                // cell->s = y == state.height - 1 ? NULL : get_cell(t, x, y + 1);
+                // cell->se = x == state.width - 1 || y == state.height - 1 ? NULL : get_cell(t, x + 1, y + 1);
+                // // finally set the value AFTER the pointers are set
+                // cell->value = INITIAL_STATES[t][y][x];
             }
         }
     }
@@ -480,7 +459,6 @@ static inline void init_state(void) {
 static inline void destroy_state(void) {
     free(state.grid);
 }
-
 
 
 #define STACKENTRY_TYPE_CELL_SET 0
@@ -602,6 +580,7 @@ static inline bool undo_stack_entry(StackEntry* entry) {
     #endif
     return true;
 }
+
 
 typedef PrefixIndex StackIndex;
 
@@ -788,4 +767,114 @@ static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
         print_stack(current_stack);
     #endif
     return true;
+}
+
+
+typedef enum StaticSymmetry {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2b,
+    D2s,
+    D4p,
+    D4x,
+    D8,
+} StaticSymmetry;
+
+typedef struct Transformations {
+    bool flip_horizontal: 1;
+    bool flip_vertical: 1;
+    bool rotate_left: 1;
+    bool rotate_right: 1;
+    bool rotate_180: 1;
+    bool flip_diagonal: 1;
+    bool flip_anti_diagonal: 1;
+} Transformations;
+
+const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
+    [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+    [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
+    [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+    [D2h] = {D2h, D4p, D8 , D2h, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D2v] = {D2v, D4p, D8 , D4p, D2v, D8 , D8 , D4p, D8 , D8 },
+    [D2b] = {D2b, D4x, D8 , D8 , D8 , D2b, D4x, D8 , D4x, D8 },
+    [D2s] = {D2s, D4x, D8 , D8 , D8 , D4x, D2s, D8 , D4x, D8 },
+    [D4p] = {D4p, D4p, D8 , D4p, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D4x] = {D4x, D4x, D8 , D8 , D8 , D4x, D4x, D8 , D4x, D8 },
+    [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+};
+
+const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
+    [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
+    [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
+    [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
+    [D2h] = {C1 , C1 , C1 , D2h, C1 , C1 , C1 , D2h, C1 , D2h},
+    [D2v] = {C1 , C1 , C1 , C1 , D2v, C1 , C1 , D2v, C1 , D2v},
+    [D2b] = {C1 , C1 , C1 , C1 , C1 , D2b, C1 , C1 , D2b, D2b},
+    [D2s] = {C1 , C1 , C1 , C1 , C1 , C1 , D2s, C1 , D2s, D2s},
+    [D4p] = {C1 , C2 , C2 , D2h, D2v, C1 , C1 , D4p, C2 , D4p},
+    [D4x] = {C1 , C2 , C2 , C1 , C1 , D2b, D2s, C2 , D4x, D4x},
+    [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+};
+
+static inline bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
+    return STATIC_SYMMETRY_JOIN[container][value] == container;
+}
+
+static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
+    Transformations out;
+    out.flip_horizontal = sts_contains(symmetry, D2h);
+    out.flip_vertical = sts_contains(symmetry, D2v);
+    out.rotate_left = sts_contains(symmetry, C4);
+    out.rotate_right = sts_contains(symmetry, C4);
+    out.rotate_180 = sts_contains(symmetry, C2);
+    out.flip_diagonal = sts_contains(symmetry, D2b);
+    out.flip_anti_diagonal = sts_contains(symmetry, D2s);
+    return out;
+}
+
+static inline StaticSymmetry transforms_to_sts(Transformations t) {
+    bool iC2 = t.rotate_180;
+    bool iC4 = t.rotate_left || t.rotate_right;
+    bool iD2h = t.flip_horizontal;
+    bool iD2v = t.flip_vertical;
+    bool iD2b = t.flip_diagonal;
+    bool iD2s = t.flip_anti_diagonal;
+    if ((iD2h || iD2v) && (iD2b || iD2s)) {
+        return D8;
+    } else if (iC2) {
+        if (iC4) {
+            if (iD2h || iD2v || iD2s || iD2b) {
+                return D8;
+            } else {
+                return C4;
+            }
+        } else {
+            if (iD2h || iD2v) {
+                return D4p;
+            } else if (iD2b || iD2s) {
+                return D4x;
+            } else {
+                return C2;
+            }
+        }
+    } else {
+        if (iD2h && iD2v) {
+            return D4p;
+        } else if (iD2b && iD2s) {
+            return D4x;
+        } else if (iD2h) {
+            return D2h;
+        } else if (iD2v) {
+            return D2v;
+        } else if (iD2s) {
+            return D2s;
+        } else if (iD2b) {
+            return D2b;
+        } else {
+            return C1;
+        }
+    }
 }

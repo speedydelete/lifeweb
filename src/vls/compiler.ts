@@ -1,9 +1,7 @@
 
-import * as fs from 'node:fs/promises';
-
 import * as t from '@babel/types';
 
-import {Matcher, EOF, literal, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
+import {IS_BROWSER, Matcher, EOF, literal, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
 
 
 export function error(msg: string): never {
@@ -12,15 +10,28 @@ export function error(msg: string): never {
 }
 
 
-export type Coord = [t: number, x: number, y: number];
+export class Coord {
 
-export const CT = 0;
-export const CX = 1;
-export const CY = 2;
+    t: number;
+    x: number;
+    y: number;
+
+    constructor(t: number, x: number, y: number) {
+        this.t = t;
+        this.x = x;
+        this.y = y;
+    }
+
+    eq(other: Coord): boolean {
+        return this.t === other.t && this.x === other.x && this.y === other.y;
+    }
+
+}
 
 export function coord(t: number, x: number, y: number): Coord {
-    return [t, x, y];
+    return new Coord(t, x, y);
 }
+
 
 export const UNKNOWN = 0;
 export const OFF = 1;
@@ -33,7 +44,9 @@ export function isKnown(state: State): state is typeof OFF | typeof ON {
     return state === ON || state === OFF;
 }
 
+
 export type Variable = number;
+
 
 export const SEARCHABLE = 0;
 export const NOT_SEARCHABLE = 1;
@@ -41,29 +54,20 @@ export const NOT_SETTABLE = 2;
 
 export type Settability = typeof SEARCHABLE | typeof NOT_SEARCHABLE | typeof NOT_SETTABLE;
 
+
 export interface Cell {
     state: State;
     variable: Variable | undefined;
     settable: Settability;
 }
 
-export type PartialCell = Partial<Cell>;
-
 export function cell(state: State, variable: Variable | undefined = undefined, settable: Settability = SEARCHABLE): Cell {
     return {state, variable, settable};
 }
 
-export interface GridCell extends Cell {
-    pos: Coord;
-    next: Coord | undefined;
+export function cellsAreEqual(x: Cell, y: Cell): boolean {
+    return x.state === y.state && x.variable === y.variable && x.settable === y.settable;
 }
-
-export function gridCell(pos: Coord, next: Coord, state: State, variable: Variable | undefined = undefined, settable: Settability = SEARCHABLE): GridCell {
-    return {state, variable, settable, pos, next};
-}
-
-
-type EdgeType = 'none' | 'even' | 'odd' | 'wrap';
 
 
 export class Grid {
@@ -72,10 +76,10 @@ export class Grid {
     height: number;
     gens: number;
     size: number;
-    data: GridCell[][][];
+    data: Cell[][][];
     numVars: number = 0;
 
-    constructor(width: number, height: number, gens: number, data?: GridCell[][][]) {
+    constructor(width: number, height: number, gens: number, data?: Cell[][][]) {
         this.width = width;
         this.height = height;
         this.gens = gens;
@@ -85,14 +89,11 @@ export class Grid {
         } else {
             this.data = [];
             for (let t = 0; t < gens; t++) {
-                let layer: GridCell[][] = [];
+                let layer: Cell[][] = [];
                 for (let y = 0; y < height; y++) {
-                    let row: GridCell[] = [];
+                    let row: Cell[] = [];
                     for (let x = 0; x < width; x++) {
-                        row.push(Object.assign({}, cell(UNKNOWN), {
-                            pos: coord(t, x, y),
-                            next: coord(t + 1, x, y),
-                        }));
+                        row.push(cell(UNKNOWN));
                     }
                     layer.push(row);
                 }
@@ -101,107 +102,107 @@ export class Grid {
         }
     }
 
-    isInBounds(t: number, x: number, y: number): boolean {
+    isInBounds(t: number, x: number, y: number): boolean;
+    isInBounds(x: number, y: number): boolean;
+    isInBounds(coord: Coord): boolean;
+    isInBounds(_t: number | Coord, _x?: number, _y?: number): boolean {
+        let t: number;
+        let x: number;
+        let y: number;
+        if (typeof _t === 'object') {
+            t = _t.t;
+            x = _t.x;
+            y = _t.y;
+        } else if (_y === undefined) {
+            t = 0;
+            x = _t;
+            y = _x as number;
+        } else {
+            t = _t;
+            x = _x as number;
+            y = _y as number;
+        }
         return t >= 0 && t < this.gens && x >= 0 && x < this.width && y >= 0 && y < this.height;
     }
 
-    isCoordInBounds(pos: Coord): boolean {
-        return pos[CT] >= 0 && pos[CT] < this.gens && pos[CX] >= 0 && pos[CX] < this.width && pos[CY] >= 0 && pos[CY] < this.height;
-    }
-
-    get(t: number, x: number, y: number): GridCell {
+    get(t: number, x: number, y: number): Cell;
+    get(coord: Coord): Cell;
+    get(_t: number | Coord, _x?: number, _y?: number): Cell {
+        let t: number;
+        let x: number;
+        let y: number;
+        if (typeof _t === 'object') {
+            t = _t.t;
+            x = _t.x;
+            y = _t.y;
+        } else {
+            t = _t;
+            x = _x as number;
+            y = _y as number;
+        }
         if (!this.isInBounds(t, x, y)) {
             throw new Error(`Out of bounds get: t = ${t}, x = ${x}, y = ${y}`);
         }
         return this.data[t][y][x];
     }
 
-    getAllowOOB(t: number, x: number, y: number): Cell | GridCell {
+    getAllowOOB(t: number, x: number, y: number): Cell;
+    getAllowOOB(coord: Coord): Cell;
+    getAllowOOB(_t: number | Coord, _x?: number, _y?: number): Cell {
+        let t: number;
+        let x: number;
+        let y: number;
+        if (typeof _t === 'object') {
+            t = _t.t;
+            x = _t.x;
+            y = _t.y;
+        } else {
+            t = _t;
+            x = _x as number;
+            y = _y as number;
+        }
         if (!this.isInBounds(t, x, y)) {
             return cell(OFF);
         }
         return this.data[t][y][x];
     }
 
-    getCoord(pos: Coord): GridCell {
-        if (!this.isCoordInBounds(pos)) {
-            throw new Error(`Out of bounds get: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
-        }
-        return this.data[pos[CT]][pos[CY]][pos[CX]];
-    }
-
-    getCoordAllowOOB(pos: Coord): Cell | GridCell {
-        if (!this.isCoordInBounds(pos)) {
-            return cell(OFF);
-        }
-        return this.data[pos[CT]][pos[CY]][pos[CX]];
-    }
-
     set(t: number, x: number, y: number, value: Cell): this;
     set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, settable?: Settability): this;
-    set(t: number, x: number, y: number, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {
-        if (typeof value === 'number') {
-            value = cell(value, variable, settable);
+    set(pos: Coord, value: Cell): this;
+    set(pos: Coord, value: State, variable?: Variable | undefined, settable?: Settability): this;
+    set(_t: number | Coord, _x: number | Cell | State, _y?: number | Variable, _value?: Cell | State | Settability, _variable?: Variable | undefined, _settable?: Settability): this {
+        let value: Cell;
+        let t: number;
+        let x: number;
+        let y: number;
+        if (typeof _t === 'object') {
+            t = _t.t;
+            x = _t.x;
+            y = _t.y;
+            if (typeof _x === 'object') {
+                value = _x;
+            } else {
+                value = cell(_x as State, _y as Variable | undefined, _value as Settability | undefined);
+            }
+        } else {
+            t = _t;
+            x = _x as number;
+            y = _y as number;
+            if (typeof _value === 'object') {
+                value = _value;
+            } else {
+                value = cell(_value as State, _variable, _settable);
+            }
         }
         if (!this.isInBounds(t, x, y)) {
             throw new Error(`Out of bounds set: t = ${t}, x = ${x}, y = ${y}`);
-        }
-        this.data[t][y][x] = Object.assign({}, value, {
-            pos: coord(t, x, y),
-            next: this.data[t][y][x].next,
-        });
-        return this;
-    }
-
-    setCoord(pos: Coord, value: Cell): this;
-    setCoord(pos: Coord, value: State, variable?: Variable | undefined, settable?: Settability): this;
-    setCoord(pos: Coord, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {
-        if (typeof value === 'number') {
-            value = cell(value, variable, settable);
-        }
-        if (!this.isCoordInBounds(pos)) {
-            throw new Error(`Out of bounds set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
-        }
-        this.data[pos[CT]][pos[CY]][pos[CX]] = Object.assign({}, value, {
-            pos,
-            next: this.data[pos[CT]][pos[CY]][pos[CX]].next,
-        });
-        return this;
-    }
-
-    setFull(t: number, x: number, y: number, value: GridCell): this {
-        if (!this.isInBounds(t, x, y)) {
-            throw new Error(`Out of bounds full set: t = ${t}, x = ${x}, y = ${y}`);
         }
         this.data[t][y][x] = value;
         return this;
     }
 
-    setFullCoord(pos: Coord, value: GridCell): this {
-        if (!this.isCoordInBounds(pos)) {
-            throw new Error(`Out of bounds full set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
-        }
-        this.data[pos[CT]][pos[CY]][pos[CX]] = value;
-        return this;
-    }
-
-    setNext(t: number, x: number, y: number, value: Coord | undefined): this {
-        if (!this.isInBounds(t, x, y)) {
-            throw new Error(`Out of bounds next set: t = ${t}, x = ${x}, y = ${y}`);
-        }
-        this.data[t][y][x].next = value;
-        return this;
-    }
-
-    setCoordNext(pos: Coord, value: Coord | undefined): this {
-        if (!this.isCoordInBounds(pos)) {
-            throw new Error(`Out of bounds next set: t = ${pos[CT]}, x = ${pos[CX]}, y = ${pos[CY]}`);
-        }
-        this.data[pos[CT]][pos[CY]][pos[CX]].next = value;
-        return this;
-    }
-
-    fill(t: number, cell: Cell): this;
+    fill(t: number, value: Cell): this;
     fill(t: number, value: State, variable?: Variable | undefined, settable?: Settability): this
     fill(t: number, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {
         if (typeof value === 'number') {
@@ -222,30 +223,75 @@ export class Grid {
         return this.numVars;
     }
 
-    reassignVar(old: Variable, new_: Variable): this {
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let cell = this.get(t, x, y);
-                    if (cell.variable === old) {
-                        cell.variable = new_;
-                    }
+    entries(): IterableIterator<[Coord, Cell]> {
+        let t = 0;
+        let x = 0;
+        let y = 0;
+        return {
+            [Symbol.iterator]() {
+                return this;
+            },
+            // arrow function so it uses the `this` context of the Grid
+            next: () => {
+                if (t > this.gens) {
+                    return {done: true, value: undefined};
                 }
+                let pos = coord(t, x, y);
+                return {done: false, value: [pos, this.get(pos)]};
+            }
+        };
+    }
+
+    coords(): IterableIterator<Coord> {
+        let t = 0;
+        let x = 0;
+        let y = 0;
+        return {
+            [Symbol.iterator]() {
+                return this;
+            },
+            // arrow function so it uses the `this` context of the Grid
+            next: () => {
+                if (t > this.gens) {
+                    return {done: true, value: undefined};
+                }
+                return {done: false, value: coord(t, x, y)};
+            }
+        };
+    }
+
+    cells(): IterableIterator<Cell> {
+        let t = 0;
+        let x = 0;
+        let y = 0;
+        return {
+            [Symbol.iterator]() {
+                return this;
+            },
+            // arrow function so it uses the `this` context of the Grid
+            next: () => {
+                if (t > this.gens) {
+                    return {done: true, value: undefined};
+                }
+                return {done: false, value: this.get(coord(t, x, y))};
+            }
+        };
+    }
+
+    reassignVar(old: Variable, new_: Variable): this {
+        for (let cell of this.cells()) {
+            if (cell.variable === old) {
+                cell.variable = new_;
             }
         }
         return this;
     }
 
     setVar(variable: Variable, state: State): this {
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let cell = this.get(t, x, y);
-                    if (cell.variable === variable) {
-                        cell.state = state;
-                        cell.variable = 0;
-                    }
-                }
+        for (let cell of this.cells()) {
+            if (cell.variable === variable) {
+                cell.state = state;
+                cell.variable = undefined;
             }
         }
         return this;
@@ -262,11 +308,11 @@ export class Grid {
         let newHeight = this.height + up + down;
         let newGens = this.gens + start + end;
         // first make empty placeholders
-        let emptyRow: GridCell[] = [];
+        let emptyRow: Cell[] = [];
         for (let i = 0; i < newWidth; i++) {
-            emptyRow.push(undefined as unknown as GridCell);
+            emptyRow.push(cell(UNKNOWN));
         }
-        let emptyLayer: GridCell[][] = [];
+        let emptyLayer: Cell[][] = [];
         for (let i = 0; i < newHeight; i++) {
             emptyLayer.push(structuredClone(emptyRow));
         }
@@ -274,10 +320,10 @@ export class Grid {
         for (let layer of this.data) {
             for (let row of layer) {
                 for (let i = 0; i < left; i++) {
-                    row.unshift(undefined as unknown as GridCell);
+                    row.unshift(cell(UNKNOWN));
                 }
                 for (let i = 0; i < right; i++) {
-                    row.push(undefined as unknown as GridCell);
+                    row.push(cell(UNKNOWN));
                 }
             }
             for (let i = 0; i < up; i++) {
@@ -296,26 +342,6 @@ export class Grid {
         this.width = newWidth;
         this.height = newHeight;
         this.gens = newGens;
-        for (let t = 0; t < newGens; t++) {
-            for (let y = 0; y < newHeight; y++) {
-                for (let x = 0; x < newWidth; x++) {
-                    let cell = this.get(t, x, y);
-                    if (cell === undefined) {
-                        cell = gridCell(coord(t, x, y), coord(t + 1, x, y), UNKNOWN);
-                    } else {
-                        cell.pos[CT] += start;
-                        cell.pos[CX] += left;
-                        cell.pos[CY] += up;
-                        if (cell.next) {
-                            cell.next[CT] += start;
-                            cell.next[CX] += left;
-                            cell.next[CY] += up;
-                        }
-                    }
-                    this.setFull(t, x, y, cell);
-                }
-            }
-        }
         return this;
     }
 
@@ -345,34 +371,22 @@ export class Grid {
         for (let i = 0; i < end; i++) {
             this.data.pop();
         }
-        for (let t = 0; t < newGens; t++) {
-            for (let y = 0; y < newHeight; y++) {
-                for (let x = 0; x < newWidth; x++) {
-                    let cell = this.get(t, x, y)
-                    cell.pos[CT] -= start;
-                    cell.pos[CX] -= left;
-                    cell.pos[CY] -= up;
-                    if (cell.next) {
-                        cell.next[CT] -= start;
-                        cell.next[CX] -= left;
-                        cell.next[CY] -= up;
-                    }
-                    this.setFull(t, x, y, cell);
-                }
-            }
-        }
         this.height = newHeight;
         this.width = newWidth;
         this.gens = newGens;
         return this;
     }
 
-    combineCells(x: GridCell, y: GridCell): this {
+    combineCells(x: Cell, y: Cell, coords?: [Coord, Coord]): this {
         let simple: undefined | 'x = y' | 'y = x' = undefined;
         if (isKnown(x.state)) {
             if (isKnown(y.state)) {
                 if (x.state !== y.state) {
-                    error(`Contradiction detected while binding together cells at t = ${x.pos[CT]}, x = ${x.pos[CX]}, y = ${x.pos[CY]} and t = ${y.pos[CT]}, x = ${y.pos[CX]}, y = ${y.pos[CY]}`);
+                    if (coords) {
+                        error(`Contradiction detected while binding together cells at t = ${coords[0].t}, x = ${coords[0].x}, y = ${coords[0].y} and t = ${coords[1].t}, x = ${coords[1].x}, y = ${coords[1].y}`);
+                    } else {
+                        error(`Contradiction detected while binding together cells`);
+                    }
                 }
                 simple = 'x = y';
             } else if (y.state === DONT_CARE) {
@@ -438,26 +452,10 @@ export class Grid {
     }
 
     bindCells(x: Coord, y: Coord): this {
-        return this.combineCells(this.getCoord(x), this.getCoord(y));
-    }
-
-    combineWith(otherGrid: Grid): this {
-        // if (this.width !== other.width || this.height !== other.height || this.gens !== other.gens) {
-        //     throw new Error(`This error should not occur, please report it (bounding box mismatch while attempting to combine grids)`);
-        // }
-        for (let t = 0; t < this.gens; t++) {
-            for (let yi = 0; yi < this.height; yi++) {
-                for (let xi = 0; xi < this.width; xi++) {
-                    let cell = this.data[t][yi][xi];
-                    let other = otherGrid.data[t]?.[yi]?.[xi];
-                    if (other === undefined) {
-                        continue;
-                    }
-                    this.combineCells(cell, other);
-                }
-            }
+        if (x.eq(y)) {
+            return this;
         }
-        return this;
+        return this.combineCells(this.get(x), this.get(y), [x, y]);
     }
 
     transpose(): this {
@@ -495,91 +493,52 @@ export class Grid {
         return this.transpose().rotate180();
     }
 
-    removeKnownVars(): this {
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let cell = this.data[t][y][x];
-                    if (cell.variable !== undefined && cell.state !== UNKNOWN) {
-                        this.setVar(cell.variable, cell.state);
-                    }
-                }
-            }
-        }
+    transposeTime(t: number): this {
+        this.data[t] = this.data[t].map((_, i) => this.data[t].map(row => row[i]));
         return this;
     }
 
-    // removed because this messes up case preprocessing
-    // removeSingleUseVars(): this {
-    //     let uses: {[key: number]: Coord | 'multi'} = [];
-    //     for (let t = 0; t < this.gens; t++) {
-    //         for (let y = 0; y < this.height; y++) {
-    //             for (let x = 0; x < this.width; x++) {
-    //                 let value = this.data[t][y][x].variable;
-    //                 if (value === undefined) {
-    //                     continue;
-    //                 } else if (value in uses) {
-    //                     uses[value] = 'multi';
-    //                 } else {
-    //                     uses[value] = [t, x, y];
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     for (let value of Object.values(uses)) {
-    //         if (Array.isArray(value)) {
-    //             let [t, x, y] = value;
-    //             this.data[t][y][x].variable = undefined;
-    //         }
-    //     }
-    //     return this;
-    // }
-
-    removeUnusedVars(): this {
-        this.numVars = 0;
-        let mapping: {[key: number]: number} = {0: 0};
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let value = this.data[t][y][x].variable;
-                    if (value === undefined) {
-                        continue;
-                    }
-                    if (!(value in mapping)) {
-                        mapping[value] = this.getNewVar();
-                    }
-                }
-            }
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                for (let x = 0; x < this.width; x++) {
-                    let cell = this.data[t][y][x];
-                    if (cell.variable !== undefined) {
-                        cell.variable = mapping[cell.variable];
-                    }
-                }
-            }
-        }
+    flipTimeHorizontal(t: number): this {
+        this.data[t] = this.data[t].map(row => row.reverse());
         return this;
     }
 
-    normalize(): this {
-        this.removeKnownVars();
-        // this.removeSingleUseVars();
-        this.removeUnusedVars();
+    flipTimeVertical(t: number): this {
+        this.data[t] = this.data[t].reverse();
         return this;
+    }
+
+    rotateTimeLeft(t: number): this {
+        return this.transposeTime(t).flipTimeVertical(t);
+    }
+
+    rotateTimeRight(t: number): this {
+        return this.transposeTime(t).flipTimeHorizontal(t);
+    }
+
+    rotateTime180(t: number): this {
+        return this.flipTimeHorizontal(t).flipTimeVertical(t);
+    }
+
+    flipTimeDiagonal(t: number): this {
+        return this.transposeTime(t);
+    }
+
+    flipTimeAntiDiagonal(t: number): this {
+        return this.transposeTime(t).rotateTime180(t);
     }
 
     applyWrap(dx: number, dy: number): this {
+        this.expand({end: 1});
         for (let endY = 0; endY < this.height; endY++) {
             for (let endX = 0; endX < this.width; endX++) {
                 let startX = endX - dx;
                 let startY = endY - dy;
-                if (startX < 0 || startX >= this.width || startY < 0 || startY >= this.height) {
-                    this.setNext(this.gens - 1, endX, endY, undefined);
+                if (!this.isInBounds(0, startX, startY)) {
+                    // this cell doesn't exist at the start so it must be 0
+                    this.set(this.gens - 1, endX, endY, cell(OFF));
                 } else {
-                    this.setNext(this.gens - 1, endX, endY, coord(0, startX, startY));
+                    this.bindCells(coord(0, startX, startY), coord(this.gens - 1, endX, endY));
                 }
             }
         }
@@ -588,120 +547,9 @@ export class Grid {
                 let endX = startX + dx;
                 let endY = startY + dy;
                 if (endX < 0 || endX >= this.width || endY < 0 || endY >= this.height) {
+                    // this cell doesn't exist at the end so it must be 0
                     this.set(0, startX, startY, OFF);
                 }
-            }
-        }
-        return this;
-    }
-
-    setTopEdge(type: EdgeType, expand: boolean = true): this {
-        if (type === 'none') {
-            return this;
-        }
-        if (expand) {
-            this.expand({up: 2});
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.set(t, x, 0, cell(DONT_CARE));
-            }
-        }
-        let bindToY: number;
-        if (type === 'even') {
-            bindToY = 2;
-        } else if (type === 'odd') {
-            bindToY = 3;
-        } else {
-            bindToY = this.height - 1;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.bindCells([t, x, 1], [t, x, bindToY]);
-            }
-        }
-        return this;
-    }
-
-    setBottomEdge(type: EdgeType, expand: boolean = true): this {
-        if (type === 'none') {
-            return this;
-        }
-        if (expand) {
-            this.expand({down: 2});
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.set(t, x, this.height - 1, cell(DONT_CARE));
-            }
-        }
-        let bindToY: number;
-        if (type === 'even') {
-            bindToY = this.height - 3;
-        } else if (type === 'odd') {
-            bindToY = this.height - 4;
-        } else {
-            bindToY = 0;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let x = 0; x < this.width; x++) {
-                this.bindCells([t, x, this.height - 2], [t, x, bindToY]);
-            }
-        }
-        return this;
-    }
-
-    setLeftEdge(type: EdgeType, expand: boolean = true): this {
-        if (type === 'none') {
-            return this;
-        }
-        if (expand) {
-            this.expand({left: 2});
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.set(t, 0, y, cell(DONT_CARE));
-            }
-        }
-        let bindToX: number;
-        if (type === 'even') {
-            bindToX = 2;
-        } else if (type === 'odd') {
-            bindToX = 3;
-        } else {
-            bindToX = this.width - 1;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.bindCells([t, 1, y], [t, bindToX, y]);
-            }
-        }
-        return this;
-    }
-
-    setRightEdge(type: EdgeType, expand: boolean = true): this {
-        if (type === 'none') {
-            return this;
-        }
-        if (expand) {
-            this.expand({right: 2});
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.set(t, this.width - 1, y, cell(DONT_CARE));
-            }
-        }
-        let bindToX: number;
-        if (type === 'even') {
-            bindToX = this.width - 3;
-        } else if (type === 'odd') {
-            bindToX = this.width - 4;
-        } else {
-            bindToX = 0;
-        }
-        for (let t = 0; t < this.gens; t++) {
-            for (let y = 0; y < this.height; y++) {
-                this.bindCells([t, this.width - 2, y], [t, bindToX, y]);
             }
         }
         return this;
@@ -720,59 +568,95 @@ export class Grid {
         return this;
     }
 
-}
+    removeUnusedVars(): this {
+        this.numVars = 0;
+        let mapping = new Map<number, number>();
+        for (let cell of this.cells()) {
+            if (cell.variable !== undefined) {
+                let value = mapping.get(cell.variable);
+                if (value === undefined) {
+                    value = this.getNewVar();
+                    mapping.set(cell.variable, value);
+                }
+                cell.variable = value;
+            }
+        }
+        return this;
+    }
 
+    normalize(): this {
+        this.removeUnusedVars();
+        return this;
+    }
+
+}
 
 
 export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
 
-    C1(grid: Grid): void {
+    'C1'(grid: Grid): void {
         // do nothing
     },
 
-    D2h(grid: Grid): void {
-        let type: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
-        let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
-        grid = grid.shrink({right: Math.floor(grid.width / 2) - 2});
-        grid.combineWith(right);
-        grid.setRightEdge(type, false);
+    'C2'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, grid.width - pos.x - 1, grid.height - pos.y - 1));
+        }
     },
-    'D2|': 'D2h',
 
-    D2v(grid: Grid): void {
-        let type: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
-        let bottom = grid.copy().flipVertical().shrink({down: Math.floor(grid.height / 2)});
-        grid = grid.shrink({down: Math.floor(grid.height / 2) - 2});
-        grid.combineWith(bottom);
-        grid.setBottomEdge(type, false);
+    'C4'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply C4 symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, grid.height - pos.y - 1, grid.width - pos.x - 1));
+        }
     },
-    'D2-': 'D2v',
 
-    // D2b(grid: Grid): void {
-
-    // },
-    // 'D2\\': 'D2b',
-
-    // D2s(grid: Grid): void {
-
-    // },
-    // 'D2/': 'D2s',
-
-    D4p(grid: Grid): void {
-        grid.applySymmetry('D2h');
-        grid.applySymmetry('D2v');
-        // let type1: EdgeType = grid.width % 2 === 0 ? 'even' : 'odd';
-        // let type2: EdgeType = grid.height % 2 === 0 ? 'even' : 'odd';
-        // let right = grid.copy().flipHorizontal().shrink({right: Math.floor(grid.width / 2)});
-        // grid = grid.shrink({right: Math.floor(grid.width / 2) - 2});
-        // grid.combineWith(right);
-        // let bottom = grid.copy().flipHorizontal().shrink({down: Math.floor(grid.height / 2)});
-        // grid = grid.shrink({down: Math.floor(grid.height / 2) - 2});
-        // grid.combineWith(bottom);
-        // grid.setRightEdge(type1);
-        // grid.setBottomEdge(type2);
+    'D2|'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, grid.width - pos.x - 1, pos.y));
+        }
     },
-    'D4+': 'D4p',
+
+    'D2-'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, pos.x, grid.height - pos.y - 1));
+        }
+    },
+
+    'D2\\'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply D2\\ symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, pos.y, pos.x));
+        }
+    },
+
+    'D2/'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply D2/ symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(pos.t, grid.width - pos.x - 1, grid.height - pos.y - 1));
+        }
+    },
+
+    'D4+'(grid: Grid): void {
+        grid.applySymmetry('D2|');
+        grid.applySymmetry('D2-');
+    },
+
+    'D4x'(grid: Grid): void {
+        grid.applySymmetry('D2\\');
+        grid.applySymmetry('D2/');
+    },
+
+    'D8'(grid: Grid): void {
+        grid.applySymmetry('D2|');
+        grid.applySymmetry('C4');
+    },
 
 };
 
@@ -828,29 +712,29 @@ export function mergeGrids(grids: Grid[]): Grid {
 }
 
 
-const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, cell: Coord) => number | boolean)} = {
+const EXPRESSION_VARIABLES: {[key: string]: number | boolean | ((grid: Grid, pos: Coord) => number | boolean)} = {
 
-    't'(grid: Grid, cell: Coord) {
-        return cell[0];
+    't'(grid: Grid, pos: Coord) {
+        return pos.t;
     },
 
-    'x'(grid: Grid, cell: Coord) {
-        return cell[1];
+    'x'(grid: Grid, pos: Coord) {
+        return pos.x;
     },
 
-    'y'(grid: Grid, cell: Coord) {
-        return cell[2];
+    'y'(grid: Grid, pos: Coord) {
+        return pos.y;
     },
 
-    'height'(grid: Grid, cell: Coord) {
+    'height'(grid: Grid, pos: Coord) {
         return grid.height;
     },
 
-    'width'(grid: Grid, cell: Coord) {
+    'width'(grid: Grid, pos: Coord) {
         return grid.width;
     },
 
-    'gens'(grid: Grid, cell: Coord) {
+    'gens'(grid: Grid, pos: Coord) {
         return grid.gens;
     },
 
@@ -981,34 +865,71 @@ export class VLSFileError extends ParserError {
 }
 
 
-const WORD_CHARS = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-`;
-
-const RESERVED_WORDS = ['nop', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var'];
-
-
-const T_LINE_END: Matcher = [new Set(['\n', ';', EOF]), 'line end'];
-
-const T_NATURAL_NUMBER: Matcher = [/^\d+$/, 'natural number'];
-const T_INTEGER: Matcher = [/^-?\d+$/, 'integer'];
-const T_STATE: Matcher = [/^\d+$/, 'state'];
-const T_RLE: Matcher = [/^x\s*=\s*\d+\s*,\s*y\s*=\s*\d+.*!$/s, 'RLE'];
-
-type StateSpecifier = 
+type StateSpecifier = {all?: boolean} & (
     | {type: 'nop'}
     | {type: 'cell', cell: Cell}
     | {type: 'periodic', cell: Cell, period: number}
+);
+
+function stateSpecifiersAreEqual(x: StateSpecifier, y: StateSpecifier): boolean {
+    if (Boolean(x.all) !== Boolean(y.all)) {
+        return false;
+    }
+    if (x.type !== y.type) {
+        return false;
+    }
+    if (x.type === 'nop' && y.type === 'nop') {
+        return true;
+    } else if (x.type === 'cell' && y.type === 'cell') {
+        return cellsAreEqual(x.cell, y.cell);
+    } else if (x.type === 'periodic' && y.type === 'periodic') {
+        return cellsAreEqual(x.cell, y.cell) && x.period === y.period;
+    } else {
+        throw new Error(`This error should not occur, please report it (invalid state specifier type(s): '${(x as any).type}' and '${(y as any).type})`);
+    }
+}
+
+
+type Value = 
+    | {type: 'null'}
+    | {type: 'boolean', value: boolean}
+    | {type: 'number', value: number}
+    | {type: 'state-specifier', value: StateSpecifier}
 ;
 
-type PartialStateSpecifier =
-    | {type: 'nop'}
-    | {type: 'cell', cell: PartialCell}
-    | {type: 'periodic', cell: PartialCell, period: number}
-;
+function isTruthy(value: Value): boolean {
+    if (value.type === 'null') {
+        return false;
+    } else if (value.type === 'boolean') {
+        return value.value;
+    } else if (value.type === 'number') {
+        return value.value !== 0;
+    } else if (value.type === 'state-specifier') {
+        return true;
+    } else {
+        throw new Error(`This error should not occur, please report it (invalid value type: '${(value as any).type}')`);
+    }
+}
 
-interface FullStateSpecifier {
-    all?: StateSpecifier;
-    absolute?: [number[], StateSpecifier][];
-    relative?: [number[], StateSpecifier][];
+function valueToBoolean(value: Value): Value {
+    return {type: 'boolean', value: isTruthy(value)};
+}
+
+function valuesAreEqual(x: Value, y: Value): boolean {
+    if (x.type !== y.type) {
+        return false;
+    }
+    if (x.type === 'null' && y.type === 'null') {
+        return true;
+    } else if (x.type === 'boolean' && y.type === 'boolean') {
+        return x.value === y.value;
+    } else if (x.type === 'number' && y.type === 'number') {
+        return x.value === y.value;
+    } else if (x.type === 'state-specifier' && y.type === 'state-specifier') {
+        return stateSpecifiersAreEqual(x.value, y.value);
+    } else {
+        throw new Error(`This error should not occur, please report it (invalid value type(s): '${(x as any).type}' and '${(y as any).type})`);
+    }
 }
 
 
@@ -1016,15 +937,53 @@ class Scope {
 
     parser: VLSFileParser;
     parent: Scope | undefined;
-    states: {[key: number]: FullStateSpecifier};
+    vars: {[key: string]: Value};
+    states: {[key: number]: StateSpecifier};
 
     constructor(parser: VLSFileParser, parent: Scope | undefined) {
         this.parser = parser;
         this.parent = parent;
+        this.vars = {};
         this.states = {};
     }
 
-    getState(state: number, offset: number = 0): FullStateSpecifier {
+    getVar(name: string, offset: number = 0): Value {
+        if (name in this.vars) {
+            return this.vars[name];
+        }
+        if (this.parent) {
+            return this.parent.getVar(name, offset);
+        } else {
+            this.parser.error(`Variable ${name} is not defined`, offset);
+        }
+    }
+
+    // absGetVar(name: string, pos: number): Value {
+    //     if (name in this.vars) {
+    //         return this.vars[name];
+    //     }
+    //     if (this.parent) {
+    //         return this.parent.absGetVar(name, pos);
+    //     } else {
+    //         this.parser.absError(`Variable ${name} is not defined`, pos);
+    //     }
+    // }
+
+    setVar(name: string, value: Value): void {
+        this.vars[name] = value;
+    }
+
+    hasVar(name: string): boolean {
+        if (name in this.vars) {
+            return true;
+        } else if (this.parent) {
+            return this.parent.hasVar(name);
+        } else {
+            return false;
+        }
+    }
+
+    getState(state: number, offset: number = 0): StateSpecifier {
         if (state in this.states) {
             return this.states[state];
         }
@@ -1035,7 +994,18 @@ class Scope {
         }
     }
 
-    setState(state: number, value: FullStateSpecifier): void {
+    // absGetState(state: number, pos: number): StateSpecifier {
+    //     if (state in this.states) {
+    //         return this.states[state];
+    //     }
+    //     if (this.parent) {
+    //         return this.parent.absGetState(state, pos);
+    //     } else {
+    //         this.parser.absError(`State ${state} is not defined`, pos);
+    //     }
+    // }
+
+    setState(state: number, value: StateSpecifier): void {
         this.states[state] = value;
     }
 
@@ -1057,7 +1027,91 @@ class Scope {
         }
     }
 
+    absDeleteState(state: number, pos: number): void {
+        if (state in this.states) {
+            delete this.states[state];
+        } else {
+            this.parser.absError(`State ${state} is not defined or is defined in a higher scope`, pos);
+        }
+    }
+
 }
+
+
+const IDENTIFIER_CHARS = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-`;
+const IDENTIFIER_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const RESERVED_WORDS = new Set([
+    // literals
+    'true', 'false', 'nop', 'off', 'on', 'unknown', 'dont_care', 'var',
+    // operators
+    'states', 'unsearchable', 'unsettable', 'period', 'all',
+    // constructs
+    'state', 'states', 'to',
+    // statements
+    'pattern', 'gen', 'gens', 'wrap', 'expand', 'delete',
+]);
+
+const NUMBER_REGEX = /^-?(0|[1-9]\d*(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)?|0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F])$/;
+const NUMBER_AND_STUFF_REGEX = /^-?([1-9]\d+(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)?|0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F])/;
+
+const UNARY_OPERATORS = Object.assign(Object.create(null) as {}, {
+    'state': 13,
+    'unsearchable': 13,
+    'unsettable': 13,
+    'period': 13,
+    'all': 13,
+    '+': 11,
+    '-': 11,
+    '!': 11,
+} satisfies {[key: string]: number});
+
+type UnaryOperator = keyof typeof UNARY_OPERATORS;
+
+const BINARY_OPERATORS = Object.assign(Object.create(null) as {}, {
+    '**': 12,
+    '*': 10,
+    '/': 10,
+    '%': 10,
+    '+': 9,
+    '-': 9,
+    '<<': 8,
+    '>>': 8,
+    '>>>': 8,
+    '??': 7,
+    '<': 6,
+    '<=': 6,
+    '>': 6,
+    '>=': 6,
+    '==': 5,
+    '!=': 5,
+    '&': 4,
+    '^': 3,
+    '|': 2,
+    '&&': 1,
+    '||': 0,
+} satisfies {[key: string]: number});
+
+type BinaryOperator = keyof typeof BINARY_OPERATORS;
+
+const LONG_OPERATORS = new Set<string>();
+for (let op of Object.keys(UNARY_OPERATORS).concat(Object.keys(BINARY_OPERATORS))) {
+    if (op.length === 1) {
+        continue;
+    } else if (op.match(IDENTIFIER_REGEX)) {
+        continue;
+    } else {
+        LONG_OPERATORS.add(op);
+    }
+}
+
+
+const T_LINE_END: Matcher = [new Set(['\n', ';', EOF]), 'line end'];
+
+const T_IDENTIFIER: Matcher = [IDENTIFIER_REGEX, 'identifier'];
+const T_NATURAL_NUMBER: Matcher = [/^\d+$/, 'natural number'];
+const T_INTEGER: Matcher = [/^-?\d+$/, 'integer'];
+const T_NUMBER: Matcher = [NUMBER_REGEX, 'number'];
+const T_RLE: Matcher = [/^x\s*=\s*\d+\s*,\s*y\s*=\s*\d+.*!$/s, 'RLE'];
 
 
 class VLSFileParser extends BaseParser {
@@ -1065,21 +1119,21 @@ class VLSFileParser extends BaseParser {
     static ParserError = VLSFileError;
 
     grids: Grid[];
-    grid: Grid;
+    _grid: Grid | undefined;
 
     scope: Scope;
 
     constructor(file: string | undefined, code: string) {
         super(file, code);
         this.grids = [];
-        this.grid = undefined as unknown as Grid;
+        this._grid = undefined;
         this.scope = new Scope(this, undefined);
-        this.scope.setState(0, {relative: [[[0], {type: 'cell', cell: cell(OFF)}]]});
-        this.scope.setState(1, {relative: [[[0], {type: 'cell', cell: cell(ON)}]]});
-        this.scope.setState(2, {relative: [[[0], {type: 'cell', cell: cell(UNKNOWN)}]]});
-        this.scope.setState(3, {relative: [[[0], {type: 'cell', cell: cell(DONT_CARE)}]]});
-        this.scope.setState(4, {all: {type: 'periodic', period: 1, cell: cell(UNKNOWN)}});
-        this.scope.setState(5, {relative: [[[0], {type: 'cell', cell: cell(OFF)}]]});
+        this.scope.setState(0, {type: 'cell', cell: cell(OFF)});
+        this.scope.setState(1, {type: 'cell', cell: cell(ON)});
+        this.scope.setState(2, {type: 'cell', cell: cell(UNKNOWN)});
+        this.scope.setState(3, {type: 'cell', cell: cell(DONT_CARE)});
+        this.scope.setState(4, {type: 'periodic', cell: cell(UNKNOWN), period: 1});
+        this.scope.setState(5, {type: 'cell', cell: cell(OFF)});
     }
 
     tokenize(code: string): void {
@@ -1113,15 +1167,26 @@ class VLSFileParser extends BaseParser {
                 }
                 pos--;
                 this.addToken(data, startPos);
-            } else if (WORD_CHARS.includes(char)) {
+            } else if (IDENTIFIER_CHARS.includes(char)) {
+                let match = code.slice(pos).match(NUMBER_AND_STUFF_REGEX);
                 current += char;
             } else {
                 if (current.length > 0) {
                     this.addToken(current.trimEnd(), startPos);
                 }
-                this.addToken(char, pos);
                 current = '';
-                startPos = pos + 1;
+                if (pos < code.length - 2 && LONG_OPERATORS.has(char + code[pos + 1] + code[pos + 2])) {
+                    this.addToken(char + code[pos + 1] + code[pos + 2], pos);
+                    startPos = pos + 3;
+                    pos += 2;
+                } else if (pos < code.length - 1 && LONG_OPERATORS.has(char + code[pos + 1])) {
+                    this.addToken(char + code[pos + 1], pos);
+                    startPos = pos + 2;
+                    pos += 1;
+                } else {
+                    this.addToken(char, pos);
+                    startPos = pos + 1;   
+                }
             }
         }
         current = current.trimEnd();
@@ -1130,8 +1195,235 @@ class VLSFileParser extends BaseParser {
         }
     }
 
+    get grid(): Grid {
+        if (!this._grid) {
+            this.error(`Pattern statement used before any patterns are defined`);
+        }
+        return this._grid;
+    }
+
+    identifier(): string {
+        let out = this.eat(T_IDENTIFIER)[0];
+        if (RESERVED_WORDS.has(out)) {
+            this.error(`Invalid identifier (reserved word)`, -1);
+        }
+        return out;
+    }
+
+    nullLiteral(): Value {
+        this.eat(literal('null'));
+        return {type: 'null'};
+    }
+
+    booleanLiteral(): Value {
+        let value = this.advance();
+        if (value === 'true') {
+            return {type: 'boolean', value: true};
+        } else if (value === 'false') {
+            return {type: 'boolean', value: false};  
+        } else {
+            this.goBack();
+            this.error(`Expected boolean literal`);
+        }
+    }
+
+    numberLiteral(): Value {
+        return {type: 'number', value: Number(this.eat(T_NUMBER)[0])};
+    }
+
+    stateSpecifierLiteral(): Value {
+        let value = this.advance();
+        let out: StateSpecifier;
+        if (value === 'off') {
+            out = {type: 'cell', cell: cell(OFF)};
+        } else if (value === 'on') {
+            out = {type: 'cell', cell: cell(ON)};
+        } else if (value === 'unknown') {
+            out = {type: 'cell', cell: cell(UNKNOWN)};
+        } else if (value === 'dont_care') {
+            out = {type: 'cell', cell: cell(DONT_CARE)};
+        } else if (value === 'var') {
+            out = {type: 'cell', cell: cell(UNKNOWN, this.grid.getNewVar())};
+        } else {
+            this.goBack();
+            this.error(`Invalid state specifier literal`, -1);
+        }
+        return {type: 'state-specifier', value: out};
+    }
+
+    literal(): Value {
+        let name = this.try(this.identifier);
+        if (name !== undefined) {
+            return this.scope.getVar(name, -1);
+        }
+        return this.tryStack([
+            this.nullLiteral,
+            this.booleanLiteral,
+            this.numberLiteral,
+            this.stateSpecifierLiteral,
+        ], `Invalid literal`);
+    }
+
+    primaryExpression(): Value {
+        if (this.match('(')) {
+            this.advance();
+            let out = this.expression();
+            this.eat(literal(')'));
+            return out;
+        }
+        return this.literal();
+    }
+
+    evalUnary(op: UnaryOperator, value: Value): Value {
+        if (op === '+' || op === '-' || op === 'state' || op === 'period') {
+            if (value.type !== 'number') {
+                this.error(`Expected value of type 'number' for unary '${op}' operator, got type '${value.type}'`);
+            }
+            if (op === '+') {
+                return {type: 'number', value: +value.value};
+            } else if (op === '-') {
+                return {type: 'number', value: -value.value};
+            } else if (op === 'state') {
+                return {type: 'number', value: value.value};
+            } else if (op === 'period') {
+                return {type: 'number', value: -value.value};
+            } else if (op === '-') {
+                return {type: 'number', value: -value.value};
+            }
+        } else if (op === 'unsearchable' || op === 'unsettable' || op === 'all') {
+            if (value.type !== 'state-specifier') {
+                this.error(`Expected value of type 'state-specifier' for unary '${op}' operator, got type '${value.type}'`);
+            }
+            let out = structuredClone(value.value);
+            if (out.type === 'nop') {
+                this.error(`Cannot run unary '${op}' operator on nop state specifier`);
+            }
+            if (op === 'unsearchable') {
+                out.cell.settable = NOT_SEARCHABLE;
+            } else if (op === 'unsettable') {
+                out.cell.settable = NOT_SETTABLE;
+            } else if (op === 'all') {
+                out.all = true;
+            }
+            return {type: 'state-specifier', value: out};
+        } else if (op === '!') {
+            return {type: 'boolean', value: !isTruthy(value)};
+        }
+        throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
+    }
+
+    evalBinary(op: BinaryOperator, left: Value, right: Value): Value {
+        if (op === '==') {
+            return {type: 'boolean', value: valuesAreEqual(left, right)};
+        } else if (op === '!=') {
+            return {type: 'boolean', value: !valuesAreEqual(left, right)};
+        } else if (op === '&&') {
+            return {type: 'boolean', value: isTruthy(left) && isTruthy(right)};
+        } else if (op === '||') {
+            return {type: 'boolean', value: isTruthy(left) || isTruthy(right)};
+        } else if (op === '??') {
+            return left.type === 'null' ? right : left;
+        } else {
+            if (left.type !== 'number') {
+                this.error(`Expected value of type 'number' for '${op}' operator, got type '${left.type}'`);
+            }
+            if (right.type !== 'number') {
+                this.error(`Expected value of type 'number' for '${op}' operator, got type '${right.type}'`);
+            }
+            let x = left.value;
+            let y = right.value;
+            let out: number;
+            if (op === '+') {
+                out = x + y;
+            } else if (op === '-') {
+                out = x - y;
+            } else if (op === '*') {
+                out = x * y;
+            } else if (op === '/') {
+                out = x / y;
+            } else if (op === '%') {
+                out = x % y;
+            } else if (op === '**') {
+                out = x ** y;
+            } else if (op === '&') {
+                out = Number(BigInt(x) & BigInt(y));
+            } else if (op === '|') {
+                out = Number(BigInt(x) | BigInt(y));
+            } else if (op === '^') {
+                out = Number(BigInt(x) ^ BigInt(y));
+            } else if (op === '<<') {
+                out = Number(BigInt(x) << BigInt(y));
+            } else if (op === '>>') {
+                out = Number(BigInt(x) >> BigInt(y));
+            } else if (op === '>>>') {
+                out = x >>> y;
+            } else if (op === '<') {
+                return {type: 'boolean', value: x < y};
+            } else if (op === '<=') {
+                return {type: 'boolean', value: x <= y};
+            } else if (op === '>') {
+                return {type: 'boolean', value: x > y};
+            } else if (op === '>=') {
+                return {type: 'boolean', value: x >= y};
+            } else {
+                throw new Error(`This error should not occur, please report it (invalid binary operator: '${op}')`);
+            }
+            return {type: 'number', value: out};
+        }
+    }
+
+    _expression(minPrecedence: number): Value {
+        let left: Value;
+        let lookahead = this.peek();
+        if (lookahead !== EOF && lookahead in UNARY_OPERATORS) {
+            let op = lookahead as UnaryOperator;
+            let precedence = UNARY_OPERATORS[op];
+            if (precedence < minPrecedence) {
+                this.error(`Unexpected unary operator ${op}`);
+            }
+            this.advance();
+            let value = this._expression(precedence);
+            alert('running unary ' + op + '\n' + JSON.stringify(value) + '\n\n' + this.tokens.slice(this.pos).join(','));
+            left = this.evalUnary(op, value);
+        } else {
+            left = this.primaryExpression();
+        }
+        while (true) {
+            lookahead = this.peek();
+            if (lookahead === EOF || !(lookahead in BINARY_OPERATORS)) {
+                break;
+            }
+            let op = lookahead as BinaryOperator;
+            let precedence = BINARY_OPERATORS[op];
+            if (precedence < minPrecedence) {
+                break;
+            }
+            this.advance();
+            let right = this._expression(precedence + 1);
+            left = this.evalBinary(op, left, right);
+        }
+        return left;
+    }
+    
+    expression(): Value {
+        return this._expression(0);
+    }
+
+    numberExpression(): number {
+        let value = this.expression();
+        if (value.type !== 'number') {
+            this.error(`Expected value of type 'number', got type '${value.type}'`);
+        }
+        return value.value;
+    }
+    
+    expressionStatement(): void {
+        this.expression();
+        this.eat(T_LINE_END);
+    }
+
     generation(): number {
-        let out = Number(this.eat(T_INTEGER)[0]);
+        let out = this.numberExpression();
         if (out >= this.grid.gens) {
             this.error(`Generation out of bounds: '${out}'`, -1);
         } else if (out < 0) {
@@ -1158,120 +1450,44 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    state(): number {
-        return Number(this.eat(T_STATE)[0]);
-    }
-
     stateOrRange(): number[] {
-        let value = this.state();
-        if (this.match('to')) {
+        if (this.match('state')) {
             this.advance();
-            let end = this.state();
+            return [this.numberExpression()];
+        } else if (this.match('states')) {
+            let start = this.numberExpression();
+            this.eat(literal('to'));
+            let end = this.numberExpression();
             let out: number[] = [];
-            for (let i = value; i <= end; i++) {
+            for (let i = start; i < end; i++) {
                 out.push(i);
             }
             return out;
         } else {
-            return [value];
+            this.error(`Expected state or range`);
         }
     }
 
-    static readonly T_STATE_SPECIFIER: Matcher = [new Set(['nop', '0', '1', '*', '`', 'off', 'on', 'unknown', 'dont_care', 'unchecked', 'unset', 'var', /^p\d+$/]), 'state specifier'];
-
-    stateSpecifier(): StateSpecifier {
-        let data: string[] = [this.eat(VLSFileParser.T_STATE_SPECIFIER)[0]];
-        while (this.match(VLSFileParser.T_STATE_SPECIFIER)) {
-            data.unshift(this.advance());
+    patternStatement(): void {
+        this.eat(literal('pattern'));
+        let width = 0;
+        let height = 0;
+        if (this.match(/^\d+x\d+$/)) {
+            let value = this.advance().split('x');
+            width = Number(value[0]);
+            height = Number(value[1]);
         }
-        let state: State | undefined = undefined;
-        let variable: Variable | undefined = undefined;
-        let settable: Settability = SEARCHABLE;
-        let period: number | undefined = undefined;
-        for (let value of data) {
-            if (value === 'nop') {
-                return {type: 'nop'};
-            } else if (value === '0' || value === 'off') {
-                state = OFF;
-                period = undefined;
-            } else if (value === '1' || value === 'on') {
-                state = ON;
-                period = undefined;
-            } else if (value === '*' || value === 'unknown') {
-                state = UNKNOWN;
-                period = undefined;
-            } else if (value === `'` || value === 'dont_care') {
-                state = DONT_CARE;
-                period = undefined;
-            } else if (value === 'unchecked') {
-                settable = NOT_SEARCHABLE;
-            } else if (value === 'unset') {
-                settable = NOT_SETTABLE;
-            } else if (value === 'var') {
-                state = UNKNOWN;
-                variable = this.grid.getNewVar();
-                period = undefined;
-            } else if (value.match(/^p\d+$/)) {
-                state ??= UNKNOWN;
-                period = Number(value.slice(1));
-            } else {
-                throw new Error(`This error should not occur, please report it (invalid state specifier)`);
-            }
+        let gens = this.numberExpression();
+        if (gens === 0) {
+            this.error(`Generations value cannot be 0`, -2);
         }
-        if (state === undefined) {
-            throw new Error(`This error should not occur, please report it (empty state specifier)`);
+        this.eat(literal('gens'));
+        let newGrid = new Grid(width, height, gens);
+        if (this._grid) {
+            this.grids.push(this._grid);
+            newGrid.numVars = this._grid.numVars;
         }
-        if (period !== undefined) {
-            return {type: 'periodic', cell: cell(state, variable, settable), period};
-        } else {
-            return {type: 'cell', cell: cell(state, variable, settable)};
-        }
-    }
-
-    boundStateSpecifier(out: FullStateSpecifier): void {
-        if (this.match('all')) {
-            this.advance();
-            this.eat([':', 'colon']);
-            out.all = this.stateSpecifier();
-        } else if (this.match(T_INTEGER, ':') || this.match(T_INTEGER, '-', T_INTEGER, ':') || this.match('$', T_NATURAL_NUMBER, ':') || this.match('$', T_NATURAL_NUMBER, '-', T_NATURAL_NUMBER, ':')) {
-            let absolute = false;
-            if (this.match('$')) {
-                this.advance();
-                absolute = true;
-            }
-            let range = this.generationOrRange();
-            this.eat([':', 'colon']);
-            let value = this.stateSpecifier();
-            if (absolute) {
-                if (!out.absolute) {
-                    out.absolute = [];
-                }
-                out.absolute.push([range, structuredClone(value)]);
-            } else {
-                if (!out.relative) {
-                    out.relative = [];
-                }
-                out.relative.push([range, structuredClone(value)]);
-            }
-        } else {
-            if (!out.relative) {
-                out.relative = [];
-            }
-            out.relative.push([[0], this.stateSpecifier()]);
-        }
-    }
-
-    fullStateSpecifier(): FullStateSpecifier {
-        let out: FullStateSpecifier = {};
-        while (!this.match(T_LINE_END)) {
-            this.boundStateSpecifier(out);
-            if (this.match(T_LINE_END)) {
-                break;
-            } else {
-                this.eat([',', 'comma']);
-            }
-        }
-        return out;
+        this._grid = newGrid;
     }
 
     stateSetStatement(): void {
@@ -1280,7 +1496,11 @@ class VLSFileParser extends BaseParser {
         let start = this.pos;
         for (let state of states) {
             this.pos = start;
-            this.scope.setState(state, this.fullStateSpecifier());
+            let value = this.expression();
+            if (value.type !== 'state-specifier') {
+                this.error(`Expected value of type 'state-specifier' for state set statement`);
+            }
+            this.scope.setState(state, value.value);
         }
         this.eat(T_LINE_END);
     }
@@ -1313,12 +1533,14 @@ class VLSFileParser extends BaseParser {
         if (this.match('gen') || this.match('gens')) {
             this.advance();
             gens = [];
-            while (!(this.match(':') || this.match('offset'))) {
+            while (true) {
                 for (let value of this.generationOrRange()) {
                     gens.push(value);
                 }
-                while (this.match(',')) {
+                if (this.match(',')) {
                     this.advance();
+                } else {
+                    break;
                 }
             }
         } else {
@@ -1329,9 +1551,9 @@ class VLSFileParser extends BaseParser {
         let yOffset = 0;
         if (this.match('offset')) {
             this.advance();
-            let [x, y] = this.eat(T_INTEGER, T_INTEGER);
-            xOffset = Number(x);
-            yOffset = Number(y);
+            xOffset = this.numberExpression();
+            this.eat(literal(','));
+            yOffset = this.numberExpression();
         }
         this.eat([':', 'colon'], T_LINE_END);
         let rle = this.eat(T_RLE)[0];
@@ -1371,40 +1593,11 @@ class VLSFileParser extends BaseParser {
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
                 let data = this.scope.getState(state);
-                if (gens === 'all') {
-                    if (data.all) {
-                        this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
-                    } else {
-                        if (!data.relative) {
-                            this.error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
-                        }
-                        let found = false;
-                        for (let value of data.relative) {
-                            if (value[0].includes(0)) {
-                                this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, value[1], 0);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) {
-                            this.error(`Invalid state for 'all gens': ${state} (does not have 'all' or '0' bound)`);
-                        }
-                    }
+                if (gens === 'all' || data.all) {
+                    this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data, 0);
                 } else {
-                    if (data.all) {
-                        this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data.all, 0);
-                    }
-                    if (data.absolute) {
-                        for (let [ts, value] of Object.values(data.absolute)) {
-                            this.setCells(ts, x2, y2, value, 0);
-                        }
-                    }
-                    if (data.relative) {
-                        for (let gen of gens) {
-                            for (let [ts, value] of Object.values(data.relative)) {
-                                this.setCells(ts.map(x => x + gen), x2, y2, value, gen);
-                            }
-                        }
+                    for (let gen of gens) {
+                        this.setCells(gens, x2, y2, data, 0);
                     }
                 }
             }
@@ -1437,11 +1630,11 @@ class VLSFileParser extends BaseParser {
     }
 
     statement(): void {
-        if (this.match(T_LINE_END)) {
-            this.advance();
-        } else if (this.match(T_STATE)) {
+        if (this.match('pattern')) {
+            this.patternStatement();
+        } else if (this.match('state') || this.match('states')) {
             this.stateSetStatement();
-        } else if (this.match('gen') || this.match('all', 'gens') || this.match('gens')) {
+        } else if (this.match('gen') || this.match('gens')) {
             this.rleStatement();
         } else if (this.match('wrap')) {
             this.wrapStatement();
@@ -1454,35 +1647,21 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    pattern(): void {
-        while (this.match(T_LINE_END)) {
+    async program(): Promise<Grid> {
+        while (this.match(T_LINE_END) && !this.match(EOF)) {
             this.advance();
         }
-        this.eat(literal('pattern'));
-        let width = 0;
-        let height = 0;
-        if (this.match(/^\d+x\d+$/)) {
-            let value = this.advance().split('x');
-            width = Number(value[0]);
-            height = Number(value[1]);
-        }
-        let gens = Number(this.eat(T_NATURAL_NUMBER, literal('gens'))[0]);
-        if (gens === 0) {
-            this.error(`Generations value cannot be 0`, -3);
-        }
-        this.grid = new Grid(width, height, gens);
-        while (!(this.match(EOF) || this.match(T_NATURAL_NUMBER, 'gens', T_LINE_END))) {
-            this.statement();
-        }
-        this.grids.push(this.grid);
-    }
-
-    async program(): Promise<Grid> {
         while (!this.match(EOF)) {
-            this.pattern();
+            this.statement();
+            while (this.match(T_LINE_END) && !this.match(EOF)) {
+                this.advance();
+            }
+        }
+        if (this._grid) {
+            this.grids.push(this._grid);
         }
         if (this.grids.length === 0) {
-            this.error('No patterns provided!');
+            this.error(`No patterns provided`);
         }
         return mergeGrids(this.grids);
     }
@@ -1491,16 +1670,21 @@ class VLSFileParser extends BaseParser {
 
 
 export async function runFile(filename: string): Promise<Grid> {
+    let fs = await import('node:fs/promises');
     let code = (await fs.readFile(filename)).toString();
     try {
         let parser = new VLSFileParser(filename, code);
         return await parser.program();
     } catch (e) {
-        if (e instanceof VLSFileError) {
-            console.error(`Use ./vls -h for help`);
-            process.exit(1);
-        } else {
+        if (IS_BROWSER) {
             throw e;
+        } else {
+            if (e instanceof VLSFileError) {
+                console.error(`Use ./vls -h for help`);
+                process.exit(1);
+            } else {
+                throw e;
+            }
         }
     }
 }

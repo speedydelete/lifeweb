@@ -333,3 +333,43 @@ static inline DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGri
     }
     return (DGShrinkToFitOffsets){.x = x_offset, .y = y_offset};
 }
+
+
+static inline Transformations dg_get_identity_transforms(DynamicGrid* grid) {
+    Transformations out;
+    DynamicGrid temp = empty_dynamic_grid;
+    dg_flip_horizontal(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.flip_horizontal = true;
+    }
+    dg_flip_vertical(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.flip_vertical = true;
+    }
+    dg_rotate_left(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.rotate_left = true;
+    }
+    dg_rotate_right(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.rotate_right = true;
+    }
+    dg_rotate_180(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.rotate_180 = true;
+    }
+    dg_flip_diagonal(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.flip_diagonal = true;
+    }
+    dg_flip_anti_diagonal(&temp, grid);
+    if (dg_eq(grid, &temp)) {
+        out.flip_anti_diagonal = true;
+    }
+    dg_destroy(&temp);
+    return out;
+}
+
+static inline StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
+    return transforms_to_sts(dg_get_identity_transforms(grid));
+}

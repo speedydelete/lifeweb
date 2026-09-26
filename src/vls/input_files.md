@@ -5,7 +5,7 @@ A VLS input file specifies a problem for the search program to solve.
 
 ## Basics
 
-An input file consists of a list of patterns. Each pattern is preceded by a pattern declaration and consists of a list of statements.
+An input file consists of a list of statements.
 
 Any two lines can be joined, separated by a semicolon.
 
@@ -14,12 +14,12 @@ All cells are initialized to unknown by default.
 This prefix is applied on every file:
 
 ```
-0 = off
-1 = on
-2 = unknown
-3 = dont_care
-4 = all: p1
-5 = off
+state 0 = off
+state 1 = on
+state 2 = unknown
+state 3 = dont_care
+state 4 = all: period 1
+state 5 = off
 ```
 
 ## Statements
@@ -32,15 +32,20 @@ pattern [wxh] <number> gens
 
 Creates a new pattern with the given generations and optionally the given width and height (default 0x0).
 
+Statements that affect the pattern must be used after a pattern is defined.
+
+If multiple patterns are provided, they are searched together with a shared variable namespace.
+
 ### State Set
 
 ```
-<number> = <state specifier>
+<state> = <full state specifier>
+<start state> to <end state> = <full state specifier>
 ```
 
-Defines or changes the meaning of a state. States are used by RLE statements to add things to the problem.
+Defines or changes the meaning of a state or range of states. States are used by RLE statements to add things to the problem.
 
-A state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `0: off, 1-2: unknown, $10-20: unchecked unknown`. Ranges are inclusive on both ends.
+A full state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `0: off, 1-2: unknown, 5: dont_care, $10-20: unsearchable, $13: unsettable var`. Ranges are inclusive on both ends.
 
 The character `$` before a range indicates that it is absolute, when it is used it will always be applied to those generations. If `$` isn't present, it is a relative one, this means that the ranges are added to the current generation to determine the real generation when it is used.
 
@@ -48,16 +53,20 @@ If no range is specified it is assumed to be `0`.
 
 `all` can also be used to automatically apply it to all generations.
 
-A bounded state specifier consists of an arbitrary number of these words, they are applied right-to-left:
+A state specifier consists of one of these values:
 * `nop` - do absolutely nothing
 * `off` - the cell's state is forced to be off
 * `on` - the cell's state is forced to be on
 * `unknown` - the cell's state is indeterminate
 * `dont_care` - the cell's state is indeterminate and not set by the search program, it does not have to follow the transition rules and can do literally anything
-* `unchecked` - it will not try to explicitly set the cell, but it can still "inherit" a value from nearby cells
-* `unset` - the cell cannot be set in any way
 * `var` - the cell is a variable that is shared across every instance of the state
-* `p<period>` - the cell is a periodic cell, new variables are automatically created every time it is used to force it to be of the given period
+* `period <value>` - the cell is a periodic cell, new variables are automatically created every time it is used to force it to be of the given period
+* `unsearchable` - it will not try to explicitly set the cell, but it can still "inherit" a value from nearby cells
+* `unsettable` - the cell cannot be set in any way
+* `unsearchable var` - the combination
+* `unsettable var` - the combination
+* `unsearchable period <value>` - the combination
+* `unsettable period <value>` - the combination
 
 ### RLE
 
