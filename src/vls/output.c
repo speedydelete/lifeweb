@@ -97,8 +97,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                 CellValue value = dg_get(grid, t, x, y);
                 if (value == UNKNOWN) {
                     if (is_solution) {
-                        fprintf(stderr, "\nError: This error should not occur, please report it (unknown cell in solution)\n");
-                        exit(1);
+                        fatal_error("unknown cell in solution");
                     } else {
                         real_printf("B");
                     }
@@ -109,8 +108,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                 } else if (value == DONT_CARE) {
                     real_printf("C");
                 } else {
-                    fprintf(stderr, "\nError: This error should not occur, please report (invalid grid state %i at t = %"PRIdindex", x = %"PRIdindex", y = %"PRIdindex")\n", value, t, x, y);
-                    exit(1);
+                    fatal_error("invalid grid state");
                 }
             }
             if (t != grid->gens - 1) {

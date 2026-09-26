@@ -233,8 +233,7 @@ static inline void preprocess_cases(void) {
                                     exit(0);
                                 }
                             } else if (new_cell.var == NO_VAR) {
-                                real_fprintf(stderr, "Error: This error should not occur, please report it (new_cell.var == NO_VAR)\n");
-                                exit(1);
+                                fatal_error("new_cell.var == NO_VAR");
                             } else if (next_cell->var == 0) {
                                 // it was unknown, now we know it must be a certain variable
                                 Variable var = new_cell.var;

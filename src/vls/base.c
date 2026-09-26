@@ -17,7 +17,6 @@
 
 #define HASH_DEBUG false
 
-
 #if DEBUG >= 1
     #define DPRINTF1 printf
     #define DPRINTGRID1() print_grid(stdout)
@@ -100,6 +99,12 @@
 #endif
 
 
+[[noreturn]] static void fatal_error(char* msg) {
+    real_fprintf(stderr, "\nError: This error should not occur, please report it (%s)\n", msg);
+    exit(1);
+}
+
+
 #define PADDING 2
 
 
@@ -169,31 +174,30 @@ static inline void safe_free(void* ptr) {
 
 
 typedef struct Cell Cell;
-typedef struct CAClause CAClause;
 
-struct CAClause {
+typedef struct CAClause {
     ImplicationTransition tr;
-    bool invert_prev : 1;
-    bool invert_next : 1;
-    bool invert_nw : 1;
-    bool invert_n : 1;
-    bool invert_ne : 1;
-    bool invert_w : 1;
-    bool invert_e : 1;
-    bool invert_sw : 1;
-    bool invert_s : 1;
-    bool invert_se : 1;
     Cell* prev;
+    bool invert_prev;
     Cell* next;
+    bool invert_next;
     Cell* nw;
+    bool invert_nw;
     Cell* n;
+    bool invert_n;
     Cell* ne;
+    bool invert_ne;
     Cell* w;
+    bool invert_w;
     Cell* e;
+    bool invert_e;
     Cell* sw;
+    bool invert_sw;
     Cell* s;
+    bool invert_s;
     Cell* se;
-};
+    bool invert_se;
+} CAClause;
 
 typedef struct CAClauseList {
     CAClause* prev;
@@ -211,43 +215,49 @@ typedef struct CAClauseList {
 struct Cell {
     // the actual value of the cell
     CellValue value;
-    // the settability value
-    Settability settable;
     // the variable number from INITIAL_VARS
-    uint64_t variable_number;
-    // the length of the used_in flexible array member
-    size_t uses;
+    Variable variable_number;
+    // the length of the `uses` flexible array member
+    size_t use_count;
     // the clauses it is used in
-    CAClauseList used_in[];
+    CAClauseList uses[];
 };
 
 Cell off_cell = {
     .value = OFF,
-    .settable = NOT_SEARCHABLE,
-    .uses = 0,
+    .use_count = 0,
     // no need to initialize the flexible array member
 };
 
 Cell on_cell = {
     .value = ON,
-    .settable = NOT_SEARCHABLE,
-    .uses = 0,
+    .use_count = 0,
+    // no need to initialize the flexible array member
+};
+
+Cell dont_care_cell = {
+    .value = DONT_CARE,
+    .use_count = 0,
     // no need to initialize the flexible array member
 };
 
 struct {
     // the width of the grid
-    const Index width;
+    Index width;
     // the height of the grid
-    const Index height;
+    Index height;
     // the number of generations of the grid
-    const Index gens;
+    Index gens;
     // the size of each layer, aka width * height
-    const Index layer_size;
+    Index layer_size;
     // the total number of cells in the grid
-    const Index total_size;
+    Index total_size;
+    // the number of variables
+    Variable var_count;
     // `total_size`-long array of pointers to cells
     Cell** grid;
+    // the cells, indexed by their variable number
+    Cell** variables;
     // the number of CA clauses
     size_t ca_clause_count;
     // the CA clauses that encode the problem
@@ -271,27 +281,7 @@ struct {
         // or -1 if it wasn't rule-dependent
         SignedTransition rule_dependent_tr;
     #endif
-} state = {
-    .width = INITIAL_WIDTH,
-    .height = INITIAL_HEIGHT,
-    .gens = INITIAL_GENS,
-    .layer_size = INITIAL_WIDTH * INITIAL_HEIGHT,
-    .total_size = INITIAL_WIDTH * INITIAL_HEIGHT * INITIAL_GENS,
-    .grid = NULL,
-    .
-    .start_unknown_cells = VAR_COUNT,
-    .set_unknown_cells = 0,
-    #if KEEP_LAST_CHECKED_TIME
-        .current_time = 0,
-    #endif
-    .initial_cell = NULL,
-    #ifdef MAXPOP
-        .phase_0_pop = 0,
-    #endif
-    #if MULTI_RULE
-        .rule_dependent_tr = DO_NOTHING,
-    #endif
-};
+} state;
 
 static inline __attribute__((always_inline)) Cell* get_cell(Index t, Index x, Index y) {
     return state.grid[(((t * state.height) + y) * state.width) + x];
@@ -350,7 +340,7 @@ static inline void print_grid(FILE* stream) {
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256 * sizeof(char));
     get_rule(rule, false);
-    fprintf(stream, "Grid (rule = %s, set_unknown_cells = %i out of %i):\n", rule, state.set_unknown_cells, state.start_unknown_cells);
+    fprintf(stream, "Grid (rule = %s, set_unknown_cells = %"PRIindex" out of %"PRIindex"):\n", rule, state.set_unknown_cells, state.start_unknown_cells);
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             DFPRINTLINEPADDING(stream);
@@ -367,39 +357,94 @@ static inline void print_grid(FILE* stream) {
         if (t == state.gens - 1) {
             fprintf(stream, "!\n");
         } else {
-            fprintf(stream, "$ %ib\n", t + 1);
+            fprintf(stream, "$ %"PRIindex"b\n", t + 1);
         }
     }
 }
 
 
-static inline void init_state(void) {
-    state.grid = safe_malloc(state.total_size * sizeof(Cell*));
-    state.ca_clause_count = (state.height - 2) * (state.width - 2) * state.gens;
-    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
+typedef struct InitFromState {
+    Index height;
+    Index width;
+    Index gens;
+    Index var_count;
+    CellValue* states;
+    Variable* vars;
+} InitFromState;
+
+Variable init_from_vars;
+
+static inline void init_state(InitFromState* from) {
+    state.width = from->width;
+    state.height = from->height;
+    state.gens = from->gens;
+    state.layer_size = state.width * state.height;
+    state.total_size = state.layer_size * state.gens;
+    state.start_unknown_cells = from->var_count;
+    state.set_unknown_cells = 0;
+    #if KEEP_LAST_CHECKED_TIME
+        state.current_time = 0;
+    #endif
+    state.initial_cell = NULL;
+    #ifdef MAXPOP
+        state.phase_0_pop = 0;
+    #endif
+    #if MULTI_RULE
+        state.rule_dependent_tr = DO_NOTHING;
+    #endif
     // first we have to determine how many times each variable is used
-    Index* var_uses = safe_malloc(VAR_COUNT * sizeof(Index));
-    memset(var_uses, 0, VAR_COUNT * sizeof(Index));
+    Index* var_uses = safe_malloc(state.var_count * sizeof(Index));
+    memset(var_uses, 0, state.var_count * sizeof(Index));
+    for (Index i = 0; i < state.total_size; i++) {
+        Variable var = from->vars[i];
+        if (var != NO_VAR) {
+            var_uses[var]++;
+        }
+    }
+    // create the cells
+    state.variables = safe_malloc(state.var_count * sizeof(Cell*));
+    for (Index i = 0; i < state.var_count; i++) {
+        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CAClauseList));
+        cell->value = UNKNOWN;
+        cell->variable_number = i;
+        cell->use_count = var_uses[i];
+        state.variables[i] = cell;
+    }
+    // now do the grid
+    state.grid = safe_malloc(state.total_size * sizeof(Cell*));
+    Index i = 0;
     for (Index t = 0; t < state.gens; t++) {
         for (Index y = 0; y < state.height; y++) {
             for (Index x = 0; x < state.width; x++) {
-                Variable var = initial_vars[t][y][x];
-                if (var != NO_VAR) {
-                    var_uses[var]++;
+                CellValue value = from->states[i];
+                Cell* cell;
+                if (value == UNKNOWN) {
+                    cell = state.variables[from->vars[i]];
+                } else if (value == OFF) {
+                    cell = &off_cell;
+                } else if (value == ON) {
+                    cell = &on_cell;
+                } else if (value == DONT_CARE) {
+                    cell = &dont_care_cell;
+                } else {
+                    fatal_error("invalid cell state");
                 }
+                state.grid[i] = cell;
+                i++;
             }
         }
     }
-    for (Index i = 0; i < VAR_COUNT; i++) {
-        Cell* cell = malloc(sizeof(Cell) + sizeof(CAClauseList) * var_uses[i]);
-        cell.value = initial_states[i];
-        cell.settable = initial_settable[i];
-        cell.variable_number = i;
-    }
-    for (Index t = 0; t < state.gens; t++) {
-        for (Index y = 0; y < state.height; y++) {
-            for (Index x = 0; x < state.width; x++) {
-                Cell* cell = 
+    // now the clauses
+    state.ca_clause_count = (state.height - 2) * (state.width - 2) * (state.gens - 1);
+    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
+    i = 0;
+    for (Index t = 0; t < state.gens - 1; t++) {
+        for (Index y = 1; y < state.height - 1; y++) {
+            for (Index x = 1; x < state.width - 1; x++) {
+                CAClause* clause = &(state.ca_clauses[i]);
+                clause->invert_prev = false;
+                clause->prev = t == 0 ? &dont_care_cell : get_cell(t - 1, x, y);
+                i++;
                 // Cell* cell = get_cell(t, x, y);
                 // cell->t = t;
                 // cell->x = x;

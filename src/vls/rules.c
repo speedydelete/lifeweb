@@ -8,7 +8,6 @@
 
 #include "params2.h"
 #include "base.c"
-#include "symmetries.c"
 
 
 typedef struct INTSpec {
@@ -197,7 +196,7 @@ static inline void init_tr_to_bound_tr() {
             }
         }
         if (!found) {
-            fprintf(stderr, "Error: This error should not occur, please report it (nonexistent transition in init_tr_to_bound_tr: %i)", tr);
+            fatal_error("nonexistent transition in init_tr_to_bound_tr");
             exit(1);
         }
     }
