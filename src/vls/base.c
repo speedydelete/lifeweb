@@ -21,10 +21,6 @@
 
 #define HASH_DEBUG false
 
-#ifndef DEBUG
-    #define DEBUG 6
-#endif
-
 #if DEBUG >= 1
     #define DPRINTF1 printf
     #define DPRINTGRID1() print_grid(stdout)
@@ -128,6 +124,8 @@ typedef uint8_t CellValue;
 typedef uint16_t Transition;
 typedef int16_t SignedTransition;
 typedef uint16_t BoundTransition;
+// special value for when a transition is rule dependent
+#define TRS_RULE_DEPENDENT 4
 
 #define DO_NOTHING 0
 typedef uint32_t ImplicationTransition;
@@ -160,12 +158,114 @@ static inline void safe_free(void* ptr) {
 }
 
 
-// configuration options
-typedef struct Config {
+typedef enum StaticSymmetry {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2b,
+    D2s,
+    D4p,
+    D4x,
+    D8,
+} StaticSymmetry;
 
-} Config;
+typedef struct Transformations {
+    bool flip_horizontal: 1;
+    bool flip_vertical: 1;
+    bool rotate_left: 1;
+    bool rotate_right: 1;
+    bool rotate_180: 1;
+    bool flip_diagonal: 1;
+    bool flip_anti_diagonal: 1;
+} Transformations;
 
-Config config;
+const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
+    [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+    [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
+    [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+    [D2h] = {D2h, D4p, D8 , D2h, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D2v] = {D2v, D4p, D8 , D4p, D2v, D8 , D8 , D4p, D8 , D8 },
+    [D2b] = {D2b, D4x, D8 , D8 , D8 , D2b, D4x, D8 , D4x, D8 },
+    [D2s] = {D2s, D4x, D8 , D8 , D8 , D4x, D2s, D8 , D4x, D8 },
+    [D4p] = {D4p, D4p, D8 , D4p, D4p, D8 , D8 , D4p, D8 , D8 },
+    [D4x] = {D4x, D4x, D8 , D8 , D8 , D4x, D4x, D8 , D4x, D8 },
+    [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
+};
+
+const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
+    [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
+    [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
+    [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
+    [D2h] = {C1 , C1 , C1 , D2h, C1 , C1 , C1 , D2h, C1 , D2h},
+    [D2v] = {C1 , C1 , C1 , C1 , D2v, C1 , C1 , D2v, C1 , D2v},
+    [D2b] = {C1 , C1 , C1 , C1 , C1 , D2b, C1 , C1 , D2b, D2b},
+    [D2s] = {C1 , C1 , C1 , C1 , C1 , C1 , D2s, C1 , D2s, D2s},
+    [D4p] = {C1 , C2 , C2 , D2h, D2v, C1 , C1 , D4p, C2 , D4p},
+    [D4x] = {C1 , C2 , C2 , C1 , C1 , D2b, D2s, C2 , D4x, D4x},
+    [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
+};
+
+static inline bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
+    return STATIC_SYMMETRY_JOIN[container][value] == container;
+}
+
+static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
+    Transformations out;
+    out.flip_horizontal = sts_contains(symmetry, D2h);
+    out.flip_vertical = sts_contains(symmetry, D2v);
+    out.rotate_left = sts_contains(symmetry, C4);
+    out.rotate_right = sts_contains(symmetry, C4);
+    out.rotate_180 = sts_contains(symmetry, C2);
+    out.flip_diagonal = sts_contains(symmetry, D2b);
+    out.flip_anti_diagonal = sts_contains(symmetry, D2s);
+    return out;
+}
+
+static inline StaticSymmetry transforms_to_sts(Transformations t) {
+    bool iC2 = t.rotate_180;
+    bool iC4 = t.rotate_left || t.rotate_right;
+    bool iD2h = t.flip_horizontal;
+    bool iD2v = t.flip_vertical;
+    bool iD2b = t.flip_diagonal;
+    bool iD2s = t.flip_anti_diagonal;
+    if ((iD2h || iD2v) && (iD2b || iD2s)) {
+        return D8;
+    } else if (iC2) {
+        if (iC4) {
+            if (iD2h || iD2v || iD2s || iD2b) {
+                return D8;
+            } else {
+                return C4;
+            }
+        } else {
+            if (iD2h || iD2v) {
+                return D4p;
+            } else if (iD2b || iD2s) {
+                return D4x;
+            } else {
+                return C2;
+            }
+        }
+    } else {
+        if (iD2h && iD2v) {
+            return D4p;
+        } else if (iD2b && iD2s) {
+            return D4x;
+        } else if (iD2h) {
+            return D2h;
+        } else if (iD2v) {
+            return D2v;
+        } else if (iD2s) {
+            return D2s;
+        } else if (iD2b) {
+            return D2b;
+        } else {
+            return C1;
+        }
+    }
+}
 
 
 typedef struct Cell Cell;
@@ -263,11 +363,15 @@ struct {
     size_t total_size;
     // the number of variables
     size_t var_count;
-    // `total_size`-long array of pointers to cells
-    Cell** grid;
+    // the transitions that make up the rule
+    CellValue trs[512];
     // the cells, indexed by their variable number
     // numbering starts at 1, so entry 0 is a null pointer
     Cell** variables;
+    // `total_size`-long array of pointers to cells
+    Cell** grid;
+    // the symmetry of the grid
+    StaticSymmetry symmetry;
     // the number of CA clauses
     size_t ca_clause_count;
     // the CA clauses that encode the problem
@@ -324,6 +428,62 @@ static inline bool unsafe_set_cell(Cell* cell, CellValue value);
 static inline ImplicationTransition compute_implication_tr(CAClause* clause);
 
 
+// configuration options
+
+typedef enum MaxPartialScoring {
+    MAX_PARTIAL_SCORING_CELL,
+    MAX_PARTIAL_SCORING_DEPTH,
+} MaxPartialScoring;
+
+typedef struct Config {
+
+    // the maximum achievable depth
+    size_t max_depth;
+
+    // the initial value of unknown cells, should be OFF or ON
+    CellValue initial_value;
+
+    // whether you are searching for periodic patterns
+    bool periodic;
+    size_t periodic_dx;
+    size_t periodic_dy;
+    size_t periodic_period;
+
+    // the interval used for reporting progress
+    size_t reporting_interval;
+
+    // text to put after the rule, such as :T64,64
+    char* after_rule_text;
+
+    // solution printing options
+    // whether to show solutions at all
+    bool show_solutions;
+    // maximum number of solutions to show, 0 to disable
+    size_t max_solutions;
+    // whether to filter empty solutions
+    bool filter_empty_solutions;
+    // whether to filter duplicate solutions
+    bool filter_duplicate_solutions;
+    // whether to filter subperiod solutions
+    bool filter_subperiod_solutions;
+    // the length of the cell period filter
+    size_t cell_period_filter_length;
+    // cell period filter: ignore cells of those periods when checking for duplicates
+    size_t* cell_period_filter;
+
+    // max partials options
+    // whether to show max partials at all
+    bool max_partials;
+    // the scoring used for max partials
+    MaxPartialScoring max_partial_scoring;
+    // the minimum interval to report new max partials
+    size_t max_partial_reporting_interval;
+
+} Config;
+
+Config config;
+
+
 static const char* CELL_LETTERS = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
 // print a single cell for debugging purposes
@@ -351,12 +511,7 @@ static inline void print_grid(FILE* stream) {
         for (size_t y = 0; y < state.height; y++) {
             DFPRINTLINEPADDING(stream);
             for (size_t x = 0; x < state.width; x++) {
-                Cell* cell = state_get_cell(t, x, y);
-                #if VARIABLES
-                    print_cell(stream, cell);
-                #else
-                    print_cell(stream, cell);
-                #endif
+                print_cell(stream, state_get_cell(t, x, y));
             }
             real_fprintf(stream, " $\n");
         }
@@ -377,6 +532,8 @@ typedef struct InitFromState {
     CellValue* states;
     size_t* vars;
 } InitFromState;
+
+static inline void internal_init_state_symmetry(void);
 
 // initialize the current state
 static inline void init_state(InitFromState* from) {
@@ -471,15 +628,16 @@ static inline void init_state(InitFromState* from) {
             }
         }
     }
+    internal_init_state_symmetry();
 }
 
 // free the current state
 static inline void destroy_state(void) {
-    safe_free(state.grid);
     for (size_t i = 1; i < state.var_count; i++) {
         safe_free(state.variables[i]);
     }
     safe_free(state.variables);
+    safe_free(state.grid);
     safe_free(state.ca_clauses);
 }
 
@@ -761,18 +919,6 @@ static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
     DPRINTF4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     unsafe_set_cell(cell, value);
     state.set_unknown_cells++;
-    #ifdef MAXPOP
-        if (cell->t == 0) {
-            if (value == ON && cell->value != ON) {
-                state.phase_0_pop++;
-                if (state.phase_0_pop > MAXPOP) {
-                    return false;
-                }
-            } else if (value != ON && cell->value == ON) {
-                state.phase_0_pop--;
-            }
-        }
-    #endif
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     #if MULTI_RULE
     entry->type = STACKENTRY_TYPE_CELL_SET;
@@ -783,114 +929,4 @@ static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
         print_stack(current_stack);
     #endif
     return true;
-}
-
-
-typedef enum StaticSymmetry {
-    C1,
-    C2,
-    C4,
-    D2h,
-    D2v,
-    D2b,
-    D2s,
-    D4p,
-    D4x,
-    D8,
-} StaticSymmetry;
-
-typedef struct Transformations {
-    bool flip_horizontal: 1;
-    bool flip_vertical: 1;
-    bool rotate_left: 1;
-    bool rotate_right: 1;
-    bool rotate_180: 1;
-    bool flip_diagonal: 1;
-    bool flip_anti_diagonal: 1;
-} Transformations;
-
-const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
-    [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
-    [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
-    [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
-    [D2h] = {D2h, D4p, D8 , D2h, D4p, D8 , D8 , D4p, D8 , D8 },
-    [D2v] = {D2v, D4p, D8 , D4p, D2v, D8 , D8 , D4p, D8 , D8 },
-    [D2b] = {D2b, D4x, D8 , D8 , D8 , D2b, D4x, D8 , D4x, D8 },
-    [D2s] = {D2s, D4x, D8 , D8 , D8 , D4x, D2s, D8 , D4x, D8 },
-    [D4p] = {D4p, D4p, D8 , D4p, D4p, D8 , D8 , D4p, D8 , D8 },
-    [D4x] = {D4x, D4x, D8 , D8 , D8 , D4x, D4x, D8 , D4x, D8 },
-    [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
-};
-
-const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
-    [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
-    [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
-    [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
-    [D2h] = {C1 , C1 , C1 , D2h, C1 , C1 , C1 , D2h, C1 , D2h},
-    [D2v] = {C1 , C1 , C1 , C1 , D2v, C1 , C1 , D2v, C1 , D2v},
-    [D2b] = {C1 , C1 , C1 , C1 , C1 , D2b, C1 , C1 , D2b, D2b},
-    [D2s] = {C1 , C1 , C1 , C1 , C1 , C1 , D2s, C1 , D2s, D2s},
-    [D4p] = {C1 , C2 , C2 , D2h, D2v, C1 , C1 , D4p, C2 , D4p},
-    [D4x] = {C1 , C2 , C2 , C1 , C1 , D2b, D2s, C2 , D4x, D4x},
-    [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
-};
-
-static inline bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
-    return STATIC_SYMMETRY_JOIN[container][value] == container;
-}
-
-static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
-    Transformations out;
-    out.flip_horizontal = sts_contains(symmetry, D2h);
-    out.flip_vertical = sts_contains(symmetry, D2v);
-    out.rotate_left = sts_contains(symmetry, C4);
-    out.rotate_right = sts_contains(symmetry, C4);
-    out.rotate_180 = sts_contains(symmetry, C2);
-    out.flip_diagonal = sts_contains(symmetry, D2b);
-    out.flip_anti_diagonal = sts_contains(symmetry, D2s);
-    return out;
-}
-
-static inline StaticSymmetry transforms_to_sts(Transformations t) {
-    bool iC2 = t.rotate_180;
-    bool iC4 = t.rotate_left || t.rotate_right;
-    bool iD2h = t.flip_horizontal;
-    bool iD2v = t.flip_vertical;
-    bool iD2b = t.flip_diagonal;
-    bool iD2s = t.flip_anti_diagonal;
-    if ((iD2h || iD2v) && (iD2b || iD2s)) {
-        return D8;
-    } else if (iC2) {
-        if (iC4) {
-            if (iD2h || iD2v || iD2s || iD2b) {
-                return D8;
-            } else {
-                return C4;
-            }
-        } else {
-            if (iD2h || iD2v) {
-                return D4p;
-            } else if (iD2b || iD2s) {
-                return D4x;
-            } else {
-                return C2;
-            }
-        }
-    } else {
-        if (iD2h && iD2v) {
-            return D4p;
-        } else if (iD2b && iD2s) {
-            return D4x;
-        } else if (iD2h) {
-            return D2h;
-        } else if (iD2v) {
-            return D2v;
-        } else if (iD2s) {
-            return D2s;
-        } else if (iD2b) {
-            return D2b;
-        } else {
-            return C1;
-        }
-    }
 }

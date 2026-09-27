@@ -38,19 +38,13 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             printf("#C %s to %s\n", rule, maxrule);
         }
     #endif
-    DIndex real_width = grid->width < 2 * PADDING ? 0 : grid->width - 2 * PADDING;
-    DIndex real_height = grid->height < 2 * PADDING ? 0 : grid->height - 2 * PADDING;
-    printf("x = %"PRIdindex", y = %"PRIdindex", rule = %s"SPECIAL_AFTER_RULE, real_width, real_height, rule);
-    if (grid->width < 2 * PADDING || grid->height < 2 * PADDING) {
-        printf("\n!\n");
-        return;
-    }
+    printf("x = %"PRIdindex", y = %"PRIdindex", rule = %s%s", grid->width, grid->height, rule, config.after_rule_text);
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
-        for (DIndex t = 0; t < grid->gens; t++) {
-            for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
-                for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+        for (size_t t = 0; t < grid->gens; t++) {
+            for (size_t y = 0; y < grid->height - 0; y++) {
+                for (size_t x = 0; x < grid->width - 0; x++) {
                     CellValue value = dg_get(grid, t, x, y);
                     if (!is_known(value)) {
                         found = true;
@@ -68,9 +62,9 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
         if (!found) {
             // finish the RLE header
             real_printf("\n");
-            for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
+            for (size_t y = 0; y < grid->height; y++) {
                 DPRINTLINEPADDING();
-                for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+                for (size_t x = 0; x < grid->width; x++) {
                     CellValue value = dg_get(grid, 0, x, y);
                     if (value == ON) {
                         real_printf("o");
@@ -78,7 +72,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                         real_printf(".");
                     }
                 }
-                if (y == grid->height - PADDING - 1) {
+                if (y == grid->height - 1) {
                     real_printf(" !\n");
                 } else {
                     real_printf(" $\n");
@@ -90,10 +84,10 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
     }
     // finish the RLE header
     real_printf("History\n");
-    for (DIndex y = PADDING; y < grid->height - PADDING; y++) {
+    for (size_t y = 0; y < grid->height; y++) {
         DPRINTLINEPADDING();
-        for (DIndex t = 0; t < grid->gens; t++) {
-            for (DIndex x = PADDING; x < grid->width - PADDING; x++) {
+        for (size_t t = 0; t < grid->gens; t++) {
+            for (size_t x = 0; x < grid->width; x++) {
                 CellValue value = dg_get(grid, t, x, y);
                 if (value == UNKNOWN) {
                     if (is_solution) {
@@ -115,7 +109,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                 real_printf(" .|. ");
             }
         }
-        if (y == grid->height - PADDING - 1) {
+        if (y == grid->height - 1) {
             real_printf(" !\n");
         } else {
             real_printf(" $\n");
@@ -220,34 +214,45 @@ static inline Hash min_hash(Hash x, Hash y) {
     #define HASHDPRINTGRID(grid, depth)
 #endif
 
-static inline Hash hash_at_time(DynamicGrid* grid, DIndex t) {
+static inline Hash hash_at_time(DynamicGrid* grid, size_t t) {
     Hash out = HASH_OFFSET;
     update_hash(out, grid->width);
     update_hash(out, grid->height);
-    for (DIndex y = 0; y < grid->height; y++) {
-        for (DIndex x = 0; x < grid->width; x++) {
+    for (size_t y = 0; y < grid->height; y++) {
+        for (size_t x = 0; x < grid->width; x++) {
             update_hash(out, dg_get(grid, t, x, y));
         }
     }
     return out;
 }
 
-#if PERIODIC
+static inline Hash hash_all_times(DynamicGrid* grid) {
+    Hash out = HASH_OFFSET;
+    for (size_t t = 0; t < grid->gens; t++) {
+        for (size_t y = 0; y < grid->height; y++) {
+            for (size_t x = 0; x < grid->width; x++) {
+                CellValue value = dg_get(grid, t, x, y);
+                update_hash(out, value);
+            }
+        }
+    }
+    return out;
+}
 
-static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, intmax_t dx, intmax_t dy) {
+static inline Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, size_t dx, size_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
     DynamicGrid full_t_grid = empty_dynamic_grid;
     DynamicGrid t_grid = empty_dynamic_grid;
     dg_extract_gen(&full_t_grid, grid, offset);
     DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
-    DIndex x_offset_0 = offsets.x;
-    DIndex y_offset_0 = offsets.y;
+    size_t x_offset_0 = offsets.x;
+    size_t y_offset_0 = offsets.y;
     HASHDPRINTF(INDENT "Hashing all times with offset %"PRIdindex"\n", offset);
     HASHDPRINTGRID(grid, 2);
     HASHDPRINTF(INDENT INDENT "x_offset_0 = %"PRIdindex", y_offset_0 = %"PRIdindex"\n", x_offset_0, y_offset_0);
-    for (DIndex fake_t = 0; fake_t < grid->gens; fake_t++) {
-        DIndex real_t = (fake_t + offset) % grid->gens;
+    for (size_t fake_t = 0; fake_t < grid->gens; fake_t++) {
+        size_t real_t = (fake_t + offset) % grid->gens;
         dg_extract_gen(&full_t_grid, grid, real_t);
         DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
         intmax_t x_offset = (intmax_t)offsets.x - (intmax_t)x_offset_0;
@@ -261,8 +266,8 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
         update_hash(out, y_offset);
         HASHDPRINTF(INDENT INDENT INDENT "resolved: x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
         HASHDPRINTGRID(&t_grid, 3);
-        for (DIndex y = 0; y < t_grid.height; y++) {
-            for (DIndex x = 0; x < t_grid.width; x++) {
+        for (size_t y = 0; y < t_grid.height; y++) {
+            for (size_t x = 0; x < t_grid.width; x++) {
                 CellValue value = dg_get(&t_grid, 0, x, y);
                 update_hash(out, value);
             }
@@ -274,60 +279,44 @@ static inline Hash hash_all_times_with_offset(DynamicGrid* grid, DIndex offset, 
     return out;
 }
 
-static inline Hash hash_all_times(DynamicGrid* grid, intmax_t dx, intmax_t dy) {
+static inline Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
     Hash out = MAX_HASH;
     HASHDPRINTF(INDENT "Hashing all times\n");
-    for (DIndex offset = 0; offset < grid->gens; offset++) {
-        out = min_hash(out, hash_all_times_with_offset(grid, offset, dx, dy));
+    for (size_t offset = 0; offset < grid->gens; offset++) {
+        out = min_hash(out, hash_all_times_periodic_with_offset(grid, offset, dx, dy));
     }
     HASHDPRINTF(INDENT "Final final hash: %"PRIhash"\n", out);
     return out;
 }
 
-#else
-
-static inline Hash hash_all_times(DynamicGrid* grid) {
-    Hash out = HASH_OFFSET;
-    for (DIndex t = 0; t < grid->gens; t++) {
-        for (DIndex y = 0; y < grid->height; y++) {
-            for (DIndex x = 0; x < grid->width; x++) {
-                CellValue value = dg_get(grid, t, x, y);
-                update_hash(out, value);
-            }
-        }
-    }
-    return out;
-}
-
-#endif
-
-StaticSymmetry problem_symmetry;
-
 static inline Hash hash_full(DynamicGrid* grid) {
-    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[get_rule_symmetry()][problem_symmetry];
+    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[state.symmetry][get_rule_symmetry()];
     Transformations transforms = sts_to_transforms(symmetry);
     HASHDPRINTF("\n\nFull hashing grid:\n");
     HASHDPRINTGRID(grid, 0);
     HASHDPRINTF(INDENT "\nHashing (no transformation):\n");
-    #if PERIODIC
-        Hash out = hash_all_times(grid, PERIODIC_DX, PERIODIC_DY);
-        DynamicGrid temp = empty_dynamic_grid;
+    DynamicGrid temp = empty_dynamic_grid;
+    Hash out;
+    if (config.periodic) {
+        size_t dx = config.periodic_dx;
+        size_t dy = config.periodic_dy;
+        out = hash_all_times_periodic(grid, dx, dy);
         #define add_hash(transform, dx, dy) \
             HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
             if (transforms.transform) { \
                 dg_##transform(&temp, grid); \
-                out = min_hash(out, hash_all_times(&temp, (dx), (dy))); \
+                out = min_hash(out, hash_all_times_periodic(&temp, (dx), (dy))); \
             }
-        add_hash(flip_horizontal, -PERIODIC_DX, PERIODIC_DY);
-        add_hash(flip_vertical, PERIODIC_DX, -PERIODIC_DY);
-        add_hash(rotate_left, -PERIODIC_DY, PERIODIC_DX);
-        add_hash(rotate_right, PERIODIC_DY, -PERIODIC_DX);
-        add_hash(rotate_180, -PERIODIC_DX, -PERIODIC_DY);
-        add_hash(flip_diagonal, PERIODIC_DY, PERIODIC_DX);
-        add_hash(flip_anti_diagonal, -PERIODIC_DY, -PERIODIC_DX);
-    #else
-        Hash out = hash_all_times(grid);
-        DynamicGrid temp = empty_dynamic_grid;
+        add_hash(flip_horizontal, -dx, dy);
+        add_hash(flip_vertical, dx, -dy);
+        add_hash(rotate_left, -dy, dx);
+        add_hash(rotate_right, dy, -dx);
+        add_hash(rotate_180, -dx, -dy);
+        add_hash(flip_diagonal, dy, dx);
+        add_hash(flip_anti_diagonal, -dy, -dx);
+        #undef add_hash
+    } else {
+        out = hash_all_times(grid);
         #define add_hash(transform) \
             HASHDPRINTF(INDENT "\nHashing "#transform":\n"); \
             if (transforms.transform) { \
@@ -341,7 +330,8 @@ static inline Hash hash_full(DynamicGrid* grid) {
         add_hash(rotate_180);
         add_hash(flip_diagonal);
         add_hash(flip_anti_diagonal);
-    #endif
+        #undef add_hash
+    }
     dg_destroy(&temp);
     HASHDPRINTF("\nFinal final final hash: %"PRIhash"\n\n\n", out);
     return out;
@@ -357,10 +347,6 @@ static inline void init_solutions(void) {
     for (size_t i = 0; i < MAX_SAVED_SOLUTION_HASHES; i++) {
         known_solutions[i] = 0;
     }
-    DynamicGrid grid = empty_dynamic_grid;
-    dg_init_from_search_grid(&grid);
-    problem_symmetry = dg_get_symmetry(&grid);
-    dg_destroy(&grid);
 }
 
 static inline void destroy_solutions(void) {
@@ -425,29 +411,28 @@ static inline double get_time(void) {
 double start;
 
 
-#ifdef CELL_PERIOD_FILTER
-const int cell_period_filter[] = CELL_PERIOD_FILTER;
-#endif
-
 static inline void check_solution([[maybe_unused]] bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
-    #define drop_solution(msg)\
+    #define drop_solution(msg) \
         DPRINTF2("Dropping solution (" msg ")\n"); \
         if (preprocessing) { \
             printf("Solved in preprocessing, 0 solutions\n"); \
         } \
         dg_destroy(&hash_grid); \
+        dg_destroy(&solution_grid); \
         return;
     // put it into the hash grid
     DynamicGrid hash_grid = empty_dynamic_grid;
+    DynamicGrid solution_grid = empty_dynamic_grid;
     dg_init_from_search_grid(&hash_grid);
+    dg_init_from_search_grid(&solution_grid);
     // apply empty pattern filter
-    #if CHECK_EMPTY
+    if (config.filter_empty_solutions) {
         bool found = false;
-        for (Index t = 0; t < hash_grid.gens; t++) {
-            for (Index y = 0; y < hash_grid.height; y++) {
-                for (Index x = 0; x < hash_grid.width; x++) {
+        for (size_t t = 0; t < hash_grid.gens; t++) {
+            for (size_t y = 0; y < hash_grid.height; y++) {
+                for (size_t x = 0; x < hash_grid.width; x++) {
                     if (dg_get(&hash_grid, t, x, y) != OFF) {
                         found = true;
                         break;
@@ -464,17 +449,17 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         if (!found) {
             drop_solution("empty");
         }
-    #endif
+    }
     // apply subperiod filter
-    #if FILTER_SUBPERIOD
+    if (config.filter_subperiod_solutions) {
         Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
         DynamicGrid hash_grid_2 = empty_dynamic_grid;
         DynamicGrid hash_grid_3 = empty_dynamic_grid;
-        for (Index i = 0; i < state.gens; i++) {
+        for (size_t i = 0; i < state.gens; i++) {
             dg_extract_gen(&hash_grid_2, &hash_grid, i);
             dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
             Hash hash = hash_at_time(&hash_grid_3, 0);
-            for (Index j = 0; j < i; j++) {
+            for (size_t j = 0; j < i; j++) {
                 if (hash == hashes[j]) {
                     safe_free(hashes);
                     dg_destroy(&hash_grid_2);
@@ -487,34 +472,20 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         dg_destroy(&hash_grid_2);
         dg_destroy(&hash_grid_3);
         safe_free(hashes);
-    #endif
-    #ifndef CELL_PERIOD_FILTER
-        #define solution_grid hash_grid
-    #else
-        #undef drop_solution
-        #define drop_solution(msg)\
-            DPRINTF2("Dropping solution (" msg ")\n"); \
-            if (preprocessing) { \
-                printf("Solved in preprocessing, 0 solutions\n"); \
-            } \
-            dg_destroy(&hash_grid); \
-            dg_destroy(&solution_grid); \
-            return;
-        // before applying the cell period filter we need to copy it into the solution grid
-        DynamicGrid solution_grid = empty_dynamic_grid;
-        dg_copy(&solution_grid, &hash_grid);
-        // apply cell period filter
-        for (DIndex y = 0; y < hash_grid.height; y++) {
-            for (DIndex x = 0; x < hash_grid.width; x++) {
+    }
+    // apply cell period filter
+    if (config.cell_period_filter_length > 0) {
+        for (size_t y = 0; y < hash_grid.height; y++) {
+            for (size_t x = 0; x < hash_grid.width; x++) {
                 CellValue* data = safe_malloc(state.gens * sizeof(CellValue));
-                for (DIndex t = 0; t < hash_grid.gens; t++) {
+                for (size_t t = 0; t < hash_grid.gens; t++) {
                     data[t] = dg_get(&hash_grid, t, x, y);
                 }
                 bool found = false;
-                for (size_t period_index = 0; period_index < (sizeof(cell_period_filter) / sizeof(int)); period_index++) {
-                    DIndex period = cell_period_filter[period_index];
-                    for (DIndex i = 0; i < period; i++) {
-                        for (DIndex t = i; t < hash_grid.gens; t += period) {
+                for (size_t period_index = 0; period_index < config.cell_period_filter_length; period_index++) {
+                    size_t period = config.cell_period_filter[period_index];
+                    for (size_t i = 0; i < period; i++) {
+                        for (size_t t = i; t < hash_grid.gens; t += period) {
                             if (data[t] != data[(t + period) % state.gens]) {
                                 found = true;
                                 break;
@@ -529,7 +500,7 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
                     }
                 }
                 if (!found) {
-                    for (DIndex t = 0; t < hash_grid.gens; t++) {
+                    for (size_t t = 0; t < hash_grid.gens; t++) {
                         dg_set(&hash_grid, t, x, y, OFF);
                     }
                 }
@@ -538,10 +509,10 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         }
         // here we also need to apply an empty pattern filter to the hash grid
         // to remove solutions which are all subperiod
-        found = false;
-        for (DIndex t = 0; t < hash_grid.gens; t++) {
-            for (DIndex y = 0; y < hash_grid.height; y++) {
-                for (DIndex x = 0; x < hash_grid.width; x++) {
+        bool found = false;
+        for (size_t t = 0; t < hash_grid.gens; t++) {
+            for (size_t y = 0; y < hash_grid.height; y++) {
+                for (size_t x = 0; x < hash_grid.width; x++) {
                     if (dg_get(&hash_grid, t, x, y) != OFF) {
                         found = true;
                         break;
@@ -558,7 +529,7 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         if (!found) {
             drop_solution("all subperiod");
         }
-    #endif
+    }
     // apply custom solution filter
     #if CUSTOM_SOLUTION_FILTERING
         if (!custom_solution_filter(solution_grid)) {
@@ -566,7 +537,7 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         }
     #endif
     // apply duplicate filter
-    #if FILTER_DUPLICATES
+    if (config.filter_duplicate_solutions) {
         Hash hash = hash_full(&hash_grid);
         for (size_t i = 0; i < solutions_found; i++) {
             Hash value = known_solutions[i];
@@ -580,32 +551,30 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {
             known_solutions[solutions_found] = hash;
         }
-    #endif
+    }
     // show the solution
     solutions_found++;
-    #if SHOW_SOLUTIONS
+    if (config.show_solutions) {
         if (preprocessing) {
             printf("Solved in preprocessing, 1 solution:\n");
         } else {
             printf("Solution found:\n");
         }
         print_grid_pretty(&solution_grid, true);
-    #endif
-    #ifdef MAX_SOLUTIONS
-        if (solutions_found >= MAX_SOLUTIONS) {
+    }
+    if (config.max_solutions > 0) {
+        if (solutions_found >= config.max_solutions) {
             printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
             exit(0);
         }
-    #endif
+    }
     dg_destroy(&hash_grid);
-    #ifndef solution_grid
-        dg_destroy(&solution_grid);
-    #endif
+    dg_destroy(&solution_grid);
 }
 
 
 
-#define CHECK_TIME_EVERY 1000
+#define CHECK_TIME_EVERY 65536
 
 double last_progress_shown;
 
@@ -619,7 +588,7 @@ typedef struct ProgressEntry {
     CellValue value;
 } ProgressEntry;
 
-ProgressEntry progress[MAX_DEPTH * 2];
+ProgressEntry* progress;
 
 static inline void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
@@ -637,7 +606,9 @@ static inline void print_progress(FILE* stream) {
 
 #else
 
-CellValue progress[MAX_DEPTH];
+typedef CellValue ProgressEntry;
+
+ProgressEntry* progress;
 
 static inline void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
@@ -648,8 +619,14 @@ static inline void print_progress(FILE* stream) {
 
 #endif
 
+static inline void init_progress(void) {
+    progress = safe_malloc(config.max_depth * sizeof(ProgressEntry));
+}
 
-#if MAX_PARTIALS
+static inline void destroy_progress(void) {
+    safe_free(progress);
+}
+
 
 double last_max_partial_shown;
 DynamicGrid max_partial = empty_dynamic_grid;
@@ -672,42 +649,36 @@ static inline void max_partials_end(void) {
     dg_destroy(&max_partial);
 }
 
-#endif
-
-#ifdef BENCHMARK
-
-static inline void print_info_if_needed([[maybe_unused]] Depth depth) {}
-
-#else
-
-static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
-    #if MAX_PARTIALS
-    if (solutions_found == 0) {
-        uint64_t partial_size;
-        #if MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_CELL
-            partial_size = state.set_unknown_cells;
-        #elif MAX_PARTIAL_TYPE == MAX_PARTIAL_TYPE_DEPTH
-            partial_size = depth;
-        #endif
-        if (partial_size > max_partial_size) {
-            dg_init_from_search_grid(&max_partial);
-            max_partial_size = partial_size;
-            #if MULTI_RULE
-                memcpy(max_partial_trs, trs, sizeof(trs));
-            #endif
+static inline void print_info_if_needed(size_t depth) {
+    if (config.max_partials) {
+        if (solutions_found == 0) {
+            uint64_t partial_size;
+            if (config.max_partial_scoring == MAX_PARTIAL_SCORING_CELL) {
+                partial_size = state.set_unknown_cells;
+            } else if (config.max_partial_scoring == MAX_PARTIAL_SCORING_DEPTH) {
+                partial_size = depth;
+            } else {
+                fatal_error("invalid max partial scoring");
+            }
+            if (partial_size > max_partial_size) {
+                dg_init_from_search_grid(&max_partial);
+                max_partial_size = partial_size;
+                #if MULTI_RULE
+                    memcpy(max_partial_trs, trs, sizeof(trs));
+                #endif
+            }
         }
     }
-    #endif
     if (branches % CHECK_TIME_EVERY == 0) {
         double time = get_time();
-        if (time - last_progress_shown > REPORTING_INTERVAL) {
+        if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
             printf("%i seconds, %"PRIdindex" branches, %"PRIdindex" solutions, progress: ", (int)(time - start), branches, solutions_found);
             print_progress(stdout);
             real_printf("\n");
         }
-        #if MAX_PARTIALS
-            if (solutions_found == 0 && time - last_max_partial_shown > MAX_PARTIAL_REPORTING_INTERVAL && max_partial_size > last_printed_max_partial_size) {
+        if (config.max_partials) {
+            if (solutions_found == 0 && time - last_max_partial_shown > config.max_partial_reporting_interval && max_partial_size > last_printed_max_partial_size) {
                 last_max_partial_shown = time;
                 last_printed_max_partial_size = max_partial_size;
                 #if MULTI_RULE
@@ -723,8 +694,6 @@ static inline void print_info_if_needed([[maybe_unused]] Depth depth) {
                     print_grid_pretty(&max_partial, false);
                 #endif
             }
-        #endif
+        }
     }
 }
-
-#endif

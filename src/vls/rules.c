@@ -215,8 +215,8 @@ static inline void set_tr(BoundTransition bound_tr, CellValue value, bool is_exp
 
 
 // attempt to unparse transitions
-// returns -1 if it fails, the proper (positive) next_char if it succeeds
-static inline int unparse_transitions(const INTSpec* spec, char* out, int next_char, bool s, bool use_maxrule) {
+// returns -1 if it fails, the proper (positive) length if it succeeds
+static inline ptrdiff_t unparse_transitions(const INTSpec* spec, char* out, ptrdiff_t length, bool s, bool use_maxrule) {
     int or = s ? (1 << 4) : 0;
     // array to hold the letters that we've seen
     char seen_letters[spec->max_letters_per_num + 1];
@@ -246,7 +246,7 @@ static inline int unparse_transitions(const INTSpec* spec, char* out, int next_c
                 if (value == -1) {
                     break;
                 }
-                uint8_t tr_value = trs[value | or];
+                uint8_t tr_value = state.trs[value | or];
                 if (tr_value == 1 || (use_maxrule && tr_value == TRS_RULE_DEPENDENT)) {
                     count++;
                 }
@@ -270,38 +270,38 @@ static inline int unparse_transitions(const INTSpec* spec, char* out, int next_c
             continue;
         }
         // now unparse it
-        out[next_char++] = '0' + number;
+        out[length++] = '0' + number;
         if (num_letters == total_letters) {
             continue;
         } else if (num_letters > (total_letters % 2 == 0 ? (total_letters / 2) : (total_letters / 2 + 1))) {
-            out[next_char++] = '-';
+            out[length++] = '-';
             for (int i = 0; i < total_letters; i++) {
                 char letter = spec->letters[number][i];
                 if (!strchr(seen_letters, letter)) {
-                    out[next_char++] = letter;
+                    out[length++] = letter;
                 }
             }
         } else {
             for (int i = 0; i < num_letters; i++) {
-                out[next_char++] = seen_letters[i];
+                out[length++] = seen_letters[i];
             }
         }
     }
-    return next_char;
+    return length;
 }
 
 // attempts to get the full rule using the given spec
-static inline int _get_rule(const INTSpec* spec, char* out, bool use_maxrule) {
-    int next_char = 0;
-    out[next_char++] = 'B';
-    int value = unparse_transitions(spec, out, next_char, false, use_maxrule);
+static inline ptrdiff_t _get_rule(const INTSpec* spec, char* out, bool use_maxrule) {
+    ptrdiff_t length = 0;
+    out[length++] = 'B';
+    ptrdiff_t value = unparse_transitions(spec, out, length, false, use_maxrule);
     if (value == -1) {
         return -1;
     }
-    next_char = value;
-    out[next_char++] = '/';
-    out[next_char++] = 'S';
-    return unparse_transitions(spec, out, next_char, true, use_maxrule);
+    length = value;
+    out[length++] = '/';
+    out[length++] = 'S';
+    return unparse_transitions(spec, out, length, true, use_maxrule);
 }
 
 
@@ -331,19 +331,19 @@ static inline void get_trs_neighborhood(CellValue trs[512], bool out[9]) {
     }
 }
 
-const char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const char BASE64_TABLE[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 // unparse a general MAP rule
-static inline int unparse_map(char* out, bool use_maxrule) {
-    int next_char = 0;
-    out[next_char++] = 'M';
-    out[next_char++] = 'A';
-    out[next_char++] = 'P';
+static inline ptrdiff_t unparse_map(char* out, bool use_maxrule) {
+    ptrdiff_t length = 0;
+    out[length++] = 'M';
+    out[length++] = 'A';
+    out[length++] = 'P';
     // unflip the rule diagonally
     CellValue trs2[512];
     for (int i = 0; i < 512; i++) {
         // in multi-rule mode, select the minrule or maxrule
-        int value = trs[i] == TRS_RULE_DEPENDENT ? (use_maxrule ? 1 : 0) : trs[i];
+        int value = state.trs[i] == TRS_RULE_DEPENDENT ? (use_maxrule ? 1 : 0) : state.trs[i];
         trs2[(i & 0b100010001) | ((i & 0b010001000) >> 2) | ((i & 0b001000000) >> 4) | ((i & 0b000100010) << 2) | ((i & 0b000000100) << 4)] = value;
     }
     #define trs trs2
@@ -386,23 +386,23 @@ static inline int unparse_map(char* out, bool use_maxrule) {
     #define break_early(used) if (unparsed_length <= i + used) {break;}
     for (int i = 0; i < 66; i += 3) {
         uint32_t value = (unparsed[i] << 16) | (unparsed[i + 1] << 8) | (unparsed[i + 2]);
-        out[next_char++] = base64_table[(value >> 18) & 0x3f];
-        out[next_char++] = base64_table[(value >> 12) & 0x3f];
+        out[length++] = BASE64_TABLE[(value >> 18) & 0x3f];
+        out[length++] = BASE64_TABLE[(value >> 12) & 0x3f];
         break_early(1);
-        out[next_char++] = base64_table[(value >> 6) & 0x3f];
+        out[length++] = BASE64_TABLE[(value >> 6) & 0x3f];
         break_early(2);
-        out[next_char++] = base64_table[(value >> 0) & 0x3f];
+        out[length++] = BASE64_TABLE[(value >> 0) & 0x3f];
         break_early(3);
     }
     #undef break_early
     #undef trs
-    return next_char;
+    return length;
 }
 
 
 // unparse the rule
 // returns the number of characters printed
-static inline int get_rule(char* out, bool use_maxrule) {
+static inline ptrdiff_t get_rule(char* out, bool use_maxrule) {
     // normal
     int value = _get_rule(&normal_int, out, use_maxrule);
     if (value != -1) {
@@ -427,7 +427,7 @@ static inline Transformations get_rule_identity_transforms(void) {
     for (int i = 0; i < 512; i++) {
         int j = ((i << 6) & 448) | (i & 56) | (i >> 6);
         j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
-        if (trs[i] != trs[j]) {
+        if (state.trs[i] != state.trs[j]) {
             C2 = false;
             C4 = false;
             break;
@@ -435,7 +435,7 @@ static inline Transformations get_rule_identity_transforms(void) {
     }
     if (C2) {
         for (int i = 0; i < 512; i++) {
-            if (trs[i] != trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+            if (state.trs[i] != state.trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
                 C4 = false;
                 break;
             }
@@ -450,16 +450,16 @@ static inline Transformations get_rule_identity_transforms(void) {
     out.flip_diagonal = true;
     out.flip_anti_diagonal = true;
     for (int i = 0; i < 512; i++) {
-        if (trs[i] != trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+        if (state.trs[i] != state.trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
             out.flip_horizontal = false;
         }
-        if (trs[i] != trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+        if (state.trs[i] != state.trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
             out.flip_vertical = false;
         }
-        if (trs[i] != trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+        if (state.trs[i] != state.trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
             out.flip_diagonal = false;
         }
-        if (trs[i] != trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
+        if (state.trs[i] != state.trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
             out.flip_anti_diagonal = false;
         }
     }

@@ -27,6 +27,7 @@
 /*.gcda
 /*.py
 /*.gdb
+/*.lsp
 /.temp.js
 /.temp.js.map
 /temp.mjs

@@ -11,8 +11,14 @@
 
 // basic settings
 
+// debug level
+#define DEBUG 6
+
 // whether to do multi-rule searching
 #define MULTI_RULE false
+
+// custom file to load stuff from
+// #define CUSTOM
 
 
 // speed settings

@@ -1,6 +1,4 @@
 
-import '../globals.d.ts';
-
 import * as path from 'node:path';
 
 import * as t from '@babel/types';
@@ -61,8 +59,8 @@ Options:
 
     -benchmark=<iterations>: run benchmarking
 
-    -profile=<seconds>: enables profile based optimization, recompiles and
-        reruns after that many seconds
+    // -profile=<seconds>: enables profile based optimization, recompiles and
+    //     reruns after that many seconds
 
     -f, -file=<file>: also write output to that file
 
@@ -159,7 +157,7 @@ const OPTIONS = {
     'no-optimize': FLAG,
     'address-sanitizer': FLAG,
     'benchmark': NUMBER,
-    'profile': NUMBER,
+    // 'profile': NUMBER,
     'file': STRING,
     'f': 'file',
     'rulespace': list(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
@@ -204,7 +202,15 @@ type Option = {[K in keyof Options]: Options[K] extends string ? never : K}[keyo
 type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 
 
-export async function transformCode(argv: string[], code: string): Promise<[OptionData, string]> {
+export interface ParseArgsData {
+    posArgs: string[];
+    options: OptionData;
+    params2File: string;
+    problemFile: string;
+}
+
+
+export async function parseArgs(argv: string[], paramsFile: string): Promise<ParseArgsData> {
 
 
 let posArgs: string[] = [];
@@ -702,135 +708,22 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['INITIAL_WIDTH'] = grid.width + PADDING * 2;
-defines['INITIAL_HEIGHT'] = grid.height + PADDING * 2;
-defines['INITIAL_GENS'] = grid.gens;
-
-defines['VARIABLES'] = grid.numVars > 0;
-// add 1 because the C program treats 0 as 'no variable'
-// but it still 'counts' for VAR_COUNT purposes
-defines['VAR_COUNT'] = grid.numVars + 1;
-
-defines['TOTAL_UNKNOWN_CELLS'] = stateCounts[UNKNOWN];
-
-defines['HAS_DONT_CARES'] = stateCounts[DONT_CARE] > 0;
-
 defines['MULTI_RULE'] = multiRule;
-defines['IS_OT'] = Boolean((base.rule.str.match(/^B(\d*)\/S(\d*)$/) && (!multiRule/* || options['rulespace'] === 'ot'*/)) && !options['no-ot-optimization']);
-defines['RULESPACE'] = `RULESPACE_${(options['rulespace'] ?? 'int').toUpperCase().replaceAll('-', '_')}`;
-defines['SPECIAL_AFTER_RULE'] = `""`;
+defines['KEEP_LAST_CHECKED_TIME'] = true;
 
-defines['INITIAL_VALUE'] = 'IV_' + (options['initial-value'] ?? '1').toUpperCase().replaceAll('-', '_');
-
-defines['CACHE_IMPLICATION_TRS'] = !options['no-cache-trs'];
-
-defines['KEEP_LAST_CHECKED_TIME'] = Boolean(options['check-times']);
-
-defines['MAXPOP'] = options['maxpop'];
-
-defines['CUSTOM'] = options['custom'] !== undefined ? `"${path.resolve(options['custom'])}"` : undefined;
-
-if (periodic) {
-    defines['PERIODIC'] = true;
-    defines['PERIODIC_DX'] = periodic.dx;
-    defines['PERIODIC_DY'] = periodic.dy;
-    defines['PERIODIC_PERIOD'] = periodic.period;
-    defines['CHECK_EARLY_EXHAUSTION'] = !options['no-check-early-exhaustion'];
-} else {
-    defines['PERIODIC'] = false;
-    defines['PERIODIC_DX'] = 67;
-    defines['PERIODIC_DY'] = 67;
-    defines['PERIODIC_PERIOD'] = 67;
-    defines['CHECK_EARLY_EXHAUSTION'] = false;
-}
+const CONSTANT_DEFINES = new Set(['placeholder']);
 
 
-defines['SHOW_SOLUTIONS'] = !options['no-show-solutions'];
-defines['MAX_SOLUTIONS'] = options['max-solutions'];
-defines['CHECK_EMPTY'] = !options['allow-empty'];;
-defines['FILTER_DUPLICATES'] = !options['allow-duplicates'];
-defines['FILTER_SUBPERIOD'] = options['allow-subperiod'] === undefined ? mode === 'periodic' : options['allow-subperiod'];
-if (options['cell-period-filter']) {
-    defines['CELL_PERIOD_FILTER'] = `{${options['cell-period-filter'].split(/[, ]+/).map(Number).join(', ')}}`;
-} else {
-    defines['CELL_PERIOD_FILTER'] = undefined;
-}
-
-defines['REPORTING_INTERVAL'] = options['interval'] ?? 1;
-defines['MAX_PARTIAL_TYPE'] = `MAX_PARTIAL_TYPE_${(options['partials'] ?? 'cell').toUpperCase()}`;
-defines['MAX_PARTIAL_REPORTING_INTERVAL'] = options['partial-interval'] ?? options['interval'] ?? 1;
-
-defines['BENCHMARK'] = options['benchmark'] ? `((uintmax_t)${options['benchmark']}ULL)` : undefined;
-
-defines['DEBUG'] = options['debug'] ?? 0;
-
-
-function getMinUintType(maxValue: number): string {
-    // add 1 so you can loop on them
-    maxValue += 1;
-    if (maxValue > 2**32 - 1) {
-        return 'uint64_t';
-    } else if (maxValue > 65536) {
-        return 'uint32_t';
-    } else if (maxValue > 256) {
-        return 'uint16_t';
-    } else {
-        return 'uint8_t';
-    }
-}
-
-const CONSTANT_DEFINES = new Set([
-    'NO_VAR',
-    'UNKNOWN', 'OFF', 'ON', 'DONT_CARE',
-    'PADDING',
-    'SEARCHABLE', 'NOT_SEARCHABLE', 'NOT_SETTABLE',
-    'TRS_RULE_DEPENDENT',
-    'RULESPACE_INT', 'RULESPACE_OT', 'RULESPACE_MAP', 'RULESPACE_HEX_INT', 'RULESPACE_HEX_OT', 'RULESPACE_HEX_MAP', 'RULESPACE_VN_INT', 'RULESPACE_VN_OT', 'RULESPACE_VN_MAP',
-    'IV_0', 'IV_1', 'IV_SAME_0', 'IV_SAME_1', 'IV_DIFFERENT_0', 'IV_DIFFERENT_1',
-    'MAX_PARTIAL_TYPE_NONE', 'MAX_PARTIAL_TYPE_CELL', 'MAX_PARTIAL_TYPE_DEPTH',
-]);
-
-let out: string[] = [];
+let params2Lines: string[] = [];
 let foundDefines = new Set<string>();
-for (let line of code.split('\n')) {
+for (let line of paramsFile.split('\n')) {
     let indent = '';
     while (line.startsWith(' ')) {
         indent += line[0];
         line = line.slice(1);
     }
-    if (line.startsWith('typedef') && line.endsWith(' Index;')) {
-        line = `typedef ${getMinUintType((grid.width + 4) * (grid.height + 4) * grid.gens)} Index;`;
-    } else if (line.startsWith('typedef') && line.endsWith(' PrefixIndex;')) {
-        let value = (grid.width + 4) * (grid.height + 4) * grid.gens;
-        if (multiRule) {
-            value += 512;
-        }
-        line = `typedef ${getMinUintType(value)} PrefixIndex;`;
-    } else if (line.startsWith('typedef') && line.endsWith(' Variable;')) {
-        line = `typedef ${getMinUintType(grid.numVars + 1)} Variable;`;
-    } else if (line.startsWith('static const CellValue INITIAL_STATES[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'state') + ';';
-    } else if (line.startsWith('static const Variable INITIAL_VARS[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'variable') + ';';
-    } else if (line.startsWith('static const Settability INITIAL_SETTABLE[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = ')) {
-        line = line.slice(0, line.indexOf('{')) + gridToString(grid, 'settable') + ';';
-    } else if (line.startsWith(`uint8_t trs[512] = `)) {
-        let trs = base.trs.slice();
-        if (multiRule) {
-            for (let i = 0; i < 512; i++) {
-                if (trs[i] !== maxBase.trs[i]) {
-                    // TRS_RULE_DEPENDANT
-                    trs[i] = 4;
-                }
-            }
-        }
-        line = line.slice(0, line.indexOf('{')) + '{' + trs.join(', ') + '};';
-    } else if (line.startsWith('Index search_order[TOTAL_UNKNOWN_CELLS][3] = ')) {
-        line = line.slice(0, line.indexOf('{'));
-        line += '{' + searchOrderData.map(pos => `{${pos.t}, ${pos.x + PADDING}, ${pos.y + PADDING}}`).join(', ') + '};';
-    }
     if (!(line.startsWith('#define ') || line.startsWith('// #define '))) {
-        out.push(indent + line);
+        params2Lines.push(indent + line);
         continue;
     }
     let data = line.split(' ');
@@ -840,7 +733,7 @@ for (let line of code.split('\n')) {
     let name = data[1];
     if (!(name in defines)) {
         if (CONSTANT_DEFINES.has(name)) {
-            out.push(indent + line);
+            params2Lines.push(indent + line);
             continue;
         } else {
             throw new Error(`This error should not occur, please report it (unrecognized #define: '${name}')`);
@@ -852,9 +745,9 @@ for (let line of code.split('\n')) {
     foundDefines.add(name);
     let value = defines[name];
     if (value === undefined) {
-        out.push(indent + '// ' + data.join(' '));
+        params2Lines.push(indent + '// ' + data.join(' '));
     } else {
-        out.push(indent + `#define ${name} ${value}`);
+        params2Lines.push(indent + `#define ${name} ${value}`);
     }
 }
 
@@ -864,69 +757,71 @@ for (let name of Object.keys(defines)) {
     }
 }
 
-return [options, out.join('\n')];
+return {
+    posArgs,
+    options,
+    params2File: params2Lines.join(''),
+};
 
 
 }
 
 
-// export async function main() {
-//     let path = await import('node:path');
-//     function getPath(file: string): string {
-//         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
-//     }
-//     let fs = await import('node:fs/promises');
-//     let {execSync, spawnSync} = (await import('node:child_process'));
-//     let execPath = getPath('vls_compiled');
-//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-//         execPath = './' + execPath;
-//     }
-//     let source = (await fs.readFile(getPath('src/vls/params.h'))).toString();
-//     let [options, code] = await transformCode(process.argv, source);
-//     await fs.writeFile(getPath('src/vls/params2.h'), code);
-//     try {
-//         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
-//         // strict mode
-//         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
-//         // features
-//         command += ` -g`;
-//         if (!options['no-optimize']) {
-//             command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-//         }
-//         if (options['address-sanitizer']) {
-//             command += ` -fsanitize=address`;
-//         }
-//         let baseCommand = command;
-//         let commandEnd = ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-//         if (options['profile']) {
-//             if (options['clang']) {
-//                 command += ` -fprofile-instr-generate -DFOR_PROFILE`;
-//             } else {
-//                 command += ` -fprofile-generate`;
-//             }
-//         }
-//         command += commandEnd;
-//         execSync(command, {stdio: 'inherit'});
-//         if (options['profile']) {
-//             console.log(`Running for up to ${options['profile']} seconds to gather profiling data`);
-//             spawnSync(`${execPath}`, {timeout: options['profile'] * 1000, killSignal: 'SIGTERM'});
-//             console.log(`Profiling data gathered, recompiling`);
-//             command = baseCommand;
-//             if (options['clang']) {
-//                 execSync(`llvm-profdata merge -output=vls.profdata default.profraw`);
-//                 command += ` -fprofile-instr-use=vls.profdata`;
-//             } else {
-//                 command += ` -fprofile-use`;
-//             }
-//             command += commandEnd;
-//             execSync(command, {stdio: 'inherit'});
-//         }
-//         execSync(`${options['file'] ? `stdbuf -oL ` : ''}${options['gdb'] ? 'gdb ' : ''}${execPath}${options['file'] ? ` | tee ${options['file']}` : ''}`, {stdio: 'inherit'});
-//     } catch (error) {
-//         process.exit(1);
-//     }
-// }
+export async function main() {
+    let path = await import('node:path');
+    function getPath(file: string): string {
+        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+    }
+    let fs = await import('node:fs/promises');
+    let {execSync, spawnSync} = (await import('node:child_process'));
+    let execPath = getPath('vls_compiled');
+    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+        execPath = './' + execPath;
+    }
+    let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
+    let data = await parseArgs(process.argv, paramsFile);
+    let options = data.options;
+    let oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
+    let recompile = false;
+    if (data.params2File !== oldParams2) {
+        recompile = true;
+        await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
+    }
+    let commandsToRun: string[] = [];
+    if (recompile) {
+        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+        // strict mode
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
+        // features
+        command += ` -g`;
+        if (!options['no-optimize']) {
+            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+        }
+        if (options['address-sanitizer']) {
+            command += ` -fsanitize=address`;
+        }
+        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        commandsToRun.push(command);
+    }
+    let execCommand = `${execPath} ${getPath('vls_problem.lsp')}`;
+    if (options['gdb']) {
+        commandsToRun.push(`gdb ${execCommand}`);
+    } else {
+        if (options['file']) {
+            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
+        } else {
+            commandsToRun.push(execCommand);
+        }
+    }
+    try {
+        for (let command of commandsToRun) {
+            execSync(command);
+        }
+    } catch (error) {
+        process.exit(1);
+    }
+}
 
-// if (import.meta.main) {
-//     main();
-// }
+if (import.meta.main) {
+    main();
+}
