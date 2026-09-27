@@ -48,25 +48,18 @@ export function isKnown(state: State): state is typeof OFF | typeof ON {
 export type Variable = number;
 
 
-export const SEARCHABLE = 0;
-export const NOT_SEARCHABLE = 1;
-export const NOT_SETTABLE = 2;
-
-export type Settability = typeof SEARCHABLE | typeof NOT_SEARCHABLE | typeof NOT_SETTABLE;
-
-
 export interface Cell {
     state: State;
     variable: Variable | undefined;
-    settable: Settability;
+    searchable: boolean;
 }
 
-export function cell(state: State, variable: Variable | undefined = undefined, settable: Settability = SEARCHABLE): Cell {
-    return {state, variable, settable};
+export function cell(state: State, variable: Variable | undefined = undefined, searchable: boolean = true): Cell {
+    return {state, variable, searchable};
 }
 
 export function cellsAreEqual(x: Cell, y: Cell): boolean {
-    return x.state === y.state && x.variable === y.variable && x.settable === y.settable;
+    return x.state === y.state && x.variable === y.variable && x.searchable === y.searchable;
 }
 
 
@@ -168,10 +161,10 @@ export class Grid {
     }
 
     set(t: number, x: number, y: number, value: Cell): this;
-    set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, settable?: Settability): this;
+    set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, searchable?: boolean): this;
     set(pos: Coord, value: Cell): this;
-    set(pos: Coord, value: State, variable?: Variable | undefined, settable?: Settability): this;
-    set(_t: number | Coord, _x: number | Cell | State, _y?: number | Variable, _value?: Cell | State | Settability, _variable?: Variable | undefined, _settable?: Settability): this {
+    set(pos: Coord, value: State, variable?: Variable | undefined, searchable?: boolean): this;
+    set(_t: number | Coord, _x: number | Cell | State, _y?: number | Variable, _value?: Cell | State | boolean, _variable?: Variable | undefined, _searchable?: boolean): this {
         let value: Cell;
         let t: number;
         let x: number;
@@ -183,7 +176,7 @@ export class Grid {
             if (typeof _x === 'object') {
                 value = _x;
             } else {
-                value = cell(_x as State, _y as Variable | undefined, _value as Settability | undefined);
+                value = cell(_x as State, _y as Variable | undefined, _value as boolean | undefined);
             }
         } else {
             t = _t;
@@ -192,7 +185,7 @@ export class Grid {
             if (typeof _value === 'object') {
                 value = _value;
             } else {
-                value = cell(_value as State, _variable, _settable);
+                value = cell(_value as State, _variable, _searchable);
             }
         }
         if (!this.isInBounds(t, x, y)) {
@@ -203,10 +196,10 @@ export class Grid {
     }
 
     fill(t: number, value: Cell): this;
-    fill(t: number, value: State, variable?: Variable | undefined, settable?: Settability): this
-    fill(t: number, value: Cell | State, variable?: Variable | undefined, settable?: Settability): this {
+    fill(t: number, value: State, variable?: Variable | undefined, searchable?: boolean): this
+    fill(t: number, value: Cell | State, variable?: Variable | undefined, searchable?: boolean): this {
         if (typeof value === 'number') {
-            value = cell(value, variable, settable);
+            value = cell(value, variable, searchable);
         }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
@@ -418,7 +411,7 @@ export class Grid {
                 y = temp;
             }
             x.state = y.state;
-            x.settable = y.settable;
+            x.searchable = y.searchable;
             if (x.variable !== undefined) {
                 if (y.variable !== undefined) {
                     this.reassignVar(x.variable, y.variable);
@@ -1044,7 +1037,7 @@ const RESERVED_WORDS = new Set([
     // literals
     'true', 'false', 'nop', 'off', 'on', 'unknown', 'dont_care', 'var',
     // operators
-    'states', 'unsearchable', 'unsettable', 'period', 'all',
+    'states', 'unsearchable', 'period', 'all',
     // constructs
     'state', 'states', 'to',
     // statements
@@ -1057,7 +1050,6 @@ const NUMBER_AND_STUFF_REGEX = /^-?([1-9]\d+(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)
 const UNARY_OPERATORS = Object.assign(Object.create(null) as {}, {
     'state': 13,
     'unsearchable': 13,
-    'unsettable': 13,
     'period': 13,
     'all': 13,
     '+': 11,
@@ -1289,8 +1281,10 @@ class VLSFileParser extends BaseParser {
                 return {type: 'number', value: -value.value};
             } else if (op === '-') {
                 return {type: 'number', value: -value.value};
+            } else {
+                throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
-        } else if (op === 'unsearchable' || op === 'unsettable' || op === 'all') {
+        } else if (op === 'unsearchable' || op === 'all') {
             if (value.type !== 'state-specifier') {
                 this.error(`Expected value of type 'state-specifier' for unary '${op}' operator, got type '${value.type}'`);
             }
@@ -1299,11 +1293,11 @@ class VLSFileParser extends BaseParser {
                 this.error(`Cannot run unary '${op}' operator on nop state specifier`);
             }
             if (op === 'unsearchable') {
-                out.cell.settable = NOT_SEARCHABLE;
-            } else if (op === 'unsettable') {
-                out.cell.settable = NOT_SETTABLE;
+                out.cell.searchable = false;
             } else if (op === 'all') {
                 out.all = true;
+            } else {
+                throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
             return {type: 'state-specifier', value: out};
         } else if (op === '!') {

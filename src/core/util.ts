@@ -2,6 +2,9 @@
 /* Implements some utilities. */
 
 
+export const IS_BROWSER = typeof window === 'object' && window === globalThis;
+
+
 /** All errors raised by lifeweb. */
 export class LifewebError extends Error {
 
@@ -257,7 +260,12 @@ export class ParserError extends LifewebError {
             }
             stack.push(str);
         }
-        this.stack = stack.join('\n');
+        if (IS_BROWSER) {
+            // @ts-ignore
+            this.stack = stack.join('\n') + '\n\nTrace\n' + this.stack;
+        } else {
+            this.stack = stack.join('\n');
+        }
     }
 
 }
@@ -332,6 +340,15 @@ export abstract class BaseParser {
         throw out;
     }
 
+    absError(message: string, pos: number): never {
+        let pos2 = this.getAbsolutePosition(pos);
+        let stackPositions = this.stack.concat(pos2);
+        let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
+        console.error(out.stack + '\n');
+        console.trace();
+        throw out;
+    }
+
     peek(): string | typeof EOF {
         return this.tokens[this.pos] ?? EOF;
     }
@@ -343,6 +360,24 @@ export abstract class BaseParser {
         } else {
             this.pos++;
             return out;
+        }
+    }
+
+    advanceOrEOF(): string | typeof EOF {
+        let out = this.tokens[this.pos];
+        if (out === undefined) {
+            return EOF;
+        } else {
+            this.pos++;
+            return out;
+        }
+    }
+
+    goBack(): void {
+        if (this.pos > 0) {
+            this.pos--;
+        } else {
+            throw new Error(`This error should not occur, please report it (cannot go back)`);
         }
     }
 
@@ -452,7 +487,45 @@ export abstract class BaseParser {
     }
 
     nextTokenToString(): string {
-        return this.tokens[this.pos] ?? 'EOF';
+        return String(this.tokens[this.pos] ?? 'EOF');
+    }
+
+    try<T, U extends any[]>(func: (this: this, ...args: U) => T, ...args: U): T | undefined {
+        try {
+            return func.apply(this, args);
+        } catch (error) {
+            if (error instanceof (this.constructor as typeof BaseParser).ParserError) {
+                return undefined;
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    tryVoid<T extends any[]>(func: (this: this, ...args: T) => void, ...args: T): boolean {
+        try {
+            func.apply(this, args);
+            return true;
+        } catch (error) {
+            if (error instanceof (this.constructor as typeof BaseParser).ParserError) {
+                return false;
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    tryStack<T>(funcs: ((this: this) => T)[], errorMsg: string): T {
+        for (let func of funcs) {
+            try {
+                return func.apply(this);
+            } catch (error) {
+                if (!(error instanceof (this.constructor as typeof BaseParser).ParserError)) {
+                    throw error;
+                }
+            }
+        }
+        this.error(errorMsg);
     }
 
 }

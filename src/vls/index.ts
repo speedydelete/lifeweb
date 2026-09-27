@@ -7,7 +7,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, coord, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, SEARCHABLE, Cell, Grid, runExpression, runFile, NOT_SETTABLE} from './compiler.js';
+import {error, Coord, coord, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
@@ -646,7 +646,7 @@ function getSearchOrder(grid: Grid, order: string): Coord[] {
         for (let y = 0; y < grid.height; y++) {
             for (let x = 0; x < grid.width; x++) {
                 let cell = grid.get(t, x, y);
-                if (cell.state == UNKNOWN && cell.settable == SEARCHABLE) {
+                if (cell.state == UNKNOWN && cell.searchable) {
                     cells.push(coord(t, x, y));
                 }
             }
@@ -764,36 +764,6 @@ defines['BENCHMARK'] = options['benchmark'] ? `((uintmax_t)${options['benchmark'
 
 defines['DEBUG'] = options['debug'] ?? 0;
 
-
-function gridToString(grid: Grid, field: 'state' | 'variable' | 'settable'): string {
-    let off: number;
-    if (field === 'state') {
-        off = OFF;
-    } else if (field === 'variable') {
-        off = 0;
-    } else {
-        off = NOT_SETTABLE;
-    }
-    let emptyRow: number[] = [];
-    for (let x = 0; x < grid.width + PADDING * 2; x++) {
-        emptyRow.push(off);
-    }
-    let out: number[][][] = [];
-    for (let t = 0; t < grid.gens; t++) {
-        let layer: number[][] = [structuredClone(emptyRow), structuredClone(emptyRow)];
-        for (let y = 0; y < grid.height; y++) {
-            let row: number[] = [off, off];
-            for (let x = 0; x < grid.width; x++) {
-                row.push(grid.get(t, x, y)[field] ?? 0);
-            }
-            row.push(off, off);
-            layer.push(row);
-        }
-        layer.push(structuredClone(emptyRow), structuredClone(emptyRow));
-        out.push(layer);
-    }
-    return `{${out.map(grid => `{${grid.map(row => `{${row.join(', ')}}`).join(', ')}}`).join(', ')}}`;
-}
 
 function getMinUintType(maxValue: number): string {
     // add 1 so you can loop on them

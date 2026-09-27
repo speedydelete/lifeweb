@@ -110,7 +110,7 @@ static inline void dg_init_from_search_grid(DynamicGrid* out) {
     for (DIndex t = 0; t < state.gens; t++) {
         for (DIndex y = 0; y < state.height; y++) {
             for (DIndex x = 0; x < state.width; x++) {
-                dg_set_from_cell(out, t, x, y, get_cell(t, x, y));
+                dg_set_from_cell(out, t, x, y, state_get_cell(t, x, y));
             }
         }
     }

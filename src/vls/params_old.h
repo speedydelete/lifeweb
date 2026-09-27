@@ -1,0 +1,170 @@
+
+// defines configuration
+
+#pragma once
+
+// stdbool.h is for compatibility with old compilers
+#include <stdbool.h>
+#include <inttypes.h>
+
+
+// the default search will find the glider (i think)
+
+
+// for transition lookup tables the indexing is like
+// 8 5 2
+// 7 4 1
+// 6 3 0
+// where the bitstring is 0b876543210
+
+// the search area should be padded on all sides by 2 cells unless otherwise specified below (then it is padded by 1 cell)
+
+
+// core type definitions, don't change these
+
+typedef uint8_t CellValue;
+#define UNKNOWN 0
+#define OFF 1
+#define ON 2
+#define DONT_CARE 3
+#define is_known(value) ((value) == OFF || (value) == ON)
+
+typedef uint64_t Index;
+#define PRIindex PRIu64
+
+typedef uint64_t Variable;
+#define NO_VAR 0
+
+
+// search parameters
+
+// width and height of the bounding box
+#define INITIAL_WIDTH 8
+#define INITIAL_HEIGHT 8
+
+// number of generations of the object we are looking for
+#define INITIAL_GENS 4
+
+// the number of variables
+#define INITIAL_VAR_COUNT 1
+
+// defines what it is searching for
+CellValue INITIAL_STATES[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = {{{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 0, 0, 0, 1, 1}, {1, 1, 1, 0, 0, 0, 1, 1}, {1, 1, 1, 0, 0, 0, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}}, {{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}}, {{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}}, {{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 0, 0, 0, 0, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}}};
+
+CellValue INITIAL_VARS[INITIAL_GENS][INITIAL_HEIGHT][INITIAL_WIDTH] = {{{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}}, {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}}};
+
+
+// whether to do multi-rule searching
+#define MULTI_RULE false
+
+// whether the rule is an outer-totalistic rule
+#define IS_OT true
+
+// the transition lookup table for the rule
+// if multi-rule, rule-dependent ones are 4
+#define TRS_RULE_DEPENDENT 4
+#if !MULTI_RULE
+static const
+#endif
+uint8_t trs[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+#if MULTI_RULE
+    // the rulespace mode
+    #define RULESPACE_INT 0
+    #define RULESPACE_OT 1
+    #define RULESPACE_MAP 2
+    #define RULESPACE_HEX_INT 3
+    #define RULESPACE_HEX_OT 4
+    #define RULESPACE_HEX_MAP 5
+    #define RULESPACE_VN_INT 6
+    #define RULESPACE_VN_OT 7
+    #define RULESPACE_VN_MAP 8
+    #define RULESPACE RULESPACE_INT
+#endif
+
+// can be set to e.g. "History" or ":T20,20" during configuration
+#define SPECIAL_AFTER_RULE ""
+
+
+// search method parameters
+
+// the order that cells are searched in
+// format is {t, x, y}
+Index search_order[][3] = {{0, 3, 3}, {0, 4, 3}, {0, 3, 4}, {0, 5, 3}, {0, 4, 4}, {0, 3, 5}, {0, 5, 4}, {0, 4, 5}, {0, 5, 5}, {1, 2, 2}, {1, 3, 2}, {1, 2, 3}, {1, 4, 2}, {1, 3, 3}, {1, 2, 4}, {1, 5, 2}, {1, 4, 3}, {1, 3, 4}, {1, 2, 5}, {1, 5, 3}, {1, 4, 4}, {1, 3, 5}, {1, 5, 4}, {1, 4, 5}, {1, 5, 5}, {2, 2, 2}, {2, 3, 2}, {2, 2, 3}, {2, 4, 2}, {2, 3, 3}, {2, 2, 4}, {2, 5, 2}, {2, 4, 3}, {2, 3, 4}, {2, 2, 5}, {2, 5, 3}, {2, 4, 4}, {2, 3, 5}, {2, 5, 4}, {2, 4, 5}, {2, 5, 5}, {3, 2, 2}, {3, 3, 2}, {3, 2, 3}, {3, 4, 2}, {3, 3, 3}, {3, 2, 4}, {3, 5, 2}, {3, 4, 3}, {3, 3, 4}, {3, 2, 5}, {3, 5, 3}, {3, 4, 4}, {3, 3, 5}, {3, 5, 4}, {3, 4, 5}, {3, 5, 5}};
+
+// initial value for unknown cells
+#define IV_0 0
+#define IV_1 1
+#define IV_SAME_0 2
+#define IV_SAME_1 3
+#define IV_DIFFERENT_0 4
+#define IV_DIFFERENT_1 5
+#define INITIAL_VALUE IV_1
+
+// implication transition caching
+// i think it's always slower if this is false
+#define CACHE_IMPLICATION_TRS true
+
+// prevents computing the implication for a cell twice
+// i think this is generally slower for some reason
+#define KEEP_LAST_CHECKED_TIME false
+
+
+// other search parameters
+
+// maximum population
+// #define MAXPOP 67
+
+// custom solution file
+// #define CUSTOM "path/to/custom.c"
+
+// searching for periodic patterns
+#define PERIODIC true
+#if PERIODIC
+    #define PERIODIC_DX -1
+    #define PERIODIC_DY -1
+    #define PERIODIC_PERIOD 4
+    // whether to check early exhaustion
+    #define CHECK_EARLY_EXHAUSTION true
+#endif
+
+
+// solution and information readout parameters
+
+// whether to show solutions at all
+#define SHOW_SOLUTIONS true
+
+// number of solutions to report
+// #define MAX_SOLUTIONS 67
+
+// whether to check if the solution is empty or not
+#define CHECK_EMPTY true
+
+// whether to filter duplicates or not
+#define FILTER_DUPLICATES true
+
+// whether to filter subperiod or not
+#define FILTER_SUBPERIOD true
+
+// period filter for cells
+// #define CELL_PERIOD_FILTER {67, 41}
+
+// reporting interval
+#define REPORTING_INTERVAL 1
+
+// type of max partials to report
+#define MAX_PARTIAL_TYPE_NONE 0
+#define MAX_PARTIAL_TYPE_CELL 1
+#define MAX_PARTIAL_TYPE_DEPTH 2
+#define MAX_PARTIAL_TYPE MAX_PARTIAL_TYPE_CELL
+// max partial reporting interval
+#define MAX_PARTIAL_REPORTING_INTERVAL 1
+
+
+// misc parameters
+
+// benchmarking iterations
+// #define BENCHMARK ((uintmax_t)67)
+
+// debug level
+#define DEBUG 0
