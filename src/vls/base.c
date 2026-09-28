@@ -12,10 +12,6 @@
 
 #include "params2.h"
 
-#if MULTI_RULE
-    #include "rulespaces.c"
-#endif
-
 
 // debug definitions
 
@@ -121,15 +117,10 @@ typedef uint8_t CellValue;
 // special value for when there is no variable
 #define NO_VAR 0
 
-typedef uint16_t Transition;
-typedef int16_t SignedTransition;
-typedef uint16_t BoundTransition;
-// special value for when a transition is rule dependent
-#define TRS_RULE_DEPENDENT 4
-
-#define DO_NOTHING 0
 typedef uint32_t ImplicationTransition;
-typedef int32_t SignedImplicationTransition;
+
+// special value for indexes in `state.trs` when it is rule-dependent
+#define TRS_RULE_DEPENDENT 4
 
 #define MAX_UNPARSED_RULE_LENGTH 256
 static inline ptrdiff_t get_rule(char* out, bool use_maxrule);
@@ -274,8 +265,6 @@ typedef struct CAClause {
     ImplicationTransition tr;
     Cell* center;
     bool invert_center;
-    Cell* prev;
-    bool invert_prev;
     Cell* next;
     bool invert_next;
     Cell* nw;
@@ -294,25 +283,30 @@ typedef struct CAClause {
     bool invert_s;
     Cell* se;
     bool invert_se;
-    #if KEEP_LAST_CHECKED_TIME
-        // the last time the clause was checked
-        uint32_t last_checked_time;
-    #endif
 } CAClause;
 
-typedef struct CAClauseList {
+typedef struct CAClauseData {
+    // CAN BE A NULL POINTER
     CAClause* center;
+    // CAN BE A NULL POINTER
     CAClause* prev;
-    CAClause* next;
+    // CAN BE A NULL POINTER
     CAClause* nw;
+    // CAN BE A NULL POINTER
     CAClause* n;
+    // CAN BE A NULL POINTER
     CAClause* ne;
+    // CAN BE A NULL POINTER
     CAClause* w;
+    // CAN BE A NULL POINTER
     CAClause* e;
+    // CAN BE A NULL POINTER
     CAClause* sw;
+    // CAN BE A NULL POINTER
     CAClause* s;
+    // CAN BE A NULL POINTER
     CAClause* se;
-} CAClauseList;
+} CAClauseData;
 
 struct Cell {
     // the actual value of the cell
@@ -325,7 +319,7 @@ struct Cell {
     // the length of the `uses` flexible array member
     size_t use_count;
     // the clauses it is used in
-    CAClauseList uses[];
+    CAClauseData uses[];
 };
 
 Cell off_cell = {
@@ -380,17 +374,8 @@ struct {
     size_t start_unknown_cells;
     // the current number of set unknown cells
     size_t set_unknown_cells;
-    // the last time a cell was set
-    #if KEEP_LAST_CHECKED_TIME
-        uint32_t current_time;
-    #endif
     // the first cell to be searched
     Cell* initial_cell;
-    #if MULTI_RULE
-        // the transition that caused the most recent rule-dependent "contradiction"
-        // or -1 if it wasn't rule-dependent
-        SignedTransition rule_dependent_tr;
-    #endif
 } state;
 
 static inline Cell* state_get_cell(size_t t, size_t x, size_t y) {
@@ -410,20 +395,8 @@ static inline Cell* state_get_cell_allow_oob(size_t t, size_t x, size_t y) {
     return state_get_cell(t, x, y);
 }
 
-#if KEEP_LAST_CHECKED_TIME
-    bool is_time_gt(uint32_t x, uint32_t y) {
-        return x > y || (x < y && x > INT32_MAX && y < INT32_MAX);
-    }
-    void inc_current_time(void) {
-        state.current_time++;
-        if (state.current_time > INT32_MAX) {
-            state.current_time = 0;
-        }
-    }
-#endif
-
 // sets a cell to a value, propagating transitions but doing nothing else
-static inline bool unsafe_set_cell(Cell* cell, CellValue value);
+static inline bool set_cell(Cell* cell, CellValue value);
 
 static inline ImplicationTransition compute_implication_tr(CAClause* clause);
 
@@ -544,13 +517,7 @@ static inline void init_state(InitFromState* from) {
     state.total_size = state.layer_size * state.gens;
     state.start_unknown_cells = from->var_count;
     state.set_unknown_cells = 0;
-    #if KEEP_LAST_CHECKED_TIME
-        state.current_time = 0;
-    #endif
     state.initial_cell = NULL;
-    #if MULTI_RULE
-        state.rule_dependent_tr = DO_NOTHING;
-    #endif
     // first we have to determine how many times each variable is used
     size_t* var_uses = safe_malloc(state.var_count * sizeof(size_t));
     memset(var_uses, 0, state.var_count * sizeof(size_t));
@@ -564,10 +531,24 @@ static inline void init_state(InitFromState* from) {
     state.variables = safe_malloc(state.var_count * sizeof(Cell*));
     state.variables[0] = NULL;
     for (size_t i = 1; i < state.var_count; i++) {
-        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CAClauseList));
+        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CAClauseData));
         cell->value = UNKNOWN;
         cell->var_number = i;
         cell->use_count = var_uses[i];
+        // fill the uses with null pointers
+        for (size_t j = 0; j < cell->use_count; j++) {
+            CAClauseData* data = &(cell->uses[j]);
+            data->center = NULL;
+            data->prev = NULL;
+            data->nw = NULL;
+            data->n = NULL;
+            data->ne = NULL;
+            data->w = NULL;
+            data->e = NULL;
+            data->sw = NULL;
+            data->s = NULL;
+            data->se = NULL;
+        }
         state.variables[i] = cell;
     }
     safe_free(var_uses);
@@ -603,8 +584,7 @@ static inline void init_state(InitFromState* from) {
         for (size_t y = 1; y < state.height - 1; y++) {
             for (size_t x = 1; x < state.width - 1; x++) {
                 CAClause* clause = &(state.ca_clauses[i]);
-                clause->invert_prev = false;
-                clause->prev = state_get_cell_allow_oob(t - 1, x, y);
+                // fill the clause's pointers
                 clause->invert_next = false;
                 clause->next = state_get_cell_allow_oob(t + 1, x, y);
                 clause->invert_nw = false;
@@ -625,6 +605,33 @@ static inline void init_state(InitFromState* from) {
                 clause->se = state_get_cell_allow_oob(t, x + 1, y + 1);
                 i++;
                 clause->tr = compute_implication_tr(clause);
+                // fill all the clause pointers inside the cells
+                #define add(cell_to_use, name_to_set) \
+                    do { \
+                        Cell* cell = (cell_to_use); \
+                        bool found = false; \
+                        for (size_t j = 0; j < cell->use_count; j++) { \
+                            if (cell->uses[j].name_to_set == NULL) { \
+                                cell->uses[j].name_to_set = clause; \
+                                found = true; \
+                                break; \
+                            } \
+                        } \
+                        if (!found) { \
+                            fatal_error("cell use count too small"); \
+                        } \
+                    } while (false)
+                add(clause->center, center);
+                add(clause->next, prev);
+                add(clause->nw, se);
+                add(clause->n, s);
+                add(clause->ne, sw);
+                add(clause->w, e);
+                add(clause->e, w);
+                add(clause->sw, ne);
+                add(clause->s, n);
+                add(clause->se, nw);
+                #undef add
             }
         }
     }
@@ -664,26 +671,18 @@ static inline void reinit_state(void) {
 }
 
 
+#define STACKENTRY_TYPE_CELL_SET 0
+
 typedef struct CellSetStackEntry {
     Cell* cell;
     CellValue value;
 } CellSetStackEntry;
 
-#define STACKENTRY_TYPE_CELL_SET 0
-#if MULTI_RULE
-    #define STACKENTRY_TYPE_RULE_CHANGE 1
-#endif
 typedef struct StackEntry {
     bool is_first_in_frame : 1;
-    #if MULTI_RULE
-    unsigned int type : 1;
-    #endif
+    unsigned int type : 7;
     union {
         CellSetStackEntry cell_set;
-        #if MULTI_RULE
-            // left shifted by 4 bits, then it's the old cell value, then it's the new cell value
-            BoundTransition rule_change;
-        #endif
     } data;
 } StackEntry;
 
@@ -696,20 +695,9 @@ static inline void print_stack_entry(StackEntry* entry) {
     if (entry == NULL) {
         real_printf("<null pointer>");
         return;
-    #if MULTI_RULE
     } else if (entry->type == STACKENTRY_TYPE_CELL_SET) {
-    #else
-    } else if (true) {
-    #endif
-        real_printf("cell set: variable %zu = %i", entry->data.cell_set.cell->var_number, entry->data.cell_set.value);
-    #if MULTI_RULE
-    } else if (entry->type == STACKENTRY_TYPE_RULE_CHANGE) {
-        Transition tr = entry->data.rule_change;
-        CellValue old_value = (tr >> 2) & 3;
-        CellValue new_value = tr & 3;
-        const char* name = bound_trs_names[tr >> 4];
-        real_printf("rule change: %s = %i -> %i", name, old_value, new_value);
-    #endif
+        CellSetStackEntry* data = &(entry->data.cell_set);
+        real_printf("cell set: variable %zu = %i", data->cell->var_number, data->value);
     } else {
         real_printf("<invalid stack entry>\n");
         return;
@@ -731,17 +719,12 @@ static inline bool apply_stack_entry(StackEntry* entry) {
         printf("Applying stack entry: ");
         print_stack_entry(entry);
     #endif
-    #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
-    #endif
-        unsafe_set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
+        set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
         state.set_unknown_cells++;
-    #if MULTI_RULE
     } else {
-        BoundTransition value = entry->data.rule_change;
-        unsafe_set_tr(value >> 4, value & 3);
+        fatal_error("invalid stack entry");
     }
-    #endif
     return true;
 }
 
@@ -751,17 +734,12 @@ static inline bool undo_stack_entry(StackEntry* entry) {
         printf("Popping stack entry: ");
         print_stack_entry(entry);
     #endif
-    #if MULTI_RULE
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
-    #endif
-        unsafe_set_cell(entry->data.cell_set.cell, UNKNOWN);
+        set_cell(entry->data.cell_set.cell, UNKNOWN);
         state.set_unknown_cells--;
-    #if MULTI_RULE
     } else {
-        BoundTransition value = entry->data.rule_change;
-        unsafe_set_tr(value >> 4, (value >> 2) & 3);
+        fatal_error("invalid stack entry");
     }
-    #endif
     return true;
 }
 
@@ -780,9 +758,11 @@ typedef struct Stack {
         StackEntry small_data[STACK_INLINE_SIZE];
         BigStackData big_data;
     };
-    size_t len;
     bool is_big : 1;
     bool next_entry_is_first_in_frame : 1;
+    // please work
+    size_t len : (sizeof(size_t) * CHAR_BIT - 2);
+    // size_t len;
 } Stack;
 
 Stack* current_stack;
@@ -823,7 +803,7 @@ static inline __attribute__((used)) void print_stack(Stack* stack) {
 }
 
 // no dedicated "push" function because that functionality
-// is provided by set_cell and set_tr
+// is provided by set_cell_and_push and set_tr
 
 static inline StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] bool is_explicit) {
     StackEntry* out;
@@ -912,12 +892,14 @@ static inline void pop_stack_frame(Stack* stack) {
 // set a cell to a value, taking care of edges and filters but not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static inline bool set_cell(Cell* cell, CellValue value, bool is_explicit) {
+static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
+    #if SLOWER_SANITY_CHECKS
     if (cell->value != UNKNOWN) {
         fatal_error("setting known cell");
     }
+    #endif
     DPRINTF4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
-    unsafe_set_cell(cell, value);
+    set_cell(cell, value);
     state.set_unknown_cells++;
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     #if MULTI_RULE

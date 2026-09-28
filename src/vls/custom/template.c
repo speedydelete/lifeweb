@@ -7,12 +7,19 @@
 
 
 #define CUSTOM_INIT true
+#define CUSTOM_DESTROY false
 #define CUSTOM_SOLUTION_FILTERING false
 #define CUSTOM_PRUNING false
 #define CUSTOM_PRUNING_ON_CELL_SET false
 
 
 #if CUSTOM_INIT
+static inline void custom_init(void) {
+
+}
+#endif
+
+#if CUSTOM_DESTROY
 static inline void custom_init(void) {
 
 }

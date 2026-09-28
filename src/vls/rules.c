@@ -178,11 +178,11 @@ const INTSpec hex_int = {
 size_t tr_to_bound_tr[512];
 
 static inline void init_tr_to_bound_tr() {
-    for (Transition tr = 0; tr < 512; tr++) {
+    for (int tr = 0; tr < 512; tr++) {
         bool found = false;
         for (size_t i = 0; i < BOUND_TRANSITION_COUNT; i++) {
             for (size_t j = 0; j < MAX_MAP_TRS_PER_BOUND_TR; j++) {
-                SignedTransition value = bound_trs[i][j];
+                int value = bound_trs[i][j];
                 if (value == -1) {
                     break;
                 } else if (value == tr) {
@@ -202,7 +202,7 @@ static inline void init_tr_to_bound_tr() {
     }
 }
 
-static inline void set_tr(BoundTransition bound_tr, CellValue value, bool is_explicit) {
+static inline void set_tr(int bound_tr, CellValue value, bool is_explicit) {
     CellValue old_value = trs[bound_trs[bound_tr][0]];
     DPRINTF3("Setting transition %i (aka %s) to %i (old = %i)\n", bound_tr, bound_trs_names[bound_tr], value, old_value);
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);

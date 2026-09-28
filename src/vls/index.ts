@@ -1,4 +1,6 @@
 
+import '../globals.d.ts';
+
 import * as path from 'node:path';
 
 import * as t from '@babel/types';
@@ -767,61 +769,61 @@ return {
 }
 
 
-export async function main() {
-    let path = await import('node:path');
-    function getPath(file: string): string {
-        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
-    }
-    let fs = await import('node:fs/promises');
-    let {execSync, spawnSync} = (await import('node:child_process'));
-    let execPath = getPath('vls_compiled');
-    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-        execPath = './' + execPath;
-    }
-    let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
-    let data = await parseArgs(process.argv, paramsFile);
-    let options = data.options;
-    let oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
-    let recompile = false;
-    if (data.params2File !== oldParams2) {
-        recompile = true;
-        await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
-    }
-    let commandsToRun: string[] = [];
-    if (recompile) {
-        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
-        // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
-        // features
-        command += ` -g`;
-        if (!options['no-optimize']) {
-            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-        }
-        if (options['address-sanitizer']) {
-            command += ` -fsanitize=address`;
-        }
-        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        commandsToRun.push(command);
-    }
-    let execCommand = `${execPath} ${getPath('vls_problem.lsp')}`;
-    if (options['gdb']) {
-        commandsToRun.push(`gdb ${execCommand}`);
-    } else {
-        if (options['file']) {
-            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
-        } else {
-            commandsToRun.push(execCommand);
-        }
-    }
-    try {
-        for (let command of commandsToRun) {
-            execSync(command);
-        }
-    } catch (error) {
-        process.exit(1);
-    }
-}
+// export async function main() {
+//     let path = await import('node:path');
+//     function getPath(file: string): string {
+//         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+//     }
+//     let fs = await import('node:fs/promises');
+//     let {execSync, spawnSync} = (await import('node:child_process'));
+//     let execPath = getPath('vls_compiled');
+//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+//         execPath = './' + execPath;
+//     }
+//     let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
+//     let data = await parseArgs(process.argv, paramsFile);
+//     let options = data.options;
+//     let oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
+//     let recompile = false;
+//     if (data.params2File !== oldParams2) {
+//         recompile = true;
+//         await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
+//     }
+//     let commandsToRun: string[] = [];
+//     if (recompile) {
+//         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+//         // strict mode
+//         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
+//         // features
+//         command += ` -g`;
+//         if (!options['no-optimize']) {
+//             command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+//         }
+//         if (options['address-sanitizer']) {
+//             command += ` -fsanitize=address`;
+//         }
+//         command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+//         commandsToRun.push(command);
+//     }
+//     let execCommand = `${execPath} ${getPath('vls_problem.lsp')}`;
+//     if (options['gdb']) {
+//         commandsToRun.push(`gdb ${execCommand}`);
+//     } else {
+//         if (options['file']) {
+//             commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
+//         } else {
+//             commandsToRun.push(execCommand);
+//         }
+//     }
+//     try {
+//         for (let command of commandsToRun) {
+//             execSync(command);
+//         }
+//     } catch (error) {
+//         process.exit(1);
+//     }
+// }
 
-if (import.meta.main) {
-    main();
-}
+// if (import.meta.main) {
+//     main();
+// }

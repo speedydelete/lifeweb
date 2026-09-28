@@ -14,14 +14,11 @@
 // debug level
 #define DEBUG 6
 
-// whether to do multi-rule searching
-#define MULTI_RULE false
-
 // custom file to load stuff from
 // #define CUSTOM
 
 
 // speed settings
 
-// prevents computing the implication for a cell twice
-#define KEEP_LAST_CHECKED_TIME true
+// whether to enable certain speed-reducing sanity checks
+#define SLOWER_SANITY_CHECKS true

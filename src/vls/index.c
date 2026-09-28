@@ -1,6 +1,7 @@
 
 // defines main searching
 
+
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 199309L
 
@@ -30,12 +31,9 @@ static void handle_sigterm(int signum) {
 
 int main(void) {
     #ifdef IMPLICATION_CHECK_TR
-        generate_implications();
-        printf("%i -> %i\n", IMPLICATION_CHECK_TR, implications[IMPLICATION_CHECK_TR]);
-        exit(0);
-    #elifdef OT_IMPLICATION_CHECK_TR
-        generate_implications();
-        printf("%i -> %i\n", OT_IMPLICATION_CHECK_TR, ot_implications[OT_IMPLICATION_CHECK_TR]);
+        init_implications();
+        printf("%i -> %i\n", IMPLICATION_CHECK_TR, implication_table[IMPLICATION_CHECK_TR]);
+        destroy_implications();
         exit(0);
     #endif
     calibrate_time();
@@ -43,19 +41,20 @@ int main(void) {
         signal(SIGTERM, handle_sigterm);
     #endif
     current_stack = create_stack();
-    generate_implications();
+    init_implications();
     init_state();
-    #if MULTI_RULE
-        init_tr_to_bound_tr();
-    #endif
     init_solutions();
     preprocess();
     #if CUSTOM_INIT
         custom_init();
     #endif
     run_search();
+    #if CUSTOM_DESTROY
+        custom_destroy();
+    #endif
     destroy_solutions();
     destroy_stack(current_stack);
     destroy_state();
+    destroy_implications();
     return 0;
 }

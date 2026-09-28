@@ -138,7 +138,7 @@ typedef uint64_t Hash;
             char*: update_hash_string((hash), (char*)(uintptr_t)(value)), \
             const char*: update_hash_string((hash), (const char*)(uintptr_t)(value)) \
         ); \
-    } while (0)
+    } while (false)
 
 static inline __attribute__((always_inline)) Hash update_hash_uint8(Hash hash, uint8_t value) {
     hash ^= value;
@@ -208,7 +208,7 @@ static inline Hash min_hash(Hash x, Hash y) {
             debug_depth = (depth); \
             print_grid_pretty((grid), false); \
             debug_depth = prev; \
-        } while (0)
+        } while (false)
 #else
     #define HASHDPRINTF(...)
     #define HASHDPRINTGRID(grid, depth)
