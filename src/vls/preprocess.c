@@ -29,8 +29,7 @@ static inline void preprocess(void) {
         }
     }
     if (!found) {
-        fprintf(stderr, "Error: Preprocessing did not finish\n");
-        exit(1);
+        unexpected_error("preprocessing did not finish");
     }
     dg_destroy(&old_grid);
     dg_destroy(&new_grid);

@@ -90,7 +90,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                 CellValue value = dg_get(grid, t, x, y);
                 if (value == UNKNOWN) {
                     if (is_solution) {
-                        fatal_error("unknown cell in solution");
+                        unexpected_error("unknown cell in solution");
                     } else {
                         real_printf("B");
                     }
@@ -101,7 +101,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                 } else if (value == DONT_CARE) {
                     real_printf("C");
                 } else {
-                    fatal_error("invalid grid state");
+                    unexpected_error("invalid grid state");
                 }
             }
             if (t != grid->gens - 1) {
@@ -564,7 +564,7 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
     if (config.max_solutions > 0) {
         if (solutions_found >= config.max_solutions) {
             printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
-            exit(0);
+            exit(EXIT_SUCCESS);
         }
     }
     dg_destroy(&hash_grid);
@@ -657,7 +657,7 @@ static inline void print_info_if_needed(size_t depth) {
             } else if (config.max_partial_scoring == MAX_PARTIAL_SCORING_DEPTH) {
                 partial_size = depth;
             } else {
-                fatal_error("invalid max partial scoring");
+                unexpected_error("invalid max partial scoring");
             }
             if (partial_size > max_partial_size) {
                 dg_init_from_search_grid(&max_partial);

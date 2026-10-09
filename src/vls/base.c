@@ -98,9 +98,9 @@
     #define DFPRINTLINEPADDING(stream)
 #endif
 
-[[noreturn]] static void fatal_error(char* msg) {
+[[noreturn]] static void unexpected_error(char* msg) {
     real_fprintf(stderr, "\nError: This error should not occur, please report it (%s)\n", msg);
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 
@@ -130,7 +130,7 @@ static inline void* safe_malloc(size_t size) {
     void* out = malloc(size);
     if (out == NULL) {
         perror("Error with malloc");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     return out;
 }
@@ -139,7 +139,7 @@ static inline void* safe_realloc(void* ptr, size_t size) {
     void* out = realloc(ptr, size);
     if (out == NULL) {
         perror("Error with realloc");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     return out;
 }
@@ -576,7 +576,7 @@ static inline void init_state(InitFromState* from) {
                 } else if (value == DONT_CARE) {
                     cell = &dont_care_cell;
                 } else {
-                    fatal_error("invalid cell state");
+                    unexpected_error("invalid cell state");
                 }
                 state.grid[i] = cell;
                 i++;
@@ -629,7 +629,7 @@ static inline void init_state(InitFromState* from) {
                             } \
                         } \
                         if (!found) { \
-                            fatal_error("cell use count too small"); \
+                            unexpected_error("cell use count too small"); \
                         } \
                     } while (false)
                 add(clause->center, center);
@@ -712,7 +712,7 @@ static inline bool apply_stack_entry(StackEntry* entry) {
         set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
         state.set_unknown_cells++;
     } else {
-        fatal_error("invalid stack entry");
+        unexpected_error("invalid stack entry");
     }
     return true;
 }
@@ -727,7 +727,7 @@ static inline bool undo_stack_entry(StackEntry* entry) {
         set_cell(entry->data.cell_set.cell, UNKNOWN);
         state.set_unknown_cells--;
     } else {
-        fatal_error("invalid stack entry");
+        unexpected_error("invalid stack entry");
     }
     return true;
 }
@@ -884,7 +884,7 @@ static inline void pop_stack_frame(Stack* stack) {
 static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     #if SLOWER_SANITY_CHECKS
     if (cell->value != UNKNOWN) {
-        fatal_error("setting known cell");
+        unexpected_error("setting known cell");
     }
     #endif
     DPRINTF4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);

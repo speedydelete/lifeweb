@@ -243,8 +243,7 @@ static Depth run_depth(Depth depth, Cell* cell
     #endif
     branches++;
     if (depth > MAX_DEPTH) {
-        fatal_error("the dwarves delved too greedily and too deep");
-        exit(1);
+        unexpected_error("the dwarves delved too greedily and too deep");
     }
     if (state.set_unknown_cells >= state.start_unknown_cells) {
         #ifndef BENCHMARK
