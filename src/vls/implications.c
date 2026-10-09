@@ -123,10 +123,6 @@ static inline uint32_t get_implication(uint32_t tr) {
             IMPLICATIONDPRINTF(tr, "no implication possible, next cell can be any value, returning DO_NOTHING\n");
             return DO_NOTHING;
         }
-    } else if (next == DONT_CARE) {
-        // if the next generation can be anything, nothing can be implied
-        IMPLICATIONDPRINTF(tr, "no implication possible, next cell is DONT_CARE, returning DO_NOTHING\n");
-        return DO_NOTHING;
     }
     IMPLICATIONDPRINTF(tr, "resolved next = %i\n", next);
     for (int i = 2; i < 20; i += 2) {
@@ -136,8 +132,8 @@ static inline uint32_t get_implication(uint32_t tr) {
         uint32_t tr2 = tr & ~(3 << i);
         uint32_t forward_0 = implication_table[tr2 | (OFF << i)];
         uint32_t forward_1 = implication_table[tr2 | (ON << i)];
-        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN || (forward_0 & 3) == DONT_CARE);
-        bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN || (forward_1 & 3) == DONT_CARE);
+        bool zero_possible = (forward_0 != CONTRADICTION) && ((forward_0 & 3) == next || (forward_0 & 3) == UNKNOWN);
+        bool one_possible = (forward_1 != CONTRADICTION) && ((forward_1 & 3) == next || (forward_1 & 3) == UNKNOWN);
         IMPLICATIONDPRINTF(tr, "i = %i, tr2 = %i, zero: %i -> %i -> %s, one: %i -> %i -> %s, tr & 3 = %i\n", i, tr2, tr2 | (OFF << i), forward_0, zero_possible ? "true" : "false", tr2 | (ON << i), forward_1, one_possible ? "true" : "false", tr & 3);
         if (one_possible && !zero_possible) {
             // must be on

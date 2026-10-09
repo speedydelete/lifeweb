@@ -36,9 +36,8 @@ export function coord(t: number, x: number, y: number): Coord {
 export const UNKNOWN = 0;
 export const OFF = 1;
 export const ON = 2;
-export const DONT_CARE = 3;
 
-export type State = typeof UNKNOWN | typeof OFF | typeof ON | typeof DONT_CARE;
+export type State = typeof UNKNOWN | typeof OFF | typeof ON;
 
 export function isKnown(state: State): state is typeof OFF | typeof ON {
     return state === ON || state === OFF;
@@ -48,18 +47,32 @@ export function isKnown(state: State): state is typeof OFF | typeof ON {
 export type Variable = number;
 
 
-export interface Cell {
+export class Cell {
+
     state: State;
     variable: Variable | undefined;
     searchable: boolean;
+    noClause: boolean;
+
+    constructor(state: State, variable: Variable | undefined = undefined, searchable: boolean = true, noClause: boolean = false) {
+        this.state = state;
+        this.variable = variable;
+        this.searchable = searchable;
+        this.noClause = noClause;
+    }
+    
+    eq(other: Cell): boolean {
+        return this.state === other.state
+            && this.variable === other.variable
+            && this.searchable === other.searchable
+            && this.noClause === other.noClause
+        ;
+    }
+
 }
 
-export function cell(state: State, variable: Variable | undefined = undefined, searchable: boolean = true): Cell {
-    return {state, variable, searchable};
-}
-
-export function cellsAreEqual(x: Cell, y: Cell): boolean {
-    return x.state === y.state && x.variable === y.variable && x.searchable === y.searchable;
+export function cell(state: State, variable?: Variable, searchable?: boolean, noClause?: boolean): Cell {
+    return new Cell(state, variable, searchable, noClause);
 }
 
 
@@ -161,10 +174,10 @@ export class Grid {
     }
 
     set(t: number, x: number, y: number, value: Cell): this;
-    set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, searchable?: boolean): this;
+    set(t: number, x: number, y: number, value: State, variable?: Variable | undefined, searchable?: boolean, noClause?: boolean): this;
     set(pos: Coord, value: Cell): this;
-    set(pos: Coord, value: State, variable?: Variable | undefined, searchable?: boolean): this;
-    set(_t: number | Coord, _x: number | Cell | State, _y?: number | Variable, _value?: Cell | State | boolean, _variable?: Variable | undefined, _searchable?: boolean): this {
+    set(pos: Coord, value: State, variable?: Variable | undefined, searchable?: boolean, noClause?: boolean): this;
+    set(_t: number | Coord, _x: number | Cell | State, _y?: number | Variable, _value?: Cell | State | boolean, _variable?: Variable | boolean | undefined, _searchable?: boolean, _noClause?: boolean): this {
         let value: Cell;
         let t: number;
         let x: number;
@@ -176,7 +189,7 @@ export class Grid {
             if (typeof _x === 'object') {
                 value = _x;
             } else {
-                value = cell(_x as State, _y as Variable | undefined, _value as boolean | undefined);
+                value = cell(_x as State, _y as Variable | undefined, _value as boolean | undefined, _variable as boolean | undefined);
             }
         } else {
             t = _t;
@@ -185,7 +198,7 @@ export class Grid {
             if (typeof _value === 'object') {
                 value = _value;
             } else {
-                value = cell(_value as State, _variable, _searchable);
+                value = cell(_value as State, _variable as number | undefined, _searchable, _noClause);
             }
         }
         if (!this.isInBounds(t, x, y)) {
@@ -196,10 +209,10 @@ export class Grid {
     }
 
     fill(t: number, value: Cell): this;
-    fill(t: number, value: State, variable?: Variable | undefined, searchable?: boolean): this
-    fill(t: number, value: Cell | State, variable?: Variable | undefined, searchable?: boolean): this {
+    fill(t: number, value: State, variable?: Variable | undefined, searchable?: boolean, noClause?: boolean): this
+    fill(t: number, value: Cell | State, variable?: Variable | undefined, searchable?: boolean, noClause?: boolean): this {
         if (typeof value === 'number') {
-            value = cell(value, variable, searchable);
+            value = cell(value, variable, searchable, noClause);
         }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
@@ -226,7 +239,7 @@ export class Grid {
             },
             // arrow function so it uses the `this` context of the Grid
             next: () => {
-                if (t > this.gens) {
+                if (t >= this.gens) {
                     return {done: true, value: undefined};
                 }
                 let pos = coord(t, x, y);
@@ -245,10 +258,20 @@ export class Grid {
             },
             // arrow function so it uses the `this` context of the Grid
             next: () => {
-                if (t > this.gens) {
+                if (t >= this.gens) {
                     return {done: true, value: undefined};
                 }
-                return {done: false, value: coord(t, x, y)};
+                let out = {done: false, value: coord(t, x, y)};
+                x++;
+                if (x >= this.width) {
+                    x = 0;
+                    y++;
+                    if (y >= this.height) {
+                        y = 0;
+                        t++;
+                    }
+                }
+                return out;
             }
         };
     }
@@ -263,10 +286,20 @@ export class Grid {
             },
             // arrow function so it uses the `this` context of the Grid
             next: () => {
-                if (t > this.gens) {
+                if (t >= this.gens) {
                     return {done: true, value: undefined};
                 }
-                return {done: false, value: this.get(coord(t, x, y))};
+                let out = {done: false, value: this.get(coord(t, x, y))};
+                x++;
+                if (x >= this.width) {
+                    x = 0;
+                    y++;
+                    if (y >= this.height) {
+                        y = 0;
+                        t++;
+                    }
+                }
+                return out;
             }
         };
     }
@@ -382,25 +415,11 @@ export class Grid {
                     }
                 }
                 simple = 'x = y';
-            } else if (y.state === DONT_CARE) {
-                simple = 'x = y';
             } else {
-                simple = 'y = x';
-            }
-        } else if (x.state === DONT_CARE) {
-            if (isKnown(y.state)) {
-                simple = 'x = y';
-            } else if (y.state === DONT_CARE) {
-                simple = 'x = y';
-            } else {
-                // don't care propagates
                 simple = 'y = x';
             }
         } else {
             if (isKnown(y.state)) {
-                simple = 'x = y';
-            } else if (y.state === DONT_CARE) {
-                // don't care propagates
                 simple = 'x = y';
             }
         }
@@ -681,6 +700,9 @@ export function mergeGrids(grids: Grid[]): Grid {
             for (let y = 0; y < grid.height; y++) {
                 for (let x = 0; x < grid.width; x++) {
                     let cell = structuredClone(grid.get(t, x, y));
+                    if (t === 0) {
+                        cell.noClause = true;
+                    }
                     if (cell.variable !== undefined) {
                         if (cell.variable in vars) {
                             cell.variable = vars[cell.variable];
@@ -696,7 +718,7 @@ export function mergeGrids(grids: Grid[]): Grid {
             locT++;
         }
         if (i !== grids.length - 1) {
-            out.fill(locT, cell(DONT_CARE));
+            out.fill(locT, cell(UNKNOWN, undefined, undefined, true));
             locT++;
         }
     }
@@ -874,9 +896,9 @@ function stateSpecifiersAreEqual(x: StateSpecifier, y: StateSpecifier): boolean 
     if (x.type === 'nop' && y.type === 'nop') {
         return true;
     } else if (x.type === 'cell' && y.type === 'cell') {
-        return cellsAreEqual(x.cell, y.cell);
+        return x.cell.eq(y.cell);
     } else if (x.type === 'periodic' && y.type === 'periodic') {
-        return cellsAreEqual(x.cell, y.cell) && x.period === y.period;
+        return x.cell.eq(y.cell) && x.period === y.period;
     } else {
         throw new Error(`This error should not occur, please report it (invalid state specifier type(s): '${(x as any).type}' and '${(y as any).type})`);
     }
@@ -1035,7 +1057,7 @@ const IDENTIFIER_CHARS = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01
 const IDENTIFIER_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const RESERVED_WORDS = new Set([
     // literals
-    'true', 'false', 'nop', 'off', 'on', 'unknown', 'dont_care', 'var',
+    'true', 'false', 'nop', 'off', 'on', 'unknown', 'var',
     // operators
     'states', 'unsearchable', 'period', 'all',
     // constructs
@@ -1123,9 +1145,8 @@ class VLSFileParser extends BaseParser {
         this.scope.setState(0, {type: 'cell', cell: cell(OFF)});
         this.scope.setState(1, {type: 'cell', cell: cell(ON)});
         this.scope.setState(2, {type: 'cell', cell: cell(UNKNOWN)});
-        this.scope.setState(3, {type: 'cell', cell: cell(DONT_CARE)});
-        this.scope.setState(4, {type: 'periodic', cell: cell(UNKNOWN), period: 1});
-        this.scope.setState(5, {type: 'cell', cell: cell(OFF)});
+        this.scope.setState(3, {type: 'periodic', cell: cell(UNKNOWN), period: 1});
+        this.scope.setState(4, {type: 'cell', cell: cell(OFF)});
     }
 
     tokenize(code: string): void {
@@ -1232,8 +1253,6 @@ class VLSFileParser extends BaseParser {
             out = {type: 'cell', cell: cell(ON)};
         } else if (value === 'unknown') {
             out = {type: 'cell', cell: cell(UNKNOWN)};
-        } else if (value === 'dont_care') {
-            out = {type: 'cell', cell: cell(DONT_CARE)};
         } else if (value === 'var') {
             out = {type: 'cell', cell: cell(UNKNOWN, this.grid.getNewVar())};
         } else {
@@ -1377,7 +1396,6 @@ class VLSFileParser extends BaseParser {
             }
             this.advance();
             let value = this._expression(precedence);
-            alert('running unary ' + op + '\n' + JSON.stringify(value) + '\n\n' + this.tokens.slice(this.pos).join(','));
             left = this.evalUnary(op, value);
         } else {
             left = this.primaryExpression();

@@ -17,9 +17,8 @@ This prefix is applied on every file:
 state 0 = off
 state 1 = on
 state 2 = unknown
-state 3 = dont_care
-state 4 = all: period 1
-state 5 = off
+state 3 = all: period 1
+state 4 = off
 ```
 
 ## Statements
@@ -45,7 +44,7 @@ If multiple patterns are provided, they are searched together with a shared vari
 
 Defines or changes the meaning of a state or range of states. States are used by RLE statements to add things to the problem.
 
-A full state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `0: off, 1-2: unknown, 5: dont_care, $10-20: unsearchable, $13: unsettable var`. Ranges are inclusive on both ends.
+A full state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `0: off, 1-2: unknown, $10-20: unsearchable, $13: unsettable var`. Ranges are inclusive on both ends.
 
 The character `$` before a range indicates that it is absolute, when it is used it will always be applied to those generations. If `$` isn't present, it is a relative one, this means that the ranges are added to the current generation to determine the real generation when it is used.
 
@@ -58,7 +57,6 @@ A state specifier consists of one of these values:
 * `off` - the cell's state is forced to be off
 * `on` - the cell's state is forced to be on
 * `unknown` - the cell's state is indeterminate
-* `dont_care` - the cell's state is indeterminate and not set by the search program, it does not have to follow the transition rules and can do literally anything
 * `var` - the cell is a variable that is shared across every instance of the state
 * `period <value>` - the cell is a periodic cell, new variables are automatically created every time it is used to force it to be of the given period
 * `unsearchable` - it will not try to explicitly set the cell, but it can still "inherit" a value from nearby cells

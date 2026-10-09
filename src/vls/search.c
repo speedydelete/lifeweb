@@ -15,37 +15,25 @@
 
 
 // sets the next_in_search_order fields in all the cells
-static inline void add_search_orders(void) {
-    Index* coords = search_order[0];
-    Index t = coords[0];
-    Index x = coords[1];
-    Index y = coords[2];
-    Cell* prev = get_cell(t, x, y);
-    state.initial_cell = prev;
-    DPRINTF2("Search order:\n");
-    DPRINTF2("t = %i, x = %i, y = %i, value = %i", t, x, y, prev->value);
-    for (Index i = 1; i < state.start_unknown_cells; i++) {
-        Index* coords = search_order[i];
-        Index t = coords[0];
-        Index x = coords[1];
-        Index y = coords[2];
-        Cell* cell = get_cell(t, x, y);
-        if (cell->value == DONT_CARE || cell->settable == NOT_SEARCHABLE || cell->settable == NOT_SETTABLE) {
-            continue;
-        }
-        #if DEBUG >= 2
-            printf("t = %i, x = %i, y = %i, value = ", t, x, y);
-        #if VARIABLES
-            print_cell(stdout, cell->value, cell->var);
-        #else
-            print_cell(stdout, cell->value);
-        #endif
-        printf("\n");
-        #endif
+// returns the initial cell to search
+static inline Cell* add_search_orders(void) {
+    size_t* coords = config.search_order[0];
+    size_t t = coords[0];
+    size_t x = coords[1];
+    size_t y = coords[2];
+    Cell* prev = state_get_cell(t, x, y)->cell;
+    Cell* initial_cell = prev;
+    for (size_t i = 1; i < config.search_order_len; i++) {
+        size_t* coords = config.search_order[i];
+        size_t t = coords[0];
+        size_t x = coords[1];
+        size_t y = coords[2];
+        Cell* cell = state_get_cell(t, x, y)->cell;
         prev->next_in_search_order = cell;
         prev = cell;
     }
     prev->next_in_search_order = NULL;
+    return initial_cell;
 }
 
 
@@ -59,17 +47,17 @@ static inline bool check_early_exhaustion(void) {
     #endif
     // check columns
     #if PERIODIC_DX < 0
-        for (Index x = PADDING; x < PADDING - PERIODIC_DX + 1; x++) {
-            for (Index y = PADDING; y < state.height - PADDING; y++) {
-                if (get_cell(0, x, y)->value != OFF) {
+        for (Index x = 0; x < -PERIODIC_DX + 1; x++) {
+            for (Index y = 0; y < state.height; y++) {
+                if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
         }
     #elif PERIODIC_DX > 0
-        for (Index x = state.width - PADDING - PERIODIC_DX - 1; x < state.width - PADDING; x++) {
-            for (Index y = PADDING; y < state.height - PADDING; y++) {
-                if (get_cell(0, x, y)->value != OFF) {
+        for (Index x = state.width - PERIODIC_DX - 1; x < state.width; x++) {
+            for (Index y = 0; y < state.height; y++) {
+                if (state_get_cell_value(0, x, y)->value != OFF) {
                     return false;
                 }
             }
@@ -77,8 +65,8 @@ static inline bool check_early_exhaustion(void) {
     #else
     // check left column and right column
     found = false;
-    for (Index y = PADDING; y < state.height - PADDING; y++) {
-        if (get_cell(0, PADDING, y)->value != OFF) {
+    for (Index y = 0; y < state.height; y++) {
+        if (state_get_cell_value(0, 0, y)->value != OFF) {
             found = true;
             break;
         }
@@ -87,8 +75,8 @@ static inline bool check_early_exhaustion(void) {
         return true;
     }
     found = false;
-    for (Index y = PADDING; y < state.height - PADDING; y++) {
-        if (get_cell(0, state.width - PADDING - 1, y)->value != OFF) {
+    for (Index y = 0; y < state.height; y++) {
+        if (state_get_cell_value(0, state.width - 1, y)->value != OFF) {
             found = true;
             break;
         }
@@ -99,18 +87,18 @@ static inline bool check_early_exhaustion(void) {
     #endif
     // check rows
     #if PERIODIC_DY < 0
-        for (Index y = PADDING; y < PADDING - PERIODIC_DY + 1; y++) {
-            for (Index x = PADDING; x < state.width - PADDING; x++) {
-                if (get_cell(0, x, y)->value != OFF) {
+        for (Index y = 0; y < -PERIODIC_DY + 1; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                if (state_get_cell_value(0, x, y)->value != OFF) {
                     return false;
                 }
             }
         }
     return true;
     #elif PERIODIC_DY > 0
-        for (Index y = state.height - PADDING - PERIODIC_DY - 1; y < state.width - PADDING; y++) {
-            for (Index x = PADDING; x < state.width - PADDING; x++) {
-                if (get_cell(0, x, y)->value != OFF) {
+        for (Index y = state.height - PERIODIC_DY - 1; y < state.width; y++) {
+            for (Index x = 0; x < state.width; x++) {
+                if (state_get_cell_value(0, x, y)->value != OFF) {
                     return false;
                 }
             }
@@ -119,8 +107,8 @@ static inline bool check_early_exhaustion(void) {
     #else
     // check top row and bottom row
     found = false;
-    for (Index x = PADDING; x < state.width - PADDING; x++) {
-        if (get_cell(0, x, PADDING)->value != OFF) {
+    for (Index x = 0; x < state.width; x++) {
+        if (state_get_cell_value(0, x, 0)->value != OFF) {
             return false;
         }
     }
@@ -128,8 +116,8 @@ static inline bool check_early_exhaustion(void) {
         return true;
     }
     found = false;
-    for (Index x = PADDING; x < state.width - PADDING; x++) {
-        if (get_cell(0, x, state.height - PADDING - 1)->value != OFF) {
+    for (Index x = 0; x < state.width; x++) {
+        if (state_get_cell_value(0, x, state.height - 1)->value != OFF) {
             return false;
         }
     }
@@ -143,20 +131,16 @@ static inline bool check_early_exhaustion(void) {
 #endif
 
 // returns number of iterations to backjump
-static Depth run_depth(Depth depth, Cell* cell
-    #if MULTI_RULE
-    , int force_value
-    #endif
-    );
+static size_t run_depth(size_t depth, Cell* cell);
 
 // returns number of iterations to backjump
-static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
+static inline size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
     DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
     push_stack_frame(current_stack);
     #if DEBUG >= 4
         print_stack(current_stack);
     #endif
-    Depth out = 0;
+    size_t out = 0;
     if (set_cell_and_propagate(cell, value, true)) {
         #if CUSTOM_PRUNING
             if (!custom_prune(depth, cell)) {
@@ -177,73 +161,25 @@ static inline Depth actual_run_depth(Depth depth, Cell* cell, CellValue value) {
                 }
             }
         #endif
-        #if MULTI_RULE
-            out = run_depth(depth + 1, cell->next_in_search_order, -1);
-        #else
-            out = run_depth(depth + 1, cell->next_in_search_order);
-        #endif
-    #if MULTI_RULE
-    } else if (state.rule_dependent_tr != -1) {
-        pop_stack_frame(current_stack);
-        BoundTransition tr = tr_to_bound_tr[state.rule_dependent_tr];
-        state.rule_dependent_tr = -1;
-        // progress_pos++;
-        progress[progress_pos].tr_is_set = true;
-        progress[progress_pos].tr = tr;
-        DPRINTF3("Branching rule on transition %i (aka %s), depth = %"PRIdepth"\n", tr, bound_trs_names[tr], depth);
-        push_stack_frame(current_stack);
-        progress[progress_pos].value = 0;
-        progress_pos++;
-        set_tr(tr, OFF, true);
-        run_depth(depth + 1, cell, value);
-        progress_pos--;
-        pop_stack_frame(current_stack);
-        progress[progress_pos].value = 1;
-        progress_pos++;
-        push_stack_frame(current_stack);
-        set_tr(tr, ON, true);
-        run_depth(depth + 1, cell, value);
-        progress_pos--;
-        pop_stack_frame(current_stack);
-        progress[progress_pos].tr_is_set = false;
-        // progress_pos--;
-        return out;
-    #endif
+        out = run_depth(depth + 1, cell->next_in_search_order);
     }
     pop_stack_frame(current_stack);
     return out;
 }
 
-
-#if INITIAL_VALUE != IV_0 && INITIAL_VALUE != IV_1
-CellValue get_same_for_iv(Cell* cell_to_use) {
-    Cell* cell = &get_cell(0, cell_to_use->x, cell_to_use->y);
-    for (Index i = 0; i < state.gens; i++) {
-        if (cell->value != UNKNOWN) {
-            return cell->value;
-        }
-        cell = cell->next;
-    }
-    return (INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_DIFFERENT_1) ? 0 : 1;
-}
-#endif
-
 // returns number of iterations to backjump
-static Depth run_depth(Depth depth, Cell* cell
-    #if MULTI_RULE
-    , int force_value
-    #endif
-    ) {
+static size_t run_depth(size_t depth, Cell* cell) {
     #if DEBUG >= 3
         debug_depth++;
-        printf("Running depth %"PRIu64": ", depth);
+        printf("Running depth %zu: ", depth);
         print_progress(stdout);
         real_printf("\n");
         printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
     #endif
     branches++;
-    if (depth > MAX_DEPTH) {
-        unexpected_error("the dwarves delved too greedily and too deep");
+    // add 2 to account for off-by-one errors
+    if (depth > config.search_order_len + 2) {
+        unexpected_error("The dwarves delved too greedily and too deep");
     }
     if (state.set_unknown_cells >= state.start_unknown_cells) {
         #ifndef BENCHMARK
@@ -258,80 +194,32 @@ static Depth run_depth(Depth depth, Cell* cell
     print_info_if_needed(depth);
     if (cell->value != UNKNOWN) {
         DPRINTF3("Cell is known, continuing\n");
-        #if MULTI_RULE
-            Depth out = run_depth(depth + 1, cell->next_in_search_order, -1);
-        #else
-            Depth out = run_depth(depth + 1, cell->next_in_search_order);
-        #endif
+        size_t out = run_depth(depth + 1, cell->next_in_search_order);
         #if DEBUG >= 3
             debug_depth--;
         #endif
         return out == 0 ? 0 : out - 1;
     }
-    #if MULTI_RULE
-    if (force_value == -1) {
-    #endif
-        // somehow this makes it not exhaustive
-        // idk why
-        // #ifdef MAXPOP
-        // if (phase_0_pop == MAXPOP) {
-        //     Depth out = actual_run_depth(depth, cell, OFF);
-        //     #if DEBUG >= 3
-        //     debug_depth--;
-        //     #endif
-        //     if (out != 0) {
-        //         return out - 1;
-        //     } else {
-        //         return 0;
-        //     }
-        // }
-        // #endif
-        CellValue value;
-        #if INITIAL_VALUE == IV_0
-        value = OFF;
-        for (int i = 0; i < 2; value++, i++)
-        #elif INITIAL_VALUE == IV_1
-        value = ON;
-        for (int i = 0; i < 2; value--, i++)
-        #elif INITIAL_VALUE == IV_SAME_0 || INITIAL_VALUE == IV_SAME_1
-        value = get_same_for_iv(cell);
-        for (int i = 0; i < 2; i++, value = (value + 1) % 2)
-        #elif INITIAL_VALUE == IV_DIFFERENT_0 || INITIAL_VALUE == IV_DIFFERENT_1
-        value = get_same_for_iv(cell) == 0 ? 1 : 0;
-        for (int i = 0; i < 2; i++, value = (value + 1) % 2)
-        #else
-        #error "This error should not occur, please report it (invalid initial value)"
+    CellValue value = config.initial_value;
+    for (int i = 0; i < 2; i++) {
+        #if CHECK_EARLY_EXHAUSTION
+            bool prev_all_zeros = all_zeros;
+            if (value == ON) {
+                all_zeros = false;
+            }
         #endif
-        {
-            #if CHECK_EARLY_EXHAUSTION
-                bool prev_all_zeros = all_zeros;
-                if (value == ON) {
-                    all_zeros = false;
-                }
-            #endif
-            #if MULTI_RULE
-                progress[progress_pos].value = i;
-                progress_pos++;
-                actual_run_depth(depth, cell, value);
-                progress_pos--;
-            #else
-                progress[progress_pos] = i;
-                progress_pos++;
-                Depth out = actual_run_depth(depth, cell, value);
-                progress_pos--;
-                if (out != 0) {
-                    return out - 1;
-                }
-            #endif
-            #if CHECK_EARLY_EXHAUSTION
-                all_zeros = prev_all_zeros;
-            #endif
+        progress[progress_pos] = i;
+        progress_pos++;
+        size_t out = actual_run_depth(depth, cell, value);
+        progress_pos--;
+        if (out != 0) {
+            return out - 1;
         }
-    #if MULTI_RULE
-    } else {
-        actual_run_depth(depth, cell, force_value);
+        #if CHECK_EARLY_EXHAUSTION
+            all_zeros = prev_all_zeros;
+        #endif
+        value = value == OFF ? ON : OFF;
     }
-    #endif
     #if DEBUG >= 3
         debug_depth--;
     #endif
@@ -339,7 +227,7 @@ static Depth run_depth(Depth depth, Cell* cell
 }
 
 
-static inline void actual_run_search(void) {
+static inline void actual_run_search(Cell* initial_cell) {
     start = get_time();
     last_progress_shown = start;
     #if MAX_PARTIALS
@@ -348,19 +236,15 @@ static inline void actual_run_search(void) {
     #if CHECK_EARLY_EXHAUSTION
         all_zeros = true;
     #endif
-    #if MULTI_RULE
-        run_depth(0, state.initial_cell, -1);
-    #else
-        run_depth(0, state.initial_cell);
-    #endif
+    run_depth(0, initial_cell);
 }
 
 static inline void run_search(void) {
-    add_search_orders();
+    Cell* initial_cell = add_search_orders();
     DPRINTGRID1();
     printf("Running search\n");
     #ifndef BENCHMARK
-        actual_run_search();
+        actual_run_search(initial_cell);
         printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
     #if MAX_PARTIALS
         max_partials_end();
@@ -369,7 +253,7 @@ static inline void run_search(void) {
         double full_start = get_time();
         for (uintmax_t i = 0; i < BENCHMARK; i++) {
             double start = get_time();
-            actual_run_search();
+            actual_run_search(initial_cell);
             printf("Iteration %ju/%ju complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
         }
         double seconds = get_time() - full_start;

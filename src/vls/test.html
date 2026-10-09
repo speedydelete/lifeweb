@@ -84,7 +84,7 @@ body {
         <div id="out"></div>
         <script type="module">
 
-import {transformCode} from './index.js';
+import {parseArgs} from './index.js';
 
 
 const ORDER = [
@@ -125,9 +125,13 @@ let outElt = document.getElementById('out');
 
 document.getElementById('compile').addEventListener('click', async () => {
     let argv = ['node'].concat(commandInput.value.split(' '));
-    let params2 = (await transformCode(argv, (await import('./params.h')).default))[1];
+    let data = await parseArgs(argv, (await import('./params.h')).default);
+    let params2 = data.params2File;
     params2 = '#line 1 "params2.h"\n' + params2.replaceAll('#pragma once', '');
-    outElt.textContent = params2 + '\n' + source;
+    let source2 = params2 + '\n' + source;
+    // outElt.textContent = data.problemFile;
+    outElt.textContent = source2;
+    // outElt.textContent = data.problemFile + '\n\n' + source2;
     let range = document.createRange();
     range.selectNodeContents(outElt);
     let sel = window.getSelection();

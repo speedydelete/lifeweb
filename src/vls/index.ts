@@ -1,13 +1,9 @@
 
-import '../globals.d.ts';
-
-import * as path from 'node:path';
-
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, coord, UNKNOWN, OFF, ON, DONT_CARE, State, Variable, Grid, runExpression, runFile} from './compiler.js';
+import {error, Coord, coord, UNKNOWN, OFF, ON, State, Variable, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
@@ -57,7 +53,7 @@ Options:
 
     -gdb: run gdb
     -no-optimize: disable optimization flags
-    -address-sanitizer: enable address sanitizer
+    -asan, -address-sanitizer: enable address sanitizer
 
     -benchmark=<iterations>: run benchmarking
 
@@ -158,6 +154,7 @@ const OPTIONS = {
     'gdb': FLAG,
     'no-optimize': FLAG,
     'address-sanitizer': FLAG,
+    'asan': 'address-sanitizer',
     'benchmark': NUMBER,
     // 'profile': NUMBER,
     'file': STRING,
@@ -210,7 +207,6 @@ export interface ParseArgsData {
     params2File: string;
     problemFile: string;
 }
-
 
 export async function parseArgs(argv: string[], paramsFile: string): Promise<ParseArgsData> {
 
@@ -467,6 +463,10 @@ if (mode === 'periodic') {
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 let value = data[t][y][x];
+                let noClause = false;
+                if (value.endsWith(`'`)) {
+                    noClause = true;
+                }
                 let state: State;
                 let variable: Variable | undefined = undefined;
                 if (value === '0') {
@@ -475,8 +475,6 @@ if (mode === 'periodic') {
                     state = ON;
                 } else if (value === '*') {
                     state = UNKNOWN;
-                } else if (value === `'`) {
-                    state = DONT_CARE;
                 } else {
                     state = UNKNOWN;
                     if (value in vars) {
@@ -487,7 +485,7 @@ if (mode === 'periodic') {
                         variable = newVar;
                     }
                 }
-                grid.set(t, x, y, state, variable);
+                grid.set(t, x, y, state, variable, undefined, noClause);
             }
         }
     }
@@ -635,9 +633,6 @@ for (let t = 0; t < grid.gens; t++) {
 }
 
 
-const PADDING = 2;
-
-
 function searchOrderSort(a: Coord, b: Coord, order: t.Expression[]): number {
     for (let metric of order) {
         let score = Number(runExpression(grid, a, metric)) - Number(runExpression(grid, b, metric));
@@ -710,11 +705,12 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['MULTI_RULE'] = multiRule;
-defines['KEEP_LAST_CHECKED_TIME'] = true;
+defines['DEBUG'] = options.debug;
+defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
-const CONSTANT_DEFINES = new Set(['placeholder']);
+defines['SLOWER_SANITY_CHECKS'] = true;
 
+const CONSTANT_DEFINES = new Set(['_POSIX_C_SOURCE']);
 
 let params2Lines: string[] = [];
 let foundDefines = new Set<string>();
@@ -759,71 +755,164 @@ for (let name of Object.keys(defines)) {
     }
 }
 
+
+let gridStr = '';
+let variableMap = new Map<number, number>();
+let nextVar = 2;
+for (let layer of grid.data) {
+    gridStr += '\n';
+    for (let row of layer) {
+        for (let cell of row) {
+            let value: number;
+            if (cell.state == OFF) {
+                value = -1;
+            } else if (cell.state == ON) {
+                value = 1;
+            } else if (cell.state == UNKNOWN) {
+                if (cell.variable) {
+                    let mapped = variableMap.get(cell.variable);
+                    if (mapped !== undefined) {
+                        value = mapped;
+                    } else {
+                        value = nextVar;
+                        nextVar++;
+                        variableMap.set(cell.variable, value);
+                    }
+                } else {
+                    value = nextVar;
+                    nextVar++;
+                }
+            } else {
+                throw new Error(`This error should not occur, please report it (invalid cell state)`);
+            }
+            gridStr += String(value) + ' ';
+        }
+        gridStr += '\n';
+    }
+}
+gridStr = gridStr.trim();
+
+let problemFile = `
+width = ${grid.width}
+height = ${grid.height}
+gens = ${grid.gens}
+var_count = ${grid.numVars}
+
+grid:
+
+${gridStr}
+
+transitions:
+${base.trs.join(' ')}
+
+search_order (length = ${searchOrderData.length}):
+${searchOrderData.map(c => `${c.t} ${c.x} ${c.y}`).join('\n')}
+
+${options['initial-value'] !== undefined ? `initial_value = ${options['initial-value']}` : ''}
+
+${(() => {
+    if (!options['periodic']) {
+        return '';
+    }
+    let data = parseSpeed(options['periodic']);
+    return `${data.dx} ${data.dy} ${data.period}`;
+})()}
+
+`;
+
+while (problemFile.includes('\n\n\n')) {
+    problemFile = problemFile.replaceAll('\n\n\n', '\n\n');
+}
+
+
 return {
     posArgs,
     options,
-    params2File: params2Lines.join(''),
+    params2File: params2Lines.join('\n'),
+    problemFile,
 };
-
 
 }
 
 
-// export async function main() {
-//     let path = await import('node:path');
-//     function getPath(file: string): string {
-//         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
-//     }
-//     let fs = await import('node:fs/promises');
-//     let {execSync, spawnSync} = (await import('node:child_process'));
-//     let execPath = getPath('vls_compiled');
-//     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-//         execPath = './' + execPath;
-//     }
-//     let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
-//     let data = await parseArgs(process.argv, paramsFile);
-//     let options = data.options;
-//     let oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
-//     let recompile = false;
-//     if (data.params2File !== oldParams2) {
-//         recompile = true;
-//         await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
-//     }
-//     let commandsToRun: string[] = [];
-//     if (recompile) {
-//         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
-//         // strict mode
-//         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-gnu-binary-literal -Wno-unused-function -Wno-unknown-pragmas`;
-//         // features
-//         command += ` -g`;
-//         if (!options['no-optimize']) {
-//             command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-//         }
-//         if (options['address-sanitizer']) {
-//             command += ` -fsanitize=address`;
-//         }
-//         command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-//         commandsToRun.push(command);
-//     }
-//     let execCommand = `${execPath} ${getPath('vls_problem.lsp')}`;
-//     if (options['gdb']) {
-//         commandsToRun.push(`gdb ${execCommand}`);
-//     } else {
-//         if (options['file']) {
-//             commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
-//         } else {
-//             commandsToRun.push(execCommand);
-//         }
-//     }
-//     try {
-//         for (let command of commandsToRun) {
-//             execSync(command);
-//         }
-//     } catch (error) {
-//         process.exit(1);
-//     }
-// }
+export async function main() {
+    let path = await import('node:path');
+    function getPath(file: string): string {
+        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+    }
+    let fs = await import('node:fs/promises');
+    let {existsSync} = await import('node:fs');
+    let {execSync} = (await import('node:child_process'));
+    let execPath = getPath('vls_compiled');
+    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
+        execPath = './' + execPath;
+    }
+    let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
+    let data = await parseArgs(process.argv, paramsFile);
+    let options = data.options;
+    let params2Path = getPath('src/vls/params2.h');
+    let oldParams2: string;
+    if (!existsSync(params2Path)) {
+        oldParams2 = '';
+    } else {
+        oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
+    }
+    let recompile = false;
+    if (existsSync(execPath)) {
+        let compiledCodeChangeTime = Number(execSync(`stat -c '%Y' ${execPath}`).toString());
+        let codeChangeTimes = execSync(`stat -c '%Y' ${import.meta.dirname}/*`).toString();
+        for (let time of codeChangeTimes.split('\n')) {
+            // subtract 2 to account for rounding errors and off-by-one errors
+            if (Number(time) > compiledCodeChangeTime - 2) {
+                recompile = true;
+                break;
+            }
+        }
+    } else {
+        recompile = true;
+    }
+    if (data.params2File !== oldParams2) {
+        recompile = true;
+        await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
+    }
+    let problemPath = getPath('vls_problem.txt');
+    await fs.writeFile(problemPath, data.problemFile);
+    let commandsToRun: string[] = [];
+    if (recompile) {
+        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+        command += ` -fdiagnostics-color=always`;
+        // strict mode
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
+        // features
+        command += ` -g`;
+        if (!options['no-optimize']) {
+            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+        }
+        if (options['address-sanitizer']) {
+            command += ` -fsanitize=address`;
+        }
+        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        commandsToRun.push(command);
+    }
+    let execCommand = `${execPath} '${problemPath}'`;
+    if (options['gdb']) {
+        commandsToRun.push(`gdb ${execCommand}`);
+    } else {
+        if (options['file']) {
+            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
+        } else {
+            commandsToRun.push(execCommand);
+        }
+    }
+    try {
+        for (let command of commandsToRun) {
+            execSync(command, {stdio: 'inherit'});
+        }
+    } catch (error) {
+        process.exit(1);
+    }
+}
 
-// if (import.meta.main) {
-//     main();
-// }
+if (import.meta.main) {
+    main();
+}

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "params2.h"
 
@@ -98,8 +99,23 @@
     #define DFPRINTLINEPADDING(stream)
 #endif
 
-[[noreturn]] static void unexpected_error(char* msg) {
-    real_fprintf(stderr, "\nError: This error should not occur, please report it (%s)\n", msg);
+static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void error(const char* format, ...) {
+    real_fprintf(stderr, "\nError: ");
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    real_fprintf(stderr, "\n");
+    exit(EXIT_FAILURE);
+}
+
+static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void unexpected_error(const char* format, ...) {
+    real_fprintf(stderr, "\nError: This error should not occur, please report it: ");
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    real_fprintf(stderr, "\n");
     exit(EXIT_FAILURE);
 }
 
@@ -111,7 +127,6 @@ typedef uint8_t CellValue;
 #define UNKNOWN 0
 #define OFF 1
 #define ON 2
-#define DONT_CARE 3
 #define is_known(value) ((value) == OFF || (value) == ON)
 
 // special value for when there is no variable
@@ -129,7 +144,7 @@ static inline ptrdiff_t get_rule(char* out, bool use_maxrule);
 static inline void* safe_malloc(size_t size) {
     void* out = malloc(size);
     if (out == NULL) {
-        perror("Error with malloc");
+        perror("Error: This error should not occur, please report it: Error in malloc");
         exit(EXIT_FAILURE);
     }
     return out;
@@ -138,7 +153,7 @@ static inline void* safe_malloc(size_t size) {
 static inline void* safe_realloc(void* ptr, size_t size) {
     void* out = realloc(ptr, size);
     if (out == NULL) {
-        perror("Error with realloc");
+        perror("Error: This error should not occur, please report it: Error in realloc");
         exit(EXIT_FAILURE);
     }
     return out;
@@ -309,6 +324,8 @@ typedef struct CAClauseData {
 } CAClauseData;
 
 struct Cell {
+    // the next entry in the search order, CAN BE A NULL POINTER
+    Cell* next_in_search_order;
     // the actual value of the cell
     CellValue value;
     // the variable number from INITIAL_VARS, numbering starts at 1
@@ -323,6 +340,7 @@ struct Cell {
 };
 
 Cell off_cell = {
+    .next_in_search_order = NULL,
     .value = OFF,
     .var_number = NO_VAR,
     .alias = NO_VAR,
@@ -331,17 +349,32 @@ Cell off_cell = {
 };
 
 Cell on_cell = {
+    .next_in_search_order = NULL,
     .value = ON,
-    .use_count = 0,
-    // no need to initialize the flexible array member
-};
-
-Cell dont_care_cell = {
-    .value = DONT_CARE,
     .var_number = NO_VAR,
     .alias = NO_VAR,
     .use_count = 0,
     // no need to initialize the flexible array member
+};
+
+typedef struct GridCell {
+    Cell* cell;
+    bool invert;
+} GridCell;
+
+GridCell off_grid_cell = {
+    .cell = &off_cell,
+    .invert = false,
+};
+
+GridCell on_grid_cell = {
+    .cell = &on_cell,
+    .invert = false,
+};
+
+GridCell null_grid_cell = {
+    .cell = NULL,
+    .invert = false,
 };
 
 struct {
@@ -362,8 +395,8 @@ struct {
     // the cells, indexed by their variable number
     // numbering starts at 1, so entry 0 is a null pointer
     Cell** variables;
-    // `total_size`-long array of pointers to cells
-    Cell** grid;
+    // `total_size`-long array of grid cells
+    GridCell* grid;
     // the symmetry of the grid
     StaticSymmetry symmetry;
     // the number of CA clauses
@@ -374,23 +407,33 @@ struct {
     size_t start_unknown_cells;
     // the current number of set unknown cells
     size_t set_unknown_cells;
-    // the first cell to be searched
-    Cell* initial_cell;
 } state;
 
-static inline Cell* state_get_cell(size_t t, size_t x, size_t y) {
-    return state.grid[(((t * state.height) + y) * state.width) + x];
+static inline GridCell* state_get_cell(size_t t, size_t x, size_t y) {
+    return &(state.grid[(((t * state.height) + y) * state.width) + x]);
 }
 
-static inline Cell* state_get_cell_allow_oob(size_t t, size_t x, size_t y) {
-    if (t < 0 || t >= state.gens) {
-        return &dont_care_cell;
+static inline CellValue state_get_cell_value(size_t t, size_t x, size_t y) {
+    GridCell* cell = state_get_cell(t, x, y);
+    CellValue out = cell->cell->value;
+    if (cell->invert) {
+        out = -out;
     }
-    if (x < 0 || x >= state.width) {
-        return &off_cell;
+    return out;
+}
+
+
+static inline GridCell* state_get_cell_allow_oob(size_t t, size_t x, size_t y) {
+    // if it would be less than 0, then it underflows
+    // and gets Very Big, so we don't need to check for that!
+    if (t >= state.gens) {
+        return &null_grid_cell;
     }
-    if (y < 0 || y >= state.height) {
-        return &off_cell;
+    if (x >= state.width) {
+        return &off_grid_cell;
+    }
+    if (y >= state.height) {
+        return &off_grid_cell;
     }
     return state_get_cell(t, x, y);
 }
@@ -410,8 +453,9 @@ typedef enum MaxPartialScoring {
 
 typedef struct Config {
 
-    // the maximum achievable depth
-    size_t max_depth;
+    // the search order
+    size_t search_order_len;
+    size_t (*search_order)[3];
 
     // the initial value of unknown cells, should be OFF or ON
     CellValue initial_value;
@@ -423,7 +467,7 @@ typedef struct Config {
     size_t periodic_period;
 
     // the interval used for reporting progress
-    size_t reporting_interval;
+    double reporting_interval;
 
     // text to put after the rule, such as :T64,64
     char* after_rule_text;
@@ -450,27 +494,66 @@ typedef struct Config {
     // the scoring used for max partials
     MaxPartialScoring max_partial_scoring;
     // the minimum interval to report new max partials
-    size_t max_partial_reporting_interval;
+    double max_partial_reporting_interval;
 
 } Config;
 
-Config config;
+Config config = {
+    .search_order_len = 0,
+    .search_order = NULL,
+    .initial_value = OFF,
+    .periodic = false,
+    .periodic_dx = 0,
+    .periodic_dy = 0,
+    .periodic_period = 0,
+    .reporting_interval = 1.0,
+    .after_rule_text = "",
+    .show_solutions = true,
+    .max_solutions = 0,
+    .filter_empty_solutions = true,
+    .filter_duplicate_solutions = true,
+    .filter_subperiod_solutions = true,
+    .cell_period_filter_length = 0,
+    .cell_period_filter = (size_t[]){0},
+    .max_partials = true,
+    .max_partial_scoring = MAX_PARTIAL_SCORING_CELL,
+    .max_partial_reporting_interval = 1.0,
+};
 
+static inline void destroy_config(void) {
+    if (config.search_order != NULL) {
+        safe_free(config.search_order);
+    }
+    if (config.after_rule_text != NULL) {
+        safe_free(config.after_rule_text);
+    }
+    if (config.cell_period_filter != NULL) {
+        safe_free(config.cell_period_filter);
+    }
+}
 
-static const char* CELL_LETTERS = "*.o'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789";
 
 // print a single cell for debugging purposes
-static inline void print_cell(FILE* stream, Cell* cell) {
+static inline void print_cell(FILE* stream, GridCell* grid_cell) {
+    int field_size = state.var_count + 2;
+    Cell* cell = grid_cell->cell;
     CellValue value = cell->value;
     if (value == UNKNOWN) {
-        if (cell->var_number != NO_VAR) {
-            value = 3 + cell->var_number;
+        if (cell->use_count < 2) {
+            real_fprintf(stream, "%*c", field_size, '*');
+        } else {
+            int64_t value = cell->var_number;
+            if (grid_cell->invert) {
+                value = -value;
+            }
+            real_fprintf(stream, "%-*"PRIi64, field_size, value);
         }
-    }
-    if (value < 65) {
-        real_fprintf(stream, "%c", CELL_LETTERS[value]);
+    } else if (value == OFF) {
+        real_fprintf(stream, "%-*c", field_size, '.');
+    } else if (value == ON) {
+        real_fprintf(stream, "%-*c", field_size, 'o');
     } else {
-        real_fprintf(stream, "(%i)", value);
+        real_fprintf(stream, "%-*c", field_size, 'C');
     }
 }
 
@@ -500,6 +583,7 @@ static inline void print_grid(FILE* stream) {
 typedef struct InitFromCell {
     CellValue value;
     size_t var;
+    bool invert;
     bool no_clause;
 } InitFromCell;
 
@@ -522,7 +606,6 @@ static inline void init_state(InitFromState* from) {
     state.total_size = state.layer_size * state.gens;
     state.start_unknown_cells = from->var_count;
     state.set_unknown_cells = 0;
-    state.initial_cell = NULL;
     // first we have to determine how many times each variable is used
     size_t* var_uses = safe_malloc(state.var_count * sizeof(size_t));
     memset(var_uses, 0, state.var_count * sizeof(size_t));
@@ -559,7 +642,7 @@ static inline void init_state(InitFromState* from) {
     }
     safe_free(var_uses);
     // now do the grid
-    state.grid = safe_malloc(state.total_size * sizeof(Cell*));
+    state.grid = safe_malloc(state.total_size * sizeof(GridCell));
     size_t i = 0;
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
@@ -573,12 +656,11 @@ static inline void init_state(InitFromState* from) {
                     cell = &off_cell;
                 } else if (value == ON) {
                     cell = &on_cell;
-                } else if (value == DONT_CARE) {
-                    cell = &dont_care_cell;
                 } else {
-                    unexpected_error("invalid cell state");
+                    unexpected_error("Invalid cell state at t = %zu, x = %zu, y = %zu: %i", t, x, y, value);
                 }
-                state.grid[i] = cell;
+                state.grid[i].cell = cell;
+                state.grid[i].invert = init_cell->invert;
                 i++;
             }
         }
@@ -590,31 +672,43 @@ static inline void init_state(InitFromState* from) {
     for (size_t t = 0; t < state.gens - 1; t++) {
         for (size_t y = 1; y < state.height - 1; y++) {
             for (size_t x = 1; x < state.width - 1; x++) {
-                InitFromCell* cell = &(from->grid[i]);
-                if (cell->no_clause) {
+                InitFromCell* init_cell = &(from->grid[i]);
+                if (init_cell->no_clause) {
                     continue;
                 }
                 CAClause* clause = &(state.ca_clauses[i]);
-                // fill the clause's pointers
-                clause->invert_next = false;
-                clause->next = state_get_cell_allow_oob(t + 1, x, y);
-                clause->invert_nw = false;
-                clause->nw = state_get_cell_allow_oob(t, x - 1, y - 1);
-                clause->invert_n = false;
-                clause->n = state_get_cell_allow_oob(t, x, y - 1);
-                clause->invert_ne = false;
-                clause->ne = state_get_cell_allow_oob(t, x + 1, y - 1);
-                clause->invert_w = false;
-                clause->w = state_get_cell_allow_oob(t, x - 1, y);
-                clause->invert_e = false;
-                clause->e = state_get_cell_allow_oob(t, x + 1, y);
-                clause->invert_sw = false;
-                clause->sw = state_get_cell_allow_oob(t, x - 1, y + 1);
-                clause->invert_s = false;
-                clause->s = state_get_cell_allow_oob(t, x, y + 1);
-                clause->invert_se = false;
-                clause->se = state_get_cell_allow_oob(t, x + 1, y + 1);
                 i++;
+                // fill the clause's pointers
+                GridCell* cell = state_get_cell_allow_oob(t, x, y);
+                clause->center = cell->cell;
+                clause->invert_center = cell->invert;
+                cell = state_get_cell_allow_oob(t + 1, x, y);
+                clause->next = cell->cell;
+                clause->invert_next = cell->invert;
+                cell = state_get_cell_allow_oob(t, x - 1, y - 1);
+                clause->nw = cell->cell;
+                clause->invert_nw = cell->invert;
+                cell = state_get_cell_allow_oob(t, x, y - 1);
+                clause->n = cell->cell;
+                clause->invert_n = cell->invert;
+                cell = state_get_cell_allow_oob(t, x + 1, y - 1);
+                clause->ne = cell->cell;
+                clause->invert_ne = cell->invert;
+                cell = state_get_cell_allow_oob(t, x - 1, y);
+                clause->w = cell->cell;
+                clause->invert_w = cell->invert;
+                cell = state_get_cell_allow_oob(t, x + 1, y);
+                clause->e = cell->cell;
+                clause->invert_e = cell->invert;
+                cell = state_get_cell_allow_oob(t, x - 1, y + 1);
+                clause->sw = cell->cell;
+                clause->invert_sw = cell->invert;
+                cell = state_get_cell_allow_oob(t, x, y + 1);
+                clause->s = cell->cell;
+                clause->invert_s = cell->invert;
+                cell = state_get_cell_allow_oob(t, x + 1, y + 1);
+                clause->se = cell->cell;
+                clause->invert_se = cell->invert;
                 clause->tr = compute_implication_tr(clause);
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
@@ -629,7 +723,7 @@ static inline void init_state(InitFromState* from) {
                             } \
                         } \
                         if (!found) { \
-                            unexpected_error("cell use count too small"); \
+                            unexpected_error("Cell use count too small"); \
                         } \
                     } while (false)
                 add(clause->center, center);
@@ -712,7 +806,7 @@ static inline bool apply_stack_entry(StackEntry* entry) {
         set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
         state.set_unknown_cells++;
     } else {
-        unexpected_error("invalid stack entry");
+        unexpected_error("Invalid stack entry");
     }
     return true;
 }
@@ -727,7 +821,7 @@ static inline bool undo_stack_entry(StackEntry* entry) {
         set_cell(entry->data.cell_set.cell, UNKNOWN);
         state.set_unknown_cells--;
     } else {
-        unexpected_error("invalid stack entry");
+        unexpected_error("Invalid stack entry");
     }
     return true;
 }
@@ -884,7 +978,7 @@ static inline void pop_stack_frame(Stack* stack) {
 static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     #if SLOWER_SANITY_CHECKS
     if (cell->value != UNKNOWN) {
-        unexpected_error("setting known cell");
+        unexpected_error("Setting known cell");
     }
     #endif
     DPRINTF4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
@@ -892,7 +986,7 @@ static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explic
     state.set_unknown_cells++;
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     #if MULTI_RULE
-    entry->type = STACKENTRY_TYPE_CELL_SET;
+        entry->type = STACKENTRY_TYPE_CELL_SET;
     #endif
     entry->data.cell_set.cell = cell;
     entry->data.cell_set.value = value;

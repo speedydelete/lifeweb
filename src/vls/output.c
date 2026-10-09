@@ -37,7 +37,7 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             printf("#C %s to %s\n", rule, maxrule);
         }
     #endif
-    printf("x = %"PRIdindex", y = %"PRIdindex", rule = %s%s", grid->width, grid->height, rule, config.after_rule_text);
+    printf("x = %zu, y = %zu, rule = %s%s", grid->width, grid->height, rule, config.after_rule_text);
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
@@ -89,19 +89,13 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             for (size_t x = 0; x < grid->width; x++) {
                 CellValue value = dg_get(grid, t, x, y);
                 if (value == UNKNOWN) {
-                    if (is_solution) {
-                        unexpected_error("unknown cell in solution");
-                    } else {
-                        real_printf("B");
-                    }
+                    real_printf("B");
                 } else if (value == OFF) {
                     real_printf(".");
                 } else if (value == ON) {
                     real_printf("o");
-                } else if (value == DONT_CARE) {
-                    real_printf("C");
                 } else {
-                    unexpected_error("invalid grid state");
+                    unexpected_error("Invalid grid state: %i", value);
                 }
             }
             if (t != grid->gens - 1) {
@@ -247,9 +241,9 @@ static inline Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t
     DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     size_t x_offset_0 = offsets.x;
     size_t y_offset_0 = offsets.y;
-    HASHDPRINTF(INDENT "Hashing all times with offset %"PRIdindex"\n", offset);
+    HASHDPRINTF(INDENT "Hashing all times with offset %zu\n", offset);
     HASHDPRINTGRID(grid, 2);
-    HASHDPRINTF(INDENT INDENT "x_offset_0 = %"PRIdindex", y_offset_0 = %"PRIdindex"\n", x_offset_0, y_offset_0);
+    HASHDPRINTF(INDENT INDENT "x_offset_0 = %zu, y_offset_0 = %zu\n", x_offset_0, y_offset_0);
     for (size_t fake_t = 0; fake_t < grid->gens; fake_t++) {
         size_t real_t = (fake_t + offset) % grid->gens;
         dg_extract_gen(&full_t_grid, grid, real_t);
@@ -563,7 +557,7 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
     }
     if (config.max_solutions > 0) {
         if (solutions_found >= config.max_solutions) {
-            printf("Search complete, found %"PRIdindex" solution%s in %.6f seconds, %"PRIdindex" branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
+            printf("Search complete, found %zu solution%s in %.6f seconds, %zu branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
             exit(EXIT_SUCCESS);
         }
     }
@@ -619,7 +613,7 @@ static inline void print_progress(FILE* stream) {
 #endif
 
 static inline void init_progress(void) {
-    progress = safe_malloc(config.max_depth * sizeof(ProgressEntry));
+    progress = safe_malloc((config.search_order_len + 2) * sizeof(ProgressEntry));
 }
 
 static inline void destroy_progress(void) {
@@ -657,7 +651,7 @@ static inline void print_info_if_needed(size_t depth) {
             } else if (config.max_partial_scoring == MAX_PARTIAL_SCORING_DEPTH) {
                 partial_size = depth;
             } else {
-                unexpected_error("invalid max partial scoring");
+                unexpected_error("Invalid max partial scoring: %i", config.max_partial_scoring);
             }
             if (partial_size > max_partial_size) {
                 dg_init_from_search_grid(&max_partial);
@@ -672,7 +666,7 @@ static inline void print_info_if_needed(size_t depth) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
-            printf("%i seconds, %"PRIdindex" branches, %"PRIdindex" solutions, progress: ", (int)(time - start), branches, solutions_found);
+            printf("%i seconds, %zu branches, %zu solutions, progress: ", (int)(time - start), branches, solutions_found);
             print_progress(stdout);
             real_printf("\n");
         }

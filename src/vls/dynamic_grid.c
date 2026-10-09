@@ -8,19 +8,16 @@
 #include "base.c"
 
 
-// dynamic grid index
-typedef uint64_t size_t;
-#define PRIdindex PRIu64
-
-
 typedef struct DynamicCell {
     CellValue value;
     size_t var;
+    bool invert;
 } DynamicCell;
 
 static inline __attribute__((always_inline)) bool dc_eq(DynamicCell x, DynamicCell y) {
     return x.value == y.value && x.var == y.var;
 }
+
 
 typedef struct DynamicGrid {
     bool used;
@@ -40,6 +37,7 @@ const DynamicGrid EMPTY_DYNAMIC_GRID = {
 
 #define dg_index(grid, t, x, y) (((grid)->data)[((((t) * (grid)->height) + (y)) * (grid)->width) + (x)])
 #define direct_dg_index(grid, t, x, y) (((grid).data)[((((t) * (grid).height) + (y)) * (grid).width) + (x)])
+
 
 static inline void dg_destroy(DynamicGrid* grid) {
     if (grid->used) {
@@ -69,18 +67,11 @@ static inline __attribute__((always_inline)) void dg_set(DynamicGrid* grid, size
     dg_index(grid, t, x, y).var = NO_VAR;
 }
 
-static inline __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, Cell* cell) {
-    dg_index(grid, t, x, y).value = cell->value;
+static inline __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
+    Cell* cell = grid_cell->cell;
+    dg_index(grid, t, x, y).value = grid_cell->invert ? -cell->value : cell->value;
     dg_index(grid, t, x, y).var = cell->var_number;
-}
-
-static inline __attribute__((always_inline)) size_t dg_get_var(DynamicGrid* grid, size_t t, size_t x, size_t y) {
-    return dg_index(grid, t, x, y).var;
-}
-
-static inline __attribute__((always_inline)) void dg_set_var(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value, size_t var) {
-    dg_index(grid, t, x, y).value = value;
-    dg_index(grid, t, x, y).var = var;
+    dg_index(grid, t, x, y).invert = grid_cell->invert;
 }
 
 static inline void dg_init_from_search_grid(DynamicGrid* out) {
@@ -167,7 +158,6 @@ static inline void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-
 static inline void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
@@ -178,7 +168,6 @@ static inline void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
         }
     }
 }
-
 
 static inline void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
@@ -353,7 +342,7 @@ static inline StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
 }
 
 static inline void internal_init_state_symmetry(void) {
-    DynamicGrid grid;
+    DynamicGrid grid = EMPTY_DYNAMIC_GRID;
     dg_init_from_search_grid(&grid);
     state.symmetry = dg_get_symmetry(&grid);
     dg_destroy(&grid);
