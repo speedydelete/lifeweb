@@ -135,7 +135,7 @@ static size_t run_depth(size_t depth, Cell* cell);
 
 // returns number of iterations to backjump
 static inline size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
-    DPRINTF3("Attempting to set cell: t = %i, x = %i, y = %i, value = %i, prev_value = %i\n", cell->t, cell->x, cell->y, value, cell->value);
+    DPRINTF3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     push_stack_frame(current_stack);
     #if DEBUG >= 4
         print_stack(current_stack);
@@ -174,7 +174,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
         printf("Running depth %zu: ", depth);
         print_progress(stdout);
         real_printf("\n");
-        printf("Cell: t = %i, x = %i, y = %i\n", cell->t, cell->x, cell->y);
+        printf("Cell: variable = %zu\n", cell->var_number);
     #endif
     branches++;
     // add 2 to account for off-by-one errors

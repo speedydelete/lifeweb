@@ -148,6 +148,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             } else if (value == -1) {
                 cell.value = OFF;
             } else {
+                cell.value = UNKNOWN;
                 if (value < 0) {
                     value = -value;
                     cell.invert = true;
@@ -277,11 +278,12 @@ int main(int argc, char** argv) {
     #ifdef FOR_PROFILE
         signal(SIGTERM, handle_sigterm);
     #endif
-    current_stack = create_stack();
     init_implications();
-    init_solutions();
     load_state_from_file(argv[1]);
+    init_solutions();
+    current_stack = create_stack();
     preprocess();
+    init_progress();
     #if CUSTOM_INIT
         custom_init();
     #endif
@@ -289,8 +291,9 @@ int main(int argc, char** argv) {
     #if CUSTOM_DESTROY
         custom_destroy();
     #endif
-    destroy_solutions();
+    destroy_progress();
     destroy_stack(current_stack);
+    destroy_solutions();
     destroy_state();
     destroy_config();
     destroy_implications();

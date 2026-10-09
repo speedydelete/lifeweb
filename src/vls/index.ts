@@ -762,6 +762,7 @@ let nextVar = 2;
 for (let layer of grid.data) {
     gridStr += '\n';
     for (let row of layer) {
+        let cells: string[] = [];
         for (let cell of row) {
             let value: number;
             if (cell.state == OFF) {
@@ -785,9 +786,9 @@ for (let layer of grid.data) {
             } else {
                 throw new Error(`This error should not occur, please report it (invalid cell state)`);
             }
-            gridStr += String(value) + ' ';
+            cells.push(String(value));
         }
-        gridStr += '\n';
+        gridStr += cells.join(' ') + '\n';
     }
 }
 gridStr = gridStr.trim();
@@ -796,7 +797,7 @@ let problemFile = `
 width = ${grid.width}
 height = ${grid.height}
 gens = ${grid.gens}
-var_count = ${grid.numVars}
+var_count = ${nextVar - 1}
 
 grid:
 
@@ -892,11 +893,12 @@ export async function main() {
             command += ` -fsanitize=address`;
         }
         command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        command += ` -lm`;
         commandsToRun.push(command);
     }
     let execCommand = `${execPath} '${problemPath}'`;
     if (options['gdb']) {
-        commandsToRun.push(`gdb ${execCommand}`);
+        commandsToRun.push(`gdb --args ${execCommand}`);
     } else {
         if (options['file']) {
             commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);

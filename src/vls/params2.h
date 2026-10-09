@@ -15,7 +15,7 @@
 // basic settings
 
 // debug level
-// #define DEBUG 6
+#define DEBUG 1
 
 // custom file to load stuff from
 // #define CUSTOM

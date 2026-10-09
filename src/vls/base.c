@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <math.h>
 
 #include "params2.h"
 
@@ -110,7 +111,7 @@ static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void erro
 }
 
 static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void unexpected_error(const char* format, ...) {
-    real_fprintf(stderr, "\nError: This error should not occur, please report it: ");
+    real_fprintf(stderr, "\nUnexpected error: ");
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -534,13 +535,12 @@ static inline void destroy_config(void) {
 
 
 // print a single cell for debugging purposes
-static inline void print_cell(FILE* stream, GridCell* grid_cell) {
-    int field_size = state.var_count + 2;
+static inline void print_cell(FILE* stream, int field_size, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
     CellValue value = cell->value;
     if (value == UNKNOWN) {
         if (cell->use_count < 2) {
-            real_fprintf(stream, "%*c", field_size, '*');
+            real_fprintf(stream, "%-*c", field_size, '*');
         } else {
             int64_t value = cell->var_number;
             if (grid_cell->invert) {
@@ -559,6 +559,7 @@ static inline void print_cell(FILE* stream, GridCell* grid_cell) {
 
 // print the grid for debugging purposes
 static inline void print_grid(FILE* stream) {
+    int field_size = (int)floor(log10((int)state.var_count)) + 1;
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256 * sizeof(char));
     get_rule(rule, false);
@@ -567,9 +568,9 @@ static inline void print_grid(FILE* stream) {
         for (size_t y = 0; y < state.height; y++) {
             DFPRINTLINEPADDING(stream);
             for (size_t x = 0; x < state.width; x++) {
-                print_cell(stream, state_get_cell(t, x, y));
+                print_cell(stream, field_size, state_get_cell(t, x, y));
             }
-            real_fprintf(stream, " $\n");
+            real_fprintf(stream, "$\n");
         }
         if (t == state.gens - 1) {
             fprintf(stream, "!\n");
@@ -602,13 +603,14 @@ static inline void init_state(InitFromState* from) {
     state.width = from->width;
     state.height = from->height;
     state.gens = from->gens;
+    state.var_count = from->var_count;
     state.layer_size = state.width * state.height;
     state.total_size = state.layer_size * state.gens;
-    state.start_unknown_cells = from->var_count;
+    state.start_unknown_cells = state.var_count;
     state.set_unknown_cells = 0;
     // first we have to determine how many times each variable is used
-    size_t* var_uses = safe_malloc(state.var_count * sizeof(size_t));
-    memset(var_uses, 0, state.var_count * sizeof(size_t));
+    size_t* var_uses = safe_malloc((state.var_count + 1) * sizeof(size_t));
+    memset(var_uses, 0, (state.var_count + 1) * sizeof(size_t));
     for (size_t i = 0; i < state.total_size; i++) {
         InitFromCell* cell = &(from->grid[i]);
         size_t var = cell->var;
@@ -713,6 +715,9 @@ static inline void init_state(InitFromState* from) {
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
                     do { \
+                        if (cell_to_use->value != UNKNOWN) { \
+                            break; \
+                        } \
                         Cell* cell = (cell_to_use); \
                         bool found = false; \
                         for (size_t j = 0; j < cell->use_count; j++) { \
@@ -723,7 +728,7 @@ static inline void init_state(InitFromState* from) {
                             } \
                         } \
                         if (!found) { \
-                            unexpected_error("Cell use count too small"); \
+                            unexpected_error("Cell use count too small: %zu (for variable %zu)", cell->use_count, cell->var_number); \
                         } \
                     } while (false)
                 add(clause->center, center);
