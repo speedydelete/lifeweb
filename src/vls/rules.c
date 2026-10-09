@@ -6,7 +6,6 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "params2.h"
 #include "base.c"
 
 

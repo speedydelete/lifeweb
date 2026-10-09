@@ -12,7 +12,6 @@
 // sometimes it's not defined, so we have to do this
 extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
-#include "params2.h"
 #include "base.c"
 #include "dynamic_grid.c"
 #include "rules.c"
@@ -242,8 +241,8 @@ static inline Hash hash_all_times(DynamicGrid* grid) {
 static inline Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, size_t dx, size_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
-    DynamicGrid full_t_grid = empty_dynamic_grid;
-    DynamicGrid t_grid = empty_dynamic_grid;
+    DynamicGrid full_t_grid = EMPTY_DYNAMIC_GRID;
+    DynamicGrid t_grid = EMPTY_DYNAMIC_GRID;
     dg_extract_gen(&full_t_grid, grid, offset);
     DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     size_t x_offset_0 = offsets.x;
@@ -295,7 +294,7 @@ static inline Hash hash_full(DynamicGrid* grid) {
     HASHDPRINTF("\n\nFull hashing grid:\n");
     HASHDPRINTGRID(grid, 0);
     HASHDPRINTF(INDENT "\nHashing (no transformation):\n");
-    DynamicGrid temp = empty_dynamic_grid;
+    DynamicGrid temp = EMPTY_DYNAMIC_GRID;
     Hash out;
     if (config.periodic) {
         size_t dx = config.periodic_dx;
@@ -423,8 +422,8 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
         dg_destroy(&solution_grid); \
         return;
     // put it into the hash grid
-    DynamicGrid hash_grid = empty_dynamic_grid;
-    DynamicGrid solution_grid = empty_dynamic_grid;
+    DynamicGrid hash_grid = EMPTY_DYNAMIC_GRID;
+    DynamicGrid solution_grid = EMPTY_DYNAMIC_GRID;
     dg_init_from_search_grid(&hash_grid);
     dg_init_from_search_grid(&solution_grid);
     // apply empty pattern filter
@@ -453,8 +452,8 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
     // apply subperiod filter
     if (config.filter_subperiod_solutions) {
         Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
-        DynamicGrid hash_grid_2 = empty_dynamic_grid;
-        DynamicGrid hash_grid_3 = empty_dynamic_grid;
+        DynamicGrid hash_grid_2 = EMPTY_DYNAMIC_GRID;
+        DynamicGrid hash_grid_3 = EMPTY_DYNAMIC_GRID;
         for (size_t i = 0; i < state.gens; i++) {
             dg_extract_gen(&hash_grid_2, &hash_grid, i);
             dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
@@ -629,7 +628,7 @@ static inline void destroy_progress(void) {
 
 
 double last_max_partial_shown;
-DynamicGrid max_partial = empty_dynamic_grid;
+DynamicGrid max_partial = EMPTY_DYNAMIC_GRID;
 uint64_t max_partial_size = 0;
 #if MULTI_RULE
 uint8_t max_partial_trs[512];

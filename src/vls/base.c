@@ -497,13 +497,18 @@ static inline void print_grid(FILE* stream) {
 }
 
 
+typedef struct InitFromCell {
+    CellValue value;
+    size_t var;
+    bool no_clause;
+} InitFromCell;
+
 typedef struct InitFromState {
     size_t height;
     size_t width;
     size_t gens;
     size_t var_count;
-    CellValue* states;
-    size_t* vars;
+    InitFromCell* grid;
 } InitFromState;
 
 static inline void internal_init_state_symmetry(void);
@@ -522,7 +527,8 @@ static inline void init_state(InitFromState* from) {
     size_t* var_uses = safe_malloc(state.var_count * sizeof(size_t));
     memset(var_uses, 0, state.var_count * sizeof(size_t));
     for (size_t i = 0; i < state.total_size; i++) {
-        size_t var = from->vars[i];
+        InitFromCell* cell = &(from->grid[i]);
+        size_t var = cell->var;
         if (var != NO_VAR) {
             var_uses[var]++;
         }
@@ -558,10 +564,11 @@ static inline void init_state(InitFromState* from) {
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
             for (size_t x = 0; x < state.width; x++) {
-                CellValue value = from->states[i];
+                InitFromCell* init_cell = &(from->grid[i]);
+                CellValue value = init_cell->value;
                 Cell* cell;
                 if (value == UNKNOWN) {
-                    cell = state.variables[from->vars[i]];
+                    cell = state.variables[init_cell->var];
                 } else if (value == OFF) {
                     cell = &off_cell;
                 } else if (value == ON) {
@@ -583,6 +590,10 @@ static inline void init_state(InitFromState* from) {
     for (size_t t = 0; t < state.gens - 1; t++) {
         for (size_t y = 1; y < state.height - 1; y++) {
             for (size_t x = 1; x < state.width - 1; x++) {
+                InitFromCell* cell = &(from->grid[i]);
+                if (cell->no_clause) {
+                    continue;
+                }
                 CAClause* clause = &(state.ca_clauses[i]);
                 // fill the clause's pointers
                 clause->invert_next = false;
@@ -646,28 +657,6 @@ static inline void destroy_state(void) {
     safe_free(state.variables);
     safe_free(state.grid);
     safe_free(state.ca_clauses);
-}
-
-static inline void reinit_state(void) {
-    InitFromState from;
-    from.width = state.width;
-    from.height = state.height;
-    from.gens = state.gens;
-    from.states = safe_malloc(state.total_size * sizeof(CellValue));
-    from.vars = safe_malloc(state.total_size * sizeof(CellValue));
-    size_t i = 0;
-    for (size_t t = 0; t < state.gens; t++) {
-        for (size_t y = 0; y < state.height; y++) {
-            for (size_t x = 0; x < state.width; x++) {
-                Cell* cell = state_get_cell(t, x, y);
-                from.states[i] = cell->value;
-                from.vars[i] = cell->var_number;
-                i++;
-            }
-        }
-    }
-    destroy_state();
-    init_state(&from);
 }
 
 

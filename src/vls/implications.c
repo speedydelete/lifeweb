@@ -5,7 +5,6 @@
 
 #include <inttypes.h>
 
-#include "params2.h"
 #include "base.c"
 #ifdef CUSTOM
     #include CUSTOM

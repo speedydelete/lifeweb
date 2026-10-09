@@ -5,7 +5,6 @@
 
 #include <inttypes.h>
 
-#include "params2.h"
 #include "base.c"
 
 
@@ -31,7 +30,7 @@ typedef struct DynamicGrid {
     DynamicCell* data;
 } DynamicGrid;
 
-const DynamicGrid empty_dynamic_grid = {
+const DynamicGrid EMPTY_DYNAMIC_GRID = {
     .used = false,
     .width = 0,
     .height = 0,
@@ -316,7 +315,7 @@ static inline DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGri
 
 static inline Transformations dg_get_identity_transforms(DynamicGrid* grid) {
     Transformations out;
-    DynamicGrid temp = empty_dynamic_grid;
+    DynamicGrid temp = EMPTY_DYNAMIC_GRID;
     dg_flip_horizontal(&temp, grid);
     if (dg_eq(grid, &temp)) {
         out.flip_horizontal = true;
