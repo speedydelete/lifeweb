@@ -19,6 +19,11 @@
 #endif
 
 
+static inline void load_state_from_file(char* path) {
+
+}
+
+
 #ifdef FOR_PROFILE
 #include <signal.h>
 static void handle_sigterm(int signum) {
@@ -29,7 +34,10 @@ static void handle_sigterm(int signum) {
 }
 #endif
 
-int main(void) {
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        fatal_error("Expected exactly 1 command line argument");
+    }
     #ifdef IMPLICATION_CHECK_TR
         init_implications();
         printf("%i -> %i\n", IMPLICATION_CHECK_TR, implication_table[IMPLICATION_CHECK_TR]);
@@ -42,8 +50,8 @@ int main(void) {
     #endif
     current_stack = create_stack();
     init_implications();
-    init_state();
     init_solutions();
+    load_state_from_file(argv[0]);
     preprocess();
     #if CUSTOM_INIT
         custom_init();
