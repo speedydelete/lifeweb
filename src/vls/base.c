@@ -20,51 +20,51 @@
 #define HASH_DEBUG false
 
 #if DEBUG >= 1
-    #define DPRINTF1 printf
-    #define DPRINTGRID1() print_grid(stdout)
+    #define debug_printf_1 printf
+    #define debug_print_grid_1() print_grid(stdout)
 #else
-    #define DPRINTF1(...)
-    #define DPRINTGRID1()
+    #define debug_printf_1(...)
+    #define debug_print_grid_1()
 #endif
 
 #if DEBUG >= 2
-    #define DPRINTF2 printf
-    #define DPRINTGRID2() print_grid(stdout)
+    #define debug_printf_2 printf
+    #define debug_print_grid_2() print_grid(stdout)
 #else
-    #define DPRINTF2(...)
-    #define DPRINTGRID2()
+    #define debug_printf_2(...)
+    #define debug_print_grid_2()
 #endif
 
 #if DEBUG >= 3
-    #define DPRINTF3 printf
-    #define DPRINTGRID3() print_grid(stdout)
+    #define debug_printf_3 printf
+    #define debug_print_grid_3() print_grid(stdout)
 #else
-    #define DPRINTF3(...)
-    #define DPRINTGRID3()
+    #define debug_printf_3(...)
+    #define debug_print_grid_3()
 #endif
 
 #if DEBUG >= 4
-    #define DPRINTF4 printf
-    #define DPRINTGRID4() print_grid(stdout)
+    #define debug_printf_4 printf
+    #define debug_print_grid_4() print_grid(stdout)
 #else
-    #define DPRINTF4(...)
-    #define DPRINTGRID4()
+    #define debug_printf_4(...)
+    #define debug_print_grid_4()
 #endif
 
 #if DEBUG >= 5
-    #define DPRINTF5 printf
-    #define DPRINTGRID5() print_grid(stdout)
+    #define debug_printf_5 printf
+    #define debug_print_grid_5() print_grid(stdout)
 #else
-    #define DPRINTF5(...)
-    #define DPRINTGRID5()
+    #define debug_printf_5(...)
+    #define debug_print_grid_5()
 #endif
 
 #if DEBUG >= 6
-    #define DPRINTF6 printf
-    #define DPRINTGRID6() print_grid(stdout)
+    #define debug_printf_6 printf
+    #define debug_print_grid_6() print_grid(stdout)
 #else
-    #define DPRINTF6(...)
-    #define DPRINTGRID6()
+    #define debug_printf_6(...)
+    #define debug_print_grid_6()
 #endif
 
 #define INDENT "    "
@@ -73,12 +73,12 @@
 #define real_fprintf (fprintf)
 #if DEBUG >= 3 || HASH_DEBUG
     int debug_depth = 0;
-    #define DPRINTLINEPADDING() { \
+    #define print_line_padding() { \
         for (int i = 0; i < debug_depth; i++) { \
             real_printf(INDENT); \
         } \
     }
-    #define DFPRINTLINEPADDING(stream) { \
+    #define fprint_line_padding(stream) { \
         for (int i = 0; i < debug_depth; i++) { \
             real_fprintf(stream, INDENT); \
         } \
@@ -96,8 +96,8 @@
         real_fprintf(stream, __VA_ARGS__); \
     }
 #else
-    #define DPRINTLINEPADDING()
-    #define DFPRINTLINEPADDING(stream)
+    #define print_line_padding()
+    #define fprint_line_padding(stream)
 #endif
 
 static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void error(const char* format, ...) {
@@ -129,9 +129,7 @@ typedef int CellValue;
 #define OFF 1
 #define ON 2
 #define is_known(value) ((value) == OFF || (value) == ON)
-
-// special value for when there is no variable
-#define NO_VAR 0
+#define conv_12_to_01(value) ((value) == ON ? 1 : 0)
 
 typedef uint32_t ImplicationTransition;
 
@@ -291,7 +289,7 @@ typedef uint64_t ImplicState[16];
 typedef struct Cell Cell;
 
 typedef struct CAClause {
-    ImplicState implic_state;
+    ImplicState state;
     Cell* center;
     bool invert_center;
     Cell* next;
@@ -358,7 +356,7 @@ struct Cell {
 Cell off_cell = {
     .next_in_search_order = NULL,
     .value = OFF,
-    .var_number = NO_VAR,
+    .var_number = 0,
     .alias = NULL,
     .invert_alias = false,
     .use_count = 0,
@@ -368,7 +366,7 @@ Cell off_cell = {
 Cell on_cell = {
     .next_in_search_order = NULL,
     .value = ON,
-    .var_number = NO_VAR,
+    .var_number = 0,
     .alias = NULL,
     .invert_alias = false,
     .use_count = 0,
@@ -473,7 +471,7 @@ static bool set_cell(Cell* cell, CellValue value);
 // aliases a cell to another, propagating transitions but doing nothing else
 static bool alias(Cell* cell, Cell* alias_to, bool invert);
 // undoes an alias, propagating transitions but doing nothing else
-static bool unalias(Cell* cell);
+static void unalias(Cell* cell);
 
 // computes the initial implication state for a clause
 static void compute_implication_state(CAClause* clause);
@@ -609,7 +607,7 @@ static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
 
 // print the grid for debugging purposes
 static void print_grid(FILE* stream) {
-    int field_size = (int)floor(log10((int)state.var_count));
+    int field_size = (int)ceil(log10((int)state.var_count)) + 1;
     // if there's an invert we have to make it bigger to fit the minus sign
     for (size_t i = 0; i < state.total_size; i++) {
         if (state.grid[i].invert) {
@@ -623,11 +621,11 @@ static void print_grid(FILE* stream) {
     fprintf(stream, "Grid (rule = %s, set_unknown_cells = %zu out of %zu):\n", rule, state.set_unknown_cells, state.start_unknown_cells);
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
-            DFPRINTLINEPADDING(stream);
+            fprint_line_padding(stream);
             for (size_t x = 0; x < state.width; x++) {
                 print_grid_cell(stream, field_size, state_get_grid_cell(t, x, y));
             }
-            real_fprintf(stream, " $\n");
+            real_fprintf(stream, "$\n");
         }
         if (t == state.gens - 1) {
             fprintf(stream, "!\n");
@@ -669,10 +667,10 @@ static void init_state(InitFromState* from) {
     // we add 1 in the allocations because variable 0 is unused
     size_t* var_uses = safe_malloc((state.var_count + 1) * sizeof(size_t));
     memset(var_uses, 0, (state.var_count + 1) * sizeof(size_t));
-    for (size_t i = 1; i < state.total_size; i++) {
+    for (size_t i = 0; i < state.total_size; i++) {
         InitFromCell* cell = &(from->grid[i]);
         size_t var = cell->var;
-        if (var != NO_VAR) {
+        if (var != 0) {
             var_uses[var]++;
         }
     }
@@ -721,6 +719,7 @@ static void init_state(InitFromState* from) {
                 } else {
                     unexpected_error("Invalid cell state at t = %zu, x = %zu, y = %zu: %i", t, x, y, value);
                 }
+                printf("t = %zu, x = %zu, y = %zu: value = %i, var = %zu, invert = %i\n", t, x, y, init_cell->value, init_cell->var, init_cell->invert);
                 state.grid[i].cell = cell;
                 state.grid[i].invert = init_cell->invert;
                 i++;
@@ -1034,12 +1033,12 @@ static bool pop_stack(Stack* stack) {
 }
 
 static void push_stack_frame(Stack* stack) {
-    DPRINTF4("Pushing frame\n");
+    debug_printf_4("Pushing frame\n");
     stack->next_entry_is_first_in_frame = true;
 }
 
 static void pop_stack_frame(Stack* stack) {
-    DPRINTF4("Popping frame\n");
+    debug_printf_4("Popping frame\n");
     while (stack->len > 0) {
         bool done = get_stack_entry(stack, stack->len - 1)->is_first_in_frame;
         pop_stack(stack);
@@ -1047,8 +1046,8 @@ static void pop_stack_frame(Stack* stack) {
             break;
         }
     }
-    DPRINTF4("Pop complete\n");
-    DPRINTGRID4();
+    debug_printf_4("Pop complete\n");
+    debug_print_grid_4();
 }
 
 
@@ -1056,13 +1055,10 @@ static void pop_stack_frame(Stack* stack) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
-    #if SLOWER_SANITY_CHECKS
-    if (cell->value != UNKNOWN) {
-        unexpected_error("Setting known cell");
+    debug_printf_4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
+    if (!set_cell(cell, value)) {
+        return false;
     }
-    #endif
-    DPRINTF4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
-    set_cell(cell, value);
     state.set_unknown_cells++;
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_CELL_SET;

@@ -203,7 +203,7 @@ static void init_tr_to_bound_tr() {
 
 static void set_tr(int bound_tr, CellValue value, bool is_explicit) {
     CellValue old_value = trs[bound_trs[bound_tr][0]];
-    DPRINTF3("Setting transition %i (aka %s) to %i (old = %i)\n", bound_tr, bound_trs_names[bound_tr], value, old_value);
+    dprintf3("Setting transition %i (aka %s) to %i (old = %i)\n", bound_tr, bound_trs_names[bound_tr], value, old_value);
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_RULE_CHANGE;
     entry->data.rule_change = (bound_tr << 4) | (old_value << 2) | value;

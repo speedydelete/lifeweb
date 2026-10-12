@@ -134,7 +134,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         data->grid = safe_malloc(total_size * sizeof(InitFromCell));
         for (size_t i = 0; i < total_size; i++) {
             InitFromCell cell;
-            cell.var = NO_VAR;
+            cell.var = 0;
+            cell.invert = false;
             cell.no_clause = false;
             int64_t value;
             if (fscanf(file, " %"SCNi64, &value) != 1) {
@@ -256,6 +257,9 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
         }
     }
     fclose(file);
+    // call this here rather than in the main function
+    // so that the clause manipulation in init_state works fine
+    init_implicstate();
     init_state(&data);
     if (data.grid != NULL) {
         safe_free(data.grid);
@@ -282,11 +286,10 @@ int main(int argc, char** argv) {
     #ifdef FOR_PROFILE
         signal(SIGTERM, handle_sigterm);
     #endif
-    init_implicstate();
-    init_clause_stack();
     init_state_and_config_from_file(argv[1]);
     init_solutions();
     current_stack = create_stack();
+    init_clause_stack();
     preprocess();
     init_progress();
     #if CUSTOM_INIT
@@ -297,10 +300,10 @@ int main(int argc, char** argv) {
         custom_destroy();
     #endif
     destroy_progress();
+    destroy_clause_stack();
     destroy_stack(current_stack);
     destroy_solutions();
     destroy_state();
     destroy_config();
-    destroy_clause_stack();
     return 0;
 }

@@ -708,8 +708,6 @@ let defines: {[key: string]: undefined | string | number | boolean} = Object.cre
 defines['DEBUG'] = options.debug;
 defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
-defines['SLOWER_SANITY_CHECKS'] = true;
-
 const CONSTANT_DEFINES = new Set(['_POSIX_C_SOURCE']);
 
 let params2Lines: string[] = [];
@@ -865,8 +863,8 @@ export async function main() {
         let compiledCodeChangeTime = Number(execSync(`stat -c '%Y' ${execPath}`).toString());
         let codeChangeTimes = execSync(`stat -c '%Y' ${import.meta.dirname}/*`).toString();
         for (let time of codeChangeTimes.split('\n')) {
-            // subtract 2 to account for rounding errors and off-by-one errors
-            if (Number(time) > compiledCodeChangeTime - 2) {
+            // add 10 to account for errors
+            if (Number(time) + 10 > compiledCodeChangeTime) {
                 recompile = true;
                 break;
             }

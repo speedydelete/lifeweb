@@ -135,7 +135,7 @@ static size_t run_depth(size_t depth, Cell* cell);
 
 // returns number of iterations to backjump
 static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
-    DPRINTF3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
+    debug_printf_3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     push_stack_frame(current_stack);
     #if DEBUG >= 4
         print_stack(current_stack);
@@ -154,8 +154,8 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
         #if CHECK_EARLY_EXHAUSTION
             if (all_zeros) {
                 if (check_early_exhaustion()) {
-                    DPRINTGRID3();
-                    DPRINTF3("Early exhausted");
+                    debug_print_grid_3();
+                    debug_printf_3("Early exhausted");
                     pop_stack_frame(current_stack);
                     return 0;
                 }
@@ -194,10 +194,10 @@ static size_t run_depth(size_t depth, Cell* cell) {
         #endif
         return 0;
     }
-    DPRINTGRID3();
+    debug_print_grid_3();
     print_info_if_needed(depth);
     if (cell->value != UNKNOWN) {
-        DPRINTF3("Cell is known, continuing\n");
+        debug_printf_3("Cell is known, continuing\n");
         size_t out = run_depth(depth + 1, cell->next_in_search_order);
         #if DEBUG >= 3
             debug_depth--;
@@ -245,7 +245,7 @@ static void actual_run_search(Cell* initial_cell) {
 
 static void run_search(void) {
     Cell* initial_cell = add_search_orders();
-    DPRINTGRID1();
+    debug_print_grid_1();
     printf("Running search\n");
     #ifndef BENCHMARK
         actual_run_search(initial_cell);

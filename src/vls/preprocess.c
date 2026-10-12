@@ -17,7 +17,7 @@ bool pre_changes_made = false;
 #define MAX_PREPROCESSING_ITERATIONS 4096
 
 static void preprocess(void) {
-    DPRINTGRID2();
+    debug_print_grid_2();
     printf("Preprocessing\n");
     bool found = false;
     for (size_t i = 0; i < MAX_PREPROCESSING_ITERATIONS; i++) {

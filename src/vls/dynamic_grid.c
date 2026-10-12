@@ -14,7 +14,7 @@ typedef struct DynamicCell {
     bool invert;
 } DynamicCell;
 
-static __attribute__((always_inline)) bool dc_eq(DynamicCell x, DynamicCell y) {
+static inline bool dc_eq(DynamicCell x, DynamicCell y) {
     return x.value == y.value && x.var == y.var;
 }
 
@@ -58,23 +58,31 @@ static void dg_init(DynamicGrid* grid, size_t width, size_t height, size_t gens)
     grid->data = safe_malloc(width * height * gens * sizeof(DynamicCell));
 }
 
-static __attribute__((always_inline)) CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
+static inline CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
     return dg_index(grid, t, x, y).value;
 }
 
-static __attribute__((always_inline)) void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value) {
+static inline void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value) {
     dg_index(grid, t, x, y).value = value;
-    dg_index(grid, t, x, y).var = NO_VAR;
+    dg_index(grid, t, x, y).var = 0;
 }
 
-static __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
+static inline void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
     bool invert = grid_cell->invert;
     if (cell->alias) {
         invert = invert != cell->invert_alias;
         cell = cell->alias;
     }
-    dg_index(grid, t, x, y).value = invert ? -cell->value : cell->value;
+    CellValue value = cell->value;
+    if (invert) {
+        if (value == OFF) {
+            value = ON;
+        } else if (value == ON) {
+            value = OFF;
+        }
+    }
+    dg_index(grid, t, x, y).value = value;
     dg_index(grid, t, x, y).var = cell->var_number;
     dg_index(grid, t, x, y).invert = grid_cell->invert;
 }
