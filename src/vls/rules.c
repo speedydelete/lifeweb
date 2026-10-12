@@ -176,7 +176,7 @@ const INTSpec hex_int = {
 
 size_t tr_to_bound_tr[512];
 
-static inline void init_tr_to_bound_tr() {
+static void init_tr_to_bound_tr() {
     for (int tr = 0; tr < 512; tr++) {
         bool found = false;
         for (size_t i = 0; i < BOUND_TRANSITION_COUNT; i++) {
@@ -201,7 +201,7 @@ static inline void init_tr_to_bound_tr() {
     }
 }
 
-static inline void set_tr(int bound_tr, CellValue value, bool is_explicit) {
+static void set_tr(int bound_tr, CellValue value, bool is_explicit) {
     CellValue old_value = trs[bound_trs[bound_tr][0]];
     DPRINTF3("Setting transition %i (aka %s) to %i (old = %i)\n", bound_tr, bound_trs_names[bound_tr], value, old_value);
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
@@ -215,7 +215,7 @@ static inline void set_tr(int bound_tr, CellValue value, bool is_explicit) {
 
 // attempt to unparse transitions
 // returns -1 if it fails, the proper (positive) length if it succeeds
-static inline ptrdiff_t unparse_transitions(const INTSpec* spec, char* out, ptrdiff_t length, bool s, bool use_maxrule) {
+static ptrdiff_t unparse_transitions(const INTSpec* spec, char* out, ptrdiff_t length, bool s, bool use_maxrule) {
     int or = s ? (1 << 4) : 0;
     // array to hold the letters that we've seen
     char seen_letters[spec->max_letters_per_num + 1];
@@ -290,7 +290,7 @@ static inline ptrdiff_t unparse_transitions(const INTSpec* spec, char* out, ptrd
 }
 
 // attempts to get the full rule using the given spec
-static inline ptrdiff_t _get_rule(const INTSpec* spec, char* out, bool use_maxrule) {
+static ptrdiff_t _get_rule(const INTSpec* spec, char* out, bool use_maxrule) {
     ptrdiff_t length = 0;
     out[length++] = 'B';
     ptrdiff_t value = unparse_transitions(spec, out, length, false, use_maxrule);
@@ -317,7 +317,7 @@ const int neighborhood_indexing[9][2] = {
     {-1, -1},
 };
 
-static inline void get_trs_neighborhood(CellValue trs[512], bool out[9]) {
+static void get_trs_neighborhood(CellValue trs[512], bool out[9]) {
     for (int i = 0; i < 9; i++) {
         bool found = false;
         for (int tr = 0; tr < 512; tr++) {
@@ -333,7 +333,7 @@ static inline void get_trs_neighborhood(CellValue trs[512], bool out[9]) {
 const char BASE64_TABLE[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 // unparse a general MAP rule
-static inline ptrdiff_t unparse_map(char* out, bool use_maxrule) {
+static ptrdiff_t unparse_map(char* out, bool use_maxrule) {
     ptrdiff_t length = 0;
     out[length++] = 'M';
     out[length++] = 'A';
@@ -401,7 +401,7 @@ static inline ptrdiff_t unparse_map(char* out, bool use_maxrule) {
 
 // unparse the rule
 // returns the number of characters printed
-static inline ptrdiff_t get_rule(char* out, bool use_maxrule) {
+static ptrdiff_t get_rule(char* out, bool use_maxrule) {
     // normal
     int value = _get_rule(&normal_int, out, use_maxrule);
     if (value != -1) {
@@ -418,7 +418,7 @@ static inline ptrdiff_t get_rule(char* out, bool use_maxrule) {
 }
 
 
-static inline Transformations get_rule_identity_transforms(void) {
+static Transformations get_rule_identity_transforms(void) {
     Transformations out;
     // rotation symmetries
     bool C2 = true;
@@ -465,6 +465,6 @@ static inline Transformations get_rule_identity_transforms(void) {
     return out;
 }
 
-static inline StaticSymmetry get_rule_symmetry(void) {
+static StaticSymmetry get_rule_symmetry(void) {
     return transforms_to_sts(get_rule_identity_transforms());
 }

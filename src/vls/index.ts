@@ -797,7 +797,7 @@ let problemFile = `
 width = ${grid.width}
 height = ${grid.height}
 gens = ${grid.gens}
-var_count = ${nextVar - 1}
+var_count = ${nextVar - 2}
 
 grid:
 
@@ -824,6 +824,8 @@ ${(() => {
 while (problemFile.includes('\n\n\n')) {
     problemFile = problemFile.replaceAll('\n\n\n', '\n\n');
 }
+// remove last trailing newline
+problemFile = problemFile.slice(0, -1);
 
 
 return {

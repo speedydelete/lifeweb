@@ -229,9 +229,16 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
     return true;
 }
 
-static inline void load_state_from_file(char* path) {
+#if IN_BROWSER
+char problem_file[] = PROBLEM_FILE_GOES_HERE;
+#endif
+static inline void init_state_and_config_from_file([[maybe_unused]] char* path) {
     errno = 0;
-    FILE* file = fopen(path, "r");
+    #if IN_BROWSER
+        FILE* file = fmemopen(problem_file, sizeof(problem_file) - 1, "r");
+    #else
+        FILE* file = fopen(path, "r");
+    #endif
     if (file == NULL) {
         perror("Error: Cannot read problem file: ");
         exit(EXIT_FAILURE);
@@ -250,6 +257,9 @@ static inline void load_state_from_file(char* path) {
     }
     fclose(file);
     init_state(&data);
+    if (data.grid != NULL) {
+        safe_free(data.grid);
+    }
 }
 
 
@@ -268,18 +278,13 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Expected exactly 1 command line argument");
         exit(EXIT_FAILURE);
     }
-    #ifdef IMPLICATION_CHECK_TR
-        init_implications();
-        printf("%i -> %i\n", IMPLICATION_CHECK_TR, implication_table[IMPLICATION_CHECK_TR]);
-        destroy_implications();
-        exit(EXIT_SUCCESS);
-    #endif
     calibrate_time();
     #ifdef FOR_PROFILE
         signal(SIGTERM, handle_sigterm);
     #endif
-    init_implications();
-    load_state_from_file(argv[1]);
+    init_implicstate();
+    init_clause_stack();
+    init_state_and_config_from_file(argv[1]);
     init_solutions();
     current_stack = create_stack();
     preprocess();
@@ -296,6 +301,6 @@ int main(int argc, char** argv) {
     destroy_solutions();
     destroy_state();
     destroy_config();
-    destroy_implications();
+    destroy_clause_stack();
     return 0;
 }

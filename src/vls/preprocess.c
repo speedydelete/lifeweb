@@ -16,7 +16,7 @@ bool pre_changes_made = false;
 
 #define MAX_PREPROCESSING_ITERATIONS 4096
 
-static inline void preprocess(void) {
+static void preprocess(void) {
     DPRINTGRID2();
     printf("Preprocessing\n");
     bool found = false;

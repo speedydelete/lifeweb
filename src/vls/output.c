@@ -25,7 +25,7 @@ uint64_t branches;
 uint64_t solutions_found;
 
 
-static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
+static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256);
     get_rule(rule, false);
@@ -37,7 +37,10 @@ static inline void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             printf("#C %s to %s\n", rule, maxrule);
         }
     #endif
-    printf("x = %zu, y = %zu, rule = %s%s", grid->width, grid->height, rule, config.after_rule_text);
+    printf("x = %zu, y = %zu, rule = %s", grid->width, grid->height, rule);
+    if (config.after_rule_text != NULL) {
+        printf("%s", config.after_rule_text);
+    }
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
@@ -133,19 +136,19 @@ typedef uint64_t Hash;
         ); \
     } while (false)
 
-static inline __attribute__((always_inline)) Hash update_hash_uint8(Hash hash, uint8_t value) {
+static __attribute__((always_inline)) Hash update_hash_uint8(Hash hash, uint8_t value) {
     hash ^= value;
     hash *= HASH_PRIME;
     return hash;
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_uint16(Hash hash, uint16_t value) {
+static __attribute__((always_inline)) Hash update_hash_uint16(Hash hash, uint16_t value) {
     hash = update_hash_uint8(hash, value & 0xff);
     hash = update_hash_uint8(hash, value >> 8);
     return hash;
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_uint32(Hash hash, uint32_t value) {
+static __attribute__((always_inline)) Hash update_hash_uint32(Hash hash, uint32_t value) {
     hash = update_hash_uint8(hash, value & 0xff);
     hash = update_hash_uint8(hash, (value >> 8) & 0xff);
     hash = update_hash_uint8(hash, (value >> 16) & 0xff);
@@ -153,7 +156,7 @@ static inline __attribute__((always_inline)) Hash update_hash_uint32(Hash hash, 
     return hash;
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_uint64(Hash hash, uint64_t value) {
+static __attribute__((always_inline)) Hash update_hash_uint64(Hash hash, uint64_t value) {
     hash = update_hash_uint8(hash, value & 0xff);
     hash = update_hash_uint8(hash, (value >> 8) & 0xff);
     hash = update_hash_uint8(hash, (value >> 16) & 0xff);
@@ -165,30 +168,30 @@ static inline __attribute__((always_inline)) Hash update_hash_uint64(Hash hash, 
     return hash;
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_int8(Hash hash, int8_t value) {
+static __attribute__((always_inline)) Hash update_hash_int8(Hash hash, int8_t value) {
     return update_hash_uint8(hash, (uint8_t)value);
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_int16(Hash hash, int16_t value) {
+static __attribute__((always_inline)) Hash update_hash_int16(Hash hash, int16_t value) {
     return update_hash_uint8(hash, (uint16_t)value);
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_int32(Hash hash, int32_t value) {
+static __attribute__((always_inline)) Hash update_hash_int32(Hash hash, int32_t value) {
     return update_hash_uint8(hash, (uint32_t)value);
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_int64(Hash hash, int64_t value) {
+static __attribute__((always_inline)) Hash update_hash_int64(Hash hash, int64_t value) {
     return update_hash_uint8(hash, (uint64_t)value);
 }
 
-static inline __attribute__((always_inline)) Hash update_hash_string(Hash hash, const char* value) {
+static __attribute__((always_inline)) Hash update_hash_string(Hash hash, const char* value) {
     for (size_t i = 0; value[i] != '\0'; i++) {
         update_hash(hash, (int8_t)value[i]);
     }
     return hash;
 }
 
-static inline Hash min_hash(Hash x, Hash y) {
+static Hash min_hash(Hash x, Hash y) {
     return x < y ? x : y;
 }
 
@@ -207,7 +210,7 @@ static inline Hash min_hash(Hash x, Hash y) {
     #define HASHDPRINTGRID(grid, depth)
 #endif
 
-static inline Hash hash_at_time(DynamicGrid* grid, size_t t) {
+static Hash hash_at_time(DynamicGrid* grid, size_t t) {
     Hash out = HASH_OFFSET;
     update_hash(out, grid->width);
     update_hash(out, grid->height);
@@ -219,7 +222,7 @@ static inline Hash hash_at_time(DynamicGrid* grid, size_t t) {
     return out;
 }
 
-static inline Hash hash_all_times(DynamicGrid* grid) {
+static Hash hash_all_times(DynamicGrid* grid) {
     Hash out = HASH_OFFSET;
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -232,7 +235,7 @@ static inline Hash hash_all_times(DynamicGrid* grid) {
     return out;
 }
 
-static inline Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, size_t dx, size_t dy) {
+static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, size_t dx, size_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
     DynamicGrid full_t_grid = EMPTY_DYNAMIC_GRID;
@@ -272,7 +275,7 @@ static inline Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t
     return out;
 }
 
-static inline Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
+static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
     Hash out = MAX_HASH;
     HASHDPRINTF(INDENT "Hashing all times\n");
     for (size_t offset = 0; offset < grid->gens; offset++) {
@@ -282,7 +285,7 @@ static inline Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t 
     return out;
 }
 
-static inline Hash hash_full(DynamicGrid* grid) {
+static Hash hash_full(DynamicGrid* grid) {
     StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[state.symmetry][get_rule_symmetry()];
     Transformations transforms = sts_to_transforms(symmetry);
     HASHDPRINTF("\n\nFull hashing grid:\n");
@@ -335,19 +338,19 @@ static inline Hash hash_full(DynamicGrid* grid) {
 
 Hash* known_solutions;
 
-static inline void init_solutions(void) {
+static void init_solutions(void) {
     known_solutions = safe_malloc(MAX_SAVED_SOLUTION_HASHES * sizeof(Hash));
     for (size_t i = 0; i < MAX_SAVED_SOLUTION_HASHES; i++) {
         known_solutions[i] = 0;
     }
 }
 
-static inline void destroy_solutions(void) {
+static void destroy_solutions(void) {
     safe_free(known_solutions);
 }
 
 
-static inline void print_progress(FILE* stream);
+static void print_progress(FILE* stream);
 
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
@@ -356,29 +359,29 @@ static inline void print_progress(FILE* stream);
     #else
         #include <x86intrin.h>
     #endif
-    static inline uint64_t read_counter(void) {
+    static uint64_t read_counter(void) {
         return __rdtsc();
     }
 #elif defined(__aarch64__)
-    static inline uint64_t read_counter(void) {
+    static uint64_t read_counter(void) {
         uint64_t val;
         __asm__ volatile("mrs %0, cntvct_el0" : "=r" (val));
         return val;
     }
 #elif defined(__riscv) && __riscv_xlen == 64
-    static inline uint64_t read_counter(void) {
+    static uint64_t read_counter(void) {
         uint64_t cycles;
         __asm__ volatile("rdcycle %0" : "=r"(cycles));
         return cycles;
     }
 #elif defined(__powerpc__) || defined(__ppc__)
-    static inline uint64_t read_counter(void) {
+    static uint64_t read_counter(void) {
         uint64_t tb;
         __asm__ volatile("mfspr %0, 268" : "=r"(tb));
         return tb;
     }
 #else
-    static inline uint64_t read_counter(void) {
+    static uint64_t read_counter(void) {
         return __builtin_readcyclecounter();
     }
 #endif
@@ -397,14 +400,14 @@ static void calibrate_time(void) {
     cycles_per_second = (end - start) * 100;
 }
 
-static inline double get_time(void) {
+static double get_time(void) {
     return (double)(read_counter()) / cycles_per_second;
 }
 
 double start;
 
 
-static inline void check_solution([[maybe_unused]] bool preprocessing) {
+static void check_solution([[maybe_unused]] bool preprocessing) {
     DPRINTF2("Checking solution:\n");
     DPRINTGRID2();
     #define drop_solution(msg) \
@@ -445,10 +448,10 @@ static inline void check_solution([[maybe_unused]] bool preprocessing) {
     }
     // apply subperiod filter
     if (config.filter_subperiod_solutions) {
-        Hash* hashes = safe_malloc(state.gens * sizeof(Hash));
+        Hash* hashes = safe_malloc(config.periodic_period * sizeof(Hash));
         DynamicGrid hash_grid_2 = EMPTY_DYNAMIC_GRID;
         DynamicGrid hash_grid_3 = EMPTY_DYNAMIC_GRID;
-        for (size_t i = 0; i < state.gens; i++) {
+        for (size_t i = 0; i < config.periodic_period; i++) {
             dg_extract_gen(&hash_grid_2, &hash_grid, i);
             dg_shrink_to_fit(&hash_grid_3, &hash_grid_2);
             Hash hash = hash_at_time(&hash_grid_3, 0);
@@ -583,7 +586,7 @@ typedef struct ProgressEntry {
 
 ProgressEntry* progress;
 
-static inline void print_progress(FILE* stream) {
+static void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
         if (progress[i].tr_is_set) {
             BoundTransition tr = progress[i].tr;
@@ -603,7 +606,7 @@ typedef CellValue ProgressEntry;
 
 ProgressEntry* progress;
 
-static inline void print_progress(FILE* stream) {
+static void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
         CellValue value = progress[i];
         real_fprintf(stream, "%c", value == 0 ? '0' : '1');
@@ -612,11 +615,11 @@ static inline void print_progress(FILE* stream) {
 
 #endif
 
-static inline void init_progress(void) {
+static void init_progress(void) {
     progress = safe_malloc((config.search_order_len + 2) * sizeof(ProgressEntry));
 }
 
-static inline void destroy_progress(void) {
+static void destroy_progress(void) {
     safe_free(progress);
 }
 
@@ -629,7 +632,7 @@ uint8_t max_partial_trs[512];
 #endif
 uint64_t last_printed_max_partial_size = 0;
 
-static inline void max_partials_end(void) {
+static void max_partials_end(void) {
     if (solutions_found == 0) {
         #if MULTI_RULE
             memcpy(trs, max_partial_trs, sizeof(trs));
@@ -642,7 +645,7 @@ static inline void max_partials_end(void) {
     dg_destroy(&max_partial);
 }
 
-static inline void print_info_if_needed(size_t depth) {
+static void print_info_if_needed(size_t depth) {
     if (config.max_partials) {
         if (solutions_found == 0) {
             uint64_t partial_size;

@@ -124,7 +124,7 @@ static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void unex
 // core type definitions
 
 // the type of cell values
-typedef uint8_t CellValue;
+typedef int CellValue;
 #define UNKNOWN 0
 #define OFF 1
 #define ON 2
@@ -139,10 +139,10 @@ typedef uint32_t ImplicationTransition;
 #define TRS_RULE_DEPENDENT 4
 
 #define MAX_UNPARSED_RULE_LENGTH 256
-static inline ptrdiff_t get_rule(char* out, bool use_maxrule);
+static ptrdiff_t get_rule(char* out, bool use_maxrule);
 
 
-static inline void* safe_malloc(size_t size) {
+static void* safe_malloc(size_t size) {
     void* out = malloc(size);
     if (out == NULL) {
         perror("Error: This error should not occur, please report it: Error in malloc");
@@ -151,7 +151,7 @@ static inline void* safe_malloc(size_t size) {
     return out;
 }
 
-static inline void* safe_realloc(void* ptr, size_t size) {
+static void* safe_realloc(void* ptr, size_t size) {
     void* out = realloc(ptr, size);
     if (out == NULL) {
         perror("Error: This error should not occur, please report it: Error in realloc");
@@ -160,7 +160,7 @@ static inline void* safe_realloc(void* ptr, size_t size) {
     return out;
 }
 
-static inline void safe_free(void* ptr) {
+static void safe_free(void* ptr) {
     free(ptr);
 }
 
@@ -214,11 +214,11 @@ const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
     [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
 };
 
-static inline bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
+static bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
     return STATIC_SYMMETRY_JOIN[container][value] == container;
 }
 
-static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
+static Transformations sts_to_transforms(StaticSymmetry symmetry) {
     Transformations out;
     out.flip_horizontal = sts_contains(symmetry, D2h);
     out.flip_vertical = sts_contains(symmetry, D2v);
@@ -230,7 +230,7 @@ static inline Transformations sts_to_transforms(StaticSymmetry symmetry) {
     return out;
 }
 
-static inline StaticSymmetry transforms_to_sts(Transformations t) {
+static StaticSymmetry transforms_to_sts(Transformations t) {
     bool iC2 = t.rotate_180;
     bool iC4 = t.rotate_left || t.rotate_right;
     bool iD2h = t.flip_horizontal;
@@ -275,10 +275,23 @@ static inline StaticSymmetry transforms_to_sts(Transformations t) {
 }
 
 
+// implication backends:
+// - CPU independent
+
+#define IMPLICATION_BACKEND_CPU_INDEPENDENT 0
+#define IMPLICATION_BACKEND IMPLICATION_BACKEND_CPU_INDEPENDENT
+
+#if IMPLICATION_BACKEND == IMPLICATION_BACKEND_CPU_INDEPENDENT
+
+typedef uint64_t ImplicState[16];
+
+#endif
+
+
 typedef struct Cell Cell;
 
 typedef struct CAClause {
-    ImplicationTransition tr;
+    ImplicState implic_state;
     Cell* center;
     bool invert_center;
     Cell* next;
@@ -332,8 +345,10 @@ struct Cell {
     // the variable number from INITIAL_VARS, numbering starts at 1
     size_t var_number;
     // whether it is aliased
-    // the variable it is aliased to, 0 if it is not aliased
-    size_t alias;
+    // the variable it is aliased to, A NULL POINTER if it isn't aliased
+    Cell* alias;
+    // whether the alias is inverted
+    bool invert_alias;
     // the length of the `uses` flexible array member
     size_t use_count;
     // the clauses it is used in
@@ -344,7 +359,8 @@ Cell off_cell = {
     .next_in_search_order = NULL,
     .value = OFF,
     .var_number = NO_VAR,
-    .alias = NO_VAR,
+    .alias = NULL,
+    .invert_alias = false,
     .use_count = 0,
     // no need to initialize the flexible array member
 };
@@ -353,7 +369,8 @@ Cell on_cell = {
     .next_in_search_order = NULL,
     .value = ON,
     .var_number = NO_VAR,
-    .alias = NO_VAR,
+    .alias = NULL,
+    .invert_alias = false,
     .use_count = 0,
     // no need to initialize the flexible array member
 };
@@ -410,21 +427,33 @@ struct {
     size_t set_unknown_cells;
 } state;
 
-static inline GridCell* state_get_cell(size_t t, size_t x, size_t y) {
+static GridCell* state_get_grid_cell(size_t t, size_t x, size_t y) {
     return &(state.grid[(((t * state.height) + y) * state.width) + x]);
 }
 
-static inline CellValue state_get_cell_value(size_t t, size_t x, size_t y) {
-    GridCell* cell = state_get_cell(t, x, y);
-    CellValue out = cell->cell->value;
-    if (cell->invert) {
-        out = -out;
+static CellValue state_get_cell_value(size_t t, size_t x, size_t y) {
+    GridCell* grid_cell = state_get_grid_cell(t, x, y);
+    Cell* cell = grid_cell->cell;
+    bool invert = grid_cell->invert;
+    if (cell->alias) {
+        invert = invert != cell->invert_alias;
+        cell = cell->alias;
     }
-    return out;
+    CellValue out = cell->value;
+    if (invert) {
+        if (out == OFF) {
+            return ON;
+        } else if (out == ON) {
+            return OFF;
+        } else {
+            return out;
+        }
+    } else {
+        return out;
+    }
 }
 
-
-static inline GridCell* state_get_cell_allow_oob(size_t t, size_t x, size_t y) {
+static GridCell* state_get_grid_cell_allow_oob(size_t t, size_t x, size_t y) {
     // if it would be less than 0, then it underflows
     // and gets Very Big, so we don't need to check for that!
     if (t >= state.gens) {
@@ -436,13 +465,34 @@ static inline GridCell* state_get_cell_allow_oob(size_t t, size_t x, size_t y) {
     if (y >= state.height) {
         return &off_grid_cell;
     }
-    return state_get_cell(t, x, y);
+    return state_get_grid_cell(t, x, y);
 }
 
 // sets a cell to a value, propagating transitions but doing nothing else
-static inline bool set_cell(Cell* cell, CellValue value);
+static bool set_cell(Cell* cell, CellValue value);
+// aliases a cell to another, propagating transitions but doing nothing else
+static bool alias(Cell* cell, Cell* alias_to, bool invert);
+// undoes an alias, propagating transitions but doing nothing else
+static bool unalias(Cell* cell);
 
-static inline ImplicationTransition compute_implication_tr(CAClause* clause);
+// computes the initial implication state for a clause
+static void compute_implication_state(CAClause* clause);
+
+static CellValue get_cell_value(Cell* cell) {
+    if (cell->alias) {
+        CellValue out = cell->alias->value;
+        if (cell->invert_alias) {
+            if (out == OFF) {
+                return ON;
+            } else {
+                return OFF;
+            }
+        }
+        return out;
+    } else {
+        return cell->value;
+    }
+}
 
 
 // configuration options
@@ -508,20 +558,20 @@ Config config = {
     .periodic_dy = 0,
     .periodic_period = 0,
     .reporting_interval = 1.0,
-    .after_rule_text = "",
+    .after_rule_text = NULL,
     .show_solutions = true,
     .max_solutions = 0,
     .filter_empty_solutions = true,
     .filter_duplicate_solutions = true,
     .filter_subperiod_solutions = true,
     .cell_period_filter_length = 0,
-    .cell_period_filter = (size_t[]){0},
+    .cell_period_filter = NULL,
     .max_partials = true,
     .max_partial_scoring = MAX_PARTIAL_SCORING_CELL,
     .max_partial_reporting_interval = 1.0,
 };
 
-static inline void destroy_config(void) {
+static void destroy_config(void) {
     if (config.search_order != NULL) {
         safe_free(config.search_order);
     }
@@ -535,7 +585,7 @@ static inline void destroy_config(void) {
 
 
 // print a single cell for debugging purposes
-static inline void print_cell(FILE* stream, int field_size, GridCell* grid_cell) {
+static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
     CellValue value = cell->value;
     if (value == UNKNOWN) {
@@ -558,8 +608,15 @@ static inline void print_cell(FILE* stream, int field_size, GridCell* grid_cell)
 }
 
 // print the grid for debugging purposes
-static inline void print_grid(FILE* stream) {
-    int field_size = (int)floor(log10((int)state.var_count)) + 1;
+static void print_grid(FILE* stream) {
+    int field_size = (int)floor(log10((int)state.var_count));
+    // if there's an invert we have to make it bigger to fit the minus sign
+    for (size_t i = 0; i < state.total_size; i++) {
+        if (state.grid[i].invert) {
+            field_size += 1;
+            break;
+        }
+    }
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256 * sizeof(char));
     get_rule(rule, false);
@@ -568,9 +625,9 @@ static inline void print_grid(FILE* stream) {
         for (size_t y = 0; y < state.height; y++) {
             DFPRINTLINEPADDING(stream);
             for (size_t x = 0; x < state.width; x++) {
-                print_cell(stream, field_size, state_get_cell(t, x, y));
+                print_grid_cell(stream, field_size, state_get_grid_cell(t, x, y));
             }
-            real_fprintf(stream, "$\n");
+            real_fprintf(stream, " $\n");
         }
         if (t == state.gens - 1) {
             fprintf(stream, "!\n");
@@ -596,10 +653,10 @@ typedef struct InitFromState {
     InitFromCell* grid;
 } InitFromState;
 
-static inline void internal_init_state_symmetry(void);
+static void internal_init_state_symmetry(void);
 
 // initialize the current state
-static inline void init_state(InitFromState* from) {
+static void init_state(InitFromState* from) {
     state.width = from->width;
     state.height = from->height;
     state.gens = from->gens;
@@ -609,9 +666,10 @@ static inline void init_state(InitFromState* from) {
     state.start_unknown_cells = state.var_count;
     state.set_unknown_cells = 0;
     // first we have to determine how many times each variable is used
+    // we add 1 in the allocations because variable 0 is unused
     size_t* var_uses = safe_malloc((state.var_count + 1) * sizeof(size_t));
     memset(var_uses, 0, (state.var_count + 1) * sizeof(size_t));
-    for (size_t i = 0; i < state.total_size; i++) {
+    for (size_t i = 1; i < state.total_size; i++) {
         InitFromCell* cell = &(from->grid[i]);
         size_t var = cell->var;
         if (var != NO_VAR) {
@@ -619,12 +677,14 @@ static inline void init_state(InitFromState* from) {
         }
     }
     // create the cells
-    state.variables = safe_malloc(state.var_count * sizeof(Cell*));
+    state.variables = safe_malloc((state.var_count + 1) * sizeof(Cell*));
     state.variables[0] = NULL;
-    for (size_t i = 1; i < state.var_count; i++) {
+    for (size_t i = 1; i <= state.var_count; i++) {
         Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CAClauseData));
         cell->value = UNKNOWN;
         cell->var_number = i;
+        cell->alias = NULL;
+        cell->invert_alias = false;
         cell->use_count = var_uses[i];
         // fill the uses with null pointers
         for (size_t j = 0; j < cell->use_count; j++) {
@@ -668,12 +728,12 @@ static inline void init_state(InitFromState* from) {
         }
     }
     // now the clauses
-    state.ca_clause_count = (state.height - 2) * (state.width - 2) * (state.gens - 1);
+    state.ca_clause_count = state.height * state.width * (state.gens - 1);
     state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
     i = 0;
     for (size_t t = 0; t < state.gens - 1; t++) {
-        for (size_t y = 1; y < state.height - 1; y++) {
-            for (size_t x = 1; x < state.width - 1; x++) {
+        for (size_t y = 0; y < state.height; y++) {
+            for (size_t x = 0; x < state.width; x++) {
                 InitFromCell* init_cell = &(from->grid[i]);
                 if (init_cell->no_clause) {
                     continue;
@@ -681,37 +741,37 @@ static inline void init_state(InitFromState* from) {
                 CAClause* clause = &(state.ca_clauses[i]);
                 i++;
                 // fill the clause's pointers
-                GridCell* cell = state_get_cell_allow_oob(t, x, y);
+                GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
                 clause->center = cell->cell;
                 clause->invert_center = cell->invert;
-                cell = state_get_cell_allow_oob(t + 1, x, y);
+                cell = state_get_grid_cell_allow_oob(t + 1, x, y);
                 clause->next = cell->cell;
                 clause->invert_next = cell->invert;
-                cell = state_get_cell_allow_oob(t, x - 1, y - 1);
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y - 1);
                 clause->nw = cell->cell;
                 clause->invert_nw = cell->invert;
-                cell = state_get_cell_allow_oob(t, x, y - 1);
+                cell = state_get_grid_cell_allow_oob(t, x, y - 1);
                 clause->n = cell->cell;
                 clause->invert_n = cell->invert;
-                cell = state_get_cell_allow_oob(t, x + 1, y - 1);
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y - 1);
                 clause->ne = cell->cell;
                 clause->invert_ne = cell->invert;
-                cell = state_get_cell_allow_oob(t, x - 1, y);
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y);
                 clause->w = cell->cell;
                 clause->invert_w = cell->invert;
-                cell = state_get_cell_allow_oob(t, x + 1, y);
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y);
                 clause->e = cell->cell;
                 clause->invert_e = cell->invert;
-                cell = state_get_cell_allow_oob(t, x - 1, y + 1);
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y + 1);
                 clause->sw = cell->cell;
                 clause->invert_sw = cell->invert;
-                cell = state_get_cell_allow_oob(t, x, y + 1);
+                cell = state_get_grid_cell_allow_oob(t, x, y + 1);
                 clause->s = cell->cell;
                 clause->invert_s = cell->invert;
-                cell = state_get_cell_allow_oob(t, x + 1, y + 1);
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y + 1);
                 clause->se = cell->cell;
                 clause->invert_se = cell->invert;
-                clause->tr = compute_implication_tr(clause);
+                compute_implication_state(clause);
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
                     do { \
@@ -749,8 +809,8 @@ static inline void init_state(InitFromState* from) {
 }
 
 // free the current state
-static inline void destroy_state(void) {
-    for (size_t i = 1; i < state.var_count; i++) {
+static void destroy_state(void) {
+    for (size_t i = 1; i <= state.var_count; i++) {
         safe_free(state.variables[i]);
     }
     safe_free(state.variables);
@@ -760,17 +820,25 @@ static inline void destroy_state(void) {
 
 
 #define STACKENTRY_TYPE_CELL_SET 0
+#define STACKENTRY_TYPE_ALIAS 1
 
 typedef struct CellSetStackEntry {
     Cell* cell;
     CellValue value;
 } CellSetStackEntry;
 
+typedef struct AliasStackEntry {
+    Cell* cell;
+    Cell* aliased_to;
+    bool invert;
+} AliasStackEntry;
+
 typedef struct StackEntry {
-    bool is_first_in_frame : 1;
-    unsigned int type : 7;
+    bool is_first_in_frame;
+    int type;
     union {
         CellSetStackEntry cell_set;
+        AliasStackEntry alias;
     } data;
 } StackEntry;
 
@@ -779,13 +847,16 @@ typedef struct StackEntry {
     size_t tr_to_bound_tr[512];
 #endif
 
-static inline void print_stack_entry(StackEntry* entry) {
+static void print_stack_entry(StackEntry* entry) {
     if (entry == NULL) {
         real_printf("<null pointer>");
         return;
     } else if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         CellSetStackEntry* data = &(entry->data.cell_set);
         real_printf("cell set: variable %zu = %i", data->cell->var_number, data->value);
+    } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
+        AliasStackEntry* data = &(entry->data.alias);
+        real_printf("alias: variable %zu = %s%zu", data->cell->var_number, data->invert ? "NOT " : "", data->aliased_to->var_number);
     } else {
         real_printf("<invalid stack entry>\n");
         return;
@@ -802,7 +873,7 @@ static inline void print_stack_entry(StackEntry* entry) {
 }
 
 // returns false if contradiction, true if no contradiction
-static inline bool apply_stack_entry(StackEntry* entry) {
+static bool apply_stack_entry(StackEntry* entry) {
     #if DEBUG >= 4
         printf("Applying stack entry: ");
         print_stack_entry(entry);
@@ -810,6 +881,8 @@ static inline bool apply_stack_entry(StackEntry* entry) {
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
         state.set_unknown_cells++;
+    } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
+        alias(entry->data.alias.cell, entry->data.alias.aliased_to, entry->data.alias.invert);
     } else {
         unexpected_error("Invalid stack entry");
     }
@@ -817,7 +890,7 @@ static inline bool apply_stack_entry(StackEntry* entry) {
 }
 
 // returns false if contradiction, true if no contradiction
-static inline bool undo_stack_entry(StackEntry* entry) {
+static bool undo_stack_entry(StackEntry* entry) {
     #if DEBUG >= 4
         printf("Popping stack entry: ");
         print_stack_entry(entry);
@@ -825,6 +898,8 @@ static inline bool undo_stack_entry(StackEntry* entry) {
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         set_cell(entry->data.cell_set.cell, UNKNOWN);
         state.set_unknown_cells--;
+    } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
+        unalias(entry->data.alias.cell);
     } else {
         unexpected_error("Invalid stack entry");
     }
@@ -855,7 +930,7 @@ typedef struct Stack {
 
 Stack* current_stack;
 
-static inline Stack* create_stack(void) {
+static Stack* create_stack(void) {
     Stack* out = safe_malloc(sizeof(Stack));
     out->len = 0;
     out->next_entry_is_first_in_frame = true;
@@ -863,7 +938,7 @@ static inline Stack* create_stack(void) {
     return out;
 }
 
-static inline void destroy_stack(Stack* stack) {
+static void destroy_stack(Stack* stack) {
     if (stack->is_big) {
         safe_free(stack->big_data.data);
     }
@@ -882,7 +957,7 @@ static inline StackEntry* get_stack_entry(Stack* stack, size_t i) {
     }
 }
 
-static inline __attribute__((used)) void print_stack(Stack* stack) {
+static __attribute__((used)) void print_stack(Stack* stack) {
     printf("Stack:\n");
     for (size_t i = 0; i < stack->len; i++) {
         printf(INDENT "Entry: ");
@@ -893,7 +968,7 @@ static inline __attribute__((used)) void print_stack(Stack* stack) {
 // no dedicated "push" function because that functionality
 // is provided by set_cell_and_push and set_tr
 
-static inline StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] bool is_explicit) {
+static StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] bool is_explicit) {
     StackEntry* out;
     if (stack->is_big) {
         BigStackData* big_data = &(stack->big_data);
@@ -932,7 +1007,7 @@ static inline StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] 
 }
 
 // RETURNS NULL POINTER if there is nothing to pop
-static inline StackEntry* pop_stack_for_entry(Stack* stack) {
+static StackEntry* pop_stack_for_entry(Stack* stack) {
     if (stack->len == 0) {
         return NULL;
     }
@@ -946,7 +1021,7 @@ static inline StackEntry* pop_stack_for_entry(Stack* stack) {
     return out;
 }
 
-static inline bool pop_stack(Stack* stack) {
+static bool pop_stack(Stack* stack) {
     StackEntry* entry = pop_stack_for_entry(stack);
     if (entry == NULL) {
         return false;
@@ -958,12 +1033,12 @@ static inline bool pop_stack(Stack* stack) {
     return true;
 }
 
-static inline void push_stack_frame(Stack* stack) {
+static void push_stack_frame(Stack* stack) {
     DPRINTF4("Pushing frame\n");
     stack->next_entry_is_first_in_frame = true;
 }
 
-static inline void pop_stack_frame(Stack* stack) {
+static void pop_stack_frame(Stack* stack) {
     DPRINTF4("Popping frame\n");
     while (stack->len > 0) {
         bool done = get_stack_entry(stack, stack->len - 1)->is_first_in_frame;
@@ -977,10 +1052,10 @@ static inline void pop_stack_frame(Stack* stack) {
 }
 
 
-// set a cell to a value, taking care of edges and filters but not propagating implications
+// set a cell to a value, not propagating implications
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
-static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
+static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     #if SLOWER_SANITY_CHECKS
     if (cell->value != UNKNOWN) {
         unexpected_error("Setting known cell");
@@ -990,11 +1065,24 @@ static inline bool set_cell_and_push(Cell* cell, CellValue value, bool is_explic
     set_cell(cell, value);
     state.set_unknown_cells++;
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
-    #if MULTI_RULE
-        entry->type = STACKENTRY_TYPE_CELL_SET;
-    #endif
+    entry->type = STACKENTRY_TYPE_CELL_SET;
     entry->data.cell_set.cell = cell;
     entry->data.cell_set.value = value;
+    #if DEBUG >= 4
+        print_stack(current_stack);
+    #endif
+    return true;
+}
+
+static bool alias_and_push(Cell* cell, Cell* alias_to, bool invert, bool is_explicit) {
+    if (!alias(cell, alias_to, invert)) {
+        return false;
+    }
+    StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
+    entry->type = STACKENTRY_TYPE_ALIAS;
+    entry->data.alias.cell = cell;
+    entry->data.alias.aliased_to = alias_to;
+    entry->data.alias.invert = invert;
     #if DEBUG >= 4
         print_stack(current_stack);
     #endif

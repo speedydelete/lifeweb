@@ -126,12 +126,10 @@ let outElt = document.getElementById('out');
 document.getElementById('compile').addEventListener('click', async () => {
     let argv = ['node'].concat(commandInput.value.split(' '));
     let data = await parseArgs(argv, (await import('./params.h')).default);
-    let params2 = data.params2File;
-    params2 = '#line 1 "params2.h"\n' + params2.replaceAll('#pragma once', '');
-    let source2 = params2 + '\n' + source;
-    // outElt.textContent = data.problemFile;
+    let params2 = `#line 1 "params2.h"\n${data.params2File.replaceAll('#pragma once', '')}`;
+    let source2 = `#define IN_BROWSER 1\n\n${params2}\n${source}`;
+    source2 = source2.replaceAll(`PROBLEM_FILE_GOES_HERE`, JSON.stringify(data.problemFile));
     outElt.textContent = source2;
-    // outElt.textContent = data.problemFile + '\n\n' + source2;
     let range = document.createRange();
     range.selectNodeContents(outElt);
     let sel = window.getSelection();

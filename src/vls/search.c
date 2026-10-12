@@ -16,19 +16,19 @@
 
 // sets the next_in_search_order fields in all the cells
 // returns the initial cell to search
-static inline Cell* add_search_orders(void) {
+static Cell* add_search_orders(void) {
     size_t* coords = config.search_order[0];
     size_t t = coords[0];
     size_t x = coords[1];
     size_t y = coords[2];
-    Cell* prev = state_get_cell(t, x, y)->cell;
+    Cell* prev = state_get_grid_cell(t, x, y)->cell;
     Cell* initial_cell = prev;
     for (size_t i = 1; i < config.search_order_len; i++) {
         size_t* coords = config.search_order[i];
         size_t t = coords[0];
         size_t x = coords[1];
         size_t y = coords[2];
-        Cell* cell = state_get_cell(t, x, y)->cell;
+        Cell* cell = state_get_grid_cell(t, x, y)->cell;
         prev->next_in_search_order = cell;
         prev = cell;
     }
@@ -41,7 +41,7 @@ static inline Cell* add_search_orders(void) {
 
 bool all_zeros = true;
 
-static inline bool check_early_exhaustion(void) {
+static bool check_early_exhaustion(void) {
     #if PERIODIC_DX == 0 || PERIODIC_DY == 0
     bool found;
     #endif
@@ -57,7 +57,7 @@ static inline bool check_early_exhaustion(void) {
     #elif PERIODIC_DX > 0
         for (Index x = state.width - PERIODIC_DX - 1; x < state.width; x++) {
             for (Index y = 0; y < state.height; y++) {
-                if (state_get_cell_value(0, x, y)->value != OFF) {
+                if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
@@ -66,7 +66,7 @@ static inline bool check_early_exhaustion(void) {
     // check left column and right column
     found = false;
     for (Index y = 0; y < state.height; y++) {
-        if (state_get_cell_value(0, 0, y)->value != OFF) {
+        if (state_get_cell_value(0, 0, y) != OFF) {
             found = true;
             break;
         }
@@ -76,7 +76,7 @@ static inline bool check_early_exhaustion(void) {
     }
     found = false;
     for (Index y = 0; y < state.height; y++) {
-        if (state_get_cell_value(0, state.width - 1, y)->value != OFF) {
+        if (state_get_cell_value(0, state.width - 1, y) != OFF) {
             found = true;
             break;
         }
@@ -89,7 +89,7 @@ static inline bool check_early_exhaustion(void) {
     #if PERIODIC_DY < 0
         for (Index y = 0; y < -PERIODIC_DY + 1; y++) {
             for (Index x = 0; x < state.width; x++) {
-                if (state_get_cell_value(0, x, y)->value != OFF) {
+                if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
@@ -98,7 +98,7 @@ static inline bool check_early_exhaustion(void) {
     #elif PERIODIC_DY > 0
         for (Index y = state.height - PERIODIC_DY - 1; y < state.width; y++) {
             for (Index x = 0; x < state.width; x++) {
-                if (state_get_cell_value(0, x, y)->value != OFF) {
+                if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
@@ -108,7 +108,7 @@ static inline bool check_early_exhaustion(void) {
     // check top row and bottom row
     found = false;
     for (Index x = 0; x < state.width; x++) {
-        if (state_get_cell_value(0, x, 0)->value != OFF) {
+        if (state_get_cell_value(0, x, 0) != OFF) {
             return false;
         }
     }
@@ -117,7 +117,7 @@ static inline bool check_early_exhaustion(void) {
     }
     found = false;
     for (Index x = 0; x < state.width; x++) {
-        if (state_get_cell_value(0, x, state.height - 1)->value != OFF) {
+        if (state_get_cell_value(0, x, state.height - 1) != OFF) {
             return false;
         }
     }
@@ -134,7 +134,7 @@ static inline bool check_early_exhaustion(void) {
 static size_t run_depth(size_t depth, Cell* cell);
 
 // returns number of iterations to backjump
-static inline size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
+static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
     DPRINTF3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     push_stack_frame(current_stack);
     #if DEBUG >= 4
@@ -174,7 +174,11 @@ static size_t run_depth(size_t depth, Cell* cell) {
         printf("Running depth %zu: ", depth);
         print_progress(stdout);
         real_printf("\n");
-        printf("Cell: variable = %zu\n", cell->var_number);
+        if (cell == NULL) {
+            printf("Cell: <null pointer>\n");
+        } else {
+            printf("Cell: variable = %zu\n", cell->var_number);
+        }
     #endif
     branches++;
     // add 2 to account for off-by-one errors
@@ -227,7 +231,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
 }
 
 
-static inline void actual_run_search(Cell* initial_cell) {
+static void actual_run_search(Cell* initial_cell) {
     start = get_time();
     last_progress_shown = start;
     #if MAX_PARTIALS
@@ -239,7 +243,7 @@ static inline void actual_run_search(Cell* initial_cell) {
     run_depth(0, initial_cell);
 }
 
-static inline void run_search(void) {
+static void run_search(void) {
     Cell* initial_cell = add_search_orders();
     DPRINTGRID1();
     printf("Running search\n");

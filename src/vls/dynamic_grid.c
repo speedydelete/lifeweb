@@ -14,7 +14,7 @@ typedef struct DynamicCell {
     bool invert;
 } DynamicCell;
 
-static inline __attribute__((always_inline)) bool dc_eq(DynamicCell x, DynamicCell y) {
+static __attribute__((always_inline)) bool dc_eq(DynamicCell x, DynamicCell y) {
     return x.value == y.value && x.var == y.var;
 }
 
@@ -39,14 +39,14 @@ const DynamicGrid EMPTY_DYNAMIC_GRID = {
 #define direct_dg_index(grid, t, x, y) (((grid).data)[((((t) * (grid).height) + (y)) * (grid).width) + (x)])
 
 
-static inline void dg_destroy(DynamicGrid* grid) {
+static void dg_destroy(DynamicGrid* grid) {
     if (grid->used) {
         safe_free(grid->data);
         grid->used = false;
     }
 }
 
-static inline void dg_init(DynamicGrid* grid, size_t width, size_t height, size_t gens) {
+static void dg_init(DynamicGrid* grid, size_t width, size_t height, size_t gens) {
     if (grid->used && grid->width == width && grid->height == height && grid->gens == gens) {
         return;
     }
@@ -58,35 +58,40 @@ static inline void dg_init(DynamicGrid* grid, size_t width, size_t height, size_
     grid->data = safe_malloc(width * height * gens * sizeof(DynamicCell));
 }
 
-static inline __attribute__((always_inline)) CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
+static __attribute__((always_inline)) CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
     return dg_index(grid, t, x, y).value;
 }
 
-static inline __attribute__((always_inline)) void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value) {
+static __attribute__((always_inline)) void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value) {
     dg_index(grid, t, x, y).value = value;
     dg_index(grid, t, x, y).var = NO_VAR;
 }
 
-static inline __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
+static __attribute__((always_inline)) void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
-    dg_index(grid, t, x, y).value = grid_cell->invert ? -cell->value : cell->value;
+    bool invert = grid_cell->invert;
+    if (cell->alias) {
+        invert = invert != cell->invert_alias;
+        cell = cell->alias;
+    }
+    dg_index(grid, t, x, y).value = invert ? -cell->value : cell->value;
     dg_index(grid, t, x, y).var = cell->var_number;
     dg_index(grid, t, x, y).invert = grid_cell->invert;
 }
 
-static inline void dg_init_from_search_grid(DynamicGrid* out) {
+static void dg_init_from_search_grid(DynamicGrid* out) {
     dg_init(out, state.width, state.height, state.gens);
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
             for (size_t x = 0; x < state.width; x++) {
-                dg_set_from_cell(out, t, x, y, state_get_cell(t, x, y));
+                dg_set_from_cell(out, t, x, y, state_get_grid_cell(t, x, y));
             }
         }
     }
 }
 
 
-static inline bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
+static bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
     if (x->width != y->width || x->height != y->height || x->gens != y->gens) {
         return false;
     }
@@ -102,7 +107,7 @@ static inline bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
     return true;
 }
 
-static inline void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -113,7 +118,7 @@ static inline void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -124,7 +129,7 @@ static inline void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -135,7 +140,7 @@ static inline void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -147,7 +152,7 @@ static inline void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
 }
 
 
-static inline void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -158,7 +163,7 @@ static inline void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -169,7 +174,7 @@ static inline void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -180,7 +185,7 @@ static inline void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -191,7 +196,7 @@ static inline void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static inline void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, size_t t) {
+static void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, size_t t) {
     dg_init(out, grid->width, grid->height, 1);
     for (size_t y = 0; y < grid->height; y++) {
         for (size_t x = 0; x < grid->width; x++) {
@@ -205,7 +210,7 @@ typedef struct DGShrinkToFitOffsets {
     size_t y;
 } DGShrinkToFitOffsets;
 
-static inline DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGrid* grid) {
+static DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGrid* grid) {
     size_t shrink_top = 0;
     for (size_t y = 0; y < grid->height; y++) {
         bool found = false;
@@ -302,7 +307,7 @@ static inline DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGri
 }
 
 
-static inline Transformations dg_get_identity_transforms(DynamicGrid* grid) {
+static Transformations dg_get_identity_transforms(DynamicGrid* grid) {
     Transformations out;
     DynamicGrid temp = EMPTY_DYNAMIC_GRID;
     dg_flip_horizontal(&temp, grid);
@@ -337,11 +342,11 @@ static inline Transformations dg_get_identity_transforms(DynamicGrid* grid) {
     return out;
 }
 
-static inline StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
+static StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
     return transforms_to_sts(dg_get_identity_transforms(grid));
 }
 
-static inline void internal_init_state_symmetry(void) {
+static void internal_init_state_symmetry(void) {
     DynamicGrid grid = EMPTY_DYNAMIC_GRID;
     dg_init_from_search_grid(&grid);
     state.symmetry = dg_get_symmetry(&grid);
