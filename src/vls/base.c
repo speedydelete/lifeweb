@@ -72,6 +72,7 @@
 #define real_printf (printf)
 #define real_fprintf (fprintf)
 #if DEBUG >= 3 || HASH_DEBUG
+    #define HAS_DEBUG_DEPTH true
     int debug_depth = 0;
     #define print_line_padding() { \
         for (int i = 0; i < debug_depth; i++) { \
@@ -96,6 +97,7 @@
         real_fprintf(stream, __VA_ARGS__); \
     }
 #else
+    #define HAS_DEBUG_DEPTH false
     #define print_line_padding()
     #define fprint_line_padding(stream)
 #endif
@@ -289,7 +291,8 @@ typedef uint64_t ImplicState[16];
 typedef struct Cell Cell;
 
 typedef struct CAClause {
-    ImplicState state;
+    int state_number;
+    ImplicState states[10];
     Cell* center;
     bool invert_center;
     Cell* next;
@@ -311,6 +314,8 @@ typedef struct CAClause {
     Cell* se;
     bool invert_se;
 } CAClause;
+
+#define clause_state(clause) ((clause)->states[(clause)->state_number])
 
 typedef struct CAClauseData {
     // CAN BE A NULL POINTER
@@ -719,7 +724,6 @@ static void init_state(InitFromState* from) {
                 } else {
                     unexpected_error("Invalid cell state at t = %zu, x = %zu, y = %zu: %i", t, x, y, value);
                 }
-                printf("t = %zu, x = %zu, y = %zu: value = %i, var = %zu, invert = %i\n", t, x, y, init_cell->value, init_cell->var, init_cell->invert);
                 state.grid[i].cell = cell;
                 state.grid[i].invert = init_cell->invert;
                 i++;
@@ -739,6 +743,7 @@ static void init_state(InitFromState* from) {
                 }
                 CAClause* clause = &(state.ca_clauses[i]);
                 i++;
+                clause->state_number = 0;
                 // fill the clause's pointers
                 GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
                 clause->center = cell->cell;
@@ -920,8 +925,8 @@ typedef struct Stack {
         StackEntry small_data[STACK_INLINE_SIZE];
         BigStackData big_data;
     };
-    bool is_big : 1;
-    bool next_entry_is_first_in_frame : 1;
+    bool is_big;
+    bool is_at_top_of_frame;
     // please work
     size_t len : (sizeof(size_t) * CHAR_BIT - 2);
     // size_t len;
@@ -932,7 +937,7 @@ Stack* current_stack;
 static Stack* create_stack(void) {
     Stack* out = safe_malloc(sizeof(Stack));
     out->len = 0;
-    out->next_entry_is_first_in_frame = true;
+    out->is_at_top_of_frame = true;
     out->is_big = false;
     return out;
 }
@@ -995,9 +1000,9 @@ static StackEntry* create_new_stack_entry(Stack* stack, [[maybe_unused]] bool is
         stack->len++;
         out = &(stack->small_data[stack->len - 1]);
     }
-    if (stack->next_entry_is_first_in_frame) {
+    if (stack->is_at_top_of_frame) {
         out->is_first_in_frame = true;
-        stack->next_entry_is_first_in_frame = false;
+        stack->is_at_top_of_frame = false;
     } else {
         out->is_first_in_frame = false;
     }
@@ -1034,16 +1039,18 @@ static bool pop_stack(Stack* stack) {
 
 static void push_stack_frame(Stack* stack) {
     debug_printf_4("Pushing frame\n");
-    stack->next_entry_is_first_in_frame = true;
+    stack->is_at_top_of_frame = true;
 }
 
 static void pop_stack_frame(Stack* stack) {
     debug_printf_4("Popping frame\n");
-    while (stack->len > 0) {
-        bool done = get_stack_entry(stack, stack->len - 1)->is_first_in_frame;
-        pop_stack(stack);
-        if (done) {
-            break;
+    if (!stack->is_at_top_of_frame) {
+        while (stack->len > 0) {
+            bool done = get_stack_entry(stack, stack->len - 1)->is_first_in_frame;
+            pop_stack(stack);
+            if (done) {
+                break;
+            }
         }
     }
     debug_printf_4("Pop complete\n");

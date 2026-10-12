@@ -859,19 +859,23 @@ export async function main() {
         oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
     }
     let recompile = false;
-    if (existsSync(execPath)) {
-        let compiledCodeChangeTime = Number(execSync(`stat -c '%Y' ${execPath}`).toString());
-        let codeChangeTimes = execSync(`stat -c '%Y' ${import.meta.dirname}/*`).toString();
-        for (let time of codeChangeTimes.split('\n')) {
-            // add 10 to account for errors
-            if (Number(time) + 10 > compiledCodeChangeTime) {
-                recompile = true;
-                break;
-            }
-        }
-    } else {
-        recompile = true;
-    }
+    // BROKEN
+    // I HATE YOU
+    // if (existsSync(execPath)) {
+    //     let compiledCodeChangeTime = (await fs.stat(execPath)).mtimeMs;
+    //     let files = await fs.readdir(import.meta.dirname);
+    //     for (let file of files) {
+    //         let filePath = path.join(import.meta.dirname, file);
+    //         let fileChangeTime = (await fs.stat(filePath)).mtimeMs;
+    //         if (fileChangeTime + 2000 > compiledCodeChangeTime) {
+    //             recompile = true;
+    //             break;
+    //         }
+    //     }
+    // } else {
+    //     recompile = true;
+    // }
+    recompile = true;
     if (data.params2File !== oldParams2) {
         recompile = true;
         await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
