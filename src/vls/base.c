@@ -131,7 +131,7 @@ typedef int CellValue;
 #define OFF 1
 #define ON 2
 #define is_known(value) ((value) == OFF || (value) == ON)
-#define conv_12_to_01(value) ((value) - 1)
+#define convert_12_to_01(value) ((value) - 1)
 
 typedef uint32_t ImplicationTransition;
 

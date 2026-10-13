@@ -150,6 +150,9 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     if (cell->value != UNKNOWN) {
         return true;
     }
+    if (implicstate_is_contradiction(clause_state(clause))) {
+        return false;
+    }
     bool can_be_0 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_OFF_MASKS[pos]);
     bool can_be_1 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_ON_MASKS[pos]);
     debug_printf_4("Implication: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", pos, cell->var_number, can_be_0, can_be_1);
@@ -210,7 +213,7 @@ static bool set_cell(Cell* cell, CellValue value) {
                     if (is_known(value)) { \
                         clause->state_number++; \
                         implicstate_copy(clause_state(clause), clause->states[clause->state_number - 1]); \
-                        implicstate_set_cell(clause_state(clause), (pos), conv_12_to_01(value)); \
+                        implicstate_set_cell(clause_state(clause), (pos), convert_12_to_01(value)); \
                         hi(clause_state(clause)); \
                     } else { \
                         clause->state_number--; \
@@ -263,7 +266,7 @@ static void compute_implication_state(CAClause* clause) {
     implicstate_copy(clause_state(clause), full_implic_state);
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
-            implicstate_set_cell(clause_state(clause), 9 - (pos), conv_12_to_01((cell)->value)); \
+            implicstate_set_cell(clause_state(clause), (pos), convert_12_to_01((cell)->value)); \
         }
     add(clause->nw, 9);
     add(clause->w, 8);
