@@ -66,6 +66,7 @@ static void pre_alias_clause(CAClause* clause, CAClause* new_clause) {
         state.ca_clauses[i]->number--;
     }
     state.ca_clause_count--;
+    safe_free(clause);
 }
 
 static void pre_remove_clause(CAClause* clause) {
@@ -97,11 +98,11 @@ static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
         #undef check
     }
     for (size_t i = cell->var_number; i < state.var_count - 1; i++) {
-        Cell* value = state.vars[i + 1];
-        value->var_number--;
-        state.vars[i] = value;
+        state.vars[i] = state.vars[i + 1];
+        state.vars[i]->var_number--;
     }
     state.var_count--;
+    safe_free(cell);
 }
 
 
@@ -118,7 +119,7 @@ static void pre_remove_known_clauses(void) {
     // removes all clauses that are fully made of known cells
     for (size_t i = 0; i < state.ca_clause_count; i++) {
         CAClause* clause = state.ca_clauses[i];
-        if (clause->nw->value != UNKNOWN && clause->n->value != UNKNOWN && clause->ne->value != UNKNOWN && clause->w->value != UNKNOWN && clause->c->value != UNKNOWN && clause->e->value != UNKNOWN && clause->sw->value != UNKNOWN && clause->s->value != UNKNOWN && clause->se->value != UNKNOWN) {
+        if (clause->nw->value != UNKNOWN && clause->n->value != UNKNOWN && clause->ne->value != UNKNOWN && clause->w->value != UNKNOWN && clause->c->value != UNKNOWN && clause->e->value != UNKNOWN && clause->sw->value != UNKNOWN && clause->s->value != UNKNOWN && clause->se->value != UNKNOWN && clause->next->value != UNKNOWN) {
             pre_remove_clause(clause);
             // subtract 1 here because pre_alias_clause remapping
             i--;
@@ -126,12 +127,37 @@ static void pre_remove_known_clauses(void) {
     }
 }
 
-static void pre_check_settable_cells(void) {
-    // so what this is gonna do is
+static bool pre_internal_check_implications(Cell* cell, CellValue value) {
+    push_stack_frame(current_stack);
+    bool out = set_cell_and_propagate(cell, value, true);
+    pop_stack_frame(current_stack);
+    return out;
+}
+
+static void pre_check_cell_implications(void) {
     // go through each cell and try setting it to a value
     // if it's a contradiction, then it must be the OTHER value
     // so we can set it to that!
     // also when runtime aliasing is implemented cell aliasing checks should go here
+    for (size_t i = 1; i <= state.var_count; i++) {
+        Cell* cell = state.vars[i];
+        if (cell->value != UNKNOWN) {
+            continue;
+        }
+        bool can_be_0 = pre_internal_check_implications(cell, OFF);
+        bool can_be_1 = pre_internal_check_implications(cell, ON);
+        if (!can_be_0 && !can_be_1) {
+            pre_unsat(__func__);
+        } else if (!can_be_0 && can_be_1) {
+            pre_changes_made = true;
+            set_cell_and_propagate(cell, ON, true);
+        } else if (can_be_0 && !can_be_1) {
+            pre_changes_made = true;
+            set_cell_and_propagate(cell, OFF, true);
+        } else {
+            // do nothing
+        }
+    }
 }
 
 static void pre_check_unsat_duplicate_clauses(void) {
@@ -303,12 +329,12 @@ static void preprocess(void) {
     for (size_t i = 0; i < MAX_PREPROCESSING_ITERATIONS; i++) {
         pre_changes_made = false;
         pre_check_unsat_clauses();
-        // pre_remove_known_clauses();
-        pre_check_settable_cells();
+        pre_remove_known_clauses();
+        pre_check_cell_implications();
         pre_check_unsat_duplicate_clauses();
         pre_alias_duplicate_clauses();
         pre_alias_duplicate_cells();
-        // pre_pack_cells();
+        pre_pack_cells();
         if (!pre_changes_made) {
             found = true;
             break;

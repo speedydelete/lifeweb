@@ -1099,9 +1099,11 @@ static void pop_stack_frame(Stack* stack) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
-    if (cell->value != UNKNOWN) {
-        unexpected_error("Setting known cell");
-    }
+    #if SLOWER_SANITY_CHECKS
+        if (cell->value != UNKNOWN) {
+            unexpected_error("Setting known cell");
+        }
+    #endif
     debug_printf_4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     if (!set_cell(cell, value)) {
         return false;

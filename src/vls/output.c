@@ -652,7 +652,7 @@ static void print_info_if_needed(size_t depth) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
-            printf("%i seconds, %zu branches, %zu solutions, progress: ", (int)(time - start), branches, solutions_found);
+            printf("%ju seconds, %zu branches, %zu solutions, progress: ", (uintmax_t)(time - start), branches, solutions_found);
             print_progress(stdout);
             real_printf("\n");
         }

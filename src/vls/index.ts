@@ -904,7 +904,10 @@ export async function main() {
         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
         command += ` -fdiagnostics-color=always`;
         // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unused-function -Wno-unknown-pragmas -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas`;
+        if (options['clang']) {
+            command = ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
+        }
         // features
         command += ` -g`;
         if (!options['no-optimize']) {
