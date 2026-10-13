@@ -115,11 +115,12 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             break;
         }
     }
+    int v_int;
+    double v_double;
     size_t v_size;
     intmax_t v_intmax;
     intmax_t v_intmax_2;
-    int v_int;
-    double v_double;
+    uintmax_t v_uintmax;
     char v_str[256];
     if (check_line(file, "width = %zu", &v_size)) {
         data->width = v_size;
@@ -197,8 +198,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         strncpy(config.after_rule_text, v_str, 255);
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
-    } else if (check_line(file, "max_solutions = %zu", &v_size)) {
-        config.max_solutions = v_size;
+    } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {
+        config.max_solutions = v_intmax;
     } else if (check_line(file, "filter_empty_solutions = %i", &v_int)) {
         config.filter_empty_solutions = v_int;
     } else if (check_line(file, "filter_duplicate_solutions = %i", &v_int)) {

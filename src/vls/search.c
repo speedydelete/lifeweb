@@ -180,7 +180,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
             printf("Cell: variable = %zu\n", cell->var_number);
         }
     #endif
-    branches++;
+    state.branches++;
     // add 2 to account for off-by-one errors
     if (depth > config.search_order_len + 2) {
         unexpected_error("The dwarves delved too greedily and too deep");
@@ -232,6 +232,8 @@ static size_t run_depth(size_t depth, Cell* cell) {
 
 
 static void actual_run_search(Cell* initial_cell) {
+    state.branches = 0;
+    state.solutions_found = 0;
     start = get_time();
     last_progress_shown = start;
     #if MAX_PARTIALS
@@ -249,7 +251,7 @@ static void run_search(void) {
     debug_printf_1("Running search\n");
     #ifndef BENCHMARK
         actual_run_search(initial_cell);
-        printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);
+        printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", state.solutions_found, get_time() - start, state.branches);
     #if MAX_PARTIALS
         max_partials_end();
     #endif

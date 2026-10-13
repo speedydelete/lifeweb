@@ -23,7 +23,7 @@ typedef struct DynamicGrid {
     DynamicCell* data;
 } DynamicGrid;
 
-const DynamicGrid EMPTY_DYNAMIC_GRID = {
+static const DynamicGrid EMPTY_DYNAMIC_GRID = {
     .used = false,
     .width = 0,
     .height = 0,

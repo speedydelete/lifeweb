@@ -19,11 +19,6 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 #endif
 
 
-uint64_t branches;
-
-uint64_t solutions_found;
-
-
 static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256);
@@ -317,7 +312,7 @@ static Hash hash_full(DynamicGrid* grid) {
 }
 
 
-#define MAX_SAVED_SOLUTION_HASHES 1048576
+#define MAX_SAVED_SOLUTION_HASHES 1048576ULL
 
 Hash* known_solutions;
 
@@ -518,7 +513,7 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
     // apply duplicate filter
     if (config.filter_duplicate_solutions) {
         Hash hash = hash_full(&hash_grid);
-        for (size_t i = 0; i < solutions_found; i++) {
+        for (size_t i = 0; i < state.solutions_found; i++) {
             Hash value = known_solutions[i];
             if (value == 0) {
                 break;
@@ -527,12 +522,12 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
                 drop_solution("equal to previous solution");
             }
         }
-        if (solutions_found < MAX_SAVED_SOLUTION_HASHES) {
-            known_solutions[solutions_found] = hash;
+        if (state.solutions_found < MAX_SAVED_SOLUTION_HASHES) {
+            known_solutions[state.solutions_found] = hash;
         }
     }
     // show the solution
-    solutions_found++;
+    state.solutions_found++;
     if (config.show_solutions) {
         if (preprocessing) {
             printf("Solved in preprocessing, 1 solution:\n");
@@ -542,8 +537,8 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
         print_grid_pretty(&solution_grid, true);
     }
     if (config.max_solutions > 0) {
-        if (solutions_found >= config.max_solutions) {
-            printf("Search complete, found %zu solution%s in %.6f seconds, %zu branches (exited early, max solution count reached)\n", solutions_found, solutions_found == 1 ? "" : "s", get_time() - start, branches);
+        if (state.solutions_found >= config.max_solutions) {
+            printf("Search complete, found %zu solution%s in %.6f seconds, %zu branches (exited early, max solution count reached)\n", state.solutions_found, state.solutions_found == 1 ? "" : "s", get_time() - start, state.branches);
             exit(EXIT_SUCCESS);
         }
     }
@@ -616,7 +611,7 @@ int max_partial_trs[512];
 uint64_t last_printed_max_partial_size = 0;
 
 static void max_partials_end(void) {
-    if (solutions_found == 0) {
+    if (state.solutions_found == 0) {
         #if MULTI_RULE
             memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
@@ -630,7 +625,7 @@ static void max_partials_end(void) {
 
 static void print_info_if_needed(size_t depth) {
     if (config.max_partials) {
-        if (solutions_found == 0) {
+        if (state.solutions_found == 0) {
             uint64_t partial_size;
             if (config.max_partial_scoring == MAX_PARTIAL_SCORING_CELL) {
                 partial_size = state.set_unknown_vars;
@@ -648,16 +643,16 @@ static void print_info_if_needed(size_t depth) {
             }
         }
     }
-    if (branches % CHECK_TIME_EVERY_THIS_MANY_BRANCHES == 0) {
+    if (state.branches % CHECK_TIME_EVERY_THIS_MANY_BRANCHES == 0) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
-            printf("%ju seconds, %zu branches, %zu solutions, progress: ", (uintmax_t)(time - start), branches, solutions_found);
+            printf("%ju seconds, %zu branches, %zu solutions, progress: ", (uintmax_t)(time - start), state.branches, state.solutions_found);
             print_progress(stdout);
             real_printf("\n");
         }
         if (config.max_partials) {
-            if (solutions_found == 0 && time - last_max_partial_shown > config.max_partial_reporting_interval && max_partial_size > last_printed_max_partial_size) {
+            if (state.solutions_found == 0 && time - last_max_partial_shown > config.max_partial_reporting_interval && max_partial_size > last_printed_max_partial_size) {
                 last_max_partial_shown = time;
                 last_printed_max_partial_size = max_partial_size;
                 #if MULTI_RULE

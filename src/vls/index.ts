@@ -85,7 +85,7 @@ Options:
     -no-cache-trs: disable implication transition caching
     -check-times: keep track of when each cell's implications was last checked,
         can make it faster can make it slower
-    -clang: use clang instead of gcc
+    -gcc: use gcc instead of clang
 
     -s, -symmetry=<symmetry>: apply a symmetry to the pattern, currently
         supported symmetries are D2|, D2-, and D4+, but more are coming soon!
@@ -167,7 +167,7 @@ const OPTIONS = {
     'no-ot-optimization': FLAG,
     'no-cache-trs': FLAG,
     'check-times': FLAG,
-    'clang': FLAG,
+    'gcc': FLAG,
     'symmetry': STRING,
     's': 'symmetry',
     'maxpop': NUMBER,
@@ -901,11 +901,12 @@ export async function main() {
     await fs.writeFile(problemPath, data.problemFile);
     let commandsToRun: string[] = [];
     if (recompile) {
-        let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
+        let compiler: 'gcc' | 'clang' = options['gcc'] ? 'gcc' : 'clang';
+        let command = compiler === 'gcc' ? `gcc -std=c2x` : `clang -std=c23` ;
         command += ` -fdiagnostics-color=always`;
         // strict mode
         command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas -Wno-unused-function`;
-        if (options['clang']) {
+        if (compiler === 'clang') {
             command += ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
         }
         // features

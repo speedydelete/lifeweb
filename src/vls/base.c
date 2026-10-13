@@ -73,7 +73,7 @@
 #define real_fprintf (fprintf)
 #if DEBUG >= 3 || HASH_DEBUG
     #define HAS_DEBUG_DEPTH true
-    int debug_depth = 0;
+    static int debug_depth = 0;
     #define print_line_padding() { \
         for (int i = 0; i < debug_depth; i++) { \
             real_printf(INDENT); \
@@ -187,7 +187,7 @@ typedef struct Transformations {
     bool flip_anti_diagonal: 1;
 } Transformations;
 
-const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
+const static StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
     [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
     [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
     [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
@@ -200,7 +200,7 @@ const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
     [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
 };
 
-const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
+const static StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
     [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
     [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
     [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
@@ -355,7 +355,7 @@ struct Cell {
     CellUseData uses[];
 };
 
-Cell off_cell = {
+static Cell off_cell = {
     .next_in_search_order = NULL,
     .value = OFF,
     .var_number = 0,
@@ -365,7 +365,7 @@ Cell off_cell = {
     // no need to initialize the flexible array member
 };
 
-Cell on_cell = {
+static Cell on_cell = {
     .next_in_search_order = NULL,
     .value = ON,
     .var_number = 0,
@@ -380,22 +380,22 @@ typedef struct GridCell {
     bool invert;
 } GridCell;
 
-GridCell off_grid_cell = {
+static GridCell off_grid_cell = {
     .cell = &off_cell,
     .invert = false,
 };
 
-GridCell on_grid_cell = {
+static GridCell on_grid_cell = {
     .cell = &on_cell,
     .invert = false,
 };
 
-GridCell null_grid_cell = {
+static GridCell null_grid_cell = {
     .cell = NULL,
     .invert = false,
 };
 
-struct {
+static struct {
     // the width of the grid
     size_t width;
     // the height of the grid
@@ -425,6 +425,10 @@ struct {
     size_t start_unknown_vars;
     // the current number of set unknown cells
     size_t set_unknown_vars;
+    // the current number of branches
+    uintmax_t branches;
+    // the current number of solutions
+    uintmax_t solutions_found;
 } state;
 
 static GridCell* state_get_grid_cell(size_t t, size_t x, size_t y) {
@@ -528,7 +532,7 @@ typedef struct Config {
     // whether to show solutions at all
     bool show_solutions;
     // maximum number of solutions to show, 0 to disable
-    size_t max_solutions;
+    uintmax_t max_solutions;
     // whether to filter empty solutions
     bool filter_empty_solutions;
     // whether to filter duplicate solutions
@@ -550,7 +554,7 @@ typedef struct Config {
 
 } Config;
 
-Config config = {
+static Config config = {
     .search_order_len = 0,
     .search_order = NULL,
     .initial_value = OFF,
