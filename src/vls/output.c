@@ -48,7 +48,7 @@ static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
             for (size_t y = 0; y < grid->height; y++) {
                 for (size_t x = 0; x < grid->width; x++) {
                     CellValue value = dg_get(grid, t, x, y);
-                    if (!is_known(value)) {
+                    if (value == UNKNOWN) {
                         found = true;
                         break;
                     }
@@ -123,13 +123,13 @@ typedef uint64_t Hash;
 #define update_hash(hash, value) \
     do { \
         (hash) = _Generic((value), \
-            int8_t: update_hash_int8((hash), (int8_t)(value)), \
+            int8_t: update_hash_uint8((hash), (uint8_t)(value)), \
             uint8_t: update_hash_uint8((hash), (uint8_t)(value)), \
-            int16_t: update_hash_int8((hash), (int16_t)(value)), \
+            int16_t: update_hash_uint16((hash), (uint16_t)(value)), \
             uint16_t: update_hash_uint16((hash), (uint16_t)(value)), \
-            int32_t: update_hash_int8((hash), (int32_t)(value)), \
+            int32_t: update_hash_uint32((hash), (uint32_t)(value)), \
             uint32_t: update_hash_uint32((hash), (uint32_t)(value)), \
-            int64_t: update_hash_int8((hash), (int64_t)(value)), \
+            int64_t: update_hash_uint64((hash), (uint64_t)(value)), \
             uint64_t: update_hash_uint64((hash), (uint64_t)(value)), \
             char*: update_hash_string((hash), (char*)(uintptr_t)(value)), \
             const char*: update_hash_string((hash), (const char*)(uintptr_t)(value)) \
@@ -168,22 +168,6 @@ static inline Hash update_hash_uint64(Hash hash, uint64_t value) {
     return hash;
 }
 
-static inline Hash update_hash_int8(Hash hash, int8_t value) {
-    return update_hash_uint8(hash, (uint8_t)value);
-}
-
-static inline Hash update_hash_int16(Hash hash, int16_t value) {
-    return update_hash_uint8(hash, (uint16_t)value);
-}
-
-static inline Hash update_hash_int32(Hash hash, int32_t value) {
-    return update_hash_uint8(hash, (uint32_t)value);
-}
-
-static inline Hash update_hash_int64(Hash hash, int64_t value) {
-    return update_hash_uint8(hash, (uint64_t)value);
-}
-
 static inline Hash update_hash_string(Hash hash, const char* value) {
     for (size_t i = 0; value[i] != '\0'; i++) {
         update_hash(hash, (int8_t)value[i]);
@@ -197,8 +181,8 @@ static Hash min_hash(Hash x, Hash y) {
 
 #if HASH_DEBUG
     #include <stdio.h>
-    #define HASHdebug_printf_(...) printf(__VA_ARGS__)
-    #define HASHdebug_print_grid_(grid, depth) \
+    #define hash_debug_printf(...) printf(__VA_ARGS__)
+    #define hash_debug_print_grid(grid, depth) \
         do { \
             int prev = debug_depth; \
             debug_depth = (depth); \
@@ -206,8 +190,8 @@ static Hash min_hash(Hash x, Hash y) {
             debug_depth = prev; \
         } while (false)
 #else
-    #define HASHdebug_printf_(...)
-    #define HASHdebug_print_grid_(grid, depth)
+    #define hash_debug_printf(...)
+    #define hash_debug_print_grid(grid, depth)
 #endif
 
 static Hash hash_at_time(DynamicGrid* grid, size_t t) {
@@ -235,7 +219,7 @@ static Hash hash_all_times(DynamicGrid* grid) {
     return out;
 }
 
-static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, size_t dx, size_t dy) {
+static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, intmax_t dx, intmax_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
     DynamicGrid full_t_grid = EMPTY_DYNAMIC_GRID;
@@ -244,24 +228,24 @@ static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset
     DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
     size_t x_offset_0 = offsets.x;
     size_t y_offset_0 = offsets.y;
-    HASHdebug_printf_(INDENT "Hashing all times with offset %zu\n", offset);
-    HASHdebug_print_grid_(grid, 2);
-    HASHdebug_printf_(INDENT INDENT "x_offset_0 = %zu, y_offset_0 = %zu\n", x_offset_0, y_offset_0);
-    for (size_t fake_t = 0; fake_t < grid->gens; fake_t++) {
-        size_t real_t = (fake_t + offset) % grid->gens;
+    hash_debug_printf(INDENT "Hashing all times with offset %zu\n", offset);
+    hash_debug_print_grid(grid, 2);
+    hash_debug_printf(INDENT INDENT "x_offset_0 = %zu, y_offset_0 = %zu\n", x_offset_0, y_offset_0);
+    for (size_t fake_t = 0; fake_t < config.periodic_period; fake_t++) {
+        size_t real_t = (fake_t + offset) % config.periodic_period;
         dg_extract_gen(&full_t_grid, grid, real_t);
         DGShrinkToFitOffsets offsets = dg_shrink_to_fit(&t_grid, &full_t_grid);
         intmax_t x_offset = (intmax_t)offsets.x - (intmax_t)x_offset_0;
         intmax_t y_offset = (intmax_t)offsets.y - (intmax_t)y_offset_0;
-        HASHdebug_printf_(INDENT INDENT INDENT "x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
+        hash_debug_printf(INDENT INDENT INDENT "x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
         if (fake_t > real_t) {
             x_offset += dx;
             y_offset += dy;
         }
         update_hash(out, x_offset);
         update_hash(out, y_offset);
-        HASHdebug_printf_(INDENT INDENT INDENT "resolved: x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
-        HASHdebug_print_grid_(&t_grid, 3);
+        hash_debug_printf(INDENT INDENT INDENT "resolved: x_offset = %ji, y_offset = %ji\n", x_offset, y_offset);
+        hash_debug_print_grid(&t_grid, 3);
         for (size_t y = 0; y < t_grid.height; y++) {
             for (size_t x = 0; x < t_grid.width; x++) {
                 CellValue value = dg_get(&t_grid, 0, x, y);
@@ -271,34 +255,34 @@ static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset
     }
     dg_destroy(&full_t_grid);
     dg_destroy(&t_grid);
-    HASHdebug_printf_(INDENT INDENT "Final hash: %"PRIhash"\n", out);
+    hash_debug_printf(INDENT INDENT "Final hash: %"PRIhash"\n", out);
     return out;
 }
 
 static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
     Hash out = MAX_HASH;
-    HASHdebug_printf_(INDENT "Hashing all times\n");
-    for (size_t offset = 0; offset < grid->gens; offset++) {
+    hash_debug_printf(INDENT "Hashing all times\n");
+    for (size_t offset = 0; offset < config.periodic_period; offset++) {
         out = min_hash(out, hash_all_times_periodic_with_offset(grid, offset, dx, dy));
     }
-    HASHdebug_printf_(INDENT "Final final hash: %"PRIhash"\n", out);
+    hash_debug_printf(INDENT "Final final hash: %"PRIhash"\n", out);
     return out;
 }
 
 static Hash hash_full(DynamicGrid* grid) {
     StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[state.symmetry][get_rule_symmetry()];
     Transformations transforms = sts_to_transforms(symmetry);
-    HASHdebug_printf_("\n\nFull hashing grid:\n");
-    HASHdebug_print_grid_(grid, 0);
-    HASHdebug_printf_(INDENT "\nHashing (no transformation):\n");
+    hash_debug_printf("\n\nFull hashing grid:\n");
+    hash_debug_print_grid(grid, 0);
+    hash_debug_printf(INDENT "\nHashing (no transformation):\n");
     DynamicGrid temp = EMPTY_DYNAMIC_GRID;
     Hash out;
     if (config.periodic) {
-        size_t dx = config.periodic_dx;
-        size_t dy = config.periodic_dy;
+        intmax_t dx = config.periodic_dx;
+        intmax_t dy = config.periodic_dy;
         out = hash_all_times_periodic(grid, dx, dy);
         #define add_hash(transform, dx, dy) \
-            HASHdebug_printf_(INDENT "\nHashing "#transform":\n"); \
+            hash_debug_printf(INDENT "\nHashing "#transform":\n"); \
             if (transforms.transform) { \
                 dg_##transform(&temp, grid); \
                 out = min_hash(out, hash_all_times_periodic(&temp, (dx), (dy))); \
@@ -314,7 +298,7 @@ static Hash hash_full(DynamicGrid* grid) {
     } else {
         out = hash_all_times(grid);
         #define add_hash(transform) \
-            HASHdebug_printf_(INDENT "\nHashing "#transform":\n"); \
+            hash_debug_printf(INDENT "\nHashing "#transform":\n"); \
             if (transforms.transform) { \
                 dg_##transform(&temp, grid); \
                 out = min_hash(out, hash_all_times(&temp)); \
@@ -329,7 +313,7 @@ static Hash hash_full(DynamicGrid* grid) {
         #undef add_hash
     }
     dg_destroy(&temp);
-    HASHdebug_printf_("\nFinal final final hash: %"PRIhash"\n\n\n", out);
+    hash_debug_printf("\nFinal final final hash: %"PRIhash"\n\n\n", out);
     return out;
 }
 
@@ -447,7 +431,7 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
         }
     }
     // apply subperiod filter
-    if (config.filter_subperiod_solutions) {
+    if (config.periodic && config.filter_subperiod_solutions) {
         Hash* hashes = safe_malloc(config.periodic_period * sizeof(Hash));
         DynamicGrid hash_grid_2 = EMPTY_DYNAMIC_GRID;
         DynamicGrid hash_grid_3 = EMPTY_DYNAMIC_GRID;
@@ -570,7 +554,7 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
 
 
 
-#define CHECK_TIME_EVERY 65536
+#define CHECK_TIME_EVERY_THIS_MANY_BRANCHES 1024
 
 double last_progress_shown;
 
@@ -650,7 +634,7 @@ static void print_info_if_needed(size_t depth) {
         if (solutions_found == 0) {
             uint64_t partial_size;
             if (config.max_partial_scoring == MAX_PARTIAL_SCORING_CELL) {
-                partial_size = state.set_unknown_cells;
+                partial_size = state.set_unknown_vars;
             } else if (config.max_partial_scoring == MAX_PARTIAL_SCORING_DEPTH) {
                 partial_size = depth;
             } else {
@@ -665,7 +649,7 @@ static void print_info_if_needed(size_t depth) {
             }
         }
     }
-    if (branches % CHECK_TIME_EVERY == 0) {
+    if (branches % CHECK_TIME_EVERY_THIS_MANY_BRANCHES == 0) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;

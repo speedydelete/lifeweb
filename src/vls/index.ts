@@ -809,15 +809,30 @@ ${base.trs.join(' ')}
 search_order (length = ${searchOrderData.length}):
 ${searchOrderData.map(c => `${c.t} ${c.x} ${c.y}`).join('\n')}
 
+initial_value = ${options['initial-value'] ?? '1'}
+
 ${options['initial-value'] !== undefined ? `initial_value = ${options['initial-value']}` : ''}
 
 ${(() => {
-    if (!options['periodic']) {
+    if (!periodic) {
         return '';
     }
-    let data = parseSpeed(options['periodic']);
-    return `${data.dx} ${data.dy} ${data.period}`;
+    return `periodic = (${periodic.dx}, ${periodic.dy})c/${periodic.period}`;
 })()}
+
+reporting_interval = ${options['interval'] ?? 1}
+
+show_solutions = ${Number(!options['no-show-solutions'])}
+max_solutions = ${Number(options['max-solutions'] ?? 0)}
+filter_empty_solutions = ${Number(!options['allow-empty'])}
+filter_duplicate_solutions = ${Number(!options['allow-duplicates'])}
+filter_subperiod_solutions = ${Number(!options['allow-subperiod'])}
+
+${options['cell-period-filter'] ? `cell_period_filter (length = ${options['cell-period-filter'].length}):\n${options['cell-period-filter'].split(/, /).join(' ')}` : ''}
+
+max_partials = ${Number(options['partials'] !== 'none')}
+${options['partials'] && options['partials'] !== 'none' ? `max_partial_scoring = MAX_PARTIAL_SCORING_${options['partials'].toUpperCase()}` : ''}
+max_partial_reporting_interval = ${options['partial-interval'] ?? 1}
 
 `;
 

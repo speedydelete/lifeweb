@@ -8,14 +8,10 @@
 #include "base.c"
 
 
-typedef struct DynamicCell {
-    CellValue value;
-    size_t var;
-    bool invert;
-} DynamicCell;
+typedef CellValue DynamicCell;
 
 static inline bool dc_eq(DynamicCell x, DynamicCell y) {
-    return x.value == y.value && x.var == y.var;
+    return x == y;
 }
 
 
@@ -59,12 +55,11 @@ static void dg_init(DynamicGrid* grid, size_t width, size_t height, size_t gens)
 }
 
 static inline CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
-    return dg_index(grid, t, x, y).value;
+    return dg_index(grid, t, x, y);
 }
 
 static inline void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellValue value) {
-    dg_index(grid, t, x, y).value = value;
-    dg_index(grid, t, x, y).var = 0;
+    dg_index(grid, t, x, y) = value;
 }
 
 static inline void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
@@ -82,9 +77,7 @@ static inline void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_
             value = OFF;
         }
     }
-    dg_index(grid, t, x, y).value = value;
-    dg_index(grid, t, x, y).var = cell->var_number;
-    dg_index(grid, t, x, y).invert = grid_cell->invert;
+    dg_index(grid, t, x, y) = value;
 }
 
 static void dg_init_from_search_grid(DynamicGrid* out) {

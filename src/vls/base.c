@@ -130,7 +130,6 @@ typedef int CellValue;
 #define UNKNOWN 0
 #define OFF 1
 #define ON 2
-#define is_known(value) ((value) == OFF || (value) == ON)
 #define convert_12_to_01(value) ((value) - 1)
 
 typedef uint32_t ImplicationTransition;
@@ -293,9 +292,9 @@ typedef struct Cell Cell;
 typedef struct CAClause {
     size_t number;
     int state_number;
-    ImplicState states[10];
-    Cell* center;
-    bool invert_center;
+    ImplicState states[128];
+    Cell* c;
+    bool invert_c;
     Cell* next;
     bool invert_next;
     Cell* nw;
@@ -318,9 +317,9 @@ typedef struct CAClause {
 
 #define clause_state(clause) ((clause)->states[(clause)->state_number])
 
-typedef struct CAClauseData {
+typedef struct CellUseData {
     // CAN BE A NULL POINTER
-    CAClause* center;
+    CAClause* c;
     // CAN BE A NULL POINTER
     CAClause* prev;
     // CAN BE A NULL POINTER
@@ -339,7 +338,7 @@ typedef struct CAClauseData {
     CAClause* s;
     // CAN BE A NULL POINTER
     CAClause* se;
-} CAClauseData;
+} CellUseData;
 
 struct Cell {
     // the next entry in the search order, CAN BE A NULL POINTER
@@ -356,7 +355,7 @@ struct Cell {
     // the length of the `uses` flexible array member
     size_t use_count;
     // the clauses it is used in
-    CAClauseData uses[];
+    CellUseData uses[];
 };
 
 Cell off_cell = {
@@ -416,7 +415,7 @@ struct {
     CellValue trs[512];
     // the cells, indexed by their variable number
     // numbering starts at 1, so entry 0 is a null pointer
-    Cell** variables;
+    Cell** vars;
     // `total_size`-long array of grid cells
     GridCell* grid;
     // the symmetry of the grid
@@ -424,11 +423,11 @@ struct {
     // the number of CA clauses
     size_t ca_clause_count;
     // the CA clauses that encode the problem
-    CAClause* ca_clauses;
+    CAClause** ca_clauses;
     // the number of unknown cells at the start of the search
-    size_t start_unknown_cells;
+    size_t start_unknown_vars;
     // the current number of set unknown cells
-    size_t set_unknown_cells;
+    size_t set_unknown_vars;
 } state;
 
 static GridCell* state_get_grid_cell(size_t t, size_t x, size_t y) {
@@ -474,6 +473,7 @@ static GridCell* state_get_grid_cell_allow_oob(size_t t, size_t x, size_t y) {
 
 // sets a cell to a value, propagating transitions but doing nothing else
 static bool set_cell(Cell* cell, CellValue value);
+static void unset_cell(Cell* cell);
 // aliases a cell to another, propagating transitions but doing nothing else
 static bool alias(Cell* cell, Cell* alias_to, bool invert);
 // undoes an alias, propagating transitions but doing nothing else
@@ -515,10 +515,10 @@ typedef struct Config {
     // the initial value of unknown cells, should be OFF or ON
     CellValue initial_value;
 
-    // whether you are searching for periodic patterns
+    // whether you are searching for periodic patterns, and the corresponding speed
     bool periodic;
-    size_t periodic_dx;
-    size_t periodic_dy;
+    intmax_t periodic_dx;
+    intmax_t periodic_dy;
     size_t periodic_period;
 
     // the interval used for reporting progress
@@ -593,14 +593,23 @@ static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
     CellValue value = cell->value;
     if (value == UNKNOWN) {
-        if (cell->use_count < 2) {
-            real_fprintf(stream, "%-*c", field_size, '*');
-        } else {
+        size_t use_count = 0;
+        for (size_t i = 0; i < state.total_size; i++) {
+            if (state.grid[i].cell == cell) {
+                use_count++;
+                if (use_count > 1) {
+                    break;
+                }
+            }
+        }
+        if (use_count > 1) {
             int64_t value = cell->var_number;
             if (grid_cell->invert) {
                 value = -value;
             }
             real_fprintf(stream, "%-*"PRIi64, field_size, value);
+        } else {
+            real_fprintf(stream, "%-*c", field_size, '*');
         }
     } else if (value == OFF) {
         real_fprintf(stream, "%-*c", field_size, '.');
@@ -613,7 +622,29 @@ static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
 
 // print the grid for debugging purposes
 static void print_grid(FILE* stream) {
-    int field_size = (int)floor(log10((int)state.var_count - 1)) + 2;
+    bool found_multi_use_cell = false;
+    for (size_t i = 1; i <= state.var_count; i++) {
+        Cell* cell = state.vars[i];
+        size_t use_count = 0;
+        for (size_t j = 0; j < state.total_size; j++) {
+            if (state.grid[j].cell == cell) {
+                use_count++;
+                if (use_count > 1) {
+                    found_multi_use_cell = true;
+                    break;
+                }
+            }
+        }
+        if (found_multi_use_cell) {
+            break;
+        }
+    }
+    int field_size;
+    if (found_multi_use_cell) {
+        field_size = (int)floor(log10(state.var_count)) + 2;
+    } else {
+        field_size = 2;
+    }
     // if there's an invert we have to make it bigger to fit the minus sign
     for (size_t i = 0; i < state.total_size; i++) {
         if (state.grid[i].invert) {
@@ -624,7 +655,7 @@ static void print_grid(FILE* stream) {
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256 * sizeof(char));
     get_rule(rule, false);
-    fprintf(stream, "Grid (rule = %s, set_unknown_cells = %zu out of %zu):\n", rule, state.set_unknown_cells, state.start_unknown_cells);
+    fprintf(stream, "Grid (rule = %s, set_unknown_vars = %zu out of %zu):\n", rule, state.set_unknown_vars, state.start_unknown_vars);
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
             fprint_line_padding(stream);
@@ -667,8 +698,8 @@ static void init_state(InitFromState* from) {
     state.var_count = from->var_count;
     state.layer_size = state.width * state.height;
     state.total_size = state.layer_size * state.gens;
-    state.start_unknown_cells = state.var_count;
-    state.set_unknown_cells = 0;
+    state.start_unknown_vars = state.var_count;
+    state.set_unknown_vars = 0;
     // first we have to determine how many times each variable is used
     // we add 1 in the allocations because variable 0 is unused
     size_t* var_uses = safe_malloc((state.var_count + 1) * sizeof(size_t));
@@ -681,10 +712,10 @@ static void init_state(InitFromState* from) {
         }
     }
     // create the cells
-    state.variables = safe_malloc((state.var_count + 1) * sizeof(Cell*));
-    state.variables[0] = NULL;
+    state.vars = safe_malloc((state.var_count + 1) * sizeof(Cell*));
+    state.vars[0] = NULL;
     for (size_t i = 1; i <= state.var_count; i++) {
-        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CAClauseData));
+        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CellUseData));
         cell->value = UNKNOWN;
         cell->var_number = i;
         cell->alias = NULL;
@@ -692,8 +723,8 @@ static void init_state(InitFromState* from) {
         cell->use_count = var_uses[i];
         // fill the uses with null pointers
         for (size_t j = 0; j < cell->use_count; j++) {
-            CAClauseData* data = &(cell->uses[j]);
-            data->center = NULL;
+            CellUseData* data = &(cell->uses[j]);
+            data->c = NULL;
             data->prev = NULL;
             data->nw = NULL;
             data->n = NULL;
@@ -704,7 +735,7 @@ static void init_state(InitFromState* from) {
             data->s = NULL;
             data->se = NULL;
         }
-        state.variables[i] = cell;
+        state.vars[i] = cell;
     }
     safe_free(var_uses);
     // now do the grid
@@ -717,7 +748,7 @@ static void init_state(InitFromState* from) {
                 CellValue value = init_cell->value;
                 Cell* cell;
                 if (value == UNKNOWN) {
-                    cell = state.variables[init_cell->var];
+                    cell = state.vars[init_cell->var];
                 } else if (value == OFF) {
                     cell = &off_cell;
                 } else if (value == ON) {
@@ -732,8 +763,8 @@ static void init_state(InitFromState* from) {
         }
     }
     // now the clauses
-    state.ca_clause_count = state.height * state.width * (state.gens - 1);
-    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
+    state.ca_clause_count = state.width * state.height * (state.gens - 1);
+    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause*));
     i = 0;
     for (size_t t = 0; t < state.gens - 1; t++) {
         for (size_t y = 0; y < state.height; y++) {
@@ -742,14 +773,13 @@ static void init_state(InitFromState* from) {
                 if (init_cell->no_clause) {
                     continue;
                 }
-                CAClause* clause = &(state.ca_clauses[i]);
+                CAClause* clause = malloc(sizeof(CAClause));
                 clause->number = i;
-                i++;
                 clause->state_number = 0;
                 // fill the clause's pointers
                 GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
-                clause->center = cell->cell;
-                clause->invert_center = cell->invert;
+                clause->c = cell->cell;
+                clause->invert_c = cell->invert;
                 cell = state_get_grid_cell_allow_oob(t + 1, x, y);
                 clause->next = cell->cell;
                 clause->invert_next = cell->invert;
@@ -797,7 +827,7 @@ static void init_state(InitFromState* from) {
                             unexpected_error("Cell use count too small: %zu (for variable %zu)", cell->use_count, cell->var_number); \
                         } \
                     } while (false)
-                add(clause->center, center);
+                add(clause->c, c);
                 add(clause->next, prev);
                 add(clause->nw, se);
                 add(clause->n, s);
@@ -808,6 +838,8 @@ static void init_state(InitFromState* from) {
                 add(clause->s, n);
                 add(clause->se, nw);
                 #undef add
+                state.ca_clauses[i] = clause;
+                i++;
             }
         }
     }
@@ -817,10 +849,13 @@ static void init_state(InitFromState* from) {
 // free the current state
 static void destroy_state(void) {
     for (size_t i = 1; i <= state.var_count; i++) {
-        safe_free(state.variables[i]);
+        safe_free(state.vars[i]);
     }
-    safe_free(state.variables);
+    safe_free(state.vars);
     safe_free(state.grid);
+    for (size_t i = 0; i < state.ca_clause_count; i++) {
+        safe_free(state.ca_clauses[i]);
+    }
     safe_free(state.ca_clauses);
 }
 
@@ -886,7 +921,7 @@ static bool apply_stack_entry(StackEntry* entry) {
     #endif
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
         set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
-        state.set_unknown_cells++;
+        state.set_unknown_vars++;
     } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
         alias(entry->data.alias.cell, entry->data.alias.aliased_to, entry->data.alias.invert);
     } else {
@@ -902,8 +937,8 @@ static bool undo_stack_entry(StackEntry* entry) {
         print_stack_entry(entry);
     #endif
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
-        set_cell(entry->data.cell_set.cell, UNKNOWN);
-        state.set_unknown_cells--;
+        unset_cell(entry->data.cell_set.cell);
+        state.set_unknown_vars--;
     } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
         unalias(entry->data.alias.cell);
     } else {
@@ -1064,14 +1099,14 @@ static void pop_stack_frame(Stack* stack) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
-    if (is_known(cell->value)) {
+    if (cell->value != UNKNOWN) {
         unexpected_error("Setting known cell");
     }
     debug_printf_4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     if (!set_cell(cell, value)) {
         return false;
     }
-    state.set_unknown_cells++;
+    state.set_unknown_vars++;
     StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_CELL_SET;
     entry->data.cell_set.cell = cell;

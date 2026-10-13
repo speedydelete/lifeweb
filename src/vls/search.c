@@ -185,7 +185,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
     if (depth > config.search_order_len + 2) {
         unexpected_error("The dwarves delved too greedily and too deep");
     }
-    if (state.set_unknown_cells >= state.start_unknown_cells) {
+    if (state.set_unknown_vars >= state.start_unknown_vars) {
         #ifndef BENCHMARK
             check_solution(false);
         #endif
@@ -246,7 +246,7 @@ static void actual_run_search(Cell* initial_cell) {
 static void run_search(void) {
     Cell* initial_cell = add_search_orders();
     debug_print_grid_1();
-    printf("Running search\n");
+    debug_printf_1("Running search\n");
     #ifndef BENCHMARK
         actual_run_search(initial_cell);
         printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", solutions_found, get_time() - start, branches);

@@ -116,8 +116,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         }
     }
     size_t v_size;
-    size_t v_size_2;
-    size_t v_size_3;
+    intmax_t v_intmax;
+    intmax_t v_intmax_2;
     int v_int;
     double v_double;
     char v_str[256];
@@ -184,12 +184,12 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             config.search_order[i][2] = y;
         }
     } else if (check_line(file, "initial_value = %i", &v_int)) {
-        config.initial_value = v_int;
-    } else if (check_line(file, "periodic = %zu %zu %zu", &v_size, &v_size_2, &v_size_3)) {
+        config.initial_value = v_int == 0 ? OFF : ON;
+    } else if (check_line(file, "periodic = ( %ji , %ji ) c / %zu", &v_intmax, &v_intmax_2, &v_size)) {
         config.periodic = true;
-        config.periodic_dx = v_size;
-        config.periodic_dy = v_size_2;
-        config.periodic_period = v_size_3;
+        config.periodic_dx = v_intmax;
+        config.periodic_dy = v_intmax_2;
+        config.periodic_period = v_size;
     } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
         config.reporting_interval = v_double;
     } else if (check_line(file, "after_rule_text = %255s", v_str)) {
@@ -203,6 +203,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.filter_empty_solutions = v_int;
     } else if (check_line(file, "filter_duplicate_solutions = %i", &v_int)) {
         config.filter_duplicate_solutions = v_int;
+    } else if (check_line(file, "filter_subperiod_solutions = %i", &v_int)) {
+        config.filter_subperiod_solutions = v_int;
     } else if (check_line(file, "cell_period_filter ( length = %zu ) =", &v_size)) {
         config.cell_period_filter_length = v_size;
         config.cell_period_filter = safe_malloc(config.cell_period_filter_length * sizeof(int));
@@ -264,6 +266,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
     if (data.grid != NULL) {
         safe_free(data.grid);
     }
+    printf("Loaded problem: %zu variables, %zu clauses\n", state.var_count, state.ca_clause_count);
 }
 
 
