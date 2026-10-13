@@ -156,6 +156,7 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     bool can_be_0 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_OFF_MASKS[pos]);
     bool can_be_1 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_ON_MASKS[pos]);
     debug_printf_4("Implication: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", pos, cell->var_number, can_be_0, can_be_1);
+    print_implicstate(clause_state(clause));
     if (!can_be_0 && !can_be_1) {
         // it can't be anything, so contradiction!
         return false;
