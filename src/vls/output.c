@@ -12,7 +12,6 @@
 // sometimes it's not defined, so we have to do this
 extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
-#include "base.c"
 #include "dynamic_grid.c"
 #include "rules.c"
 #ifdef CUSTOM
