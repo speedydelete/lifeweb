@@ -131,7 +131,7 @@ typedef int CellValue;
 #define OFF 1
 #define ON 2
 #define is_known(value) ((value) == OFF || (value) == ON)
-#define conv_12_to_01(value) ((value) == ON ? 1 : 0)
+#define conv_12_to_01(value) ((value) - 1)
 
 typedef uint32_t ImplicationTransition;
 
@@ -291,6 +291,7 @@ typedef uint64_t ImplicState[16];
 typedef struct Cell Cell;
 
 typedef struct CAClause {
+    size_t number;
     int state_number;
     ImplicState states[10];
     Cell* center;
@@ -612,7 +613,7 @@ static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
 
 // print the grid for debugging purposes
 static void print_grid(FILE* stream) {
-    int field_size = (int)ceil(log10((int)state.var_count)) + 1;
+    int field_size = (int)floor(log10((int)state.var_count - 1)) + 2;
     // if there's an invert we have to make it bigger to fit the minus sign
     for (size_t i = 0; i < state.total_size; i++) {
         if (state.grid[i].invert) {
@@ -742,6 +743,7 @@ static void init_state(InitFromState* from) {
                     continue;
                 }
                 CAClause* clause = &(state.ca_clauses[i]);
+                clause->number = i;
                 i++;
                 clause->state_number = 0;
                 // fill the clause's pointers
@@ -1062,6 +1064,9 @@ static void pop_stack_frame(Stack* stack) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
+    if (is_known(cell->value)) {
+        unexpected_error("Setting known cell");
+    }
     debug_printf_4("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
     if (!set_cell(cell, value)) {
         return false;

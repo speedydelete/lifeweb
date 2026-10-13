@@ -19,3 +19,9 @@
 
 // custom file to load stuff from
 // #define CUSTOM
+
+
+// speed settings
+
+// whether to enable certain speed-reducing sanity checks
+#define SLOWER_SANITY_CHECKS true

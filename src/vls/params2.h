@@ -15,7 +15,13 @@
 // basic settings
 
 // debug level
-#define DEBUG 4
+#define DEBUG 5
 
 // custom file to load stuff from
 // #define CUSTOM
+
+
+// speed settings
+
+// whether to enable certain speed-reducing sanity checks
+#define SLOWER_SANITY_CHECKS true

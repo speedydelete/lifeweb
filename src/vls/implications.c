@@ -146,7 +146,7 @@ static void init_implicstate(void) {
     }
 }
 
-static inline bool check_one_cell_implications(CAClause* clause, int pos, Cell* cell) {
+static inline bool check_single_cell_implications(CAClause* clause, int pos, Cell* cell) {
     if (cell->value != UNKNOWN) {
         return true;
     }
@@ -167,16 +167,16 @@ static inline bool check_one_cell_implications(CAClause* clause, int pos, Cell* 
 }
 
 static bool check_implications(CAClause* clause) {
-    return check_one_cell_implications(clause, 9, clause->nw)
-        && check_one_cell_implications(clause, 8, clause->w)
-        && check_one_cell_implications(clause, 7, clause->sw)
-        && check_one_cell_implications(clause, 6, clause->n)
-        && check_one_cell_implications(clause, 5, clause->center)
-        && check_one_cell_implications(clause, 4, clause->s)
-        && check_one_cell_implications(clause, 3, clause->ne)
-        && check_one_cell_implications(clause, 2, clause->e)
-        && check_one_cell_implications(clause, 1, clause->se)
-        && check_one_cell_implications(clause, 0, clause->next)
+    return check_single_cell_implications(clause, 9, clause->nw)
+        && check_single_cell_implications(clause, 8, clause->w)
+        && check_single_cell_implications(clause, 7, clause->sw)
+        && check_single_cell_implications(clause, 6, clause->n)
+        && check_single_cell_implications(clause, 5, clause->center)
+        && check_single_cell_implications(clause, 4, clause->s)
+        && check_single_cell_implications(clause, 3, clause->ne)
+        && check_single_cell_implications(clause, 2, clause->e)
+        && check_single_cell_implications(clause, 1, clause->se)
+        && check_single_cell_implications(clause, 0, clause->next)
     ;
 }
 
@@ -198,22 +198,23 @@ static bool set_cell(Cell* cell, CellValue value) {
         #endif
         for (size_t i = 0; i < cell->use_count; i++) {
             CAClauseData* data = &(cell->uses[i]);
+            #if DEBUG >= 5
+                #define hi print_implicstate
+            #else
+                #define hi(...)
+            #endif
             #define update(clause, pos) \
                 if ((clause) != NULL) { \
-                    debug_printf_4("Setting cell in clause: pos = %i, value = %i, state_number = %i\n", pos, value, (clause)->state_number); \
-                    /*print_implicstate(clause_state(clause));*/ \
+                    debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->state_number); \
+                    hi(clause_state(clause)); \
                     if (is_known(value)) { \
                         clause->state_number++; \
                         implicstate_copy(clause_state(clause), clause->states[clause->state_number - 1]); \
                         implicstate_set_cell(clause_state(clause), (pos), conv_12_to_01(value)); \
-                        /*print_implicstate(clause_state(clause));*/ \
-                        if (implicstate_is_contradiction(clause_state(clause))) { \
-                            debug_printf_3("Contradiction (in set_cell, pos = %i, value = %i)\n", pos, value); \
-                            return false; \
-                        } \
+                        hi(clause_state(clause)); \
                     } else { \
                         clause->state_number--; \
-                        /*print_implicstate(clause_state(clause));*/ \
+                        hi(clause_state(clause)); \
                     } \
                 }
             update(data->prev, 0);
@@ -227,6 +228,7 @@ static bool set_cell(Cell* cell, CellValue value) {
             update(data->e, 8);
             update(data->se, 9);
             #undef add
+            #undef hi
         }
         #if HAS_DEBUG_DEPTH
             debug_depth--;

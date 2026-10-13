@@ -708,6 +708,8 @@ let defines: {[key: string]: undefined | string | number | boolean} = Object.cre
 defines['DEBUG'] = options.debug;
 defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
+defines['SLOWER_SANITY_CHECKS'] = true;
+
 const CONSTANT_DEFINES = new Set(['_POSIX_C_SOURCE']);
 
 let params2Lines: string[] = [];
