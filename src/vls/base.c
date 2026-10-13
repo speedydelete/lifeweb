@@ -285,9 +285,7 @@ typedef uint64_t ImplicState[16];
 
 #elif IMPLICATION_BACKEND == IMPLICATION_BACKEND_AVX2
 
-#include <immintrin.h>
-
-typedef __m256i ImplicState[4];
+typedef uint64_t ImplicState[16];
 
 #else
 
@@ -397,10 +395,10 @@ static GridCell off_grid_cell = {
     .invert = false,
 };
 
-// static GridCell on_grid_cell = {
-//     .cell = &on_cell,
-//     .invert = false,
-// };
+static GridCell on_grid_cell = {
+    .cell = &on_cell,
+    .invert = false,
+};
 
 static GridCell null_grid_cell = {
     .cell = NULL,
