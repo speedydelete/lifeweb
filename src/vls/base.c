@@ -187,7 +187,7 @@ typedef struct Transformations {
     bool flip_anti_diagonal: 1;
 } Transformations;
 
-const static StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
+static const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
     [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
     [C2 ] = {C2 , C2 , C4 , D4p, D4p, D4x, D4x, D4p, D4x, D8 },
     [C4 ] = {C4 , C4 , C4 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
@@ -200,7 +200,7 @@ const static StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
     [D8 ] = {D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 , D8 },
 };
 
-const static StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
+static const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
     [C1 ] = {C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 , C1 },
     [C2 ] = {C1 , C2 , C2 , C1 , C1 , C1 , C1 , C2 , C2 , C2 },
     [C4 ] = {C1 , C2 , C4 , C1 , C1 , C1 , C1 , C2 , C2 , C4 },
@@ -397,10 +397,10 @@ static GridCell off_grid_cell = {
     .invert = false,
 };
 
-static GridCell on_grid_cell = {
-    .cell = &on_cell,
-    .invert = false,
-};
+// static GridCell on_grid_cell = {
+//     .cell = &on_cell,
+//     .invert = false,
+// };
 
 static GridCell null_grid_cell = {
     .cell = NULL,
