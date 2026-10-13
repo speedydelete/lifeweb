@@ -120,20 +120,32 @@ static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2,
 
 #include <immintrin.h>
 
+
+#include <immintrin.h>
+
+/* 1024 bits as four 256-bit lanes. Bit k lives in lane (k >> 8), word ((k >> 6) & 3). */
+
 static inline void implicstate_copy(ImplicState to, ImplicState from) {
-    memcpy(to, from, sizeof(ImplicState));
+    for (int i = 0; i < 4; i++) {
+        to[i] = from[i];
+    }
 }
 
 static inline int implicstate_get_bit(ImplicState state, int bit) {
-    return (state[bit >> 6] >> (bit & 63)) & 1;
+    uint64_t words[4];
+    _mm256_storeu_si256((__m256i *)words, state[bit >> 8]);
+    return (words[(bit >> 6) & 3] >> (bit & 63)) & 1;
 }
 
 static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
+    uint64_t words[4];
+    _mm256_storeu_si256((__m256i *)words, state[bit >> 8]);
     if (value == 0) {
-        state[bit >> 6] &= ~((uint64_t)1 << (bit & 63));
+        words[(bit >> 6) & 3] &= ~((uint64_t)1 << (bit & 63));
     } else {
-        state[bit >> 6] |= ((uint64_t)1 << (bit & 63));
+        words[(bit >> 6) & 3] |= ((uint64_t)1 << (bit & 63));
     }
+    state[bit >> 8] = _mm256_loadu_si256((const __m256i *)words);
 }
 
 static void print_implicstate(ImplicState state) {
@@ -149,96 +161,72 @@ static void print_implicstate(ImplicState state) {
     }
 }
 
-/*
- * Unaligned loads/stores are used throughout, so an ImplicState may sit
- * anywhere (stack, struct member, malloc). On AVX2 hardware they cost the
- * same as aligned ones when the data happens to be 32-byte aligned.
- */
-static inline __m256i implicstate_avx2_load(ImplicState state, int v) {
-    return _mm256_loadu_si256((const __m256i *)(state + 4 * v));
-}
-
-static inline void implicstate_avx2_store(ImplicState state, int v, __m256i x) {
-    _mm256_storeu_si256((__m256i *)(state + 4 * v), x);
-}
-
-/*
- * Bits of vector v (state indices k = 256*v .. 256*v + 255) whose index k has
- * bit `pos` set. Bit k sits in vector k >> 8, 64-bit lane (k >> 6) & 3,
- * bit k & 63, so:
- *   pos 0..5  depend only on the bit within a lane  -> one repeated pattern
- *   pos 6..7  depend only on the lane               -> fixed lane mask
- *   pos 8..9  depend only on the vector index v     -> all ones or all zeros
- *   pos >= 10 never set, since k < 1024
- */
-static inline __m256i implicstate_avx2_cell_ones(int pos, int v) {
-    static const uint64_t lane_patterns[6] = {
-        0xAAAAAAAAAAAAAAAAull,
-        0xCCCCCCCCCCCCCCCCull,
-        0xF0F0F0F0F0F0F0F0ull,
-        0xFF00FF00FF00FF00ull,
-        0xFFFF0000FFFF0000ull,
-        0xFFFFFFFF00000000ull,
-    };
-    if (pos < 6) {
-        return _mm256_set1_epi64x((long long)lane_patterns[pos]);
-    }
-    if (pos == 6) {
-        return _mm256_set_epi64x(-1, 0, -1, 0); /* lanes 1 and 3 */
-    }
-    if (pos == 7) {
-        return _mm256_set_epi64x(-1, -1, 0, 0); /* lanes 2 and 3 */
-    }
-    if (pos < 10) {
-        return _mm256_set1_epi64x(((v >> (pos - 8)) & 1) ? -1 : 0);
-    }
-    return _mm256_setzero_si256();
-}
-
 static inline bool implicstate_eq(ImplicState x, ImplicState y) {
-    __m256i diff = _mm256_setzero_si256();
-    for (int v = 0; v < 4; v++) {
-        diff = _mm256_or_si256(diff, _mm256_xor_si256(implicstate_avx2_load(x, v), implicstate_avx2_load(y, v)));
+    __m256i acc = _mm256_xor_si256(x[0], y[0]);
+    for (int i = 1; i < 4; i++) {
+        acc = _mm256_or_si256(acc, _mm256_xor_si256(x[i], y[i]));
     }
-    return _mm256_testz_si256(diff, diff);
+    return _mm256_testz_si256(acc, acc) != 0;
 }
 
 static inline bool implicstate_is_contradiction(ImplicState state) {
-    __m256i any = _mm256_setzero_si256();
-    for (int v = 0; v < 4; v++) {
-        any = _mm256_or_si256(any, implicstate_avx2_load(state, v));
-    }
-    return _mm256_testz_si256(any, any);
+    __m256i acc = _mm256_or_si256(_mm256_or_si256(state[0], state[1]),
+                                  _mm256_or_si256(state[2], state[3]));
+    return _mm256_testz_si256(acc, acc) != 0;
 }
 
 static inline bool implicstate_satisfies_mask(ImplicState state, ImplicState mask) {
-    __m256i any = _mm256_setzero_si256();
-    for (int v = 0; v < 4; v++) {
-        any = _mm256_or_si256(any, _mm256_and_si256(implicstate_avx2_load(state, v), implicstate_avx2_load(mask, v)));
+    __m256i acc = _mm256_or_si256(
+        _mm256_or_si256(_mm256_and_si256(state[0], mask[0]), _mm256_and_si256(state[1], mask[1])),
+        _mm256_or_si256(_mm256_and_si256(state[2], mask[2]), _mm256_and_si256(state[3], mask[3])));
+    return _mm256_testz_si256(acc, acc) == 0;
+}
+
+/*
+ * Returns the bits of lane `lane` whose global index k has bit `pos` set.
+ * Positions 0-5 vary inside a 64-bit word, 6-7 select the word within a lane,
+ * and 8-9 select the lane. Positions of 10 or more are never set for k < 1024.
+ */
+static inline __m256i implicstate_pos_ones(int pos, int lane) {
+    switch (pos) {
+    case 0: return _mm256_set1_epi64x((long long)0xAAAAAAAAAAAAAAAAULL);
+    case 1: return _mm256_set1_epi64x((long long)0xCCCCCCCCCCCCCCCCULL);
+    case 2: return _mm256_set1_epi64x((long long)0xF0F0F0F0F0F0F0F0ULL);
+    case 3: return _mm256_set1_epi64x((long long)0xFF00FF00FF00FF00ULL);
+    case 4: return _mm256_set1_epi64x((long long)0xFFFF0000FFFF0000ULL);
+    case 5: return _mm256_set1_epi64x((long long)0xFFFFFFFF00000000ULL);
+    case 6: return _mm256_set_epi64x(-1, 0, -1, 0);
+    case 7: return _mm256_set_epi64x(-1, -1, 0, 0);
+    case 8: return (lane & 1) ? _mm256_set1_epi64x(-1) : _mm256_setzero_si256();
+    case 9: return (lane & 2) ? _mm256_set1_epi64x(-1) : _mm256_setzero_si256();
+    default: return _mm256_setzero_si256();
     }
-    return !_mm256_testz_si256(any, any);
 }
 
 static inline void implicstate_set_cell(ImplicState state, int pos, int value) {
-    for (int v = 0; v < 4; v++) {
-        __m256i ones = implicstate_avx2_cell_ones(pos, v);
-        __m256i s = implicstate_avx2_load(state, v);
-        /* Keep only the bits whose cell `pos` equals `value`. */
-        s = value ? _mm256_and_si256(ones, s) : _mm256_andnot_si256(ones, s);
-        implicstate_avx2_store(state, v, s);
+    for (int lane = 0; lane < 4; lane++) {
+        __m256i ones = implicstate_pos_ones(pos, lane);
+        if (value == 0) {
+            state[lane] = _mm256_andnot_si256(ones, state[lane]);
+        } else if (value == 1) {
+            state[lane] = _mm256_and_si256(ones, state[lane]);
+        } else {
+            state[lane] = _mm256_setzero_si256();
+        }
     }
 }
 
 static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2, bool invert) {
-    for (int v = 0; v < 4; v++) {
-        __m256i differ = _mm256_xor_si256(implicstate_avx2_cell_ones(pos1, v), implicstate_avx2_cell_ones(pos2, v));
-        __m256i s = implicstate_avx2_load(state, v);
-        /* Same rule as the scalar backend: clear bits where (differ == invert). */
-        s = invert ? _mm256_andnot_si256(differ, s) : _mm256_and_si256(differ, s);
-        implicstate_avx2_store(state, v, s);
+    for (int lane = 0; lane < 4; lane++) {
+        __m256i differ = _mm256_xor_si256(implicstate_pos_ones(pos1, lane),
+                                          implicstate_pos_ones(pos2, lane));
+        if (invert) {
+            state[lane] = _mm256_andnot_si256(differ, state[lane]);
+        } else {
+            state[lane] = _mm256_and_si256(differ, state[lane]);
+        }
     }
 }
-
 
 #endif
 

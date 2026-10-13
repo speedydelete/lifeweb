@@ -285,7 +285,9 @@ typedef uint64_t ImplicState[16];
 
 #elif IMPLICATION_BACKEND == IMPLICATION_BACKEND_AVX2
 
-typedef uint64_t ImplicState[16];
+#include <immintrin.h>
+
+typedef __m256i ImplicState[4];
 
 #else
 
