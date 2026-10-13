@@ -263,7 +263,7 @@ static void compute_implication_state(CAClause* clause) {
     implicstate_copy(clause_state(clause), full_implic_state);
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
-            implicstate_set_cell(clause_state(clause), (pos), conv_12_to_01((cell)->value)); \
+            implicstate_set_cell(clause_state(clause), 9 - (pos), conv_12_to_01((cell)->value)); \
         }
     add(clause->nw, 9);
     add(clause->w, 8);
