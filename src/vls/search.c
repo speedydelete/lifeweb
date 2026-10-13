@@ -37,98 +37,92 @@ static Cell* add_search_orders(void) {
 }
 
 
-#if CHECK_EARLY_EXHAUSTION
-
 bool all_zeros = true;
 
 static bool check_early_exhaustion(void) {
-    #if PERIODIC_DX == 0 || PERIODIC_DY == 0
-    bool found;
-    #endif
     // check columns
-    #if PERIODIC_DX < 0
-        for (Index x = 0; x < -PERIODIC_DX + 1; x++) {
-            for (Index y = 0; y < state.height; y++) {
+    if (config.periodic_dx < 0) {
+        for (size_t x = 0; x < (size_t)(-config.periodic_dx + 1); x++) {
+            for (size_t y = 0; y < state.height; y++) {
                 if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
         }
-    #elif PERIODIC_DX > 0
-        for (Index x = state.width - PERIODIC_DX - 1; x < state.width; x++) {
-            for (Index y = 0; y < state.height; y++) {
+    } else if (config.periodic_dx > 0) {
+        for (size_t x = state.width - config.periodic_dx - 1; x < state.width; x++) {
+            for (size_t y = 0; y < state.height; y++) {
                 if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
         }
-    #else
-    // check left column and right column
-    found = false;
-    for (Index y = 0; y < state.height; y++) {
-        if (state_get_cell_value(0, 0, y) != OFF) {
-            found = true;
-            break;
+    } else {
+        // check left column and right column
+        bool found = false;
+        for (size_t y = 0; y < state.height; y++) {
+            if (state_get_cell_value(0, 0, y) != OFF) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return true;
+        }
+        found = false;
+        for (size_t y = 0; y < state.height; y++) {
+            if (state_get_cell_value(0, state.width - 1, y) != OFF) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return true;
         }
     }
-    if (!found) {
-        return true;
-    }
-    found = false;
-    for (Index y = 0; y < state.height; y++) {
-        if (state_get_cell_value(0, state.width - 1, y) != OFF) {
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        return true;
-    }
-    #endif
     // check rows
-    #if PERIODIC_DY < 0
-        for (Index y = 0; y < -PERIODIC_DY + 1; y++) {
-            for (Index x = 0; x < state.width; x++) {
+    if (config.periodic_dy < 0) {
+        for (size_t y = 0; y < (size_t)(-config.periodic_dy + 1); y++) {
+            for (size_t x = 0; x < state.width; x++) {
                 if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
         }
-    return true;
-    #elif PERIODIC_DY > 0
-        for (Index y = state.height - PERIODIC_DY - 1; y < state.width; y++) {
-            for (Index x = 0; x < state.width; x++) {
+        return true;
+    } else if (config.periodic_dy > 0) {
+        for (size_t y = state.height - config.periodic_dy - 1; y < state.width; y++) {
+            for (size_t x = 0; x < state.width; x++) {
                 if (state_get_cell_value(0, x, y) != OFF) {
                     return false;
                 }
             }
         }
-    return true;
-    #else
-    // check top row and bottom row
-    found = false;
-    for (Index x = 0; x < state.width; x++) {
-        if (state_get_cell_value(0, x, 0) != OFF) {
-            return false;
-        }
-    }
-    if (!found) {
         return true;
-    }
-    found = false;
-    for (Index x = 0; x < state.width; x++) {
-        if (state_get_cell_value(0, x, state.height - 1) != OFF) {
-            return false;
+    } else {
+        // check top row and bottom row
+        bool found = false;
+        for (size_t x = 0; x < state.width; x++) {
+            if (state_get_cell_value(0, x, 0) != OFF) {
+                return false;
+            }
         }
+        if (!found) {
+            return true;
+        }
+        found = false;
+        for (size_t x = 0; x < state.width; x++) {
+            if (state_get_cell_value(0, x, state.height - 1) != OFF) {
+                return false;
+            }
+        }
+        if (!found) {
+            return true;
+        }
+        return false;
     }
-    if (!found) {
-        return true;
-    }
-    return false;
-    #endif
 }
 
-#endif
 
 // returns number of iterations to backjump
 static size_t run_depth(size_t depth, Cell* cell);
@@ -151,16 +145,14 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
             }
         #endif
         // check for early exhaustion
-        #if CHECK_EARLY_EXHAUSTION
-            if (all_zeros) {
-                if (check_early_exhaustion()) {
-                    debug_print_grid_3();
-                    debug_printf_3("Early exhausted");
-                    pop_stack_frame(current_stack);
-                    return 0;
-                }
+        if (config.periodic && all_zeros) {
+            if (check_early_exhaustion()) {
+                debug_print_grid_3();
+                debug_printf_3("Early exhausted");
+                pop_stack_frame(current_stack);
+                return 0;
             }
-        #endif
+        }
         out = run_depth(depth + 1, cell->next_in_search_order);
     }
     pop_stack_frame(current_stack);
@@ -206,12 +198,10 @@ static size_t run_depth(size_t depth, Cell* cell) {
     }
     CellValue value = config.initial_value;
     for (int i = 0; i < 2; i++) {
-        #if CHECK_EARLY_EXHAUSTION
-            bool prev_all_zeros = all_zeros;
-            if (value == ON) {
-                all_zeros = false;
-            }
-        #endif
+        bool prev_all_zeros = all_zeros;
+        if (value == ON) {
+            all_zeros = false;
+        }
         progress[progress_pos] = i;
         progress_pos++;
         size_t out = actual_run_depth(depth, cell, value);
@@ -219,9 +209,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
         if (out != 0) {
             return out - 1;
         }
-        #if CHECK_EARLY_EXHAUSTION
-            all_zeros = prev_all_zeros;
-        #endif
+        all_zeros = prev_all_zeros;
         value = value == OFF ? ON : OFF;
     }
     #if DEBUG >= 3
@@ -236,12 +224,8 @@ static void actual_run_search(Cell* initial_cell) {
     state.solutions_found = 0;
     start = get_time();
     last_progress_shown = start;
-    #if MAX_PARTIALS
-        last_max_partial_shown = start;
-    #endif
-    #if CHECK_EARLY_EXHAUSTION
-        all_zeros = true;
-    #endif
+    last_max_partial_shown = start;
+    all_zeros = true;
     run_depth(0, initial_cell);
 }
 

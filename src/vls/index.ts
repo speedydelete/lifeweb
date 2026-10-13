@@ -710,7 +710,9 @@ defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
 defines['SLOWER_SANITY_CHECKS'] = true;
 
-const CONSTANT_DEFINES = new Set(['_POSIX_C_SOURCE']);
+const CONSTANT_DEFINES = new Set([
+    '_POSIX_C_SOURCE',
+]);
 
 let params2Lines: string[] = [];
 let foundDefines = new Set<string>();

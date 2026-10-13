@@ -275,11 +275,21 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 
 
 #define IMPLICATION_BACKEND_UINT64_T 0
-#define IMPLICATION_BACKEND IMPLICATION_BACKEND_UINT64_T
+#define IMPLICATION_BACKEND_AVX2 1
+
+#define IMPLICATION_BACKEND IMPLICATION_BACKEND_AVX2
 
 #if IMPLICATION_BACKEND == IMPLICATION_BACKEND_UINT64_T
 
 typedef uint64_t ImplicState[16];
+
+#elif IMPLICATION_BACKEND == IMPLICATION_BACKEND_AVX2
+
+typedef uint64_t ImplicState[16];
+
+#else
+
+#error "Unexpected error: Invalid implication backend"
 
 #endif
 
