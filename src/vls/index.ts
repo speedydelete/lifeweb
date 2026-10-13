@@ -904,7 +904,7 @@ export async function main() {
         let command = options['clang'] ? `clang -std=c23` : `gcc -std=c2x`;
         command += ` -fdiagnostics-color=always`;
         // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas`;
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas -Wno-unused-function`;
         if (options['clang']) {
             command = ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
         }
