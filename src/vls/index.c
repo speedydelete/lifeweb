@@ -200,19 +200,19 @@ static void init_state(InitFromState* from) {
     do { \
         if (ferror(file)) { \
             fclose(file); \
-            error("Could not read problem file (possibly corrupted)"); \
+            error("Could not read search file (possibly corrupted)"); \
         } \
     } while (0)
 
-long problem_file_error_pos;
-#define problem_file_error(format, ...) (problem_file_error_pos = ftell(file), fclose(file), error("Invalid pattern file (near position %li): "format, problem_file_error_pos, ##__VA_ARGS__))
+long search_file_error_pos;
+#define search_file_error(format, ...) (search_file_error_pos = ftell(file), fclose(file), error("Invalid pattern file (near position %li): "format, search_file_error_pos, ##__VA_ARGS__))
 
 static __attribute__((format(scanf, 2, 3))) bool check_line(FILE* file, const char* format, ...) {
     // run vfscanf
     long start_pos = ftell(file);
     if (start_pos == -1) {
         fclose(file);
-        error("Could not read problem file (ftell returned -1)");
+        error("Could not read search file (ftell returned -1)");
     }
     va_list args;
     va_start(args, format);
@@ -313,10 +313,10 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             int64_t value;
             if (fscanf(file, " %"SCNi64, &value) != 1) {
                 check_ferror(file);
-                problem_file_error("Missing grid element");
+                search_file_error("Missing grid element");
             }
             if (value == 0) {
-                problem_file_error("Grid element is 0");
+                search_file_error("Grid element is 0");
             } else if (value == 1) {
                 cell.value = ON;
             } else if (value == -1) {
@@ -337,7 +337,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             int value;
             if (fscanf(file, " %i", &value) != 1) {
                 check_ferror(file);
-                problem_file_error("Missing transition");
+                search_file_error("Missing transition");
             }
             state.trs[i] = value;
         }
@@ -350,7 +350,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             size_t y;
             if (fscanf(file, " %zu %zu %zu", &t, &x, &y) != 3) {
                 check_ferror(file);
-                problem_file_error("Missing search order item");
+                search_file_error("Missing search order item");
             }
             config.search_order[i][0] = t;
             config.search_order[i][1] = x;
@@ -385,7 +385,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             size_t value;
             if (fscanf(file, " %zu", &value) != 1) {
                 check_ferror(file);
-                problem_file_error("Missing cell period filter item");
+                search_file_error("Missing cell period filter item");
             }
             config.cell_period_filter[i] = value;
         }
@@ -399,24 +399,24 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         if (feof(file)) {
             return false;
         } else {
-            problem_file_error("Unrecognized line");
+            search_file_error("Unrecognized line");
         }
     }
     return true;
 }
 
 #if IN_BROWSER
-char problem_file[] = PROBLEM_FILE_GOES_HERE;
+char search_file[] = SEARCH_FILE_GOES_HERE;
 #endif
 static inline void init_state_and_config_from_file([[maybe_unused]] char* path) {
     errno = 0;
     #if IN_BROWSER
-        FILE* file = fmemopen(problem_file, sizeof(problem_file) - 1, "r");
+        FILE* file = fmemopen(search_file, sizeof(search_file) - 1, "r");
     #else
         FILE* file = fopen(path, "r");
     #endif
     if (file == NULL) {
-        perror("Error: Cannot read problem file: ");
+        perror("Error: Cannot read search file: ");
         exit(EXIT_FAILURE);
     }
     InitFromState data = {
@@ -439,7 +439,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
     if (data.grid != NULL) {
         safe_free(data.grid);
     }
-    printf("Loaded problem: %zu variables, %zu clauses\n", state.var_count, state.ca_clause_count);
+    printf("Loaded search: %zu variables, %zu clauses\n", state.var_count, state.ca_clause_count);
 }
 
 

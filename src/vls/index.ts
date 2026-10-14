@@ -205,7 +205,7 @@ export interface ParseArgsData {
     posArgs: string[];
     options: OptionData;
     params2File: string;
-    problemFile: string;
+    searchFile: string;
 }
 
 export async function parseArgs(argv: string[], paramsFile: string): Promise<ParseArgsData> {
@@ -795,7 +795,7 @@ for (let layer of grid.data) {
 }
 gridStr = gridStr.trim();
 
-let problemFile = `
+let searchFile = `
 width = ${grid.width}
 height = ${grid.height}
 gens = ${grid.gens}
@@ -838,18 +838,18 @@ max_partial_reporting_interval = ${options['partial-interval'] ?? 1}
 
 `;
 
-while (problemFile.includes('\n\n\n')) {
-    problemFile = problemFile.replaceAll('\n\n\n', '\n\n');
+while (searchFile.includes('\n\n\n')) {
+    searchFile = searchFile.replaceAll('\n\n\n', '\n\n');
 }
 // remove last trailing newline
-problemFile = problemFile.slice(0, -1);
+searchFile = searchFile.slice(0, -1);
 
 
 return {
     posArgs,
     options,
     params2File: params2Lines.join('\n'),
-    problemFile,
+    searchFile,
 };
 
 }
@@ -899,8 +899,8 @@ export async function main() {
         recompile = true;
         await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
     }
-    let problemPath = getPath('vls_problem.txt');
-    await fs.writeFile(problemPath, data.problemFile);
+    let searchFilePath = getPath('vls_search.txt');
+    await fs.writeFile(searchFilePath, data.searchFile);
     let commandsToRun: string[] = [];
     if (recompile) {
         let compiler: 'gcc' | 'clang' = options['gcc'] ? 'gcc' : 'clang';
@@ -923,7 +923,7 @@ export async function main() {
         command += ` -lm`;
         commandsToRun.push(command);
     }
-    let execCommand = `${execPath} '${problemPath}'`;
+    let execCommand = `${execPath} '${searchFilePath}'`;
     if (options['gdb']) {
         commandsToRun.push(`gdb --args ${execCommand}`);
     } else {
