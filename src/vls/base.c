@@ -274,7 +274,12 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 }
 
 
+#define IMPLICATION_BACKEND_UINT64_T 0
+#define IMPLICATION_BACKEND_AVX2 1
+
 #if defined(__AVX2__) || true
+
+#define IMPLICATION_BACKEND IMPLICATION_BACKEND_AVX2
 
 #include <immintrin.h>
 
@@ -292,7 +297,8 @@ typedef struct Cell Cell;
 typedef struct CAClause {
     size_t number;
     int state_number;
-    ImplicState states[128];
+    ImplicState state;
+    ImplicState* prev_states[10];
     Cell* c;
     bool invert_c;
     Cell* next;
@@ -314,8 +320,6 @@ typedef struct CAClause {
     Cell* se;
     bool invert_se;
 } CAClause;
-
-#define clause_state(clause) ((clause)->states[(clause)->state_number])
 
 typedef struct CellUseData {
     // CAN BE A NULL POINTER
