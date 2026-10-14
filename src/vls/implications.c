@@ -322,13 +322,6 @@ static bool check_implications(CAClause* clause) {
     ;
 }
 
-static void recompute_clause_state(CAClause* clause) {
-    implicstate_copy(clause->state, clause->initial_state);
-    for (int i = 0; i < clause->prev_cell_count; i++) {
-        implicstate_set_cell(clause->state, clause->prev_cell_positions[i], clause->prev_cell_values[i]);
-    }
-}
-
 static bool set_cell(Cell* cell, CellValue value) {
     // TODO: HANDLE ALIASES HERE
     cell->value = value;
@@ -348,32 +341,26 @@ static bool set_cell(Cell* cell, CellValue value) {
             #define hi(...)
         #endif
         #define update(clause, pos) \
-            if (clause != NULL) { \
-                debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, prev_cell_count = %i\n", clause->number, pos, value, clause->prev_cell_count); \
+            if ((clause) != NULL) { \
+                debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->state_number); \
                 hi(clause->state); \
+                clause->state_number++; \
+                ImplicState new_state; \
+                implicstate_copy(clause->state, clause->states[clause->state_number - 1]); \
                 implicstate_set_cell(clause->state, (pos), convert_12_to_01(value)); \
                 hi(clause->state); \
                 if (implicstate_is_contradiction(clause->state)) { \
                     debug_printf_3("Contradiction in set_cell, unwinding\n"); \
                     cell->value = UNKNOWN; \
-                    recompute_clause_state(clause); \
+                    clause->state_number--; \
                     for (size_t i = 0; i < changed_clause_count; i++) { \
-                        CAClause* to_change = changed_clauses[i]; \
-                        to_change->prev_cell_count--; \
-                        recompute_clause_state(to_change); \
+                        changed_clauses[i]->state_number--; \
                     } \
-                    /* STUFF HERE TO DO THE OTHER CLAUSES*/ \
                     before_return; \
                     return false; \
-                /* } else if (!implicstate_eq(new_state, clause->state)) { \
-                    / * do nothing */ \
-                } else { \
-                    clause->prev_cell_positions[clause->prev_cell_count] = pos; \
-                    clause->prev_cell_values[clause->prev_cell_count] = convert_12_to_01(value); \
-                    clause->prev_cell_count++; \
-                    changed_clauses[changed_clause_count] = clause; \
-                    changed_clause_count++; \
                 } \
+                changed_clauses[changed_clause_count] = clause; \
+                changed_clause_count++; \
             }
         update(data->prev, 0);
         update(data->nw, 1);
@@ -407,10 +394,9 @@ static void unset_cell(Cell* cell) {
         #endif
         #define update(clause, pos) \
             if ((clause) != NULL) { \
-                debug_printf_4("Unsetting cell in clause %zu: pos = %i (aka "#clause"), prev_cell_count = %i\n", (clause)->number, pos, (clause)->prev_cell_count); \
+                debug_printf_4("Unsetting cell in clause %zu: pos = %i (aka "#clause"), state_number = %i\n", (clause)->number, pos, (clause)->state_number); \
                 hi(clause->state); \
-                clause->prev_cell_count--; \
-                recompute_clause_state(clause); \
+                clause->state_number--; \
                 hi(clause->state); \
             }
         update(data->prev, 0);
@@ -453,7 +439,7 @@ static void unalias(Cell* cell) {
     unexpected_error("No unaliasing yet");
 }
 
-static void compute_initial_clause_state(CAClause* clause) {
+static void compute_implication_state(CAClause* clause) {
     implicstate_copy(clause->state, full_implic_state);
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
@@ -472,9 +458,8 @@ static void compute_initial_clause_state(CAClause* clause) {
     #undef add
     #if DEBUG >= 5
         printf("Initial state for clause %zu\n", clause->number);
-        print_implicstate(clause->state);
+        print_implicstate(clause_state(clause));
     #endif
-    implicstate_copy(clause->initial_state, clause->state);
 }
 
 

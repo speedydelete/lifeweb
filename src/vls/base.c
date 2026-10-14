@@ -296,11 +296,8 @@ typedef struct Cell Cell;
 
 typedef struct CAClause {
     size_t number;
-    ImplicState initial_state;
     ImplicState state;
-    int prev_cell_count;
-    int prev_cell_positions[10];
-    int prev_cell_values[10];
+    ImplicState* prev_states[10];
     Cell* c;
     bool invert_c;
     Cell* next;
@@ -488,6 +485,9 @@ static void unset_cell(Cell* cell);
 static bool alias(Cell* cell, Cell* alias_to, bool invert);
 // undoes an alias, propagating transitions but doing nothing else
 static void unalias(Cell* cell);
+
+// computes the initial implication state for a clause
+static void compute_implication_state(CAClause* clause);
 
 static CellValue get_cell_value(Cell* cell) {
     if (cell->alias) {
