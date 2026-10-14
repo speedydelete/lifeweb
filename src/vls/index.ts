@@ -55,7 +55,7 @@ Options:
 
     -gdb: run gdb
     -no-optimize: disable optimization flags
-    -asan, -address-sanitizer: enable address sanitizer
+    -asan, -address-sanitizer: enable address sanitizer (enables -gcc by default)
 
     -benchmark=<iterations>: run benchmarking
 
@@ -872,7 +872,7 @@ export interface VLSRunData {
     invocationTime: number;
 }
 
-export async function runVLS(args: string[], recompile: boolean | undefined = undefined): Promise<VLSRunData> {
+export async function runVLS(args: string[], wantData: boolean, recompile: boolean | undefined = undefined): Promise<VLSRunData> {
     let totalStart = performance.now();
     let path = await import('node:path');
     function getPath(file: string): string {
@@ -880,7 +880,7 @@ export async function runVLS(args: string[], recompile: boolean | undefined = un
     }
     let fs = await import('node:fs/promises');
     let {existsSync} = await import('node:fs');
-    let {spawn} = (await import('node:child_process'));
+    let {execSync} = (await import('node:child_process'));
     let execPath = getPath('vls_compiled');
     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
         execPath = './' + execPath;
@@ -919,34 +919,37 @@ export async function runVLS(args: string[], recompile: boolean | undefined = un
     recompile ??= false;
     let searchFilePath = getPath('vls_search.txt');
     await fs.writeFile(searchFilePath, search.searchFile);
-    let commandsToRun: string[][] = [];
+    let commandsToRun: string[] = [];
     if (recompile) {
         let compiler: 'gcc' | 'clang' = options['gcc'] ? 'gcc' : 'clang';
-        let command = compiler === 'gcc' ? [`gcc`, `-std=c2x`] : [`clang`, `-std=c23`];
-        command.push(`-fdiagnostics-color=always`);
+        if (options['address-sanitizer']) {
+            compiler = 'gcc';
+        }
+        let command = compiler === 'gcc' ? `gcc -std=c2x` : `clang -std=c23` ;
+        command += ` -fdiagnostics-color=always`;
         // strict mode
-        command.push(`-Wall`, `-Werror`, `-Wpedantic`, `-Wextra`, `-Wno-unknown-pragmas`);
+        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas`;
         if (compiler === 'clang') {
-            command.push(`-Wno-gnu-zero-variadic-macro-arguments`, `-Wno-gnu-binary-literal`);
+            command += ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
         }
         // features
-        command.push('-g');
+        command += ` -g`;
         if (!options['no-optimize']) {
-            command.push(`-O3`, `-march=native`, `-mtune=native`, `-flto`, `-fno-stack-protector`, `-fomit-frame-pointer`);
+            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
         }
         if (options['address-sanitizer']) {
-            command.push(`-fsanitize=address`);
+            command += ` -fsanitize=address`;
         }
-        command.push(`-o`, execPath, getPath('src/vls/index.c'));;
-        command.push('-lm');
+        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
+        command += ` -lm`;
         commandsToRun.push(command);
     }
-    let execCommand = [execPath, searchFilePath];
+    let execCommand = `${execPath} '${searchFilePath}'`;
     if (options['gdb']) {
-        commandsToRun.push([`gdb`, `--args`, ...execCommand]);
+        commandsToRun.push(`gdb --args ${execCommand}`);
     } else {
         if (options['file']) {
-            throw new Error('file option is not supported yet');
+            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
         } else {
             commandsToRun.push(execCommand);
         }
@@ -956,26 +959,11 @@ export async function runVLS(args: string[], recompile: boolean | undefined = un
     try {
         let str = '';
         for (let command of commandsToRun) {
-            let child = spawn(command[0], command.slice(1));
-            let {promise, resolve, reject} = Promise.withResolvers<void>();
-            child.stdout.on('data', data => {
-                process.stdout.write(data);
-                str += data.toString();
-            });
-            child.stderr.on('data', data => {
-                process.stderr.write(data);
-            });
-            child.on('error', (err) => {
-                reject(err);
-            });
-            child.on('close', (code) => {
-                if (code === 0) {
-                    resolve();
-                } else {
-                    reject(new Error(`Process exited with code ${code}`));
-                }
-            });
-            await promise;
+            if (wantData) {
+                str += execSync(command, {stdio: ['pipe', 'pipe', 'inherit']}).toString();
+            } else {
+                execSync(command, {stdio: 'inherit'});
+            }
         }
         out = {good: true, data: str};
     } catch (error) {
@@ -991,5 +979,5 @@ export async function runVLS(args: string[], recompile: boolean | undefined = un
 }
 
 if (import.meta.main) {
-    runVLS(process.argv.slice(2));
+    runVLS(process.argv.slice(2), false);
 }

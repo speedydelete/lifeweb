@@ -14,6 +14,9 @@
 // sets the next_in_search_order fields in all the cells
 // returns the initial cell to search
 static Cell* add_search_orders(void) {
+    for (size_t i = 1; i <= state.var_count; i++) {
+        state.vars[i]->next_in_search_order = NULL;
+    }
     size_t* coords = config.search_order[0];
     size_t t = coords[0];
     size_t x = coords[1];
@@ -26,8 +29,10 @@ static Cell* add_search_orders(void) {
         size_t x = coords[1];
         size_t y = coords[2];
         Cell* cell = state_get_grid_cell(t, x, y)->cell;
-        prev->next_in_search_order = cell;
-        prev = cell;
+        if (cell->value == UNKNOWN && cell->next_in_search_order == NULL) {
+            prev->next_in_search_order = cell;
+            prev = cell;
+        }
     }
     prev->next_in_search_order = NULL;
     return initial_cell;

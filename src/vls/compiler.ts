@@ -204,7 +204,7 @@ export class Grid {
         if (!this.isInBounds(t, x, y)) {
             throw new Error(`Out of bounds set: t = ${t}, x = ${x}, y = ${y}`);
         }
-        this.data[t][y][x] = value;
+        this.data[t][y][x] = structuredClone(value);
         return this;
     }
 
@@ -216,7 +216,7 @@ export class Grid {
         }
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                this.set(t, x, y, value);
+                this.set(t, x, y, structuredClone(value));
             }
         }
         return this;
@@ -444,20 +444,21 @@ export class Grid {
                     // do nothing
                 }
             }
-        }
-        if (x.variable !== undefined) {
-            if (y.variable !== undefined) {
-                this.reassignVar(x.variable, y.variable);
-            } else {
-                y.variable = x.variable;
-            }
         } else {
             if (x.variable !== undefined) {
-                x.variable = y.variable;
+                if (y.variable !== undefined) {
+                    this.reassignVar(x.variable, y.variable);
+                } else {
+                    y.variable = x.variable;
+                }
             } else {
-                let variable = this.getNewVar();
-                x.variable = variable;
-                y.variable = variable;
+                if (x.variable !== undefined) {
+                    x.variable = y.variable;
+                } else {
+                    let variable = this.getNewVar();
+                    x.variable = variable;
+                    y.variable = variable;
+                }
             }
         }
         return this;
@@ -651,7 +652,7 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
             error(`Cannot apply D2/ symmetry to non-square grid`);
         }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(pos.t, grid.width - pos.x - 1, grid.height - pos.y - 1));
+            grid.bindCells(pos, coord(pos.t, grid.width - pos.y - 1, grid.height - pos.x - 1));
         }
     },
 

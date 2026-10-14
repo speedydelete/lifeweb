@@ -18,45 +18,47 @@
 
 bool pre_changes_made = false;
 
-// static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
-//     pre_changes_made = true;
-//     debug_printf_2("Aliasing variable %zu to %zu\n", cell->var_number, alias_to->var_number);
-//     if (cell->value != UNKNOWN && alias_to->value )
-//     for (size_t i = 0; i < state.total_size; i++) {
-//         GridCell* grid_cell = &(state.grid[i]);
-//         if (grid_cell->cell == cell) {
-//             grid_cell->cell = alias_to;
-//             grid_cell->invert = grid_cell->invert != invert;
-//         }
-//     }
-//     for (size_t i = 0; i < state.ca_clause_count; i++) {
-//         CAClause* clause = state.ca_clauses[i];
-//         #define check(pos) if (clause->pos == cell) { clause->pos = alias_to; }
-//         check(nw);
-//         check(n);
-//         check(ne);
-//         check(w);
-//         check(c);
-//         check(e);
-//         check(sw);
-//         check(s);
-//         check(se);
-//         check(next);
-//         #undef check
-//     }
-//     for (size_t i = cell->var_number; i < state.var_count - 1; i++) {
-//         state.vars[i] = state.vars[i + 1];
-//         state.vars[i]->var_number--;
-//     }
-//     state.var_count--;
-//     safe_free(cell);
-// }
+static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
+    pre_changes_made = true;
+    debug_printf_2("Aliasing variable %zu to %zu\n", cell->var_number, alias_to->var_number);
+    for (size_t i = 0; i < state.total_size; i++) {
+        GridCell* grid_cell = &(state.grid[i]);
+        if (grid_cell->cell == cell) {
+            grid_cell->cell = alias_to;
+            grid_cell->invert = grid_cell->invert != invert;
+        }
+    }
+    for (size_t i = 0; i < state.ca_clause_count; i++) {
+        CAClause* clause = state.ca_clauses[i];
+        #define check(pos) if (clause->pos == cell) { clause->pos = alias_to; }
+        check(nw);
+        check(n);
+        check(ne);
+        check(w);
+        check(c);
+        check(e);
+        check(sw);
+        check(s);
+        check(se);
+        check(next);
+        #undef check
+    }
+    for (size_t i = cell->var_number; i <= state.var_count - 1; i++) {
+        state.vars[i] = state.vars[i + 1];
+        state.vars[i]->var_number--;
+    }
+    state.var_count--;
+    safe_free(cell);
+    for (size_t i = 0; i < state.ca_clause_count; i++) {
+        compute_implication_state(state.ca_clauses[i]);
+    }
+}
 
-// static void pre_set_cell(Cell* cell, CellValue value) {
-//     pre_changes_made = true;
-//     debug_printf_2("Setting variable %zu to %i\n", cell->var_number, value);
-//     pre_alias_cell(cell, value == OFF ? &off_cell : &on_cell, false);
-// }
+static void pre_set_cell(Cell* cell, CellValue value) {
+    pre_changes_made = true;
+    debug_printf_2("Setting variable %zu to %i\n", cell->var_number, value);
+    pre_alias_cell(cell, value == OFF ? &off_cell : &on_cell, false);
+}
 
 static void pre_internal_remove_clause_in_cell(Cell* cell, CAClause* clause) {
     pre_changes_made = true;
@@ -104,8 +106,22 @@ static void pre_remove_clause(CAClause* clause) {
 
 static void pre_remove_known_cells(void) {
     pre_start_step();
-    // look for cells that have known values and resolve them
-    // also does it in the grid
+    for (size_t i = 1; i <= state.var_count; i++) {
+        Cell* cell = state.vars[i];
+        if (cell->value != UNKNOWN) {
+            pre_set_cell(cell, cell->value);
+        } else if (cell->alias && cell->alias->value != UNKNOWN) {
+            CellValue value = cell->alias->value;
+            if (cell->invert_alias) {
+                if (value == OFF) {
+                    value = ON;
+                } else if (value == ON) {
+                    value = OFF;
+                }
+            }
+            pre_set_cell(cell, value);
+        }
+    }
     pre_end_step();
 }
 
