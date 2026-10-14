@@ -28,97 +28,11 @@ static ImplicState IMPLICSTATE_PAIR_SAME_MASKS[10][10];
 static ImplicState IMPLICSTATE_PAIR_DIFFERENT_MASKS[10][10];
 
 
-#if IMPLICATION_BACKEND == IMPLICATION_BACKEND_CPU_INDEPENDENT
-
-static inline void implicstate_copy(ImplicState to, ImplicState from) {
-    memcpy(to, from, sizeof(ImplicState));
-}
-
-static inline int implicstate_get_bit(ImplicState state, int bit) {
-    return (state[bit >> 6] >> (bit & 63)) & 1;
-}
-
-static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
-    if (value == 0) {
-        state[bit >> 6] &= ~((uint64_t)1 << (bit & 63));
-    } else {
-        state[bit >> 6] |= ((uint64_t)1 << (bit & 63));
-    }
-}
-
-static void print_implicstate(ImplicState state) {
-    printf("Implication state:\n");
-    int k = 0;
-    for (int i = 0; i < 16; i++) {
-        print_line_padding();
-        for (int j = 0; j < 64; j++) {
-            real_printf("%i", implicstate_get_bit(state, k));
-            k++;
-        }
-        real_printf("\n");
-    }
-}
-
-static inline bool implicstate_eq(ImplicState x, ImplicState y) {
-    for (int i = 0; i < 16; i++) {
-        if (x[i] != y[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static inline bool implicstate_is_contradiction(ImplicState state) {
-    for (int i = 0; i < 16; i++) {
-        if (state[i] != 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static inline bool implicstate_satisfies_mask(ImplicState state, ImplicState mask) {
-    ImplicState value;
-    memcpy(value, state, sizeof(ImplicState));
-    for (int i = 0; i < 16; i++) {
-        value[i] &= mask[i];
-    }
-    for (int i = 0; i < 16; i++) {
-        if (value[i] != 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static inline void implicstate_set_cell(ImplicState state, int pos, int value) {
-    int k = 0;
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 64; j++) {
-            if (((k >> pos) & 1) != value) {
-                state[i] &= ~((uint64_t)1 << j);
-            }
-            k++;
-        }
-    }
-}
-
-static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2, bool invert) {
-    int k = 0;
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 64; j++) {
-            if ((((k >> pos1) & 1) != ((k >> pos2) & 1)) == invert) {
-                state[i] &= ~((uint64_t)1 << j);
-            }
-            k++;
-        }
-    }
-}
-
-
-#elif IMPLICATION_BACKEND == IMPLICATION_BACKEND_AVX2
+#if defined(__AVX2__) || true
 
 #include <immintrin.h>
+
+typedef uint64_t ImplicState[16];
 
 static inline void implicstate_copy(ImplicState to, ImplicState from) {
     memcpy(to, from, sizeof(ImplicState));
@@ -236,6 +150,96 @@ static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2,
         /* Same rule as the scalar backend: clear bits where (differ == invert). */
         s = invert ? _mm256_andnot_si256(differ, s) : _mm256_and_si256(differ, s);
         implicstate_avx2_store(state, v, s);
+    }
+}
+
+
+#else
+
+typedef uint64_t ImplicState[16];
+
+static inline void implicstate_copy(ImplicState to, ImplicState from) {
+    memcpy(to, from, sizeof(ImplicState));
+}
+
+static inline int implicstate_get_bit(ImplicState state, int bit) {
+    return (state[bit >> 6] >> (bit & 63)) & 1;
+}
+
+static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
+    if (value == 0) {
+        state[bit >> 6] &= ~((uint64_t)1 << (bit & 63));
+    } else {
+        state[bit >> 6] |= ((uint64_t)1 << (bit & 63));
+    }
+}
+
+static void print_implicstate(ImplicState state) {
+    printf("Implication state:\n");
+    int k = 0;
+    for (int i = 0; i < 16; i++) {
+        print_line_padding();
+        for (int j = 0; j < 64; j++) {
+            real_printf("%i", implicstate_get_bit(state, k));
+            k++;
+        }
+        real_printf("\n");
+    }
+}
+
+static inline bool implicstate_eq(ImplicState x, ImplicState y) {
+    for (int i = 0; i < 16; i++) {
+        if (x[i] != y[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static inline bool implicstate_is_contradiction(ImplicState state) {
+    for (int i = 0; i < 16; i++) {
+        if (state[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static inline bool implicstate_satisfies_mask(ImplicState state, ImplicState mask) {
+    ImplicState value;
+    memcpy(value, state, sizeof(ImplicState));
+    for (int i = 0; i < 16; i++) {
+        value[i] &= mask[i];
+    }
+    for (int i = 0; i < 16; i++) {
+        if (value[i] != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static inline void implicstate_set_cell(ImplicState state, int pos, int value) {
+    int k = 0;
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 64; j++) {
+            if (((k >> pos) & 1) != value) {
+                state[i] &= ~((uint64_t)1 << j);
+            }
+            k++;
+        }
+    }
+}
+
+static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2, bool invert) {
+    int k = 0;
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 64; j++) {
+            if ((((k >> pos1) & 1) != ((k >> pos2) & 1)) == invert) {
+                state[i] &= ~((uint64_t)1 << j);
+            }
+            k++;
+        }
     }
 }
 

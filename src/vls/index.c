@@ -24,6 +24,178 @@
 #endif
 
 
+
+typedef struct InitFromCell {
+    CellValue value;
+    size_t var;
+    bool invert;
+    bool no_clause;
+} InitFromCell;
+
+typedef struct InitFromState {
+    size_t height;
+    size_t width;
+    size_t gens;
+    size_t var_count;
+    InitFromCell* grid;
+} InitFromState;
+
+// initialize the current state
+static void init_state(InitFromState* from) {
+    state.width = from->width;
+    state.height = from->height;
+    state.gens = from->gens;
+    state.var_count = from->var_count;
+    state.layer_size = state.width * state.height;
+    state.total_size = state.layer_size * state.gens;
+    state.start_unknown_vars = state.var_count;
+    state.set_unknown_vars = 0;
+    // first we have to determine how many times each variable is used
+    // we add 1 in the allocations because variable 0 is unused
+    size_t* var_uses = safe_malloc((state.var_count + 1) * sizeof(size_t));
+    memset(var_uses, 0, (state.var_count + 1) * sizeof(size_t));
+    for (size_t i = 0; i < state.total_size; i++) {
+        InitFromCell* cell = &(from->grid[i]);
+        size_t var = cell->var;
+        if (var != 0) {
+            var_uses[var]++;
+        }
+    }
+    // create the cells
+    state.vars = safe_malloc((state.var_count + 1) * sizeof(Cell*));
+    state.vars[0] = NULL;
+    for (size_t i = 1; i <= state.var_count; i++) {
+        Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CellUseData));
+        cell->value = UNKNOWN;
+        cell->var_number = i;
+        cell->alias = NULL;
+        cell->invert_alias = false;
+        cell->use_count = var_uses[i];
+        // fill the uses with null pointers
+        for (size_t j = 0; j < cell->use_count; j++) {
+            CellUseData* data = &(cell->uses[j]);
+            data->c = NULL;
+            data->prev = NULL;
+            data->nw = NULL;
+            data->n = NULL;
+            data->ne = NULL;
+            data->w = NULL;
+            data->e = NULL;
+            data->sw = NULL;
+            data->s = NULL;
+            data->se = NULL;
+        }
+        state.vars[i] = cell;
+    }
+    safe_free(var_uses);
+    // now do the grid
+    state.grid = safe_malloc(state.total_size * sizeof(GridCell));
+    size_t i = 0;
+    for (size_t t = 0; t < state.gens; t++) {
+        for (size_t y = 0; y < state.height; y++) {
+            for (size_t x = 0; x < state.width; x++) {
+                InitFromCell* init_cell = &(from->grid[i]);
+                CellValue value = init_cell->value;
+                Cell* cell;
+                if (value == UNKNOWN) {
+                    cell = state.vars[init_cell->var];
+                } else if (value == OFF) {
+                    cell = &off_cell;
+                } else if (value == ON) {
+                    cell = &on_cell;
+                } else {
+                    unexpected_error("Invalid cell state at t = %zu, x = %zu, y = %zu: %i", t, x, y, value);
+                }
+                state.grid[i].cell = cell;
+                state.grid[i].invert = init_cell->invert;
+                i++;
+            }
+        }
+    }
+    // now the clauses
+    state.ca_clause_count = state.width * state.height * (state.gens - 1);
+    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause*));
+    i = 0;
+    for (size_t t = 0; t < state.gens - 1; t++) {
+        for (size_t y = 0; y < state.height; y++) {
+            for (size_t x = 0; x < state.width; x++) {
+                InitFromCell* init_cell = &(from->grid[i]);
+                if (init_cell->no_clause) {
+                    continue;
+                }
+                CAClause* clause = malloc(sizeof(CAClause));
+                clause->number = i;
+                clause->state_number = 0;
+                // fill the clause's pointers
+                GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
+                clause->c = cell->cell;
+                clause->invert_c = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t + 1, x, y);
+                clause->next = cell->cell;
+                clause->invert_next = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y - 1);
+                clause->nw = cell->cell;
+                clause->invert_nw = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x, y - 1);
+                clause->n = cell->cell;
+                clause->invert_n = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y - 1);
+                clause->ne = cell->cell;
+                clause->invert_ne = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y);
+                clause->w = cell->cell;
+                clause->invert_w = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y);
+                clause->e = cell->cell;
+                clause->invert_e = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x - 1, y + 1);
+                clause->sw = cell->cell;
+                clause->invert_sw = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x, y + 1);
+                clause->s = cell->cell;
+                clause->invert_s = cell->invert;
+                cell = state_get_grid_cell_allow_oob(t, x + 1, y + 1);
+                clause->se = cell->cell;
+                clause->invert_se = cell->invert;
+                compute_implication_state(clause);
+                // fill all the clause pointers inside the cells
+                #define add(cell_to_use, name_to_set) \
+                    do { \
+                        if (cell_to_use->value != UNKNOWN) { \
+                            break; \
+                        } \
+                        Cell* cell = (cell_to_use); \
+                        bool found = false; \
+                        for (size_t j = 0; j < cell->use_count; j++) { \
+                            if (cell->uses[j].name_to_set == NULL) { \
+                                cell->uses[j].name_to_set = clause; \
+                                found = true; \
+                                break; \
+                            } \
+                        } \
+                        if (!found) { \
+                            unexpected_error("Cell use count too small: %zu (for variable %zu)", cell->use_count, cell->var_number); \
+                        } \
+                    } while (false)
+                add(clause->c, c);
+                add(clause->next, prev);
+                add(clause->nw, se);
+                add(clause->n, s);
+                add(clause->ne, sw);
+                add(clause->w, e);
+                add(clause->e, w);
+                add(clause->sw, ne);
+                add(clause->s, n);
+                add(clause->se, nw);
+                #undef add
+                state.ca_clauses[i] = clause;
+                i++;
+            }
+        }
+    }
+    internal_init_state_symmetry();
+}
+
 #define check_ferror(file) \
     do { \
         if (ferror(file)) { \
