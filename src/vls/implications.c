@@ -28,7 +28,7 @@ static ImplicState IMPLICSTATE_PAIR_SAME_MASKS[10][10];
 static ImplicState IMPLICSTATE_PAIR_DIFFERENT_MASKS[10][10];
 
 
-#if IMPLICATION_BACKEND == IMPLICATION_BACKEND_AVX2
+#if defined(__AVX2__) || true
 
 #include <immintrin.h>
 
@@ -286,14 +286,14 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     if (cell->value != UNKNOWN) {
         return true;
     }
-    if (implicstate_is_contradiction(clause->state)) {
+    if (implicstate_is_contradiction(clause_state(clause))) {
         return false;
     }
-    bool can_be_0 = implicstate_satisfies_mask(clause->state, IMPLICSTATE_CELL_OFF_MASKS[pos]);
-    bool can_be_1 = implicstate_satisfies_mask(clause->state, IMPLICSTATE_CELL_ON_MASKS[pos]);
+    bool can_be_0 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_OFF_MASKS[pos]);
+    bool can_be_1 = implicstate_satisfies_mask(clause_state(clause), IMPLICSTATE_CELL_ON_MASKS[pos]);
     debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
     #if DEBUG >= 5
-    print_implicstate(clause->state);
+    print_implicstate(clause_state(clause));
     #endif
     if (!can_be_0 && !can_be_1) {
         // it can't be anything, so contradiction!
