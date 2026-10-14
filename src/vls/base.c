@@ -276,7 +276,9 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 
 #if defined(__AVX2__) || true
 
-typedef uint64_t ImplicState[16];
+#include <immintrin.h>
+
+typedef __m256i ImplicState[4];
 
 #else
 
