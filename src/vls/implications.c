@@ -32,8 +32,6 @@ static ImplicState IMPLICSTATE_PAIR_DIFFERENT_MASKS[10][10];
 
 #include <immintrin.h>
 
-typedef uint64_t ImplicState[16];
-
 static inline void implicstate_copy(ImplicState to, ImplicState from) {
     memcpy(to, from, sizeof(ImplicState));
 }
