@@ -75,16 +75,16 @@ static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
  *   pos >= 10  never set, since k < 1024
  */
 static inline __m256i implicstate_avx2_cell_ones(int pos, int v) {
-    static const uint64_t lane_patterns[6] = {
-        0xAAAAAAAAAAAAAAAAull,
-        0xCCCCCCCCCCCCCCCCull,
-        0xF0F0F0F0F0F0F0F0ull,
-        0xFF00FF00FF00FF00ull,
-        0xFFFF0000FFFF0000ull,
-        0xFFFFFFFF00000000ull,
+    static const uint64_t LANE_PATTERNS[6] = {
+        0xAAAAAAAAAAAAAAAAULL,
+        0xCCCCCCCCCCCCCCCCULL,
+        0xF0F0F0F0F0F0F0F0ULL,
+        0xFF00FF00FF00FF00ULL,
+        0xFFFF0000FFFF0000ULL,
+        0xFFFFFFFF00000000ULL,
     };
     if (pos < 6) {
-        return _mm256_set1_epi64x((long long)lane_patterns[pos]);
+        return _mm256_set1_epi64x((long long)LANE_PATTERNS[pos]);
     }
     if (pos == 6) {
         return _mm256_set_epi64x(-1, 0, -1, 0); /* lanes 1 and 3 */
