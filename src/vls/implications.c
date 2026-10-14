@@ -343,12 +343,13 @@ static bool set_cell(Cell* cell, CellValue value) {
         #define update(clause, pos) \
             if ((clause) != NULL) { \
                 debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->state_number); \
-                hi(clause_state(clause)); \
+                hi(clause->state); \
                 clause->state_number++; \
-                implicstate_copy(clause_state(clause), clause->states[clause->state_number - 1]); \
-                implicstate_set_cell(clause_state(clause), (pos), convert_12_to_01(value)); \
-                hi(clause_state(clause)); \
-                if (implicstate_is_contradiction(clause_state(clause))) { \
+                ImplicState new_state; \
+                implicstate_copy(clause->state, clause->states[clause->state_number - 1]); \
+                implicstate_set_cell(clause->state, (pos), convert_12_to_01(value)); \
+                hi(clause->state); \
+                if (implicstate_is_contradiction(clause->state)) { \
                     debug_printf_3("Contradiction in set_cell, unwinding\n"); \
                     cell->value = UNKNOWN; \
                     clause->state_number--; \
@@ -394,9 +395,9 @@ static void unset_cell(Cell* cell) {
         #define update(clause, pos) \
             if ((clause) != NULL) { \
                 debug_printf_4("Unsetting cell in clause %zu: pos = %i (aka "#clause"), state_number = %i\n", (clause)->number, pos, (clause)->state_number); \
-                hi(clause_state(clause)); \
+                hi(clause->state); \
                 clause->state_number--; \
-                hi(clause_state(clause)); \
+                hi(clause->state); \
             }
         update(data->prev, 0);
         update(data->nw, 1);
@@ -439,10 +440,10 @@ static void unalias(Cell* cell) {
 }
 
 static void compute_implication_state(CAClause* clause) {
-    implicstate_copy(clause_state(clause), full_implic_state);
+    implicstate_copy(clause->state, full_implic_state);
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
-            implicstate_set_cell(clause_state(clause), (pos), convert_12_to_01((cell)->value)); \
+            implicstate_set_cell(clause->state, (pos), convert_12_to_01((cell)->value)); \
         }
     add(clause->nw, 9);
     add(clause->w, 8);

@@ -296,7 +296,6 @@ typedef struct Cell Cell;
 
 typedef struct CAClause {
     size_t number;
-    int state_number;
     ImplicState state;
     ImplicState* prev_states[10];
     Cell* c;
