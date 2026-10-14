@@ -125,7 +125,7 @@ static void init_state(InitFromState* from) {
                 }
                 CAClause* clause = malloc(sizeof(CAClause));
                 clause->number = i;
-                clause->state_number = 0;
+                clause->prev_cell_count = 0;
                 // fill the clause's pointers
                 GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
                 clause->c = cell->cell;
@@ -157,7 +157,7 @@ static void init_state(InitFromState* from) {
                 cell = state_get_grid_cell_allow_oob(t, x + 1, y + 1);
                 clause->se = cell->cell;
                 clause->invert_se = cell->invert;
-                compute_implication_state(clause);
+                compute_initial_clause_state(clause);
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
                     do { \
