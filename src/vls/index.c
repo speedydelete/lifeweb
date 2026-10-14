@@ -1,7 +1,6 @@
 
 // defines main searching
 
-#include "implications.c"
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
@@ -19,10 +18,6 @@
 #include "output.c"
 #include "preprocess.c"
 #include "search.c"
-#ifdef CUSTOM
-    #include CUSTOM
-#endif
-
 
 
 typedef struct InitFromCell {
@@ -113,17 +108,28 @@ static void init_state(InitFromState* from) {
         }
     }
     // now the clauses
-    state.ca_clause_count = state.width * state.height * (state.gens - 1);
+    // we pad it on all sides with extra clauses to ensure it's always surrounded by off cells
+    state.ca_clause_count = (state.width + 2) * (state.height + 2) * (state.gens - 1);
+    // don't allocate space for the clauses marked as no_clause
+    for (size_t i = 0; i < state.total_size; i++) {
+        if (from->grid[i].no_clause) {
+            state.ca_clause_count--;
+        }
+    }
     state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause*));
     i = 0;
-    for (size_t t = 0; t < state.gens - 1; t++) {
-        for (size_t y = 0; y < state.height; y++) {
-            for (size_t x = 0; x < state.width; x++) {
-                InitFromCell* init_cell = &(from->grid[i]);
-                if (init_cell->no_clause) {
-                    continue;
+    size_t init_index = 0;
+    for (intmax_t t = 0; t < (intmax_t)(state.gens - 1); t++) {
+        for (intmax_t y = -1; y < (intmax_t)(state.height + 1); y++) {
+            for (intmax_t x = -1; x < (intmax_t)(state.width + 1); x++) {
+                if (state_coords_in_bounds(t, x, y)) {
+                    InitFromCell* init_cell = &(from->grid[init_index]);
+                    init_index++;
+                    if (init_cell->no_clause) {
+                        continue;
+                    }
                 }
-                CAClause* clause = malloc(sizeof(CAClause));
+                CAClause* clause = safe_aligned_alloc(IMPLIC_STATE_ALIGN, sizeof(CAClause));
                 clause->number = i;
                 clause->state_number = 0;
                 // fill the clause's pointers
@@ -207,7 +213,7 @@ static void init_state(InitFromState* from) {
 long search_file_error_pos;
 #define search_file_error(format, ...) (search_file_error_pos = ftell(file), fclose(file), error("Invalid pattern file (near position %li): "format, search_file_error_pos, ##__VA_ARGS__))
 
-static __attribute__((format(scanf, 2, 3))) bool check_line(FILE* file, const char* format, ...) {
+[[gnu::format(scanf, 2, 3)]] static bool check_line(FILE* file, const char* format, ...) {
     // run vfscanf
     long start_pos = ftell(file);
     if (start_pos == -1) {
@@ -365,11 +371,14 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.periodic_period = v_size;
     } else if (check_line(file, "check_early_exhaustion = %i", &v_int)) {
         config.check_early_exhaustion = v_int;
+    } else if (check_line(file, "benchmarking_iterations = %ju", &v_uintmax)) {
+        config.benchmarking = true;
+        config.benchmarking_iterations = v_uintmax;
     } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
         config.reporting_interval = v_double;
     } else if (check_line(file, "after_rule_text = %255s", v_str)) {
         config.after_rule_text = safe_malloc((strlen(v_str) + 1) * sizeof(char));
-        strncpy(config.after_rule_text, v_str, 255);
+        strncpy(config.after_rule_text, v_str, 256);
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
     } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {
@@ -468,16 +477,18 @@ int main(int argc, char** argv) {
     init_solutions();
     current_stack = create_stack();
     init_clause_stack();
-    preprocess();
-    init_progress();
-    #if CUSTOM_INIT
-        custom_init();
-    #endif
-    run_search();
-    #if CUSTOM_DESTROY
-        custom_destroy();
-    #endif
-    destroy_progress();
+    bool solved_in_preprocessing = preprocess();
+    if (!solved_in_preprocessing) {
+        init_progress();
+        #if CUSTOM_INIT
+            custom_init();
+        #endif
+        run_search();
+        #if CUSTOM_DESTROY
+            custom_destroy();
+        #endif
+        destroy_progress();
+    }
     destroy_clause_stack();
     destroy_stack(current_stack);
     destroy_solutions();

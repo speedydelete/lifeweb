@@ -62,30 +62,12 @@ static inline void dg_set(DynamicGrid* grid, size_t t, size_t x, size_t y, CellV
     dg_index(grid, t, x, y) = value;
 }
 
-static inline void dg_set_from_cell(DynamicGrid* grid, size_t t, size_t x, size_t y, GridCell* grid_cell) {
-    Cell* cell = grid_cell->cell;
-    bool invert = grid_cell->invert;
-    if (cell->alias) {
-        invert = invert != cell->invert_alias;
-        cell = cell->alias;
-    }
-    CellValue value = cell->value;
-    if (invert) {
-        if (value == OFF) {
-            value = ON;
-        } else if (value == ON) {
-            value = OFF;
-        }
-    }
-    dg_index(grid, t, x, y) = value;
-}
-
 static void dg_init_from_search_grid(DynamicGrid* out) {
     dg_init(out, state.width, state.height, state.gens);
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
             for (size_t x = 0; x < state.width; x++) {
-                dg_set_from_cell(out, t, x, y, state_get_grid_cell(t, x, y));
+                dg_set(out, t, x, y, state_get_cell_value(t, x, y));
             }
         }
     }
@@ -108,16 +90,16 @@ static bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
     return true;
 }
 
-static void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
-    dg_init(out, grid->width, grid->height, grid->gens);
-    for (size_t t = 0; t < grid->gens; t++) {
-        for (size_t y = 0; y < grid->height; y++) {
-            for (size_t x = 0; x < grid->width; x++) {
-                dg_index(out, t, x, y) = dg_index(grid, t, x, y);
-            }
-        }
-    }
-}
+// static void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
+//     dg_init(out, grid->width, grid->height, grid->gens);
+//     for (size_t t = 0; t < grid->gens; t++) {
+//         for (size_t y = 0; y < grid->height; y++) {
+//             for (size_t x = 0; x < grid->width; x++) {
+//                 dg_index(out, t, x, y) = dg_index(grid, t, x, y);
+//             }
+//         }
+//     }
+// }
 
 static void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);

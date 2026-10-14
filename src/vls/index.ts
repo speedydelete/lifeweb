@@ -1,4 +1,6 @@
 
+// -std=c2x -Wall -Werror -Wpedantic -Wextra -Wno-overlength-strings -Wno-attributes -g -O3 -flto -march=native -mtune=native -fsanitize=address
+
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
@@ -198,21 +200,22 @@ type Option = {[K in keyof Options]: Options[K] extends string ? never : K}[keyo
 type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 
 
-export interface ParseArgsData {
+export interface VLSSearchData {
     posArgs: string[];
     options: OptionData;
     params2File: string;
     searchFile: string;
+    periodic: {dx: number, dy: number, period: number} | undefined;
 }
 
-export async function parseArgs(argv: string[], paramsFile: string): Promise<ParseArgsData> {
+export async function createVLSSearch(args: string[], paramsFile: string): Promise<VLSSearchData> {
 
 
 let posArgs: string[] = [];
 let options: OptionData = {};
 
-for (let i = 2; i < argv.length; i++) {
-    let arg = argv[i];
+for (let i = 0; i < args.length; i++) {
+    let arg = args[i];
     if (arg.match(/^-[-a-zA-Z]/)) {
         let value: string | undefined;
         if (arg.includes('=')) {
@@ -826,6 +829,8 @@ ${(() => {
 
 check_early_exhaustion = ${Number(Boolean(checkEarlyExhaustion))}
 
+${options['benchmark'] !== undefined ? `benchmarking_iterations = ${options['benchmark']}` : ''}
+
 reporting_interval = ${options['interval'] ?? 1}
 
 show_solutions = ${Number(!options['no-show-solutions'])}
@@ -854,26 +859,35 @@ return {
     options,
     params2File: params2Lines.join('\n'),
     searchFile,
+    periodic: periodic === false ? undefined : periodic,
 };
 
 }
 
 
-export async function main() {
+export interface VLSRunData {
+    search: VLSSearchData;
+    out: {good: true, data: string} | {good: false, error: unknown};
+    totalTime: number;
+    invocationTime: number;
+}
+
+export async function runVLS(args: string[], recompile: boolean | undefined = undefined): Promise<VLSRunData> {
+    let totalStart = performance.now();
     let path = await import('node:path');
     function getPath(file: string): string {
         return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
     }
     let fs = await import('node:fs/promises');
     let {existsSync} = await import('node:fs');
-    let {execSync} = (await import('node:child_process'));
+    let {spawn} = (await import('node:child_process'));
     let execPath = getPath('vls_compiled');
     if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
         execPath = './' + execPath;
     }
     let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
-    let data = await parseArgs(process.argv, paramsFile);
-    let options = data.options;
+    let search = await createVLSSearch(args, paramsFile);
+    let options = search.options;
     let params2Path = getPath('src/vls/params2.h');
     let oldParams2: string;
     if (!existsSync(params2Path)) {
@@ -881,7 +895,6 @@ export async function main() {
     } else {
         oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
     }
-    let recompile = false;
     // BROKEN
     // I HATE YOU
     // if (existsSync(execPath)) {
@@ -899,53 +912,84 @@ export async function main() {
     //     recompile = true;
     // }
     recompile = true;
-    if (data.params2File !== oldParams2) {
+    if (search.params2File !== oldParams2) {
         recompile = true;
-        await fs.writeFile(getPath('src/vls/params2.h'), data.params2File);
+        await fs.writeFile(getPath('src/vls/params2.h'), search.params2File);
     }
+    recompile ??= false;
     let searchFilePath = getPath('vls_search.txt');
-    await fs.writeFile(searchFilePath, data.searchFile);
-    let commandsToRun: string[] = [];
+    await fs.writeFile(searchFilePath, search.searchFile);
+    let commandsToRun: string[][] = [];
     if (recompile) {
         let compiler: 'gcc' | 'clang' = options['gcc'] ? 'gcc' : 'clang';
-        let command = compiler === 'gcc' ? `gcc -std=c2x` : `clang -std=c23` ;
-        command += ` -fdiagnostics-color=always`;
+        let command = compiler === 'gcc' ? [`gcc`, `-std=c2x`] : [`clang`, `-std=c23`];
+        command.push(`-fdiagnostics-color=always`);
         // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas -Wno-unused-function`;
+        command.push(`-Wall`, `-Werror`, `-Wpedantic`, `-Wextra`, `-Wno-unknown-pragmas`);
         if (compiler === 'clang') {
-            command += ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
+            command.push(`-Wno-gnu-zero-variadic-macro-arguments`, `-Wno-gnu-binary-literal`);
         }
         // features
-        command += ` -g`;
+        command.push('-g');
         if (!options['no-optimize']) {
-            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
+            command.push(`-O3`, `-march=native`, `-mtune=native`, `-flto`, `-fno-stack-protector`, `-fomit-frame-pointer`);
         }
         if (options['address-sanitizer']) {
-            command += ` -fsanitize=address`;
+            command.push(`-fsanitize=address`);
         }
-        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        command += ` -lm`;
+        command.push(`-o`, execPath, getPath('src/vls/index.c'));;
+        command.push('-lm');
         commandsToRun.push(command);
     }
-    let execCommand = `${execPath} '${searchFilePath}'`;
+    let execCommand = [execPath, searchFilePath];
     if (options['gdb']) {
-        commandsToRun.push(`gdb --args ${execCommand}`);
+        commandsToRun.push([`gdb`, `--args`, ...execCommand]);
     } else {
         if (options['file']) {
-            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
+            throw new Error('file option is not supported yet');
         } else {
             commandsToRun.push(execCommand);
         }
     }
+    let out: VLSRunData['out'];
+    let invocationStart = performance.now();
     try {
+        let str = '';
         for (let command of commandsToRun) {
-            execSync(command, {stdio: 'inherit'});
+            let child = spawn(command[0], command.slice(1));
+            let {promise, resolve, reject} = Promise.withResolvers<void>();
+            child.stdout.on('data', data => {
+                process.stdout.write(data);
+                str += data.toString();
+            });
+            child.stderr.on('data', data => {
+                process.stderr.write(data);
+            });
+            child.on('error', (err) => {
+                reject(err);
+            });
+            child.on('close', (code) => {
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`Process exited with code ${code}`));
+                }
+            });
+            await promise;
         }
+        out = {good: true, data: str};
     } catch (error) {
-        process.exit(1);
+        out = {good: false, error};
     }
+    let end = performance.now();
+    return {
+        search,
+        out,
+        totalTime: (totalStart - end) / 1000,
+        invocationTime: (invocationStart - end) / 1000,
+    };
 }
 
 if (import.meta.main) {
-    main();
+    runVLS(process.argv.slice(2));
 }

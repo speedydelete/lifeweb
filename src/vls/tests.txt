@@ -1,0 +1,55 @@
+
+test Dot
+command ./vls B/S0 periodic p1 1 1
+expect xs1_1
+untimed
+
+test Domino
+command ./vls B/S1e periodic p1 2 1
+expect xs2_3
+untimed
+
+test Block
+command ./vls B3/S23 periodic p1 2 2
+expect xs4_33
+untimed
+
+test B2a3r/S ship
+command ./vls B2a3r/S periodic c/1o 2 4
+expect xq1_15
+untimed
+
+test Small still lifes
+command ./vls B3/S23 periodic p1 3 3
+expect xs4_33
+expect xs4_252
+expect xs5_253
+expect xs6_356
+untimed
+
+test Blinker
+command ./vls B3/S23 periodic p2 3 3
+expect xp2_7
+untimed
+
+test Glider
+command ./vls B3/S23 periodic c/4d 4 4
+expect xq4_153
+untimed
+
+test Too small for glider
+command ./vls B3/S23 periodic c/4d 4 3
+expect_nothing
+untimed
+
+test xWSSes
+command ./vls B3/S23 periodic 2c/4o 7 9
+expect xq4_6frc
+expect xq4_27dee6
+expect xq4_27deee6
+iterations 100
+
+test 25P3H1V0.1
+command ./vls B3/S23 periodic c/3o 16 6 -o=s2s
+expect xq3_16614e8o4aa82cc2
+iterations 100

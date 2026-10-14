@@ -7,11 +7,8 @@
 
 #include "params2.h"
 #include "base.c"
-#include "implications.c"
+#include "implications/index.c"
 #include "output.c"
-#ifdef CUSTOM
-    #include CUSTOM
-#endif
 
 
 // sets the next_in_search_order fields in all the cells
@@ -138,9 +135,7 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
     if (set_cell_and_propagate(cell, value, true)) {
         #if CUSTOM_PRUNING
             if (!custom_prune(depth, cell)) {
-                #if DEBUG >= 3
-                    debug_depth--;
-                #endif
+                dec_debug_depth();
                 return 0;
             }
         #endif
@@ -161,8 +156,8 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
 
 // returns number of iterations to backjump
 static size_t run_depth(size_t depth, Cell* cell) {
+    inc_debug_depth();
     #if DEBUG >= 3
-        debug_depth++;
         printf("Running depth %zu: ", depth);
         print_progress(stdout);
         real_printf("\n");
@@ -178,12 +173,8 @@ static size_t run_depth(size_t depth, Cell* cell) {
         unexpected_error("The dwarves delved too greedily and too deep");
     }
     if (state.set_unknown_vars >= state.start_unknown_vars) {
-        #ifndef BENCHMARK
-            check_solution(false);
-        #endif
-        #if DEBUG >= 3
-            debug_depth--;
-        #endif
+        check_solution(false);
+        dec_debug_depth();
         return 0;
     }
     debug_print_grid_3();
@@ -191,9 +182,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
     if (cell->value != UNKNOWN) {
         debug_printf_3("Cell is known, continuing\n");
         size_t out = run_depth(depth + 1, cell->next_in_search_order);
-        #if DEBUG >= 3
-            debug_depth--;
-        #endif
+        dec_debug_depth();
         return out == 0 ? 0 : out - 1;
     }
     CellValue value = config.initial_value;
@@ -212,14 +201,15 @@ static size_t run_depth(size_t depth, Cell* cell) {
         all_zeros = prev_all_zeros;
         value = value == OFF ? ON : OFF;
     }
-    #if DEBUG >= 3
-        debug_depth--;
-    #endif
+    dec_debug_depth();
     return 0;
 }
 
 
-static void actual_run_search(Cell* initial_cell) {
+static void actual_run_search(void) {
+    Cell* initial_cell = add_search_orders();
+    debug_print_grid_1();
+    debug_printf_1("Running search\n");
     state.branches = 0;
     state.solutions_found = 0;
     start = get_time();
@@ -227,26 +217,22 @@ static void actual_run_search(Cell* initial_cell) {
     last_max_partial_shown = start;
     all_zeros = true;
     run_depth(0, initial_cell);
+    printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", state.solutions_found, get_time() - start, state.branches);
+    max_partials_end();
 }
 
 static void run_search(void) {
-    Cell* initial_cell = add_search_orders();
-    debug_print_grid_1();
-    debug_printf_1("Running search\n");
-    #ifndef BENCHMARK
-        actual_run_search(initial_cell);
-        printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", state.solutions_found, get_time() - start, state.branches);
-    #if MAX_PARTIALS
-        max_partials_end();
-    #endif
-    #else
+    if (!config.benchmarking) {
+        actual_run_search();
+    } else {
+        uintmax_t iterations = config.benchmarking_iterations;
         double full_start = get_time();
-        for (uintmax_t i = 0; i < BENCHMARK; i++) {
+        for (uintmax_t i = 0; i < iterations; i++) {
             double start = get_time();
-            actual_run_search(initial_cell);
-            printf("Iteration %ju/%ju complete in %.6f seconds\n", i + 1, BENCHMARK, get_time() - start);
+            actual_run_search();
+            printf("Iteration %ju/%ju complete in %.6f seconds\n", i + 1, iterations, get_time() - start);
         }
         double seconds = get_time() - full_start;
-        printf("%ju iterations complete in %.6f seconds, average %.6f seconds/iteration\n", BENCHMARK, seconds, seconds / BENCHMARK);
-    #endif
+        printf("%ju iterations complete in %.6f seconds, average %.6f seconds/iteration\n", iterations, seconds, seconds / iterations);
+    }
 }

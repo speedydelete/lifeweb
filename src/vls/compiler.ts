@@ -329,14 +329,14 @@ export class Grid {
         return out;
     }
 
-    expand({start = 0, end = 0, up = 0, down = 0, left = 0, right = 0}: {start?: number, end?: number, up?: number, down?: number, left?: number, right?: number}): this {
+    expand({start = 0, end = 0, up = 0, down = 0, left = 0, right = 0}: {start?: number, end?: number, up?: number, down?: number, left?: number, right?: number}, value: Cell = cell(UNKNOWN)): this {
         let newWidth = this.width + left + right;
         let newHeight = this.height + up + down;
         let newGens = this.gens + start + end;
         // first make empty placeholders
         let emptyRow: Cell[] = [];
         for (let i = 0; i < newWidth; i++) {
-            emptyRow.push(cell(UNKNOWN));
+            emptyRow.push(structuredClone(value));
         }
         let emptyLayer: Cell[][] = [];
         for (let i = 0; i < newHeight; i++) {
@@ -346,10 +346,10 @@ export class Grid {
         for (let layer of this.data) {
             for (let row of layer) {
                 for (let i = 0; i < left; i++) {
-                    row.unshift(cell(UNKNOWN));
+                    row.unshift(structuredClone(value));
                 }
                 for (let i = 0; i < right; i++) {
-                    row.push(cell(UNKNOWN));
+                    row.push(structuredClone(value));
                 }
             }
             for (let i = 0; i < up; i++) {

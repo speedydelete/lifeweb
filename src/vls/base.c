@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <math.h>
 
 #include "params2.h"
 
@@ -71,9 +70,10 @@
 
 #define real_printf (printf)
 #define real_fprintf (fprintf)
-#if DEBUG >= 3 || HASH_DEBUG
-    #define HAS_DEBUG_DEPTH true
+#if DEBUG >= 2 || HASH_DEBUG
     static int debug_depth = 0;
+    #define inc_debug_depth() do { debug_depth++; } while(0)
+    #define dec_debug_depth() do { debug_depth--; } while(0)
     #define print_line_padding() { \
         for (int i = 0; i < debug_depth; i++) { \
             real_printf(INDENT); \
@@ -97,12 +97,13 @@
         real_fprintf(stream, __VA_ARGS__); \
     }
 #else
-    #define HAS_DEBUG_DEPTH false
+    #define inc_debug_depth()
+    #define dec_debug_depth()
     #define print_line_padding()
     #define fprint_line_padding(stream)
 #endif
 
-static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void error(const char* format, ...) {
+[[noreturn]] [[gnu::format(printf, 1, 2)]] static void error(const char* format, ...) {
     real_fprintf(stderr, "\nError: ");
     va_list args;
     va_start(args, format);
@@ -112,7 +113,7 @@ static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void erro
     exit(EXIT_FAILURE);
 }
 
-static __attribute__((noreturn)) __attribute__((format(printf, 1, 2))) void unexpected_error(const char* format, ...) {
+[[noreturn]] [[gnu::format(printf, 1, 2)]] static void unexpected_error(const char* format, ...) {
     real_fprintf(stderr, "\nUnexpected error: ");
     va_list args;
     va_start(args, format);
@@ -143,6 +144,15 @@ static ptrdiff_t get_rule(char* out, bool use_maxrule);
 
 static void* safe_malloc(size_t size) {
     void* out = malloc(size);
+    if (out == NULL) {
+        perror("Error: This error should not occur, please report it: Error in malloc");
+        exit(EXIT_FAILURE);
+    }
+    return out;
+}
+
+static void* safe_aligned_alloc(size_t align, size_t size) {
+    void* out = aligned_alloc(align, size);
     if (out == NULL) {
         perror("Error: This error should not occur, please report it: Error in malloc");
         exit(EXIT_FAILURE);
@@ -274,15 +284,18 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 }
 
 
-#if defined(__AVX2__) || true
+#define IMPLICATION_BACKEND_UINT64_T 1
+#define IMPLICATION_BACKEND_AVX2 2
 
-#include <immintrin.h>
-
-typedef __m256i ImplicState[4];
-
+#if defined(__AVX2__)
+    #define IMPLICATION_BACKEND IMPLICATION_BACKEND_AVX2
+    #include <immintrin.h>
+    typedef __m256i ImplicState[4];
+    #define IMPLIC_STATE_ALIGN (32 * CHAR_BIT / 8)
 #else
-
-typedef uint64_t ImplicState[16];
+    #define IMPLICATION_BACKEND IMPLICATION_BACKEND_UINT64_T
+    typedef uint64_t ImplicState[16];
+    #define IMPLIC_STATE_ALIGN (8 * CHAR_BIT / 8)
 
 #endif
 
@@ -290,9 +303,10 @@ typedef uint64_t ImplicState[16];
 typedef struct Cell Cell;
 
 typedef struct CAClause {
+    // put it at the start to force alignment
+    ImplicState states[11];
     size_t number;
     int state_number;
-    ImplicState states[128];
     Cell* c;
     bool invert_c;
     Cell* next;
@@ -388,11 +402,6 @@ static GridCell off_grid_cell = {
     .invert = false,
 };
 
-static GridCell on_grid_cell = {
-    .cell = &on_cell,
-    .invert = false,
-};
-
 static GridCell null_grid_cell = {
     .cell = NULL,
     .invert = false,
@@ -434,42 +443,65 @@ static struct {
     uintmax_t solutions_found;
 } state;
 
+static bool state_coords_in_bounds(intmax_t t, intmax_t x, intmax_t y) {
+    return t >= 0 && t < (intmax_t)state.gens
+        && x >= 0 && x < (intmax_t)state.width
+        && y >= 0 && y < (intmax_t)state.height
+    ;
+}
+
 static GridCell* state_get_grid_cell(size_t t, size_t x, size_t y) {
     return &(state.grid[(((t * state.height) + y) * state.width) + x]);
 }
 
-static CellValue state_get_cell_value(size_t t, size_t x, size_t y) {
-    GridCell* grid_cell = state_get_grid_cell(t, x, y);
-    Cell* cell = grid_cell->cell;
+// static CellValue get_cell_value(Cell* cell) {
+//     if (cell->alias) {
+//         CellValue out = cell->alias->value;
+//         if (cell->invert_alias) {
+//             if (out == OFF) {
+//                 return ON;
+//             } else {
+//                 return OFF;
+//             }
+//         }
+//         return out;
+//     } else {
+//         return cell->value;
+//     }
+// }
+
+static CellValue get_grid_cell_value(GridCell* grid_cell) {
     bool invert = grid_cell->invert;
+    Cell* cell = grid_cell->cell;
     if (cell->alias) {
         invert = invert != cell->invert_alias;
         cell = cell->alias;
     }
-    CellValue out = cell->value;
     if (invert) {
-        if (out == OFF) {
+        if (cell->value == OFF) {
             return ON;
-        } else if (out == ON) {
+        } else if (cell->value == ON) {
             return OFF;
         } else {
-            return out;
+            return cell->value;
         }
     } else {
-        return out;
+        return cell->value;
     }
 }
 
-static GridCell* state_get_grid_cell_allow_oob(size_t t, size_t x, size_t y) {
-    // if it would be less than 0, then it underflows
-    // and gets Very Big, so we don't need to check for that!
-    if (t >= state.gens) {
+static CellValue state_get_cell_value(size_t t, size_t x, size_t y) {
+    return get_grid_cell_value(state_get_grid_cell(t, x, y));
+}
+
+static GridCell* state_get_grid_cell_allow_oob(intmax_t t, intmax_t x, intmax_t y) {
+    if (t < 0 || t >= (intmax_t)state.gens) {
         return &null_grid_cell;
     }
-    if (x >= state.width) {
+    if (x < 0 || x >= (intmax_t)state.width) {
         return &off_grid_cell;
     }
-    if (y >= state.height) {
+    if (y < 0 || y >= (intmax_t)state.height) {
         return &off_grid_cell;
     }
     return state_get_grid_cell(t, x, y);
@@ -485,22 +517,6 @@ static void unalias(Cell* cell);
 
 // computes the initial implication state for a clause
 static void compute_implication_state(CAClause* clause);
-
-static CellValue get_cell_value(Cell* cell) {
-    if (cell->alias) {
-        CellValue out = cell->alias->value;
-        if (cell->invert_alias) {
-            if (out == OFF) {
-                return ON;
-            } else {
-                return OFF;
-            }
-        }
-        return out;
-    } else {
-        return cell->value;
-    }
-}
 
 
 // configuration options
@@ -525,6 +541,11 @@ typedef struct Config {
     intmax_t periodic_dy;
     size_t periodic_period;
     bool check_early_exhaustion;
+
+    // whether benchmarking is enabled at all
+    bool benchmarking;
+    // number of benchmarking iterations to run
+    uintmax_t benchmarking_iterations;
 
     // the interval used for reporting progress
     double reporting_interval;
@@ -568,7 +589,8 @@ static Config config = {
     .periodic_period = 0,
     .check_early_exhaustion = false,
     .reporting_interval = 1.0,
-    .after_rule_text = NULL,
+    .benchmarking = false,
+    .benchmarking_iterations = 0,
     .show_solutions = true,
     .max_solutions = 0,
     .filter_empty_solutions = true,
@@ -576,6 +598,8 @@ static Config config = {
     .filter_subperiod_solutions = true,
     .cell_period_filter_length = 0,
     .cell_period_filter = NULL,
+    .after_rule_text = NULL,
+
     .max_partials = true,
     .max_partial_scoring = MAX_PARTIAL_SCORING_CELL,
     .max_partial_reporting_interval = 1.0,
@@ -594,8 +618,8 @@ static void destroy_config(void) {
 }
 
 
-// print a single cell for debugging purposes
-static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
+// the out buffer should be filled with zeros
+static void internal_grid_cell_to_string(char* out, GridCell* grid_cell) {
     Cell* cell = grid_cell->cell;
     CellValue value = cell->value;
     if (value == UNKNOWN) {
@@ -609,55 +633,40 @@ static void print_grid_cell(FILE* stream, int field_size, GridCell* grid_cell) {
             }
         }
         if (use_count > 1) {
-            int64_t value = cell->var_number;
+            intmax_t value = cell->var_number;
             if (grid_cell->invert) {
                 value = -value;
             }
-            real_fprintf(stream, "%-*"PRIi64, field_size, value);
+            sprintf(out, "%ji", value);
         } else {
-            real_fprintf(stream, "%-*c", field_size, '*');
+            out[0] = '*';
         }
     } else if (value == OFF) {
-        real_fprintf(stream, "%-*c", field_size, '.');
+        out[0] = '.';
     } else if (value == ON) {
-        real_fprintf(stream, "%-*c", field_size, 'o');
+        out[0] = 'o';
     } else {
-        real_fprintf(stream, "%-*c", field_size, 'C');
+        out[0] = 'C';
     }
 }
 
 // print the grid for debugging purposes
-static void print_grid(FILE* stream) {
-    bool found_multi_use_cell = false;
-    for (size_t i = 1; i <= state.var_count; i++) {
-        Cell* cell = state.vars[i];
-        size_t use_count = 0;
-        for (size_t j = 0; j < state.total_size; j++) {
-            if (state.grid[j].cell == cell) {
-                use_count++;
-                if (use_count > 1) {
-                    found_multi_use_cell = true;
-                    break;
+[[maybe_unused]] static void print_grid(FILE* stream) {
+    char str[256];
+    int max_len = 1;
+    for (size_t t = 0; t < state.gens; t++) {
+        for (size_t y = 0; y < state.height; y++) {
+            for (size_t x = 0; x < state.width; x++) {
+                memset(str, '\0', 256);
+                internal_grid_cell_to_string(str, state_get_grid_cell(t, x, y));
+                int len = strlen(str);
+                if (len > max_len) {
+                    max_len = len;
                 }
             }
         }
-        if (found_multi_use_cell) {
-            break;
-        }
     }
-    int field_size;
-    if (found_multi_use_cell) {
-        field_size = (int)floor(log10(state.var_count)) + 2;
-    } else {
-        field_size = 2;
-    }
-    // if there's an invert we have to make it bigger to fit the minus sign
-    for (size_t i = 0; i < state.total_size; i++) {
-        if (state.grid[i].invert) {
-            field_size += 1;
-            break;
-        }
-    }
+    int field_size = max_len + 1;
     char rule[MAX_UNPARSED_RULE_LENGTH];
     memset(rule, '\0', 256 * sizeof(char));
     get_rule(rule, false);
@@ -666,7 +675,9 @@ static void print_grid(FILE* stream) {
         for (size_t y = 0; y < state.height; y++) {
             fprint_line_padding(stream);
             for (size_t x = 0; x < state.width; x++) {
-                print_grid_cell(stream, field_size, state_get_grid_cell(t, x, y));
+                memset(str, '\0', 256);
+                internal_grid_cell_to_string(str, state_get_grid_cell(t, x, y));
+                real_fprintf(stream, "%-*s", field_size, str);
             }
             real_fprintf(stream, "$\n");
         }
@@ -747,21 +758,21 @@ static void print_stack_entry(StackEntry* entry) {
 }
 
 // returns false if contradiction, true if no contradiction
-static bool apply_stack_entry(StackEntry* entry) {
-    #if DEBUG >= 4
-        printf("Applying stack entry: ");
-        print_stack_entry(entry);
-    #endif
-    if (entry->type == STACKENTRY_TYPE_CELL_SET) {
-        set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
-        state.set_unknown_vars++;
-    } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
-        alias(entry->data.alias.cell, entry->data.alias.aliased_to, entry->data.alias.invert);
-    } else {
-        unexpected_error("Invalid stack entry");
-    }
-    return true;
-}
+// static bool apply_stack_entry(StackEntry* entry) {
+//     #if DEBUG >= 4
+//         printf("Applying stack entry: ");
+//         print_stack_entry(entry);
+//     #endif
+//     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
+//         set_cell(entry->data.cell_set.cell, entry->data.cell_set.value);
+//         state.set_unknown_vars++;
+//     } else if (entry->type == STACKENTRY_TYPE_ALIAS) {
+//         alias(entry->data.alias.cell, entry->data.alias.aliased_to, entry->data.alias.invert);
+//     } else {
+//         unexpected_error("Invalid stack entry");
+//     }
+//     return true;
+// }
 
 // returns false if contradiction, true if no contradiction
 static bool undo_stack_entry(StackEntry* entry) {
@@ -831,7 +842,7 @@ static inline StackEntry* get_stack_entry(Stack* stack, size_t i) {
     }
 }
 
-static __attribute__((used)) void print_stack(Stack* stack) {
+[[maybe_unused]] static void print_stack(Stack* stack) {
     printf("Stack:\n");
     for (size_t i = 0; i < stack->len; i++) {
         printf(INDENT "Entry: ");
@@ -952,7 +963,7 @@ static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     return true;
 }
 
-static bool alias_and_push(Cell* cell, Cell* alias_to, bool invert, bool is_explicit) {
+[[maybe_unused]] static bool alias_and_push(Cell* cell, Cell* alias_to, bool invert, bool is_explicit) {
     if (!alias(cell, alias_to, invert)) {
         return false;
     }
@@ -966,3 +977,8 @@ static bool alias_and_push(Cell* cell, Cell* alias_to, bool invert, bool is_expl
     #endif
     return true;
 }
+
+
+#ifdef CUSTOM
+    #include CUSTOM
+#endif

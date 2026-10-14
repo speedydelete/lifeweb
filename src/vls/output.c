@@ -14,9 +14,6 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 
 #include "dynamic_grid.c"
 #include "rules.c"
-#ifdef CUSTOM
-    #include CUSTOM
-#endif
 
 
 static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
@@ -615,10 +612,8 @@ static void max_partials_end(void) {
         #if MULTI_RULE
             memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
-        #if MAX_PARTIALS
-            printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
-            print_grid_pretty(&max_partial, false);
-        #endif
+        printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
+        print_grid_pretty(&max_partial, false);
     }
     dg_destroy(&max_partial);
 }

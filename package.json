@@ -1,3 +1,5 @@
+
+
 {
     "name": "lifeweb",
     "version": "1.0.0",
@@ -23,13 +25,16 @@
     },
     "homepage": "https://github.com/speedydelete/lifeweb",
     "wrecked_vls": {
-        "html": "src/vls/test.html",
+        "html": "src/vls/web_runner.html",
         "showErrors": true,
         "imports": {
+            "./implications/avx2.c": "src/vls/implications/avx2.c",
+            "./implications/base.c": "src/vls/implications/base.c",
+            "./implications/index.c": "src/vls/implications/index.c",
+            "./implications/uint64_t.c": "src/vls/implications/uint64_t.c",
             "./index.js": "src/vls/index.ts",
             "./base.c": "src/vls/base.c",
             "./dynamic_grid.c": "src/vls/dynamic_grid.c",
-            "./implications.c": "src/vls/implications.c",
             "./index.c": "src/vls/index.c",
             "./output.c": "src/vls/output.c",
             "./params.h": "src/vls/params.h",
@@ -53,13 +58,16 @@
         }
     },
     "wrecked": {
-        "html": "src/vls/test.html",
+        "html": "src/vls/web_runner.html",
         "showErrors": true,
         "imports": {
+            "./implications/avx2.c": "src/vls/implications/avx2.c",
+            "./implications/base.c": "src/vls/implications/base.c",
+            "./implications/index.c": "src/vls/implications/index.c",
+            "./implications/uint64_t.c": "src/vls/implications/uint64_t.c",
             "./index.js": "src/vls/index.ts",
             "./base.c": "src/vls/base.c",
             "./dynamic_grid.c": "src/vls/dynamic_grid.c",
-            "./implications.c": "src/vls/implications.c",
             "./index.c": "src/vls/index.c",
             "./output.c": "src/vls/output.c",
             "./params.h": "src/vls/params.h",
@@ -73,3 +81,4 @@
         "@babel/parser": "^8.0.4"
     }
 }
+

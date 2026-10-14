@@ -84,7 +84,7 @@ body {
         <div id="out"></div>
         <script type="module">
 
-import {parseArgs} from './index.js';
+import {createVLSSearch} from './index.js';
 
 
 const ORDER = [
@@ -92,7 +92,10 @@ const ORDER = [
     'rulespaces.c',
     'dynamic_grid.c',
     'rules.c',
-    'implications.c',
+    'implications/base.c',
+    'implications/uint64_t.c',
+    'implications/avx2.c',
+    'implications/index.c',
     'output.c',
     'search.c',
     'preprocess.c',
@@ -124,11 +127,11 @@ globalThis.process = {
 let outElt = document.getElementById('out');
 
 document.getElementById('compile').addEventListener('click', async () => {
-    let argv = ['node'].concat(commandInput.value.split(' '));
-    let data = await parseArgs(argv, (await import('./params.h')).default);
+    let argv = commandInput.value.split(' ').slice(1);
+    let data = await createVLSSearch(argv, (await import('./params.h')).default);
     let params2 = `#line 1 "params2.h"\n${data.params2File.replaceAll('#pragma once', '')}`;
     let source2 = `#define IN_BROWSER 1\n\n${params2}\n${source}`;
-    source2 = source2.replaceAll(`SEARCH_FILE_GOES_HERE`, JSON.stringify(data.problemFile));
+    source2 = source2.replaceAll(`SEARCH_FILE_GOES_HERE`, JSON.stringify(data.searchFile));
     outElt.textContent = source2;
     let range = document.createRange();
     range.selectNodeContents(outElt);
