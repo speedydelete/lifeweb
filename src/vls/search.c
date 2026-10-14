@@ -145,7 +145,7 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
             }
         #endif
         // check for early exhaustion
-        if (config.periodic && all_zeros) {
+        if (config.check_early_exhaustion && all_zeros) {
             if (check_early_exhaustion()) {
                 debug_print_grid_3();
                 debug_printf_3("Early exhausted");

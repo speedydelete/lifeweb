@@ -95,11 +95,13 @@ Options:
     -c, -custom=<file>: use additional search constraints given in the
         provided C file, see lifeweb/src/vls/custom/ for examples
 
+    -periodic=<'none'|speed>: set the searcher's knowledge of the periodicity
+        of the pattern, this is used for duplicate solution filtering and
+        checking early exhaustion, periodic mode enables this automatically
+
     -check-early-exhaustion=<boolean>: check early exhaustion (a row/column is
         all 0), this is enabled automatically in periodic mode when it is an
-        oscillator or orthogonal spaceship, but not in other cases
-    -no-check-early-exhaustion: force not checking early exhaustion, can be
-        used in periodic mode to turn it off if it's broken
+        asymmetric oscillator or spaceship, but not in other cases
 
     -interval=<seconds>: set the progress reporting interval, default 1, also
         sets the max partial reporting interval if -partial-interval is not set
@@ -117,11 +119,6 @@ Options:
     -no-show-solutions: disable showing solutions at all
     -allow-empty: allow the empty pattern as a solution
     -allow-duplicates: allow duplicate solutions to be reported
-    -periodic=<'none'|speed>: set the searcher's knowledge of the periodicity
-        of the pattern, this is used for duplicate solution filtering and
-        checking early exhaustion, periodic mode enables this automatically
-    -no-check-early-exhaustion: disable checking early exhaustion, only valid
-        in periodic mode or if the -periodic option is provided 
     -allow-subperiod=<boolean>: allow subperiod solutions to be reported,
         default false in periodic mode, true in all other modes
     -cell-period-filter=<periods>:
@@ -173,6 +170,7 @@ const OPTIONS = {
     'maxpop': NUMBER,
     'custom': STRING,
     'c': 'custom',
+    'check-early-exhaustion': BOOLEAN,
     'interval': NUMBER,
     'partials': list(['none', 'cell', 'depth'] as const),
     'partial-interval': NUMBER,
@@ -182,7 +180,6 @@ const OPTIONS = {
     'allow-empty': FLAG,
     'allow-duplicates': FLAG,
     'periodic': STRING,
-    'no-check-early-exhaustion': FLAG,
     'allow-subperiod': BOOLEAN,
     'cell-period-filter': STRING,
 } satisfies {[key: string]: OptionValue | string};
@@ -795,6 +792,11 @@ for (let layer of grid.data) {
 }
 gridStr = gridStr.trim();
 
+let checkEarlyExhaustion = options['check-early-exhaustion'];
+if (periodic && !options['symmetry']) {
+    checkEarlyExhaustion ??= true;
+}
+
 let searchFile = `
 width = ${grid.width}
 height = ${grid.height}
@@ -821,6 +823,8 @@ ${(() => {
     }
     return `periodic = (${periodic.dx}, ${periodic.dy})c/${periodic.period}`;
 })()}
+
+check_early_exhaustion = ${Number(Boolean(checkEarlyExhaustion))}
 
 reporting_interval = ${options['interval'] ?? 1}
 

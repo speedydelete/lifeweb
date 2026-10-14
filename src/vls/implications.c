@@ -174,19 +174,6 @@ static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
     }
 }
 
-static void print_implicstate(ImplicState state) {
-    printf("Implication state:\n");
-    int k = 0;
-    for (int i = 0; i < 16; i++) {
-        print_line_padding();
-        for (int j = 0; j < 64; j++) {
-            real_printf("%i", implicstate_get_bit(state, k));
-            k++;
-        }
-        real_printf("\n");
-    }
-}
-
 static inline bool implicstate_eq(ImplicState x, ImplicState y) {
     for (int i = 0; i < 16; i++) {
         if (x[i] != y[i]) {
@@ -246,6 +233,19 @@ static inline void implicstate_alias_cell(ImplicState state, int pos1, int pos2,
 
 #endif
 
+
+static void print_implicstate(ImplicState state) {
+    printf("Implication state:\n");
+    int k = 0;
+    for (int i = 0; i < 16; i++) {
+        print_line_padding();
+        for (int j = 0; j < 64; j++) {
+            real_printf("%i", implicstate_get_bit(state, k));
+            k++;
+        }
+        real_printf("\n");
+    }
+}
 
 static void init_implicstate(void) {
     for (int i = 0; i < 512; i++) {

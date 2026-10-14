@@ -363,6 +363,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.periodic_dx = v_intmax;
         config.periodic_dy = v_intmax_2;
         config.periodic_period = v_size;
+    } else if (check_line(file, "check_early_exhaustion = %i", &v_int)) {
+        config.check_early_exhaustion = v_int;
     } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
         config.reporting_interval = v_double;
     } else if (check_line(file, "after_rule_text = %255s", v_str)) {

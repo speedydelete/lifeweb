@@ -524,6 +524,7 @@ typedef struct Config {
     intmax_t periodic_dx;
     intmax_t periodic_dy;
     size_t periodic_period;
+    bool check_early_exhaustion;
 
     // the interval used for reporting progress
     double reporting_interval;
@@ -565,6 +566,7 @@ static Config config = {
     .periodic_dx = 0,
     .periodic_dy = 0,
     .periodic_period = 0,
+    .check_early_exhaustion = false,
     .reporting_interval = 1.0,
     .after_rule_text = NULL,
     .show_solutions = true,
