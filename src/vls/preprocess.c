@@ -12,7 +12,7 @@
 
 
 static __attribute__((noreturn)) void pre_unsat(const char* func) {
-    printf("Contradiction found in preprocessing (in step %s)", func + 4);
+    printf("Contradiction found in preprocessing (in step %s)\n", func + 4);
     debug_print_grid_1();
     exit(1);
 }
@@ -109,7 +109,7 @@ static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
 static void pre_check_unsat_clauses(void) {
     // look for basic unsatisfiable clauses
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        if (implicstate_is_contradiction(clause_state(state.ca_clauses[i]))) {
+        if (implicstate_is_contradiction(state.ca_clauses[i]->state)) {
             pre_unsat(__func__);
         }
     }
@@ -146,14 +146,19 @@ static void pre_check_cell_implications(void) {
         }
         bool can_be_0 = pre_internal_check_implications(cell, OFF);
         bool can_be_1 = pre_internal_check_implications(cell, ON);
+        debug_printf_2("Checking cell implications for variable %zu: can_be_0 = %i, can_be_1 = %i\n", cell->var_number, can_be_0, can_be_1);
         if (!can_be_0 && !can_be_1) {
             pre_unsat(__func__);
         } else if (!can_be_0 && can_be_1) {
             pre_changes_made = true;
-            set_cell_and_propagate(cell, ON, true);
+            if (!set_cell_and_propagate(cell, ON, true)) {
+                unexpected_error("Stack inconsistency detected in pre_check_cell_implications");
+            }
         } else if (can_be_0 && !can_be_1) {
             pre_changes_made = true;
-            set_cell_and_propagate(cell, OFF, true);
+            if (!set_cell_and_propagate(cell, OFF, true)) {
+                unexpected_error("Stack inconsistency detected in pre_check_cell_implications");
+            }
         } else {
             // do nothing
         }
