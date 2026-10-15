@@ -1,5 +1,0 @@
-
-module lifeweb;
-
-@export
-include lifeweb::core : _;
