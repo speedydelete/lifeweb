@@ -16,11 +16,11 @@ type LifewebError = enum: uint64 {
     INVALID_STATE_FOR_RULE,
 };
 
-@export
-string[] LIFEWEB_ERROR_MEANINGS = {
-    .[LifewebError::INVALID_RLE] = "Invalid RLE",
-    .[LifewebError::INVALID_STATE_FOR_RULE] = "Invalid state for rule",
-};
+// @export
+// string[] LIFEWEB_ERROR_MEANINGS = {
+//     .[LifewebError::INVALID_RLE] = "Invalid RLE",
+//     .[LifewebError::INVALID_STATE_FOR_RULE] = "Invalid state for rule",
+// };
 
 @export
 @noreturn
