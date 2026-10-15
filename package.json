@@ -4,7 +4,7 @@
     "description": "Cellular automata simulation library",
     "license": "MIT",
     "author": "speedydelete",
-    "main": "src/index.ts",
+    "main": "src_old/index.ts",
     "type": "module",
     "files": [
         "src",

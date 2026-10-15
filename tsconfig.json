@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./lib",
+        "rootDir": "./src_old",
+        "outDir": "./lib_old",
         "lib": ["ESNext", "DOM"],
         "target": "ESNext",
         "module": "NodeNext",
@@ -11,14 +11,14 @@
         "sourceMap": true,
         "declaration": true
     },
-    "include": ["./src/**/*.ts"],
+    "include": ["./src_old/**/*.ts"],
     "references": [
-        {"path": "./src/core"},
-        {"path": "./src/editor"},
-        {"path": "./src/identify"},
-        {"path": "./src/misc"},
-        {"path": "./src/rule_symmetries"},
-        {"path": "./src/uc"},
-        {"path": "./src/vls"}
+        {"path": "./src_old/core"},
+        {"path": "./src_old/editor"},
+        {"path": "./src_old/identify"},
+        {"path": "./src_old/misc"},
+        {"path": "./src_old/rule_symmetries"},
+        {"path": "./src_old/uc"},
+        {"path": "./src_old/vls"}
     ]
 }
