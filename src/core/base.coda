@@ -227,8 +227,7 @@ type Box = struct {
 
 
 @export
-type Transformation = fn Coord(Coord);
-
+type Transformation = fn Coord(Coord value);
 
 @export
 type Cell = uint64;
@@ -238,7 +237,6 @@ type Transition = uint64;
 
 @export
 type Symmetry = fn none(Transition tr, List<Transition>* on, List<Transition>* off);
-
 
 @export
 type StaticSymmetryID = usize;
@@ -261,6 +259,7 @@ type Bind = int64;
 Bind OFF = -1;
 @export
 Bind ON = 1;
+
 @export
 type Rulespace = struct {
     Rulespace*? super;
@@ -545,7 +544,7 @@ type PatternRule = struct {
     (fn none(mut Pattern* this, Transformation value)) transform;
     (fn none(mut Pattern* this, usize times)) inflate;
 };
-h
+
 @export
 type Pattern = struct: Box {
     PatternRule* rule;
@@ -732,7 +731,7 @@ fn String* Pattern.to_rle(Pattern* this, Allocator* allocator, bool header) {
     this.get_data(&data);
     out.clear();
     if (header) {
-        out.add(format(lifeweb_heap, "x = {}, y = {}, rule = {}\n", [width, height, this.rule.str]));
+        out.add(format(lifeweb_heap, "x = {}, y = {}, rule = {}\n", (any[]){width, height, this.rule.str}));
     }
     uint64 i = 0;
     mut String* line;

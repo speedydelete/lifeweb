@@ -1,4 +1,4 @@
 
 fn uint8 main() {
-    return 1;
+    
 }
