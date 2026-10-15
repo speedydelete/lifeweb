@@ -547,7 +547,7 @@ type PatternRule = struct {
     (fn none(mut Pattern* this, Transformation value)) transform;
     (fn none(mut Pattern* this, usize times)) inflate;
 };
-
+h
 @export
 type Pattern = struct: Box {
     PatternRule* rule;
