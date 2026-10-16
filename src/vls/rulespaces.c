@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "params2.h"
+#include "params2.h" // IWYU pragma: keep
 #if MULTI_RULE
 #include "base.c"
 #endif

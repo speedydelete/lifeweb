@@ -1,7 +1,7 @@
 
 // basic information
 
-const RULE = 'B3-cq4k5acr/S23-k4i';
+const RULE = 'B3/S23-q4i';
 
 // don't change this
 // the ones with 2 after them are flipped from their canonical orientation, this only matters for non-glide-symmetric ships
@@ -57,6 +57,63 @@ const SPACESHIPS: {[key: string]: SpaceshipInfo} = {
             [3, 3, 5, [1, 2, 3, 5, 8], 'NE'],
             [3, 3, 5, [0, 3, 5, 6, 7], 'SW'],
             [3, 3, 5, [1, 5, 6, 7, 8], 'SE'],
+        ],
+    },
+
+    'xq4_6frc': {
+        code: 'xq4_6frc',
+        dx: 0,
+        dy: 1,
+        period: 4,
+        slope: 0,
+        popPeriod: 2,
+        supportsFlipped: false,
+        height: 5,
+        width: 4,
+        cells: [0, 2, 7, 11, 12, 15, 17, 18, 19],
+        identification: [
+            [5, 4, 9, [0, 1, 2, 4, 7, 8, 12, 17, 19], 'N'],
+            [4, 5, 9, [1, 2, 3, 4, 5, 9, 14, 15, 18], 'E'],
+            [5, 4, 9, [0, 2, 7, 11, 12, 15, 17, 18, 19], 'S'],
+            [4, 5, 9, [1, 4, 5, 10, 14, 15, 16, 17, 18], 'W'],
+        ],
+    },
+
+    'xq4_27dee6': {
+        code: 'xq4_27dee6',
+        dx: 0,
+        dy: 1,
+        period: 4,
+        slope: 0,
+        popPeriod: 2,
+        supportsFlipped: false,
+        height: 6,
+        width: 5,
+        cells: [1, 3, 9, 10, 14, 19, 21, 24, 27, 28, 29],
+        identification: [
+            [6, 5, 11, [0, 1, 2, 5, 8, 10, 15, 19, 20, 26, 28], 'N'],
+            [5, 6, 11, [1, 2, 3, 4, 5, 6, 11, 17, 18, 22, 26], 'E'],
+            [6, 5, 11, [1, 3, 9, 10, 14, 19, 21, 24, 27, 28, 29], 'S'],
+            [5, 6, 11, [3, 7, 11, 12, 18, 23, 24, 25, 26, 27, 28], 'W'],
+        ],
+    },
+
+    'xq4_27deee6': {
+        code: 'xq4_27deee6',
+        dx: 0,
+        dy: 1,
+        period: 4,
+        slope: 0,
+        popPeriod: 2,
+        supportsFlipped: false,
+        height: 7,
+        width: 5,
+        cells: [1, 3, 9, 10, 14, 15, 19, 24, 26, 29, 32, 33, 34],
+        identification: [
+            [7, 5, 13, [0, 1, 2, 5, 8, 10, 15, 19, 20, 24, 25, 31, 33], 'N'],
+            [5, 7, 13, [1, 2, 3, 4, 5, 6, 7, 13, 20, 21, 26, 30, 31], 'E'],
+            [7, 5, 13, [1, 3, 9, 10, 14, 15, 19, 24, 26, 29, 32, 33, 34], 'S'],
+            [5, 7, 13, [3, 4, 8, 13, 14, 21, 27, 28, 29, 30, 31, 32, 33], 'W'],
         ],
     },
 
@@ -301,7 +358,7 @@ const PERIOD_SECURITY = 128;
 const VALID_POPULATION_PERIODS: null | number[] = null;
 
 // the maximum separation between still lifes for them to be combined (this is useful because collisions generally require much more space around the stil life to work)
-const MAX_PSEUDO_DISTANCE = 6;
+const MAX_PSEUDO_DISTANCE = 10;
 
 // extra options for channel searching
 
@@ -310,11 +367,11 @@ const MAX_CHANNEL_RUN_GENERATIONS = 1024;
 // the created object population limit
 const CREATE_SIZE_LIMIT = 12;
 // overrides for the created object limit
-const CREATE_SIZE_LIMIT_OVERRIDES: string[] = [];
+const CREATE_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 // the elbow population limit
 const ELBOW_SIZE_LIMIT = 12;
 // overrides for the elbow size limit
-const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = [];
+const ELBOW_SIZE_LIMIT_OVERRIDES: string[] = ['xs24_y1696z2552wgw2552zy1343', 'xs28_g88m952g8gz1218kid221', 'xs28_g8g259m88gz122dik8121'];
 // update interval (ms)
 const UPDATE_INTERVAL = 10000;
 // memory update interval (ms)
