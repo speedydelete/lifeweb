@@ -116,6 +116,18 @@ Options:
     -partial-interval=<seconds>:
         set the minimum max partial reporting interval, default 1
 
+    -after-rule-text=<text>: optional text to show after the rule
+        some symmetries set this, this can be overrided via the setting
+    -top-padding=<number>:
+    -bottom-padding=<number>:
+    -left-padding=<number>:
+    -right-padding=<number>:
+    -start-padding=<number>:
+    -end-padding=<number>:
+        add padding for the grid, the padding is removed before
+        solutions are checked, so it applies for all the solution
+        checking filters and when the solution is shown
+
     -n, -max-solutions=<count>: set the maximum solution count, by default
         it finds all solutions
     -no-show-solutions: disable showing solutions at all
@@ -176,6 +188,13 @@ const OPTIONS = {
     'interval': NUMBER,
     'partials': list(['none', 'cell', 'depth'] as const),
     'partial-interval': NUMBER,
+    'after-rule-text': STRING,
+    'top-padding': NUMBER,
+    'bottom-padding': NUMBER,
+    'left-padding': NUMBER,
+    'right-padding': NUMBER,
+    'start-padding': NUMBER,
+    'end-padding': NUMBER,
     'max-solutions': NUMBER,
     'n': 'max-solutions',
     'no-show-solutions': FLAG,
@@ -366,20 +385,7 @@ if (mode === 'periodic') {
         searchOrderAliases['br-f2b'] = `-t, -(x*${dx} + y*${dy})`;
         searchOrderAliases['br-b2f'] = `-t, (x*${dx} + y*${dy})`;
         searchOrderAliases['br-s2s'] = `-t, (x*${dy} + y*${dx})`;
-
     }
-
-    // grid = new Grid(width, height, period + 1);
-    // for (let y = 0; y < height - dy; y++) {
-    //     for (let x = 0; x < width - dx; x++) {
-    //         let value = grid.getVar();
-    //         grid.set(0, x, y, UNKNOWN, value);
-    //         grid.set(period, x + dx, y + dy, UNKNOWN, value);
-    //     }
-    // }
-    // for (let t = 1; t < period; t++) {
-    //     grid.fill(t, UNKNOWN);
-    // }
 
     grid = new Grid(width, height, period);
     for (let y = Math.max(0, -dy); y < height - Math.max(0, dy); y++) {
@@ -387,15 +393,11 @@ if (mode === 'periodic') {
             grid.set(0, x, y, UNKNOWN);
         }
     }
-
-    // let value1 = (await import('util')).inspect(grid.data.map(layer => layer.map(row => row.map(cell => cell.next))), {depth: Infinity});
-
     for (let t = 1; t < grid.gens; t++) {
         grid.fill(t, UNKNOWN);
     }
     grid.applyWrap(dx, dy);
-
-    // return [{} as OptionData, value1 + '\n\n' + (await import('util')).inspect(grid.data.map(layer => layer.map(row => row.map(cell => cell.next))), {depth: Infinity})];
+    grid.endPadding += 1;
 
     periodic ??= {dx, dy, period};
 
@@ -611,8 +613,32 @@ if (mode === 'periodic') {
 }
 
 
-if (options['symmetry']) {
-    grid.applySymmetry(options['symmetry']);
+if (options['symmetry'] !== undefined) {
+    for (let symmetry of options['symmetry'].split(' ')) {
+        grid.applySymmetry(symmetry);
+    }
+}
+
+if (options['after-rule-text'] !== undefined) {
+    grid.afterRuleText = options['after-rule-text'];
+}
+if (options['top-padding'] !== undefined) {
+    grid.topPadding = options['top-padding'];
+}
+if (options['bottom-padding'] !== undefined) {
+    grid.bottomPadding = options['bottom-padding'];
+}
+if (options['left-padding'] !== undefined) {
+    grid.leftPadding = options['left-padding'];
+}
+if (options['right-padding'] !== undefined) {
+    grid.rightPadding = options['right-padding'];
+}
+if (options['start-padding'] !== undefined) {
+    grid.startPadding = options['start-padding'];
+}
+if (options['end-padding'] !== undefined) {
+    grid.endPadding = options['end-padding'];
 }
 
 
@@ -832,6 +858,14 @@ check_early_exhaustion = ${Number(Boolean(checkEarlyExhaustion))}
 ${options['benchmark'] !== undefined ? `benchmarking_iterations = ${options['benchmark']}` : ''}
 
 reporting_interval = ${options['interval'] ?? 1}
+
+${grid.afterRuleText !== undefined ? `after_rule_text = ${grid.afterRuleText}` : ''}
+top_padding = ${grid.topPadding}
+bottom_padding = ${grid.bottomPadding}
+left_padding = ${grid.leftPadding}
+right_padding = ${grid.rightPadding}
+start_padding = ${grid.startPadding}
+end_padding = ${grid.endPadding}
 
 show_solutions = ${Number(!options['no-show-solutions'])}
 max_solutions = ${Number(options['max-solutions'] ?? 0)}

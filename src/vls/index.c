@@ -376,9 +376,22 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.benchmarking_iterations = v_uintmax;
     } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
         config.reporting_interval = v_double;
+    } else if (check_line(file, "top_padding = %zu", &v_size)) {
+        config.top_padding = v_size;
+    } else if (check_line(file, "bottom_padding = %zu", &v_size)) {
+        config.bottom_padding = v_size;
+    } else if (check_line(file, "left_padding = %zu", &v_size)) {
+        config.left_padding = v_size;
+    } else if (check_line(file, "right_padding = %zu", &v_size)) {
+        config.right_padding = v_size;
+    } else if (check_line(file, "start_padding = %zu", &v_size)) {
+        config.start_padding = v_size;
+    } else if (check_line(file, "end_padding = %zu", &v_size)) {
+        config.end_padding = v_size;
     } else if (check_line(file, "after_rule_text = %255s", v_str)) {
-        config.after_rule_text = safe_malloc((strlen(v_str) + 1) * sizeof(char));
-        strncpy(config.after_rule_text, v_str, 256);
+        size_t len = strnlen(v_str, 255) + 1;
+        config.after_rule_text = safe_malloc(len * sizeof(char));
+        strncpy(config.after_rule_text, v_str, len);
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
     } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {

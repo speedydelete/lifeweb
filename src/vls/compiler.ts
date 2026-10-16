@@ -85,6 +85,16 @@ export class Grid {
     data: Cell[][][];
     numVars: number = 0;
 
+    noZeroBackground: boolean = false;
+
+    afterRuleText: string | undefined = undefined;
+    topPadding: number = 0;
+    bottomPadding: number = 0;
+    leftPadding: number = 0;
+    rightPadding: number = 0;
+    startPadding: number = 0;
+    endPadding: number = 0;
+
     constructor(width: number, height: number, gens: number, data?: Cell[][][]) {
         this.width = width;
         this.height = height;
@@ -431,6 +441,7 @@ export class Grid {
             }
             x.state = y.state;
             x.searchable = y.searchable;
+            x.noClause = y.noClause;
             if (x.variable !== undefined) {
                 if (y.variable !== undefined) {
                     this.reassignVar(x.variable, y.variable);
@@ -452,7 +463,7 @@ export class Grid {
                     y.variable = x.variable;
                 }
             } else {
-                if (x.variable !== undefined) {
+                if (y.variable !== undefined) {
                     x.variable = y.variable;
                 } else {
                     let variable = this.getNewVar();
@@ -622,7 +633,7 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
             error(`Cannot apply C4 symmetry to non-square grid`);
         }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(pos.t, grid.height - pos.y - 1, grid.width - pos.x - 1));
+            grid.bindCells(pos, coord(pos.t, grid.height - pos.y - 1, pos.x));
         }
     },
 
@@ -670,6 +681,93 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         grid.applySymmetry('D2|');
         grid.applySymmetry('C4');
     },
+
+    'g|'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.x - 1, pos.y));
+        }
+    },
+
+    'g-'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), pos.x, grid.height - pos.y - 1));
+        }
+    },
+
+    'g\\'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply g\\ symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), pos.y, pos.x));
+        }
+    },
+
+    'g/'(grid: Grid): void {4
+        if (grid.width !== grid.height) {
+            error(`Cannot apply g/ symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.y - 1, grid.height - pos.x - 1));
+        }
+    },
+
+    'g90l'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply g90l symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 4) % grid.gens), grid.height - pos.y - 1, pos.x));
+        }
+    },
+
+    'g90': 'g90l',
+
+    'g90r'(grid: Grid): void {
+        if (grid.width !== grid.height) {
+            error(`Cannot apply g90r symmetry to non-square grid`);
+        }
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 4) % grid.gens), pos.y, grid.width - pos.x - 1));
+        }
+    },
+
+    'g180'(grid: Grid): void {
+        for (let pos of grid.coords()) {
+            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.x - 1, grid.height - pos.y - 1));
+        }
+    },
+
+    'agar'(grid: Grid): void {
+        grid.afterRuleText = `:T${grid.width},${grid.height}`;
+        grid.topPadding += 1;
+        grid.bottomPadding += 1;
+        grid.leftPadding += 1;
+        grid.rightPadding += 1;
+        grid.noZeroBackground = true;
+        grid.expand({up: 1, down: 1, left: 1, right: 1}, cell(UNKNOWN, undefined, undefined, true));
+        for (let pos of grid.coords()) {
+            if (pos.x === 0 || pos.x === grid.width - 1 || pos.y === 0 || pos.y === grid.height - 1) {
+                let bindX: number;
+                if (pos.x === 0) {
+                    bindX = grid.width - 2;
+                } else if (pos.x === grid.width - 1) {
+                    bindX = 1;
+                } else {
+                    bindX = pos.x;
+                }
+                let bindY: number;
+                if (pos.y === 0) {
+                    bindY = grid.height - 2;
+                } else if (pos.y === grid.height - 1) {
+                    bindY = 1;
+                } else {
+                    bindY = pos.y;
+                }
+                grid.bindCells(pos, coord(pos.t, bindX, bindY));
+            }
+        }
+    }
 
 };
 

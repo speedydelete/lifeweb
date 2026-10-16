@@ -290,7 +290,7 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 #define BITVEC1024_BACKEND_UINT64_T 1
 #define BITVEC1024_BACKEND_AVX2 2
 
-#if defined(__AVX2__)
+#if defined(__AVX2__) || true
     #define BITVEC1024_BACKEND BITVEC1024_BACKEND_AVX2
     #include <immintrin.h>
     typedef __m256i BitVec1024[4];
@@ -555,6 +555,19 @@ typedef struct Config {
     // text to put after the rule, such as :T64,64
     char* after_rule_text;
 
+    // top padding for the grid
+    size_t top_padding;
+    // bottom padding for the grid
+    size_t bottom_padding;
+    // left padding for the grid
+    size_t left_padding;
+    // right padding for the grid
+    size_t right_padding;
+    // start (in time) padding for the grid
+    size_t start_padding;
+    // end (in time) padding for the grid
+    size_t end_padding;
+
     // solution printing options
     // whether to show solutions at all
     bool show_solutions;
@@ -590,9 +603,16 @@ static Config config = {
     .periodic_dy = 0,
     .periodic_period = 0,
     .check_early_exhaustion = false,
-    .reporting_interval = 1.0,
     .benchmarking = false,
     .benchmarking_iterations = 0,
+    .reporting_interval = 1.0,
+    .after_rule_text = NULL,
+    .top_padding = 0,
+    .bottom_padding = 0,
+    .left_padding = 0,
+    .right_padding = 0,
+    .start_padding = 0,
+    .end_padding = 0,
     .show_solutions = true,
     .max_solutions = 0,
     .filter_empty_solutions = true,
@@ -600,8 +620,6 @@ static Config config = {
     .filter_subperiod_solutions = true,
     .cell_period_filter_length = 0,
     .cell_period_filter = NULL,
-    .after_rule_text = NULL,
-
     .max_partials = true,
     .max_partial_scoring = MAX_PARTIAL_SCORING_CELL,
     .max_partial_reporting_interval = 1.0,

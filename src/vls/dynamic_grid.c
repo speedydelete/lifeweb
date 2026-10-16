@@ -90,16 +90,16 @@ static bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
     return true;
 }
 
-// static void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
-//     dg_init(out, grid->width, grid->height, grid->gens);
-//     for (size_t t = 0; t < grid->gens; t++) {
-//         for (size_t y = 0; y < grid->height; y++) {
-//             for (size_t x = 0; x < grid->width; x++) {
-//                 dg_index(out, t, x, y) = dg_index(grid, t, x, y);
-//             }
-//         }
-//     }
-// }
+static void dg_copy(DynamicGrid* out, DynamicGrid* grid) {
+    dg_init(out, grid->width, grid->height, grid->gens);
+    for (size_t t = 0; t < grid->gens; t++) {
+        for (size_t y = 0; y < grid->height; y++) {
+            for (size_t x = 0; x < grid->width; x++) {
+                dg_index(out, t, x, y) = dg_index(grid, t, x, y);
+            }
+        }
+    }
+}
 
 static void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
@@ -184,6 +184,20 @@ static void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, size_t t) {
     for (size_t y = 0; y < grid->height; y++) {
         for (size_t x = 0; x < grid->width; x++) {
             dg_index(out, 0, x, y) = dg_index(grid, t, x, y);
+        }
+    }
+}
+
+static void dg_shrink(DynamicGrid* out, DynamicGrid* grid, size_t top, size_t bottom, size_t left, size_t right, size_t start, size_t end) {
+    size_t width = grid->width - left - right;
+    size_t height = grid->height - top - bottom;
+    size_t gens = grid->gens - start - end;
+    dg_init(out, width, height, gens);
+    for (size_t t = 0; t < out->gens; t++) {
+        for (size_t y = 0; y < out->height; y++) {
+            for (size_t x = 0; x < out->width; x++) {
+                dg_index(out, t, x, y) = dg_index(grid, t + start, x + left, y + top);
+            }
         }
     }
 }
@@ -274,19 +288,8 @@ static DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGrid* grid
             shrink_right++;
         }
     }
-    size_t width = grid->width - shrink_left - shrink_right;
-    size_t height = grid->height - shrink_top - shrink_bottom;
-    size_t x_offset = shrink_left;
-    size_t y_offset = shrink_top;
-    dg_init(out, width, height, grid->gens);
-    for (size_t t = 0; t < out->gens; t++) {
-        for (size_t y = 0; y < out->height; y++) {
-            for (size_t x = 0; x < out->width; x++) {
-                dg_index(out, t, x, y) = dg_index(grid, t, x + x_offset, y + y_offset);
-            }
-        }
-    }
-    return (DGShrinkToFitOffsets){.x = x_offset, .y = y_offset};
+    dg_shrink(out, grid, shrink_top, shrink_bottom, shrink_left, shrink_right, 0, 0);;
+    return (DGShrinkToFitOffsets){.x = shrink_left, .y = shrink_top};
 }
 
 

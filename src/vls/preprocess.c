@@ -126,7 +126,7 @@ static void pre_remove_known_cells(void) {
 }
 
 static bool pre_internal_check_implications(Cell* cell, CellValue value) {
-    debug_printf_2("Checking cell set implications for %zu = %i\n", cell->var_number, value);
+    debug_printf_2("Checking cell set implications for variable %zu = %i\n", cell->var_number, value);
     inc_debug_depth();
     push_stack_frame(&current_stack);
     bool out = set_cell_and_propagate(cell, value, true);
