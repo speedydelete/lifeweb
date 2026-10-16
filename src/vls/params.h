@@ -6,8 +6,10 @@
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-// stdbool.h is for compatibility with old compilers
+// these are for compatibility with old compilers
 #include <stdbool.h>
+#include <stdalign.h>
+
 #include <stddef.h>
 #include <inttypes.h>
 

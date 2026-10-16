@@ -12,6 +12,7 @@
 // sometimes it's not defined, so we have to do this
 extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
+#include "base.c"
 #include "dynamic_grid.c"
 #include "rules.c"
 
@@ -382,6 +383,8 @@ static double get_time(void) {
 double start;
 
 
+static void destroy_all(void);
+
 static void check_solution([[maybe_unused]] bool preprocessing) {
     debug_printf_2("Checking solution:\n");
     debug_print_grid_2();
@@ -533,14 +536,16 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
         }
         print_grid_pretty(&solution_grid, true);
     }
+    dg_destroy(&hash_grid);
+    dg_destroy(&solution_grid);
     if (config.max_solutions > 0) {
         if (state.solutions_found >= config.max_solutions) {
-            printf("Search complete, found %zu solution%s in %.6f seconds, %zu branches (exited early, max solution count reached)\n", state.solutions_found, state.solutions_found == 1 ? "" : "s", get_time() - start, state.branches);
+            double time = get_time() - start;
+            printf("Search complete, found %zu solution%s in %.6f second%s, %zu branch%s (exited early, max solution count reached)\n", plural(state.solutions_found, "s"), plural(time, "s"), plural(state.branches, "es"));
+            destroy_all();
             exit(EXIT_SUCCESS);
         }
     }
-    dg_destroy(&hash_grid);
-    dg_destroy(&solution_grid);
 }
 
 
@@ -642,7 +647,7 @@ static void print_info_if_needed(size_t depth) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
-            printf("%ju seconds, %zu branches, %zu solutions, progress: ", (uintmax_t)(time - start), state.branches, state.solutions_found);
+            printf("%ju second%s, %zu branch%s, %zu solution%s, progress: ", plural((uintmax_t)(time - start), "s"), plural(state.branches, "es"), plural(state.solutions_found, "s"));
             print_progress(stdout);
             real_printf("\n");
         }

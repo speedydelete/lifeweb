@@ -705,7 +705,7 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['DEBUG'] = options.debug;
+defines['DEBUG'] = options.debug ?? 0;
 defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
 defines['SLOWER_SANITY_CHECKS'] = true;

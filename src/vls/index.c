@@ -129,7 +129,7 @@ static void init_state(InitFromState* from) {
                         continue;
                     }
                 }
-                CAClause* clause = safe_aligned_alloc(IMPLIC_STATE_ALIGN, sizeof(CAClause));
+                CAClause* clause = safe_aligned_alloc(alignof(CAClause), sizeof(CAClause));
                 clause->number = i;
                 clause->state_number = 0;
                 // fill the clause's pointers
@@ -163,7 +163,7 @@ static void init_state(InitFromState* from) {
                 cell = state_get_grid_cell_allow_oob(t, x + 1, y + 1);
                 clause->se = cell->cell;
                 clause->invert_se = cell->invert;
-                compute_implication_state(clause);
+                reset_clause_state(clause);
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
                     do { \
@@ -382,7 +382,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
     } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {
-        config.max_solutions = v_intmax;
+        config.max_solutions = v_uintmax;
     } else if (check_line(file, "filter_empty_solutions = %i", &v_int)) {
         config.filter_empty_solutions = v_int;
     } else if (check_line(file, "filter_duplicate_solutions = %i", &v_int)) {
@@ -445,7 +445,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
     fclose(file);
     // call this here rather than in the main function
     // so that the clause manipulation in init_state works fine
-    init_implicstate();
+    init_bv1024();
     init_state(&data);
     if (data.grid != NULL) {
         safe_free(data.grid);
@@ -464,6 +464,15 @@ static void handle_sigterm(int signum) {
 }
 #endif
 
+static void destroy_all(void) {
+    destroy_clause_stack();
+    destroy_stack(&current_stack);
+    destroy_solutions();
+    destroy_state();
+    destroy_config();
+    destroy_progress();
+}
+
 int main(int argc, char** argv) {
     if (argc != 2) {
         fprintf(stderr, "Expected exactly 1 command line argument");
@@ -475,24 +484,13 @@ int main(int argc, char** argv) {
     #endif
     init_state_and_config_from_file(argv[1]);
     init_solutions();
-    current_stack = create_stack();
+    init_stack(&current_stack);
     init_clause_stack();
+    init_progress();
     bool solved_in_preprocessing = preprocess();
     if (!solved_in_preprocessing) {
-        init_progress();
-        #if CUSTOM_INIT
-            custom_init();
-        #endif
         run_search();
-        #if CUSTOM_DESTROY
-            custom_destroy();
-        #endif
-        destroy_progress();
     }
-    destroy_clause_stack();
-    destroy_stack(current_stack);
-    destroy_solutions();
-    destroy_state();
-    destroy_config();
+    destroy_all();
     return 0;
 }

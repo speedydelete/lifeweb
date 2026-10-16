@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "base.c"
-#include "implications/index.c"
+#include "bv1024/index.c"
 #include "output.c"
 
 
@@ -50,7 +50,7 @@ static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
     state.var_count--;
     safe_free(cell);
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        compute_implication_state(state.ca_clauses[i]);
+        reset_clause_state(state.ca_clauses[i]);
     }
 }
 
@@ -126,9 +126,12 @@ static void pre_remove_known_cells(void) {
 }
 
 static bool pre_internal_check_implications(Cell* cell, CellValue value) {
-    push_stack_frame(current_stack);
+    debug_printf_2("Checking cell set implications for %zu = %i\n", cell->var_number, value);
+    inc_debug_depth();
+    push_stack_frame(&current_stack);
     bool out = set_cell_and_propagate(cell, value, true);
-    pop_stack_frame(current_stack);
+    pop_stack_frame(&current_stack);
+    dec_debug_depth();
     return out;
 }
 
@@ -188,7 +191,7 @@ static void pre_check_unsat_clauses(void) {
     pre_start_step();
     // look for basic unsatisfiable clauses
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        if (implicstate_is_contradiction(clause_state(state.ca_clauses[i]))) {
+        if (bv1024_is_contradiction(clause_state(state.ca_clauses[i]))) {
             pre_unsat(__func__);
         }
     }
@@ -373,97 +376,10 @@ static bool preprocess(void) {
         check_solution(true);
         return true;
     }
+    state.start_unknown_vars -= state.set_unknown_vars;
+    state.set_unknown_vars = 0;
+    // move back the stack to use all that space
+    current_stack.len = 0;
     printf("Preprocessing complete: %zu variables, %zu clauses\n", state.var_count, state.ca_clause_count);
     return false;
 }
-
-/*
-static void pre_remove_duplicate_clauses(void) {
-    pre_start_step();
-    // looks for clauses that contain the same cells
-    // in the same positions, or rotations/reflections
-    // and merges them together
-    for (size_t i = 0; i < state.ca_clause_count; i++) {
-        CAClause* x = state.ca_clauses[i];
-        for (size_t j = 0; j < i; j++) {
-            CAClause* y = state.ca_clauses[j];
-            #define replace_clause_in_cell() \
-                pre_changes_made = true;
-                for (size_t i = 0; i < cell->use_count; i++) {
-                    CellUseData* data = &(cell->uses[i]);
-                    #define check(pos) if (data->pos == old_clause) { data->pos = new_clause; }
-                    check(nw);
-                    check(n);
-                    check(ne);
-                    check(w);
-                    check(c);
-                    check(e);
-                    check(sw);
-                    check(s);
-                    check(se);
-                    check(prev);
-                    #undef check
-                }
-            #define check_mapping(NW, N, NE, W, C, E, SW, S, SE) \
-                if (true \
-                    && x->nw == y->NW && x->invert_nw == y->invert_##NW \
-                    && x->n == y->N && x->invert_n == y->invert_##N \
-                    && x->ne == y->NE && x->invert_ne == y->invert_##NE \
-                    && x->w == y->W && x->invert_w == y->invert_##W \
-                    && x->c == y->C && x->invert_c == y->invert_##C \
-                    && x->e == y->E && x->invert_e == y->invert_##E \
-                    && x->sw == y->SW && x->invert_sw == y->invert_##SW \
-                    && x->s == y->S && x->invert_s == y->invert_##S \
-                    && x->se == y->SE && x->invert_se == y->invert_##SE \
-                    && x->next == y->next && x->invert_next == y->invert_next \
-                ) {
-                    pre_changes_made = true;
-                    if (new_clause == NULL) {
-                        debug_printf_2("Removing clause %zu\n", clause->number);
-                    } else {
-                        debug_printf_2("Aliasing clause %zu to %zu\n", clause->number, new_clause->number);
-                    }
-                    pre_internal_replace_clause_in_cell(clause->nw, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->n, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->ne, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->w, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->c, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->e, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->sw, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->s, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->se, clause, new_clause);
-                    pre_internal_replace_clause_in_cell(clause->next, clause, new_clause);
-                    for (size_t i = clause->number; i < state.ca_clause_count - 1; i++) {
-                        state.ca_clauses[i] = state.ca_clauses[i + 1];
-                        state.ca_clauses[i]->number--;
-                    }
-                    state.ca_clause_count--;
-                    safe_free(clause);
-                    / * subtract 1 here because pre_remove_clause remapping * /
-                    i--;
-                    break;
-                    continue;
-                }
-            // no transformation
-            check_mapping(nw, n, ne, w, c, e, sw, s, se)
-            // flip horizontal
-            check_mapping(ne, n, nw, e, c, w, se, s, sw)
-            // flip vertical
-            check_mapping(sw, s, se, w, c, e, nw, n, ne)
-            // rotate right
-            check_mapping(ne, e, se, n, c, s, nw, w, sw)
-            // rotate left
-            check_mapping(sw, w, nw, s, c, n, se, e, ne)
-            // rotate 180
-            check_mapping(se, s, sw, e, c, w, ne, n, nw)
-            // flip diagonal
-            check_mapping(nw, w, sw, n, c, s, ne, e, se)
-            // flip anti diagonal
-            check_mapping(se, e, ne, s, c, n, sw, w, nw)
-            #undef check_mapping
-            #undef replace_clause_in_cell
-        }
-    }
-    pre_end_step();
-}
-*/

@@ -5,9 +5,8 @@
 
 #include <inttypes.h>
 
-#include "params2.h"
 #include "base.c"
-#include "implications/index.c"
+#include "bv1024/index.c"
 #include "output.c"
 
 
@@ -23,13 +22,28 @@ static Cell* add_search_orders(void) {
     size_t y = coords[2];
     Cell* prev = state_get_grid_cell(t, x, y)->cell;
     Cell* initial_cell = prev;
+    debug_printf_2("Search order:\n");
     for (size_t i = 1; i < config.search_order_len; i++) {
         size_t* coords = config.search_order[i];
         size_t t = coords[0];
         size_t x = coords[1];
         size_t y = coords[2];
         Cell* cell = state_get_grid_cell(t, x, y)->cell;
-        if (cell->value == UNKNOWN && cell->next_in_search_order == NULL) {
+        if (cell->value != UNKNOWN || cell->next_in_search_order != NULL) {
+            continue;
+        }
+        // make sure it's not already in there
+        bool found = false;
+        Cell* prev_cell = initial_cell;
+        while (prev_cell != NULL) {
+            prev_cell = prev_cell->next_in_search_order;
+            if (cell == prev_cell) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            debug_printf_2(INDENT "variable = %zu\n", cell->var_number);
             prev->next_in_search_order = cell;
             prev = cell;
         }
@@ -132,15 +146,16 @@ static size_t run_depth(size_t depth, Cell* cell);
 // returns number of iterations to backjump
 static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
     debug_printf_3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
-    push_stack_frame(current_stack);
+    push_stack_frame(&current_stack);
     #if DEBUG >= 4
-        print_stack(current_stack);
+        print_stack(&current_stack);
     #endif
     size_t out = 0;
     if (set_cell_and_propagate(cell, value, true)) {
         #if CUSTOM_PRUNING
             if (!custom_prune(depth, cell)) {
                 dec_debug_depth();
+                pop_stack_frame(&current_stack);
                 return 0;
             }
         #endif
@@ -149,13 +164,13 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
             if (check_early_exhaustion()) {
                 debug_print_grid_3();
                 debug_printf_3("Early exhausted");
-                pop_stack_frame(current_stack);
+                pop_stack_frame(&current_stack);
                 return 0;
             }
         }
         out = run_depth(depth + 1, cell->next_in_search_order);
     }
-    pop_stack_frame(current_stack);
+    pop_stack_frame(&current_stack);
     return out;
 }
 
@@ -222,7 +237,8 @@ static void actual_run_search(void) {
     last_max_partial_shown = start;
     all_zeros = true;
     run_depth(0, initial_cell);
-    printf("Search complete, found %"PRIu64" solutions in %.6f seconds, %"PRIu64" branches\n", state.solutions_found, get_time() - start, state.branches);
+    double time = get_time() - start;
+    printf("Search complete, found %"PRIu64" solution%s in %.6f second%s, %"PRIu64" branch%s\n", plural(state.solutions_found, "s"), plural(time, "s"), plural(state.branches, "es"));
     max_partials_end();
 }
 
@@ -235,9 +251,10 @@ static void run_search(void) {
         for (uintmax_t i = 0; i < iterations; i++) {
             double start = get_time();
             actual_run_search();
-            printf("Iteration %ju/%ju complete in %.6f seconds\n", i + 1, iterations, get_time() - start);
+            double time = get_time() - start;
+            printf("Iteration %ju/%ju complete in %.6f second%s\n", i + 1, iterations, plural(time, "s"));
         }
         double seconds = get_time() - full_start;
-        printf("%ju iterations complete in %.6f seconds, average %.6f seconds/iteration\n", iterations, seconds, seconds / iterations);
+        printf("%ju iterations complete in %.6f second%s, average %.6f second%s/iteration\n", iterations, plural(seconds, "s"), plural(seconds / iterations, "s"));
     }
 }

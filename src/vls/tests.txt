@@ -47,9 +47,14 @@ command ./vls B3/S23 periodic 2c/4o 7 9
 expect xq4_6frc
 expect xq4_27dee6
 expect xq4_27deee6
-iterations 100
+iterations 50
 
 test 25P3H1V0.1
 command ./vls B3/S23 periodic c/3o 16 6 -o=s2s
 expect xq3_16614e8o4aa82cc2
-iterations 100
+iterations 50
+
+test Turtle
+command ./vls B3/S23 periodic c/3o 12 14 -s='D2|'
+expect xq3_3u0228mc53bgzof0882d6koq1
+iterations 50

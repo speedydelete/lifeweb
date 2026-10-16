@@ -8,44 +8,44 @@
 #include "avx2.c" // IWYU pragma: keep
 
 
-[[maybe_unused]] static void print_implicstate(ImplicState state) {
-    printf("Implication state:\n");
+[[maybe_unused]] static void print_bv1024(BitVec1024 state) {
+    printf("BitVec1024:\n");
     int k = 0;
     for (int i = 0; i < 16; i++) {
         print_line_padding();
         for (int j = 0; j < 64; j++) {
-            real_printf("%i", implicstate_get_bit(state, k));
+            real_printf("%i", bv1024_get_bit(state, k));
             k++;
         }
         real_printf("\n");
     }
 }
 
-static void init_implicstate(void) {
+static void init_bv1024(void) {
     for (int i = 0; i < 512; i++) {
         if (state.trs[i]) {
-            implicstate_set_bit(full_implic_state, i << 1, 0);
-            implicstate_set_bit(full_implic_state, (i << 1) | 1, 1);
+            bv1024_set_bit(full_implic_state, i << 1, 0);
+            bv1024_set_bit(full_implic_state, (i << 1) | 1, 1);
         } else {
-            implicstate_set_bit(full_implic_state, i << 1, 1);
-            implicstate_set_bit(full_implic_state, (i << 1) | 1, 0);
+            bv1024_set_bit(full_implic_state, i << 1, 1);
+            bv1024_set_bit(full_implic_state, (i << 1) | 1, 0);
         }
     }
     #if DEBUG >= 2
-        print_implicstate(full_implic_state);
+        print_bv1024(full_implic_state);
     #endif
     for (int pos = 0; pos < 10; pos++) {
         for (int i = 0; i < 1024; i++) {
-            implicstate_set_bit(IMPLICSTATE_CELL_MASKS[(i >> pos) & 1][pos], i, 1);
+            bv1024_set_bit(IMPLICSTATE_CELL_MASKS[(i >> pos) & 1][pos], i, 1);
         }
     }
     for (int pos1 = 0; pos1 < 10; pos1++) {
         for (int pos2 = 0; pos2 < 10; pos2++) {
             for (int i = 0; i < 1024; i++) {
                 if ((i >> pos1) == (i >> pos2)) {
-                    implicstate_set_bit(IMPLICSTATE_PAIR_SAME_MASKS[pos1][pos2], i, 1);
+                    bv1024_set_bit(IMPLICSTATE_PAIR_SAME_MASKS[pos1][pos2], i, 1);
                 } else {
-                    implicstate_set_bit(IMPLICSTATE_PAIR_DIFFERENT_MASKS[pos1][pos2], i, 1);
+                    bv1024_set_bit(IMPLICSTATE_PAIR_DIFFERENT_MASKS[pos1][pos2], i, 1);
                 }
             }
         }

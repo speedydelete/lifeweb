@@ -16,6 +16,8 @@
 
 // debug definitions
 
+#define PRINT_GRID_ALWAYS_SHOW_VARS false
+
 #define HASH_DEBUG false
 
 #if DEBUG >= 1
@@ -124,23 +126,7 @@
 }
 
 
-// core type definitions
-
-// the type of cell values
-typedef int CellValue;
-#define UNKNOWN 0
-#define OFF 1
-#define ON 2
-#define convert_12_to_01(value) ((value) - 1)
-
-typedef uint32_t ImplicationTransition;
-
-// special value for indexes in `state.trs` when it is rule-dependent
-#define TRS_RULE_DEPENDENT 4
-
-#define MAX_UNPARSED_RULE_LENGTH 256
-static ptrdiff_t get_rule(char* out, bool use_maxrule);
-
+// better allocation functions
 
 static void* safe_malloc(size_t size) {
     void* out = malloc(size);
@@ -172,6 +158,23 @@ static void* safe_realloc(void* ptr, size_t size) {
 static void safe_free(void* ptr) {
     free(ptr);
 }
+
+// utility macros for printf
+
+#define plural(value, str) (value), (value == 1 ? "" : str)
+
+
+// core type definitions
+
+// the type of cell values
+typedef int CellValue;
+#define UNKNOWN 0
+#define OFF 1
+#define ON 2
+#define convert_12_to_01(value) ((value) - 1)
+
+// special value for indexes in `state.trs` when it is rule-dependent
+#define TRS_RULE_DEPENDENT 4
 
 
 typedef enum StaticSymmetry {
@@ -284,18 +287,16 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 }
 
 
-#define IMPLICATION_BACKEND_UINT64_T 1
-#define IMPLICATION_BACKEND_AVX2 2
+#define BITVEC1024_BACKEND_UINT64_T 1
+#define BITVEC1024_BACKEND_AVX2 2
 
 #if defined(__AVX2__)
-    #define IMPLICATION_BACKEND IMPLICATION_BACKEND_AVX2
+    #define BITVEC1024_BACKEND BITVEC1024_BACKEND_AVX2
     #include <immintrin.h>
-    typedef __m256i ImplicState[4];
-    #define IMPLIC_STATE_ALIGN (32 * CHAR_BIT / 8)
+    typedef __m256i BitVec1024[4];
 #else
-    #define IMPLICATION_BACKEND IMPLICATION_BACKEND_UINT64_T
-    typedef uint64_t ImplicState[16];
-    #define IMPLIC_STATE_ALIGN (8 * CHAR_BIT / 8)
+    #define BITVEC1024_BACKEND BITVEC1024_BACKEND_UINT64_T
+    typedef uint64_t BitVec1024[16];
 
 #endif
 
@@ -303,10 +304,7 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 typedef struct Cell Cell;
 
 typedef struct CAClause {
-    // put it at the start to force alignment
-    ImplicState states[11];
     size_t number;
-    int state_number;
     Cell* c;
     bool invert_c;
     Cell* next;
@@ -327,6 +325,10 @@ typedef struct CAClause {
     bool invert_s;
     Cell* se;
     bool invert_se;
+    BitVec1024 states[12];
+    int state_number;
+    BitVec1024 history;
+    int history_len;
 } CAClause;
 
 #define clause_state(clause) ((clause)->states[(clause)->state_number])
@@ -507,6 +509,9 @@ static GridCell* state_get_grid_cell_allow_oob(intmax_t t, intmax_t x, intmax_t 
     return state_get_grid_cell(t, x, y);
 }
 
+#define MAX_UNPARSED_RULE_LENGTH 256
+static ptrdiff_t get_rule(char* out, bool use_maxrule);
+
 // sets a cell to a value, propagating transitions but doing nothing else
 static bool set_cell(Cell* cell, CellValue value);
 static void unset_cell(Cell* cell);
@@ -514,9 +519,6 @@ static void unset_cell(Cell* cell);
 static bool alias(Cell* cell, Cell* alias_to, bool invert);
 // undoes an alias, propagating transitions but doing nothing else
 static void unalias(Cell* cell);
-
-// computes the initial implication state for a clause
-static void compute_implication_state(CAClause* clause);
 
 
 // configuration options
@@ -632,15 +634,23 @@ static void internal_grid_cell_to_string(char* out, GridCell* grid_cell) {
                 }
             }
         }
-        if (use_count > 1) {
+        #if PRINT_GRID_ALWAYS_SHOW_VARS
             intmax_t value = cell->var_number;
             if (grid_cell->invert) {
                 value = -value;
             }
             sprintf(out, "%ji", value);
-        } else {
-            out[0] = '*';
-        }
+        #else
+            if (use_count > 1) {
+                intmax_t value = cell->var_number;
+                if (grid_cell->invert) {
+                    value = -value;
+                }
+                sprintf(out, "%ji", value);
+            } else {
+                out[0] = '*';
+            }
+        #endif
     } else if (value == OFF) {
         out[0] = '.';
     } else if (value == ON) {
@@ -777,7 +787,7 @@ static void print_stack_entry(StackEntry* entry) {
 // returns false if contradiction, true if no contradiction
 static bool undo_stack_entry(StackEntry* entry) {
     #if DEBUG >= 4
-        printf("Popping stack entry: ");
+        printf("Undoing stack entry: ");
         print_stack_entry(entry);
     #endif
     if (entry->type == STACKENTRY_TYPE_CELL_SET) {
@@ -813,21 +823,18 @@ typedef struct Stack {
     // size_t len;
 } Stack;
 
-Stack* current_stack;
+Stack current_stack;
 
-static Stack* create_stack(void) {
-    Stack* out = safe_malloc(sizeof(Stack));
-    out->len = 0;
-    out->is_at_top_of_frame = true;
-    out->is_big = false;
-    return out;
+static void init_stack(Stack* stack) {
+    stack->len = 0;
+    stack->is_at_top_of_frame = true;
+    stack->is_big = false;
 }
 
 static void destroy_stack(Stack* stack) {
     if (stack->is_big) {
         safe_free(stack->big_data.data);
     }
-    safe_free(stack);
 }
 
 // RETURNS NULL POINTER if the entry does not exist
@@ -925,7 +932,10 @@ static void push_stack_frame(Stack* stack) {
 
 static void pop_stack_frame(Stack* stack) {
     debug_printf_4("Popping frame\n");
-    if (!stack->is_at_top_of_frame) {
+    if (stack->is_at_top_of_frame) {
+        debug_printf_4("Stack holds 0-length frame at top, doing nothing\n");
+        stack->is_at_top_of_frame = false;
+    } else {
         while (stack->len > 0) {
             bool done = get_stack_entry(stack, stack->len - 1)->is_first_in_frame;
             pop_stack(stack);
@@ -953,12 +963,12 @@ static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
         return false;
     }
     state.set_unknown_vars++;
-    StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
+    StackEntry* entry = create_new_stack_entry(&current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_CELL_SET;
     entry->data.cell_set.cell = cell;
     entry->data.cell_set.value = value;
     #if DEBUG >= 4
-        print_stack(current_stack);
+        print_stack(&current_stack);
     #endif
     return true;
 }
@@ -967,13 +977,13 @@ static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     if (!alias(cell, alias_to, invert)) {
         return false;
     }
-    StackEntry* entry = create_new_stack_entry(current_stack, is_explicit);
+    StackEntry* entry = create_new_stack_entry(&current_stack, is_explicit);
     entry->type = STACKENTRY_TYPE_ALIAS;
     entry->data.alias.cell = cell;
     entry->data.alias.aliased_to = alias_to;
     entry->data.alias.invert = invert;
     #if DEBUG >= 4
-        print_stack(current_stack);
+        print_stack(&current_stack);
     #endif
     return true;
 }
