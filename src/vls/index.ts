@@ -5,7 +5,7 @@ import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
 import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, Coord, coord, UNKNOWN, OFF, ON, State, Variable, Grid, runExpression, runFile} from './compiler.js';
+import {error, Coord, coord, UNKNOWN, OFF, ON, State, Variable, cell, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
@@ -641,6 +641,11 @@ if (options['end-padding'] !== undefined) {
     grid.endPadding = options['end-padding'];
 }
 
+
+if (!grid.hasCustomBackground) {
+    grid.hasCustomBackground = true;
+    grid.expand({top: 1, bottom: 1, left: 1, right: 1}, cell(OFF), true);
+}
 
 grid.normalize();
 

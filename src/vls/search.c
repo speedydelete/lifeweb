@@ -56,19 +56,20 @@ static Cell* add_search_orders(void) {
 bool all_zeros = true;
 
 static bool check_early_exhaustion(void) {
+    size_t t = config.start_padding;
     // check columns
     if (config.periodic_dx < 0) {
-        for (size_t x = 0; x < (size_t)(-config.periodic_dx + 1); x++) {
-            for (size_t y = 0; y < state.height; y++) {
-                if (state_get_cell_value(0, x, y) != OFF) {
+        for (size_t x = config.left_padding; x < (size_t)(-config.periodic_dx + 1) + config.left_padding; x++) {
+            for (size_t y = config.top_padding; y < state.height - config.bottom_padding; y++) {
+                if (state_get_cell_value(t, x, y) != OFF) {
                     return false;
                 }
             }
         }
     } else if (config.periodic_dx > 0) {
-        for (size_t x = state.width - config.periodic_dx - 1; x < state.width; x++) {
-            for (size_t y = 0; y < state.height; y++) {
-                if (state_get_cell_value(0, x, y) != OFF) {
+        for (size_t x = state.width - config.periodic_dx - 1 + config.right_padding; x < state.width - config.right_padding; x++) {
+            for (size_t y = config.top_padding; y < state.height - config.bottom_padding; y++) {
+                if (state_get_cell_value(t, x, y) != OFF) {
                     return false;
                 }
             }
@@ -76,8 +77,8 @@ static bool check_early_exhaustion(void) {
     } else {
         // check left column and right column
         bool found = false;
-        for (size_t y = 0; y < state.height; y++) {
-            if (state_get_cell_value(0, 0, y) != OFF) {
+        for (size_t y = config.top_padding; y < state.height - config.bottom_padding; y++) {
+            if (state_get_cell_value(t, config.left_padding, y) != OFF) {
                 found = true;
                 break;
             }
@@ -86,8 +87,8 @@ static bool check_early_exhaustion(void) {
             return true;
         }
         found = false;
-        for (size_t y = 0; y < state.height; y++) {
-            if (state_get_cell_value(0, state.width - 1, y) != OFF) {
+        for (size_t y = config.top_padding; y < state.height - config.bottom_padding; y++) {
+            if (state_get_cell_value(t, state.width - 1 - config.right_padding, y) != OFF) {
                 found = true;
                 break;
             }
@@ -98,18 +99,18 @@ static bool check_early_exhaustion(void) {
     }
     // check rows
     if (config.periodic_dy < 0) {
-        for (size_t y = 0; y < (size_t)(-config.periodic_dy + 1); y++) {
-            for (size_t x = 0; x < state.width; x++) {
-                if (state_get_cell_value(0, x, y) != OFF) {
+        for (size_t y = config.top_padding; y < (size_t)(-config.periodic_dy + 1) + config.top_padding; y++) {
+            for (size_t x = config.left_padding; x < state.width - config.right_padding; x++) {
+                if (state_get_cell_value(t, x, y) != OFF) {
                     return false;
                 }
             }
         }
         return true;
     } else if (config.periodic_dy > 0) {
-        for (size_t y = state.height - config.periodic_dy - 1; y < state.width; y++) {
-            for (size_t x = 0; x < state.width; x++) {
-                if (state_get_cell_value(0, x, y) != OFF) {
+        for (size_t y = state.height - config.periodic_dy - 1 - config.bottom_padding; y < state.height - config.bottom_padding; y++) {
+            for (size_t x = config.left_padding; x < state.width - config.right_padding; x++) {
+                if (state_get_cell_value(t, x, y) != OFF) {
                     return false;
                 }
             }
@@ -118,8 +119,8 @@ static bool check_early_exhaustion(void) {
     } else {
         // check top row and bottom row
         bool found = false;
-        for (size_t x = 0; x < state.width; x++) {
-            if (state_get_cell_value(0, x, 0) != OFF) {
+        for (size_t x = config.left_padding; x < state.width - config.right_padding; x++) {
+            if (state_get_cell_value(t, x, config.top_padding) != OFF) {
                 return false;
             }
         }
@@ -127,8 +128,8 @@ static bool check_early_exhaustion(void) {
             return true;
         }
         found = false;
-        for (size_t x = 0; x < state.width; x++) {
-            if (state_get_cell_value(0, x, state.height - 1) != OFF) {
+        for (size_t x = config.left_padding; x < state.width - config.right_padding; x++) {
+            if (state_get_cell_value(t, x, state.height - 1 - config.bottom_padding) != OFF) {
                 return false;
             }
         }
@@ -163,7 +164,7 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
         if (config.check_early_exhaustion && all_zeros) {
             if (check_early_exhaustion()) {
                 debug_print_grid_3();
-                debug_printf_3("Early exhausted");
+                debug_printf_3("Early exhausted\n");
                 pop_stack_frame(&current_stack);
                 return 0;
             }

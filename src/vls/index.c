@@ -108,8 +108,7 @@ static void init_state(InitFromState* from) {
         }
     }
     // now the clauses
-    // we pad it on all sides with extra clauses to ensure it's always surrounded by off cells
-    state.ca_clause_count = (state.width + 2) * (state.height + 2) * (state.gens - 1);
+    state.ca_clause_count = state.width * state.height * (state.gens - 1);
     // don't allocate space for the clauses marked as no_clause
     for (size_t i = 0; i < state.total_size; i++) {
         if (from->grid[i].no_clause) {
@@ -119,9 +118,9 @@ static void init_state(InitFromState* from) {
     state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause*));
     i = 0;
     size_t init_index = 0;
-    for (intmax_t t = 0; t < (intmax_t)(state.gens - 1); t++) {
-        for (intmax_t y = -1; y < (intmax_t)(state.height + 1); y++) {
-            for (intmax_t x = -1; x < (intmax_t)(state.width + 1); x++) {
+    for (size_t t = 0; t < state.gens - 1; t++) {
+        for (size_t y = 0; y < state.height; y++) {
+            for (size_t x = 0; x < state.width; x++) {
                 if (state_coords_in_bounds(t, x, y)) {
                     InitFromCell* init_cell = &(from->grid[init_index]);
                     init_index++;

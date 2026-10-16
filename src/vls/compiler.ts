@@ -85,7 +85,7 @@ export class Grid {
     data: Cell[][][];
     numVars: number = 0;
 
-    noZeroBackground: boolean = false;
+    hasCustomBackground: boolean = false;
 
     afterRuleText: string | undefined = undefined;
     topPadding: number = 0;
@@ -339,9 +339,9 @@ export class Grid {
         return out;
     }
 
-    expand({start = 0, end = 0, up = 0, down = 0, left = 0, right = 0}: {start?: number, end?: number, up?: number, down?: number, left?: number, right?: number}, value: Cell = cell(UNKNOWN)): this {
+    expand({top = 0, bottom = 0, left = 0, right = 0, start = 0, end = 0}: {top?: number, bottom?: number, left?: number, right?: number, start?: number, end?: number}, value: Cell = cell(UNKNOWN), isPadding: boolean = false): this {
         let newWidth = this.width + left + right;
-        let newHeight = this.height + up + down;
+        let newHeight = this.height + top + bottom;
         let newGens = this.gens + start + end;
         // first make empty placeholders
         let emptyRow: Cell[] = [];
@@ -362,10 +362,10 @@ export class Grid {
                     row.push(structuredClone(value));
                 }
             }
-            for (let i = 0; i < up; i++) {
+            for (let i = 0; i < top; i++) {
                 layer.unshift(structuredClone(emptyRow));
             }
-            for (let i = 0; i < down; i++) {
+            for (let i = 0; i < bottom; i++) {
                 layer.push(structuredClone(emptyRow));
             }
         }
@@ -378,6 +378,14 @@ export class Grid {
         this.width = newWidth;
         this.height = newHeight;
         this.gens = newGens;
+        if (isPadding) {
+            this.topPadding += top;
+            this.bottomPadding += bottom;
+            this.leftPadding += left;
+            this.rightPadding += right;
+            this.startPadding += start;
+            this.endPadding += end;
+        }
         return this;
     }
 
@@ -739,13 +747,9 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
     },
 
     'agar'(grid: Grid): void {
+        grid.hasCustomBackground = true;
         grid.afterRuleText = `:T${grid.width},${grid.height}`;
-        grid.topPadding += 1;
-        grid.bottomPadding += 1;
-        grid.leftPadding += 1;
-        grid.rightPadding += 1;
-        grid.noZeroBackground = true;
-        grid.expand({up: 1, down: 1, left: 1, right: 1}, cell(UNKNOWN, undefined, undefined, true));
+        grid.expand({top: 1, bottom: 1, left: 1, right: 1}, cell(UNKNOWN, undefined, undefined, true), true);
         for (let pos of grid.coords()) {
             if (pos.x === 0 || pos.x === grid.width - 1 || pos.y === 0 || pos.y === grid.height - 1) {
                 let bindX: number;
@@ -1687,7 +1691,7 @@ class VLSFileParser extends BaseParser {
             xOffset = 0;
         }
         if (yOffset < 0) {
-            this.grid.expand({up: -xOffset});
+            this.grid.expand({top: -xOffset});
             yOffset = 0;
         }
         let maxX = width + xOffset;
@@ -1696,7 +1700,7 @@ class VLSFileParser extends BaseParser {
             this.grid.expand({right: maxX - this.grid.width});
         }
         if (maxY > this.grid.height) {
-            this.grid.expand({down: maxY - this.grid.height});
+            this.grid.expand({bottom: maxY - this.grid.height});
         }
         for (let y = 0; y < p.height; y++) {
             for (let x = 0; x < p.width; x++) {
