@@ -582,6 +582,7 @@ fn none Pattern.run_generation(mut Pattern* this) {
 
 @export
 fn none Pattern.run(mut Pattern* this, usize gens) {
+    // MAKE THIS A METHOD OF RULE PLS AND REMOVE RUN_GENERATION OK
     for (mut usize i = 0; i < gens; i += 1) {
         this.run_generation();
     }
