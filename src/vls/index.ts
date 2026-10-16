@@ -882,7 +882,7 @@ ${options['cell-period-filter'] ? `cell_period_filter (length = ${options['cell-
 
 max_partials = ${Number(options['partials'] !== 'none')}
 ${options['partials'] && options['partials'] !== 'none' ? `max_partial_scoring = MAX_PARTIAL_SCORING_${options['partials'].toUpperCase()}` : ''}
-max_partial_reporting_interval = ${options['partial-interval'] ?? 1}
+max_partial_reporting_interval = ${options['partial-interval'] ?? options['interval'] ?? 1}
 
 `;
 
