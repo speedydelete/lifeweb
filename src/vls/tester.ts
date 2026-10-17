@@ -171,7 +171,7 @@ async function loadTestDataFile(file: string, tests: Test[]): Promise<AllTestRun
         if (file === 'current') {
             file = '0';
         } else if (file === 'prev') {
-            file = '1';
+            file = '-1';
         }
         file = (await getTestVersionData(-Number(file))).name;
         if (!existsSync(join(TEST_DATA_DIR, file))) {
@@ -454,10 +454,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
         }
         strData.push(strs);
     }
-    avgPercentDiffTotalTime /= data.length;
-    avgPercentDiffInvocationTime /= data.length;
-    avgPercentDiffSearchTime /= data.length;
-    avgPercentDiffBranches /= data.length;
+    avgPercentDiffTotalTime /= timedTestCount;
+    avgPercentDiffInvocationTime /= timedTestCount;
+    avgPercentDiffSearchTime /= timedTestCount;
+    avgPercentDiffBranches /= timedTestCount;
     let avgDiffs: string[] = [];
     for (let field of fields) {
         let str: string;
@@ -467,28 +467,40 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
         } else if (field === 'success') {
             str = '';
         } else if (field === 'total time') {
-            str = avgPercentDiffTotalTime.toFixed(3);
+            str = avgPercentDiffTotalTime.toFixed(3) + '%';
+            if (!str.startsWith('-')) {
+                str = '+' + str;
+            }
             if (avgPercentDiffTotalTime > 0) {
                 color = GREEN;
             } else if (avgPercentDiffTotalTime < 0) {
                 color = RED;
             }
         } else if (field === 'invocation time') {
-            str = avgPercentDiffInvocationTime.toFixed(3);
+            str = avgPercentDiffInvocationTime.toFixed(3) + '%';
+            if (!str.startsWith('-')) {
+                str = '+' + str;
+            }
             if (avgPercentDiffInvocationTime > 0) {
                 color = GREEN;
             } else if (avgPercentDiffInvocationTime < 0) {
                 color = RED;
             }
         } else if (field === 'search time') {
-            str = avgPercentDiffSearchTime.toFixed(3);
+            str = avgPercentDiffSearchTime.toFixed(3) + '%';
+            if (!str.startsWith('-')) {
+                str = '+' + str;
+            }
             if (avgPercentDiffSearchTime > 0) {
                 color = GREEN;
             } else if (avgPercentDiffSearchTime < 0) {
                 color = RED;
             }
         } else if (field === 'branches') {
-            str = avgPercentDiffBranches.toFixed(3);
+            str = avgPercentDiffBranches.toFixed(3) + '%';
+            if (!str.startsWith('-')) {
+                str = '+' + str;
+            }
             if (avgPercentDiffBranches > 0) {
                 color = GREEN;
             } else if (avgPercentDiffBranches < 0) {
@@ -645,7 +657,7 @@ async function runTest(test: Test, recompile: boolean): Promise<TestRunData> {
     if (recompile) {
         console.log('Recompiling');
     } else {
-        console.log(`Running test ${test.name}`);
+        console.log(`Running test '${test.name}'`);
     }
     let iterations = test.iterations ?? 1;
     let fullData: TestRunData[] = [];
