@@ -265,12 +265,3 @@ symmetries: none
 253 157 69 151
 254 255 153 192
 255 206 193 100
-
-@NAMES
-
-0 off
-1 on
-2 unknown
-3 don't care
-4 p1 unknown
-5 border

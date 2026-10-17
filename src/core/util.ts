@@ -310,7 +310,7 @@ export abstract class BaseParser {
         let column = 0;
         for (let i = 0; i < pos; i++) {
             if (this.code[i] === '\n') {
-                column = 0;
+                column = 1;
                 line++;
             } else {
                 column++;
@@ -339,8 +339,6 @@ export abstract class BaseParser {
         let pos = this.getRelativePosition(offset);
         let stackPositions = this.stack.concat(pos);
         let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
-        console.error(out.stack + '\n');
-        console.trace();
         throw out;
     }
 
@@ -348,8 +346,6 @@ export abstract class BaseParser {
         let pos2 = this.getAbsolutePosition(pos);
         let stackPositions = this.stack.concat(pos2);
         let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
-        console.error(out.stack + '\n');
-        console.trace();
         throw out;
     }
 

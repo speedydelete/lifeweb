@@ -1,7 +1,7 @@
 
 import * as t from '@babel/types';
 
-import {IS_BROWSER, Matcher, EOF, literal, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
+import {IS_BROWSER, Matcher, EOF, literal, ParserPosition, ParserError, BaseParser, IdentityPattern} from '../core/index.js';
 
 
 export function error(msg: string): never {
@@ -980,6 +980,10 @@ export class VLSFileError extends ParserError {
     name: string = 'VLSFileError';
     [Symbol.toStringTag]: string = 'VLSFileError';
 
+    constructor(message: string, stackPositions: ParserPosition[], nameOverride?: string) {
+        super(message, stackPositions, nameOverride ?? 'VLSFileError');
+    }
+
 }
 
 
@@ -1189,8 +1193,8 @@ const RESERVED_WORDS = new Set([
     'pattern', 'gen', 'gens', 'wrap', 'expand', 'delete',
 ]);
 
-const NUMBER_REGEX = /^-?(0|[1-9]\d*(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)?|0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F])$/;
-const NUMBER_AND_STUFF_REGEX = /^-?([1-9]\d+(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)?|0[bB][01]+|0[oO][0-7]+|0[xX][0-9a-fA-F])/;
+const NUMBER_REGEX = /^-?(0|[1-9]\d*(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)?|0b[01]+|0o[0-7]+|0x[0-9a-f])$/i;
+const NUMBER_AND_STUFF_REGEX = /^-?([1-9]\d+(\.[0-9]+)?(e[+-]?[1-9]\d+(\.[0-9]+)?)?|0b[01]+|0o[0-7]+|0x[0-9a-f])/i;
 
 const UNARY_OPERATORS = Object.assign(Object.create(null) as {}, {
     'state': 13,
@@ -1333,7 +1337,7 @@ class VLSFileParser extends BaseParser {
 
     get grid(): Grid {
         if (!this._grid) {
-            this.error(`Pattern statement used before any patterns are defined`);
+            this.error(`Pattern used before any patterns are defined`);
         }
         return this._grid;
     }
@@ -1380,16 +1384,18 @@ class VLSFileParser extends BaseParser {
             out = {type: 'cell', cell: cell(UNKNOWN, this.grid.getNewVar())};
         } else {
             this.goBack();
-            this.error(`Invalid state specifier literal`, -1);
+            this.error(`Invalid state specifier literal`);
         }
         return {type: 'state-specifier', value: out};
     }
 
     literal(): Value {
+        let pos = this.pos;
         let name = this.try(this.identifier);
         if (name !== undefined) {
             return this.scope.getVar(name, -1);
         }
+        this.pos = pos;
         return this.tryStack([
             this.nullLiteral,
             this.booleanLiteral,
@@ -1420,7 +1426,7 @@ class VLSFileParser extends BaseParser {
             } else if (op === 'state') {
                 return {type: 'number', value: value.value};
             } else if (op === 'period') {
-                return {type: 'number', value: -value.value};
+                return {type: 'state-specifier', value: {type: 'periodic', cell: cell(UNKNOWN), period: value.value}};
             } else if (op === '-') {
                 return {type: 'number', value: -value.value};
             } else {
@@ -1549,20 +1555,46 @@ class VLSFileParser extends BaseParser {
         let absolute = new Set<number>();
         while (true) {
             let isAbsolute = false;
-            if (this.match('$')) {
-                isAbsolute = true;
-            }
             let gens: number[] = [];
             if (this.match('all')) {
+                this.advance();
+                isAbsolute = true;
                 for (let i = 0; i < this.grid.gens; i++) {
                     gens.push(i);
                 }
-                continue;
+            } else if (this.match('$')) {
+                this.advance();
+                isAbsolute = true;
+                while (true) {
+                    for (let value of this.generationOrRange()) {
+                        gens.push(value);
+                    }
+                    if (this.match(',')) {
+                        this.advance();
+                    } else {
+                        break;
+                    }
+                }
             } else {
-                for (let value of this.generationOrRange()) {
-                    gens.push(value);
-                }   
+                while (true) {
+                    let value = this.numberExpression();
+                    if (this.match('to')) {
+                        this.advance();
+                        let end = this.numberExpression();
+                        for (let i = value; i <= end; i++) {
+                            gens.push(i);
+                        }
+                    } else {
+                        gens.push(value);
+                    }
+                    if (this.match(',')) {
+                        this.advance();
+                    } else {
+                        break;
+                    }
+                }
             }
+            gens = gens.map(gen => gen < 0 ? gen + this.grid.gens : gen);
             if (isAbsolute) {
                 for (let value of gens) {
                     absolute.add(value);
@@ -1594,12 +1626,21 @@ class VLSFileParser extends BaseParser {
     fullStateSpecifier(): FullStateSpecifier {
         let out: FullStateSpecifier = [];
         while (true) {
-            let value = this.try(this.fullStateSpecifierPart);
+            // let value = this.try(this.fullStateSpecifierPart);
+            let value = this.fullStateSpecifierPart();
             if (value) {
                 out.push(value);
+                if (this.match(',')) {
+                    this.advance();
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
+        }
+        if (out.length === 0) {
+            this.error('Empty full state specifier');
         }
         return out;
     }
@@ -1614,7 +1655,7 @@ class VLSFileParser extends BaseParser {
     }
 
     numberExpression(): number {
-        let value = this.expression();
+        let value = this.operatorExpression();
         if (value.type !== 'number') {
             this.error(`Expected value of type 'number', got type '${value.type}'`);
         }
@@ -1692,6 +1733,7 @@ class VLSFileParser extends BaseParser {
             newGrid.numVars = this._grid.numVars;
         }
         this._grid = newGrid;
+        this.eat(T_LINE_END);
     }
 
     stateSetStatement(): void {
@@ -1700,11 +1742,8 @@ class VLSFileParser extends BaseParser {
         let start = this.pos;
         for (let state of states) {
             this.pos = start;
-            let value = this.expression();
-            if (value.type !== 'full-state-specifier') {
-                this.error(`Expected value of type 'full-state-specifier' for state set statement`);
-            }
-            this.scope.setState(state, value.value);
+            let value = this.fullStateSpecifier();
+            this.scope.setState(state, value);
         }
         this.eat(T_LINE_END);
     }
@@ -1832,6 +1871,7 @@ class VLSFileParser extends BaseParser {
             let data = this.eat([new Set(['start', 'end', 'up', 'down', 'left', 'right']), 'direction'], T_NATURAL_NUMBER);
             this.grid.expand({[data[0] as any]: Number(data[1])});
         }
+        this.eat(T_LINE_END);
     }
 
     deleteStatement(): void {
@@ -1841,6 +1881,7 @@ class VLSFileParser extends BaseParser {
         for (let state of states) {
             this.scope.deleteState(state, this.pos - to);
         }
+        this.eat(T_LINE_END);
     }
 
     statement(): void {
@@ -1889,15 +1930,16 @@ export async function runFile(filename: string): Promise<Grid> {
     try {
         let parser = new VLSFileParser(filename, code);
         return await parser.program();
-    } catch (e) {
+    } catch (error) {
         if (IS_BROWSER) {
-            throw e;
+            throw error;
         } else {
-            if (e instanceof VLSFileError) {
+            if (error instanceof VLSFileError) {
+                console.error(error.stack + '\n');
                 console.error(`Use ./vls -h for help`);
                 process.exit(1);
             } else {
-                throw e;
+                throw error;
             }
         }
     }
