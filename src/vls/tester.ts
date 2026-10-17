@@ -487,7 +487,7 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
     } else {
         successColor = RESET;
     }
-    out.push(`before:${firstSuccessCount}/${data.length} tests passed, ${(firstSuccessCount / data.length * 100).toFixed(3)}% coverage`);
+    out.push(`before: ${firstSuccessCount}/${data.length} tests passed, ${(firstSuccessCount / data.length * 100).toFixed(3)}% coverage`);
     out.push(`after: ${successColor}${secondSuccessCount}/${data.length} tests passed, ${(secondSuccessCount / data.length * 100).toFixed(3)}% coverage${RESET}`);
     return out.join('\n');
 }
