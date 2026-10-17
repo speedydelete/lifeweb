@@ -167,13 +167,13 @@ async function saveTestDataFile(data: AllTestRunData): Promise<void> {
 }
 
 async function loadTestDataFile(file: string, tests: Test[]): Promise<AllTestRunData> {
-    if (file === 'current' || file === 'prev' || file.match(/^\d+$/)) {
+    if (file === 'current' || file === 'prev' || file.match(/^-\d+$/)) {
         if (file === 'current') {
             file = '0';
         } else if (file === 'prev') {
             file = '1';
         }
-        file = (await getTestVersionData(Number(file))).name;
+        file = (await getTestVersionData(-Number(file))).name;
         if (!existsSync(join(TEST_DATA_DIR, file))) {
             file = file.slice(file.indexOf('_') + 1);
         }
@@ -247,13 +247,15 @@ const DEFAULT_PRETTY_PRINT_FIELDS: PrettyPrintField[] = ['test', 'success', 'sea
 
 type FieldLineToFormat = string[] | 'spacer';
 
+const ANSI_REGEX = /\x1b\[.*?m/g;
+
 function formatFieldLines(lines: FieldLineToFormat[], fieldCount: number): string[] {
     let maxLengths: number[] = [];
     let spacerLineData: string[] = [];
     for (let i = 0; i < fieldCount; i++) {
         let maxLength = 1;
         for (let strs of lines) {
-            let str = strs[i].replaceAll(/\x1b\[.*?m/g, '');
+            let str = strs[i].replaceAll(ANSI_REGEX, '');
             maxLength = Math.max(maxLength, str.length);
         }
         maxLengths.push(maxLength);
@@ -267,7 +269,11 @@ function formatFieldLines(lines: FieldLineToFormat[], fieldCount: number): strin
         } else {
             let line: string[] = [];
             for (let i = 0; i < strs.length; i++) {
-                line.push(strs[i].padEnd(maxLengths[i], ' '));
+                let str = strs[i];
+                while (str.replaceAll(ANSI_REGEX, '').length < maxLengths[i]) {
+                    str += ' ';
+                }
+                line.push(str);
             }
             out.push('| ' + line.join(' | ') + ' |');
         }
@@ -278,31 +284,51 @@ function formatFieldLines(lines: FieldLineToFormat[], fieldCount: number): strin
 function prettyPrintTestData(data: AllTestRunData, fields: PrettyPrintField[]): string {
     let out: string[] = [];
     out.push(testVersionDataToPrettyString(data.version));
-    let strData: string[][] = [];
     let successCount = 0;
+    let strData: string[][] = [];
     for (let value of data.data) {
+        let untimed = value.test.untimed;
+        if (value.success) {
+            successCount += 1;
+        }
         let strs: string[] = [];
         for (let field of fields) {
             if (field === 'test') {
                 strs.push(value.test.name);
             } else if (field === 'success') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 strs.push(value.success ? `true` : `false`);
             } else if (field === 'total time') {
+                if (untimed) {
+                    continue;
+                }
                 strs.push(value.totalTime.toFixed(3));
             } else if (field === 'invocation time') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 strs.push(value.invocationTime.toFixed(3));
             } else if (field === 'search time') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 strs.push(value.searchTime.toFixed(3));
             } else if (field === 'branches') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 strs.push(String(value.branches));
             } else {
                 throw new Error(`Invalid field name: '${field}'`);
             }
         }
         strData.push(strs);
-        if (value.success) {
-            successCount += 1;
-        }
     }
     let toFormat: FieldLineToFormat[] = [
         'spacer',
@@ -346,14 +372,25 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
             }
         }
     }
-    let strData: string[][] = [];
     let firstSuccessCount = 0;
     let secondSuccessCount = 0;
+    let timedTestCount = 0;
     let avgPercentDiffTotalTime = 0;
     let avgPercentDiffInvocationTime = 0;
     let avgPercentDiffSearchTime = 0;
     let avgPercentDiffBranches = 0;
+    let strData: string[][] = [];
     for (let [first, second] of data) {
+        let untimed = first.test.untimed;
+        if (first.success) {
+            firstSuccessCount += 1;
+        }
+        if (second.success) {
+            secondSuccessCount += 1;
+        }
+        if (!untimed) {
+            timedTestCount++;
+        }
         let strs: string[] = [];
         for (let field of fields) {
             let str: string;
@@ -368,6 +405,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     color = RED;
                 }
             } else if (field === 'total time') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 let [diff, diffStr] = percentDifference(first.totalTime, second.totalTime);
                 avgPercentDiffTotalTime += diff;
                 str = `${second.totalTime.toFixed(3)}${diffStr}`;
@@ -377,6 +418,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     color = RED;
                 }
             } else if (field === 'invocation time') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 let [diff, diffStr] = percentDifference(first.invocationTime, second.invocationTime);
                 avgPercentDiffInvocationTime += diff;
                 str = `${second.invocationTime.toFixed(3)}${diffStr}`;
@@ -386,6 +431,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     color = RED;
                 }
             } else if (field === 'search time') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 let [diff, diffStr] = percentDifference(first.searchTime, second.searchTime);
                 avgPercentDiffSearchTime += diff;
                 str = `${second.searchTime.toFixed(3)}${diffStr}`;
@@ -395,9 +444,13 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     color = RED;
                 }
             } else if (field === 'branches') {
+                if (untimed) {
+                    strs.push('');
+                    continue;
+                }
                 let [diff, diffStr] = percentDifference(first.branches, second.branches);
                 avgPercentDiffBranches += diff;
-                str = `${second.branches.toFixed(3)}${diffStr}`;
+                str = `${second.branches}${diffStr}`;
                 if (second.branches < first.branches) {
                     color = GREEN;
                 } else if (second.branches > first.branches) {
@@ -412,12 +465,6 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
             strs.push(str);
         }
         strData.push(strs);
-        if (first.success) {
-            firstSuccessCount += 1;
-        }
-        if (second.success) {
-            secondSuccessCount += 1;
-        }
     }
     avgPercentDiffTotalTime /= data.length;
     avgPercentDiffInvocationTime /= data.length;
@@ -676,7 +723,7 @@ const COMMANDS: {[key: string]: (tests: Test[], args: string[]) => void | Promis
             error(`'./vls test compare' expects exactly 2 additional arguments`);
         }
         let second = await loadTestDataFile(args[1], tests);
-        let first = await loadTestDataFile(args[1], tests);
+        let first = await loadTestDataFile(args[0], tests);
         console.log(compareAndPrettyPrintTestData(first, second, DEFAULT_PRETTY_PRINT_FIELDS));
     },
 
