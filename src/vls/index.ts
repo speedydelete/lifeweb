@@ -222,9 +222,10 @@ type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 export interface VLSSearchData {
     posArgs: string[];
     options: OptionData;
+    periodic: {dx: number, dy: number, period: number} | undefined;
+    grid: Grid;
     params2File: string;
     searchFile: string;
-    periodic: {dx: number, dy: number, period: number} | undefined;
 }
 
 export async function createVLSSearch(args: string[], paramsFile: string): Promise<VLSSearchData> {
@@ -896,9 +897,10 @@ searchFile = searchFile.slice(0, -1);
 return {
     posArgs,
     options,
+    periodic: periodic === false ? undefined : periodic,
+    grid,
     params2File: params2Lines.join('\n'),
     searchFile,
-    periodic: periodic === false ? undefined : periodic,
 };
 
 }
@@ -950,7 +952,7 @@ export async function runVLS(args: string[], wantData: boolean, recompile: boole
     // } else {
     //     recompile = true;
     // }
-    recompile = true;
+    recompile ??= true;
     if (search.params2File !== oldParams2) {
         recompile = true;
         await fs.writeFile(getPath('src/vls/params2.h'), search.params2File);
@@ -1012,15 +1014,17 @@ export async function runVLS(args: string[], wantData: boolean, recompile: boole
     return {
         search,
         out,
-        totalTime: (totalStart - end) / 1000,
-        invocationTime: (invocationStart - end) / 1000,
+        totalTime: (end - totalStart) / 1000,
+        invocationTime: (end - invocationStart) / 1000,
     };
 }
 
 if (import.meta.main) {
     let args = process.argv.slice(2);
     if (args[0] === 'test') {
-        (await import('./tester.js')).main(args.slice(1));
+        (async () => {
+            (await import('./tester.js')).main(args.slice(1));
+        })();
     } else {
         runVLS(args, false);
     }
