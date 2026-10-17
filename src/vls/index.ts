@@ -1018,5 +1018,10 @@ export async function runVLS(args: string[], wantData: boolean, recompile: boole
 }
 
 if (import.meta.main) {
-    runVLS(process.argv.slice(2), false);
+    let args = process.argv.slice(2);
+    if (args[0] === 'test') {
+        (await import('./tester.js')).main(args.slice(1));
+    } else {
+        runVLS(args, false);
+    }
 }

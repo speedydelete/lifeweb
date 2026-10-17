@@ -39,11 +39,13 @@ async function mkdir(file: string): Promise<void> {
 
 async function updateVersionNumber(): Promise<void> {
     let data = await read('src/version.ts');
-    let match = data.match(/\d+/);
+    let match = /export const LIFEWEB_VERSION = (\d+)/.exec(data);
     if (!match) {
         throw new Error(`No build number in src/version.ts!`);
     }
-    await write('src/version.ts', `\nexport const LIFEWEB_VERSION = ${parseInt(match[0]) + 1};\n`);
+    let newVersionStr = `export const LIFEWEB_VERSION = ${parseInt(match[1]) + 1}`;
+    data = data.slice(0, match.index) + newVersionStr + data.slice(match.index + match[0].length);
+    await write('src/version.ts', data);
 }
 
 
