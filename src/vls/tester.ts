@@ -296,10 +296,6 @@ function prettyPrintTestData(data: AllTestRunData, fields: PrettyPrintField[]): 
             if (field === 'test') {
                 strs.push(value.test.name);
             } else if (field === 'success') {
-                if (untimed) {
-                    strs.push('');
-                    continue;
-                }
                 strs.push(value.success ? `true` : `false`);
             } else if (field === 'total time') {
                 if (untimed) {
@@ -319,10 +315,6 @@ function prettyPrintTestData(data: AllTestRunData, fields: PrettyPrintField[]): 
                 }
                 strs.push(value.searchTime.toFixed(3));
             } else if (field === 'branches') {
-                if (untimed) {
-                    strs.push('');
-                    continue;
-                }
                 strs.push(String(value.branches));
             } else {
                 throw new Error(`Invalid field name: '${field}'`);
@@ -444,10 +436,6 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     color = RED;
                 }
             } else if (field === 'branches') {
-                if (untimed) {
-                    strs.push('');
-                    continue;
-                }
                 let [diff, diffStr] = percentDifference(first.branches, second.branches);
                 avgPercentDiffBranches += diff;
                 str = `${second.branches}${diffStr}`;
