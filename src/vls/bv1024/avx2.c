@@ -70,6 +70,7 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
         print_bv1024(c_state);
     #endif
     if (__builtin_expect(!can_be_0 && !can_be_1, 0)) {
+        // it can't be anything, so contradiction!
         return false;
     } else if (__builtin_expect(!can_be_0 && can_be_1, 0)) {
         return internal_clause_set_cell(cell, ON, false);

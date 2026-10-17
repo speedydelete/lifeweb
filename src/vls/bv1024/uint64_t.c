@@ -32,7 +32,7 @@ static inline bool bv1024_is_contradiction(BitVec1024 state) {
 
 
 static inline bool check_single_cell_implications(CAClause* clause, int pos, Cell* cell) {
-    if (cell->value != UNKNOWN) {
+    if (__builtin_expect(cell->value != UNKNOWN, 0)) {
         return true;
     }
     // maybe uncomment and inline? idk
@@ -59,12 +59,12 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     #if DEBUG >= 5
         print_bv1024(clause_state(clause));
     #endif
-    if (!can_be_0 && !can_be_1) {
+    if (__builtin_expect(!can_be_0 && !can_be_1, 0)) {
         // it can't be anything, so contradiction!
         return false;
-    } else if (!can_be_0 && can_be_1) {
+    } else if (__builtin_expect(!can_be_0 && can_be_1, 0)) {
         return internal_clause_set_cell(cell, ON, false);
-    } else if (can_be_0 && !can_be_1) {
+    } else if (__builtin_expect(can_be_0 && !can_be_1, 0)) {
         return internal_clause_set_cell(cell, OFF, false);
     } else {
         // can't do anything with it
@@ -96,7 +96,7 @@ static bool set_cell(Cell* cell, CellValue value) {
             #define hi(...)
         #endif
         #define update(clause, pos) \
-            if ((clause) != NULL) { \
+            if (__builtin_expect((clause) != NULL, 1)) { \
                 debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, history_len = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->history_len, (clause)->state_number); \
                 hi(clause_state(clause)); \
                 uint64_t* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
@@ -112,7 +112,7 @@ static bool set_cell(Cell* cell, CellValue value) {
                     } \
                     temp[i] = result; \
                 } \
-                if (contradiction) { \
+                if (__builtin_expect(contradiction, 0)) { \
                     debug_printf_3("Contradiction in set_cell, unwinding\n"); \
                     for (size_t i = 0; i < changed_clause_count; i++) { \
                         undo_last_clause_operation(changed_clauses[i]); \
