@@ -31,6 +31,7 @@ static inline void bv1024_set_bit(BitVec1024 state, int bit, int value) {
 
 static inline bool bv1024_is_contradiction(BitVec1024 state) {
     __m256i any = _mm256_setzero_si256();
+    #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
         any = _mm256_or_si256(any, _mm256_load_si256(state + i));
     }
@@ -39,41 +40,40 @@ static inline bool bv1024_is_contradiction(BitVec1024 state) {
 
 static void bv1024_set_cell(BitVec1024 state, int pos, CellValue value) {
     __m256i* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos];
+    #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
         state[i] = _mm256_and_si256(_mm256_load_si256(state + i), _mm256_load_si256(mask + i));
     }
 }
 
 static inline bool check_single_cell_implications(CAClause* clause, int pos, Cell* cell) {
-    if (cell->value != UNKNOWN) {
+    if (__builtin_expect(cell->value != UNKNOWN, 0)) {
         return true;
     }
-    // maybe uncomment and inline? idk
-    // if (bv1024_is_contradiction(clause_state(clause))) {
-    //     return false;
-    // }
+    __m256i* c_state = clause_state(clause);
     __m256i* mask = IMPLICSTATE_CELL_MASKS[0][pos];
     __m256i any = _mm256_setzero_si256();
+    #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
-        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(clause_state(clause) + i), _mm256_load_si256(mask + i)));
+        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(c_state + i), _mm256_load_si256(mask + i)));
     }
     bool can_be_0 = _mm256_testz_si256(any, any) == 0;
     mask = IMPLICSTATE_CELL_MASKS[1][pos];
     any = _mm256_setzero_si256();
+    #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
-        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(clause_state(clause) + i), _mm256_load_si256(mask + i)));
+        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(c_state + i), _mm256_load_si256(mask + i)));
     }
     bool can_be_1 = _mm256_testz_si256(any, any) == 0;
     debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
     #if DEBUG >= 5
-        print_bv1024(clause_state(clause));
+        print_bv1024(c_state);
     #endif
-    if (!can_be_0 && !can_be_1) {
-        // it can't be anything, so contradiction!
+    if (__builtin_expect(!can_be_0 && !can_be_1, 0)) {
         return false;
-    } else if (!can_be_0 && can_be_1) {
+    } else if (__builtin_expect(!can_be_0 && can_be_1, 0)) {
         return internal_clause_set_cell(cell, ON, false);
-    } else if (can_be_0 && !can_be_1) {
+    } else if (__builtin_expect(can_be_0 && !can_be_1, 0)) {
         return internal_clause_set_cell(cell, OFF, false);
     } else {
         // can't do anything with it
@@ -106,15 +106,17 @@ static bool set_cell(Cell* cell, CellValue value) {
             #define hi(...)
         #endif
         #define update(clause, pos) \
-            if ((clause) != NULL) { \
+            if (__builtin_expect((clause) != NULL, 1)) { \
                 debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->state_number); \
                 hi(clause_state(clause)); \
                 __m256i* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
                 bool contradiction = true; \
                 bool is_same = true; \
-                for (int i = 0; i < 4; i++) { \
-                    __m256i clause_value = _mm256_load_si256(clause_state(clause) + i); \
-                    __m256i result = _mm256_and_si256(clause_value, _mm256_load_si256(mask + i)); \
+                __m256i* state = clause_state(clause); \
+                _Pragma("clang loop unroll(full)") \
+                for (int j = 0; j < 4; j++) { \
+                    __m256i clause_value = _mm256_load_si256(state + j); \
+                    __m256i result = _mm256_and_si256(clause_value, _mm256_load_si256(mask + j)); \
                     if (_mm256_testz_si256(result, result) == 0) { \
                         contradiction = false; \
                     } \
@@ -122,13 +124,13 @@ static bool set_cell(Cell* cell, CellValue value) {
                     if (_mm256_testz_si256(xor_value, xor_value) == 0) { \
                         is_same = false; \
                     } \
-                    temp[i] = result; \
+                    temp[j] = result; \
                 } \
-                if (contradiction) { \
+                if (__builtin_expect(contradiction, 0)) { \
                     hi(clause_state(clause)); \
                     debug_printf_3("Contradiction in set_cell, unwinding\n"); \
-                    for (size_t i = 0; i < changed_clause_count; i++) { \
-                        undo_last_clause_operation(changed_clauses[i]); \
+                    for (size_t j = 0; j < changed_clause_count; j++) { \
+                        undo_last_clause_operation(changed_clauses[j]); \
                     } \
                     dec_debug_depth(); \
                     return false; \
@@ -178,7 +180,7 @@ static void unset_cell(Cell* cell) {
             #define hi(...)
         #endif
         #define update(clause, pos) \
-            if ((clause) != NULL) { \
+            if (__builtin_expect((clause) != NULL, 1)) { \
                 debug_printf_4("Unsetting cell in clause %zu: pos = %i (aka "#clause"), state_number = %i\n", (clause)->number, pos, (clause)->state_number); \
                 hi(clause_state(clause)); \
                 undo_last_clause_operation(clause); \
@@ -201,7 +203,6 @@ static void unset_cell(Cell* cell) {
 }
 
 static bool alias(Cell* cell, Cell* alias_to, bool invert) {
-    // Cell* original_cell = cell;
     if (alias_to->alias) {
         invert = invert != alias_to->invert_alias;
         alias_to = alias_to->alias;
