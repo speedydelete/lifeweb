@@ -225,8 +225,12 @@ export const EOF = Symbol();
 
 export const T_EOF: Matcher = [EOF, 'end of file'];
 
-export function literal(value: string): [string, string] {
-    return [value, `'${value}'`];
+export function literal(...values: string[]): [string | Set<string>, string] {
+    if (values.length === 1) {
+        return [values[0], `'${values[0]}'`];
+    } else {
+        return [new Set(values), `${values.slice(0, -1).map(x => `'${x}'`).join(', ')}, or '${values[values.length - 1]}'`];
+    }
 }
 
 export interface ParserPosition {

@@ -983,16 +983,13 @@ export class VLSFileError extends ParserError {
 }
 
 
-type StateSpecifier = {all?: boolean} & (
+type StateSpecifier = (
     | {type: 'nop'}
     | {type: 'cell', cell: Cell}
     | {type: 'periodic', cell: Cell, period: number}
 );
 
 function stateSpecifiersAreEqual(x: StateSpecifier, y: StateSpecifier): boolean {
-    if (Boolean(x.all) !== Boolean(y.all)) {
-        return false;
-    }
     if (x.type !== y.type) {
         return false;
     }
@@ -1007,12 +1004,35 @@ function stateSpecifiersAreEqual(x: StateSpecifier, y: StateSpecifier): boolean 
     }
 }
 
+type FullStateSpecifierPart = {relative: number[], absolute: number[], value: StateSpecifier};
+
+function fullStateSpecifierPartsAreEqual(x: FullStateSpecifierPart, y: FullStateSpecifierPart): boolean {
+    if (x.relative.length !== y.relative.length) {
+        return false;
+    }
+    let yRelative = y.relative.toSorted();
+    if (!x.relative.toSorted().every((value, i) => yRelative[i] === value)) {
+        return false;
+    }
+    if (x.absolute.length !== y.absolute.length) {
+        return false;
+    }
+    let yAbsolute = y.absolute.toSorted();
+    if (!x.absolute.toSorted().every((value, i) => yAbsolute[i] === value)) {
+        return false;
+    }
+    return stateSpecifiersAreEqual(x.value, y.value);
+}
+
+type FullStateSpecifier = FullStateSpecifierPart[];
+
 
 type Value = 
     | {type: 'null'}
     | {type: 'boolean', value: boolean}
     | {type: 'number', value: number}
     | {type: 'state-specifier', value: StateSpecifier}
+    | {type: 'full-state-specifier', value: FullStateSpecifier}
 ;
 
 function isTruthy(value: Value): boolean {
@@ -1056,7 +1076,7 @@ class Scope {
     parser: VLSFileParser;
     parent: Scope | undefined;
     vars: {[key: string]: Value};
-    states: {[key: number]: StateSpecifier};
+    states: {[key: number]: FullStateSpecifier};
 
     constructor(parser: VLSFileParser, parent: Scope | undefined) {
         this.parser = parser;
@@ -1101,7 +1121,7 @@ class Scope {
         }
     }
 
-    getState(state: number, offset: number = 0): StateSpecifier {
+    getState(state: number, offset: number = 0): FullStateSpecifier {
         if (state in this.states) {
             return this.states[state];
         }
@@ -1112,7 +1132,7 @@ class Scope {
         }
     }
 
-    // absGetState(state: number, pos: number): StateSpecifier {
+    // absGetState(state: number, pos: number): FullStateSpecifier {
     //     if (state in this.states) {
     //         return this.states[state];
     //     }
@@ -1123,7 +1143,7 @@ class Scope {
     //     }
     // }
 
-    setState(state: number, value: StateSpecifier): void {
+    setState(state: number, value: FullStateSpecifier): void {
         this.states[state] = value;
     }
 
@@ -1162,7 +1182,7 @@ const RESERVED_WORDS = new Set([
     // literals
     'true', 'false', 'nop', 'off', 'on', 'unknown', 'var',
     // operators
-    'states', 'unsearchable', 'period', 'all',
+    'states', 'unsearchable', 'noclause', 'period', 'all',
     // constructs
     'state', 'states', 'to',
     // statements
@@ -1175,8 +1195,8 @@ const NUMBER_AND_STUFF_REGEX = /^-?([1-9]\d+(.[0-9]+)?(e[+-]?[1-9]\d+(.[0-9]+)?)
 const UNARY_OPERATORS = Object.assign(Object.create(null) as {}, {
     'state': 13,
     'unsearchable': 13,
+    'noclause': 13,
     'period': 13,
-    'all': 13,
     '+': 11,
     '-': 11,
     '!': 11,
@@ -1210,14 +1230,14 @@ const BINARY_OPERATORS = Object.assign(Object.create(null) as {}, {
 
 type BinaryOperator = keyof typeof BINARY_OPERATORS;
 
-const LONG_OPERATORS = new Set<string>();
+const LONG_SYMBOLS = new Set<string>();
 for (let op of Object.keys(UNARY_OPERATORS).concat(Object.keys(BINARY_OPERATORS))) {
     if (op.length === 1) {
         continue;
     } else if (op.match(IDENTIFIER_REGEX)) {
         continue;
     } else {
-        LONG_OPERATORS.add(op);
+        LONG_SYMBOLS.add(op);
     }
 }
 
@@ -1245,11 +1265,11 @@ class VLSFileParser extends BaseParser {
         this.grids = [];
         this._grid = undefined;
         this.scope = new Scope(this, undefined);
-        this.scope.setState(0, {type: 'cell', cell: cell(OFF)});
-        this.scope.setState(1, {type: 'cell', cell: cell(ON)});
-        this.scope.setState(2, {type: 'cell', cell: cell(UNKNOWN)});
-        this.scope.setState(3, {type: 'periodic', cell: cell(UNKNOWN), period: 1});
-        this.scope.setState(4, {type: 'cell', cell: cell(OFF)});
+        // this.scope.setState(0, [{relative: [0], absolute: [], value: {type: 'cell', cell: cell(OFF)}}]);
+        // this.scope.setState(1, [{relative: [0], absolute: [], value: {type: 'cell', cell: cell(ON)}}]);
+        // this.scope.setState(2, [{relative: [0], absolute: [], value: {type: 'cell', cell: cell(UNKNOWN)}}]);
+        // this.scope.setState(3, [{relative: [0], absolute: [], value: {type: 'periodic', cell: cell(UNKNOWN), period: 1}}]);
+        // this.scope.setState(4, [{relative: [0], absolute: [], value: {type: 'cell', cell: cell(OFF)}}]);
     }
 
     tokenize(code: string): void {
@@ -1291,11 +1311,11 @@ class VLSFileParser extends BaseParser {
                     this.addToken(current.trimEnd(), startPos);
                 }
                 current = '';
-                if (pos < code.length - 2 && LONG_OPERATORS.has(char + code[pos + 1] + code[pos + 2])) {
+                if (pos < code.length - 2 && LONG_SYMBOLS.has(char + code[pos + 1] + code[pos + 2])) {
                     this.addToken(char + code[pos + 1] + code[pos + 2], pos);
                     startPos = pos + 3;
                     pos += 2;
-                } else if (pos < code.length - 1 && LONG_OPERATORS.has(char + code[pos + 1])) {
+                } else if (pos < code.length - 1 && LONG_SYMBOLS.has(char + code[pos + 1])) {
                     this.addToken(char + code[pos + 1], pos);
                     startPos = pos + 2;
                     pos += 1;
@@ -1406,7 +1426,7 @@ class VLSFileParser extends BaseParser {
             } else {
                 throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
-        } else if (op === 'unsearchable' || op === 'all') {
+        } else if (op === 'unsearchable' || op === 'noclause') {
             if (value.type !== 'state-specifier') {
                 this.error(`Expected value of type 'state-specifier' for unary '${op}' operator, got type '${value.type}'`);
             }
@@ -1416,8 +1436,8 @@ class VLSFileParser extends BaseParser {
             }
             if (op === 'unsearchable') {
                 out.cell.searchable = false;
-            } else if (op === 'all') {
-                out.all = true;
+            } else if (op === 'noclause') {
+                out.cell.noClause = true;
             } else {
                 throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
@@ -1488,7 +1508,7 @@ class VLSFileParser extends BaseParser {
         }
     }
 
-    _expression(minPrecedence: number): Value {
+    _operatorExpression(minPrecedence: number): Value {
         let left: Value;
         let lookahead = this.peek();
         if (lookahead !== EOF && lookahead in UNARY_OPERATORS) {
@@ -1498,7 +1518,7 @@ class VLSFileParser extends BaseParser {
                 this.error(`Unexpected unary operator ${op}`);
             }
             this.advance();
-            let value = this._expression(precedence);
+            let value = this._operatorExpression(precedence);
             left = this.evalUnary(op, value);
         } else {
             left = this.primaryExpression();
@@ -1514,14 +1534,83 @@ class VLSFileParser extends BaseParser {
                 break;
             }
             this.advance();
-            let right = this._expression(precedence + 1);
+            let right = this._operatorExpression(precedence + 1);
             left = this.evalBinary(op, left, right);
         }
         return left;
     }
     
+    operatorExpression(): Value {
+        return this._operatorExpression(0);
+    }
+
+    fullStateSpecifierPart(): FullStateSpecifierPart {
+        let relative = new Set<number>();
+        let absolute = new Set<number>();
+        while (true) {
+            let isAbsolute = false;
+            if (this.match('$')) {
+                isAbsolute = true;
+            }
+            let gens: number[] = [];
+            if (this.match('all')) {
+                for (let i = 0; i < this.grid.gens; i++) {
+                    gens.push(i);
+                }
+                continue;
+            } else {
+                for (let value of this.generationOrRange()) {
+                    gens.push(value);
+                }   
+            }
+            if (isAbsolute) {
+                for (let value of gens) {
+                    absolute.add(value);
+                }
+            } else {
+                for (let value of gens) {
+                    relative.add(value);
+                }
+            }
+            if (this.match(',')) {
+                this.advance();
+            } else {
+                break;
+            }
+        }
+        this.eat(literal(':'));
+        let pos = this.pos;
+        let value = this.operatorExpression();
+        if (value.type !== 'state-specifier') {
+            this.absError(`Expected value of type 'state-specifier', got type '${value.type}'`, pos);
+        }
+        return {
+            relative: Array.from(relative),
+            absolute: Array.from(absolute),
+            value: value.value,
+        };
+    }
+
+    fullStateSpecifier(): FullStateSpecifier {
+        let out: FullStateSpecifier = [];
+        while (true) {
+            let value = this.try(this.fullStateSpecifierPart);
+            if (value) {
+                out.push(value);
+            } else {
+                break;
+            }
+        }
+        return out;
+    }
+
     expression(): Value {
-        return this._expression(0);
+        let value = this.try(this.fullStateSpecifier);
+        if (value) {
+            return {type: 'full-state-specifier', value};
+        } else {
+            return this.operatorExpression();
+        }
     }
 
     numberExpression(): number {
@@ -1612,19 +1701,19 @@ class VLSFileParser extends BaseParser {
         for (let state of states) {
             this.pos = start;
             let value = this.expression();
-            if (value.type !== 'state-specifier') {
-                this.error(`Expected value of type 'state-specifier' for state set statement`);
+            if (value.type !== 'full-state-specifier') {
+                this.error(`Expected value of type 'full-state-specifier' for state set statement`);
             }
             this.scope.setState(state, value.value);
         }
         this.eat(T_LINE_END);
     }
 
-    setCells(ts: number[], x: number, y: number, value: StateSpecifier, baseT: number): void {
+    setCells(gens: number[], x: number, y: number, value: StateSpecifier, baseT: number): void {
         if (value.type === 'nop') {
             // do nothing
         } else if (value.type === 'cell') {
-            for (let t of ts) {
+            for (let t of gens) {
                 this.grid.set(t, x, y, structuredClone(value.cell));
             }
         } else if (value.type === 'periodic') {
@@ -1634,7 +1723,7 @@ class VLSFileParser extends BaseParser {
                 cell.variable = this.grid.getNewVar();
                 cells.push(cell);
             }
-            for (let t of ts) {
+            for (let t of gens) {
                 let cell = structuredClone(cells[(t + baseT) % cells.length]);
                 this.grid.set(t, x, y, cell);
             }
@@ -1644,13 +1733,13 @@ class VLSFileParser extends BaseParser {
     }
 
     rleStatement(): void {
-        let gens: number[] | 'all';
+        let rleGens: number[] | 'all';
         if (this.match('gen') || this.match('gens')) {
             this.advance();
-            gens = [];
+            rleGens = [];
             while (true) {
                 for (let value of this.generationOrRange()) {
-                    gens.push(value);
+                    rleGens.push(value);
                 }
                 if (this.match(',')) {
                     this.advance();
@@ -1660,7 +1749,7 @@ class VLSFileParser extends BaseParser {
             }
         } else {
             this.eat(literal('all'), literal('gens'));
-            gens = 'all';
+            rleGens = 'all';
         }
         let xOffset = 0;
         let yOffset = 0;
@@ -1707,13 +1796,23 @@ class VLSFileParser extends BaseParser {
                 let state = p.get(x, y);
                 let x2 = x + xOffset;
                 let y2 = y + yOffset;
-                let data = this.scope.getState(state);
-                if (gens === 'all' || data.all) {
-                    this.setCells(Array.from({length: this.grid.gens}, (_, i) => i), x2, y2, data, 0);
-                } else {
-                    for (let gen of gens) {
-                        this.setCells(gens, x2, y2, data, 0);
+                for (let data of this.scope.getState(state)) {
+                    let gens: number[] = [];
+                    if (rleGens === 'all') {
+                        for (let i = 0; i < this.grid.gens; i++) {
+                            gens.push(i);
+                        }
+                    } else {
+                        for (let gen of data.absolute) {
+                            gens.push(gen);
+                        }
+                        for (let gen of rleGens) {
+                            for (let gen2 of data.relative) {
+                                gens.push(gen + gen2);
+                            }
+                        }
                     }
+                    this.setCells(gens, x2, y2, data.value, 0);
                 }
             }
         }
