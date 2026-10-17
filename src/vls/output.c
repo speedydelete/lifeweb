@@ -616,7 +616,7 @@ int max_partial_trs[512];
 uint64_t last_printed_max_partial_size = 0;
 
 static void max_partials_end(void) {
-    if (state.solutions_found == 0) {
+    if (state.solutions_found == 0 && config.max_partials) {
         #if MULTI_RULE
             memcpy(trs, max_partial_trs, sizeof(trs));
         #endif
