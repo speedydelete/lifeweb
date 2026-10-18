@@ -302,11 +302,6 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 
 typedef struct Cell Cell;
 
-typedef struct CAClauseState {
-    BitVec1024 state;
-    int set_cells;
-} CAClauseState;
-
 typedef struct CAClause {
     size_t number;
     Cell* c;
@@ -332,11 +327,10 @@ typedef struct CAClause {
     BitVec1024 history;
     int history_len;
     int state_number;
-    CAClauseState states[12];
+    BitVec1024 states[12];
 } CAClause;
 
-#define clause_state(clause) ((clause)->states[(clause)->state_number].state)
-#define clause_set_cells(clause) ((clause)->states[(clause)->state_number].set_cells)
+#define clause_state(clause) ((clause)->states[(clause)->state_number])
 
 
 typedef struct CellUseData {

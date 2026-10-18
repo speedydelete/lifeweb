@@ -101,53 +101,45 @@ static bool set_cell(Cell* cell, CellValue value) {
         #define update(real_clause, pos) \
             if ((real_clause) != NULL) { \
                 CAClause* clause = (real_clause); \
-                if ((clause_set_cells(clause) >> pos) & 1) { \
-                    debug_printf_4("Cell is already set in clause %zu: pos = %i (aka "#real_clause"), value = %i, state_number = %i, history_len = %i to %i\n", clause->number, pos, value, clause->state_number, clause->history_len, clause->history_len + 1); \
-                    bv1024_set_bit(clause->history, clause->history_len, 0); \
-                    clause->history_len++; \
-                } else { \
-                    debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#real_clause"), value = %i, state_number = %i\n", clause->number, pos, value, clause->state_number); \
-                    __m256i* state = clause_state(clause); \
-                    hi(state); \
-                    __m256i* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
-                    bool contradiction = true; \
-                    bool is_same = true; \
-                    for (int i = 0; i < 4; i++) { \
-                        __m256i clause_value = _mm256_load_si256(state + i); \
-                        __m256i result = _mm256_and_si256(clause_value, _mm256_load_si256(mask + i)); \
-                        if (_mm256_testz_si256(result, result) == 0) { \
-                            contradiction = false; \
-                        } \
-                        __m256i xor_value = _mm256_xor_si256(result, clause_value); \
-                        if (_mm256_testz_si256(xor_value, xor_value) == 0) { \
-                            is_same = false; \
-                        } \
-                        temp[i] = result; \
+                debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#real_clause"), value = %i, state_number = %i\n", clause->number, pos, value, clause->state_number); \
+                __m256i* state = clause_state(clause); \
+                hi(state); \
+                __m256i* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
+                bool contradiction = true; \
+                bool is_same = true; \
+                for (int i = 0; i < 4; i++) { \
+                    __m256i clause_value = _mm256_load_si256(state + i); \
+                    __m256i result = _mm256_and_si256(clause_value, _mm256_load_si256(mask + i)); \
+                    if (_mm256_testz_si256(result, result) == 0) { \
+                        contradiction = false; \
                     } \
-                    if (contradiction) { \
-                        debug_printf_3("Contradiction in set_cell, unwinding\n"); \
-                        for (size_t i = 0; i < changed_clause_count; i++) { \
-                            undo_last_clause_operation(changed_clauses[i]); \
-                        } \
-                        dec_debug_depth(); \
-                        return false; \
+                    __m256i xor_value = _mm256_xor_si256(result, clause_value); \
+                    if (_mm256_testz_si256(xor_value, xor_value) == 0) { \
+                        is_same = false; \
                     } \
-                    changed_clauses[changed_clause_count] = clause; \
-                    changed_clause_count++; \
-                    int bit; \
-                    if (is_same) { \
-                        bit = 0; \
-                    } else { \
-                        bit = 1; \
-                        clause->state_number++; \
-                        memcpy(clause_state(clause), temp, sizeof(BitVec1024)); \
-                        clause_set_cells(clause) = clause->states[clause->state_number - 1].set_cells; \
-                        clause_set_cells(clause) |= (1 << pos); \
-                    } \
-                    bv1024_set_bit(clause->history, clause->history_len, bit); \
-                    clause->history_len++; \
-                    debug_printf_4("Adding history item to clause %zu: history_len = %i -> %i, bit = %i, state_number = %i\n", clause->number, clause->history_len - 1, clause->history_len, bit, clause->state_number); \
+                    temp[i] = result; \
                 } \
+                if (contradiction) { \
+                    debug_printf_3("Contradiction in set_cell, unwinding\n"); \
+                    for (size_t i = 0; i < changed_clause_count; i++) { \
+                        undo_last_clause_operation(changed_clauses[i]); \
+                    } \
+                    dec_debug_depth(); \
+                    return false; \
+                } \
+                changed_clauses[changed_clause_count] = clause; \
+                changed_clause_count++; \
+                int bit; \
+                if (is_same) { \
+                    bit = 0; \
+                } else { \
+                    bit = 1; \
+                    clause->state_number++; \
+                    memcpy(clause_state(clause), temp, sizeof(BitVec1024)); \
+                } \
+                bv1024_set_bit(clause->history, clause->history_len, bit); \
+                clause->history_len++; \
+                debug_printf_4("Adding history item to clause %zu: history_len = %i -> %i, bit = %i, state_number = %i\n", clause->number, clause->history_len - 1, clause->history_len, bit, clause->state_number); \
             }
         update(data->prev, 0);
         update(data->nw, 1);
@@ -248,7 +240,6 @@ static void reset_clause_state(CAClause* clause) {
     add(clause->se, 1);
     add(clause->next, 0);
     #undef add
-    clause_set_cells(clause) = 0;
     #if DEBUG >= 5
         printf("Initial state for clause %zu\n", clause->number);
         print_bv1024(state);
