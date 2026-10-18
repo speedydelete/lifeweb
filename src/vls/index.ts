@@ -798,27 +798,30 @@ for (let layer of grid.data) {
     for (let row of layer) {
         let cells: string[] = [];
         for (let cell of row) {
-            let value: number;
+            let value: string;
             if (cell.state == OFF) {
-                value = -1;
+                value = '0';
             } else if (cell.state == ON) {
-                value = 1;
+                value = '1';
             } else if (cell.state == UNKNOWN) {
                 if (cell.variable) {
                     let mapped = variableMap.get(cell.variable);
                     if (mapped !== undefined) {
-                        value = mapped;
+                        value = String(mapped);
                     } else {
-                        value = nextVar;
+                        value = String(nextVar);
+                        variableMap.set(cell.variable, nextVar);
                         nextVar++;
-                        variableMap.set(cell.variable, value);
                     }
                 } else {
-                    value = nextVar;
+                    value = String(nextVar);
                     nextVar++;
                 }
             } else {
                 throw new Error(`This error should not occur, please report it (invalid cell state)`);
+            }
+            if (cell.noClause) {
+                value += `'`;
             }
             cells.push(String(value));
         }

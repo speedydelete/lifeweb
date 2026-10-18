@@ -989,8 +989,8 @@ export class VLSFileError extends ParserError {
 
 type StateSpecifier = (
     | {type: 'nop'}
-    | {type: 'cell', cell: Cell}
-    | {type: 'periodic', cell: Cell, period: number}
+    | {type: 'cell', cell: Cell, forceClause?: boolean}
+    | {type: 'periodic', cell: Cell, forceClause?: boolean, period: number}
 );
 
 function stateSpecifiersAreEqual(x: StateSpecifier, y: StateSpecifier): boolean {
@@ -1186,7 +1186,7 @@ const RESERVED_WORDS = new Set([
     // literals
     'true', 'false', 'nop', 'off', 'on', 'unknown', 'var',
     // operators
-    'states', 'unsearchable', 'noclause', 'period', 'all',
+    'states', 'unsearchable', 'noclause', 'yesclause', 'period', 'all',
     // constructs
     'state', 'states', 'to',
     // statements
@@ -1200,6 +1200,7 @@ const UNARY_OPERATORS = Object.assign(Object.create(null) as {}, {
     'state': 13,
     'unsearchable': 13,
     'noclause': 13,
+    'yesclause': 13,
     'period': 13,
     '+': 11,
     '-': 11,
@@ -1432,7 +1433,7 @@ class VLSFileParser extends BaseParser {
             } else {
                 throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
-        } else if (op === 'unsearchable' || op === 'noclause') {
+        } else if (op === 'unsearchable' || op === 'noclause' || op === 'yesclause') {
             if (value.type !== 'state-specifier') {
                 this.error(`Expected value of type 'state-specifier' for unary '${op}' operator, got type '${value.type}'`);
             }
@@ -1443,7 +1444,9 @@ class VLSFileParser extends BaseParser {
             if (op === 'unsearchable') {
                 out.cell.searchable = false;
             } else if (op === 'noclause') {
-                out.cell.noClause = true;
+                out.forceClause = false;
+            } else if (op === 'yesclause') {
+                out.forceClause = true;
             } else {
                 throw new Error(`This error should not occur, please report it (invalid unary operator: '${op}')`);
             }
@@ -1753,6 +1756,11 @@ class VLSFileParser extends BaseParser {
         } else if (value.type === 'cell') {
             for (let t of gens) {
                 this.grid.set(t, x, y, structuredClone(value.cell));
+                if (value.forceClause) {
+                    if (this.grid.isInBounds(t - 1, x, y)) {
+                        this.grid.get(t - 1, x, y).noClause = !value.forceClause;
+                    }
+                }
             }
         } else if (value.type === 'periodic') {
             let cells: Cell[] = [];
@@ -1764,6 +1772,11 @@ class VLSFileParser extends BaseParser {
             for (let t of gens) {
                 let cell = structuredClone(cells[(t + baseT) % cells.length]);
                 this.grid.set(t, x, y, cell);
+                if (value.forceClause) {
+                    if (this.grid.isInBounds(t - 1, x, y)) {
+                        this.grid.get(t - 1, x, y).noClause = !value.forceClause;
+                    }
+                }
             }
         } else {
             throw new Error(`This error should not occur, please report it (invalid state specifier type: '${(value as any).type}')`);

@@ -11,16 +11,6 @@ Any two lines can be joined, separated by a semicolon.
 
 All cells are initialized to unknown by default.
 
-This prefix is applied on every file:
-
-```
-state 0 = off
-state 1 = on
-state 2 = unknown
-state 3 = all: period 1
-state 4 = off
-```
-
 ## Statements
 
 ### Pattern
@@ -38,33 +28,13 @@ If multiple patterns are provided, they are searched together with a shared vari
 ### State Set
 
 ```
-<state> = <full state specifier>
-<start state> to <end state> = <full state specifier>
+<state> = <full state specifier expression>
+<start state> to <end state> = <full state specifier expression>
 ```
 
 Defines or changes the meaning of a state or range of states. States are used by RLE statements to add things to the problem.
 
-A full state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `0: off, 1-2: unknown, $10-20: unsearchable, $13: unsettable var`. Ranges are inclusive on both ends.
-
-The character `$` before a range indicates that it is absolute, when it is used it will always be applied to those generations. If `$` isn't present, it is a relative one, this means that the ranges are added to the current generation to determine the real generation when it is used.
-
-If no range is specified it is assumed to be `0`.
-
-`all` can also be used to automatically apply it to all generations.
-
-A state specifier consists of one of these values:
-* `nop` - do absolutely nothing
-* `off` - the cell's state is forced to be off
-* `on` - the cell's state is forced to be on
-* `unknown` - the cell's state is indeterminate
-* `var` - the cell is a variable that is shared across every instance of the state
-* `period <value>` - the cell is a periodic cell, new variables are automatically created every time it is used to force it to be of the given period
-* `unsearchable` - it will not try to explicitly set the cell, but it can still "inherit" a value from nearby cells
-* `unsettable` - the cell cannot be set in any way
-* `unsearchable var` - the combination
-* `unsettable var` - the combination
-* `unsearchable period <value>` - the combination
-* `unsettable period <value>` - the combination
+See the [full state specifier section](#full-state-specifiers) for details and examples.
 
 ### RLE
 
@@ -107,3 +77,49 @@ delete <state>
 ```
 
 Undefines a state, making it error when used, just like a state that was never defined at all.
+
+## Expressions
+
+An expression is allowed in a state set statement and in the future other places as well. They consist of literals and operators being applied to them. Parentheses can be used for grouping.
+
+### Literals
+
+#### State specifier
+
+Creates a new state specifier.
+
+```
+off - The cell's value is off
+```
+
+### Operators
+
+#### Unary operators
+
+```
+
+```
+
+### Full state specifiers
+
+```
+<full state specifier range>: <state specifier expression>
+<full state specifier>, <full state specifier>
+```
+
+A full state specifier consists of a comma-separated list of mappings of ranges to state specifiers. For example: `all: on, 0: off, 1 to 2: unknown, $ 10 to 20: unsearchable unknown, $13: noclause var`. Ranges are inclusive on both ends. This syntactic construct has lower precedence than all operators.
+
+The character `$` before a range indicates that it is absolute, when it is used it will always be applied to those generations. If `$` isn't present, it is a relative one, this means that the ranges are added to the current generation to determine the real generation when it is used.
+
+If no range is specified it is assumed to be `0`.
+
+`all` can also be used to automatically apply it to all generations.
+
+Here are many useful state specifiers:
+* `off` - the cell's value must be off
+* `on` - the cell's value must be on
+* `unknown` - the cell's value can be anything and is searched for
+* `var` - all uses of the cell are bound together
+* `period <period>` - creates new variables for every use and does that period
+* `unsearchable <specifier>` - specifies that that cell is not to be searched for
+* `noclause <specifier` - that specifier does not have to follow the evolution rules

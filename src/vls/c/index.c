@@ -318,11 +318,11 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
                 search_file_error("Missing grid element");
             }
             if (value == 0) {
-                search_file_error("Grid element is 0");
+                cell.value = OFF;
             } else if (value == 1) {
                 cell.value = ON;
             } else if (value == -1) {
-                cell.value = OFF;
+                search_file_error("Grid element is -1");
             } else {
                 cell.value = UNKNOWN;
                 if (value < 0) {
@@ -331,6 +331,16 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
                 }
                 value -= 1;
                 cell.var = value;
+            }
+            // check apostrophe
+            int c = fgetc(file);
+            check_ferror(file);
+            if (c == EOF) {
+                continue;
+            } else if (c == '\'') {
+                cell.no_clause = true;
+            } else {
+                ungetc(c, file);
             }
             memcpy(&(data->grid[i]), &cell, sizeof(InitFromCell));
         }
