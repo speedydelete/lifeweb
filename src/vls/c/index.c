@@ -115,20 +115,18 @@ static void init_state(InitFromState* from) {
             state.ca_clause_count--;
         }
     }
-    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause*));
+    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
     i = 0;
     size_t init_index = 0;
     for (size_t t = 0; t < state.gens - 1; t++) {
         for (size_t y = 0; y < state.height; y++) {
             for (size_t x = 0; x < state.width; x++) {
-                if (state_coords_in_bounds(t, x, y)) {
-                    InitFromCell* init_cell = &(from->grid[init_index]);
-                    init_index++;
-                    if (init_cell->no_clause) {
-                        continue;
-                    }
+                InitFromCell* init_cell = &(from->grid[init_index]);
+                init_index++;
+                if (init_cell->no_clause) {
+                    continue;
                 }
-                CAClause* clause = safe_aligned_alloc(alignof(CAClause), sizeof(CAClause));
+                CAClause* clause = &(state.ca_clauses[i]);
                 clause->number = i;
                 clause->state_number = 0;
                 // fill the clause's pointers
@@ -193,7 +191,6 @@ static void init_state(InitFromState* from) {
                 add(clause->s, n);
                 add(clause->se, nw);
                 #undef add
-                state.ca_clauses[i] = clause;
                 i++;
             }
         }

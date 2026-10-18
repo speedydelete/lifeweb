@@ -4,8 +4,6 @@
 Speedups:
 * Aliasing
 * Aliasing during preprocessing
-* `set_cells` mask in `struct CAClause`
-* Make `state.ca_clauses` of type `CAClause*` and bulk allocate it
 * Bulk allocate `state.vars`
 * Add CDCL maybe
 * Advanced clause aliasing during preprocessing

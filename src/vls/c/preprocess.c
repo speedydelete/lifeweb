@@ -29,7 +29,7 @@ static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
         }
     }
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        CAClause* clause = state.ca_clauses[i];
+        CAClause* clause = &(state.ca_clauses[i]);
         #define check(pos) if (clause->pos == cell) { clause->pos = alias_to; }
         check(nw);
         check(n);
@@ -50,7 +50,10 @@ static void pre_alias_cell(Cell* cell, Cell* alias_to, bool invert) {
     state.var_count--;
     safe_free(cell);
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        reset_clause_state(state.ca_clauses[i]);
+        CAClause* clause = &(state.ca_clauses[i]);
+        if (!clause->removed) {
+            reset_clause_state(clause);
+        }
     }
 }
 
@@ -92,16 +95,11 @@ static void pre_remove_clause(CAClause* clause) {
     pre_internal_remove_clause_in_cell(clause->s, clause);
     pre_internal_remove_clause_in_cell(clause->se, clause);
     pre_internal_remove_clause_in_cell(clause->next, clause);
-    for (size_t i = clause->number; i < state.ca_clause_count - 1; i++) {
-        state.ca_clauses[i] = state.ca_clauses[i + 1];
-        state.ca_clauses[i]->number--;
-    }
-    state.ca_clause_count--;
-    safe_free(clause);
+    clause->removed = true;
 }
 
 
-#define pre_start_step() do { debug_printf_2("Running step %s\n", __func__ + 4); inc_debug_depth(); } while (0)
+#define pre_start_step() do { debug_printf_2("Running step %s\n", __func__ + 4); inc_debug_depth(); debug_print_grid_2(); } while (0)
 #define pre_end_step() dec_debug_depth()
 
 static void pre_remove_known_cells(void) {
@@ -177,11 +175,9 @@ static void pre_remove_known_clauses(void) {
     pre_start_step();
     // removes all clauses that are fully made of known cells
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        CAClause* clause = state.ca_clauses[i];
-        if (clause->nw->value != UNKNOWN && clause->n->value != UNKNOWN && clause->ne->value != UNKNOWN && clause->w->value != UNKNOWN && clause->c->value != UNKNOWN && clause->e->value != UNKNOWN && clause->sw->value != UNKNOWN && clause->s->value != UNKNOWN && clause->se->value != UNKNOWN && clause->next->value != UNKNOWN) {
+        CAClause* clause = &(state.ca_clauses[i]);
+        if (!clause->removed && clause->nw->value != UNKNOWN && clause->n->value != UNKNOWN && clause->ne->value != UNKNOWN && clause->w->value != UNKNOWN && clause->c->value != UNKNOWN && clause->e->value != UNKNOWN && clause->sw->value != UNKNOWN && clause->s->value != UNKNOWN && clause->se->value != UNKNOWN && clause->next->value != UNKNOWN) {
             pre_remove_clause(clause);
-            // subtract 1 here because pre_remove_clause remapping
-            i--;
         }
     }
     pre_end_step();
@@ -191,7 +187,8 @@ static void pre_check_unsat_clauses(void) {
     pre_start_step();
     // look for basic unsatisfiable clauses
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        if (bv1024_is_contradiction(clause_state(state.ca_clauses[i]))) {
+        CAClause* clause = &(state.ca_clauses[i]);
+        if (!clause->removed && bv1024_is_contradiction(clause_state(clause))) {
             pre_unsat(__func__);
         }
     }
@@ -204,9 +201,15 @@ static void pre_remove_duplicate_clauses(void) {
     // in the same positions, or rotations/reflections
     // and merges them together
     for (size_t i = 0; i < state.ca_clause_count; i++) {
-        CAClause* x = state.ca_clauses[i];
+        CAClause* x = &(state.ca_clauses[i]);
+        if (x->removed) {
+            continue;
+        }
         for (size_t j = 0; j < i; j++) {
-            CAClause* y = state.ca_clauses[j];
+            CAClause* y = &(state.ca_clauses[j]);
+            if (y->removed) {
+                continue;
+            }
             if (false
                 #define check_mapping(NW, N, NE, W, C, E, SW, S, SE) \
                     (true \
@@ -240,8 +243,6 @@ static void pre_remove_duplicate_clauses(void) {
                 #undef check_mapping
             ) {
                 pre_remove_clause(y);
-                // subtract 1 here because pre_remove_clause remapping
-                i--;
                 break;
             }
         }

@@ -137,15 +137,6 @@ static void* safe_malloc(size_t size) {
     return out;
 }
 
-static void* safe_aligned_alloc(size_t align, size_t size) {
-    void* out = aligned_alloc(align, size);
-    if (out == NULL) {
-        perror("Error: This error should not occur, please report it: Error in malloc");
-        exit(EXIT_FAILURE);
-    }
-    return out;
-}
-
 static void* safe_realloc(void* ptr, size_t size) {
     void* out = realloc(ptr, size);
     if (out == NULL) {
@@ -293,6 +284,7 @@ typedef struct Cell Cell;
 
 typedef struct CAClause {
     size_t number;
+    bool removed;
     Cell* c;
     bool invert_c;
     Cell* next;
@@ -423,7 +415,7 @@ static struct {
     // the number of CA clauses
     size_t ca_clause_count;
     // the CA clauses that encode the problem
-    CAClause** ca_clauses;
+    CAClause* ca_clauses;
     // the number of unknown cells at the start of the search
     size_t start_unknown_vars;
     // the current number of set unknown cells
@@ -433,13 +425,6 @@ static struct {
     // the current number of solutions
     uintmax_t solutions_found;
 } state;
-
-static bool state_coords_in_bounds(intmax_t t, intmax_t x, intmax_t y) {
-    return t >= 0 && t < (intmax_t)state.gens
-        && x >= 0 && x < (intmax_t)state.width
-        && y >= 0 && y < (intmax_t)state.height
-    ;
-}
 
 static GridCell* state_get_grid_cell(size_t t, size_t x, size_t y) {
     return &(state.grid[(((t * state.height) + y) * state.width) + x]);
@@ -714,9 +699,6 @@ static void destroy_state(void) {
     }
     safe_free(state.vars);
     safe_free(state.grid);
-    for (size_t i = 0; i < state.ca_clause_count; i++) {
-        safe_free(state.ca_clauses[i]);
-    }
     safe_free(state.ca_clauses);
 }
 
