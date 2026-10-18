@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "base.c"
-#include "bv1024/index.c"
+#include "implications.c"
 #include "output.c"
 
 

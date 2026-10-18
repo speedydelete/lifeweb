@@ -457,7 +457,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
     fclose(file);
     // call this here rather than in the main function
     // so that the clause manipulation in init_state works fine
-    init_bv1024();
+    init_implications();
     init_state(&data);
     if (data.grid != NULL) {
         safe_free(data.grid);
