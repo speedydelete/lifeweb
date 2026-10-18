@@ -11,7 +11,7 @@ static BitVec1024 full_implic_state;
 
 // these return the implic state mask for where the cell
 // at position pos in the 10-bit state is off or on, respectively
-static BitVec1024 IMPLICSTATE_CELL_MASKS[2][10];
+static BitVec1024 IMPLICSTATE_CELL_MASKS[10][2];
 
 // IMPLICSTATE_PAIR_SAME_MASKS[pos1][pos2] returns the implic state mask for
 // where the cells at position pos1 and pos2 have the same value
@@ -50,7 +50,7 @@ static void init_bv1024(void) {
     #endif
     for (int pos = 0; pos < 10; pos++) {
         for (int i = 0; i < 1024; i++) {
-            bv1024_set_bit(IMPLICSTATE_CELL_MASKS[(i >> pos) & 1][pos], i, 1);
+            bv1024_set_bit(IMPLICSTATE_CELL_MASKS[pos][(i >> pos) & 1], i, 1);
         }
     }
     for (int pos1 = 0; pos1 < 10; pos1++) {

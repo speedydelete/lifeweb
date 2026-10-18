@@ -35,8 +35,8 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     if (cell->value != UNKNOWN) {
         return true;
     }
-    uint64_t* mask_0 = IMPLICSTATE_CELL_MASKS[0][pos];
-    uint64_t* mask_1 = IMPLICSTATE_CELL_MASKS[1][pos];
+    uint64_t* mask_0 = IMPLICSTATE_CELL_MASKS[pos][0];
+    uint64_t* mask_1 = IMPLICSTATE_CELL_MASKS[pos][1];
     uint64_t any_can_be_0 = 0;
     uint64_t any_can_be_1 = 0;
     for (int i = 0; i < 16; i++) {
@@ -92,7 +92,7 @@ static bool set_cell(Cell* cell, CellValue value) {
                 debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#real_clause"), value = %i, history_len = %i, state_number = %i\n", clause->number, pos, value, clause->history_len, clause->state_number); \
                 uint64_t* state = clause_state(clause); \
                 hi(state); \
-                uint64_t* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
+                uint64_t* mask = IMPLICSTATE_CELL_MASKS[pos][value - 1]; \
                 bool contradiction = true; \
                 bool is_same = true; \
                 for (int i = 0; i < 16; i++) { \
@@ -203,7 +203,7 @@ static void reset_clause_state(CAClause* clause) {
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
             for (int i = 0; i < 16; i++) { \
-                state[i] &= IMPLICSTATE_CELL_MASKS[(cell)->value - 1][pos][i]; \
+                state[i] &= IMPLICSTATE_CELL_MASKS[pos][(cell)->value - 1][i]; \
             } \
         }
     add(clause->nw, 9);
