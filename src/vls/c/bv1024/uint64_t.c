@@ -190,23 +190,19 @@ static void unset_cell(Cell* cell) {
 }
 
 static bool alias(Cell* cell, Cell* alias_to, bool invert) {
-    // Cell* original_cell = cell;
     if (alias_to->alias) {
         invert = invert != alias_to->invert_alias;
         alias_to = alias_to->alias;
     }
     cell->alias = alias_to;
     cell->invert_alias = invert;
-    // we have to do even more stuff now...
-    // that is not yet implemented
-    unexpected_error("No aliasing yet");
+    // maybe more stuff to do here?
     return true;
 }
 
 static void unalias(Cell* cell) {
     cell->alias = NULL;
-    // we have to do even more stuff here
-    unexpected_error("No unaliasing yet");
+    // maybe more stuff to do here?
 }
 
 static void reset_clause_state(CAClause* clause) {
