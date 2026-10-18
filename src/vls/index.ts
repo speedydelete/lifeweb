@@ -913,98 +913,67 @@ export interface VLSRunData {
     invocationTime: number;
 }
 
-export async function runVLS(args: string[], wantData: boolean, recompile: boolean | undefined = undefined): Promise<VLSRunData> {
+export async function runVLS(args: string[], wantData: boolean): Promise<VLSRunData> {
     let totalStart = performance.now();
     let path = await import('node:path');
+    let basePath = path.join(import.meta.dirname, '..', '..');
     function getPath(file: string): string {
-        return path.relative(process.cwd(), path.join(import.meta.dirname, '..', '..', file));
+        let out = path.relative(process.cwd(), path.join(basePath, file));
+        if (!out.includes('/')) {
+            out = './' + out;
+        }
+        return out;
     }
     let fs = await import('node:fs/promises');
     let {existsSync} = await import('node:fs');
     let {execSync} = (await import('node:child_process'));
-    let execPath = getPath('vls_compiled');
-    if (!(execPath.startsWith('.') || execPath.startsWith('..') || execPath.startsWith('/'))) {
-        execPath = './' + execPath;
-    }
-    let paramsFile = (await fs.readFile(getPath('src/vls/params.h'))).toString();
+    let paramsFile = (await fs.readFile(getPath('src/vls/c/params.h'))).toString();
     let search = await createVLSSearch(args, paramsFile);
     let options = search.options;
-    let params2Path = getPath('src/vls/params2.h');
+    let params2Path = getPath('src/vls/c/params2.h');
     let oldParams2: string;
     if (!existsSync(params2Path)) {
         oldParams2 = '';
     } else {
-        oldParams2 = (await fs.readFile(getPath('src/vls/params2.h'))).toString();
+        oldParams2 = (await fs.readFile(params2Path)).toString();
     }
-    // BROKEN
-    // I HATE YOU
-    // if (existsSync(execPath)) {
-    //     let compiledCodeChangeTime = (await fs.stat(execPath)).mtimeMs;
-    //     let files = await fs.readdir(import.meta.dirname);
-    //     for (let file of files) {
-    //         let filePath = path.join(import.meta.dirname, file);
-    //         let fileChangeTime = (await fs.stat(filePath)).mtimeMs;
-    //         if (fileChangeTime + 2000 > compiledCodeChangeTime) {
-    //             recompile = true;
-    //             break;
-    //         }
-    //     }
-    // } else {
-    //     recompile = true;
-    // }
-    recompile ??= true;
     if (search.params2File !== oldParams2) {
-        recompile = true;
-        await fs.writeFile(getPath('src/vls/params2.h'), search.params2File);
+        await fs.writeFile(params2Path, search.params2File);
     }
-    recompile ??= false;
-    let searchFilePath = getPath('vls_search.txt');
+    let makeCmd = `make -f ${getPath('src/vls/Makefile')}`;
+    if (options['address-sanitizer']) {
+        makeCmd += ` ASAN=1`;
+    }
+    if (options['no-optimize']) {
+        makeCmd += ` NO_OPTIMIZE=1`;
+    }
+    makeCmd += ` main`;
+    try {
+        execSync(`(cd ${basePath}; ${makeCmd})`, {stdio: ['inherit', 'ignore', 'inherit']});
+    } catch (error) {
+        process.exit(1);
+    }
+    let searchFilePath = getPath('src/vls/.search.txt');
     await fs.writeFile(searchFilePath, search.searchFile);
-    let commandsToRun: string[] = [];
-    if (recompile) {
-        let compiler: 'gcc' | 'clang' = options['gcc'] ? 'gcc' : 'clang';
-        if (options['address-sanitizer']) {
-            compiler = 'gcc';
-        }
-        let command = compiler === 'gcc' ? `gcc -std=c2x` : `clang -std=c23` ;
-        command += ` -fdiagnostics-color=always`;
-        // strict mode
-        command += ` -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas`;
-        if (compiler === 'clang') {
-            command += ` -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal`;
-        }
-        // features
-        command += ` -g`;
-        if (!options['no-optimize']) {
-            command += ` -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer`;
-        }
-        if (options['address-sanitizer']) {
-            command += ` -fsanitize=address`;
-        }
-        command += ` -o '${execPath}' '${getPath('src/vls/index.c')}'`;
-        command += ` -lm`;
-        commandsToRun.push(command);
-    }
-    let execCommand = `${execPath} '${searchFilePath}'`;
+    let runCmd = `${getPath('src/vls/.vls_compiled')} '${searchFilePath}'`;
     if (options['gdb']) {
-        commandsToRun.push(`gdb --args ${execCommand}`);
+        runCmd = `gdb --args ${runCmd}`;
+        if (options['file']) {
+            error(`Cannot have 'gdb' and 'file' options at the same time`);
+        }
     } else {
         if (options['file']) {
-            commandsToRun.push(`stdbuf -oL ${execCommand} | tee '${options['file']}'`);
-        } else {
-            commandsToRun.push(execCommand);
+            runCmd = `stdbuf -oL ${runCmd} | tee '${options['file']}'`;
         }
     }
     let out: VLSRunData['out'];
     let invocationStart = performance.now();
     try {
         let str = '';
-        for (let command of commandsToRun) {
-            if (wantData) {
-                str += execSync(command, {stdio: ['pipe', 'pipe', 'inherit']}).toString();
-            } else {
-                execSync(command, {stdio: 'inherit'});
-            }
+        if (wantData) {
+            str += execSync(runCmd, {stdio: ['pipe', 'pipe', 'inherit']}).toString();
+        } else {
+            execSync(runCmd, {stdio: 'inherit'});
         }
         out = {good: true, data: str};
     } catch (error) {

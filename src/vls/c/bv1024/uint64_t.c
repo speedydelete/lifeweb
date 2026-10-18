@@ -95,44 +95,54 @@ static bool set_cell(Cell* cell, CellValue value) {
         #else
             #define hi(...)
         #endif
-        #define update(clause, pos) \
-            if ((clause) != NULL) { \
-                debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#clause"), value = %i, history_len = %i, state_number = %i\n", (clause)->number, pos, value, (clause)->history_len, (clause)->state_number); \
-                hi(clause_state(clause)); \
-                uint64_t* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
-                bool contradiction = true; \
-                bool is_same = true; \
-                for (int i = 0; i < 16; i++) { \
-                    uint64_t result = clause_state(clause)[i] & mask[i]; \
-                    if (result != 0) { \
-                        contradiction = false; \
-                    } \
-                    if (result != clause_state(clause)[i]) { \
-                        is_same = false; \
-                    } \
-                    temp[i] = result; \
-                } \
-                if (contradiction) { \
-                    debug_printf_3("Contradiction in set_cell, unwinding\n"); \
-                    for (size_t i = 0; i < changed_clause_count; i++) { \
-                        undo_last_clause_operation(changed_clauses[i]); \
-                    } \
-                    dec_debug_depth(); \
-                    return false; \
-                } \
-                changed_clauses[changed_clause_count] = clause; \
-                changed_clause_count++; \
-                int bit; \
-                if (is_same) { \
-                    bit = 0; \
+        #define update(real_clause, pos) \
+            if ((real_clause) != NULL) { \
+                CAClause* clause = (real_clause); \
+                if ((clause_set_cells(clause) >> pos) & 1) { \
+                    debug_printf_4("Cell is already set in clause %zu: pos = %i (aka "#real_clause"), value = %i, state_number = %i, history_len = %i to %i\n", clause->number, pos, value, clause->state_number, clause->history_len, clause->history_len + 1); \
+                    bv1024_set_bit(clause->history, clause->history_len, 0); \
+                    clause->history_len++; \
                 } else { \
-                    bit = 1; \
-                    clause->state_number++; \
-                    memcpy(clause_state(clause), temp, sizeof(BitVec1024)); \
+                    debug_printf_4("Setting cell in clause %zu: pos = %i (aka "#real_clause"), value = %i, history_len = %i, state_number = %i\n", clause->number, pos, value, clause->history_len, clause->state_number); \
+                    uint64_t* state = clause_state(clause); \
+                    hi(state); \
+                    uint64_t* mask = IMPLICSTATE_CELL_MASKS[value - 1][pos]; \
+                    bool contradiction = true; \
+                    bool is_same = true; \
+                    for (int i = 0; i < 16; i++) { \
+                        uint64_t result = state[i] & mask[i]; \
+                        if (result != 0) { \
+                            contradiction = false; \
+                        } \
+                        if (result != state[i]) { \
+                            is_same = false; \
+                        } \
+                        temp[i] = result; \
+                    } \
+                    if (contradiction) { \
+                        debug_printf_3("Contradiction in set_cell, unwinding\n"); \
+                        for (size_t i = 0; i < changed_clause_count; i++) { \
+                            undo_last_clause_operation(changed_clauses[i]); \
+                        } \
+                        dec_debug_depth(); \
+                        return false; \
+                    } \
+                    changed_clauses[changed_clause_count] = clause; \
+                    changed_clause_count++; \
+                    int bit; \
+                    if (is_same) { \
+                        bit = 0; \
+                    } else { \
+                        bit = 1; \
+                        clause->state_number++; \
+                        memcpy(clause_state(clause), temp, sizeof(BitVec1024)); \
+                        clause_set_cells(clause) = clause->states[clause->state_number - 1].set_cells; \
+                        clause_set_cells(clause) |= (1 << pos); \
+                    } \
+                    bv1024_set_bit(clause->history, clause->history_len, bit); \
+                    clause->history_len++; \
+                    debug_printf_4("Adding history item to clause %zu: history_len = %i -> %i, bit = %i, state_number = %i\n", clause->number, clause->history_len - 1, clause->history_len, bit, clause->state_number); \
                 } \
-                bv1024_set_bit(clause->history, clause->history_len, bit); \
-                clause->history_len++; \
-                debug_printf_4("Adding history item to clause %zu: history_len = %i -> %i, bit = %i, state_number = %i\n", clause->number, clause->history_len - 1, clause->history_len, bit, clause->state_number); \
             }
         update(data->prev, 0);
         update(data->nw, 1);
@@ -197,9 +207,7 @@ static bool alias(Cell* cell, Cell* alias_to, bool invert) {
     cell->invert_alias = invert;
     // we have to do even more stuff now...
     // that is not yet implemented
-    if (cell->value != alias_to->value) {
-        unexpected_error("No aliasing yet");
-    }
+    unexpected_error("No aliasing yet");
     return true;
 }
 
@@ -210,12 +218,16 @@ static void unalias(Cell* cell) {
 }
 
 static void reset_clause_state(CAClause* clause) {
-    memcpy(clause_state(clause), full_implic_state, sizeof(BitVec1024));
+    clause->state_number = 0;
+    uint64_t* state = clause_state(clause);
+    memcpy(state, full_implic_state, sizeof(BitVec1024));
+    clause_set_cells(clause) = 0;
     #define add(cell, pos) \
         if ((cell)->value != UNKNOWN) { \
             for (int i = 0; i < 16; i++) { \
-                clause_state(clause)[i] &= IMPLICSTATE_CELL_MASKS[(cell)->value - 1][pos][i]; \
+                state[i] &= IMPLICSTATE_CELL_MASKS[(cell)->value - 1][pos][i]; \
             } \
+            clause_set_cells(clause) |= (1 << pos); \
         }
     add(clause->nw, 9);
     add(clause->w, 8);
@@ -230,8 +242,9 @@ static void reset_clause_state(CAClause* clause) {
     #undef add
     #if DEBUG >= 5
         printf("Initial state for clause %zu\n", clause->number);
-        print_bv1024(clause_state(clause));
+        print_bv1024(state);
     #endif
+    clause->history_len = 0;
 }
 
 

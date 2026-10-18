@@ -121,7 +121,7 @@ static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit
     }
     while (clause_done_sp < clause_sp) {
         debug_printf_3("Propagating: clause_sp = %ti, clause_done_sp = %ti\n", clause_sp - &(clause_stack[0]), clause_done_sp - &(clause_stack[0]));
-        debug_print_grid_4();
+        debug_print_grid_5();
         if (!check_implications(*clause_done_sp)) {
             return false;
         }

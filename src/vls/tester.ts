@@ -23,14 +23,6 @@ interface Test {
     iterations: number;
 }
 
-const RECOMPILATION_TEST: Test = {
-    name: 'recompilation test',
-    command: './vls B/S periodic p1 1 1',
-    expected: 'nothing',
-    untimed: true,
-    iterations: 1,
-};
-
 function parseTest(lines: string[]): Test {
     if (!lines[0].startsWith('test ')) {
         throw new Error(`Invalid test (first line does not start with 'test ')`);
@@ -605,10 +597,10 @@ function parseVLSOutput(data: VLSRunData, output: string): ParsedVLSOutputData {
     };
 }
 
-async function actualRunTest(test: Test, recompile: boolean): Promise<TestRunData> {
+async function actualRunTest(test: Test): Promise<TestRunData> {
     let args = parseArgv(test.command);
     args = args.slice(1);
-    let data = await runVLS(args, true, recompile);
+    let data = await runVLS(args, true);
     let totalTime = data.totalTime;
     let invocationTime = data.invocationTime;
     let success: boolean;
@@ -653,20 +645,14 @@ async function actualRunTest(test: Test, recompile: boolean): Promise<TestRunDat
     };
 }
 
-async function runTest(test: Test, recompile: boolean): Promise<TestRunData> {
-    if (recompile) {
-        console.log('Recompiling');
-    } else {
-        console.log(`Running test '${test.name}'`);
-    }
+async function runTest(test: Test): Promise<TestRunData> {
+    console.log(`Running test '${test.name}'`);
     let iterations = test.iterations ?? 1;
     let fullData: TestRunData[] = [];
     for (let i = 0; i < iterations; i++) {
-        let data = await actualRunTest(test, recompile && i === 0);
+        let data = await actualRunTest(test);
         fullData.push(data);
-        if (!recompile) {
-            console.log(`Iteration ${i + 1}/${iterations} complete in ${data.totalTime.toFixed(3)} seconds, was ${data.success ? 'successful' : 'not successful'}`);
-        }
+        console.log(`Iteration ${i + 1}/${iterations} complete in ${data.totalTime.toFixed(3)} seconds, was ${data.success ? 'successful' : 'not successful'}`);
     }
 
     let success = fullData.every(x => x.success);
@@ -687,9 +673,8 @@ async function runTest(test: Test, recompile: boolean): Promise<TestRunData> {
 async function runAllTests(tests: Test[]): Promise<AllTestRunData> {
     let versionData = await getTestVersionData();
     let out: TestRunData[] = [];
-    await runTest(RECOMPILATION_TEST, true);
     for (let i = 0; i < tests.length; i++) {
-        out.push(await runTest(tests[i], false));
+        out.push(await runTest(tests[i]));
     }
     return {
         name: versionData.name,

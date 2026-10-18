@@ -397,13 +397,10 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
         dg_destroy(&solution_grid); \
         return;
     // put the pattern into the grids
-    DynamicGrid search_grid = EMPTY_DYNAMIC_GRID;
-    dg_init_from_search_grid(&search_grid);
     DynamicGrid hash_grid = EMPTY_DYNAMIC_GRID;
-    dg_shrink(&hash_grid, &search_grid, config.top_padding, config.bottom_padding, config.left_padding, config.right_padding, config.start_padding, config.end_padding);
-    dg_destroy(&search_grid);
+    dg_init_from_search_grid(&hash_grid);
     DynamicGrid solution_grid = EMPTY_DYNAMIC_GRID;
-    dg_copy(&solution_grid, &hash_grid);
+    dg_init_from_search_grid(&solution_grid);
     // apply empty pattern filter
     if (config.filter_empty_solutions) {
         bool found = false;

@@ -297,11 +297,15 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 #else
     #define BITVEC1024_BACKEND BITVEC1024_BACKEND_UINT64_T
     typedef uint64_t BitVec1024[16];
-
 #endif
 
 
 typedef struct Cell Cell;
+
+typedef struct CAClauseState {
+    BitVec1024 state;
+    int set_cells;
+} CAClauseState;
 
 typedef struct CAClause {
     size_t number;
@@ -325,13 +329,15 @@ typedef struct CAClause {
     bool invert_s;
     Cell* se;
     bool invert_se;
-    BitVec1024 states[12];
-    int state_number;
     BitVec1024 history;
     int history_len;
+    int state_number;
+    CAClauseState states[12];
 } CAClause;
 
-#define clause_state(clause) ((clause)->states[(clause)->state_number])
+#define clause_state(clause) ((clause)->states[(clause)->state_number].state)
+#define clause_set_cells(clause) ((clause)->states[(clause)->state_number].set_cells)
+
 
 typedef struct CellUseData {
     // CAN BE A NULL POINTER

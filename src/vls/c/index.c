@@ -495,12 +495,14 @@ int main(int argc, char** argv) {
         signal(SIGTERM, handle_sigterm);
     #endif
     init_state_and_config_from_file(argv[1]);
+    debug_print_grid_1();
     init_solutions();
     init_stack(&current_stack);
     init_clause_stack();
     init_progress();
     bool solved_in_preprocessing = preprocess();
     if (!solved_in_preprocessing) {
+        debug_print_grid_1();
         run_search();
     }
     destroy_all();

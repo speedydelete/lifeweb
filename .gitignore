@@ -1,7 +1,6 @@
 
 /*
 !/src
-!/src_coda
 !/.clangd
 !/.gitignore
 !/build
@@ -17,4 +16,8 @@
 !/vls
 
 *.tsbuildinfo
-/src/vls/params2.h
+
+/src/vls/c/params2.h
+/src/vls/.build_command
+/src/vls/.vls_compiled
+/src/vls/.search.txt

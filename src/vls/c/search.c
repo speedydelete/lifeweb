@@ -23,6 +23,7 @@ static Cell* add_search_orders(void) {
     Cell* prev = state_get_grid_cell(t, x, y)->cell;
     Cell* initial_cell = prev;
     debug_printf_2("Search order:\n");
+    debug_printf_2(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, initial_cell->var_number);
     for (size_t i = 1; i < config.search_order_len; i++) {
         size_t* coords = config.search_order[i];
         size_t t = coords[0];
@@ -43,7 +44,7 @@ static Cell* add_search_orders(void) {
             }
         }
         if (!found) {
-            debug_printf_2(INDENT "variable = %zu\n", cell->var_number);
+            debug_printf_2(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, cell->var_number);
             prev->next_in_search_order = cell;
             prev = cell;
         }
@@ -229,8 +230,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
 
 static void actual_run_search(void) {
     Cell* initial_cell = add_search_orders();
-    debug_print_grid_1();
-    debug_printf_1("Running search\n");
+    debug_printf_2("Running search\n");
     state.branches = 0;
     state.solutions_found = 0;
     start = get_time();
