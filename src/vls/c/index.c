@@ -439,7 +439,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
         FILE* file = fopen(path, "r");
     #endif
     if (file == NULL) {
-        perror("Error: Cannot read search file: ");
+        perror("Error: Cannot read search file");
         exit(EXIT_FAILURE);
     }
     InitFromState data = {
