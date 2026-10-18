@@ -1,2 +1,2 @@
 
-export const LIFEWEB_VERSION = 2178;
+export const LIFEWEB_VERSION = 2179;
