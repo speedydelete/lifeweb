@@ -1577,10 +1577,10 @@ class VLSFileParser extends BaseParser {
                 }
             } else {
                 while (true) {
-                    let value = this.numberExpression();
+                    let value = this.generation();
                     if (this.match('to')) {
                         this.advance();
-                        let end = this.numberExpression();
+                        let end = this.generation();
                         for (let i = value; i <= end; i++) {
                             gens.push(i);
                         }
@@ -1594,7 +1594,6 @@ class VLSFileParser extends BaseParser {
                     }
                 }
             }
-            gens = gens.map(gen => gen < 0 ? gen + this.grid.gens : gen);
             if (isAbsolute) {
                 for (let value of gens) {
                     absolute.add(value);
