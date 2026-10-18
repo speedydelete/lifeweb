@@ -290,14 +290,14 @@ static StaticSymmetry transforms_to_sts(Transformations t) {
 #define BITVEC1024_BACKEND_UINT64_T 1
 #define BITVEC1024_BACKEND_AVX2 2
 
-#if defined(__AVX2__) && false
-    #define BITVEC1024_BACKEND BITVEC1024_BACKEND_AVX2
-    #include <immintrin.h>
-    typedef __m256i BitVec1024[4];
-#else
+// #if defined(__AVX2__)
+//     #define BITVEC1024_BACKEND BITVEC1024_BACKEND_AVX2
+//     #include <immintrin.h>
+//     typedef __m256i BitVec1024[4];
+// #else
     #define BITVEC1024_BACKEND BITVEC1024_BACKEND_UINT64_T
     typedef uint64_t BitVec1024[16];
-#endif
+// #endif
 
 
 typedef struct Cell Cell;
