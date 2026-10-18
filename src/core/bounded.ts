@@ -13,6 +13,9 @@ export class FinitePattern extends DataPattern {
     pattern: Pattern;
 
     constructor(height: number, width: number, data: Uint8Array, rule: Rule, p: Pattern) {
+        if (height === Infinity || height === -Infinity || height === 0 || width === Infinity || width === -Infinity || width === 0 || height > 10000 || width > 10000) {
+            throw new Error('nope');
+        }
         super(height, width, data, rule);
         this.pattern = p;
         this.xOffset = -Math.floor(this.width / 2);
@@ -101,7 +104,7 @@ export class TorusPattern extends DataPattern {
     pattern: Pattern;
 
     constructor(height: number, width: number, dataHeight: number, dataWidth: number, data: Uint8Array, rule: Rule, p: Pattern) {
-        if (height === Infinity || height === -Infinity || height === 0 || width === Infinity || width === -Infinity || width === 0) {
+        if (height === Infinity || height === -Infinity || height === 0 || width === Infinity || width === -Infinity || width === 0 || height > 10000 || width > 10000) {
             throw new Error('nope');
         }
         super(dataHeight, dataWidth, data, rule);
