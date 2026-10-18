@@ -41,22 +41,17 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     if (cell->value != UNKNOWN) {
         return true;
     }
-    // maybe uncomment and inline? idk
-    // if (bv1024_is_contradiction(clause_state(clause))) {
-    //     return false;
-    // }
-    __m256i* mask = IMPLICSTATE_CELL_MASKS[0][pos];
-    __m256i any = _mm256_setzero_si256();
+    __m256i* mask_0 = IMPLICSTATE_CELL_MASKS[0][pos];
+    __m256i* mask_1 = IMPLICSTATE_CELL_MASKS[1][pos];
+    __m256i any_can_be_0 = _mm256_setzero_si256();
+    __m256i any_can_be_1 = _mm256_setzero_si256();
     for (int i = 0; i < 4; i++) {
-        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(clause_state(clause) + i), _mm256_load_si256(mask + i)));
+        __m256i state = _mm256_load_si256(clause_state(clause) + i);
+        any_can_be_0 = _mm256_or_si256(any_can_be_0, _mm256_and_si256(state, _mm256_load_si256(mask_0 + i)));
+        any_can_be_1 = _mm256_or_si256(any_can_be_1, _mm256_and_si256(state, _mm256_load_si256(mask_1 + i)));
     }
-    bool can_be_0 = _mm256_testz_si256(any, any) == 0;
-    mask = IMPLICSTATE_CELL_MASKS[1][pos];
-    any = _mm256_setzero_si256();
-    for (int i = 0; i < 4; i++) {
-        any = _mm256_or_si256(any, _mm256_and_si256(_mm256_load_si256(clause_state(clause) + i), _mm256_load_si256(mask + i)));
-    }
-    bool can_be_1 = _mm256_testz_si256(any, any) == 0;
+    bool can_be_0 = _mm256_testz_si256(any_can_be_0, any_can_be_0) == 0;
+    bool can_be_1 = _mm256_testz_si256(any_can_be_1, any_can_be_1) == 0;
     debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
     #if DEBUG >= 5
         print_bv1024(clause_state(clause));

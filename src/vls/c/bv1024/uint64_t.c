@@ -39,20 +39,25 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     // if (bv1024_is_contradiction(clause_state(clause))) {
     //     return false;
     // }
-    uint64_t* mask = IMPLICSTATE_CELL_MASKS[0][pos];
+    uint64_t* mask_0 = IMPLICSTATE_CELL_MASKS[0][pos];
+    uint64_t* mask_1 = IMPLICSTATE_CELL_MASKS[1][pos];
     bool can_be_0 = false;
-    for (int i = 0; i < 16; i++) {
-        if ((clause_state(clause)[i] & mask[i]) != 0) {
-            can_be_0 = true;
-            break;
-        }
-    }
-    mask = IMPLICSTATE_CELL_MASKS[1][pos];
     bool can_be_1 = false;
     for (int i = 0; i < 16; i++) {
-        if ((clause_state(clause)[i] & mask[i]) != 0) {
+        uint64_t state = clause_state(clause)[i];
+        if ((state & mask_0[i]) != 0) {
+            can_be_0 = true;
+            if (can_be_1) {
+                debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
+                return true;
+            }
+        }
+        if ((state & mask_1[i]) != 0) {
             can_be_1 = true;
-            break;
+            if (can_be_0) {
+                debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
+                return true;
+            }
         }
     }
     debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
