@@ -249,53 +249,6 @@ static void pre_remove_duplicate_clauses(void) {
     pre_end_step();
 }
 
-static void pre_check_unsat_duplicate_clauses(void) {
-    pre_start_step();
-    // look for a clause and its negation occuring
-    // is the same as the next function but with the invert_next comparison changed in the check_mapping() macro
-    for (size_t i = 0; i < state.ca_clause_count; i++) {
-        CAClause* x = state.ca_clauses[i];
-        for (size_t j = 0; j < i; j++) {
-            CAClause* y = state.ca_clauses[j];
-            if (false
-                #define check_mapping(NW, N, NE, W, C, E, SW, S, SE) \
-                    (true \
-                        && x->nw == y->NW && x->invert_nw == y->invert_##NW \
-                        && x->n == y->N && x->invert_n == y->invert_##N \
-                        && x->ne == y->NE && x->invert_ne == y->invert_##NE \
-                        && x->w == y->W && x->invert_w == y->invert_##W \
-                        && x->c == y->C && x->invert_c == y->invert_##C \
-                        && x->e == y->E && x->invert_e == y->invert_##E \
-                        && x->sw == y->SW && x->invert_sw == y->invert_##SW \
-                        && x->s == y->S && x->invert_s == y->invert_##S \
-                        && x->se == y->SE && x->invert_se == y->invert_##SE \
-                        && x->next == y->next && x->invert_next != y->invert_next \
-                    ) \
-                // no transformation
-                || check_mapping(nw, n, ne, w, c, e, sw, s, se)
-                // flip horizontal
-                || check_mapping(ne, n, nw, e, c, w, se, s, sw)
-                // flip vertical
-                || check_mapping(sw, s, se, w, c, e, nw, n, ne)
-                // rotate right
-                || check_mapping(ne, e, se, n, c, s, nw, w, sw)
-                // rotate left
-                || check_mapping(sw, w, nw, s, c, n, se, e, ne)
-                // rotate 180
-                || check_mapping(se, s, sw, e, c, w, ne, n, nw)
-                // flip diagonal
-                || check_mapping(nw, w, sw, n, c, s, ne, e, se)
-                // flip anti diagonal
-                || check_mapping(se, e, ne, s, c, n, sw, w, nw)
-                #undef check_mapping
-            ) {
-                pre_unsat(__func__);
-            }
-        }
-    }
-    pre_end_step();
-}
-
 static void pre_pack_cells(void) {
     pre_start_step();
     // look for cells where the clause pointers can be moved back in the uses list
@@ -361,7 +314,6 @@ static bool preprocess(void) {
         pre_remove_known_clauses();
         pre_check_unsat_clauses();
         pre_remove_duplicate_clauses();
-        pre_check_unsat_duplicate_clauses();
         pre_pack_cells();
         dec_debug_depth();
         if (!pre_changes_made) {
