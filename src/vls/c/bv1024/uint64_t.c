@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include "../base.c"
-#include "base.c" // IWYU pragma: keep
+#include "index.c" // IWYU pragma: keep
 
 #if BITVEC1024_BACKEND == BITVEC1024_BACKEND_UINT64_T
 
@@ -35,31 +35,17 @@ static inline bool check_single_cell_implications(CAClause* clause, int pos, Cel
     if (cell->value != UNKNOWN) {
         return true;
     }
-    // maybe uncomment and inline? idk
-    // if (bv1024_is_contradiction(clause_state(clause))) {
-    //     return false;
-    // }
     uint64_t* mask_0 = IMPLICSTATE_CELL_MASKS[0][pos];
     uint64_t* mask_1 = IMPLICSTATE_CELL_MASKS[1][pos];
-    bool can_be_0 = false;
-    bool can_be_1 = false;
+    uint64_t any_can_be_0 = 0;
+    uint64_t any_can_be_1 = 0;
     for (int i = 0; i < 16; i++) {
         uint64_t state = clause_state(clause)[i];
-        if ((state & mask_0[i]) != 0) {
-            can_be_0 = true;
-            if (can_be_1) {
-                debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
-                return true;
-            }
-        }
-        if ((state & mask_1[i]) != 0) {
-            can_be_1 = true;
-            if (can_be_0) {
-                debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
-                return true;
-            }
-        }
+        any_can_be_0 |= (state & mask_0[i]);
+        any_can_be_1 |= (state & mask_1[i]);
     }
+    bool can_be_0 = any_can_be_0 != 0;
+    bool can_be_1 = any_can_be_1 != 0;
     debug_printf_4("Implication for clause %zu: pos = %i, variable = %zu, can_be_0 = %i, can_be_1 = %i\n", clause->number, pos, cell->var_number, can_be_0, can_be_1);
     #if DEBUG >= 5
         print_bv1024(clause_state(clause));

@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include "../base.c"
-#include "base.c"  // IWYU pragma: keep
+#include "index.c" // IWYU pragma: keep
 
 #if BITVEC1024_BACKEND == BITVEC1024_BACKEND_AVX2
 
