@@ -124,9 +124,6 @@ static uint64_t get_implications_for_tr(uint32_t tr) {
     ImplicState state;
     memcpy(state, full_implic_state, sizeof(ImplicState));
     implicstate_and(state, IMPLICSTATE_CELL_MASKS[0][next]);
-    if (tr == 29280) {
-        print_implicstate(state);
-    }
     implicstate_and(state, IMPLICSTATE_CELL_MASKS[1][se]);
     implicstate_and(state, IMPLICSTATE_CELL_MASKS[2][e]);
     implicstate_and(state, IMPLICSTATE_CELL_MASKS[3][ne]);
@@ -330,9 +327,9 @@ static inline bool check_implications(Clause* clause) {
     }
     while (code != 0) {
         int instruction = ((int)code) & 63;
-        int cell_pos = instruction & 16;
+        int cell_pos = instruction & 15;
         CellValue value = instruction >> 4;
-        // undefined behavior, but should work in most cases
+        // i think this is undefined behavior, but it should work in most cases
         Cell* cell = *(Cell**)(((char*)clause) + offsetof(Clause, next) + cell_pos * (offsetof(Clause, se) - offsetof(Clause, next)));
         if (!internal_clause_set_cell(cell, value, false)) {
             return false;
