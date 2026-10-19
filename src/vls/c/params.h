@@ -26,4 +26,5 @@
 // speed settings
 
 // whether to enable certain speed-reducing sanity checks
+// CURRENTLY UNUSED
 #define SLOWER_SANITY_CHECKS true
