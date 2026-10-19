@@ -10,7 +10,6 @@ import {error, Coord, coord, UNKNOWN, OFF, ON, State, Variable, cell, Grid, runE
 
 const HELP = `
 Usage: ./vls <rule> <mode> <options>
-Or, for multi-rule searching: ./vls <minrule> <maxrule> <mode> <options>
 
 Run a search for something in a cellular automaton.
 If you don't know what this means, see https://conwaylife.com/.
@@ -323,18 +322,8 @@ if (!(base instanceof MAPPattern)) {
 }
 let mode = posArgs[1];
 posArgs = posArgs.slice(2);
-let multiRule = false;
-let maxRule = rule;
-let maxBase = base;
 if (!MODES.includes(mode)) {
-    multiRule = true;
-    maxRule = mode;
-    mode = posArgs[0];
-    posArgs = posArgs.slice(1);
-    maxBase = createPattern(maxRule) as MAPPattern;
-    if (!(maxBase instanceof MAPPattern)) {
-        error(`Rule must be a non-B0 INT rule`);
-    }
+    error(`Invalid mode: ${mode}`);
 }
 
 
@@ -737,7 +726,7 @@ let searchOrderData = getSearchOrder(grid, searchOrder);
 
 let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
 
-defines['DEBUG'] = options.debug ?? 0;
+defines['DEBUG_LEVEL'] = options.debug ?? 0;
 defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
 
 defines['SLOWER_SANITY_CHECKS'] = true;
@@ -845,6 +834,8 @@ grid:
 
 ${gridStr}
 
+rule = ${base.rule.str}${grid.afterRuleText ?? ''}
+
 transitions:
 ${base.trs.join(' ')}
 
@@ -868,7 +859,6 @@ ${options['benchmark'] !== undefined ? `benchmarking_iterations = ${options['ben
 
 reporting_interval = ${options['interval'] ?? 1}
 
-${grid.afterRuleText !== undefined ? `after_rule_text = ${grid.afterRuleText}` : ''}
 top_padding = ${grid.topPadding}
 bottom_padding = ${grid.bottomPadding}
 left_padding = ${grid.leftPadding}

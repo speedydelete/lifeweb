@@ -14,25 +14,10 @@ extern int nanosleep(const struct timespec *__requested_time, struct timespec *_
 
 #include "base.c"
 #include "dynamic_grid.c"
-#include "rules.c"
 
 
 static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
-    char rule[MAX_UNPARSED_RULE_LENGTH];
-    memset(rule, '\0', 256);
-    get_rule(rule, false);
-    #if MULTI_RULE
-        char maxrule[MAX_UNPARSED_RULE_LENGTH];
-        memset(maxrule, '\0', 256);
-        get_rule(maxrule, true);
-        if (strcmp(rule, maxrule) != 0) {
-            printf("#C %s to %s\n", rule, maxrule);
-        }
-    #endif
-    printf("x = %zu, y = %zu, rule = %s", grid->width, grid->height, rule);
-    if (config.after_rule_text != NULL) {
-        printf("%s", config.after_rule_text);
-    }
+    printf("x = %zu, y = %zu, rule = %s", grid->width, grid->height, config.rule);
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
@@ -262,7 +247,7 @@ static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
 }
 
 static Hash hash_full(DynamicGrid* grid) {
-    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[state.symmetry][get_rule_symmetry()];
+    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_symmetry(grid)][get_rule_symmetry()];
     Transformations transforms = sts_to_transforms(symmetry);
     hash_debug_printf("\n\nFull hashing grid:\n");
     hash_debug_print_grid(grid, 0);
@@ -380,16 +365,18 @@ static double get_time(void) {
     return (double)(read_counter()) / cycles_per_second;
 }
 
-double start;
+double start_time;
 
 
 static void destroy_all(void);
 
 static void check_solution([[maybe_unused]] bool preprocessing) {
-    debug_printf_2("Checking solution:\n");
-    debug_print_grid_2();
+    debug(2,
+        printf("Checking solution:\n");
+        print_grid(stdout);
+    );
     #define drop_solution(msg) \
-        debug_printf_2("Dropping solution (" msg ")\n"); \
+        debug(2, printf("Dropping solution (" msg ")\n")); \
         if (preprocessing) { \
             printf("Solved in preprocessing, 0 solutions\n"); \
         } \
@@ -540,7 +527,7 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
     dg_destroy(&solution_grid);
     if (config.max_solutions > 0) {
         if (state.solutions_found >= config.max_solutions) {
-            double time = get_time() - start;
+            double time = get_time() - start_time;
             printf("Search complete, found %zu solution%s in %.6f second%s, %zu branch%s (exited early, max solution count reached)\n", plural(state.solutions_found, "s"), plural(time, "s"), plural(state.branches, "es"));
             destroy_all();
             exit(EXIT_SUCCESS);
@@ -549,42 +536,21 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
 }
 
 
-
 #define CHECK_TIME_EVERY_THIS_MANY_BRANCHES 1024
+
 
 double last_progress_shown;
 
 size_t progress_pos = 0;
+CellValue* progress;
 
-#if MULTI_RULE
-
-typedef struct ProgressEntry {
-    bool tr_is_set;
-    BoundTransition tr;
-    CellValue value;
-} ProgressEntry;
-
-ProgressEntry* progress;
-
-static void print_progress(FILE* stream) {
-    for (size_t i = 0; i < progress_pos; i++) {
-        if (progress[i].tr_is_set) {
-            BoundTransition tr = progress[i].tr;
-            CellValue value = progress[i].value;
-            char first = bound_trs_names[tr][0];
-            real_fprintf(stream, "[%c%s]", (value == 1 ? first : (first == 'B' ? 'A' : 'D')), bound_trs_names[tr] + 1);
-        } else {
-            int value = progress[i].value;
-            real_fprintf(stream, "%c", value == 0 ? '0' : '1');
-        }
-    }
+static void init_progress(void) {
+    progress = safe_malloc((config.search_order_len + 2) * sizeof(CellValue));
 }
 
-#else
-
-typedef CellValue ProgressEntry;
-
-ProgressEntry* progress;
+static void destroy_progress(void) {
+    safe_free(progress);
+}
 
 static void print_progress(FILE* stream) {
     for (size_t i = 0; i < progress_pos; i++) {
@@ -593,31 +559,15 @@ static void print_progress(FILE* stream) {
     }
 }
 
-#endif
 
-static void init_progress(void) {
-    progress = safe_malloc((config.search_order_len + 2) * sizeof(ProgressEntry));
-}
-
-static void destroy_progress(void) {
-    safe_free(progress);
-}
-
-
-double last_max_partial_shown;
+double last_printed_max_partial_time;
 DynamicGrid max_partial = EMPTY_DYNAMIC_GRID;
-uint64_t max_partial_size = 0;
-#if MULTI_RULE
-int max_partial_trs[512];
-#endif
-uint64_t last_printed_max_partial_size = 0;
+uintmax_t max_partial_score = 0;
+uintmax_t last_printed_max_partial_score = 0;
 
 static void max_partials_end(void) {
     if (state.solutions_found == 0 && config.max_partials) {
-        #if MULTI_RULE
-            memcpy(trs, max_partial_trs, sizeof(trs));
-        #endif
-        printf("Max partial (size: %"PRIu64"):\n", max_partial_size);
+        printf("Max partial (score: %ju):\n", max_partial_score);
         print_grid_pretty(&max_partial, false);
     }
     dg_destroy(&max_partial);
@@ -626,20 +576,17 @@ static void max_partials_end(void) {
 static void print_info_if_needed(size_t depth) {
     if (config.max_partials) {
         if (state.solutions_found == 0) {
-            uint64_t partial_size;
+            uintmax_t score;
             if (config.max_partial_scoring == MAX_PARTIAL_SCORING_CELL) {
-                partial_size = state.set_unknown_vars;
+                score = state.set_unknown_vars;
             } else if (config.max_partial_scoring == MAX_PARTIAL_SCORING_DEPTH) {
-                partial_size = depth;
+                score = depth;
             } else {
                 unexpected_error("Invalid max partial scoring: %i", config.max_partial_scoring);
             }
-            if (partial_size > max_partial_size) {
+            if (score > max_partial_score) {
                 dg_init_from_search_grid(&max_partial);
-                max_partial_size = partial_size;
-                #if MULTI_RULE
-                    memcpy(max_partial_trs, trs, sizeof(trs));
-                #endif
+                max_partial_score = score;
             }
         }
     }
@@ -647,26 +594,16 @@ static void print_info_if_needed(size_t depth) {
         double time = get_time();
         if (time - last_progress_shown > config.reporting_interval) {
             last_progress_shown = time;
-            printf("%ju second%s, %zu branch%s, %zu solution%s, progress: ", plural((uintmax_t)(time - start), "s"), plural(state.branches, "es"), plural(state.solutions_found, "s"));
+            printf("%ju second%s, %zu branch%s, %zu solution%s, progress: ", plural((uintmax_t)(time - start_time), "s"), plural(state.branches, "es"), plural(state.solutions_found, "s"));
             print_progress(stdout);
             real_printf("\n");
         }
         if (config.max_partials) {
-            if (state.solutions_found == 0 && time - last_max_partial_shown > config.max_partial_reporting_interval && max_partial_size > last_printed_max_partial_size) {
-                last_max_partial_shown = time;
-                last_printed_max_partial_size = max_partial_size;
-                #if MULTI_RULE
-                    CellValue* temp_trs = safe_malloc(sizeof(trs));
-                    memcpy(temp_trs, trs, sizeof(trs));
-                    memcpy(trs, max_partial_trs, sizeof(trs));
-                    printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
-                    print_grid_pretty(&max_partial, false);
-                    memcpy(trs, temp_trs, sizeof(trs));
-                    safe_free(temp_trs);
-                #else
-                    printf("New max partial (size = %"PRIu64"):\n", max_partial_size);
-                    print_grid_pretty(&max_partial, false);
-                #endif
+            if (state.solutions_found == 0 && time - last_printed_max_partial_time > config.max_partial_reporting_interval && max_partial_score > last_printed_max_partial_score) {
+                last_printed_max_partial_time = time;
+                last_printed_max_partial_score = max_partial_score;
+                printf("New max partial (score = %"PRIu64"):\n", max_partial_score);
+                print_grid_pretty(&max_partial, false);
             }
         }
     }

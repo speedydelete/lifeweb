@@ -1,5 +1,3 @@
-
-
 {
     "name": "lifeweb",
     "version": "1.0.0",
@@ -28,20 +26,15 @@
         "html": "src/vls/web_runner.html",
         "showErrors": true,
         "imports": {
-            "./implications/avx2.c": "src/vls/implications/avx2.c",
-            "./implications/base.c": "src/vls/implications/base.c",
-            "./implications/index.c": "src/vls/implications/index.c",
-            "./implications/uint64_t.c": "src/vls/implications/uint64_t.c",
             "./index.js": "src/vls/index.ts",
-            "./base.c": "src/vls/base.c",
-            "./dynamic_grid.c": "src/vls/dynamic_grid.c",
-            "./index.c": "src/vls/index.c",
-            "./output.c": "src/vls/output.c",
-            "./params.h": "src/vls/params.h",
-            "./preprocess.c": "src/vls/preprocess.c",
-            "./rules.c": "src/vls/rules.c",
-            "./rulespaces.c": "src/vls/rulespaces.c",
-            "./search.c": "src/vls/search.c"
+            "./c/base.c": "src/vls/c/base.c",
+            "./c/dynamic_grid.c": "src/vls/c/dynamic_grid.c",
+            "./c/index.c": "src/vls/c/index.c",
+            "./c/implications.c": "src/vls/c/implications.c",
+            "./c/output.c": "src/vls/c/output.c",
+            "./c/params.h": "src/vls/c/params.h",
+            "./c/preprocess.c": "src/vls/c/preprocess.c",
+            "./c/search.c": "src/vls/c/search.c"
         }
     },
     "wrecked_identify": {
@@ -61,24 +54,18 @@
         "html": "src/vls/web_runner.html",
         "showErrors": true,
         "imports": {
-            "./implications/avx2.c": "src/vls/implications/avx2.c",
-            "./implications/base.c": "src/vls/implications/base.c",
-            "./implications/index.c": "src/vls/implications/index.c",
-            "./implications/uint64_t.c": "src/vls/implications/uint64_t.c",
             "./index.js": "src/vls/index.ts",
-            "./base.c": "src/vls/base.c",
-            "./dynamic_grid.c": "src/vls/dynamic_grid.c",
-            "./index.c": "src/vls/index.c",
-            "./output.c": "src/vls/output.c",
-            "./params.h": "src/vls/params.h",
-            "./preprocess.c": "src/vls/preprocess.c",
-            "./rules.c": "src/vls/rules.c",
-            "./rulespaces.c": "src/vls/rulespaces.c",
-            "./search.c": "src/vls/search.c"
+            "./c/base.c": "src/vls/c/base.c",
+            "./c/dynamic_grid.c": "src/vls/c/dynamic_grid.c",
+            "./c/index.c": "src/vls/c/index.c",
+            "./c/implications.c": "src/vls/c/implications.c",
+            "./c/output.c": "src/vls/c/output.c",
+            "./c/params.h": "src/vls/c/params.h",
+            "./c/preprocess.c": "src/vls/c/preprocess.c",
+            "./c/search.c": "src/vls/c/search.c"
         }
     },
     "dependencies": {
         "@babel/parser": "^8.0.4"
     }
 }
-

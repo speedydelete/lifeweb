@@ -333,10 +333,3 @@ static Transformations dg_get_identity_transforms(DynamicGrid* grid) {
 static StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
     return transforms_to_sts(dg_get_identity_transforms(grid));
 }
-
-static void internal_init_state_symmetry(void) {
-    DynamicGrid grid = EMPTY_DYNAMIC_GRID;
-    dg_init_from_search_grid(&grid);
-    state.symmetry = dg_get_symmetry(&grid);
-    dg_destroy(&grid);
-}

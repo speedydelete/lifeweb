@@ -89,13 +89,8 @@ import {createVLSSearch} from './index.js';
 
 const ORDER = [
     'base.c',
-    'rulespaces.c',
     'dynamic_grid.c',
-    'rules.c',
-    'implications/base.c',
-    'implications/uint64_t.c',
-    'implications/avx2.c',
-    'implications/index.c',
+    'implications.c',
     'output.c',
     'search.c',
     'preprocess.c',
@@ -105,7 +100,7 @@ const ORDER = [
 let source = '';
 for (let file of ORDER) {
     source += `#line 1 "${file}"\n`;
-    source += (await import('./' + file)).default.replaceAll(/#include "[^\n]*/g, '');
+    source += (await import(`./c/${file}`)).default.replaceAll(/#include "[^\n]*/g, '');
 }
 source = source.replaceAll('#pragma once', '');
 
@@ -128,7 +123,7 @@ let outElt = document.getElementById('out');
 
 document.getElementById('compile').addEventListener('click', async () => {
     let argv = commandInput.value.split(' ').slice(1);
-    let data = await createVLSSearch(argv, (await import('./params.h')).default);
+    let data = await createVLSSearch(argv, (await import('./c/params.h')).default);
     let params2 = `#line 1 "params2.h"\n${data.params2File.replaceAll('#pragma once', '')}`;
     let source2 = `#define IN_BROWSER 1\n\n${params2}\n${source}`;
     source2 = source2.replaceAll(`SEARCH_FILE_GOES_HERE`, JSON.stringify(data.searchFile));

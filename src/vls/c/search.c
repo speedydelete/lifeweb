@@ -20,16 +20,16 @@ static Cell* add_search_orders(void) {
     size_t t = coords[0];
     size_t x = coords[1];
     size_t y = coords[2];
-    Cell* prev = state_get_grid_cell(t, x, y)->cell;
+    Cell* prev = state_get_cell(t, x, y);
     Cell* initial_cell = prev;
-    debug_printf_2("Search order:\n");
-    debug_printf_2(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, initial_cell->var_number);
+    debug(2, printf("Search order:\n"));
+    debug(2, printf(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, initial_cell->var_number));
     for (size_t i = 1; i < config.search_order_len; i++) {
         size_t* coords = config.search_order[i];
         size_t t = coords[0];
         size_t x = coords[1];
         size_t y = coords[2];
-        Cell* cell = state_get_grid_cell(t, x, y)->cell;
+        Cell* cell = state_get_cell(t, x, y);
         if (cell->value != UNKNOWN || cell->next_in_search_order != NULL) {
             continue;
         }
@@ -44,7 +44,7 @@ static Cell* add_search_orders(void) {
             }
         }
         if (!found) {
-            debug_printf_2(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, cell->var_number);
+            debug(2, printf(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, cell->var_number));
             prev->next_in_search_order = cell;
             prev = cell;
         }
@@ -147,11 +147,9 @@ static size_t run_depth(size_t depth, Cell* cell);
 
 // returns number of iterations to backjump
 static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
-    debug_printf_3("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value);
+    debug(3, printf("Attempting to set cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value));
     push_stack_frame(&current_stack);
-    #if DEBUG >= 4
-        print_stack(&current_stack);
-    #endif
+    debug(4, print_stack(&current_stack));
     size_t out = 0;
     if (set_cell_and_propagate(cell, value, true)) {
         #if CUSTOM_PRUNING
@@ -164,8 +162,8 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
         // check for early exhaustion
         if (config.check_early_exhaustion && all_zeros) {
             if (check_early_exhaustion()) {
-                debug_print_grid_3();
-                debug_printf_3("Early exhausted\n");
+                debug(3, print_grid(stdout));
+                debug(3, printf("Early exhausted\n"));
                 pop_stack_frame(&current_stack);
                 return 0;
             }
@@ -179,7 +177,7 @@ static size_t actual_run_depth(size_t depth, Cell* cell, CellValue value) {
 // returns number of iterations to backjump
 static size_t run_depth(size_t depth, Cell* cell) {
     inc_debug_depth();
-    #if DEBUG >= 3
+    debug(3,
         printf("Running depth %zu: ", depth);
         print_progress(stdout);
         real_printf("\n");
@@ -188,7 +186,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
         } else {
             printf("Cell: variable = %zu\n", cell->var_number);
         }
-    #endif
+    );
     state.branches++;
     // add 2 to account for off-by-one errors
     if (depth > config.search_order_len + 2) {
@@ -199,10 +197,10 @@ static size_t run_depth(size_t depth, Cell* cell) {
         dec_debug_depth();
         return 0;
     }
-    debug_print_grid_3();
+    debug(3, print_grid(stdout));
     print_info_if_needed(depth);
     if (cell->value != UNKNOWN) {
-        debug_printf_3("Cell is known, continuing\n");
+        debug(3, printf("Cell is known, continuing\n"));
         size_t out = run_depth(depth + 1, cell->next_in_search_order);
         dec_debug_depth();
         return out == 0 ? 0 : out - 1;
@@ -230,15 +228,15 @@ static size_t run_depth(size_t depth, Cell* cell) {
 
 static void actual_run_search(void) {
     Cell* initial_cell = add_search_orders();
-    debug_printf_2("Running search\n");
+    debug(2, printf("Running search\n"));
     state.branches = 0;
     state.solutions_found = 0;
-    start = get_time();
-    last_progress_shown = start;
-    last_max_partial_shown = start;
+    start_time = get_time();
+    last_progress_shown = start_time;
+    last_printed_max_partial_time = start_time;
     all_zeros = true;
     run_depth(0, initial_cell);
-    double time = get_time() - start;
+    double time = get_time() - start_time;
     printf("Search complete, found %"PRIu64" solution%s in %.6f second%s, %"PRIu64" branch%s\n", plural(state.solutions_found, "s"), plural(time, "s"), plural(state.branches, "es"));
     max_partials_end();
 }

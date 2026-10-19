@@ -23,7 +23,6 @@
 typedef struct InitFromCell {
     CellValue value;
     size_t var;
-    bool invert;
     bool no_clause;
 } InitFromCell;
 
@@ -63,8 +62,6 @@ static void init_state(InitFromState* from) {
         Cell* cell = safe_malloc(sizeof(Cell) + var_uses[i] * sizeof(CellUseData));
         cell->value = UNKNOWN;
         cell->var_number = i;
-        cell->alias = NULL;
-        cell->invert_alias = false;
         cell->use_count = var_uses[i];
         // fill the uses with null pointers
         for (size_t j = 0; j < cell->use_count; j++) {
@@ -84,7 +81,7 @@ static void init_state(InitFromState* from) {
     }
     safe_free(var_uses);
     // now do the grid
-    state.grid = safe_malloc(state.total_size * sizeof(GridCell));
+    state.grid = safe_malloc(state.total_size * sizeof(Cell*));
     size_t i = 0;
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
@@ -101,66 +98,44 @@ static void init_state(InitFromState* from) {
                 } else {
                     unexpected_error("Invalid cell state at t = %zu, x = %zu, y = %zu: %i", t, x, y, value);
                 }
-                state.grid[i].cell = cell;
-                state.grid[i].invert = init_cell->invert;
+                state.grid[i] = cell;
                 i++;
             }
         }
     }
     // now the clauses
-    state.ca_clause_count = state.width * state.height * (state.gens - 1);
+    state.clause_count = state.width * state.height * (state.gens - 1);
     // don't allocate space for the clauses marked as no_clause
     for (size_t i = 0; i < state.total_size; i++) {
         if (from->grid[i].no_clause) {
-            state.ca_clause_count--;
+            state.clause_count--;
         }
     }
-    state.ca_clauses = safe_malloc(state.ca_clause_count * sizeof(CAClause));
+    state.clauses = safe_malloc(state.clause_count * sizeof(Clause));
     i = 0;
     size_t init_index = 0;
-    for (size_t t = 0; t < state.gens - 1; t++) {
-        for (size_t y = 0; y < state.height; y++) {
-            for (size_t x = 0; x < state.width; x++) {
+    for (intmax_t t = 0; t < (intmax_t)(state.gens - 1); t++) {
+        for (intmax_t y = 0; y < (intmax_t)(state.height); y++) {
+            for (intmax_t x = 0; x < (intmax_t)(state.width); x++) {
                 InitFromCell* init_cell = &(from->grid[init_index]);
                 init_index++;
                 if (init_cell->no_clause) {
                     continue;
                 }
-                CAClause* clause = &(state.ca_clauses[i]);
+                Clause* clause = &(state.clauses[i]);
                 clause->number = i;
-                clause->state_number = 0;
                 // fill the clause's pointers
-                GridCell* cell = state_get_grid_cell_allow_oob(t, x, y);
-                clause->c = cell->cell;
-                clause->invert_c = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t + 1, x, y);
-                clause->next = cell->cell;
-                clause->invert_next = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x - 1, y - 1);
-                clause->nw = cell->cell;
-                clause->invert_nw = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x, y - 1);
-                clause->n = cell->cell;
-                clause->invert_n = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x + 1, y - 1);
-                clause->ne = cell->cell;
-                clause->invert_ne = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x - 1, y);
-                clause->w = cell->cell;
-                clause->invert_w = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x + 1, y);
-                clause->e = cell->cell;
-                clause->invert_e = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x - 1, y + 1);
-                clause->sw = cell->cell;
-                clause->invert_sw = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x, y + 1);
-                clause->s = cell->cell;
-                clause->invert_s = cell->invert;
-                cell = state_get_grid_cell_allow_oob(t, x + 1, y + 1);
-                clause->se = cell->cell;
-                clause->invert_se = cell->invert;
-                reset_clause_state(clause);
+                clause->next = state_get_cell_allow_oob(t + 1, x, y);
+                clause->nw = state_get_cell_allow_oob(t, x - 1, y - 1);
+                clause->n = state_get_cell_allow_oob(t, x, y - 1);
+                clause->ne = state_get_cell_allow_oob(t, x + 1, y - 1);
+                clause->w = state_get_cell_allow_oob(t, x - 1, y);
+                clause->c = state_get_cell_allow_oob(t, x, y);
+                clause->e = state_get_cell_allow_oob(t, x + 1, y);
+                clause->sw = state_get_cell_allow_oob(t, x - 1, y + 1);
+                clause->s = state_get_cell_allow_oob(t, x, y + 1);
+                clause->se = state_get_cell_allow_oob(t, x + 1, y + 1);
+                init_clause_implication_tr(clause);
                 // fill all the clause pointers inside the cells
                 #define add(cell_to_use, name_to_set) \
                     do { \
@@ -195,7 +170,6 @@ static void init_state(InitFromState* from) {
             }
         }
     }
-    internal_init_state_symmetry();
 }
 
 #define check_ferror(file) \
@@ -310,10 +284,9 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         for (size_t i = 0; i < total_size; i++) {
             InitFromCell cell;
             cell.var = 0;
-            cell.invert = false;
             cell.no_clause = false;
-            int64_t value;
-            if (fscanf(file, " %"SCNi64, &value) != 1) {
+            size_t value;
+            if (fscanf(file, " %zu", &value) != 1) {
                 check_ferror(file);
                 search_file_error("Missing grid element");
             }
@@ -321,14 +294,8 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
                 cell.value = OFF;
             } else if (value == 1) {
                 cell.value = ON;
-            } else if (value == -1) {
-                search_file_error("Grid element is -1");
             } else {
                 cell.value = UNKNOWN;
-                if (value < 0) {
-                    value = -value;
-                    cell.invert = true;
-                }
                 value -= 1;
                 cell.var = value;
             }
@@ -353,6 +320,11 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             }
             state.trs[i] = value;
         }
+    } else if (check_line(file, "rule = %255s", v_str)) {
+        size_t len = strnlen(v_str, 255);
+        config.rule = safe_malloc((len + 1) * sizeof(char));
+        memset(config.rule, '\0', len + 1);
+        strncpy(config.rule, v_str, len);
     } else if (check_line(file, "search_order ( length = %zu ):", &v_size)) {
         config.search_order_len = v_size;
         config.search_order = safe_malloc(config.search_order_len * sizeof(size_t[3]));
@@ -394,10 +366,6 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.start_padding = v_size;
     } else if (check_line(file, "end_padding = %zu", &v_size)) {
         config.end_padding = v_size;
-    } else if (check_line(file, "after_rule_text = %255s", v_str)) {
-        size_t len = strnlen(v_str, 255) + 1;
-        config.after_rule_text = safe_malloc(len * sizeof(char));
-        strncpy(config.after_rule_text, v_str, len);
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
     } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {
@@ -469,7 +437,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
     if (data.grid != NULL) {
         safe_free(data.grid);
     }
-    printf("Loaded search: %zu variables, %zu clauses\n", state.var_count, state.ca_clause_count);
+    printf("Loaded search: %zu variables, %zu clauses\n", state.var_count, state.clause_count);
 }
 
 
@@ -484,32 +452,40 @@ static void handle_sigterm(int signum) {
 #endif
 
 static void destroy_all(void) {
+    destroy_progress();
     destroy_clause_stack();
     destroy_stack(&current_stack);
     destroy_solutions();
-    destroy_state();
     destroy_config();
-    destroy_progress();
+    destroy_state();
+    destroy_implications();
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        fprintf(stderr, "Expected exactly 1 command line argument");
-        exit(EXIT_FAILURE);
-    }
+    #if IN_BROWSER
+        if (argc != 1) {
+            fprintf(stderr, "Error: Expected exactly 0 command line arguments");
+            exit(EXIT_FAILURE);
+        }
+    #else
+        if (argc != 2) {
+            fprintf(stderr, "Error: Expected exactly 1 command line argument");
+            exit(EXIT_FAILURE);
+        }
+    #endif
     calibrate_time();
     #ifdef FOR_PROFILE
         signal(SIGTERM, handle_sigterm);
     #endif
     init_state_and_config_from_file(argv[1]);
-    debug_print_grid_1();
+    debug(1, print_grid(stdout));
     init_solutions();
     init_stack(&current_stack);
     init_clause_stack();
     init_progress();
     bool solved_in_preprocessing = preprocess();
     if (!solved_in_preprocessing) {
-        debug_print_grid_1();
+        debug(1, print_grid(stdout));
         run_search();
     }
     destroy_all();
