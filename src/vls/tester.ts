@@ -328,14 +328,16 @@ function prettyPrintTestData(data: AllTestRunData, fields: PrettyPrintField[]): 
     return out.join('\n');
 }
 
-function percentDifference(first: number, second: number): [number, string] {
+function timesImprovement(first: number, second: number): [number, string] {
     if (first === second) {
-        return [0, ''];
+        return [1, ''];
     }
-    let value = (first - second)/((first + second) / 2) * 100;
-    let str = value.toFixed(3) + '%';
-    if (!str.startsWith('-')) {
-        str = '+' + str;
+    let value = second / first;
+    let str: string;
+    if (value >= 1) {
+        str = 'x' + value.toFixed(3);
+    } else {
+        str = '/' + (1 / value).toFixed(3);
     }
     return [value, ` (${str})`];
 }
@@ -359,10 +361,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
     let firstSuccessCount = 0;
     let secondSuccessCount = 0;
     let timedTestCount = 0;
-    let avgPercentDiffTotalTime = 0;
-    let avgPercentDiffInvocationTime = 0;
-    let avgPercentDiffSearchTime = 0;
-    let avgPercentDiffBranches = 0;
+    let avgTimesImproveTotalTime = 0;
+    let avgTimesImproveInvocationTime = 0;
+    let avgTimesImproveSearchTime = 0;
+    let avgTimesImproveBranches = 0;
     let strData: string[][] = [];
     for (let [first, second] of data) {
         let untimed = first.test.untimed;
@@ -393,9 +395,9 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     strs.push('');
                     continue;
                 }
-                let [diff, diffStr] = percentDifference(first.totalTime, second.totalTime);
-                avgPercentDiffTotalTime += diff;
-                str = `${second.totalTime.toFixed(3)}${diffStr}`;
+                let [improve, improveStr] = timesImprovement(second.totalTime, first.totalTime);
+                avgTimesImproveTotalTime += improve;
+                str = `${second.totalTime.toFixed(3)}${improveStr}`;
                 if (second.totalTime < first.totalTime) {
                     color = GREEN;
                 } else if (second.totalTime > first.totalTime) {
@@ -406,9 +408,9 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     strs.push('');
                     continue;
                 }
-                let [diff, diffStr] = percentDifference(first.invocationTime, second.invocationTime);
-                avgPercentDiffInvocationTime += diff;
-                str = `${second.invocationTime.toFixed(3)}${diffStr}`;
+                let [improve, improveStr] = timesImprovement(first.invocationTime, second.invocationTime);
+                avgTimesImproveInvocationTime += improve;
+                str = `${second.invocationTime.toFixed(3)}${improveStr}`;
                 if (second.invocationTime < first.invocationTime) {
                     color = GREEN;
                 } else if (second.invocationTime > first.invocationTime) {
@@ -419,18 +421,18 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
                     strs.push('');
                     continue;
                 }
-                let [diff, diffStr] = percentDifference(first.searchTime, second.searchTime);
-                avgPercentDiffSearchTime += diff;
-                str = `${second.searchTime.toFixed(3)}${diffStr}`;
+                let [improve, improveStr] = timesImprovement(first.searchTime, second.searchTime);
+                avgTimesImproveSearchTime += improve;
+                str = `${second.searchTime.toFixed(3)}${improveStr}`;
                 if (second.searchTime < first.searchTime) {
                     color = GREEN;
                 } else if (second.searchTime > first.searchTime) {
                     color = RED;
                 }
             } else if (field === 'branches') {
-                let [diff, diffStr] = percentDifference(first.branches, second.branches);
-                avgPercentDiffBranches += diff;
-                str = `${second.branches}${diffStr}`;
+                let [improve, improveStr] = timesImprovement(first.branches, second.branches);
+                avgTimesImproveBranches += improve;
+                str = `${second.branches}${improveStr}`;
                 if (second.branches < first.branches) {
                     color = GREEN;
                 } else if (second.branches > first.branches) {
@@ -446,10 +448,10 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
         }
         strData.push(strs);
     }
-    avgPercentDiffTotalTime /= timedTestCount;
-    avgPercentDiffInvocationTime /= timedTestCount;
-    avgPercentDiffSearchTime /= timedTestCount;
-    avgPercentDiffBranches /= timedTestCount;
+    avgTimesImproveTotalTime /= timedTestCount;
+    avgTimesImproveInvocationTime /= timedTestCount;
+    avgTimesImproveSearchTime /= timedTestCount;
+    avgTimesImproveBranches /= data.length;
     let avgDiffs: string[] = [];
     for (let field of fields) {
         let str: string;
@@ -459,43 +461,47 @@ function compareAndPrettyPrintTestData(first: AllTestRunData, second: AllTestRun
         } else if (field === 'success') {
             str = '';
         } else if (field === 'total time') {
-            str = avgPercentDiffTotalTime.toFixed(3) + '%';
-            if (!str.startsWith('-')) {
-                str = '+' + str;
+            if (avgTimesImproveTotalTime >= 1) {
+                str = 'x' + avgTimesImproveTotalTime.toFixed(3);
+            } else {
+                str = '/' + (1 / avgTimesImproveTotalTime).toFixed(3);
             }
-            if (avgPercentDiffTotalTime > 0) {
+            if (avgTimesImproveTotalTime < 1) {
                 color = GREEN;
-            } else if (avgPercentDiffTotalTime < 0) {
+            } else if (avgTimesImproveTotalTime > 1) {
                 color = RED;
             }
         } else if (field === 'invocation time') {
-            str = avgPercentDiffInvocationTime.toFixed(3) + '%';
-            if (!str.startsWith('-')) {
-                str = '+' + str;
+            if (avgTimesImproveInvocationTime >= 1) {
+                str = 'x' + avgTimesImproveInvocationTime.toFixed(3);
+            } else {
+                str = '/' + (1 / avgTimesImproveInvocationTime).toFixed(3);
             }
-            if (avgPercentDiffInvocationTime > 0) {
+            if (avgTimesImproveInvocationTime < 1) {
                 color = GREEN;
-            } else if (avgPercentDiffInvocationTime < 0) {
+            } else if (avgTimesImproveInvocationTime > 1) {
                 color = RED;
             }
         } else if (field === 'search time') {
-            str = avgPercentDiffSearchTime.toFixed(3) + '%';
-            if (!str.startsWith('-')) {
-                str = '+' + str;
+            if (avgTimesImproveSearchTime >= 1) {
+                str = 'x' + avgTimesImproveSearchTime.toFixed(3);
+            } else {
+                str = '/' + (1 / avgTimesImproveSearchTime).toFixed(3);
             }
-            if (avgPercentDiffSearchTime > 0) {
+            if (avgTimesImproveSearchTime < 1) {
                 color = GREEN;
-            } else if (avgPercentDiffSearchTime < 0) {
+            } else if (avgTimesImproveSearchTime > 1) {
                 color = RED;
             }
         } else if (field === 'branches') {
-            str = avgPercentDiffBranches.toFixed(3) + '%';
-            if (!str.startsWith('-')) {
-                str = '+' + str;
+            if (avgTimesImproveBranches >= 1) {
+                str = 'x' + avgTimesImproveBranches.toFixed(3);
+            } else {
+                str = '/' + (1 / avgTimesImproveBranches).toFixed(3);
             }
-            if (avgPercentDiffBranches > 0) {
+            if (avgTimesImproveBranches < 1) {
                 color = GREEN;
-            } else if (avgPercentDiffBranches < 0) {
+            } else if (avgTimesImproveBranches > 1) {
                 color = RED;
             }
         } else {
