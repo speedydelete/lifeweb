@@ -140,25 +140,25 @@ typedef struct Clause {
 
 typedef struct CellUseData {
     // CAN BE A NULL POINTER
-    Clause* c;
+    Clause * restrict c;
     // CAN BE A NULL POINTER
-    Clause* prev;
+    Clause * restrict prev;
     // CAN BE A NULL POINTER
-    Clause* nw;
+    Clause * restrict nw;
     // CAN BE A NULL POINTER
-    Clause* n;
+    Clause * restrict n;
     // CAN BE A NULL POINTER
-    Clause* ne;
+    Clause * restrict ne;
     // CAN BE A NULL POINTER
-    Clause* w;
+    Clause * restrict w;
     // CAN BE A NULL POINTER
-    Clause* e;
+    Clause * restrict e;
     // CAN BE A NULL POINTER
-    Clause* sw;
+    Clause * restrict sw;
     // CAN BE A NULL POINTER
-    Clause* s;
+    Clause * restrict s;
     // CAN BE A NULL POINTER
-    Clause* se;
+    Clause * restrict se;
 } CellUseData;
 
 struct Cell {
