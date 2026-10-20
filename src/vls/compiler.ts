@@ -1439,6 +1439,8 @@ class VLSFileParser extends BaseParser {
             out = {type: 'cell', cell: cell(UNKNOWN)};
         } else if (value === 'var') {
             out = {type: 'cell', cell: cell(UNKNOWN, this.grid.getNewVar())};
+        } else if (value === 'nop') {
+            out = {type: 'nop'};
         } else {
             this.goBack();
             this.error(`Invalid state specifier literal`);
