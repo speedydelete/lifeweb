@@ -274,51 +274,13 @@ static void init_clause_implication_tr(Clause* clause) {
 }
 
 
-// stack of clauses to check in set_cell_and_propagate
-Clause** clause_stack;
-// stack pointer for `clause_stack`
-Clause** clause_sp;
-// stack pointer for the done entries of clause_stack
-Clause** clause_done_sp;
-
-static void init_clause_stack(void) {
-    clause_stack = safe_malloc(16384 * sizeof(Clause*));
-}
-
-static void destroy_clause_stack(void) {
-    safe_free(clause_stack);
-}
-
-static inline bool internal_clause_set_cell(Cell* cell, CellValue value, bool is_explicit) {
-    // maybe manually inline and optimize the set_cell_and_push?
-    // could be faster? depends on how clever the compiler is
-    if (!set_cell_and_push(cell, value, is_explicit)) {
-        return false;
-    }
-    for (size_t i = 0; i < cell->use_count; i++) {
-        CellUseData* data = &(cell->uses[i]);
-        #define add(clause) \
-            if ((clause) != NULL) { \
-                *clause_sp = (clause); \
-                clause_sp++; \
-            }
-        add(data->c);
-        add(data->prev);
-        add(data->nw);
-        add(data->w);
-        add(data->sw);
-        add(data->n);
-        add(data->s);
-        add(data->ne);
-        add(data->e);
-        add(data->se);
-        #undef add
-    }
-    return true;
-}
+static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit);
 
 // returns false if contradiction, true if no contradiction
-static inline bool check_implications(Clause* clause) {
+static inline bool check_clause_implications(Clause* clause) {
+    if (clause == NULL) {
+        return true;
+    }
     uint64_t code = implication_table[clause->implication_tr];
     debug(4, printf("Implication for clause %zu: transition = %"PRIu32", code = %"PRIu64"\n", clause->number, clause->implication_tr, code));
     if (code == 1) {
@@ -331,7 +293,7 @@ static inline bool check_implications(Clause* clause) {
         CellValue value = instruction >> 4;
         // i think this is undefined behavior, but it should work in most cases
         Cell* cell = *(Cell**)(((char*)clause) + offsetof(Clause, next) + cell_pos * (offsetof(Clause, se) - offsetof(Clause, next)));
-        if (!internal_clause_set_cell(cell, value, false)) {
+        if (!set_cell_and_propagate(cell, value, false)) {
             return false;
         }
         code >>= 6;
@@ -339,22 +301,37 @@ static inline bool check_implications(Clause* clause) {
     return true;
 }
 
+static inline bool check_cell_implications(Cell* cell) {
+    debug(4, printf("Checking implications for variable %zu\n", cell->var_number));
+    inc_debug_depth();
+    for (size_t i = 0; i < cell->use_count; i++) {
+        CellUseData* data = &(cell->uses[i]);
+        if (!(true
+            && check_clause_implications(data->c)
+            && check_clause_implications(data->prev)
+            && check_clause_implications(data->nw)
+            && check_clause_implications(data->w)
+            && check_clause_implications(data->sw)
+            && check_clause_implications(data->n)
+            && check_clause_implications(data->s)
+            && check_clause_implications(data->ne)
+            && check_clause_implications(data->e)
+            && check_clause_implications(data->se)
+        )) {
+            dec_debug_depth();
+            return false;
+        }
+    }
+    dec_debug_depth();
+    return true;
+}
+
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
 static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit) {
     debug(3, printf("Setting cell and propagating: var_number = %zu\n", cell->var_number));
-    clause_sp = &(clause_stack[0]);
-    clause_done_sp = &(clause_stack[0]);
-    if (!internal_clause_set_cell(cell, value, is_explicit)) {
+    if (!set_cell_and_push(cell, value, is_explicit)) {
         return false;
     }
-    while (clause_done_sp < clause_sp) {
-        debug(3, printf("Propagating: clause_sp = %ti, clause_done_sp = %ti\n", clause_sp - &(clause_stack[0]), clause_done_sp - &(clause_stack[0])));
-        debug(5, print_grid(stdout));
-        if (!check_implications(*clause_done_sp)) {
-            return false;
-        }
-        clause_done_sp++;
-    }
-    return true;
+    return check_cell_implications(cell);
 }

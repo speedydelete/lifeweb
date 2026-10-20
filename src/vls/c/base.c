@@ -26,7 +26,7 @@
 
 #define real_printf (printf)
 #define real_fprintf (fprintf)
-#if DEBUG >= 2 || HASH_DEBUG
+#if DEBUG_LEVEL >= 2 || HASH_DEBUG
     static int debug_depth = 0;
     #define inc_debug_depth() do { debug_depth++; } while(0)
     #define dec_debug_depth() do { debug_depth--; } while(0)
@@ -111,6 +111,29 @@ static void safe_free(void* ptr) {
 
 // core type definitions
 
+typedef enum StaticSymmetry {
+    C1,
+    C2,
+    C4,
+    D2h,
+    D2v,
+    D2b,
+    D2s,
+    D4p,
+    D4x,
+    D8,
+} StaticSymmetry;
+
+typedef struct Transformations {
+    bool flip_horizontal: 1;
+    bool flip_vertical: 1;
+    bool rotate_left: 1;
+    bool rotate_right: 1;
+    bool rotate_180: 1;
+    bool flip_diagonal: 1;
+    bool flip_anti_diagonal: 1;
+} Transformations;
+
 // the type of cell values
 typedef uint8_t CellValue;
 #define UNKNOWN 0
@@ -136,7 +159,6 @@ typedef struct Clause {
     bool removed;
     uint32_t implication_tr;
 } Clause;
-
 
 typedef struct CellUseData {
     // CAN BE A NULL POINTER
@@ -205,6 +227,8 @@ static struct {
     size_t var_count;
     // the transitions that make up the rule
     CellValue trs[512];
+    // the symmetry of the rule
+    StaticSymmetry rule_symmetry;
     // the cells, indexed by their variable number
     // numbering starts at 1, so entry 0 is a null pointer
     Cell** vars;
@@ -666,29 +690,6 @@ static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
     return true;
 }
 
-
-typedef enum StaticSymmetry {
-    C1,
-    C2,
-    C4,
-    D2h,
-    D2v,
-    D2b,
-    D2s,
-    D4p,
-    D4x,
-    D8,
-} StaticSymmetry;
-
-typedef struct Transformations {
-    bool flip_horizontal: 1;
-    bool flip_vertical: 1;
-    bool rotate_left: 1;
-    bool rotate_right: 1;
-    bool rotate_180: 1;
-    bool flip_diagonal: 1;
-    bool flip_anti_diagonal: 1;
-} Transformations;
 
 static const StaticSymmetry STATIC_SYMMETRY_JOIN[10][10] = {
     [C1 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },

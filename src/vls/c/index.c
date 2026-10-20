@@ -453,7 +453,6 @@ static void handle_sigterm(int signum) {
 
 static void destroy_all(void) {
     destroy_progress();
-    destroy_clause_stack();
     destroy_stack(&current_stack);
     destroy_solutions();
     destroy_config();
@@ -481,7 +480,6 @@ int main(int argc, char** argv) {
     debug(1, print_grid(stdout));
     init_solutions();
     init_stack(&current_stack);
-    init_clause_stack();
     init_progress();
     bool solved_in_preprocessing = preprocess();
     if (!solved_in_preprocessing) {
