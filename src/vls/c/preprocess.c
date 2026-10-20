@@ -495,7 +495,7 @@ static bool preprocess(void) {
         check_solution(true);
         return true;
     }
-    state.start_unknown_vars -= state.set_unknown_vars;
+    state.start_unknown_vars = state.var_count;
     state.set_unknown_vars = 0;
     // move back the stack pointer to save space
     current_stack.len = 0;
