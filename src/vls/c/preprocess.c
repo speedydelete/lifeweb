@@ -64,7 +64,6 @@ static void pre_set_cell(const char* called_from, Cell* cell, CellValue value) {
 }
 
 static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) {
-    pre_changes_made = true;
     debug(2, printf("Aliasing variable %zu to %zu\n", cell->var_number, alias_to->var_number));
     if (cell->value != UNKNOWN) {
         if (alias_to->value != UNKNOWN) {
@@ -80,6 +79,7 @@ static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) 
         pre_set_cell(called_from, cell, alias_to->value);
         return;
     }
+    pre_changes_made = true;
     // this isn't required but it keeps variable numbers down
     if (cell->var_number > alias_to->var_number) {
         Cell* temp = cell;
@@ -378,23 +378,6 @@ static void pre_remove_known_clauses(void) {
     pre_end_step();
 }
 
-static void pre_check_unsat_clauses(void) {
-    pre_start_step();
-    // look for basic unsatisfiable clauses
-    for (size_t i = 0; i < state.clause_count; i++) {
-        Clause* clause = &(state.clauses[i]);
-        if (clause->removed) {
-            continue;
-        }
-        uint64_t code = implication_table[clause->implication_tr];
-        if (code == 1) {
-            debug(2, printf("Implication for clause %zu: transition = %"PRIu32", code = %"PRIu64"\n", clause->number, clause->implication_tr, code));
-            pre_contradiction(__func__);
-        }
-    }
-    pre_end_step();
-}
-
 static void pre_merge_duplicate_or_similar_clauses(void) {
     pre_start_step();
     // looks for clauses that are exactly the same and merges them
@@ -474,9 +457,6 @@ static bool preprocess(void) {
         pre_normalize_cells();
         pre_normalize_clauses();
         pre_remove_known_clauses();
-        pre_normalize_cells();
-        pre_normalize_clauses();
-        pre_check_unsat_clauses();
         pre_normalize_cells();
         pre_normalize_clauses();
         pre_merge_duplicate_or_similar_clauses();

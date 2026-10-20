@@ -579,7 +579,7 @@ if (mode === 'periodic') {
             let found = false;
             for (let y2 = -1; y2 <= 1; y2++) {
                 for (let x2 = -1; x2 <= 1; x2++) {
-                    if (y2 === 0 && x2 === 0) {
+                    if (x2 === 0 && y2 === 0) {
                         continue;
                     }
                     let cell = grid.getAllowOOB(0, x + x2, y + y2);
@@ -594,6 +594,36 @@ if (mode === 'periodic') {
             }
             if (!found) {
                 grid.set(1, x, y, OFF);
+            }
+        }
+    }
+
+    // fix catalyst edges at end
+    for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+            let center = grid.get(grid.gens - 2, x, y);
+            if (center.state != UNKNOWN || center.variable !== undefined) {
+                continue;
+            }
+            let found = false;
+            for (let y2 = -1; y2 <= 1; y2++) {
+                for (let x2 = -1; x2 <= 1; x2++) {
+                    if (x2 === 0 && y2 === 0) {
+                        continue;
+                    }
+                    let cell = grid.getAllowOOB(0, x + x2, y + y2);
+                    if (cell.state === UNKNOWN && cell.variable !== undefined) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    break;
+                }
+            }
+            if (!found) {
+                grid.set(grid.gens - 2, x, y, OFF);
+                grid.set(grid.gens - 1, x, y, OFF);
             }
         }
     }

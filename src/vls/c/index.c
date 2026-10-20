@@ -382,7 +382,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.filter_duplicate_solutions = v_int;
     } else if (check_line(file, "filter_subperiod_solutions = %i", &v_int)) {
         config.filter_subperiod_solutions = v_int;
-    } else if (check_line(file, "cell_period_filter ( length = %zu ) =", &v_size)) {
+    } else if (check_line(file, "cell_period_filter ( length = %zu ) :", &v_size)) {
         config.cell_period_filter_length = v_size;
         config.cell_period_filter = safe_malloc(config.cell_period_filter_length * sizeof(int));
         for (size_t i = 0; i < config.cell_period_filter_length; i++) {
