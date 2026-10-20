@@ -80,7 +80,16 @@ static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) 
         pre_set_cell(called_from, cell, alias_to->value);
         return;
     }
+    // this isn't required but it keeps variable numbers down
+    if (cell->var_number > alias_to->var_number) {
+        Cell* temp = cell;
+        cell = alias_to;
+        alias_to = temp;
+    }
     Cell* new = safe_malloc(sizeof(Cell) + (cell->use_count + alias_to->use_count) * sizeof(CellUseData));
+    new->value = UNKNOWN;
+    new->var_number = cell->var_number;
+    new->use_count = cell->use_count + alias_to->use_count;
     memcpy(new->uses, &(cell->uses), cell->use_count * sizeof(CellUseData));
     memcpy(new->uses + cell->use_count, &(alias_to->uses), alias_to->use_count * sizeof(CellUseData));
     for (size_t i = 0; i < state.total_size; i++) {
@@ -107,13 +116,13 @@ static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) 
         #undef check
         init_clause_implication_tr(clause);
     }
-    for (size_t i = cell->var_number; i <= state.var_count - 1; i++) {
+    state.vars[cell->var_number] = new;
+    safe_free(cell);
+    for (size_t i = alias_to->var_number; i <= state.var_count - 1; i++) {
         state.vars[i] = state.vars[i + 1];
         state.vars[i]->var_number--;
     }
     state.var_count--;
-    safe_free(cell);
-    state.vars[alias_to->var_number] = new;
     safe_free(alias_to);
 }
 

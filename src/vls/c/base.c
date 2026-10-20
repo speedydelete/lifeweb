@@ -187,12 +187,12 @@ typedef struct CellUseData {
 } CellUseData;
 
 struct Cell {
-    // the next entry in the search order, CAN BE A NULL POINTER
-    Cell* next_in_search_order;
     // the actual value of the cell
     CellValue value;
     // the variable number from INITIAL_VARS, numbering starts at 1
     size_t var_number;
+    // the next entry in the search order, CAN BE A NULL POINTER
+    Cell* next_in_search_order;
     // the length of the `uses` flexible array member
     size_t use_count;
     // the clauses it is used in
