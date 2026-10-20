@@ -320,6 +320,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             }
             state.trs[i] = value;
         }
+        state.rule_symmetry = get_rule_symmetry();
     } else if (check_line(file, "rule = %255s", v_str)) {
         size_t len = strnlen(v_str, 255);
         config.rule = safe_malloc((len + 1) * sizeof(char));

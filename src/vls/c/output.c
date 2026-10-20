@@ -247,7 +247,7 @@ static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
 }
 
 static Hash hash_full(DynamicGrid* grid) {
-    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_symmetry(grid)][get_rule_symmetry()];
+    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_symmetry(grid)][state.rule_symmetry];
     Transformations transforms = sts_to_transforms(symmetry);
     hash_debug_printf("\n\nFull hashing grid:\n");
     hash_debug_print_grid(grid, 0);
