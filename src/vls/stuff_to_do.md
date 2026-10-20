@@ -8,7 +8,6 @@ Speedups:
 * Advanced clause aliasing during preprocessing
 * See if keeping last checked times is faster
 * Rearrange clauses to keep implication transitions closer to 0
-* Go back to recursion maybe?
 * Optimize progress tracker? Maybe via cursed stack stuff?
 
 Features:
