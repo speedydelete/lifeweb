@@ -156,6 +156,8 @@ function list<T extends string[]>(values: T): {type: 'list', values: T} {
     return {type: 'list', values};
 }
 
+const INITIAL_VALUES = ['0', '1', 'same-0', 'same-1', 'different-0', 'different-1'] as const;
+
 const OPTIONS = {
     'help': FLAG,
     'h': 'help',
@@ -844,7 +846,7 @@ ${searchOrderData.map(c => `${c.t} ${c.x} ${c.y}`).join('\n')}
 
 initial_value = ${options['initial-value'] ?? '1'}
 
-${options['initial-value'] !== undefined ? `initial_value = ${options['initial-value']}` : ''}
+${options['initial-value'] !== undefined ? `initial_value = ${INITIAL_VALUES.indexOf(options['initial-value'])}` : ''}
 
 ${(() => {
     if (!periodic) {
