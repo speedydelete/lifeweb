@@ -219,7 +219,7 @@ static bool set_cell(Cell* cell, CellValue value) {
 }
 
 static void unset_cell(Cell* cell) {
-    debug(4, printf("Unsetting variable %zu: prev_value = %i\n", cell->var_number, cell->value));
+    debug(4, printf("Unsetting cell: variable = %zu: prev_value = %i\n", cell->var_number, cell->value));
     #define update(clause, value) \
         if ((clause) != NULL) { \
             (clause)->implication_tr += INT32_C(value); \
@@ -285,6 +285,7 @@ static inline bool check_clause_implications(Clause* clause) {
     debug(4, printf("Implication for clause %zu: transition = %"PRIu32", code = %"PRIu64"\n", clause->number, clause->implication_tr, code));
     if (code == 1) {
         debug(3, printf("Contradiction in check_implications\n"));
+        debug(4, print_grid(stdout));
         return false;
     }
     while (code != 0) {
@@ -329,7 +330,11 @@ static inline bool check_cell_implications(Cell* cell) {
 // set a cell in the search state, propagating checks
 // returns false if contradiction, true if no contradiction
 static bool set_cell_and_propagate(Cell* cell, CellValue value, bool is_explicit) {
-    debug(3, printf("Setting cell and propagating: var_number = %zu\n", cell->var_number));
+    debug(3, printf("Setting cell and propagating: var_number = %zu, value = %i\n", cell->var_number, value));
+    if (cell->value != UNKNOWN) {
+        // unexpected_error("Setting known cell");
+        return cell->value == value;
+    }
     if (!set_cell_and_push(cell, value, is_explicit)) {
         return false;
     }

@@ -76,6 +76,13 @@ export function cell(state: State, variable?: Variable, searchable?: boolean, no
 }
 
 
+export class Config {
+
+    rule: string = 'B3/S23';
+
+}
+
+
 export class Grid {
 
     width: number;
@@ -87,7 +94,7 @@ export class Grid {
 
     hasCustomBackground: boolean = false;
 
-    afterRuleText: string | undefined = undefined;
+    afterRuleText: string = '';
     topPadding: number = 0;
     bottomPadding: number = 0;
     leftPadding: number = 0;
@@ -691,14 +698,28 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
     },
 
     'g|'(grid: Grid): void {
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g| symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.x - 1, pos.y));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, grid.width - pos.x - 1, pos.y));
         }
     },
 
     'g-'(grid: Grid): void {
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g- symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), pos.x, grid.height - pos.y - 1));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, pos.x, grid.height - pos.y - 1));
         }
     },
 
@@ -706,8 +727,15 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         if (grid.width !== grid.height) {
             error(`Cannot apply g\\ symmetry to non-square grid`);
         }
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g\\ symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), pos.y, pos.x));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, pos.y, pos.x));
         }
     },
 
@@ -715,8 +743,15 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         if (grid.width !== grid.height) {
             error(`Cannot apply g/ symmetry to non-square grid`);
         }
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g/ symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.y - 1, grid.height - pos.x - 1));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, grid.width - pos.y - 1, grid.height - pos.x - 1));
         }
     },
 
@@ -724,8 +759,15 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         if (grid.width !== grid.height) {
             error(`Cannot apply g90l symmetry to non-square grid`);
         }
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply 90l symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 4) % grid.gens), grid.height - pos.y - 1, pos.x));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, grid.height - pos.y - 1, pos.x));
         }
     },
 
@@ -735,14 +777,28 @@ export const SYMMETRIES: {[key: string]: string | ((grid: Grid) => void)} = {
         if (grid.width !== grid.height) {
             error(`Cannot apply g90r symmetry to non-square grid`);
         }
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g90r symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 4) % grid.gens), pos.y, grid.width - pos.x - 1));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, pos.y, grid.width - pos.x - 1));
         }
     },
 
     'g180'(grid: Grid): void {
+        if (grid.gens % 2 !== 1) {
+            error(`Cannot apply g180 symmetry to grid with odd period`);
+        }
         for (let pos of grid.coords()) {
-            grid.bindCells(pos, coord(Math.floor((pos.t + grid.gens / 2) % grid.gens), grid.width - pos.x - 1, grid.height - pos.y - 1));
+            if (pos.t === grid.gens - 1) {
+                continue;
+            }
+            let newT = Math.round((pos.t + (grid.gens - 1) / 2) % (grid.gens - 1));
+            grid.bindCells(pos, coord(newT, grid.width - pos.x - 1, grid.height - pos.y - 1));
         }
     },
 

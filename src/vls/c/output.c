@@ -247,8 +247,8 @@ static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
 }
 
 static Hash hash_full(DynamicGrid* grid) {
-    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_symmetry(grid)][state.rule_symmetry];
-    Transformations transforms = sts_to_transforms(symmetry);
+    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_static_symmetry(grid)][state.rule_symmetry];
+    Transformations transforms = static_symmetry_to_transforms(symmetry);
     hash_debug_printf("\n\nFull hashing grid:\n");
     hash_debug_print_grid(grid, 0);
     hash_debug_printf(INDENT "\nHashing (no transformation):\n");
@@ -347,7 +347,7 @@ static void print_progress(FILE* stream);
     }
 #endif
 
-double cycles_per_second;
+static double cycles_per_second;
 
 static void calibrate_time(void) {
     struct timespec request;
@@ -365,7 +365,7 @@ static double get_time(void) {
     return (double)(read_counter()) / cycles_per_second;
 }
 
-double start_time;
+static double start_time;
 
 
 static void destroy_all(void);
@@ -539,12 +539,13 @@ static void check_solution([[maybe_unused]] bool preprocessing) {
 #define CHECK_TIME_EVERY_THIS_MANY_BRANCHES 1024
 
 
-double last_progress_shown;
+static double last_progress_shown;
 
-size_t progress_pos = 0;
-CellValue* progress;
+static size_t progress_pos = 0;
+static CellValue* progress;
 
 static void init_progress(void) {
+    // add 2 because off-by-1 errors
     progress = safe_malloc((config.search_order_len + 2) * sizeof(CellValue));
 }
 
@@ -560,10 +561,10 @@ static void print_progress(FILE* stream) {
 }
 
 
-double last_printed_max_partial_time;
-DynamicGrid max_partial = EMPTY_DYNAMIC_GRID;
-uintmax_t max_partial_score = 0;
-uintmax_t last_printed_max_partial_score = 0;
+static double last_printed_max_partial_time;
+static DynamicGrid max_partial = EMPTY_DYNAMIC_GRID;
+static uintmax_t max_partial_score = 0;
+static uintmax_t last_printed_max_partial_score = 0;
 
 static void max_partials_end(void) {
     if (state.solutions_found == 0 && config.max_partials) {

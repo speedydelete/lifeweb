@@ -330,6 +330,6 @@ static Transformations dg_get_identity_transforms(DynamicGrid* grid) {
     return out;
 }
 
-static StaticSymmetry dg_get_symmetry(DynamicGrid* grid) {
-    return transforms_to_sts(dg_get_identity_transforms(grid));
+static StaticSymmetry dg_get_static_symmetry(DynamicGrid* grid) {
+    return transforms_to_static_symmetry(dg_get_identity_transforms(grid));
 }

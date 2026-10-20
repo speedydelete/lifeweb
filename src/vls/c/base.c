@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include <errno.h>
 #include <limits.h>
 #include <inttypes.h>
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -59,25 +59,38 @@
     #define fprint_line_padding(stream)
 #endif
 
-[[noreturn]] [[gnu::format(printf, 1, 2)]] static void error(const char* format, ...) {
-    real_fprintf(stderr, "\nError: ");
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    real_fprintf(stderr, "\n");
-    exit(EXIT_FAILURE);
-}
+// [[noreturn]] [[gnu::format(printf, 1, 2)]] static void error(const char* format, ...) {
+//     real_fprintf(stderr, "\nError: ");
+//     va_list args;
+//     va_start(args, format);
+//     vfprintf(stderr, format, args);
+//     va_end(args);
+//     real_fprintf(stderr, "\n");
+//     exit(EXIT_FAILURE);
+// }
 
-[[noreturn]] [[gnu::format(printf, 1, 2)]] static void unexpected_error(const char* format, ...) {
-    real_fprintf(stderr, "\nUnexpected error: ");
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    real_fprintf(stderr, "\n");
-    exit(EXIT_FAILURE);
-}
+// [[noreturn]] [[gnu::format(printf, 1, 2)]] static void unexpected_error(const char* format, ...) {
+//     real_fprintf(stderr, "\nUnexpected error: ");
+//     va_list args;
+//     va_start(args, format);
+//     vfprintf(stderr, format, args);
+//     va_end(args);
+//     real_fprintf(stderr, "\n");
+//     exit(EXIT_FAILURE);
+// }
+
+#define error(format, ...) \
+    do { \
+        real_fprintf(stderr, "Error: "format"\n    at %s:%i\n" __VA_OPT__(,) __VA_ARGS__, __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } while (0)
+
+#define unexpected_error(format, ...) \
+    do { \
+        real_fprintf(stderr, "Unexpected error: "format"\n    at %s:%i\n" __VA_OPT__(,) __VA_ARGS__, __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } while (0)
+
 
 
 // better allocation functions
@@ -85,7 +98,7 @@
 static void* safe_malloc(size_t size) {
     void* out = malloc(size);
     if (out == NULL) {
-        perror("Error: This error should not occur, please report it: Error in malloc");
+        error("In malloc(): %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
     return out;
@@ -94,7 +107,7 @@ static void* safe_malloc(size_t size) {
 static void* safe_realloc(void* ptr, size_t size) {
     void* out = realloc(ptr, size);
     if (out == NULL) {
-        perror("Error: This error should not occur, please report it: Error in realloc");
+        error("In realloc(): %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
     return out;
@@ -124,16 +137,6 @@ typedef enum StaticSymmetry {
     D8,
 } StaticSymmetry;
 
-typedef struct Transformations {
-    bool flip_horizontal: 1;
-    bool flip_vertical: 1;
-    bool rotate_left: 1;
-    bool rotate_right: 1;
-    bool rotate_180: 1;
-    bool flip_diagonal: 1;
-    bool flip_anti_diagonal: 1;
-} Transformations;
-
 // the type of cell values
 typedef uint8_t CellValue;
 #define UNKNOWN 0
@@ -162,25 +165,25 @@ typedef struct Clause {
 
 typedef struct CellUseData {
     // CAN BE A NULL POINTER
-    Clause * restrict c;
+    Clause* c;
     // CAN BE A NULL POINTER
-    Clause * restrict prev;
+    Clause* prev;
     // CAN BE A NULL POINTER
-    Clause * restrict nw;
+    Clause* nw;
     // CAN BE A NULL POINTER
-    Clause * restrict n;
+    Clause* n;
     // CAN BE A NULL POINTER
-    Clause * restrict ne;
+    Clause* ne;
     // CAN BE A NULL POINTER
-    Clause * restrict w;
+    Clause* w;
     // CAN BE A NULL POINTER
-    Clause * restrict e;
+    Clause* e;
     // CAN BE A NULL POINTER
-    Clause * restrict sw;
+    Clause* sw;
     // CAN BE A NULL POINTER
-    Clause * restrict s;
+    Clause* s;
     // CAN BE A NULL POINTER
-    Clause * restrict se;
+    Clause* se;
 } CellUseData;
 
 struct Cell {
@@ -311,9 +314,6 @@ typedef struct Config {
     // the interval used for reporting progress
     double reporting_interval;
 
-    // text to put after the rule, such as :T64,64
-    char* after_rule_text;
-
     // top padding for the grid
     size_t top_padding;
     // bottom padding for the grid
@@ -354,7 +354,7 @@ typedef struct Config {
 } Config;
 
 static Config config = {
-    .rule = NULL,
+    .rule = "B3/S23",
     .search_order_len = 0,
     .search_order = NULL,
     .initial_value = OFF,
@@ -366,7 +366,6 @@ static Config config = {
     .benchmarking = false,
     .benchmarking_iterations = 0,
     .reporting_interval = 1.0,
-    .after_rule_text = NULL,
     .top_padding = 0,
     .bottom_padding = 0,
     .left_padding = 0,
@@ -391,9 +390,6 @@ static void destroy_config(void) {
     }
     if (config.search_order != NULL) {
         safe_free(config.search_order);
-    }
-    if (config.after_rule_text != NULL) {
-        safe_free(config.after_rule_text);
     }
     if (config.cell_period_filter != NULL) {
         safe_free(config.cell_period_filter);
@@ -536,11 +532,9 @@ typedef struct Stack {
         StackEntry small_data[STACK_INLINE_SIZE];
         BigStackData big_data;
     };
+    size_t len;
     bool is_big;
     bool is_at_top_of_frame;
-    // please work
-    size_t len : (sizeof(size_t) * CHAR_BIT - 2);
-    // size_t len;
 } Stack;
 
 Stack current_stack;
@@ -665,7 +659,7 @@ static void pop_stack_frame(Stack* stack) {
         }
     }
     debug(4, printf("Pop complete\n"));
-    debug(4, print_grid(stdout));
+    debug(5, print_grid(stdout));
 }
 
 
@@ -673,10 +667,6 @@ static void pop_stack_frame(Stack* stack) {
 // returns true if no contradiction, false if contradiction
 // also pushes an entry to the stack
 static bool set_cell_and_push(Cell* cell, CellValue value, bool is_explicit) {
-    if (cell->value != UNKNOWN) {
-        // unexpected_error("Setting known cell");
-        return cell->value == value;
-    }
     debug(4, printf("Setting cell and pushing: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value));
     debug(5, print_grid(stdout));
     if (!set_cell(cell, value)) {
@@ -717,23 +707,33 @@ static const StaticSymmetry STATIC_SYMMETRY_MEET[10][10] = {
     [D8 ] = {C1 , C2 , C4 , D2h, D2v, D2b, D2s, D4p, D4x, D8 },
 };
 
-static bool sts_contains(StaticSymmetry container, StaticSymmetry value) {
+static bool static_symmetry_contains(StaticSymmetry container, StaticSymmetry value) {
     return STATIC_SYMMETRY_JOIN[container][value] == container;
 }
 
-static Transformations sts_to_transforms(StaticSymmetry symmetry) {
+typedef struct Transformations {
+    bool flip_horizontal: 1;
+    bool flip_vertical: 1;
+    bool rotate_left: 1;
+    bool rotate_right: 1;
+    bool rotate_180: 1;
+    bool flip_diagonal: 1;
+    bool flip_anti_diagonal: 1;
+} Transformations;
+
+static Transformations static_symmetry_to_transforms(StaticSymmetry symmetry) {
     Transformations out;
-    out.flip_horizontal = sts_contains(symmetry, D2h);
-    out.flip_vertical = sts_contains(symmetry, D2v);
-    out.rotate_left = sts_contains(symmetry, C4);
-    out.rotate_right = sts_contains(symmetry, C4);
-    out.rotate_180 = sts_contains(symmetry, C2);
-    out.flip_diagonal = sts_contains(symmetry, D2b);
-    out.flip_anti_diagonal = sts_contains(symmetry, D2s);
+    out.flip_horizontal = static_symmetry_contains(symmetry, D2h);
+    out.flip_vertical = static_symmetry_contains(symmetry, D2v);
+    out.rotate_left = static_symmetry_contains(symmetry, C4);
+    out.rotate_right = static_symmetry_contains(symmetry, C4);
+    out.rotate_180 = static_symmetry_contains(symmetry, C2);
+    out.flip_diagonal = static_symmetry_contains(symmetry, D2b);
+    out.flip_anti_diagonal = static_symmetry_contains(symmetry, D2s);
     return out;
 }
 
-static StaticSymmetry transforms_to_sts(Transformations t) {
+static StaticSymmetry transforms_to_static_symmetry(Transformations t) {
     bool iC2 = t.rotate_180;
     bool iC4 = t.rotate_left || t.rotate_right;
     bool iD2h = t.flip_horizontal;
@@ -825,7 +825,7 @@ static Transformations get_rule_identity_transforms(void) {
 }
 
 static StaticSymmetry get_rule_symmetry(void) {
-    return transforms_to_sts(get_rule_identity_transforms());
+    return transforms_to_static_symmetry(get_rule_identity_transforms());
 }
 
 

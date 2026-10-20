@@ -180,8 +180,13 @@ static void init_state(InitFromState* from) {
         } \
     } while (0)
 
-long search_file_error_pos;
-#define search_file_error(format, ...) (search_file_error_pos = ftell(file), fclose(file), error("Invalid pattern file (near position %li): "format, search_file_error_pos, ##__VA_ARGS__))
+static long search_file_error_pos;
+#define search_file_error(format, ...) \
+    do { \
+        search_file_error_pos = ftell(file); \
+        fclose(file); \
+        error("Invalid pattern file (near position %li): "format, search_file_error_pos __VA_OPT__(,) __VA_ARGS__); \
+    } while (0);
 
 [[gnu::format(scanf, 2, 3)]] static bool check_line(FILE* file, const char* format, ...) {
     // run vfscanf
@@ -415,7 +420,7 @@ static inline void init_state_and_config_from_file([[maybe_unused]] char* path) 
         FILE* file = fopen(path, "r");
     #endif
     if (file == NULL) {
-        perror("Error: Cannot read search file");
+        error("Cannot read search file: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
     InitFromState data = {

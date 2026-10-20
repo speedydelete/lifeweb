@@ -603,15 +603,16 @@ if (mode === 'periodic') {
 }
 
 
+if (options['after-rule-text'] !== undefined) {
+    grid.afterRuleText += options['after-rule-text'];
+}
+
 if (options['symmetry'] !== undefined) {
     for (let symmetry of options['symmetry'].split(' ')) {
         grid.applySymmetry(symmetry);
     }
 }
 
-if (options['after-rule-text'] !== undefined) {
-    grid.afterRuleText = options['after-rule-text'];
-}
 if (options['top-padding'] !== undefined) {
     grid.topPadding = options['top-padding'];
 }
@@ -630,7 +631,6 @@ if (options['start-padding'] !== undefined) {
 if (options['end-padding'] !== undefined) {
     grid.endPadding = options['end-padding'];
 }
-
 
 if (!grid.hasCustomBackground) {
     grid.hasCustomBackground = true;
@@ -834,7 +834,7 @@ grid:
 
 ${gridStr}
 
-rule = ${base.rule.str}${grid.afterRuleText ?? ''}
+rule = ${base.rule.str}${grid.afterRuleText}
 
 transitions:
 ${base.trs.join(' ')}
