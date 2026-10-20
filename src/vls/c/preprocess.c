@@ -466,12 +466,22 @@ static bool preprocess(void) {
         pre_changes_made = false;
         inc_debug_depth();
         pre_normalize_cells();
+        pre_normalize_clauses();
         pre_check_cell_implications();
+        pre_normalize_cells();
+        pre_normalize_clauses();
         pre_alias_duplicate_cells();
+        pre_normalize_cells();
         pre_normalize_clauses();
         pre_remove_known_clauses();
+        pre_normalize_cells();
+        pre_normalize_clauses();
         pre_check_unsat_clauses();
+        pre_normalize_cells();
+        pre_normalize_clauses();
         pre_merge_duplicate_or_similar_clauses();
+        pre_normalize_cells();
+        pre_normalize_clauses();
         dec_debug_depth();
         if (!pre_changes_made) {
             found = true;
