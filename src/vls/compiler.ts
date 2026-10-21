@@ -471,6 +471,10 @@ export class Grid {
                 }
             }
         } else {
+            if (x.searchable !== y.searchable) {
+                x.searchable = false;
+                y.searchable = false;
+            }
             if (x.variable !== undefined) {
                 if (y.variable !== undefined) {
                     this.reassignVar(x.variable, y.variable);

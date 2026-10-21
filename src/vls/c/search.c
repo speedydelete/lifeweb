@@ -193,7 +193,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
     if (depth > config.search_order_len + 2) {
         unexpected_error("The dwarves delved too greedily and too deep");
     }
-    if (state.set_unknown_vars >= state.start_unknown_vars) {
+    if (cell == NULL || state.set_unknown_vars >= state.start_unknown_vars) {
         check_solution(false);
         dec_debug_depth();
         return 0;
