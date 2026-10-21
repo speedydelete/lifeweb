@@ -183,7 +183,7 @@ static bool set_cell(Cell* cell, CellValue value) {
     cell->value = value;
     #define update(clause, value) \
         if ((clause) != NULL) { \
-            (clause)->implication_tr += UINT32_C(value); \
+            (clause)->implication_pointer += value##L; \
         }
     if (value == OFF) {
         for (size_t i = 0; i < cell->use_count; i++) {
@@ -222,7 +222,7 @@ static void unset_cell(Cell* cell) {
     debug(4, printf("Unsetting cell: variable = %zu: prev_value = %i\n", cell->var_number, cell->value));
     #define update(clause, value) \
         if ((clause) != NULL) { \
-            (clause)->implication_tr += INT32_C(value); \
+            (clause)->implication_pointer += value##L; \
         }
     if (cell->value == OFF) {
         for (size_t i = 0; i < cell->use_count; i++) {
@@ -258,7 +258,7 @@ static void unset_cell(Cell* cell) {
 }
 
 static void init_clause_implication_tr(Clause* clause) {
-    clause->implication_tr = 0
+    clause->implication_pointer = implication_table + (0
         + (clause->next->value * 1)
         + (clause->se->value * 3)
         + (clause->e->value * 9)
@@ -269,8 +269,8 @@ static void init_clause_implication_tr(Clause* clause) {
         + (clause->sw->value * 2187)
         + (clause->w->value * 6561)
         + (clause->nw->value * 19683)
-    ;
-    debug(4, printf("Transition for clause %zu: %"PRIu32"\n", clause->number, clause->implication_tr));
+    );
+    debug(4, printf("Transition for clause %zu: %ti\n", clause->number, clause->implication_pointer - implication_table));
 }
 
 
@@ -281,8 +281,8 @@ static inline bool check_clause_implications(Clause* clause) {
     if (clause == NULL) {
         return true;
     }
-    uint64_t code = implication_table[clause->implication_tr];
-    debug(4, printf("Implication for clause %zu: transition = %"PRIu32", code = %"PRIu64"\n", clause->number, clause->implication_tr, code));
+    uint64_t code = *clause->implication_pointer;
+    debug(4, printf("Implication for clause %zu: transition = %ti, code = %"PRIu64"\n", clause->number, clause->implication_pointer - implication_table, code));
     if (code == 1) {
         debug(3, printf("Contradiction in check_implications\n"));
         debug(4, print_grid(stdout));

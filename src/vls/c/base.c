@@ -160,7 +160,7 @@ typedef struct Clause {
     Cell* nw;
     size_t number;
     bool removed;
-    uint32_t implication_tr;
+    uint64_t* implication_pointer;
 } Clause;
 
 typedef struct CellUseData {
