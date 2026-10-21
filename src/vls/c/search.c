@@ -33,21 +33,22 @@ static Cell* add_search_orders(void) {
         if (cell->value != UNKNOWN || cell->next_in_search_order != NULL) {
             continue;
         }
-        // make sure it's not already in there
-        bool found = false;
-        Cell* prev_cell = initial_cell;
-        while (prev_cell != NULL) {
-            prev_cell = prev_cell->next_in_search_order;
-            if (cell == prev_cell) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            debug(2, printf(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, cell->var_number));
-            prev->next_in_search_order = cell;
-            prev = cell;
-        }
+        // infinite loop????
+        // // make sure it's not already in there
+        // bool found = false;
+        // Cell* prev_cell = initial_cell;
+        // while (prev_cell != NULL) {
+        //     prev_cell = prev_cell->next_in_search_order;
+        //     if (cell == prev_cell) {
+        //         found = true;
+        //         break;
+        //     }
+        // }
+        // if (!found) {
+        debug(2, printf(INDENT "t = %zu, x = %zu, y = %zu, variable = %zu\n", t, x, y, cell->var_number));
+        prev->next_in_search_order = cell;
+        prev = cell;
+        // }
     }
     prev->next_in_search_order = NULL;
     return initial_cell;
