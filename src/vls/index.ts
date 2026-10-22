@@ -479,7 +479,11 @@ if (mode === 'periodic') {
                         variable = newVar;
                     }
                 }
+                // ??? i don't know what the LLS apostrophe means
                 grid.set(t, x, y, state, variable, undefined, noClause);
+                // if (noClause && grid.isInBounds(t + 1, x, y)) {
+                //    grid.get(t + 1, x, y).noClause = true;
+                // }
             }
         }
     }

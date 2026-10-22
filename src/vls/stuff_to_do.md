@@ -12,6 +12,8 @@ Speedups:
 * Add a custom `set_cell_and_propagate` that also does aliasing to `pre_check_cell_implications`
 * Breadth-first search
 * Inprocessing after some depth
+* Frontier search order
+* More initial value options
 
 Features:
 * Input file variable groups
