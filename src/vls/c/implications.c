@@ -5,6 +5,7 @@
 #include <inttypes.h>
 
 #include "base.c"
+#include "params2.h"
 
 
 typedef uint64_t ImplicState[16];
@@ -23,7 +24,7 @@ static ImplicState IMPLICSTATE_PAIR_SAME_MASKS[10][10];
 static ImplicState IMPLICSTATE_PAIR_DIFFERENT_MASKS[10][10];
 
 
-static inline int implicstate_get_bit(ImplicState state, int bit) {
+static inline int implicstate_get_bit(const ImplicState state, int bit) {
     return (state[bit >> 6] >> (bit & 63)) & 1;
 }
 
@@ -35,13 +36,13 @@ static inline void implicstate_set_bit(ImplicState state, int bit, int value) {
     }
 }
 
-static inline void implicstate_and(ImplicState x, ImplicState y) {
+static inline void implicstate_and(ImplicState x, const ImplicState y) {
     for (int i = 0; i < 16; i++) {
         x[i] &= y[i];
     }
 }
 
-[[maybe_unused]] static void print_implicstate(ImplicState state) {
+[[maybe_unused]] static void print_implicstate(const ImplicState state) {
     printf("Implication state:\n");
     int k = 0;
     for (int i = 0; i < 16; i++) {
@@ -55,13 +56,11 @@ static inline void implicstate_and(ImplicState x, ImplicState y) {
 }
 
 static void init_implicstate_masks(void) {
-    for (int i = 0; i < 512; i++) {
-        if (state.trs[i]) {
-            implicstate_set_bit(full_implic_state, i << 1, 0);
-            implicstate_set_bit(full_implic_state, (i << 1) | 1, 1);
+    for (int i = 0; i < 1024; i++) {
+        if (state.rule_func[i] == IFV_UNSAT) {
+            implicstate_set_bit(full_implic_state, i, 0);
         } else {
-            implicstate_set_bit(full_implic_state, i << 1, 1);
-            implicstate_set_bit(full_implic_state, (i << 1) | 1, 0);
+            implicstate_set_bit(full_implic_state, i, 1);
         }
     }
     debug(4, print_implicstate(full_implic_state));
@@ -93,18 +92,6 @@ static void init_implicstate_masks(void) {
 // this only uses up instructions starting with 01 or 10
 // so instruction 000000 is do nothing and stop (there are no further instructions)
 // and instruction 000001 means there is a contradiction
-// position order:
-//     0: next
-//     1: se
-//     2: e
-//     3: ne
-//     4: s
-//     5: c
-//     6: n
-//     7: sw
-//     8: w
-//     9: nw
-// this matches the order inside the `Clause` type!
 
 // array of 59049 uint64_t's containing implication bytecode
 uint64_t* implication_table;
@@ -181,95 +168,59 @@ static void destroy_implications(void) {
 static bool set_cell(Cell* cell, CellValue value) {
     debug(4, printf("Setting cell: variable = %zu, value = %i, prev_value = %i\n", cell->var_number, value, cell->value));
     cell->value = value;
-    #define update(clause, value) \
-        if ((clause) != NULL) { \
-            (clause)->implication_pointer += value##L; \
-        }
     if (value == OFF) {
         for (size_t i = 0; i < cell->use_count; i++) {
-            CellUseData* data = &(cell->uses[i]);
-            update(data->prev, 1);
-            update(data->nw, 3);
-            update(data->w, 9);
-            update(data->sw, 27);
-            update(data->n, 81);
-            update(data->c, 243);
-            update(data->s, 729);
-            update(data->ne, 2187);
-            update(data->e, 6561);
-            update(data->se, 19683);
+            Clause** data = cell->uses[i];
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                if (data[i] != NULL) {
+                    data[i]->implication_pointer += POWERS_OF_3[i];
+                }
+            }
         }
     } else {
         for (size_t i = 0; i < cell->use_count; i++) {
-            CellUseData* data = &(cell->uses[i]);
-            update(data->prev, 2);
-            update(data->nw, 6);
-            update(data->w, 18);
-            update(data->sw, 54);
-            update(data->n, 162);
-            update(data->c, 486);
-            update(data->s, 1458);
-            update(data->ne, 4374);
-            update(data->e, 13122);
-            update(data->se, 39366);
+            Clause** data = cell->uses[i];
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                if (data[i] != NULL) {
+                    data[i]->implication_pointer += POWERS_OF_3[i] * 2;
+                }
+            }
         }
     }
-    #undef update
     return true;
 }
 
 static void unset_cell(Cell* cell) {
     debug(4, printf("Unsetting cell: variable = %zu: prev_value = %i\n", cell->var_number, cell->value));
-    #define update(clause, value) \
-        if ((clause) != NULL) { \
-            (clause)->implication_pointer += value##L; \
-        }
     if (cell->value == OFF) {
         for (size_t i = 0; i < cell->use_count; i++) {
-            CellUseData* data = &(cell->uses[i]);
-            update(data->prev, -1);
-            update(data->nw, -3);
-            update(data->w, -9);
-            update(data->sw, -27);
-            update(data->n, -81);
-            update(data->c, -243);
-            update(data->s, -729);
-            update(data->ne, -2187);
-            update(data->e, -6561);
-            update(data->se, -19683);
+            Clause** data = cell->uses[i];
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                if (data[i] != NULL) {
+                    data[i]->implication_pointer -= POWERS_OF_3[i];
+                }
+            }
         }
     } else {
         for (size_t i = 0; i < cell->use_count; i++) {
-            CellUseData* data = &(cell->uses[i]);
-            update(data->prev, -2);
-            update(data->nw, -6);
-            update(data->w, -18);
-            update(data->sw, -54);
-            update(data->n, -162);
-            update(data->c, -486);
-            update(data->s, -1458);
-            update(data->ne, -4374);
-            update(data->e, -13122);
-            update(data->se, -39366);
+            Clause** data = cell->uses[i];
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                if (data[i] != NULL) {
+                    data[i]->implication_pointer -= POWERS_OF_3[i] * 2;
+                }
+            }
         }
     }
-    #undef update
     cell->value = UNKNOWN;
 }
 
 static void init_clause_implication_tr(Clause* clause) {
-    clause->implication_pointer = implication_table + (0
-        + (clause->next->value * 1)
-        + (clause->se->value * 3)
-        + (clause->e->value * 9)
-        + (clause->ne->value * 27)
-        + (clause->s->value * 81)
-        + (clause->c->value * 243)
-        + (clause->n->value * 729)
-        + (clause->sw->value * 2187)
-        + (clause->w->value * 6561)
-        + (clause->nw->value * 19683)
-    );
+    clause->implication_pointer = implication_table;
+    for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+        if (clause->cells[i] != NULL) {
+            clause->implication_pointer += clause->cells[i]->value * POWERS_OF_3[i];
+        }
+    }
     debug(4, printf("Transition for clause %zu: %ti\n", clause->number, clause->implication_pointer - implication_table));
 }
 
@@ -291,9 +242,8 @@ static inline bool check_clause_implications(Clause* clause) {
     while (code != 0) {
         int instruction = ((int)code) & 63;
         int cell_pos = instruction & 15;
+        Cell* cell = clause->cells[instruction & 15];
         CellValue value = instruction >> 4;
-        // i think this is undefined behavior, but it should work in most cases
-        Cell* cell = *(Cell**)(((char*)clause) + offsetof(Clause, next) + cell_pos * (offsetof(Clause, se) - offsetof(Clause, next)));
         if (!set_cell_and_propagate(cell, value, false)) {
             return false;
         }
@@ -306,21 +256,12 @@ static inline bool check_cell_implications(Cell* cell) {
     debug(4, printf("Checking implications for variable %zu\n", cell->var_number));
     inc_debug_depth();
     for (size_t i = 0; i < cell->use_count; i++) {
-        CellUseData* data = &(cell->uses[i]);
-        if (!(true
-            && check_clause_implications(data->c)
-            && check_clause_implications(data->prev)
-            && check_clause_implications(data->nw)
-            && check_clause_implications(data->w)
-            && check_clause_implications(data->sw)
-            && check_clause_implications(data->n)
-            && check_clause_implications(data->s)
-            && check_clause_implications(data->ne)
-            && check_clause_implications(data->e)
-            && check_clause_implications(data->se)
-        )) {
-            dec_debug_depth();
-            return false;
+        Clause** data = cell->uses[i];
+        for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+            if (!check_clause_implications(data[i])) {
+                dec_debug_depth();
+                return false;
+            }
         }
     }
     dec_debug_depth();

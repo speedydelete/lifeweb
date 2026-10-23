@@ -53,7 +53,7 @@ static void dg_init(DynamicGrid* grid, size_t width, size_t height, size_t gens)
     grid->data = safe_malloc(width * height * gens * sizeof(DynamicCell));
 }
 
-static inline CellValue dg_get(DynamicGrid* grid, size_t t, size_t x, size_t y) {
+static inline CellValue dg_get(const DynamicGrid* grid, size_t t, size_t x, size_t y) {
     return dg_index(grid, t, x, y);
 }
 
@@ -76,7 +76,7 @@ static void dg_init_from_search_grid(DynamicGrid* out) {
 }
 
 
-static bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
+static bool dg_eq(const DynamicGrid* x, const DynamicGrid* y) {
     if (x->width != y->width || x->height != y->height || x->gens != y->gens) {
         return false;
     }
@@ -103,7 +103,7 @@ static bool dg_eq(DynamicGrid* x, DynamicGrid* y) {
 //     }
 // }
 
-static void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_horizontal(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -114,7 +114,7 @@ static void dg_flip_horizontal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_vertical(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -125,7 +125,7 @@ static void dg_flip_vertical(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_left(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -137,7 +137,7 @@ static void dg_rotate_left(DynamicGrid* out, DynamicGrid* grid) {
 }
 
 
-static void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_right(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -148,7 +148,7 @@ static void dg_rotate_right(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_rotate_180(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->width, grid->height, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -159,7 +159,7 @@ static void dg_rotate_180(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_diagonal(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -170,7 +170,7 @@ static void dg_flip_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
+static void dg_flip_anti_diagonal(DynamicGrid* out, const DynamicGrid* grid) {
     dg_init(out, grid->height, grid->width, grid->gens);
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -181,7 +181,7 @@ static void dg_flip_anti_diagonal(DynamicGrid* out, DynamicGrid* grid) {
     }
 }
 
-static void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, size_t t) {
+static void dg_extract_gen(DynamicGrid* out, const DynamicGrid* grid, size_t t) {
     dg_init(out, grid->width, grid->height, 1);
     for (size_t y = 0; y < grid->height; y++) {
         for (size_t x = 0; x < grid->width; x++) {
@@ -190,7 +190,7 @@ static void dg_extract_gen(DynamicGrid* out, DynamicGrid* grid, size_t t) {
     }
 }
 
-static void dg_shrink(DynamicGrid* out, DynamicGrid* grid, size_t top, size_t bottom, size_t left, size_t right, size_t start, size_t end) {
+static void dg_shrink(DynamicGrid* out, const DynamicGrid* grid, size_t top, size_t bottom, size_t left, size_t right, size_t start, size_t end) {
     size_t width = grid->width - left - right;
     size_t height = grid->height - top - bottom;
     size_t gens = grid->gens - start - end;
@@ -209,7 +209,7 @@ typedef struct DGShrinkToFitOffsets {
     size_t y;
 } DGShrinkToFitOffsets;
 
-static DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGrid* grid) {
+static DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, const DynamicGrid* grid) {
     size_t shrink_top = 0;
     for (size_t y = 0; y < grid->height; y++) {
         bool found = false;
@@ -295,7 +295,7 @@ static DGShrinkToFitOffsets dg_shrink_to_fit(DynamicGrid* out, DynamicGrid* grid
 }
 
 
-static Transformations dg_get_identity_transforms(DynamicGrid* grid) {
+static Transformations dg_get_identity_transforms(const DynamicGrid* grid) {
     Transformations out;
     DynamicGrid temp = EMPTY_DYNAMIC_GRID;
     dg_flip_horizontal(&temp, grid);
@@ -330,6 +330,6 @@ static Transformations dg_get_identity_transforms(DynamicGrid* grid) {
     return out;
 }
 
-static StaticSymmetry dg_get_static_symmetry(DynamicGrid* grid) {
+static StaticSymmetry dg_get_static_symmetry(const DynamicGrid* grid) {
     return transforms_to_static_symmetry(dg_get_identity_transforms(grid));
 }

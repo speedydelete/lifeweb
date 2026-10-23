@@ -8,6 +8,7 @@
 #include "base.c"
 #include "implications.c"
 #include "output.c"
+#include "params2.h"
 
 
 [[noreturn]] static void pre_contradiction(const char* func) {
@@ -41,18 +42,11 @@ static void pre_set_cell(const char* called_from, Cell* cell, CellValue value) {
         if (clause->removed) {
             continue;
         }
-        #define check(pos) if (clause->pos == cell) { clause->pos = set_to; }
-        check(nw);
-        check(n);
-        check(ne);
-        check(w);
-        check(c);
-        check(e);
-        check(sw);
-        check(s);
-        check(se);
-        check(next);
-        #undef check
+        for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+            if (clause->cells[i] == cell) {
+                clause->cells[i] = set_to;
+            }
+        }
         init_clause_implication_tr(clause);
     }
     for (size_t i = cell->var_number; i <= state.var_count - 1; i++) {
@@ -102,18 +96,11 @@ static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) 
         if (clause->removed) {
             continue;
         }
-        #define check(pos) if (clause->pos == cell || clause->pos == alias_to) { clause->pos = new; }
-        check(nw);
-        check(n);
-        check(ne);
-        check(w);
-        check(c);
-        check(e);
-        check(sw);
-        check(s);
-        check(se);
-        check(next);
-        #undef check
+        for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+            if (clause->cells[i] == cell) {
+                clause->cells[i] = alias_to;
+            }
+        }
         init_clause_implication_tr(clause);
     }
     state.vars[cell->var_number] = new;
@@ -126,7 +113,33 @@ static void pre_alias_cell(const char* called_from, Cell* cell, Cell* alias_to) 
     safe_free(alias_to);
 }
 
-static bool pre_clause_eq(Clause* x, Clause* y) {
+typedef struct PreClause {
+    Cell* next;
+    Cell* se;
+    Cell* e;
+    Cell* ne;
+    Cell* s;
+    Cell* c;
+    Cell* n;
+    Cell* sw;
+    Cell* w;
+    Cell* nw;
+} PreClause;
+
+static void pre_create_pre_clause(PreClause* out, const Clause* clause) {
+    out->next = clause->cells[0];
+    out->se = clause->cells[1];
+    out->e = clause->cells[2];
+    out->ne = clause->cells[3];
+    out->s = clause->cells[4];
+    out->c = clause->cells[5];
+    out->n = clause->cells[6];
+    out->sw = clause->cells[7];
+    out->w = clause->cells[8];
+    out->nw = clause->cells[9];
+}
+
+static bool pre_clause_eq(const PreClause* x, const PreClause* y) {
     return true
         && x->nw == y->nw
         && x->n == y->n
@@ -141,7 +154,7 @@ static bool pre_clause_eq(Clause* x, Clause* y) {
     ;
 }
 
-static bool pre_clause_eq_except_for_next(Clause* x, Clause* y) {
+static bool pre_clause_eq_except_for_next(const PreClause* x, const PreClause* y) {
     return true
         && x->nw == y->nw
         && x->n == y->n
@@ -157,7 +170,7 @@ static bool pre_clause_eq_except_for_next(Clause* x, Clause* y) {
 }
 
 #define pre_create_clause_transformer(name, map_nw, map_n, map_ne, map_w, map_c, map_e, map_sw, map_s, map_se, map_next) \
-    static void pre_clause_##name(Clause* out, Clause* value) { \
+    static void pre_clause_##name(PreClause* out, PreClause* value) { \
         out->map_nw = value->nw; \
         out->map_n = value->n; \
         out->map_ne = value->ne; \
@@ -179,38 +192,20 @@ pre_create_clause_transformer(flip_diagonal, nw, w, sw, n, c, s, ne, e, se, next
 pre_create_clause_transformer(flip_anti_diagonal, se, e, ne, s, c, n, sw, w, nw, next)
 #undef pre_create_clause_transformer
 
-static void pre_internal_remove_clause_in_cell(Clause* clause, Cell* cell) {
-    pre_changes_made = true;
-    for (size_t i = 0; i < cell->use_count; i++) {
-        CellUseData* data = &(cell->uses[i]);
-        #define check(pos) if (data->pos == clause) { data->pos = NULL; }
-        check(nw);
-        check(n);
-        check(ne);
-        check(w);
-        check(c);
-        check(e);
-        check(sw);
-        check(s);
-        check(se);
-        check(prev);
-        #undef check
-    }
-}
-
 static void pre_remove_clause(Clause* clause) {
     pre_changes_made = true;
     debug(2, printf("Removing clause %zu\n", clause->number));
-    pre_internal_remove_clause_in_cell(clause, clause->nw);
-    pre_internal_remove_clause_in_cell(clause, clause->n);
-    pre_internal_remove_clause_in_cell(clause, clause->ne);
-    pre_internal_remove_clause_in_cell(clause, clause->w);
-    pre_internal_remove_clause_in_cell(clause, clause->c);
-    pre_internal_remove_clause_in_cell(clause, clause->e);
-    pre_internal_remove_clause_in_cell(clause, clause->sw);
-    pre_internal_remove_clause_in_cell(clause, clause->s);
-    pre_internal_remove_clause_in_cell(clause, clause->se);
-    pre_internal_remove_clause_in_cell(clause, clause->next);
+    for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+        Cell* cell = clause->cells[i];
+        for (size_t i = 0; i < cell->use_count; i++) {
+            CellUseData* data = &(cell->uses[i]);
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                if (clause->cells[i] == cell) {
+                    clause->cells[i] = NULL;
+                }
+            }
+        }
+    }
     clause->removed = true;
 }
 
@@ -227,35 +222,32 @@ static void pre_normalize_cells(void) {
         }
         // check if the clause pointers can be moved back in the uses list
         // and move them back, possibly also decrementing the use count if possible
-        #define check(pos) \
-            for (size_t j = 0; j < cell->use_count; j++) { \
-                if (cell->uses[j].pos == NULL) { \
-                    for (size_t k = j + 1; k < cell->use_count; k++) { \
-                        if (cell->uses[k].pos != NULL) { \
-                            pre_changes_made = true; \
-                            cell->uses[j].pos = cell->uses[k].pos; \
-                            cell->uses[k].pos = NULL; \
+        for (int pos = 0; pos < MAX_IMPLIC_FUNC_LENGTH; pos++) {
+            for (size_t j = 0; j < cell->use_count; j++) {
+                if (cell->uses[j][pos] == NULL) {
+                    for (size_t k = j + 1; k < cell->use_count; k++) {
+                        if (cell->uses[k][pos] != NULL) {
+                            pre_changes_made = true;
+                            cell->uses[j][pos] = cell->uses[k][pos];
+                            cell->uses[k][pos] = NULL;
                             break; \
                         } \
                     } \
                 } \
             }
-        check(nw);
-        check(n);
-        check(ne);
-        check(w);
-        check(c);
-        check(e);
-        check(sw);
-        check(s);
-        check(se);
-        check(prev);
-        #undef check
+        }
         // see if we're able to decrement the use count
         size_t dec_by = 0;
         for (intmax_t j = cell->use_count - 1; j >= 0; j--) {
             CellUseData* data = &(cell->uses[j]);
-            if (data->nw == NULL && data->n == NULL && data->ne == NULL && data->w == NULL && data->c == NULL && data->e == NULL && data->sw == NULL && data->s == NULL && data->se == NULL && data->prev == NULL) {
+            bool found = false;
+            for (int pos = 0; pos < MAX_IMPLIC_FUNC_LENGTH; pos++) {
+                if (data[pos] != NULL) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
                 dec_by++;
             } else {
                 break;
@@ -315,45 +307,6 @@ static void pre_check_cell_implications(void) {
     pre_end_step();
 }
 
-static void pre_alias_duplicate_cells(void) {
-    pre_start_step();
-    // if 2 variables have exactly the same arrangement of clauses
-    // then alias them together
-    for (size_t i = 1; i <= state.var_count; i++) {
-        Cell* x = state.vars[i];
-        for (size_t j = 1; j < i; j++) {
-            Cell* y = state.vars[j];
-            if (x->use_count != y->use_count) {
-                continue;
-            }
-            bool found = false;
-            for (size_t k = 0; k < x->use_count; k++) {
-                CellUseData* x_data = &(x->uses[k]);
-                CellUseData* y_data = &(y->uses[k]);
-                if (!(true
-                    && x_data->c == y_data->c
-                    && x_data->prev == y_data->prev
-                    && x_data->nw == y_data->nw
-                    && x_data->n == y_data->n
-                    && x_data->ne == y_data->ne
-                    && x_data->w == y_data->w
-                    && x_data->e == y_data->e
-                    && x_data->sw == y_data->sw
-                    && x_data->s == y_data->s
-                    && x_data->se == y_data->se
-                )) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                pre_alias_cell(__func__, x, y);
-            }
-        }
-    }
-    pre_end_step();
-}
-
 
 static void pre_normalize_clauses(void) {
     pre_start_step();
@@ -371,7 +324,14 @@ static void pre_remove_known_clauses(void) {
         if (clause->removed) {
             continue;
         }
-        if (clause->nw->value != UNKNOWN && clause->n->value != UNKNOWN && clause->ne->value != UNKNOWN && clause->w->value != UNKNOWN && clause->c->value != UNKNOWN && clause->e->value != UNKNOWN && clause->sw->value != UNKNOWN && clause->s->value != UNKNOWN && clause->se->value != UNKNOWN && clause->next->value != UNKNOWN) {
+        bool found = false;
+        for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+            if (clause->cells[i] != NULL && clause->cells[i]->value != UNKNOWN) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             pre_remove_clause(clause);
         }
     }
@@ -384,40 +344,42 @@ static void pre_merge_duplicate_or_similar_clauses(void) {
     // also looks for clauses where they are the same except for the next value
     // which means that the next cells can be aliased together!
     // when this happens the next pass will take care of merging the clauses
-    Transformations valid = static_symmetry_to_transforms(state.rule_symmetry);
+    Transformations valid = get_rule_identity_transforms();
     for (size_t i = 0; i < state.clause_count; i++) {
-        Clause* x = &(state.clauses[i]);
-        if (x->removed) {
+        if (state.clauses[i].removed) {
             continue;
         }
+        PreClause x;
+        pre_create_pre_clause(&x, &(state.clauses[i]));
         for (size_t j = 0; j < i; j++) {
-            Clause* y = &(state.clauses[j]);
-            if (y->removed) {
+            if (state.clauses[j].removed) {
                 continue;
             }
-            Clause y2;
+            PreClause y;
+            pre_create_pre_clause(&y, &(state.clauses[i]));
+            PreClause y2;
             // no transformation
-            pre_clause_copy(&y2, y);
-            if (pre_clause_eq(x, &y2)) {
-                debug(2, printf("Match found: clause %zu is equal to clause %zu with no transformation\n", x->number, y->number));
-                pre_remove_clause(y);
+            pre_clause_copy(&y2, &y);
+            if (pre_clause_eq(&x, &y2)) {
+                debug(2, printf("Match found: clause %zu is equal to clause %zu with no transformation\n", state.clauses[i].number, state.clauses[j].number));
+                pre_remove_clause(&(state.clauses[j]));
                 continue;
-            } else if (pre_clause_eq_except_for_next(x, &y2)) {
-                debug(2, printf("Match found: clause %zu has same next as clause %zu with no transformation\n", x->number, y->number));
-                pre_alias_cell(__func__, x->next, y->next);
+            } else if (pre_clause_eq_except_for_next(&x, &y2)) {
+                debug(2, printf("Match found: clause %zu has same next as clause %zu with no transformation\n", state.clauses[i].number, state.clauses[j].number));
+                pre_alias_cell(__func__, x.next, y.next);
                 continue;
             }
             // macro for the rest of the transformations
             #define check(name) \
                 if (valid.name) { \
-                    pre_clause_##name(&y2, y); \
-                    if (pre_clause_eq(x, &y2)) { \
-                        debug(2, printf("Match found: clause %zu is equal to clause %zu with transformation "#name"\n", x->number, y->number)); \
-                        pre_remove_clause(y); \
+                    pre_clause_##name(&y2, &y); \
+                    if (pre_clause_eq(&x, &y2)) { \
+                        debug(2, printf("Match found: clause %zu is equal to clause %zu with transformation "#name"\n", state.clauses[i].number, state.clauses[j].number)); \
+                        pre_remove_clause(&(state.clauses[j])); \
                         continue; \
-                    } else if (pre_clause_eq_except_for_next(x, &y2)) { \
-                        debug(2, printf("Match found: clause %zu has same next as clause %zu with transformation "#name"\n", x->number, y->number)); \
-                        pre_alias_cell(__func__, x->next, y->next); \
+                    } else if (pre_clause_eq_except_for_next(&x, &y2)) { \
+                        debug(2, printf("Match found: clause %zu has same next as clause %zu with transformation "#name"\n", state.clauses[i].number, state.clauses[j].number)); \
+                        pre_alias_cell(__func__, x.next, y.next); \
                         continue; \
                     } \
                 }
@@ -453,7 +415,6 @@ static bool preprocess(void) {
         pre_check_cell_implications();
         pre_normalize_cells();
         pre_normalize_clauses();
-        pre_alias_duplicate_cells();
         pre_normalize_cells();
         pre_normalize_clauses();
         pre_remove_known_clauses();
@@ -475,8 +436,6 @@ static bool preprocess(void) {
         check_solution(true);
         return true;
     }
-    state.start_unknown_vars = state.var_count;
-    state.set_unknown_vars = 0;
     // move back the stack pointer to save space
     current_stack.len = 0;
     size_t real_clause_count = 0;

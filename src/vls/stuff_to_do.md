@@ -14,6 +14,7 @@ Speedups:
 * Inprocessing after some depth
 * Frontier search order
 * More initial value options
+* Loop unrolling in set_cell and unset_cell and check_cell_implications maybe
 
 Features:
 * Input file variable groups

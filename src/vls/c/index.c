@@ -35,7 +35,7 @@ typedef struct InitFromState {
 } InitFromState;
 
 // initialize the current state
-static void init_state(InitFromState* from) {
+static void init_state(const InitFromState* from) {
     state.width = from->width;
     state.height = from->height;
     state.gens = from->gens;
@@ -65,17 +65,10 @@ static void init_state(InitFromState* from) {
         cell->use_count = var_uses[i];
         // fill the uses with null pointers
         for (size_t j = 0; j < cell->use_count; j++) {
-            CellUseData* data = &(cell->uses[j]);
-            data->c = NULL;
-            data->prev = NULL;
-            data->nw = NULL;
-            data->n = NULL;
-            data->ne = NULL;
-            data->w = NULL;
-            data->e = NULL;
-            data->sw = NULL;
-            data->s = NULL;
-            data->se = NULL;
+            Clause** data = cell->uses[j];
+            for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
+                data[i] = NULL;
+            }
         }
         state.vars[i] = cell;
     }
@@ -125,47 +118,40 @@ static void init_state(InitFromState* from) {
                 Clause* clause = &(state.clauses[i]);
                 clause->number = i;
                 // fill the clause's pointers
-                clause->next = state_get_cell_allow_oob(t + 1, x, y);
-                clause->nw = state_get_cell_allow_oob(t, x - 1, y - 1);
-                clause->n = state_get_cell_allow_oob(t, x, y - 1);
-                clause->ne = state_get_cell_allow_oob(t, x + 1, y - 1);
-                clause->w = state_get_cell_allow_oob(t, x - 1, y);
-                clause->c = state_get_cell_allow_oob(t, x, y);
-                clause->e = state_get_cell_allow_oob(t, x + 1, y);
-                clause->sw = state_get_cell_allow_oob(t, x - 1, y + 1);
-                clause->s = state_get_cell_allow_oob(t, x, y + 1);
-                clause->se = state_get_cell_allow_oob(t, x + 1, y + 1);
+                clause->cells[0] = state_get_cell_allow_oob(t + 1, x, y);
+                clause->cells[1] = state_get_cell_allow_oob(t, x + 1, y + 1);
+                clause->cells[2] = state_get_cell_allow_oob(t, x + 1, y);
+                clause->cells[3] = state_get_cell_allow_oob(t, x + 1, y - 1);
+                clause->cells[4] = state_get_cell_allow_oob(t, x, y + 1);
+                clause->cells[5] = state_get_cell_allow_oob(t, x, y);
+                clause->cells[6] = state_get_cell_allow_oob(t, x, y - 1);
+                clause->cells[7] = state_get_cell_allow_oob(t, x - 1, y + 1);
+                clause->cells[8] = state_get_cell_allow_oob(t, x - 1, y);
+                clause->cells[9] = state_get_cell_allow_oob(t, x - 1, y - 1);
                 init_clause_implication_tr(clause);
-                // fill all the clause pointers inside the cells
-                #define add(cell_to_use, name_to_set) \
-                    do { \
-                        if (cell_to_use->value != UNKNOWN) { \
-                            break; \
-                        } \
-                        Cell* cell = (cell_to_use); \
-                        bool found = false; \
-                        for (size_t j = 0; j < cell->use_count; j++) { \
-                            if (cell->uses[j].name_to_set == NULL) { \
-                                cell->uses[j].name_to_set = clause; \
-                                found = true; \
-                                break; \
-                            } \
-                        } \
-                        if (!found) { \
-                            unexpected_error("Cell use count too small: %zu (for variable %zu)", cell->use_count, cell->var_number); \
-                        } \
-                    } while (false)
-                add(clause->c, c);
-                add(clause->next, prev);
-                add(clause->nw, se);
-                add(clause->n, s);
-                add(clause->ne, sw);
-                add(clause->w, e);
-                add(clause->e, w);
-                add(clause->sw, ne);
-                add(clause->s, n);
-                add(clause->se, nw);
-                #undef add
+                for (int pos = 0; pos < 10; pos++) {
+                    int set_pos;
+                    if (pos == 0) {
+                        set_pos = 0;
+                    } else {
+                        set_pos = 9 - pos;
+                    }
+                    Cell* cell = clause->cells[pos];
+                    if (cell->value != UNKNOWN) {
+                        continue;
+                    }
+                    bool found = false;
+                    for (size_t j = 0; j < cell->use_count; j++) {
+                        if (cell->uses[j][set_pos] == NULL) {
+                            cell->uses[j][set_pos] = clause;
+                            found = true;
+                            break;
+                        }
+                    } \
+                    if (!found) {
+                        unexpected_error("Cell use count too small: %zu (for variable %zu)", cell->use_count, cell->var_number);
+                    }
+                }
                 i++;
             }
         }
@@ -316,21 +302,17 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
             }
             memcpy(&(data->grid[i]), &cell, sizeof(InitFromCell));
         }
-    } else if (check_line(file, "transitions:")) {
-        for (size_t i = 0; i < 512; i++) {
+    } else if (check_line(file, "multi_rule = %i", &v_int)) {
+        state.multi_rule = v_int;
+    } else if (check_line(file, "rule_func:")) {
+        for (size_t i = 0; i < 1024; i++) {
             int value;
             if (fscanf(file, " %i", &value) != 1) {
                 check_ferror(file);
-                search_file_error("Missing transition");
+                search_file_error("Missing rule function value");
             }
-            state.trs[i] = value;
+            state.rule_func[i] = value;
         }
-        state.rule_symmetry = get_rule_symmetry();
-    } else if (check_line(file, "rule = %255s", v_str)) {
-        size_t len = strnlen(v_str, 255);
-        config.rule = safe_malloc((len + 1) * sizeof(char));
-        memset(config.rule, '\0', len + 1);
-        strncpy(config.rule, v_str, len);
     } else if (check_line(file, "search_order ( length = %zu ):", &v_size)) {
         config.search_order_len = v_size;
         config.search_order = safe_malloc(config.search_order_len * sizeof(size_t[3]));
@@ -355,11 +337,6 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.periodic_period = v_size;
     } else if (check_line(file, "check_early_exhaustion = %i", &v_int)) {
         config.check_early_exhaustion = v_int;
-    } else if (check_line(file, "benchmarking_iterations = %ju", &v_uintmax)) {
-        config.benchmarking = true;
-        config.benchmarking_iterations = v_uintmax;
-    } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
-        config.reporting_interval = v_double;
     } else if (check_line(file, "top_padding = %zu", &v_size)) {
         config.top_padding = v_size;
     } else if (check_line(file, "bottom_padding = %zu", &v_size)) {
@@ -372,6 +349,13 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
         config.start_padding = v_size;
     } else if (check_line(file, "end_padding = %zu", &v_size)) {
         config.end_padding = v_size;
+    } else if (check_line(file, "rule_format_string = %255s", v_str)) {
+        size_t len = strnlen(v_str, 255);
+        config.rule_format_string = safe_malloc((len + 1) * sizeof(char));
+        memset(config.rule_format_string, '\0', len + 1);
+        strncpy(config.rule_format_string, v_str, len);
+    } else if (check_line(file, "reporting_interval = %lf", &v_double)) {
+        config.reporting_interval = v_double;
     } else if (check_line(file, "show_solutions = %i", &v_int)) {
         config.show_solutions = v_int;
     } else if (check_line(file, "max_solutions = %ju", &v_uintmax)) {
@@ -412,7 +396,7 @@ static inline bool parse_part_of_file(FILE* file, InitFromState* data) {
 #if IN_BROWSER
 char search_file[] = SEARCH_FILE_GOES_HERE;
 #endif
-static inline void init_state_and_config_from_file([[maybe_unused]] char* path) {
+static inline void init_state_and_config_from_file([[maybe_unused]] const char* path) {
     errno = 0;
     #if IN_BROWSER
         FILE* file = fmemopen(search_file, sizeof(search_file) - 1, "r");

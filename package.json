@@ -10,6 +10,9 @@
         "src",
         "lib"
     ],
+    "dependencies": {
+        "@babel/parser": "^8.0.4"
+    },
     "devDependencies": {
         "@types/node": "^26.1.1",
         "typescript": "^7.0.2"
@@ -34,6 +37,7 @@
             "./c/output.c": "src/vls/c/output.c",
             "./c/params.h": "src/vls/c/params.h",
             "./c/preprocess.c": "src/vls/c/preprocess.c",
+            "./c/rules.c": "src/vls/c/rules.c",
             "./c/search.c": "src/vls/c/search.c"
         }
     },
@@ -62,10 +66,8 @@
             "./c/output.c": "src/vls/c/output.c",
             "./c/params.h": "src/vls/c/params.h",
             "./c/preprocess.c": "src/vls/c/preprocess.c",
+            "./c/rules.c": "src/vls/c/rules.c",
             "./c/search.c": "src/vls/c/search.c"
         }
-    },
-    "dependencies": {
-        "@babel/parser": "^8.0.4"
     }
 }

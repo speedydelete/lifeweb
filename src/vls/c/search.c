@@ -193,13 +193,13 @@ static size_t run_depth(size_t depth, Cell* cell) {
     if (depth > config.search_order_len + 2) {
         unexpected_error("The dwarves delved too greedily and too deep");
     }
-    if (cell == NULL || state.set_unknown_vars >= state.start_unknown_vars) {
+    if (state.set_unknown_vars >= state.start_unknown_vars || cell == NULL) {
         check_solution(false);
         dec_debug_depth();
         return 0;
     }
     debug(3, print_grid(stdout));
-    print_info_if_needed(depth);
+    output_checking_function_run_this_on_every_branch(depth);
     if (cell->value != UNKNOWN) {
         debug(3, printf("Cell is known, continuing\n"));
         size_t out = run_depth(depth + 1, cell->next_in_search_order);
@@ -227,7 +227,7 @@ static size_t run_depth(size_t depth, Cell* cell) {
 }
 
 
-static void actual_run_search(void) {
+static void run_search(void) {
     Cell* initial_cell = add_search_orders();
     debug(2, printf("Running search\n"));
     state.branches = 0;
@@ -240,21 +240,4 @@ static void actual_run_search(void) {
     double time = get_time() - start_time;
     printf("Search complete, found %"PRIu64" solution%s in %.6f second%s, %"PRIu64" branch%s\n", plural(state.solutions_found, "s"), plural(time, "s"), plural(state.branches, "es"));
     max_partials_end();
-}
-
-static void run_search(void) {
-    if (!config.benchmarking) {
-        actual_run_search();
-    } else {
-        uintmax_t iterations = config.benchmarking_iterations;
-        double full_start = get_time();
-        for (uintmax_t i = 0; i < iterations; i++) {
-            double start = get_time();
-            actual_run_search();
-            double time = get_time() - start;
-            printf("Iteration %ju/%ju complete in %.6f second%s\n", i + 1, iterations, plural(time, "s"));
-        }
-        double seconds = get_time() - full_start;
-        printf("%ju iterations complete in %.6f second%s, average %.6f second%s/iteration\n", iterations, plural(seconds, "s"), plural(seconds / iterations, "s"));
-    }
 }

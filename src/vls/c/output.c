@@ -13,11 +13,23 @@
 extern int nanosleep(const struct timespec *__requested_time, struct timespec *__remaining);
 
 #include "base.c"
+#include "rules.c"
 #include "dynamic_grid.c"
 
 
-static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
-    printf("x = %zu, y = %zu, rule = %s", grid->width, grid->height, config.rule);
+static void print_grid_pretty(const DynamicGrid* grid, bool is_solution) {
+    char rule[MAX_UNPARSED_RULE_LENGTH];
+    memset(rule, '\0', 256);
+    get_rule(rule, false);
+    if (state.multi_rule) {
+        char maxrule[MAX_UNPARSED_RULE_LENGTH];
+        memset(maxrule, '\0', 256);
+        get_rule(maxrule, true);
+        if (strcmp(rule, maxrule) != 0) {
+            printf("#C %s to %s\n", rule, maxrule);
+        }
+    }
+    printf("x = %zu, y = %zu, rule = %s", grid->width, grid->height, rule);
     // check for alternate printing method
     if (is_solution) {
         bool found = false;
@@ -57,7 +69,6 @@ static void print_grid_pretty(DynamicGrid* grid, bool is_solution) {
                     real_printf(" $\n");
                 }
             }
-            dg_destroy(grid);
             return;
         }
     }
@@ -111,7 +122,7 @@ typedef uint64_t Hash;
             char*: update_hash_string((hash), (char*)(uintptr_t)(value)), \
             const char*: update_hash_string((hash), (const char*)(uintptr_t)(value)) \
         ); \
-    } while (false)
+    } while (0)
 
 static inline Hash update_hash_uint8(Hash hash, uint8_t value) {
     hash ^= value;
@@ -165,13 +176,13 @@ static Hash min_hash(Hash x, Hash y) {
             debug_depth = (depth); \
             print_grid_pretty((grid), false); \
             debug_depth = prev; \
-        } while (false)
+        } while (0)
 #else
     #define hash_debug_printf(...)
     #define hash_debug_print_grid(grid, depth)
 #endif
 
-static Hash hash_at_time(DynamicGrid* grid, size_t t) {
+static Hash hash_at_time(const DynamicGrid* grid, size_t t) {
     Hash out = HASH_OFFSET;
     update_hash(out, grid->width);
     update_hash(out, grid->height);
@@ -183,7 +194,7 @@ static Hash hash_at_time(DynamicGrid* grid, size_t t) {
     return out;
 }
 
-static Hash hash_all_times(DynamicGrid* grid) {
+static Hash hash_all_times(const DynamicGrid* grid) {
     Hash out = HASH_OFFSET;
     for (size_t t = 0; t < grid->gens; t++) {
         for (size_t y = 0; y < grid->height; y++) {
@@ -196,7 +207,7 @@ static Hash hash_all_times(DynamicGrid* grid) {
     return out;
 }
 
-static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset, intmax_t dx, intmax_t dy) {
+static Hash hash_all_times_periodic_with_offset(const DynamicGrid* grid, size_t offset, intmax_t dx, intmax_t dy) {
     Hash out = HASH_OFFSET;
     // determine x_offset_0 and y_offset_0
     DynamicGrid full_t_grid = EMPTY_DYNAMIC_GRID;
@@ -236,7 +247,7 @@ static Hash hash_all_times_periodic_with_offset(DynamicGrid* grid, size_t offset
     return out;
 }
 
-static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
+static Hash hash_all_times_periodic(const DynamicGrid* grid, size_t dx, size_t dy) {
     Hash out = MAX_HASH;
     hash_debug_printf(INDENT "Hashing all times\n");
     for (size_t offset = 0; offset < config.periodic_period; offset++) {
@@ -246,8 +257,10 @@ static Hash hash_all_times_periodic(DynamicGrid* grid, size_t dx, size_t dy) {
     return out;
 }
 
-static Hash hash_full(DynamicGrid* grid) {
-    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[dg_get_static_symmetry(grid)][state.rule_symmetry];
+static Hash hash_full(const DynamicGrid* grid) {
+    StaticSymmetry rule_symmetry = get_rule_static_symmetry();
+    StaticSymmetry grid_symmetry = dg_get_static_symmetry(grid);
+    StaticSymmetry symmetry = STATIC_SYMMETRY_MEET[rule_symmetry][grid_symmetry];
     Transformations transforms = static_symmetry_to_transforms(symmetry);
     hash_debug_printf("\n\nFull hashing grid:\n");
     hash_debug_print_grid(grid, 0);
@@ -574,7 +587,7 @@ static void max_partials_end(void) {
     dg_destroy(&max_partial);
 }
 
-static void print_info_if_needed(size_t depth) {
+static void output_checking_function_run_this_on_every_branch(size_t depth) {
     if (config.max_partials) {
         if (state.solutions_found == 0) {
             uintmax_t score;
