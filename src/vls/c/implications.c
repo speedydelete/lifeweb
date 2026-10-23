@@ -241,7 +241,6 @@ static inline bool check_clause_implications(Clause* clause) {
     }
     while (code != 0) {
         int instruction = ((int)code) & 63;
-        int cell_pos = instruction & 15;
         Cell* cell = clause->cells[instruction & 15];
         CellValue value = instruction >> 4;
         if (!set_cell_and_propagate(cell, value, false)) {
