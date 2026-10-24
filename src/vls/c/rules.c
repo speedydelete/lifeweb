@@ -427,7 +427,7 @@ static int get_rule(char* out, bool use_maxrule) {
 
 
 static Transformations get_rule_identity_transforms(void) {
-    int* func = state.rule_func;
+    uint8_t* func = state.rule_func;
     Transformations out;
     // rotation symmetries
     bool C2 = true;
