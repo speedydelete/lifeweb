@@ -1,6 +1,7 @@
 
 digraph search_programs {
-    
+
+    rankdir = BT
     pad = "0.5"
     node [shape = box, style = rounded]
 
