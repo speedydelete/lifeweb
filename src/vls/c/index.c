@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <unistd.h>
 
 #include "params2.h"
 #include "base.c"
