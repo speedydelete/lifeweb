@@ -146,7 +146,7 @@ typedef uint8_t CellValue;
 #define convert_01_to_12(value) ((value) + 1)
 
 // the type of implication function values
-typedef int ImplicFuncValue;
+typedef uint8_t ImplicFuncValue;
 #define IFV_SAT 0
 #define IFV_UNSAT 1
 #define ifv_is_var(value) ((value) != 0 && (value) != 1)
