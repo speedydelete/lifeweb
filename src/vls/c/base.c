@@ -153,9 +153,9 @@ typedef int ImplicFuncValue;
 typedef ImplicFuncValue ImplicFunc[1024];
 
 static
-// #if __STDC_VERSION__ >= 202311L
-// constexpr
-// #endif
+#if __STDC_VERSION__ >= 202311L
+constexpr
+#endif
 const int32_t POWERS_OF_3[16] = {1L, 3L, 9L, 27L, 81L, 243L, 729L, 2187L, 6561L, 19683L, 59049L, 177147L, 531441L, 1594323L, 4782969L, 14348907L};
 
 typedef struct Cell Cell;
