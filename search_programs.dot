@@ -30,7 +30,7 @@ digraph search_programs {
     "RLS" -> "VLS"
     "RLS" -> "mfind"
 
-    "knight" [label="knight (1996, ?, Tim Coe)", URL="https://arxiv.org/pdf/cs/0004003"]
+    "knight" [label="knight (1996, C, Tim Coe)", URL="https://arxiv.org/pdf/cs/0004003"]
     "knight2" [label="knight2 (2015?, C, Tim Coe)", URL="https://conwaylife.com/forums/viewtopic.php?t=1969"]
     "knightt" [label="knightt (2016, C, Tim Coe)", URL="https://conwaylife.com/forums/viewtopic.php?p=28891#p28891"]
 
