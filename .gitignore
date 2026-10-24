@@ -18,3 +18,7 @@
 
 *.tsbuildinfo
 /src/vls/params2.h
+/src/vls/c/params2.h
+/src/vls/.search.txt
+/src/vls/.vls_compiled
+/src/vls/.build_command

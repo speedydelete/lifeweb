@@ -1,6 +1,8 @@
 
 /* Implements some utilities. */
 
+export const IS_BROWSER = typeof window === 'object' && window !== null && window.Math === Math && typeof window.document === 'object' && typeof window.document.createElement === 'function';
+
 
 /** All errors raised by lifeweb. */
 export class LifewebError extends Error {
