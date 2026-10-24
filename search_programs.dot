@@ -11,6 +11,7 @@ digraph search_programs {
     "LLS" [label="LLS / Logic Life Search (2018, Python + C/C++, Oscar Cunningham)", URL="https://gitlab.com/OscarCunningham/logic-life-search/"]
     "RLS" [label="RLS / Rust Life Search (2019, Rust, AlephAlpha)", URL="https://github.com/AlephAlpha/rlifesrc"]
     "VLS" [label="VLS / Variable Life Search (2026, C + TS, speedydelete)", URL="https://github.com/speedydelete/lifeweb/tree/main/src/vls"]
+    "mfind" [label="mfind (2026, C, Martim do Amaral)", URL="https://conwaylife.com/forums/viewtopic.php?t=7497"]
 
     "LS" -> "lifesrc"
     "lifesrc" -> "WLS"
@@ -26,6 +27,7 @@ digraph search_programs {
     "JLS" -> "VLS"
     "LLS" -> "VLS"
     "RLS" -> "VLS"
+    "RLS" -> "mfind"
 
     "knight" [label="knight (1996, ?, Tim Coe)", URL="https://arxiv.org/pdf/cs/0004003"]
     "knight2" [label="knight2 (2015?, C, Tim Coe)", URL="https://conwaylife.com/forums/viewtopic.php?t=1969"]
