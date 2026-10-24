@@ -39,8 +39,8 @@ digraph search_programs {
 
     "knight" -> "gfind"
 
-    "GOL" [label="GOL (2002?, ?, Keith Amling)", URL="https://conwaylife.com/forums/viewtopic.php?p=145090#p145090"]
-    "LGOL" [label="LGOL (?, Rust, Keith Amling)", URL="https://conwaylife.com/forums/viewtopic.php?p=145091#p145091"]
+    "GOL" [label="GOL (2002?, ?, Keith Amling)", URL="https://codeberg.org/amling/rlife/"]
+    "LGOL" [label="LGOL (?, Rust, Keith Amling)", URL="https://codeberg.org/amling/rlife/"]
     "LSSS" [label="LSSS / Life Slice Ship Search (2018, Rust, Andrew Wade)", URL="https://codeberg.org/ajwade/life_slice_ship_search"]
     "LLSSS" [label="LLSSS / Lattice Life Slice Ship Search (2022, Rust, Keith Amling)", URL="https://codeberg.org/amling/rlife/"]
 
