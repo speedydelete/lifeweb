@@ -7,9 +7,11 @@
 #include <errno.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <sys/types.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include "params2.h"
 #include "base.c"

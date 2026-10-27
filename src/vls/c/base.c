@@ -146,14 +146,14 @@ typedef uint8_t CellValue;
 #define convert_01_to_12(value) ((value) + 1)
 
 // the type of implication function values
-typedef uint8_t ImplicFuncValue;
+typedef int ImplicFuncValue;
 #define IFV_SAT 0
 #define IFV_UNSAT 1
 #define ifv_is_var(value) ((value) != 0 && (value) != 1)
 typedef ImplicFuncValue ImplicFunc[1024];
 
 static
-#if __STDC__ && __STDC_VERSION__ >= 202311L
+#if __STDC_VERSION__ >= 202311L
 constexpr
 #endif
 const int32_t POWERS_OF_3[16] = {1L, 3L, 9L, 27L, 81L, 243L, 729L, 2187L, 6561L, 19683L, 59049L, 177147L, 531441L, 1594323L, 4782969L, 14348907L};

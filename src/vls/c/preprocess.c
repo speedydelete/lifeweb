@@ -198,10 +198,10 @@ static void pre_remove_clause(Clause* clause) {
     for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
         Cell* cell = clause->cells[i];
         for (size_t i = 0; i < cell->use_count; i++) {
-            Clause** data = cell->uses[i];
+            CellUseData* data = &(cell->uses[i]);
             for (int i = 0; i < MAX_IMPLIC_FUNC_LENGTH; i++) {
-                if (data[i] == clause) {
-                    data[i] = NULL;
+                if (clause->cells[i] == cell) {
+                    clause->cells[i] = NULL;
                 }
             }
         }
