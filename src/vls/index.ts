@@ -4,14 +4,12 @@
 import * as t from '@babel/types';
 import {parseExpression} from '@babel/parser';
 
-import {IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
-import {error, IFV_SAT, IFV_UNSAT, IFV_VARIABLE, ImplicFunc, Coord, coord, UNKNOWN, OFF, ON, State, Variable, cell, Grid, runExpression} from './base.js';
-import {runFile} from './compiler.js';
+import {DataPattern, IdentityPattern, MAPPattern, parseSpeed, createPattern, parse} from '../core/index.js';
+import {error, Coord, coord, UNKNOWN, OFF, ON, State, Variable, cell, Grid, runExpression, runFile} from './compiler.js';
 
 
 const HELP = `
 Usage: ./vls <rule> <mode> <options>
-Or, for multi-rule searching: ./vls <minrule> <maxrule> <mode> <options>
 
 Run a search for something in a cellular automaton.
 If you don't know what this means, see https://conwaylife.com/.
@@ -54,15 +52,19 @@ Options:
 
     -d, -debug=<level>: set the debug level
 
-    -gcc: use gcc instead of clang
     -gdb: run gdb
     -no-optimize: disable optimization flags
     -asan, -address-sanitizer: enable address sanitizer (enables -gcc by default)
 
-    -profile=<seconds>: enables profile based optimization, recompiles and
-        reruns after that many seconds
+    -benchmark=<iterations>: run benchmarking
+
+    // -profile=<seconds>: enables profile based optimization, recompiles and
+    //     reruns after that many seconds
 
     -f, -file=<file>: also write output to that file
+
+    -rulespace=<rulespace>: set the rulespace for multi-rule searching,
+        options: int, ot, map, hex-int, hex-ot, hex-map, vn-int, vn-ot, vn-map
 
     -o, -order=<order>: set the search order
 
@@ -77,13 +79,26 @@ Options:
 
         The default search order is f2b for spaceships and 't, y, x' otherwise.
 
-    -i, -initial-value=<0|1>:
+    -i, -initial-value=<value>:
         set the initial tested value for cells, default 1
+
+    -no-ot-optimization: disable optimization for OT rules
+    -no-cache-trs: disable implication transition caching
+    -check-times: keep track of when each cell's implications was last checked,
+        can make it faster can make it slower
+    -gcc: use gcc instead of clang
 
     -s, -symmetry=<symmetry>: apply a symmetry to the pattern, currently
         supported symmetries are D2|, D2-, and D4+, but more are coming soon!
 
-    -maxpop=<cells>: set the maximum population of generation 0during the search
+    -maxpop=<cells>: set the maximum population during the search
+
+    -c, -custom=<file>: use additional search constraints given in the
+        provided C file, see lifeweb/src/vls/custom/ for examples
+
+    -periodic=<'none'|speed>: set the searcher's knowledge of the periodicity
+        of the pattern, this is used for duplicate solution filtering and
+        checking early exhaustion, periodic mode enables this automatically
 
     -check-early-exhaustion=<boolean>: check early exhaustion (a row/column is
         all 0), this is enabled automatically in periodic mode when it is an
@@ -91,6 +106,26 @@ Options:
 
     -interval=<seconds>: set the progress reporting interval, default 1, also
         sets the max partial reporting interval if -partial-interval is not set
+
+    -partials=<'none'|'cell'|'depth'>:
+        type of max partials to report (default 'cell')
+        none: report no max partials
+        cell: report by number of set cells
+        depth: report by search depth
+    -partial-interval=<seconds>:
+        set the minimum max partial reporting interval, default 1
+
+    -after-rule-text=<text>: optional text to show after the rule
+        some symmetries set this, this can be overrided via the setting
+    -top-padding=<number>:
+    -bottom-padding=<number>:
+    -left-padding=<number>:
+    -right-padding=<number>:
+    -start-padding=<number>:
+    -end-padding=<number>:
+        add padding for the grid, the padding is removed before
+        solutions are checked, so it applies for all the solution
+        checking filters and when the solution is shown
 
     -n, -max-solutions=<count>: set the maximum solution count, by default
         it finds all solutions
@@ -102,14 +137,6 @@ Options:
     -cell-period-filter=<periods>:
         filter out cells of those periods when checking for duplicates
         the argument is a comma- or space-separated list of integers
-
-    -partials=<'none'|'cells'|'depth'>:
-        type of max partials to report (default 'cells')
-        none: report no max partials
-        cell: report by number of set cells
-        depth: report by search depth
-    -partial-interval=<seconds>:
-        set the minimum max partial reporting interval, default 1
 `;
 
 type OptionValue =
@@ -129,37 +156,54 @@ function list<T extends string[]>(values: T): {type: 'list', values: T} {
     return {type: 'list', values};
 }
 
+const INITIAL_VALUES = ['0', '1', 'same-0', 'same-1', 'different-0', 'different-1'] as const;
+
 const OPTIONS = {
     'help': FLAG,
     'h': 'help',
     'debug': NUMBER,
     'd': 'debug',
-    'gcc': FLAG,
     'gdb': FLAG,
     'no-optimize': FLAG,
     'address-sanitizer': FLAG,
     'asan': 'address-sanitizer',
-    'profile': NUMBER,
+    'benchmark': NUMBER,
+    // 'profile': NUMBER,
     'file': STRING,
     'f': 'file',
+    'rulespace': list(['int', 'ot', 'map', 'hex-int', 'hex-ot', 'hex-map', 'vn-int', 'vn-ot', 'vn-map'] as const),
     'order': STRING,
     'o': 'order',
-    'initial-value': list(['0', '1'] as const),
+    'initial-value': list(['0', '1', 'same-0', 'same-1', 'different-0', 'different-1'] as const),
     'i': 'initial-value',
+    'no-ot-optimization': FLAG,
+    'no-cache-trs': FLAG,
+    'check-times': FLAG,
+    'gcc': FLAG,
     'symmetry': STRING,
     's': 'symmetry',
     'maxpop': NUMBER,
+    'custom': STRING,
+    'c': 'custom',
     'check-early-exhaustion': BOOLEAN,
     'interval': NUMBER,
+    'partials': list(['none', 'cell', 'depth'] as const),
+    'partial-interval': NUMBER,
+    'after-rule-text': STRING,
+    'top-padding': NUMBER,
+    'bottom-padding': NUMBER,
+    'left-padding': NUMBER,
+    'right-padding': NUMBER,
+    'start-padding': NUMBER,
+    'end-padding': NUMBER,
     'max-solutions': NUMBER,
     'n': 'max-solutions',
     'no-show-solutions': FLAG,
     'allow-empty': FLAG,
     'allow-duplicates': FLAG,
+    'periodic': STRING,
     'allow-subperiod': BOOLEAN,
     'cell-period-filter': STRING,
-    'partials': list(['none', 'cells', 'depth'] as const),
-    'partial-interval': NUMBER,
 } satisfies {[key: string]: OptionValue | string};
 
 type ValueOfOption<T extends OptionValue> =
@@ -179,6 +223,7 @@ type OptionData = {[K in Option]?: ValueOfOption<Options[K]>};
 export interface VLSSearchData {
     posArgs: string[];
     options: OptionData;
+    periodic: {dx: number, dy: number, period: number} | undefined;
     grid: Grid;
     params2File: string;
     searchFile: string;
@@ -272,17 +317,15 @@ if (posArgs.length < 2) {
 
 const MODES = ['periodic', 'parent', 'file', 'lls-file', 'catalyst'];
 
-let minRule = posArgs[0];
-let maxRule = minRule;
+let rule = posArgs[0];
+let base = createPattern(rule) as DataPattern;
+if (!(base instanceof MAPPattern)) {
+    error(`Rule must be a non-B0 INT rule`);
+}
 let mode = posArgs[1];
 posArgs = posArgs.slice(2);
 if (!MODES.includes(mode)) {
-    maxRule = mode;
-    mode = posArgs[0];
-    posArgs = posArgs.slice(1);
-    if (!MODES.includes(mode)) {
-        error(`Invalid mode: ${mode}`);
-    }
+    error(`Invalid mode: ${mode}`);
 }
 
 
@@ -290,6 +333,17 @@ let grid: Grid;
 
 let defaultSearchOrder = 't, y, x';
 let searchOrderAliases: {[key: string]: string} = {};
+
+let periodic: false | {dx: number, dy: number, period: number} | undefined;
+if (options['periodic']) {
+    if (options['periodic'] === 'none') {
+        periodic = false;
+    } else {
+        periodic = parseSpeed(options['periodic']);
+    }
+} else {
+    periodic = undefined;
+}
 
 if (mode === 'periodic') {
 
@@ -326,9 +380,6 @@ if (mode === 'periodic') {
     }
 
     grid = new Grid(width, height, period);
-    grid.minRule = minRule;
-    grid.maxRule = maxRule;
-
     for (let y = Math.max(0, -dy); y < height - Math.max(0, dy); y++) {
         for (let x = Math.max(0, -dx); x < width - Math.max(0, dx); x++) {
             grid.set(0, x, y, UNKNOWN);
@@ -338,23 +389,21 @@ if (mode === 'periodic') {
         grid.fill(t, UNKNOWN);
     }
     grid.applyWrap(dx, dy);
+    grid.endPadding += 1;
 
-    grid.periodic = {dx, dy, period};
-    grid.checkEarlyExhaustion = true;
+    periodic ??= {dx, dy, period};
 
 } else if (mode === 'parent') {
 
     if (posArgs.length !== 1) {
         error(`Expected 1 positional argument for parent mode (got ${posArgs.length})`);
     }
-    let p = IdentityPattern.loadRLE(posArgs[0]).shrinkToFit();
+    let p = base.loadRLE(posArgs[0]).shrinkToFit();
     let width = p.width + 2;
     let height = p.height + 2;
     let xOffset = 1;
     let yOffset = 1;
     grid = new Grid(width, height, 2);
-    grid.minRule = minRule;
-    grid.maxRule = maxRule;
     grid.fill(0, UNKNOWN);
     grid.fill(1, OFF);
     for (let y = 0; y < p.height; y++) {
@@ -368,7 +417,7 @@ if (mode === 'periodic') {
     if (posArgs.length !== 1) {
         error(`Expected 1 positional argument for file mode (got ${posArgs.length})`);
     }
-    grid = await runFile(posArgs[0], minRule, maxRule);
+    grid = await runFile(posArgs[0]);
 
 } else if (mode === 'lls-file') {
 
@@ -403,8 +452,6 @@ if (mode === 'periodic') {
         error(`Heights of all phases must match`);
     }
     grid = new Grid(width, height, data.length);
-    grid.minRule = minRule;
-    grid.maxRule = maxRule;
     let vars: {[key: string]: number} = {};
     for (let t = 0; t < data.length; t++) {
         for (let y = 0; y < height; y++) {
@@ -432,7 +479,11 @@ if (mode === 'periodic') {
                         variable = newVar;
                     }
                 }
+                // ??? i don't know what the LLS apostrophe means
                 grid.set(t, x, y, state, variable, undefined, noClause);
+                // if (noClause && grid.isInBounds(t + 1, x, y)) {
+                //    grid.get(t + 1, x, y).noClause = true;
+                // }
             }
         }
     }
@@ -480,8 +531,6 @@ if (mode === 'periodic') {
     }
 
     grid = new Grid(startP.height, startP.width, gens + 1);
-    grid.minRule = minRule;
-    grid.maxRule = maxRule;
 
     for (let t = 2; t < grid.gens - 1; t++) {
         grid.fill(t, UNKNOWN);
@@ -590,70 +639,39 @@ if (mode === 'periodic') {
 }
 
 
+if (options['after-rule-text'] !== undefined) {
+    grid.afterRuleText += options['after-rule-text'];
+}
+
 if (options['symmetry'] !== undefined) {
     for (let symmetry of options['symmetry'].split(' ')) {
         grid.applySymmetry(symmetry);
     }
-    if (options['check-early-exhaustion']) {
+}
 
-    }
+if (options['top-padding'] !== undefined) {
+    grid.topPadding = options['top-padding'];
+}
+if (options['bottom-padding'] !== undefined) {
+    grid.bottomPadding = options['bottom-padding'];
+}
+if (options['left-padding'] !== undefined) {
+    grid.leftPadding = options['left-padding'];
+}
+if (options['right-padding'] !== undefined) {
+    grid.rightPadding = options['right-padding'];
+}
+if (options['start-padding'] !== undefined) {
+    grid.startPadding = options['start-padding'];
+}
+if (options['end-padding'] !== undefined) {
+    grid.endPadding = options['end-padding'];
 }
 
 if (!grid.hasCustomBackground) {
     grid.hasCustomBackground = true;
     grid.expand({top: 1, bottom: 1, left: 1, right: 1}, cell(OFF), true);
 }
-
-if (options['initial-value'] !== undefined) {
-    let value = options['initial-value'];
-    if (value === '0') {
-        grid.initialValue = OFF;
-    } else if (value === '1') {
-        grid.initialValue = ON;
-    } else {
-        throw new Error(`This error should not occur, please report it (invalid initial value: '${value}')`);
-    }
-}
-
-if (options['check-early-exhaustion'] !== undefined) {
-    grid.checkEarlyExhaustion = options['check-early-exhaustion'];
-}
-
-if (options['interval'] !== undefined) {
-    grid.config.reportingInterval = options['interval'];
-    grid.config.maxPartialReportingInterval = options['interval'];
-}
-
-if (options['no-show-solutions'] !== undefined) {
-    grid.config.showSolutions = !options['no-show-solutions'];
-}
-if (options['max-solutions'] !== undefined) {
-    grid.config.maxSolutions = options['max-solutions'];
-}
-if (options['allow-empty'] !== undefined) {
-    grid.config.filterEmptySolutions = !options['allow-empty'];
-}
-if (options['allow-duplicates'] !== undefined) {
-    grid.config.filterDuplicateSolutions = !options['allow-duplicates'];
-}
-if (options['allow-subperiod'] !== undefined) {
-    grid.config.filterSubperiodSolutions = !options['allow-subperiod'];
-}
-if (options['cell-period-filter'] !== undefined) {
-    let filter = options['cell-period-filter'].split(',').map(Number);
-    if (filter.some(x => Number.isNaN(x))) {
-        error(`Invalid cell period filter (expected comma-separated list of numbers)`)
-    }
-    grid.config.cellPeriodFilter = filter;
-}
-
-if (options['partials'] !== undefined) {
-    grid.config.maxPartials = options['partials'];
-}
-if (options['partial-interval'] !== undefined) {
-    grid.config.maxPartialReportingInterval = options['partial-interval'];
-}
-
 
 grid.normalize();
 
@@ -742,15 +760,16 @@ while (searchOrder in searchOrderAliases) {
 let searchOrderData = getSearchOrder(grid, searchOrder);
 
 
+let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
+
+defines['DEBUG_LEVEL'] = options.debug ?? 0;
+defines['CUSTOM'] = options.custom ? JSON.stringify(options.custom) : undefined;
+
+defines['SLOWER_SANITY_CHECKS'] = true;
+
 const CONSTANT_DEFINES = new Set([
     '_POSIX_C_SOURCE',
 ]);
-
-let defines: {[key: string]: undefined | string | number | boolean} = Object.create(null);
-
-defines['MAX_IMPLIC_FUNC_LENGTH'] = 10;
-
-defines['DEBUG_LEVEL'] = options.debug ?? 0;
 
 let params2Lines: string[] = [];
 let foundDefines = new Set<string>();
@@ -836,25 +855,9 @@ for (let layer of grid.data) {
 }
 gridStr = gridStr.trim();
 
-let minPattern = createPattern(minRule);
-let maxPattern = createPattern(maxRule);
-if (!(minPattern instanceof MAPPattern && maxPattern instanceof MAPPattern)) {
-    error(`Rules must be non-B0 range-1 2-state Moore-neighborhood rules`);   
-}
-let isMultiRule = minPattern.trs.join('') !== maxPattern.trs.join('');
-let trsFunc = new ImplicFunc();
-for (let i = 0; i < 1024; i++) {
-    let minHas = minPattern.trs[i >> 1] == (i & 1);
-    let maxHas = minPattern.trs[i >> 1] == (i & 1);
-    if (!minHas && !maxHas) {
-        trsFunc[i] = IFV_UNSAT;
-    } else if (!minHas && maxHas) {
-        trsFunc[i] = IFV_VARIABLE;
-    } else if (minHas && !maxHas) {
-        error(`Maxrule is not a strict superset of minrule`);
-    } else {
-        trsFunc[i] = IFV_SAT;
-    }
+let checkEarlyExhaustion = options['check-early-exhaustion'];
+if (periodic && !options['symmetry']) {
+    checkEarlyExhaustion ??= true;
 }
 
 let searchFile = `
@@ -867,26 +870,30 @@ grid:
 
 ${gridStr}
 
-multi_rule = ${Number(isMultiRule)}
-rule_func:
-${trsFunc.join(' ')}
+rule = ${base.rule.str}${grid.afterRuleText}
+
+transitions:
+${base.trs.join(' ')}
 
 search_order (length = ${searchOrderData.length}):
 ${searchOrderData.map(c => `${c.t} ${c.x} ${c.y}`).join('\n')}
 
-initial_value = ${grid.initialValue ?? '1'}
+initial_value = ${options['initial-value'] ?? '1'}
+
+${options['initial-value'] !== undefined ? `initial_value = ${INITIAL_VALUES.indexOf(options['initial-value'])}` : ''}
 
 ${(() => {
-    let periodic = grid.periodic;
     if (!periodic) {
         return '';
     }
     return `periodic = (${periodic.dx}, ${periodic.dy})c/${periodic.period}`;
 })()}
 
-check_early_exhaustion = ${Number(Boolean(grid.checkEarlyExhaustion))}
+check_early_exhaustion = ${Number(Boolean(checkEarlyExhaustion))}
 
-reporting_interval = ${grid.config.reportingInterval}
+${options['benchmark'] !== undefined ? `benchmarking_iterations = ${options['benchmark']}` : ''}
+
+reporting_interval = ${options['interval'] ?? 1}
 
 top_padding = ${grid.topPadding}
 bottom_padding = ${grid.bottomPadding}
@@ -895,13 +902,13 @@ right_padding = ${grid.rightPadding}
 start_padding = ${grid.startPadding}
 end_padding = ${grid.endPadding}
 
-show_solutions = ${Number(grid.config.showSolutions)}
-max_solutions = ${grid.config.maxSolutions ?? 0}
-filter_empty_solutions = ${Number(grid.config.filterEmptySolutions)}
-filter_duplicate_solutions = ${Number(grid.config.filterDuplicateSolutions)}
-filter_subperiod_solutions = ${Number(grid.config.filterSubperiodSolutions)}
+show_solutions = ${Number(!options['no-show-solutions'])}
+max_solutions = ${Number(options['max-solutions'] ?? 0)}
+filter_empty_solutions = ${Number(!options['allow-empty'])}
+filter_duplicate_solutions = ${Number(!options['allow-duplicates'])}
+filter_subperiod_solutions = ${Number(!options['allow-subperiod'])}
 
-${grid.config.cellPeriodFilter ? `cell_period_filter (length = ${grid.config.cellPeriodFilter.length}):\n${grid.config.cellPeriodFilter}` : ''}
+${options['cell-period-filter'] ? `cell_period_filter (length = ${options['cell-period-filter'].length}):\n${options['cell-period-filter'].split(/, /).join(' ')}` : ''}
 
 max_partials = ${Number(options['partials'] !== 'none')}
 ${options['partials'] && options['partials'] !== 'none' ? `max_partial_scoring = MAX_PARTIAL_SCORING_${options['partials'].toUpperCase()}` : ''}
@@ -919,6 +926,7 @@ searchFile = searchFile.slice(0, -1);
 return {
     posArgs,
     options,
+    periodic: periodic === false ? undefined : periodic,
     grid,
     params2File: params2Lines.join('\n'),
     searchFile,

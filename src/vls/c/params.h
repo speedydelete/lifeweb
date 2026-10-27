@@ -16,9 +16,15 @@
 
 // basic settings
 
-// maximum implication function length
-// should be greater than or equal to 10
-#define MAX_IMPLIC_FUNC_LENGTH 10
-
 // debug level
 #define DEBUG_LEVEL 6
+
+// custom file to load stuff from
+// #define CUSTOM
+
+
+// speed settings
+
+// whether to enable certain speed-reducing sanity checks
+// CURRENTLY UNUSED
+#define SLOWER_SANITY_CHECKS true

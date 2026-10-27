@@ -28,8 +28,8 @@
 #define real_fprintf (fprintf)
 #if DEBUG_LEVEL >= 2 || HASH_DEBUG
     static int debug_depth = 0;
-    #define inc_debug_depth() do { debug_depth++; } while (0)
-    #define dec_debug_depth() do { debug_depth--; } while (0)
+    #define inc_debug_depth() do { debug_depth++; } while(0)
+    #define dec_debug_depth() do { debug_depth--; } while(0)
     #define print_line_padding() { \
         for (int i = 0; i < debug_depth; i++) { \
             real_printf(INDENT); \
@@ -145,78 +145,46 @@ typedef uint8_t CellValue;
 #define convert_12_to_01(value) ((value) - 1)
 #define convert_01_to_12(value) ((value) + 1)
 
-// the type of implication function values
-typedef int ImplicFuncValue;
-#define IFV_SAT 0
-#define IFV_UNSAT 1
-#define ifv_is_var(value) ((value) != 0 && (value) != 1)
-typedef ImplicFuncValue ImplicFunc[1024];
-
-static
-#if __STDC_VERSION__ >= 202311L
-constexpr
-#endif
-const int32_t POWERS_OF_3[16] = {1L, 3L, 9L, 27L, 81L, 243L, 729L, 2187L, 6561L, 19683L, 59049L, 177147L, 531441L, 1594323L, 4782969L, 14348907L};
-
 typedef struct Cell Cell;
 
-// position order for clauses:
-//     0: next
-//     1: se
-//     2: e
-//     3: ne
-//     4: s
-//     5: c
-//     6: n
-//     7: sw
-//     8: w
-//     9: nw
-
 typedef struct Clause {
-    // CAN BE NULL POINTERS
-    Cell* cells[MAX_IMPLIC_FUNC_LENGTH];
+    Cell* next;
+    Cell* se;
+    Cell* e;
+    Cell* ne;
+    Cell* s;
+    Cell* c;
+    Cell* n;
+    Cell* sw;
+    Cell* w;
+    Cell* nw;
     size_t number;
     bool removed;
     uint64_t* implication_pointer;
 } Clause;
 
-// position order for use data:
-//     0: prev
-//     1: nw
-//     2: w
-//     3: sw
-//     4: n
-//     5: c
-//     6: s
-//     7: ne
-//     8: e
-//     9: se
-
-// CAN BE NULL POINTERS
-typedef Clause* CellUseData[MAX_IMPLIC_FUNC_LENGTH];
-
-// typedef struct CellUseData {
-//     // CAN BE A NULL POINTER
-//     Clause* c;
-//     // CAN BE A NULL POINTER
-//     Clause* prev;
-//     // CAN BE A NULL POINTER
-//     Clause* nw;
-//     // CAN BE A NULL POINTER
-//     Clause* n;
-//     // CAN BE A NULL POINTER
-//     Clause* ne;
-//     // CAN BE A NULL POINTER
-//     Clause* w;
-//     // CAN BE A NULL POINTER
-//     Clause* e;
-//     // CAN BE A NULL POINTER
-//     Clause* sw;
-//     // CAN BE A NULL POINTER
-//     Clause* s;
-//     // CAN BE A NULL POINTER
-//     Clause* se;
-// } CellUseData;
+typedef struct CellUseData {
+    // CAN BE A NULL POINTER
+    Clause* c;
+    // CAN BE A NULL POINTER
+    Clause* prev;
+    // CAN BE A NULL POINTER
+    Clause* nw;
+    // CAN BE A NULL POINTER
+    Clause* n;
+    // CAN BE A NULL POINTER
+    Clause* ne;
+    // CAN BE A NULL POINTER
+    Clause* w;
+    // CAN BE A NULL POINTER
+    Clause* e;
+    // CAN BE A NULL POINTER
+    Clause* sw;
+    // CAN BE A NULL POINTER
+    Clause* s;
+    // CAN BE A NULL POINTER
+    Clause* se;
+} CellUseData;
 
 struct Cell {
     // the actual value of the cell
@@ -260,10 +228,10 @@ static struct {
     size_t total_size;
     // the number of variables
     size_t var_count;
-    // whether there are multiple rules being considered
-    bool multi_rule;
     // the transitions that make up the rule
-    ImplicFunc rule_func;
+    CellValue trs[512];
+    // the symmetry of the rule
+    StaticSymmetry rule_symmetry;
     // the cells, indexed by their variable number
     // numbering starts at 1, so entry 0 is a null pointer
     Cell** vars;
@@ -305,25 +273,25 @@ static Cell* state_get_cell_allow_oob(intmax_t t, intmax_t x, intmax_t y) {
     return state_get_cell(t, x, y);
 }
 
+
 // sets a cell to a value, propagating transitions but doing nothing else
 static bool set_cell(Cell* cell, CellValue value);
 
-// reset a cell back to being unknown, only use this on set cells
 static void unset_cell(Cell* cell);
-
-static int get_rule(char* out, bool use_maxrule);
-#define MAX_UNPARSED_RULE_LENGTH 256
 
 
 // configuration options
 
 typedef enum MaxPartialScoring {
-    NO_MAX_PARTIALS,
     MAX_PARTIAL_SCORING_CELL,
     MAX_PARTIAL_SCORING_DEPTH,
 } MaxPartialScoring;
 
 typedef struct Config {
+
+    // the rule being used
+    char* rule;
+
     // the search order
     size_t search_order_len;
     size_t (*search_order)[3];
@@ -338,6 +306,14 @@ typedef struct Config {
     size_t periodic_period;
     bool check_early_exhaustion;
 
+    // whether benchmarking is enabled at all
+    bool benchmarking;
+    // number of benchmarking iterations to run
+    uintmax_t benchmarking_iterations;
+
+    // the interval used for reporting progress
+    double reporting_interval;
+
     // top padding for the grid
     size_t top_padding;
     // bottom padding for the grid
@@ -350,12 +326,6 @@ typedef struct Config {
     size_t start_padding;
     // end (in time) padding for the grid
     size_t end_padding;
-
-    // format string for printing the rule
-    char* rule_format_string;
-
-    // the interval used for reporting progress
-    double reporting_interval;
 
     // solution printing options
     // whether to show solutions at all
@@ -384,6 +354,7 @@ typedef struct Config {
 } Config;
 
 static Config config = {
+    .rule = "B3/S23",
     .search_order_len = 0,
     .search_order = NULL,
     .initial_value = OFF,
@@ -392,14 +363,15 @@ static Config config = {
     .periodic_dy = 0,
     .periodic_period = 0,
     .check_early_exhaustion = false,
+    .benchmarking = false,
+    .benchmarking_iterations = 0,
+    .reporting_interval = 1.0,
     .top_padding = 0,
     .bottom_padding = 0,
     .left_padding = 0,
     .right_padding = 0,
     .start_padding = 0,
     .end_padding = 0,
-    .rule_format_string = NULL,
-    .reporting_interval = 1.0,
     .show_solutions = true,
     .max_solutions = 0,
     .filter_empty_solutions = true,
@@ -413,11 +385,11 @@ static Config config = {
 };
 
 static void destroy_config(void) {
+    if (config.rule != NULL) {
+        safe_free(config.rule);
+    }
     if (config.search_order != NULL) {
         safe_free(config.search_order);
-    }
-    if (config.rule_format_string != NULL) {
-        free(config.rule_format_string);
     }
     if (config.cell_period_filter != NULL) {
         safe_free(config.cell_period_filter);
@@ -473,10 +445,7 @@ static void internal_cell_to_string(char* out, Cell* cell) {
         }
     }
     int field_size = max_len + 1;
-    char rule[MAX_UNPARSED_RULE_LENGTH];
-    memset(rule, '\0', 256);
-    get_rule(rule, false);
-    fprintf(stream, "Grid (rule = %s, set_unknown_vars = %zu out of %zu):\n", rule, state.set_unknown_vars, state.start_unknown_vars);
+    fprintf(stream, "Grid (rule = %s, set_unknown_vars = %zu out of %zu):\n", config.rule, state.set_unknown_vars, state.start_unknown_vars);
     for (size_t t = 0; t < state.gens; t++) {
         for (size_t y = 0; y < state.height; y++) {
             fprint_line_padding(stream);
@@ -513,7 +482,7 @@ typedef struct StackEntry {
     CellValue value;
 } StackEntry;
 
-static void print_stack_entry(const StackEntry* entry) {
+static void print_stack_entry(StackEntry* entry) {
     if (entry == NULL) {
         real_printf("<null pointer>");
         return;
@@ -538,7 +507,7 @@ static void print_stack_entry(const StackEntry* entry) {
 // }
 
 // returns false if contradiction, true if no contradiction
-static bool undo_stack_entry(const StackEntry* entry) {
+static bool undo_stack_entry(StackEntry* entry) {
     debug(4, 
         printf("Undoing stack entry: ");
         print_stack_entry(entry);
@@ -807,3 +776,59 @@ static StaticSymmetry transforms_to_static_symmetry(Transformations t) {
         }
     }
 }
+
+static Transformations get_rule_identity_transforms(void) {
+    Transformations out;
+    // rotation symmetries
+    bool C2 = true;
+    bool C4 = true;
+    for (int i = 0; i < 512; i++) {
+        int j = ((i << 6) & 448) | (i & 56) | (i >> 6);
+        j = ((j & 73) << 2) | (j & 146) | ((j & 292) >> 2);
+        if (state.trs[i] != state.trs[j]) {
+            C2 = false;
+            C4 = false;
+            break;
+        }
+    }
+    if (C2) {
+        for (int i = 0; i < 512; i++) {
+            if (state.trs[i] != state.trs[((i >> 2) & 66) | ((i >> 4) & 8) | ((i >> 6) & 1) | ((i << 2) & 132) | ((i << 6) & 256) | ((i << 4) & 32) | (i & 16)]) {
+                C4 = false;
+                break;
+            }
+        }
+    }
+    out.rotate_180 = C2;
+    out.rotate_left = C4;
+    out.rotate_right = C4;
+    // flip symmetries
+    out.flip_horizontal = true;
+    out.flip_vertical = true;
+    out.flip_diagonal = true;
+    out.flip_anti_diagonal = true;
+    for (int i = 0; i < 512; i++) {
+        if (state.trs[i] != state.trs[((i & 73) << 2) | (i & 146) | ((i & 292) >> 2)]) {
+            out.flip_horizontal = false;
+        }
+        if (state.trs[i] != state.trs[((i << 6) & 448) | (i & 56) | (i >> 6)]) {
+            out.flip_vertical = false;
+        }
+        if (state.trs[i] != state.trs[(i & 273) | ((i >> 2) & 34) | ((i >> 4) & 4) | ((i << 2) & 136) | ((i << 4) & 64)]) {
+            out.flip_diagonal = false;
+        }
+        if (state.trs[i] != state.trs[(i & 84) | ((i << 8) & 256) | ((i >> 8) & 1) | ((i >> 4) & 10) | ((i << 4) & 160)]) {
+            out.flip_anti_diagonal = false;
+        }
+    }
+    return out;
+}
+
+static StaticSymmetry get_rule_symmetry(void) {
+    return transforms_to_static_symmetry(get_rule_identity_transforms());
+}
+
+
+#ifdef CUSTOM
+    #include CUSTOM
+#endif

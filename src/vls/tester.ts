@@ -6,7 +6,7 @@ import {execSync} from 'node:child_process';
 
 import {identifyPeriodic, getApgcode, parse} from '../core/index.js';
 import {LIFEWEB_VERSION} from '../version.js';
-import {error} from './base.js';
+import {error} from './compiler.js';
 import {VLSRunData, runVLS} from './index.js';
 
 
@@ -575,8 +575,8 @@ function parseVLSOutput(data: VLSRunData, output: string): ParsedVLSOutputData {
             }
             let p = parse(rle);
             let code: string;
-            if (search.grid.periodic) {
-                let type = identifyPeriodic(p, search.grid.periodic.period);
+            if (search.periodic) {
+                let type = identifyPeriodic(p, search.periodic.period);
                 code = getApgcode(type);
             } else {
                 code = p.toCanonicalApgcode(search.grid.gens);
