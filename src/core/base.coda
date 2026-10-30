@@ -1,7 +1,6 @@
 
 module lifeweb::core::base;
 
-include std;
 include std::types : _;
 include std::mem : _;
 include std::collections : _;
@@ -489,7 +488,7 @@ type RuleParser = struct {
     string name;
     Rulespace* space;
     fn (none | string | LifewebError)(string rule, Rule* out) parse;
-}
+};
 
 @export
 type RuleUnparser = struct {
@@ -556,26 +555,22 @@ type Pattern = struct: Box {
 };
 
 
-@export
-@inline
-fn Cell Pattern.get(Pattern* this, pos) {
+@export, inline
+fn Cell Pattern.get(Pattern* this, Coord pos) {
     return this.rule.get(this, pos);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.set(mut Pattern* this, Coord pos, Cell value) {
     this.rule.set(this, pos, value);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.clear(mut Pattern* this) {
     this.rule.set(this);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.run_generation(mut Pattern* this) {
     this.rule.run_generation(this);
 }
@@ -588,98 +583,82 @@ fn none Pattern.run(mut Pattern* this, usize gens) {
     }
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.is_empty(Pattern* this) {
     return this.population == 0;
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.copy(Pattern* this, mut Pattern* out) {
     this.rule.copy(this, out);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.copy_rule(Pattern* this, mut Pattern* out) {
     this.rule.copy_rule(this, out);
 }
 
-@export
-@inline
+@export, inline
 fn bool Pattern.is_equal(Pattern* this, Pattern* other) {
     return this.rule.is_equal(this, other);
 }
 
-@export
-@inline
+@export, inline
 fn bool Pattern.is_equal_with_translate(Pattern* this, Pattern* other) {
     return this.rule.is_equal_with_translate(this, other);
 }
 
-@export
-@inline
+@export, inline
 fn uint64 Pattern.hash64(Pattern* this) {
     return this.rule.hash64(this);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.shrink_to_fit(mut Pattern* this) {
     this.rule.shrink_to_fit(this);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.ensure(mut Pattern* this, Coord size) {
     this.rule.ensure(this, size);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.offset_by(mut Pattern* this, Coord amount) {
     this.rule.offset_by(this, amount);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.insert(mut Pattern* this, Pattern* value, Coord pos, ULPMask mode) {
     this.rule.insert(this, value, pos, mode);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.copy_part(Pattern* this, mut Pattern* out, Box box) {
     this.rule.copy_part(this, out, box);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.clear_part(mut Pattern* this, Box box) {
     this.rule.copy_part(this, box);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.get_data(Pattern* this, PatternData* out) {
     this.rule.get_data(this, out);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.set_data(mut Pattern* this, PatternData* data) {
     this.rule.set_data(this, data);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.transform(mut Pattern* this, Transformation value) {
     this.rule.transform(this, value);
 }
 
-@export
-@inline
+@export, inline
 fn none Pattern.inflate(mut Pattern* this, usize times) {
     this.rule.inflate(this, times);
 }
@@ -742,7 +721,7 @@ fn String* Pattern.to_rle(Pattern* this, Allocator* allocator, bool header) {
     bool is_start = true;
     mut String* state_str;
     state_str.init(lifeweb_heap, 1);
-    defer state_str.destroy()
+    defer state_str.destroy();
     for (mut uint64 y = 0; y < height; y += 1) {
         if (data.every_slice(i, i + width, fn bool(S value) {return value == 0;})) {
             dollar_count += 1;
@@ -993,7 +972,7 @@ fn String Pattern.to_apgcode(Pattern* this) {
         uint8[] data2 = lifeweb_heap.alloc<T>(this.height * this.width);
         this.data.map_to(data2, fn uint64(T value) {if (value < 2) {return 0;} else {return (this.rule.states - (uint64)value) * 4 - 2;}});
         for (mut uint64 layer = 0; layer < layers; layer += 1) {
-            data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer)});
+            data2.map_to(layer_data, fn uint8(uint64 value){return value & (1 << layer);});
             out.add("_");
             layer_to_apgcode(this, out, layer_data);
         }
