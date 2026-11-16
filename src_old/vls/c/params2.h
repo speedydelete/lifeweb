@@ -1,0 +1,30 @@
+
+// defines configuration
+
+#pragma once
+
+#undef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+
+// these are for compatibility with old compilers
+#include <stdbool.h>
+#include <stdalign.h>
+
+#include <stddef.h>
+#include <inttypes.h>
+
+
+// basic settings
+
+// debug level
+#define DEBUG_LEVEL 0
+
+// custom file to load stuff from
+// #define CUSTOM
+
+
+// speed settings
+
+// whether to enable certain speed-reducing sanity checks
+// CURRENTLY UNUSED
+#define SLOWER_SANITY_CHECKS true

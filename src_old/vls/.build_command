@@ -1,0 +1,1 @@
+clang -fdiagnostics-color=always -Wall -Werror -Wpedantic -Wextra -Wno-unknown-pragmas -g -std=c23 -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-binary-literal -O3 -march=native -mtune=native -flto -fno-stack-protector -fomit-frame-pointer -o src/vls/.vls_compiled src/vls/c/index.c -lm

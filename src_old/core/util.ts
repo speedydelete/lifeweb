@@ -1,0 +1,460 @@
+
+/* Implements some utilities. */
+
+export const IS_BROWSER = typeof window === 'object' && window !== null && window.Math === Math && typeof window.document === 'object' && typeof window.document.createElement === 'function';
+
+
+/** All errors raised by lifeweb. */
+export class LifewebError extends Error {
+
+    name = 'LifewebError';
+    [Symbol.toStringTag] = 'LifewebError';
+
+}
+
+/** This error is raised when a rulestring is invalid or the wrong rule is passed. */
+export class RuleError extends LifewebError {
+
+    name = 'RuleError';
+    [Symbol.toStringTag] = 'RuleError';
+
+}
+
+
+/** Finds the greatest common divisor of 2 numbers. */
+export function gcd(a: number, b: number): number {
+    while (b > 0) {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}
+
+/** Finds the least common multiple of 2 numbers. */
+export function lcm(a: number, b: number): number {
+    return a * b / gcd(a, b);
+}
+
+
+/** Adds elements to an array, avoiding stack overflow in certain cases. */
+export function arrayPush2<T>(array: T[], toPush: T[]): void {
+    for (let value of toPush) {
+        array.push(value);
+    }
+}
+
+
+function startsWithNumber(x: string, i: number = 0): boolean {
+    return '0123456789'.includes(x[i]) || (x[i] === '-' && '0123456789'.includes(x[i + 1]));
+}
+
+/** Sorts values in Unicode order, but with 2 exceptions: colons separete it into sections which take precedence, and negative numbers are sorted in numerical order (mostly for uc). */
+export function numericSorter(a: string, b: string): number {
+    let length = Math.min(a.length, b.length);
+    for (let i = 0; i < length; i++) {
+        if (a[i] === b[i] && !('0123456789-'.includes(a[i]))) {
+            continue;
+        }
+        // colon sections override by length, shorter ones are shorted before longer ones
+        if (a[i] === ':') {
+            return -1;
+        } else if (b[i] === ':') {
+            return 1;
+        } else if (startsWithNumber(a, i)) {
+            if (startsWithNumber(b, i)) {
+                let value = parseInt(a.slice(i)) - parseInt(b.slice(i));
+                if (value === 0) {
+                    continue;
+                }
+                return value;
+            } else {
+                return -1;
+            }
+        } else {
+            if (startsWithNumber(b, i)) {
+                return 1;
+            } else if (a[i] === b[i]) {
+                continue;
+            } else {
+                return a.charCodeAt(i) - b.charCodeAt(i);
+            }
+        }
+    }
+    return a.length - b.length;
+}
+
+
+/** Generates all possible permutations of an array. */
+export function getPermutations<T>(data: T[]): T[][] {
+    let out: T[][] = [];
+    for (let i = 0; i < data.length; i = i + 1) {
+        let rest = getPermutations(data.slice(0, i).concat(data.slice(i + 1)));
+        if (rest.length === 0) {
+            out.push([data[i]]);
+        } else {
+            for (let j = 0; j < rest.length; j = j + 1) {
+                out.push([data[i]].concat(rest[j]));
+            }
+        }
+    }
+    return out;
+}
+
+/** Generates all possible partitions of an array. */
+export function getPartitions<T>(data: T[]): T[][][] {
+    if (data.length === 2) {
+        let [a, b] = data;
+        return [
+            [[a], [b]],
+            [[a, b]],
+        ];
+    } else if (data.length === 3) {
+        let [a, b, c] = data;
+        return [
+            [[a], [b], [c]],
+            [[a, b], [c]],
+            [[a], [b, c]],
+            [[a, c], [b]],
+            [[a, b, c]],
+        ];
+    } else if (data.length === 1) {
+        return [[[data[0]]]];
+    } else if (data.length === 0) {
+        return [[]];
+    }
+    let subPartitions = getPartitions(data.slice(1));
+    let first = data[0];
+    let out: T[][][] = [];
+    for (let partition of subPartitions) {
+        let partition2 = partition.slice();
+        partition2.push([first]);
+        out.push(partition2);
+        for (let i = 0; i < partition.length; i++) {
+            out.push(partition.map((subset, j) => i === j ? subset.concat(first) : subset));
+        }
+    }
+    return out;
+}
+
+
+const CONSTANTS = [0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1, 0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391];
+
+const SHIFTS = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+    5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+];
+
+const BLOCKS = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    1, 6, 11, 0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12,
+    5, 8, 11, 14, 1, 4, 7, 10, 13, 0, 3, 6, 9, 12, 15, 2,
+    0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9,
+];
+
+/** Runs md5. */
+export function md5(data: Uint8Array): Uint8Array {
+    let out = new Uint32Array(4);
+    out[0] = 0x67452301;
+    out[1] = 0xefcdab89;
+    out[2] = 0x98badcfe;
+    out[3] = 0x10325476;
+    let blockCount = Math.ceil(data.length / 64);
+    if (blockCount === 0) {
+        blockCount = 1;
+    }
+    if (data.length % 64 >= 56) {
+        blockCount++;
+    }
+    let padded = new Uint8Array(blockCount * 64);
+    padded.set(data);
+    padded[data.length] = 128;
+    let blocks = new DataView(padded.buffer);
+    blocks.setBigUint64(padded.length - 8, BigInt(data.length * 8), true);
+    for (let block = 0; block < blockCount; block++) {
+        let a = out[0];
+        let b = out[1];
+        let c = out[2];
+        let d = out[3];
+        for (let i = 0; i < 64; i++) {
+            let f: number;
+            if (i < 16) {
+                f = (b & c) | (~b & d);
+            } else if (i < 32) {
+                f = (b & d) | (c & ~d);
+            } else if (i < 48) {
+                f = b ^ c ^ d;
+            } else {
+                f = c ^ (b | ~d);
+            }
+            f = (f + a + CONSTANTS[i] + blocks.getUint32((block * 4 + BLOCKS[i]) * 4, true)) | 0;
+            a = d;
+            d = c;
+            c = b;
+            b = (b + ((f << SHIFTS[i]) | (f >>> (32 - SHIFTS[i])))) | 0;
+        }
+        out[0] += a;
+        out[1] += b;
+        out[2] += c;
+        out[3] += d;
+    }
+    let actualOut = new Uint8Array(16);
+    let view = new DataView(actualOut.buffer);
+    for (let i = 0; i < 4; i++) {
+        view.setUint32(i * 4, out[i], true);
+    }
+    return actualOut;
+}
+
+/** Runs md5 on strings (latin-1). */
+export function stringMD5(data: string): string {
+    let array = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+        array[i] = data.charCodeAt(i);
+    }
+    return Array.from(md5(array)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+
+export type Matcher = [string | RegExp | typeof EOF | Set<string | RegExp | typeof EOF>, string];
+
+export const EOF = Symbol();
+
+export const T_EOF: Matcher = [EOF, 'end of file'];
+
+export function literal(value: string): [string, string] {
+    return [value, `'${value}'`];
+}
+
+export interface ParserPosition {
+    file: string | undefined;
+    function: string | undefined;
+    line: number;
+    column: number;
+}
+
+export class ParserError extends LifewebError {
+
+    name: string = 'ParserError';
+    [Symbol.toStringTag]: string = 'ParserError';
+
+    stackPositions: ParserPosition[];
+    stack: string;
+
+    constructor(message: string, stackPositions: ParserPosition[], nameOverride?: string) {
+        super(message);
+        this.stackPositions = stackPositions;
+        let stack: string[] = [`${nameOverride ?? this.name}: ${message}`];
+        for (let pos of stackPositions) {
+            let str = '    at ';
+            if (pos.function !== undefined) {
+                str += pos.function + ' at ';
+            }
+            if (pos.file !== undefined) {
+                str += `${pos.file}:${pos.line}:${pos.column}`;
+            } else {
+                str += `${pos.line}:${pos.column}`;
+            }
+            stack.push(str);
+        }
+        this.stack = stack.join('\n');
+    }
+
+}
+
+export abstract class BaseParser {
+
+    static ParserError: new (message: string, stackPositions: ParserPosition[]) => ParserError;
+
+    file: string | undefined;
+    code: string;
+    tokens: string[];
+    tokenPositions: number[];
+    pos: number;
+    stack: ParserPosition[];
+    currentFunction: string | undefined;
+
+    constructor(file: string | undefined, code: string) {
+        this.file = file;
+        this.code = code;
+        this.tokens = [];
+        this.tokenPositions = [];
+        this.pos = 0;
+        this.stack = [];
+        this.currentFunction = undefined;
+        this.tokenize(code);
+    }
+
+    addToken(value: string, pos: number): void {
+        this.tokens.push(value);
+        this.tokenPositions.push(pos);
+    }
+
+    abstract tokenize(code: string): void;
+
+    getAbsolutePosition(pos: number): ParserPosition {
+        pos = this.tokenPositions[pos];
+        let line = 1;
+        let column = 0;
+        for (let i = 0; i < pos; i++) {
+            if (this.code[i] === '\n') {
+                column = 0;
+                line++;
+            } else {
+                column++;
+            }
+        }
+        return {file: this.file, function: this.currentFunction, line, column};
+    }
+
+    getRelativePosition(offset: number): ParserPosition {
+        return this.getAbsolutePosition(this.pos + offset);
+    }
+
+    getCurrentPosition(): ParserPosition {
+        return this.getAbsolutePosition(this.pos);
+    }
+
+    pushCall(): void {
+        this.stack.push(this.getCurrentPosition());
+    }
+
+    popCall(): void {
+        this.stack.pop();
+    }
+
+    error(message: string, offset: number = 0): never {
+        let pos = this.getRelativePosition(offset);
+        let stackPositions = this.stack.concat(pos);
+        let out = new (this.constructor as typeof BaseParser).ParserError(message, stackPositions);
+        console.error(out.stack + '\n');
+        console.trace();
+        throw out;
+    }
+
+    peek(): string | typeof EOF {
+        return this.tokens[this.pos] ?? EOF;
+    }
+
+    advance(): string {
+        let out = this.tokens[this.pos];
+        if (out === undefined) {
+            this.error(`Unexpected end of input`);
+        } else {
+            this.pos++;
+            return out;
+        }
+    }
+
+    match(...data: (Matcher | Matcher[0])[]): boolean {
+        for (let i = 0; i < data.length; i++) {
+            let matcher = data[i];
+            if (Array.isArray(matcher)) {
+                matcher = matcher[0];
+            }
+            let token = (this.tokens[this.pos + i] ?? EOF) as string | typeof EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (typeof value === 'string') {
+                        found = value === token;
+                    } else if (value instanceof RegExp) {
+                        found = token !== EOF && Boolean(token.match(value));
+                    } else {
+                        found = token === EOF;
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    return false;
+                }
+            } else if (matcher instanceof RegExp) {
+                if (token === EOF || !token.match(matcher)) {
+                    return false;
+                }
+            } else {
+                if (token !== EOF) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    expect(...data: Matcher[]): void {
+        for (let i = 0; i < data.length; i++) {
+            let [matcher, errorMsg] = data[i];
+            let token = (this.tokens[this.pos + i] ?? EOF) as string | typeof EOF;
+            if (matcher instanceof Set) {
+                let found = false;
+                for (let value of matcher) {
+                    if (typeof value === 'string') {
+                        found = value === token;
+                    } else if (value instanceof RegExp) {
+                        found = token !== EOF && Boolean(token.match(value));
+                    } else {
+                        found = token === EOF;
+                    }
+                    if (found) {
+                        break;
+                    }
+                }
+                if (!found) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (typeof matcher === 'string') {
+                if (matcher !== token) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
+                    }
+                }
+            } else if (matcher instanceof RegExp) {
+                if (token === EOF || !token.match(matcher)) {
+                    if (token === EOF) {
+                        this.error(`Unexpected end of input (expected ${errorMsg})`, i);
+                    } else {
+                        this.error(`Unexpected token: '${token}' (expected ${errorMsg})`, i);
+                    }
+                }
+            } else {
+                if (token !== EOF) {
+                    this.error(`Unexpected continuation of input (expected ${errorMsg})`, i);
+                }
+            }
+        }
+    }
+
+    eat(...data: Matcher[]): string[] {
+        this.expect(...data);
+        let out: string[] = [];
+        for (let i = 0; i < data.length; i++) {
+            let token = this.tokens[this.pos];
+            if (token === undefined) {
+                continue;
+            } else {
+                out.push(token);
+                this.pos++;
+            }
+        }
+        return out;
+    }
+
+    nextTokenToString(): string {
+        return this.tokens[this.pos] ?? 'EOF';
+    }
+
+}

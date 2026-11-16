@@ -22,7 +22,7 @@ namespace lifeweb {
 
 // better allocation functions
 
-template<typename T>
+template <typename T>
 T* safe_malloc() {
     void* out = malloc(sizeof(T));
     if (out == nullptr) {
@@ -31,7 +31,7 @@ T* safe_malloc() {
     return (T*)out;
 }
 
-template<typename T>
+template <typename T>
 T* safe_malloc(size_t len) {
     void* out = malloc(sizeof(T) * len);
     if (out == nullptr) {
@@ -40,7 +40,7 @@ T* safe_malloc(size_t len) {
     return (T*)out;
 }
 
-template<typename T>
+template <typename T>
 T* safe_realloc(T* ptr, size_t len) {
     void* out = realloc(ptr, len * sizeof(T));
     if (out == nullptr) {

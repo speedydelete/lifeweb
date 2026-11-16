@@ -15,6 +15,7 @@
 !/uc
 !/update
 !/vls
+!/src_old
 
 *.tsbuildinfo
 /src/vls/params2.h

@@ -31,7 +31,7 @@ public:
     };
 };
 
-template<typename T, size_t Len>
+template <typename T, size_t Len>
 class Vector : public _internal_VectorStorage<Len> {
 
 public:
@@ -40,7 +40,7 @@ public:
 
     using _internal_VectorStorage<Len>::data;
 
-    template<typename... Args>
+    template <typename... Args>
         requires (sizeof...(Args) == len) && (std::convertible_to<Args, ptrdiff_t> && ...)
     constexpr inline Vector(Args... args) : _internal_VectorStorage<Len>(static_cast<ptrdiff_t>(args)...) {
         // do nothing
