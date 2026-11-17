@@ -1,13 +1,10 @@
-
 #pragma once
 
 #include <stddef.h>
 #include <stdint.h>
-#include <concepts>
 #include <vector>
 
-#include "vector.cpp"
-#include "transition.cpp"
+#include "rule_family.cpp"
 
 namespace lifeweb {
 
@@ -24,46 +21,26 @@ using Bind = int64_t;
 [[maybe_unused]] constexpr Bind BIND_ON = 1;
 
 
-// OLD
+template<RuleFamily Family>
+class Rulespace {
 
-// template<size_t Dim, typename Cell, typename Transition>
-//     requires std::unsigned_integral<Cell>
-//     && AbstractTransition<Transition, Cell>
-// class Rulespace {
+    const char* name = nullptr;
 
-// public:
+    using RuleFamily = Family;
+    using Tiling = Family::Tiling;
 
-//     static constexpr size_t dim = Dim;
+    static constexpr size_t dim = Family::dim;
+    template<typename T>
+    using Vector = Family::template Vector<T>;
+    using Coord = Family::Coord;
+    using Size = Family::Size;
 
-//     template<typename T>
-//     using Vector = Vector<T, Dim>;
-//     using Coord = Coord<Dim>;
-//     using Size = Size<Dim>;
+    std::vector<Coord> nh;
 
-//     const char* name = nullptr;
+    // CAN BE A NULL POINTER
+    Rulespace* parent;
 
-//     Cell states;
-//     size_t range;
-//     std::vector<Coord> nh;
-//     std::vector<Transition> transitions;
-
-//     std::vector<Bind> binds;
-
-//     Rulespace* root;
-//     Rulespace* parent;
-
-//     Rulespace(std::vector<Transition> transitions) :
-//         transitions(transitions),
-//         binds(transitions.size()) {
-//         root = this;
-//         current = this; 
-//     }
-
-//     Rulespace(Rulespace* parent) :
-//         root(parent->root),
-//         parent(parent) {}
-
-// };
+};
 
 
 }
