@@ -19,9 +19,9 @@ namespace lifeweb {
 // -1 means it's set to OFF
 // 0 means it's not set at all
 using Bind = int64_t;
-constexpr Bind BIND_UNSET = 0;
-constexpr Bind BIND_OFF = -1;
-constexpr Bind BIND_ON = 1;
+[[maybe_unused]] constexpr Bind BIND_UNSET = 0;
+[[maybe_unused]] constexpr Bind BIND_OFF = -1;
+[[maybe_unused]] constexpr Bind BIND_ON = 1;
 
 
 // OLD
